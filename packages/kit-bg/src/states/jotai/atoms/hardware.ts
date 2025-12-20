@@ -106,7 +106,9 @@ export type IFirmwareUpdateStepInfo =
     }
   | {
       step: EFirmwareUpdateSteps.updateDone;
-      payload: undefined;
+      payload?: {
+        needOnboarding?: boolean;
+      };
     }
   | {
       step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice;

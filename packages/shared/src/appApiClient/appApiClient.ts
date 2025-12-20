@@ -5,7 +5,9 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { EServiceEndpointEnum } from '../../types/endpoint';
 import { OneKeyError } from '../errors';
 import platformEnv from '../platformEnv';
+import { createIpTableAdapter } from '../request/helpers/ipTableAdapter';
 import { REQUEST_TIMEOUT } from '../request/requestConst';
+import { isSupportIpTablePlatform } from '../utils/ipTableUtils';
 import timerUtils from '../utils/timerUtils';
 
 import type { IEndpointInfo } from '../../types/endpoint';
@@ -64,7 +66,11 @@ const getBasicClient = async ({
   }
 
   const timeout = REQUEST_TIMEOUT;
-  const options =
+
+  // Create IP Table adapter
+  // Note: We pass the base config to the adapter so it can create
+  // a fallback axios instance with the same configuration
+  const baseConfig =
     platformEnv.isDev && process.env.ONEKEY_PROXY
       ? {
           baseURL: platformEnv.isExtension ? 'http://localhost:3180' : '/',
@@ -72,13 +78,22 @@ const getBasicClient = async ({
           headers: {
             'X-OneKey-Dev-Proxy': endpoint,
           },
-          autoHandleError,
         }
       : {
           baseURL: endpoint,
           timeout,
-          autoHandleError,
         };
+
+  const ipTableAdapter = isSupportIpTablePlatform()
+    ? createIpTableAdapter(baseConfig)
+    : undefined;
+
+  const options = {
+    ...baseConfig,
+    autoHandleError,
+    adapter: ipTableAdapter,
+  };
+
   const client = axios.create(options);
   return client;
 };

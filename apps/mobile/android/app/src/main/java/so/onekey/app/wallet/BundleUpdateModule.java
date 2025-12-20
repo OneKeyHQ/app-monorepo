@@ -18,6 +18,7 @@ import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.ReadableType;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
@@ -53,6 +54,7 @@ import okhttp3.Response;
 public class BundleUpdateModule extends ReactContextBaseJavaModule {
     private static final String TAG = "BundleUpdateModule";
     private static final String PREFS_NAME = "BundleUpdatePrefs";
+    private static final String NATIVE_VERSION_PREFS_NAME = "NativeVersionPrefs";
     private static final String CURRENT_BUNDLE_VERSION_KEY = "currentBundleVersion";
     private static FileLoggerModule staticFileLogger;
     private ReactApplicationContext reactContext;
@@ -109,6 +111,19 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         return downloadDir.getAbsolutePath();
     }
 
+    public static String getBundleVersion(ReadableMap params) {
+        String key = "bundleVersion";
+        String stringBundleVersion = "";
+        try {
+            stringBundleVersion = params.getString(key);
+        } catch (Exception e) {
+            staticLog("getBundleVersion error", e.getMessage());
+            Double doubleBundleVersion = params.getDouble(key);
+            stringBundleVersion = String.valueOf(doubleBundleVersion.intValue());
+        }
+        return stringBundleVersion;
+    }
+
     public static String getBundleDir(Context context) {
         File bundleDir = new File(context.getFilesDir(), "onekey-bundle");
         if (!bundleDir.exists()) {
@@ -124,14 +139,18 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     public static void setCurrentBundleVersionAndSignature(Context context, String version, String signature) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String currentVersion = prefs.getString(CURRENT_BUNDLE_VERSION_KEY, "");
         prefs.edit().putString(CURRENT_BUNDLE_VERSION_KEY, version).putString(version, signature).apply();
+        if (currentVersion != null && !currentVersion.isEmpty()) {
+            prefs.edit().remove(currentVersion).apply();
+        }
     }
 
     public static void clearUpdateBundleData(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String version = getCurrentBundleVersion(context);
         if (version != null) {
-            prefs.edit().remove(version).remove(CURRENT_BUNDLE_VERSION_KEY).apply();
+            prefs.edit().clear().apply();
         }
     }
 
@@ -244,12 +263,13 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             staticLog(TAG, "currentAppVersion: " + currentAppVersion + ", currentBundleVersion: " + currentBundleVersion);
             
             String prevNativeVersion = getNativeVersion(context);
-            if (prevNativeVersion == null) {
-                return null;
+            if (prevNativeVersion == null || prevNativeVersion.isEmpty()) {
+                return "";
             }
             
             if (!currentAppVersion.equals(prevNativeVersion)) {
                 staticLog(TAG, "currentAppVersion is not equal to prevNativeVersion " + currentAppVersion + " " + prevNativeVersion);
+                BundleUpdateModule.clearUpdateBundleData(context);
                 return null;
             }
             
@@ -261,7 +281,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             String signature = null;
             if (currentBundleVersion != null) {
                 SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                signature = prefs.getString(currentBundleVersion, null);
+                signature = prefs.getString(currentBundleVersion, "");
                 staticLog(TAG, "Retrieved signature for key: " + currentBundleVersion + ", signature: " + signature);
             }
             if (!validateMetadataFileSha256(context, currentBundleVersion, signature)) {
@@ -469,12 +489,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     public static String getNativeVersion(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getString("nativeVersion", null);
+        SharedPreferences prefs = context.getSharedPreferences(NATIVE_VERSION_PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString("nativeVersion", "");
     }
 
     public static void setNativeVersion(Context context, String nativeVersion) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences prefs = context.getSharedPreferences(NATIVE_VERSION_PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putString("nativeVersion", nativeVersion).apply();
     }
 
@@ -497,25 +517,56 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
+    public long getFileSize(final ReadableMap map) {
+        String key = "fileSize";
+        try {
+            if (map.hasKey(key)) {
+                ReadableType type = map.getType(key);
+                switch (type) {
+                    case Number:
+                        // Try different number types
+                        try {
+                            return map.getLong(key);
+                        } catch (Exception e1) {
+                            log("getFileSize e1", "Error getting file size: " + e1.getMessage());
+                            try {
+                                return (long) map.getDouble(key);
+                            } catch (Exception e2) {
+                                log("getFileSize e2", "Error getting file size: " + e2.getMessage());
+                                return (long) map.getInt(key);
+                            }
+                        }
+                    case String:
+                        String sizeStr = map.getString(key);
+                        if (sizeStr != null) {
+                            return Long.parseLong(sizeStr);
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            return 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     @ReactMethod
     public void downloadBundleASC(ReadableMap params, Promise promise) {
         String downloadUrl = params.getString("downloadUrl");
         String filePath = params.getString("downloadedFile");
         String signature = params.getString("signature");
         String appVersion = params.getString("latestVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
         String sha256 = params.getString("sha256");
 
-        if (downloadUrl == null || filePath == null || signature == null || appVersion == null || bundleVersion == 0 || sha256 == null) {
+        if (downloadUrl == null || filePath == null || signature == null || appVersion == null || bundleVersion == null || sha256 == null) {
             promise.reject("INVALID_PARAMS", "downloadUrl, filePath, signature, appVersion, bundleVersion and sha256 are required");
             return;
         }
 
         String storageKey = appVersion + "-" + bundleVersion;
-        SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(storageKey, signature).apply();
-
-        log("downloadASC", "Stored signature for key: " + storageKey);
         promise.resolve(null);
     }
 
@@ -524,7 +575,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String filePath = params.getString("downloadedFile");
         String sha256 = params.getString("sha256");
         String appVersion = params.getString("latestVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
         String signature = params.getString("signature");
 
         if (filePath == null || sha256 == null) {
@@ -572,7 +623,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String filePath = params.getString("downloadedFile");
         String sha256 = params.getString("sha256");
         String appVersion = params.getString("latestVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
 
         if (filePath == null || sha256 == null) {
             promise.reject("INVALID_PARAMS", "filePath and sha256 are required");
@@ -616,14 +667,14 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
 
         isDownloading = true;
-
         String appVersion = params.getString("latestVersion");
-        long bundleVersion = params.getLong("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
         String downloadUrl = params.getString("downloadUrl");
-        long fileSize = params.getLong("fileSize");
+        long fileSize = getFileSize(params);
+        log("downloadBundle", "fileSize: " + fileSize);
         String sha256 = params.getString("sha256");
 
-        if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == 0) {
+        if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == null) {
             isDownloading = false;
             promise.reject("INVALID_PARAMS", "downloadUrl, fileSize, sha256, appVersion and bundleVersion are required");
             return;
@@ -636,7 +687,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         result.putString("downloadedFile", filePath);
         result.putString("downloadUrl", downloadUrl);
         result.putString("latestVersion", appVersion);
-        result.putLong("bundleVersion", bundleVersion);
+        result.putString("bundleVersion", bundleVersion);
         result.putString("sha256", sha256);
 
         log("downloadBundle", "filePath: " + filePath);
@@ -724,45 +775,61 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void installBundle(ReadableMap params, Promise promise) {
         String appVersion = params.getString("latestVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
         String filePath = params.getString("downloadedFile");
         String signature = params.getString("signature");
         
-        if (filePath == null || appVersion == null || bundleVersion == 0) {
+        if (filePath == null || appVersion == null || bundleVersion == null) {
             promise.reject("INVALID_PARAMS", "filePath, appVersion and bundleVersion are required");
             return;
         }
-
         String folderName = appVersion + "-" + bundleVersion;
         String currentFolderName = getCurrentBundleVersion(reactContext);
+        SharedPreferences readPrefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        log("installBundle", "currentFolderName: " + currentFolderName);
+        String currentSignature = currentFolderName != null 
+            ? readPrefs.getString(currentFolderName, "") 
+            : "";
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
-        setNativeVersion(reactContext, getAppVersion(reactContext));
-        List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
-       
-        if (currentFolderName != null && !currentFolderName.isEmpty()) {
-            String currentAppVersion = currentFolderName.split("-")[0];
-            String currentBundleVersion = currentFolderName.split("-")[1];
-            SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            signature = prefs.getString(currentBundleVersion, null);
-            fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", signature));
-        }
-
-        if (fallbackUpdateBundleData.size() > 3) {
-            Map<String, String> shiftUpdateBundleData = fallbackUpdateBundleData.remove(0);
-            String shiftAppVersion = shiftUpdateBundleData.get("appVersion");
-            String shiftBundleVersion = shiftUpdateBundleData.get("bundleVersion");
-            if (shiftAppVersion != null && shiftBundleVersion != null) {
-                String shiftFolderName = shiftAppVersion + "-" + shiftBundleVersion;
-                SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                prefs.edit().remove(shiftFolderName).apply();
-                String bundleDir = getBundleDir(reactContext);
-                String bundleDirPath = new File(bundleDir, shiftFolderName).getAbsolutePath();
-                if (new File(bundleDirPath).exists()) {
-                    deleteDirectory(new File(bundleDirPath));
+        String nativeVersion = getAppVersion(reactContext);
+        log("installBundle", "nativeVersion: " + nativeVersion);
+        setNativeVersion(reactContext, nativeVersion);
+        try {
+            List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
+            log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
+            if (currentFolderName != null && !currentFolderName.isEmpty()) {
+                String[] parts = currentFolderName.split("-");
+                if (parts.length >= 2) {
+                    String currentAppVersion = parts[0];
+                    String currentBundleVersion = parts[1];
+                    log("installBundle", "fallbackUpdateBundleData signature: " + currentSignature);
+                    Map<String, String> bundleData = new HashMap<>();
+                    bundleData.put("appVersion", currentAppVersion);
+                    bundleData.put("bundleVersion", currentBundleVersion);
+                    bundleData.put("signature", currentSignature);
+                    fallbackUpdateBundleData.add(bundleData);
                 }
             }
+
+            log("installBundle", "fallbackUpdateBundleData size: " + fallbackUpdateBundleData.size());
+            if (fallbackUpdateBundleData.size() > 3) {
+                Map<String, String> shiftUpdateBundleData = fallbackUpdateBundleData.remove(0);
+                String shiftAppVersion = shiftUpdateBundleData.get("appVersion");
+                String shiftBundleVersion = shiftUpdateBundleData.get("bundleVersion");
+                if (shiftAppVersion != null && shiftBundleVersion != null) {
+                    String shiftFolderName = shiftAppVersion + "-" + shiftBundleVersion;
+                    String bundleDir = getBundleDir(reactContext);
+                    String bundleDirPath = new File(bundleDir, shiftFolderName).getAbsolutePath();
+                    if (new File(bundleDirPath).exists()) {
+                        deleteDirectory(new File(bundleDirPath));
+                    }
+                }
+            }
+            log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
+            writeFallbackUpdateBundleDataFile(fallbackUpdateBundleData, reactContext);
+        } catch (Exception e) {
+            staticLog(TAG, "installBundle fallbackUpdateBundleData error:" + e.getMessage());
         }
-        writeFallbackUpdateBundleDataFile(fallbackUpdateBundleData, reactContext);
         promise.resolve(null);
     }
 
@@ -775,7 +842,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void setCurrentUpdateBundleData(ReadableMap params, Promise promise) {
         String appVersion = params.getString("appVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
         String signature = params.getString("signature");
         String folderName = appVersion + "-" + bundleVersion;
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
@@ -838,15 +905,26 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
-    @ReactMethod
-    public void getWebEmbedPath(Promise promise) {
-        String currentBundleDir = getCurrentBundleDir(reactContext, getCurrentBundleVersion(reactContext));
+    public static String getWebEmbedPath(Context context) {
+        String currentBundleDir = getCurrentBundleDir(context, getCurrentBundleVersion(context));
         if (currentBundleDir == null) {
-            promise.resolve("");
-            return;
+            return "";
         }
-        String webEmbedPath = new File(currentBundleDir, "web-embed").getAbsolutePath();
+        return new File(currentBundleDir, "web-embed").getAbsolutePath();
+    }
+
+    @ReactMethod
+    public void getWebEmbedPathAsync(Promise promise) {
+        String webEmbedPath = BundleUpdateModule.getWebEmbedPath(reactContext);
+        staticLog("getWebEmbedPathAsync", "webEmbedPath: " + webEmbedPath);
         promise.resolve(webEmbedPath);
+    }
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    public String getWebEmbedPath() {
+        String webEmbedPath = BundleUpdateModule.getWebEmbedPath(reactContext);
+        staticLog("getWebEmbedPath", "webEmbedPath: " + webEmbedPath);
+        return webEmbedPath;
     }
 
     @ReactMethod
@@ -880,7 +958,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void testDeleteJsBundle(String appVersion, int bundleVersion, Promise promise) {
+    public void testDeleteJsBundle(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String jsBundlePath = new File(new File(bundleDir, folderName), "main.jsbundle.hbc").getAbsolutePath();
@@ -908,7 +986,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void testDeleteJsRuntimeDir(String appVersion, int bundleVersion, Promise promise) {
+    public void testDeleteJsRuntimeDir(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String jsRuntimeDir = new File(bundleDir, folderName).getAbsolutePath();
@@ -937,7 +1015,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void testDeleteMetadataJson(String appVersion, int bundleVersion, Promise promise) {
+    public void testDeleteMetadataJson(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String metadataPath = new File(new File(bundleDir, folderName), "metadata.json").getAbsolutePath();
@@ -965,7 +1043,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void testWriteEmptyMetadataJson(String appVersion, int bundleVersion, Promise promise) {
+    public void testWriteEmptyMetadataJson(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String jsRuntimeDir = new File(bundleDir, folderName).getAbsolutePath();
@@ -1002,6 +1080,42 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             log("testWriteEmptyMetadataJson", "Error writing empty metadata.json: " + e.getMessage());
             promise.reject("WRITE_ERROR", "Failed to write empty metadata.json: " + e.getMessage());
         }
+    }
+
+    @ReactMethod
+    public void getNativeAppVersion(Promise promise) {
+        String nativeVersion = getAppVersion(reactContext);
+        if (nativeVersion == null) {
+            promise.resolve("");
+            return;
+        }
+        promise.resolve(nativeVersion);
+    }
+
+    @ReactMethod
+    public void getJsBundlePath(Promise promise) {
+        String jsBundlePath = getCurrentBundleMainJSBundle(reactContext);
+        if (jsBundlePath == null) {
+            promise.resolve("");
+            return;
+        }
+        promise.resolve(jsBundlePath);
+    }
+
+    @ReactMethod
+    public void getSha256FromFilePath(String filePath, Promise promise) {
+        staticLog(TAG, "getSha256FromFilePath: " + filePath);
+        if (filePath == null) {
+            promise.resolve("");
+            return;
+        }
+        String sha256 = calculateSHA256(filePath);
+        if (sha256 == null) {
+            promise.resolve("");
+            return;
+        }
+        staticLog(TAG, "getSha256FromFilePath-sha256: " + sha256);
+        promise.resolve(sha256);
     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)

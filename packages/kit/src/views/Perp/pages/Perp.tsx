@@ -1,30 +1,20 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
 
-import {
-  IconButton,
-  Image,
-  Page,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
-import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { Page, Stack, YStack, useMedia } from '@onekeyhq/components';
+import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { NetworkStatusBadge } from '../../../components/NetworkStatusBadge';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
+import { usePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { HyperliquidTermsOverlay } from '../components/HyperliquidTerms';
+import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
-import { usePerpsLogo } from '../hooks/usePerpsLogo';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
@@ -36,76 +26,13 @@ import type { LayoutChangeEvent } from 'react-native';
 
 function PerpLayout() {
   const { gtMd } = useMedia();
-  if (gtMd) {
+  if (gtMd && !platformEnv.isNative) {
     return <PerpDesktopLayout />;
   }
   return <PerpMobileLayout />;
 }
 
-function PerpNetworkStatus() {
-  const [networkStatus] = usePerpsNetworkStatusAtom();
-  const connected = Boolean(networkStatus?.connected);
-
-  return <NetworkStatusBadge connected={connected} />;
-}
-
-function FooterRefreshButton() {
-  const actions = useHyperliquidActions();
-  const [networkStatus] = usePerpsNetworkStatusAtom();
-  const [loading, setLoading] = useState(false);
-  return (
-    <IconButton
-      loading={loading}
-      disabled={!networkStatus.connected}
-      ml="$2"
-      icon="RefreshCwOutline"
-      variant="tertiary"
-      size="small"
-      onPress={async () => {
-        try {
-          setLoading(true);
-          await actions.current.refreshAllPerpsData();
-        } catch (error) {
-          console.error(error);
-        } finally {
-          setLoading(false);
-        }
-      }}
-    />
-  );
-}
-
-function PerpContentFooter() {
-  const { gtSm } = useMedia();
-  const { poweredByHyperliquidLogo } = usePerpsLogo();
-  return gtSm ? (
-    <Page.Footer>
-      <XStack
-        borderTopWidth="$px"
-        borderTopColor="$borderSubdued"
-        bg="$bgApp"
-        h={40}
-        alignItems="center"
-        p="$2"
-        justifyContent="space-between"
-      >
-        <PerpNetworkStatus />
-        <FooterRefreshButton />
-        <Stack flex={1} />
-        <Image
-          source={poweredByHyperliquidLogo}
-          size={170}
-          resizeMode="contain"
-        />
-      </XStack>
-    </Page.Footer>
-  ) : null;
-}
-
-console.log('PerpContent js loaded');
-
 function PerpContent() {
-  console.log('PerpContent render');
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 143 : 92,
   );
@@ -154,30 +81,57 @@ function PerpContent() {
         <Stack position="relative" flex={1}>
           <PerpLayout />
           <HyperliquidTermsOverlay />
+          <PerpContentFooter />
         </Stack>
       </Page.Body>
-      <PerpContentFooter />
     </Page>
   );
 }
 
+function PerpView() {
+  const isFocused = useIsFocused();
+  const [isMounted, setIsMounted] = useState(false);
+  const isMountedRef = useRef(false);
+  useEffect(() => {
+    if (isMountedRef.current) {
+      return;
+    }
+    if (isFocused) {
+      isMountedRef.current = true;
+      setIsMounted(true);
+    }
+  }, [isFocused]);
+  if (!isMounted) {
+    return null;
+  }
+  return shouldOpenExpandExtPerp ? (
+    <ExtPerp />
+  ) : (
+    <>
+      <PerpsGlobalEffects />
+      <PerpContent />
+    </>
+  );
+}
+
+function ExtPerpNull() {
+  const isFocused = useIsFocused();
+  return isFocused ? <ExtPerp /> : null;
+}
+
 export default function Perp() {
-  useFocusEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
-  });
+  const canRenderPerp = usePerpFeatureGuard();
+  if (!canRenderPerp) {
+    return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
+  }
 
   return (
-    <PerpsAccountSelectorProviderMirror>
-      <PerpsProviderMirror>
-        {shouldOpenExpandExtPerp() ? (
-          <ExtPerp />
-        ) : (
-          <>
-            <PerpsGlobalEffects />
-            <PerpContent />
-          </>
-        )}
-      </PerpsProviderMirror>
-    </PerpsAccountSelectorProviderMirror>
+    <TabletHomeContainer>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <PerpView />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
+    </TabletHomeContainer>
   );
 }

@@ -14,12 +14,7 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type {
-  NativeSyntheticEvent,
-  StyleProp,
-  TextInputFocusEventData,
-  TextStyle,
-} from 'react-native';
+import type { BlurEvent, StyleProp, TextStyle } from 'react-native';
 
 export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';
@@ -63,7 +58,7 @@ export function StakingAmountInput({
   }, []);
 
   const onFromInputBlur = useCallback(
-    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    (e: BlurEvent) => {
       setTimeout(() => {
         setPercentageInputStageShow(false);
       }, 200);

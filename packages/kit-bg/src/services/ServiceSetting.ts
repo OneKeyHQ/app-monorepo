@@ -22,7 +22,7 @@ import {
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   getDefaultLocale,
@@ -31,6 +31,7 @@ import {
 import systemLocaleUtils from '@onekeyhq/shared/src/locale/systemLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -69,6 +70,7 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IDesktopBluetoothAtom } from '../states/jotai/atoms';
 
@@ -270,6 +272,7 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.appUpdateCache) {
       await this.backgroundApi.serviceAppUpdate.clearCache();
+      await this.backgroundApi.simpleDb.ipTable.clearRawData();
     }
     if (values.browserHistory) {
       // clear Browser History, Bookmarks, Pins
@@ -601,11 +604,71 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setEnableBTCFreshAddress(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableBTCFreshAddress: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getEnableBTCFreshAddress() {
+    const { enableBTCFreshAddress } = await settingsPersistAtom.get();
+    return enableBTCFreshAddress ?? false;
+  }
+
+  @backgroundMethod()
+  public async migrateBTCFreshAddressSetting() {
+    const appStatus = await this.backgroundApi.simpleDb.appStatus.getRawData();
+    if (appStatus?.btcFreshAddressSettingMigrated) {
+      return;
+    }
+
+    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets({
+      excludeKeylessWallet: true,
+    });
+
+    const hasHdOrHwWallet =
+      wallets?.some((wallet) => {
+        const walletId = wallet?.id;
+        return (
+          accountUtils.isHdWallet({ walletId }) ||
+          accountUtils.isHwWallet({ walletId })
+        );
+      }) ?? false;
+
+    if (hasHdOrHwWallet) {
+      const { enableBTCFreshAddress } = await settingsPersistAtom.get();
+      if (enableBTCFreshAddress ?? true) {
+        await settingsPersistAtom.set((prev) => ({
+          ...prev,
+          enableBTCFreshAddress: false,
+        }));
+      }
+    }
+
+    await this.backgroundApi.simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        btcFreshAddressSettingMigrated: true,
+      }),
+    );
+  }
+
+  @backgroundMethod()
   public async abortFetchWalletConfig() {
     this._fetchWalletConfigControllers.forEach((controller) =>
       controller.abort(),
     );
     this._fetchWalletConfigControllers = [];
+  }
+
+  @backgroundMethod()
+  public async setSelectedBrowserTab(tab: ETranslations) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      selectedBrowserTab: tab,
+    }));
   }
 
   @backgroundMethod()

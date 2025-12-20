@@ -6,6 +6,7 @@ import {
   Divider,
   ESectionLayoutType,
   Icon,
+  MIN_SIDEBAR_WIDTH,
   SizableText,
   SortableSectionList,
   Stack,
@@ -29,6 +30,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -50,11 +52,11 @@ import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
-const ITEM_HEIGHT = 32;
 const TIMESTAMP_DIFF_MULTIPLIER = 2;
 
 function DesktopCustomTabBar() {
   const intl = useIntl();
+  const [{ isCollapsed }] = useAppSideBarStatusAtom();
   // register desktop shortcuts for browser tab
   useDiscoveryShortcuts();
   // register desktop new window event
@@ -213,6 +215,8 @@ function DesktopCustomTabBar() {
 
   useShortcuts(undefined, handleShortcuts);
 
+  const ITEM_HEIGHT = useMemo(() => (isCollapsed ? 36 : 32), [isCollapsed]);
+
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
@@ -232,7 +236,7 @@ function DesktopCustomTabBar() {
     layouts.push({ offset, length: 0, index: layouts.length });
     offset += 0;
     return layouts;
-  }, [sections]);
+  }, [ITEM_HEIGHT, sections]);
   const onDragEnd = useCallback(
     (dragResult: {
       sections: {
@@ -307,7 +311,11 @@ function DesktopCustomTabBar() {
   );
 
   return (
-    <Stack testID="sideabr-browser-section" flex={1}>
+    <Stack
+      testID="sideabr-browser-section"
+      flex={1}
+      width={isCollapsed ? MIN_SIDEBAR_WIDTH / 2 : undefined}
+    >
       <HandleRebuildBrowserData />
       <SortableSectionList
         mx="$-3"
@@ -327,6 +335,7 @@ function DesktopCustomTabBar() {
               id={t.id}
               key={t.id}
               onPress={onTabPress}
+              isCollapse={isCollapsed}
               onBookmarkPress={handleBookmarkPress}
               onPinnedPress={handlePinnedPress}
               onClose={handleCloseTab}
@@ -351,7 +360,12 @@ function DesktopCustomTabBar() {
         renderSectionHeader={({ index }) =>
           index === 1 ? (
             <>
-              <XStack group="sidebarBrowserDivider" alignItems="center" p="$2">
+              <XStack
+                group="sidebarBrowserDivider"
+                alignItems="center"
+                p="$2"
+                px={isCollapsed ? '$0' : '$2'}
+              >
                 <Divider testID="pin-tab-divider" />
                 {tabs.filter((x) => !x.isPinned).length > 0 ? (
                   <XStack
@@ -371,7 +385,9 @@ function DesktopCustomTabBar() {
                       containerType: 'normal',
                       transform: platformEnv.isNative ? '' : 'translateY(-50%)',
                     }}
-                    onPress={closeAllWebTabs}
+                    onPress={() => {
+                      void closeAllWebTabs({ navigation });
+                    }}
                   >
                     <Icon
                       flexShrink={0}
@@ -383,6 +399,7 @@ function DesktopCustomTabBar() {
                       pl="$1"
                       color="$textSubdued"
                       size="$bodySmMedium"
+                      numberOfLines={1}
                       $group-sidebarClearButton-hover={{
                         color: '$text',
                       }}
@@ -395,9 +412,13 @@ function DesktopCustomTabBar() {
               <DesktopTabItem
                 size="small"
                 key="AddTabButton"
-                label={intl.formatMessage({
-                  id: ETranslations.explore_new_tab,
-                })}
+                label={
+                  isCollapsed
+                    ? ''
+                    : intl.formatMessage({
+                        id: ETranslations.explore_new_tab,
+                      })
+                }
                 shortcutKey={EShortcutEvents.NewTab2}
                 icon="PlusSmallOutline"
                 testID="browser-bar-add"

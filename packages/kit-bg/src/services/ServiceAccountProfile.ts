@@ -45,6 +45,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
+import type BTCVault from '../vaults/impls/btc/Vault';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -90,6 +91,8 @@ class ServiceAccountProfile extends ServiceBase {
       xpub,
       // cardanoPubKey, // only for UTXO query, not for balance query
       withNetWorth: true,
+    }).catch((e) => {
+      throw e;
     });
   }
 
@@ -155,10 +158,12 @@ class ServiceAccountProfile extends ServiceBase {
     networkId,
     fromAddress,
     toAddress,
+    checkInteraction,
   }: {
     fromAddress?: string;
     networkId: string;
     toAddress: string;
+    checkInteraction?: boolean;
   }): Promise<{
     isScam: boolean;
     isContract: boolean;
@@ -189,6 +194,7 @@ class ServiceAccountProfile extends ServiceBase {
           networkId,
           fromAddress,
           toAddress,
+          checkInteraction,
         },
       });
       const {
@@ -250,11 +256,22 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
+    // For BTC network with fresh address enabled, skip interaction check
+    let checkInteraction: boolean | undefined;
+    if (networkUtils.isBTCNetwork(networkId)) {
+      const enableBTCFreshAddress =
+        await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+      if (enableBTCFreshAddress) {
+        checkInteraction = false;
+      }
+    }
+
     const { isContract, interacted, addressLabel, isScam, isCex, badges } =
       await this.getAddressAccountBadge({
         networkId,
         fromAddress,
         toAddress,
+        checkInteraction,
       });
     if (
       checkInteractionStatus &&
@@ -424,6 +441,19 @@ class ServiceAccountProfile extends ServiceBase {
         walletAccountItems = [walletAccountItem];
       }
 
+      if (
+        walletAccountItems.length === 0 &&
+        networkUtils.isBTCNetwork(networkId)
+      ) {
+        walletAccountItems =
+          await this.backgroundApi.serviceFreshAddress.getAccountNameFromFreshAddress(
+            {
+              address,
+              networkId,
+            },
+          );
+      }
+
       if (walletAccountItems.length > 0) {
         let item = walletAccountItems[0];
         try {
@@ -466,6 +496,8 @@ class ServiceAccountProfile extends ServiceBase {
           console.error(e);
           // pass
         }
+        result.walletName = item.walletName;
+        result.accountName = item.accountName;
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
         result.walletAccountId = item.accountId;
         if (enableAddressDeriveInfo) {
@@ -761,6 +793,29 @@ class ServiceAccountProfile extends ServiceBase {
         filterHiddenWallet: true,
       });
     return Object.keys(hwQrWallets).length === 0;
+  }
+
+  @backgroundMethod()
+  public async getAccountUtxos({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    const vaultSettings = await vault.getVaultSettings();
+    if (!vaultSettings.coinControlEnabled) {
+      throw new OneKeyLocalError(
+        'CoinControl is not supported for this network',
+      );
+    }
+    const { utxoList } = await (vault as BTCVault)._collectUTXOsInfoByApi();
+
+    return utxoList;
   }
 
   // Get wallet type

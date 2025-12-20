@@ -4,16 +4,13 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
@@ -35,6 +32,7 @@ const WithdrawPage = () => {
     amount: initialAmount,
     onSuccess,
     fromPage,
+    allowPartialWithdraw,
   } = route.params;
 
   const token = tokenInfo?.token;
@@ -51,9 +49,14 @@ const WithdrawPage = () => {
     async ({
       amount,
       withdrawAll,
+      signature,
+      message,
     }: {
       amount: string;
       withdrawAll: boolean;
+      // Stakefish: signature and message for withdraw all
+      signature?: string;
+      message?: string;
     }) => {
       await handleWithdraw({
         amount,
@@ -74,6 +77,9 @@ const WithdrawPage = () => {
           tags: [actionTag],
         },
         withdrawAll,
+        // Signature and message for withdraw all
+        withdrawSignature: signature,
+        withdrawMessage: message,
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
@@ -116,40 +122,6 @@ const WithdrawPage = () => {
     initialAmount,
   ]);
 
-  const { result: estimateFeeResp } = usePromiseResult(async () => {
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: tokenSymbol,
-      action: 'unstake',
-      amount: balance ?? '1',
-      txId:
-        providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
-          ? identity
-          : undefined,
-      protocolVault: earnUtils.isVaultBasedProvider({
-        providerName,
-      })
-        ? vault
-        : undefined,
-      identity,
-      accountAddress: account.address,
-    });
-    return resp;
-  }, [
-    accountId,
-    networkId,
-    providerName,
-    tokenSymbol,
-    identity,
-    vault,
-    balance,
-  ]);
-
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -160,24 +132,25 @@ const WithdrawPage = () => {
       />
       <Page.Body>
         <UniversalWithdraw
+          isInModalContext
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={price}
-          decimals={token?.decimals}
+          decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
           balance={balance}
           accountId={accountId}
           networkId={networkId}
-          initialAmount={initialAmount}
+          initialAmount={allowPartialWithdraw ? undefined : initialAmount}
           tokenSymbol={tokenSymbol}
           tokenImageUri={token?.logoURI}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
+          identity={identity}
           onConfirm={onConfirm}
           minAmount={
             Number(protocolInfo?.minUnstakeAmount) > 0
               ? String(protocolInfo?.minUnstakeAmount)
               : undefined
           }
-          estimateFeeResp={estimateFeeResp}
           protocolVault={vault}
         />
       </Page.Body>

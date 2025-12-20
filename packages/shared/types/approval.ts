@@ -24,6 +24,7 @@ export enum ERevokeProgressState {
 
 export type IRevokeTxStatus = {
   status: ERevokeTxStatus;
+  isInsufficientFunds?: boolean;
   txId?: string;
   feeBalance?: string;
   feeSymbol?: string;
@@ -62,6 +63,7 @@ export type IFetchAccountApprovalsParams = {
   indexedAccountId: string | undefined;
   accountAddress?: string;
   limit?: number;
+  networksEnabledOnly?: boolean;
 };
 
 export type IFetchAccountApprovalsResponse = {

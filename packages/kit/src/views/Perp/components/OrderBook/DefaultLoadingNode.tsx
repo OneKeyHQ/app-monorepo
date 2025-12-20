@@ -175,18 +175,11 @@ export function DefaultLoadingNode({
           </YStack>
         </XStack>
 
-        <YStack gap="$1.5">
-          {MOBILE_ROWS.map((row, index) => (
-            <Stack
-              key={index}
-              h={row.height}
-              borderRadius={4}
-              overflow="hidden"
-              w="100%"
-            >
-              <Skeleton w={row.width} h="100%" radius="square" />
-            </Stack>
-          ))}
+        <YStack gap="$1.5" flex={1}>
+          <Skeleton w="100%" h={MOBILE_ROW_HEIGHT} radius="round" />
+          <Skeleton w="80%" h={MOBILE_ROW_HEIGHT} radius="round" />
+          <Skeleton w="60%" h={MOBILE_ROW_HEIGHT} radius="round" />
+          <Skeleton w="40%" h={MOBILE_ROW_HEIGHT} radius="round" />
         </YStack>
       </YStack>
     );

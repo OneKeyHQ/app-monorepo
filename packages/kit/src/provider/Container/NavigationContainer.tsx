@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useRef } from 'react';
+import { memo, useMemo, useRef } from 'react';
 
 import {
   NavigationContainer as NavigationContainerComponent,
@@ -13,21 +13,25 @@ import { TabFreezeOnBlurContainer } from './TabFreezeOnBlurContainer';
 
 function BasicNavigation({ children }: PropsWithChildren) {
   const { containerProps, routerConfig } = useRouterConfig();
-  return (
-    <NavigationContainerComponent {...containerProps}>
-      <TabFreezeOnBlurContainer>
-        <RootNavigator config={routerConfig} />
-      </TabFreezeOnBlurContainer>
-      {children}
-    </NavigationContainerComponent>
-  );
+  return useMemo(() => {
+    return (
+      <NavigationContainerComponent {...containerProps}>
+        <TabFreezeOnBlurContainer>
+          <RootNavigator config={routerConfig} />
+        </TabFreezeOnBlurContainer>
+        {children}
+      </NavigationContainerComponent>
+    );
+  }, [children, containerProps, routerConfig]);
 }
+
+const MemoizedBasicNavigation = memo(BasicNavigation);
 
 function NavigationWithEventProvider({ children }: PropsWithChildren) {
   const routerEventRef = useRef([]);
   return (
     <RouterEventProvider value={routerEventRef}>
-      <BasicNavigation>{children}</BasicNavigation>
+      <MemoizedBasicNavigation>{children}</MemoizedBasicNavigation>
     </RouterEventProvider>
   );
 }

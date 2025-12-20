@@ -6,3 +6,5 @@ export {
 } from './HeaderView';
 export { default as HeaderIconButton } from './HeaderIconButton';
 export { default as HeaderButtonGroup } from './HeaderButtonGroup';
+export { default as HeaderNotificationButton } from './HeaderNotificationButton';
+export type { IHeaderNotificationButtonProps } from './HeaderNotificationButton';

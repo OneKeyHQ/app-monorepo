@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
@@ -99,11 +99,16 @@ const PasswordVerifyContainer = ({
     }
   }, [isEnable, isBiologyAuthSwitchOn]);
 
+  const passwordVerifyStatusRef = useRef(passwordVerifyStatus);
   useEffect(() => {
-    setPasswordAtom((v) => ({
-      ...v,
-      passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
-    }));
+    if (
+      passwordVerifyStatusRef.current.value === EPasswordVerifyStatus.VERIFYING
+    ) {
+      setPasswordAtom((v) => ({
+        ...v,
+        passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
+      }));
+    }
   }, [setPasswordAtom]);
 
   useEffect(
@@ -421,18 +426,8 @@ const PasswordVerifyContainer = ({
     })();
   }, []);
 
-  const loadingView = useMemo(() => {
-    return passwordEncryptorInitError ? (
-      <SizableText size="$bodyMd" color="$textCritical" textAlign="center">
-        {passwordEncryptorInitError}
-      </SizableText>
-    ) : (
-      <Spinner />
-    );
-  }, [passwordEncryptorInitError]);
-
   return (
-    <Stack onLayout={onLayout}>
+    <Stack>
       <PasswordVerify
         passwordMode={passwordMode}
         alertText={alertText}

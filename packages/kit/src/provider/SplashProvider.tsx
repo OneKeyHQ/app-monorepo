@@ -65,6 +65,8 @@ export const useDisplaySplash =
                   );
                   await backgroundApiProxy.serviceAppUpdate.reset();
                 }
+              } else {
+                setDisplaySplash(true);
               }
             } else {
               setDisplaySplash(true);

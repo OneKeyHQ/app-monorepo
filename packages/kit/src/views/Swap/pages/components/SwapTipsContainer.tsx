@@ -31,7 +31,7 @@ const SwapTipsContainer = () => {
   };
 
   return (
-    <YStack flex={1} pt="$0.5">
+    <YStack flex={1} pt="$0.5" px="$5">
       <XStack
         flex={1}
         gap="$4"

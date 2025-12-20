@@ -160,7 +160,7 @@ export async function replaceUrlAccountLandingRoute({
 }
 
 // Check if currently in URL account page
-function isCurrentlyInUrlAccountPage(): boolean {
+export function isCurrentlyInUrlAccountPage(): boolean {
   try {
     const state = rootNavigationRef.current?.getRootState();
     if (!state?.routes) return false;

@@ -505,6 +505,7 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   @providerApiMethod()
   async webEmbedApiNotReady(): Promise<void> {
+    defaultLogger.app.webembed.webembedApiNotReady();
     this.isWebEmbedApiReady = false;
     return Promise.resolve();
   }

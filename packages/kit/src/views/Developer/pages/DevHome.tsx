@@ -13,7 +13,6 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import { getTokens } from '@onekeyhq/components/src/hooks';
 import type { ITabHomeParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -64,7 +63,6 @@ const ListRoute = () => (
 
 function HomePage() {
   const screenWidth = useWindowDimensions().width;
-  const sideBarWidth = getTokens().size.sideBarWidth.val;
   const actions = useAccountSelectorActions();
 
   const onRefresh = useCallback(() => {

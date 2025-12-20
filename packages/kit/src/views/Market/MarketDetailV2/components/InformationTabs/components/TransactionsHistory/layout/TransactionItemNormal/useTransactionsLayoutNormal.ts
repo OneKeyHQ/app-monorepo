@@ -9,7 +9,7 @@ export const useTransactionsLayoutNormal = () => {
       width: '$16',
     },
     type: {
-      width: '$10',
+      width: '$16',
     },
     amount: {
       width: '35%',

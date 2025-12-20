@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
-import type { IStackProps } from '@onekeyhq/components';
+import type {
+  IAlertType,
+  IKeyOfIcons,
+  IStackProps,
+} from '@onekeyhq/components';
 import {
   Accordion,
+  Alert,
   Dialog,
   Icon,
   Markdown,
@@ -82,7 +87,7 @@ function ChangeLogSection({
         py="$3"
         mx="$5"
         bg="$transparent"
-        borderTopWidth={StyleSheet.hairlineWidth}
+        // borderTopWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         hoverStyle={{
           bg: '$bgHover',
@@ -108,7 +113,9 @@ function ChangeLogSection({
               </SizableText>
               <FirmwareVersionProgressText
                 fromVersion={updateInfo?.fromVersion}
+                fromFirmwareType={updateInfo?.fromFirmwareType}
                 toVersion={updateInfo?.toVersion}
+                toFirmwareType={updateInfo?.toFirmwareType}
                 githubReleaseUrl={updateInfo?.githubReleaseUrl}
                 active={open}
               />
@@ -189,6 +196,87 @@ export function FirmwareChangeLogContentView({
   );
 }
 
+export function FirmwareChangeLogChangeFirmwareWarnView({
+  content,
+  type,
+}: {
+  content: string;
+  type?: IAlertType;
+}) {
+  let icon: IKeyOfIcons | undefined;
+  if (type === 'info') {
+    icon = 'InfoCircleOutline';
+  } else if (type === 'warning') {
+    icon = 'InfoCircleOutline';
+  } else if (type === 'danger') {
+    icon = 'ErrorOutline';
+  }
+
+  return (
+    <Alert
+      mx="$5"
+      my="$2.5"
+      type={type}
+      title={content}
+      icon={icon}
+      closable={false}
+    />
+  );
+}
+
+export function FirmwareChangeFirmwareWarn({
+  result,
+}: {
+  result: ICheckAllFirmwareReleaseResult | undefined;
+}) {
+  const intl = useIntl();
+
+  if (!result?.updateInfos?.firmware) return null;
+  const firmwareInfo = result?.updateInfos?.firmware;
+  if (
+    firmwareInfo.fromFirmwareType === undefined ||
+    firmwareInfo.toFirmwareType === undefined ||
+    firmwareInfo.fromFirmwareType === firmwareInfo.toFirmwareType
+  )
+    return null;
+
+  const tips: { content: string; type?: IAlertType }[] = [];
+
+  if (firmwareInfo?.toFirmwareType === EFirmwareType.BitcoinOnly) {
+    tips.push({
+      content: intl.formatMessage({
+        id: ETranslations.device_change_to_btc_only_banner,
+      }),
+      type: 'info',
+    });
+  }
+
+  tips.push({
+    content: intl.formatMessage({
+      id: ETranslations.device_wipe_data_bannner,
+    }),
+    type: 'danger',
+  });
+  tips.push({
+    content: intl.formatMessage({
+      id: ETranslations.device_recover_data_banner,
+    }),
+    type: 'danger',
+  });
+
+  return (
+    <>
+      {tips.map((item, index) => (
+        <FirmwareChangeLogChangeFirmwareWarnView
+          key={`${index}`}
+          content={item.content}
+          type={item.type}
+        />
+      ))}
+    </>
+  );
+}
+
 export function FirmwareChangeLogView({
   result,
   onConfirmClick,
@@ -227,6 +315,13 @@ export function FirmwareChangeLogView({
     onConfirmClick?.();
   }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
 
+  const updateFirmwareInfo = result?.updateInfos?.firmware;
+
+  const showUpdateIntroduction =
+    updateFirmwareInfo?.fromFirmwareType !== undefined &&
+    updateFirmwareInfo?.toFirmwareType !== undefined &&
+    updateFirmwareInfo?.fromFirmwareType !== updateFirmwareInfo?.toFirmwareType;
+
   return (
     <>
       <FirmwareUpdatePageFooter
@@ -235,7 +330,8 @@ export function FirmwareChangeLogView({
         })}
         onConfirm={handleConfirmClick}
       />
-      <FirmwareUpdateIntroduction />
+      {showUpdateIntroduction ? <FirmwareUpdateIntroduction /> : null}
+      <FirmwareChangeFirmwareWarn result={result} />
       <FirmwareChangeLogContentView result={result} />
     </>
   );

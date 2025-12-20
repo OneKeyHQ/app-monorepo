@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
@@ -12,9 +12,32 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 export function FirmwareUpdatePageHeaderTitle(props: {
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
+  const intl = useIntl();
   const { result } = props;
   if (!result) {
     return null;
+  }
+
+  let title;
+  const updateFirmwareInfo = result?.updateInfos?.firmware;
+  if (
+    updateFirmwareInfo?.fromFirmwareType !== undefined &&
+    updateFirmwareInfo?.toFirmwareType !== undefined &&
+    updateFirmwareInfo?.fromFirmwareType !== updateFirmwareInfo?.toFirmwareType
+  ) {
+    title = intl.formatMessage(
+      {
+        id: ETranslations.device_settings_switch_firmware_type,
+      },
+      {
+        type:
+          updateFirmwareInfo?.toFirmwareType === EFirmwareType.BitcoinOnly
+            ? 'Bitcoin-only'
+            : 'Universal',
+      },
+    );
+  } else {
+    title = result.deviceName;
   }
   return (
     <XStack ai="center" gap={6}>
@@ -23,7 +46,7 @@ export function FirmwareUpdatePageHeaderTitle(props: {
         deviceType={result.deviceType || EDeviceType.Unknown}
         features={result.features}
       />
-      <SizableText size="$headingMd">{result.deviceName}</SizableText>
+      <SizableText size="$headingMd">{title}</SizableText>
       <SizableText size="$bodyLg" color="$textSubdued">
         {result.deviceBleName}
       </SizableText>

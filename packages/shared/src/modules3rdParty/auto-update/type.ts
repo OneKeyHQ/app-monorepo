@@ -125,5 +125,10 @@ export interface IBundleUpdate {
   testDeleteJsRuntimeDir: ITestDeleteJsRuntimeDir;
   testDeleteMetadataJson: ITestDeleteMetadataJson;
   testWriteEmptyMetadataJson: ITestWriteEmptyMetadataJson;
-  getWebEmbedPath: () => Promise<string>;
+  getWebEmbedPathAsync: () => Promise<string>;
+  getWebEmbedPath: () => string;
+  getNativeAppVersion: () => Promise<string>;
+  getSha256FromFilePath: (filePath: string) => Promise<string>;
+  getNativeBuildNumber: () => Promise<string>;
+  getJsBundlePath: () => Promise<string>;
 }

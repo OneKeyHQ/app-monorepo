@@ -3,17 +3,14 @@ import { useCallback, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Badge, Button, IconButton, Stack, XStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IEarnHistoryActionIcon,
   IStakeTag,
 } from '@onekeyhq/shared/types/staking';
+
+import { useStakingPendingTxs } from '../../../Earn/hooks/useStakingPendingTxs';
 
 type IStakingActivityIndicatorProps = {
   num: number;
@@ -23,7 +20,10 @@ type IStakingActivityIndicatorProps = {
   onShare?: () => void;
 };
 
-const PendingIndicator = ({ num, onPress }: IStakingActivityIndicatorProps) => {
+export const PendingIndicator = ({
+  num,
+  onPress,
+}: Pick<IStakingActivityIndicatorProps, 'num' | 'onPress'>) => {
   const intl = useIntl();
   return (
     <Stack cursor={onPress ? 'pointer' : 'default'}>
@@ -120,70 +120,16 @@ export const StakingTransactionIndicator = ({
   shareUrl?: string;
   onShare?: () => void;
 }) => {
-  const { result: txs, run } = usePromiseResult(
-    async () => {
-      if (!accountId) {
-        return [];
-      }
-      return backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
-        accountId,
-        networkId,
-        stakeTag,
-      });
-    },
-    [accountId, networkId, stakeTag],
-    { initResult: [] },
-  );
-  const isPending = txs.length > 0;
-  const prevIsPending = usePrevious(isPending);
-
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    if (isFocused) {
-      void run();
-    }
-  }, [isFocused, run]);
-
-  const { result: pollingInterval } = usePromiseResult(
-    async () => {
-      const time =
-        await backgroundApiProxy.serviceStaking.getFetchHistoryPollingInterval({
-          networkId,
-        });
-      return timerUtils.getTimeDurationMs({ seconds: time });
-    },
-    [networkId],
-    { initResult: timerUtils.getTimeDurationMs({ seconds: 30 }) },
-  );
-
-  usePromiseResult(
-    async () => {
-      if (!isPending) {
-        return;
-      }
-      if (accountId) {
-        await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-          accountId,
-          networkId,
-        });
-      }
-      await run();
-    },
-    [accountId, isPending, networkId, run],
-    {
-      pollingInterval,
-    },
-  );
-
-  useEffect(() => {
-    if (!isPending && prevIsPending) {
-      onRefresh?.();
-    }
-  }, [prevIsPending, isPending, onRefresh]);
+  const { pendingCount } = useStakingPendingTxs({
+    accountId,
+    networkId,
+    stakeTag,
+    onRefresh,
+  });
 
   return (
     <StakingActivityIndicator
-      num={txs.length}
+      num={pendingCount}
       onPress={onPress}
       historyAction={historyAction}
       shareUrl={shareUrl}

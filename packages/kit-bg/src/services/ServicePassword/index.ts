@@ -28,6 +28,7 @@ import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceError
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EHardwareCallContext,
@@ -810,15 +811,12 @@ export default class ServicePassword extends ServiceBase {
   // lock ---------------------------
   @backgroundMethod()
   async unLockApp() {
+    await passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
     await passwordAtom.set((v) => ({
       ...v,
       unLock: true,
-      manualLocking: false,
     }));
-    // Delay execution to avoid UI jank
-    setTimeout(() => {
-      void this.backgroundApi.serviceApp.dispatchUnlockJob();
-    });
+    await this.backgroundApi.serviceApp.dispatchUnlockJob();
   }
 
   @backgroundMethod()
@@ -826,7 +824,6 @@ export default class ServicePassword extends ServiceBase {
     await passwordAtom.set((v) => ({
       ...v,
       passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
-      manualLocking: false,
     }));
   }
 
@@ -844,7 +841,7 @@ export default class ServicePassword extends ServiceBase {
     }
     await this.clearCachedPassword();
     if (manual) {
-      await passwordAtom.set((v) => ({ ...v, manualLocking: true }));
+      await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
     }
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
   }

@@ -5,11 +5,12 @@ import { StyleSheet } from 'react-native';
 
 import {
   Button,
+  NavBackButton,
   SizableText,
-  Stack,
   XStack,
   YStack,
-  useIsHorizontalLayout,
+  rootNavigationRef,
+  useIsWebHorizontalLayout,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -18,102 +19,26 @@ import {
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
-import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import useAppNavigation from '../../hooks/useAppNavigation';
-import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
-import { useReferFriends } from '../../hooks/useReferFriends';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
+import {
+  DownloadButton,
+  GiftAction,
+  HeaderNotificationIconButton,
+  LanguageButton,
+  OneKeyIdButton,
+  ThemeButton,
+  WalletConnectionForWeb,
+} from './components';
 import { MoreActionButton } from './MoreActionButton';
-
-function GiftAction() {
-  const { shareReferRewards } = useReferFriends();
-  const handleShareReferRewards = useCallback(() => {
-    void shareReferRewards();
-  }, [shareReferRewards]);
-  const intl = useIntl();
-  return (
-    <HeaderIconButton
-      title={intl.formatMessage({ id: ETranslations.referral_title })}
-      icon="GiftOutline"
-      onPress={handleShareReferRewards}
-    />
-  );
-}
-
-function NotificationsButton() {
-  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
-  const navigation = useAppNavigation();
-  const intl = useIntl();
-  const openNotificationsModal = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.NotificationsModal, {
-      screen: EModalNotificationsRoutes.NotificationList,
-    });
-  }, [navigation]);
-  return (
-    <Stack
-      key="notifications"
-      testID="headerRightNotificationsButton"
-      onPress={openNotificationsModal}
-    >
-      <HeaderIconButton
-        title={intl.formatMessage({
-          id: ETranslations.global_notifications,
-        })}
-        trackID="header-right-notifications"
-        icon="BellOutline"
-      />
-      {!firstTimeGuideOpened || badge ? (
-        <Stack
-          position="absolute"
-          right="$-2.5"
-          top="$-2"
-          alignItems="flex-end"
-          w="$10"
-          pointerEvents="none"
-        >
-          <Stack
-            bg="$bgApp"
-            borderRadius="$full"
-            borderWidth={2}
-            borderColor="$transparent"
-          >
-            <Stack
-              px="$1"
-              borderRadius="$full"
-              bg="$bgCriticalStrong"
-              minWidth="$4"
-              height="$4"
-              alignItems="center"
-              justifyContent="center"
-            >
-              {!firstTimeGuideOpened ? (
-                <Stack
-                  width="$1"
-                  height="$1"
-                  backgroundColor="white"
-                  borderRadius="$full"
-                />
-              ) : (
-                <SizableText color="$textOnColor" size="$bodySm">
-                  {badge && badge > 99 ? '99+' : badge}
-                </SizableText>
-              )}
-            </Stack>
-          </Stack>
-        </Stack>
-      ) : null}
-    </Stack>
-  );
-}
+import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function MoreAction() {
   return <MoreActionButton key="more-action" />;
@@ -125,22 +50,6 @@ export function SelectorTrigger() {
       num={0}
       size="small"
       recordNetworkHistoryEnabled
-    />
-  );
-}
-
-function PeopleAction() {
-  const { loginOneKeyId } = useLoginOneKeyId();
-  const handlePress = useCallback(async () => {
-    await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
-  }, [loginOneKeyId]);
-  return (
-    <HeaderIconButton
-      key="onekey-id"
-      title="OneKey ID"
-      icon="PeopleOutline"
-      onPress={handlePress}
-      testID="header-right-onekey-id"
     />
   );
 }
@@ -175,16 +84,29 @@ function DepositAction() {
   );
 }
 
-export function SearchInput() {
-  const { gtLg } = useMedia();
-  return <UniversalSearchInput size={gtLg ? 'large' : 'small'} />;
+export function SearchInput({
+  isUrlWallet = false,
+}: { isUrlWallet?: boolean } = {}) {
+  const { gtXl, gtLg, gt2xl } = useMedia();
+
+  let size: boolean;
+  if (isUrlWallet) {
+    size = platformEnv.isWeb ? gt2xl : gtXl;
+  } else {
+    size = platformEnv.isWeb ? gtXl : gtLg;
+  }
+
+  return <UniversalSearchInput size={size ? 'large' : 'small'} />;
 }
 
 export function HeaderRight({
+  selectedHeaderTab,
+  sceneName,
   tabRoute,
   customHeaderRightItems,
   renderCustomHeaderRightItems,
 }: {
+  selectedHeaderTab?: ETranslations;
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
   customHeaderRightItems?: ReactNode;
@@ -194,7 +116,9 @@ export function HeaderRight({
     fixedItems: ReactNode;
   }) => ReactNode;
 }) {
-  const isHorizontal = useIsHorizontalLayout();
+  const isHorizontal = useIsWebHorizontalLayout();
+  const { gtXl, gtMd } = useMedia();
+
   const items = useMemo(() => {
     if (customHeaderRightItems) {
       return customHeaderRightItems;
@@ -202,9 +126,28 @@ export function HeaderRight({
 
     const fixedItems = (
       <>
-        {isHorizontal ? <NotificationsButton /> : null}
+        {isHorizontal ? (
+          <HeaderNotificationIconButton testID="header-right-notification" />
+        ) : null}
         <MoreAction />
-        {isHorizontal ? <PeopleAction /> : null}
+        {isHorizontal ? (
+          <OneKeyIdButton testID="header-right-onekey-id" />
+        ) : null}
+        {isHorizontal && platformEnv.isWebDappMode ? <DownloadButton /> : null}
+        {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
+          <LanguageButton />
+        ) : null}
+        {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
+          <ThemeButton />
+        ) : null}
+      </>
+    );
+
+    const earnItems = (
+      <>
+        <GiftAction copyAsUrl />
+        <WalletConnectionForWeb tabRoute={tabRoute} />
+        {fixedItems}
       </>
     );
 
@@ -213,52 +156,104 @@ export function HeaderRight({
     }
 
     switch (tabRoute) {
-      case ETabRoutes.Home:
+      case ETabRoutes.Home: {
+        const isUrlWallet =
+          platformEnv.isWebDappMode &&
+          sceneName === EAccountSelectorSceneName.homeUrlAccount;
+
+        const urlAccountBackButton =
+          isUrlWallet && gtMd && platformEnv.isWebDappMode ? (
+            <NavBackButton
+              onPress={() => {
+                rootNavigationRef.current?.navigate(ETabRoutes.Market, {
+                  screen: ETabMarketRoutes.TabMarket,
+                });
+              }}
+            />
+          ) : null;
+
         return (
           <>
-            {isHorizontal ? <SearchInput /> : undefined}
+            {urlAccountBackButton}
+            {isHorizontal ? (
+              <SearchInput isUrlWallet={isUrlWallet} />
+            ) : undefined}
             {isHorizontal ? undefined : <SelectorTrigger />}
+            {isUrlWallet && gtMd && platformEnv.isWebDappMode ? (
+              <UrlAccountPageHeader />
+            ) : (
+              <WalletConnectionForWeb tabRoute={tabRoute} />
+            )}
             {fixedItems}
           </>
         );
+      }
       case ETabRoutes.Swap:
-        return fixedItems;
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {fixedItems}
+          </>
+        );
       case ETabRoutes.WebviewPerpTrade:
-        return fixedItems;
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {fixedItems}
+          </>
+        );
       case ETabRoutes.Market:
         return (
           <>
             {isHorizontal ? <SearchInput /> : undefined}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
         );
       case ETabRoutes.Discovery:
+        if (selectedHeaderTab === ETranslations.global_earn) {
+          return (
+            <>
+              <GiftAction copyAsUrl />
+              <WalletConnectionForWeb tabRoute={tabRoute} />
+            </>
+          );
+        }
+        if (selectedHeaderTab === ETranslations.global_market) {
+          return <WalletConnectionForWeb tabRoute={tabRoute} />;
+        }
         return (
           <>
             <HistoryIconButton />
             {isHorizontal || !platformEnv.isNative ? undefined : (
               <TabCountButton testID="browser-header-tabs" />
             )}
-            {fixedItems}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
           </>
         );
       case ETabRoutes.Earn:
+        return earnItems;
+      case ETabRoutes.Perp:
         return (
           <>
-            <GiftAction />
-            {fixedItems}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            <DepositAction />
           </>
         );
-      case ETabRoutes.Perp:
-        return <DepositAction />;
+      case ETabRoutes.ReferFriends:
+        return fixedItems;
       default:
         break;
     }
   }, [
-    isHorizontal,
-    tabRoute,
     customHeaderRightItems,
+    isHorizontal,
+    gtXl,
+    tabRoute,
     renderCustomHeaderRightItems,
+    selectedHeaderTab,
+    sceneName,
+    gtMd,
   ]);
   const width = useMemo(() => {
     if (platformEnv.isNative) {

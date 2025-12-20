@@ -42,6 +42,7 @@ import {
   usePasswordWebAuthInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { displayAppUpdateVersion } from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
@@ -53,7 +54,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -66,7 +66,7 @@ import openUrlUtils, {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
-import { useLocaleOptions, useResetApp } from '../../hooks';
+import { useLanguageSelector, useResetApp } from '../../hooks';
 import { handleOpenDevMode } from '../../utils/devMode';
 import { useOptions } from '../AppAutoLock/useOptions';
 
@@ -102,25 +102,7 @@ export function CurrencyListItem(props: ICustomElementProps) {
 }
 
 export function LanguageListItem(props: ICustomElementProps) {
-  const locales = useLocaleOptions();
-  const [{ locale }] = useSettingsPersistAtom();
-
-  // Fix issue where en-US is deprecated but still exists in user settings
-  const options = useMemo(() => {
-    return locales.filter((item) => item.value !== 'en-US');
-  }, [locales]);
-  const value = useMemo(() => {
-    return locale === 'en-US' ? 'en' : locale;
-  }, [locale]);
-  const onChange = useCallback(async (text: string) => {
-    await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
-    setTimeout(() => {
-      if (platformEnv.isDesktop) {
-        void globalThis.desktopApiProxy?.system?.changeLanguage?.(text);
-      }
-      void backgroundApiProxy.serviceApp.restartApp();
-    }, 0);
-  }, []);
+  const { options, value, onChange } = useLanguageSelector();
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
@@ -306,6 +288,7 @@ export function CleanDataListItem(props: ICustomElementProps) {
 
 export function HardwareTransportTypeListItem(props: ICustomElementProps) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const [devPersist] = useDevSettingsPersistAtom();
 
   const transportOptions = useMemo(() => {
     if (platformEnv.isNative) {
@@ -317,24 +300,27 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     if (platformEnv.isDesktop) {
-      if (platformEnv.isDesktopMac) {
-        return [
-          {
-            label: 'Bridge',
-            value: EHardwareTransportType.Bridge,
-          },
-          {
-            label: 'Bluetooth',
-            value: EHardwareTransportType.DesktopWebBle,
-          },
-        ];
-      }
-      return [
-        {
+      const usb = devPersist?.settings?.usbCommunicationMode;
+      const desktopTransportList: ISelectItem[] = [];
+      if (usb === 'bridge') {
+        desktopTransportList.push({
           label: 'Bridge',
           value: EHardwareTransportType.Bridge,
-        },
-      ];
+        });
+      } else {
+        desktopTransportList.push({
+          label: 'WebUSB',
+          value: EHardwareTransportType.WEBUSB,
+        });
+      }
+
+      if (platformEnv.isSupportDesktopBle) {
+        desktopTransportList.push({
+          label: 'Bluetooth',
+          value: EHardwareTransportType.DesktopWebBle,
+        });
+      }
+      return desktopTransportList;
     }
     if (platformEnv.isSupportWebUSB) {
       return [
@@ -350,7 +336,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     return [];
-  }, []);
+  }, [devPersist?.settings?.usbCommunicationMode]);
   const onChange = useCallback(async (value: string) => {
     const newTransportType = value as EHardwareTransportType;
 
@@ -630,9 +616,11 @@ export function SocialButtonGroup() {
         </SizableText>
         {!isTabNavigator && isUpToDate ? (
           <SizableText
-            color={textColor}
+            color="$textDisabled"
+            mt="$1"
             size={textSize}
-            ai={isTabNavigator ? 'flex-start' : 'center'}
+            ai="center"
+            textAlign="center"
           >
             {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
           </SizableText>
@@ -656,6 +644,28 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
         size={ESwitchSize.small}
         value={enableDesktopBluetooth}
         onChange={toggleBluetooth}
+      />
+    </TabSettingsListItem>
+  );
+}
+
+export function BTCFreshAddressListItem(props: ICustomElementProps) {
+  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
+  const toggleBTCFreshAddress = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableBTCFreshAddress(value);
+      defaultLogger.setting.page.settingsEnableBTCFreshAddress({
+        enabled: value,
+      });
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        alignSelf="flex-start"
+        size={ESwitchSize.small}
+        value={enableBTCFreshAddress}
+        onChange={toggleBTCFreshAddress}
       />
     </TabSettingsListItem>
   );

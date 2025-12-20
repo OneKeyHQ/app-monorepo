@@ -7,7 +7,12 @@ export const importHardwareSDK = async ({
 }: {
   hardwareTransportType?: EHardwareTransportType;
 }): Promise<CoreApi> => {
-  if (hardwareTransportType === EHardwareTransportType.DesktopWebBle) {
+  // Use hd-common-connect-sdk for both DesktopWebBle and WEBUSB
+  // This allows direct WebUSB connection without needing bridge
+  if (
+    hardwareTransportType === EHardwareTransportType.DesktopWebBle ||
+    hardwareTransportType === EHardwareTransportType.WEBUSB
+  ) {
     return (await import('@onekeyfe/hd-common-connect-sdk')).default;
   }
   return (await import('@onekeyfe/hd-web-sdk')).default

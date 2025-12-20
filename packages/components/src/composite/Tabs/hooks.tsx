@@ -8,11 +8,13 @@ import {
 
 import { useWindowDimensions } from 'react-native';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { getTokens, useIsHorizontalLayout, useMedia } from '../../hooks';
+import { useIsNativeTablet, useOrientation } from '../../hooks';
+import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';
@@ -70,33 +72,32 @@ export function useTabIsRefreshingFocused() {
 
 export * from './useCurrentTabScrollY';
 
-const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
-  ? () => {
-      const isHorizontal = useIsHorizontalLayout();
-      const { width } = useWindowDimensions();
-      const sideBarWidth = useMemo(() => {
-        if (isHorizontal) {
-          return getTokens().size.sideBarWidth.val;
-        }
-        return 0;
-      }, [isHorizontal]);
-      return width - sideBarWidth;
-    }
-  : () => undefined;
 export const useTabContainerWidth = platformEnv.isNative
-  ? useNativeTabContainerWidth
+  ? () => {
+      const isTablet = useIsNativeTablet();
+      const isLandscape = useOrientation();
+      const { width, height } = useWindowDimensions();
+      if (isTablet) {
+        return isLandscape
+          ? Math.max(width, height) / 2
+          : Math.min(width, height);
+      }
+      return Math.min(width, height);
+    }
   : () => {
-      const [{ collapsed: leftSidebarCollapsed = false }] =
+      const [{ isCollapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();
       const { md } = useMedia();
-      const sideBarWidth = useMemo(() => {
-        if (md) {
-          return 0;
+      return useMemo(() => {
+        // Small screen or WebDappMode: no sidebar, use full width
+        if (platformEnv.isWebDappMode || md) {
+          return `calc(100vw)`;
         }
-        if (!leftSidebarCollapsed) {
-          return getTokens().size.sideBarWidth.val;
-        }
-        return 0;
-      }, [md, leftSidebarCollapsed]);
-      return `calc(100vw - ${sideBarWidth}px)`;
+
+        // Large screen: subtract sidebar width
+        const sideBarWidth = leftSidebarCollapsed
+          ? MIN_SIDEBAR_WIDTH
+          : MAX_SIDEBAR_WIDTH;
+        return `calc(100vw - ${sideBarWidth}px)`;
+      }, [leftSidebarCollapsed, md]);
     };

@@ -1,31 +1,26 @@
+export interface IRewardToken {
+  networkId: string;
+  address: string;
+  logoURI: string;
+  name: string;
+  symbol: string;
+}
+
+interface IRewardBalance {
+  token: IRewardToken;
+  amount: string;
+  fiatValue: string;
+  usdValue: string;
+}
+
 interface IReward {
   title: string;
   description: string;
-  monthlySalesFiatValue: string;
-  available?: {
-    token: {
-      networkId: string;
-      address: string;
-      logoURI: string;
-      name: string;
-      symbol: string;
-    };
-    amount: string;
-    usdValue: string;
-    fiatValue: string;
-  }[];
-  pending?: {
-    token: {
-      networkId: string;
-      address: string;
-      logoURI: string;
-      name: string;
-      symbol: string;
-    };
-    amount: string;
-    fiatValue: string;
-    usdValue: string;
-  }[];
+  monthlySales?: string;
+  monthlySalesFiatValue?: string;
+  available?: IRewardBalance[];
+  pending?: IRewardBalance[];
+  perp?: IRewardBalance[];
 }
 
 export interface IInviteSummary {
@@ -42,42 +37,43 @@ export interface IInviteSummary {
   enabledNetworks: string[];
   totalRewards: string;
   levelPercent: string;
-  nextRebateLevel: string;
+  nextRebateLevel?: string;
   Onchain: IReward;
   rebateConfig: {
     level: number;
+    emoji: string;
+    icon: string;
     rebate: number;
     discount: number;
     threshold: number;
-    emoji: string;
+    thresholdFiatValue: string;
     labelKey: string;
     label: string;
+    configs?: Record<string, IInviteLevelCommissionRate>;
   };
   rebateLevels: {
     level: number;
     rebate: number;
     discount: number;
+    threshold: number;
     thresholdFiatValue: string;
     emoji: string;
+    icon: string;
     labelKey: string;
     label: string;
+    configs?: Record<string, IInviteLevelCommissionRate>;
   }[];
   HardwareSales: IReward & {
-    nextStage: { isEnd: boolean; amount: string; label: string };
-  };
-  banners: any[];
-  cumulativeRewards: {
-    distributed: string;
-    undistributed: string;
-    nextDistribution: string;
-    token: {
-      networkId: string;
-      address: string;
-      logoURI: string;
-      name: string;
-      symbol: string;
+    nextStage: {
+      isEnd: boolean;
+      percent: string;
+      amount: string;
+      label: string;
     };
   };
+  Earn?: Record<string, any>;
+  banners: any[];
+  cumulativeRewards: IHardwareCumulativeRewards;
 }
 
 export interface IEarnWalletHistoryItem {
@@ -152,6 +148,26 @@ export interface IEarnRewardResponse {
     fiatValue: string;
     items: IEarnRewardItem[];
   }[];
+  total: number;
+}
+
+export interface IPerpsRecordItemDetail {
+  token: IRewardToken;
+  amount: string;
+  amountFiatValue: string;
+  tradingVolume: string;
+  tradingVolumeFiatValue: string;
+}
+
+export interface IPerpsRecordItem {
+  accountAddress: string;
+  fiatValue: string;
+  items: IPerpsRecordItemDetail[];
+}
+
+export interface IPerpsRecordsResponse {
+  fiatValue: string;
+  items: IPerpsRecordItem[];
   total: number;
 }
 
@@ -254,5 +270,196 @@ export interface IInvitePostConfig {
         subtitle: string;
       };
     };
+    Perps?: {
+      title: string;
+      subtitle: string;
+      for_you: {
+        title: string;
+        subtitle: string;
+      };
+      for_your_friend: {
+        title: string;
+        subtitle: string;
+      };
+    };
   };
 }
+
+export interface IInviteLevelProgressMeta {
+  current: string;
+  currentFiatValue: string;
+  threshold: string;
+  thresholdFiatValue: string;
+  progress: string;
+  labelKey?: string;
+  label?: string;
+  commissionRatesLabelKey?: string;
+  commissionRatesLabel?: string;
+  levelUpLabelKey?: string;
+  levelUpLabel?: string;
+}
+
+export interface IInviteLevelUpgradeCondition {
+  subject: string;
+  current: string;
+  currentFiatValue: string;
+  threshold: string;
+  thresholdFiatValue: string;
+  progress: string;
+  labelKey?: string;
+  label?: string;
+  commissionRatesLabelKey?: string;
+  commissionRatesLabel?: string;
+  levelUpLabelKey?: string;
+  levelUpLabel?: string;
+}
+
+export interface IInviteLevelCommissionRate {
+  rebate: number;
+  discount: number;
+  enabled: boolean;
+  hasThreshold: boolean;
+  threshold?: number;
+  labelKey?: string;
+  label?: string;
+  commissionRatesLabelKey?: string;
+  commissionRatesLabel?: string;
+  levelUpLabelKey?: string;
+  levelUpLabel?: string;
+}
+
+export interface IInviteLevelItem {
+  level: number;
+  icon: string;
+  emoji: string;
+  labelKey: string;
+  label: string;
+  isCurrent: boolean;
+  upgradeConditions: IInviteLevelUpgradeCondition[];
+  commissionRates:
+    | Record<string, IInviteLevelCommissionRate>
+    | IInviteLevelCommissionRate[];
+}
+
+export interface IInviteLevelDetail {
+  currentLevel: number;
+  levelProgress:
+    | Record<string, IInviteLevelProgressMeta>
+    | IInviteLevelProgressMeta[];
+  levels: IInviteLevelItem[];
+}
+
+export interface IInviteCodeItem {
+  userId: string;
+  code: string;
+  note: string;
+  isPrimary: boolean;
+  _id: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+export interface IInviteCodeListItem {
+  userId: string;
+  code: string;
+  note: string;
+  isPrimary: boolean;
+  createdAt: string;
+  createdDate: string;
+  salesOrders: number;
+  onchainWallets: number;
+  cumulativeRewards: string;
+  cumulativeRewardsFiatValue: string;
+  inviteUrl: string;
+}
+
+export interface IInviteCodeListResponse {
+  items: IInviteCodeListItem[];
+  total: number;
+  maxCodes: number;
+  remainingCodes: number;
+}
+
+export interface IUpdateInviteCodeNoteResponse {
+  success: boolean;
+}
+
+// Export functionality types
+export enum EExportSubject {
+  HardwareSales = 'HardwareSales',
+  Onchain = 'Onchain',
+  Perp = 'Perp',
+}
+
+export enum EExportTimeRange {
+  All = 'all',
+  OneMonth = '1month',
+  ThreeMonths = '3months',
+  SixMonths = '6months',
+}
+
+export enum EExportTab {
+  Earn = 'Earn',
+  Perp = 'Perp',
+}
+
+export interface IExportInviteDataParams {
+  subject: EExportSubject;
+  timeRange: EExportTimeRange;
+  inviteCode?: string;
+  tab?: EExportTab;
+}
+
+// API returns CSV string directly
+export type IExportInviteDataResponse = string;
+
+// Hardware cumulative rewards response
+export interface IHardwareCumulativeRewards {
+  distributed: string;
+  undistributed: string;
+  pending: string;
+  nextDistribution: string;
+  token: {
+    networkId: string;
+    address: string;
+    logoURI: string;
+    name: string;
+    symbol: string;
+  };
+}
+
+// Perps Invitee Reward Types
+export interface IPerpsInviteeRewardToken {
+  address: string;
+  logoURI: string;
+  name: string;
+  networkId: string;
+  symbol: string;
+}
+
+export interface IPerpsInviteeRewardHistoryItem {
+  amount: string;
+  date: string;
+  tx: string;
+}
+
+export interface IPerpsInviteeRewardsResponse {
+  history: IPerpsInviteeRewardHistoryItem[];
+  token: IPerpsInviteeRewardToken;
+  totalBonus: string;
+  undistributed: string;
+}
+
+// Batch check wallet bound referral code types
+export interface IBatchCheckWalletItem {
+  networkId: string;
+  address: string;
+}
+
+export interface IBatchCheckWalletParams {
+  items: IBatchCheckWalletItem[];
+}
+
+// Response is a map where key is "networkId:address" and value is boolean
+export type IBatchCheckWalletResponse = Record<string, boolean>;

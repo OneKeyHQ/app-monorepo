@@ -181,7 +181,7 @@ class ServiceDiscovery extends ServiceBase {
     } catch (e) {
       return {
         host: url,
-        level: EHostSecurityLevel.Medium,
+        level: EHostSecurityLevel.Unknown,
         attackTypes: [],
         phishingSite: false,
         alert: appLocale.intl.formatMessage({

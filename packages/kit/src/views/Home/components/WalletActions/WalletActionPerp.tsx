@@ -26,7 +26,7 @@ function WalletActionPerp({
   const handlePress = useCallback(() => {
     if (customization?.onPress) {
       void customization.onPress();
-    } else if (shouldOpenExpandExtPerp()) {
+    } else if (shouldOpenExpandExtPerp) {
       void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
     }
     onClose?.();

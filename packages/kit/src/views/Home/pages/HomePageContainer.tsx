@@ -8,6 +8,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { withAccountOverviewProvider } from '../../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
@@ -16,6 +17,8 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import { OnboardingOnMount } from '../../Onboarding/components';
+import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
+import { useAutoRedirectToMarket } from '../hooks/useAutoRedirectToMarket';
 
 import { HomePageView } from './HomePageView';
 
@@ -60,37 +63,42 @@ function HomePageContainer() {
 
   useDebugComponentRemountLog({ name: 'HomePageContainer' });
 
+  useAutoRedirectToMarket();
+
   if (isHide) {
     return null;
   }
   const sceneName = EAccountSelectorSceneName.home;
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <HomePageView
-        key={sceneName}
-        sceneName={sceneName}
-        onPressHide={() => setIsHide((v) => !v)}
-      />
-      <DAppConnectExtensionFloatingTrigger />
-      <OnboardingOnMount />
-      <NotificationRegisterDaily />
-      {/* <UrlAccountAutoReplaceHistory num={0} /> */}
+    <TabletHomeContainer>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <HomePageView
+          key={sceneName}
+          sceneName={sceneName}
+          onPressHide={() => setIsHide((v) => !v)}
+        />
+        <DAppConnectExtensionFloatingTrigger />
+        <OnboardingOnMount />
+        <NotificationRegisterDaily />
+        <BTCFreshAddressProvider />
+        {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
-      {process.env.NODE_ENV !== 'production' ? (
-        <>
-          <SelectedAccountsMapTest />
-          <SelectedAccountTest />
-          <ActiveAccountTest />
-          <EmptyRenderTest />
-        </>
-      ) : null}
-    </AccountSelectorProviderMirror>
+        {process.env.NODE_ENV !== 'production' ? (
+          <>
+            <SelectedAccountsMapTest />
+            <SelectedAccountTest />
+            <ActiveAccountTest />
+            <EmptyRenderTest />
+          </>
+        ) : null}
+      </AccountSelectorProviderMirror>
+    </TabletHomeContainer>
   );
 }
 

@@ -7,9 +7,12 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
+import {
+  formatPriceChangeDisplay,
+  formatStatValueWithFormatter,
+} from '../../utils/statValue';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 import { useTokenSecurity } from '../TokenSecurityAlert/hooks';
 
@@ -55,20 +58,31 @@ export function InformationPanel() {
   const {
     name = '',
     symbol = '',
-    price: currentPrice = '0',
-    priceChange24hPercent = '0',
-    marketCap = '0',
-    liquidity = '0',
+    price: currentPrice = '--',
+    priceChange24hPercent = '--',
+    marketCap,
+    liquidity,
     holders = 0,
     address = '',
   } = tokenDetail;
 
-  const formattedMarketCap = numberFormat(marketCap, currencyFormatter);
+  const formattedMarketCap = formatStatValueWithFormatter(
+    marketCap,
+    currencyFormatter,
+  );
 
-  const formattedLiquidity = numberFormat(liquidity, currencyFormatter);
+  const formattedLiquidity = formatStatValueWithFormatter(
+    liquidity,
+    currencyFormatter,
+  );
 
-  const priceChangeNum = parseFloat(priceChange24hPercent);
-  const isPriceUp = priceChangeNum >= 0;
+  const formattedHolders = formatStatValueWithFormatter(
+    holders,
+    marketCapFormatter,
+  );
+
+  const { color: priceChangeColor, display: priceChangeDisplay } =
+    formatPriceChangeDisplay(priceChange24hPercent);
 
   return (
     <XStack px="$5" py="$4" gap="$4" jc="space-between" width="100%">
@@ -79,13 +93,8 @@ export function InformationPanel() {
           tokenName={name}
           tokenSymbol={symbol}
         />
-        <SizableText
-          pt="$1"
-          size="$bodyLgMedium"
-          color={isPriceUp ? '$textSuccess' : '$textCritical'}
-        >
-          {isPriceUp ? '+' : ''}
-          {priceChange24hPercent.slice(0, 6)}%
+        <SizableText pt="$1" size="$bodyLgMedium" color={priceChangeColor}>
+          {priceChangeDisplay}
         </SizableText>
       </YStack>
 
@@ -107,9 +116,7 @@ export function InformationPanel() {
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.dexmarket_holders })}
           </SizableText>
-          <SizableText size="$bodySmMedium">
-            {numberFormat(String(holders), marketCapFormatter)}
-          </SizableText>
+          <SizableText size="$bodySmMedium">{formattedHolders}</SizableText>
         </XStack>
         {/* Audit / Security - Only show when we have security data */}
         {networkId && address && securityData ? (

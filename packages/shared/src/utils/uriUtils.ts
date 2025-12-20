@@ -19,6 +19,27 @@ import type { WalletKitTypes } from '@reown/walletkit';
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
 
+// Match patterns like: onekey.so/invite/ABC123, www.example.com, etc.
+const URL_WITHOUT_PROTOCOL_REGEXP =
+  /^(?:www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z]{2,})+(?:\/[^\s]*)?$/;
+
+export function isUrlWithoutProtocol(text: string): boolean {
+  return URL_WITHOUT_PROTOCOL_REGEXP.test(text);
+}
+
+export function ensureHttpsPrefix(url: string): string {
+  if (!url) return url;
+  // Already has protocol
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  // Looks like a URL without protocol, add https://
+  if (isUrlWithoutProtocol(url)) {
+    return `https://${url}`;
+  }
+  return url;
+}
+
 function getHostNameFromUrl({ url }: { url: string }): string {
   try {
     const urlInfo = new URL(url);
@@ -291,4 +312,6 @@ export default {
   safeGetWalletConnectOrigin,
   parseUrl,
   safeParseURL,
+  isUrlWithoutProtocol,
+  ensureHttpsPrefix,
 };

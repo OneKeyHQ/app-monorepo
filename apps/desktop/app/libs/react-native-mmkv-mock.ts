@@ -1,38 +1,80 @@
-/* eslint-disable no-useless-constructor, @typescript-eslint/no-useless-constructor */
-export class MMKV {
-  constructor(_options?: { id?: string }) {
-    // Mock implementation
+// Mock for react-native-mmkv
+// In-memory storage implementation for MMKV interface
+
+class MMKV {
+  private storage: Map<string, boolean | string | number | ArrayBuffer>;
+
+  private listeners: Set<(changedKey: string) => void>;
+
+  constructor(options: { id: string }) {
+    this.storage = new Map();
+    this.listeners = new Set();
   }
 
-  set(_key: string, _value: string | number | boolean): void {
-    // Mock implementation
+  set(key: string, value: boolean | string | number | ArrayBuffer): void {
+    this.storage.set(key, value);
+    this.notifyListeners(key);
   }
 
-  getString(_key: string): string | undefined {
-    // Mock implementation
-    return undefined;
+  getString(key: string): string | undefined {
+    const value = this.storage.get(key);
+    return typeof value === 'string' ? value : undefined;
   }
 
-  getNumber(_key: string): number | undefined {
-    // Mock implementation
-    return undefined;
+  getNumber(key: string): number | undefined {
+    const value = this.storage.get(key);
+    return typeof value === 'number' ? value : undefined;
   }
 
-  getBoolean(_key: string): boolean | undefined {
-    // Mock implementation
-    return undefined;
+  getBoolean(key: string): boolean | undefined {
+    const value = this.storage.get(key);
+    return typeof value === 'boolean' ? value : undefined;
   }
 
-  delete(_key: string): void {
-    // Mock implementation
-  }
-
-  clearAll(): void {
-    // Mock implementation
+  getBuffer(key: string): ArrayBuffer | undefined {
+    const value = this.storage.get(key);
+    return value as ArrayBuffer | undefined;
   }
 
   getAllKeys(): string[] {
-    // Mock implementation
-    return [];
+    return Array.from(this.storage.keys());
+  }
+
+  recrypt(_key: string | undefined): void {
+    // eslint-disable-next-line no-restricted-syntax
+    throw new Error('Method not implemented.');
+  }
+
+  remove(key: string): boolean {
+    const result = this.storage.delete(key);
+    this.notifyListeners(key);
+    return result;
+  }
+
+  contains(key: string): boolean {
+    return this.storage.has(key);
+  }
+
+  clearAll(): void {
+    const keys = Array.from(this.storage.keys());
+    this.storage.clear();
+    keys.forEach((key) => this.notifyListeners(key));
+  }
+
+  addOnValueChangedListener(listener: (changedKey: string) => void): {
+    remove: () => void;
+  } {
+    this.listeners.add(listener);
+    return {
+      remove: () => {
+        this.listeners.delete(listener);
+      },
+    };
+  }
+
+  private notifyListeners(key: string): void {
+    this.listeners.forEach((listener) => listener(key));
   }
 }
+
+export const createMMKV = (options: { id: string }): MMKV => new MMKV(options);

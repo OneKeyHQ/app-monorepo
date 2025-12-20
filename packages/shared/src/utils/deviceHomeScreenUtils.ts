@@ -133,7 +133,7 @@ async function imagePathToHex(
   // image can be loaded to device without modifications -> it is in original quality
   if (!HAS_MONOCHROME_SCREEN[deviceType]) {
     // convert base64 to blob
-    const buffer = Buffer.from(base64, 'base64');
+    const buffer = Buffer.from(base64.base64Uri, 'base64');
     return buffer.toString('hex');
   }
 
@@ -155,7 +155,7 @@ async function imagePathToHex(
   // **** T1 model
   // DeviceModelInternal.T1B1
   return imageUtils.base64ImageToBitmap({
-    base64,
+    base64: base64.base64Uri,
     width,
     height,
   });
@@ -172,28 +172,37 @@ type IDeviceHomeScreenConfig = {
   thumbnailSize?: IDeviceHomeScreenSizeInfo;
 };
 
-async function buildCustomScreenHex(
-  dbDeviceId: string,
-  url: string | undefined,
-  deviceType: IDeviceType,
-  isUserUpload?: boolean,
-  config?: IDeviceHomeScreenConfig,
-) {
-  const imgUri =
+async function buildCustomScreenHex({
+  dbDeviceId,
+  url,
+  deviceType,
+  isUserUpload,
+  config,
+  compress,
+}: {
+  dbDeviceId: string;
+  url: string | undefined;
+  deviceType: IDeviceType;
+  isUserUpload?: boolean;
+  config?: IDeviceHomeScreenConfig;
+  compress?: number;
+}) {
+  const base64Uri =
     (await imageUtils.getBase64FromRequiredImageSource(url, (...args) => {
       defaultLogger.hardware.homescreen.getBase64FromRequiredImageSource(
         ...args,
       );
     })) || '';
-  if (!imgUri) {
-    throw new OneKeyLocalError('Error imgUri not defined');
+  if (!base64Uri) {
+    throw new OneKeyLocalError('Error base64Uri not defined');
   }
 
   if (isMonochromeScreen(deviceType)) {
-    const customHex = await imagePathToHex(imgUri, deviceType);
+    const customHex = await imagePathToHex(base64Uri, deviceType);
     return {
       screenHex: customHex,
       thumbnailHex: undefined,
+      blurScreenHex: undefined,
     };
   }
 
@@ -201,13 +210,14 @@ async function buildCustomScreenHex(
     return {
       screenHex: '',
       thumbnailHex: undefined,
+      blurScreenHex: undefined,
     };
   }
 
   let imgThumb: IResizeImageResult | undefined;
   if (config.thumbnailSize) {
     imgThumb = await imageUtils.resizeImage({
-      uri: imgUri,
+      uri: base64Uri,
 
       width: config.thumbnailSize?.width ?? config.size?.width,
       height: config.thumbnailSize?.height ?? config.size?.height,
@@ -215,13 +225,27 @@ async function buildCustomScreenHex(
       originW: config.size?.width,
       originH: config.size?.height,
       isMonochrome: false,
+      compress,
+      cornerRadius: config.thumbnailSize?.radius ?? config.size?.radius ?? 0,
     });
   }
 
   let screenHex = '';
-  if (!isUserUpload) {
+  let screenBase64 = '';
+
+  // check image type error in background service
+  const errorType = ['data:image/png;', 'data:image/gif;'];
+  let hasConvertType = false;
+  for (const type of errorType) {
+    if (base64Uri.startsWith(type)) {
+      hasConvertType = true;
+      break;
+    }
+  }
+
+  if (!isUserUpload && hasConvertType) {
     const imgScreen = await imageUtils.resizeImage({
-      uri: imgUri,
+      uri: base64Uri,
 
       width: config.size?.width,
       height: config.size?.height,
@@ -229,18 +253,30 @@ async function buildCustomScreenHex(
       originW: config.size?.width,
       originH: config.size?.height,
       isMonochrome: false,
+      compress,
+      cornerRadius: config.size?.radius ?? 0,
     });
     screenHex = imgScreen.hex;
+    screenBase64 = imageUtils.prefixBase64Uri(
+      imgScreen.base64 || base64Uri,
+      'image/jpeg',
+    );
   } else {
     screenHex = Buffer.from(
-      imageUtils.stripBase64UriPrefix(imgUri),
+      imageUtils.stripBase64UriPrefix(base64Uri),
       'base64',
     ).toString('hex');
+    screenBase64 = imageUtils.prefixBase64Uri(base64Uri, 'image/jpeg');
   }
+
+  const blurScreen = await imageUtils.processImageBlur({
+    base64Data: screenBase64 || '',
+  });
 
   return {
     screenHex,
     thumbnailHex: imgThumb?.hex,
+    blurScreenHex: blurScreen.hex,
   };
 }
 

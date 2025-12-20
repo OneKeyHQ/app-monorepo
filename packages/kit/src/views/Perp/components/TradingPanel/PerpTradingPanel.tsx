@@ -11,12 +11,11 @@ import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
-  usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useOrderConfirm } from '../../hooks';
+import { useOrderConfirm, useTradingPrice } from '../../hooks';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
@@ -27,11 +26,11 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const { midPriceBN } = useTradingPrice();
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
 
@@ -52,8 +51,8 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     if (formData.type === 'limit') {
       return new BigNumber(formData.price || 0);
     }
-    return new BigNumber(activeAssetCtx?.ctx?.markPrice || 0);
-  }, [formData.type, formData.price, activeAssetCtx?.ctx?.markPrice]);
+    return midPriceBN;
+  }, [formData.type, formData.price, midPriceBN]);
 
   const isMinimumOrderNotMet = useMemo(() => {
     if (!tradingComputed.computedSizeBN.isFinite()) return false;

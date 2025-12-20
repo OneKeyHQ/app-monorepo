@@ -46,6 +46,8 @@ export class OneKeyError<
 
   requestId?: string | undefined;
 
+  httpStatusCode?: number | undefined;
+
   override name = 'OneKeyError';
 
   constructor(
@@ -60,6 +62,7 @@ export class OneKeyError<
     let hardwareErrorPayload: IOneKeyHardwareErrorPayload | undefined;
     let autoToast: boolean | undefined;
     let requestId: string | undefined;
+    let httpStatusCode: number | undefined;
     let className: EOneKeyErrorClassNames | undefined;
     let name: string | undefined;
     let disableFallbackMessage: boolean | undefined;
@@ -73,6 +76,7 @@ export class OneKeyError<
         key,
         autoToast,
         requestId,
+        httpStatusCode,
         payload: hardwareErrorPayload,
         className,
         name,
@@ -107,6 +111,7 @@ export class OneKeyError<
     }
     this.autoToast = autoToast;
     this.requestId = requestId;
+    this.httpStatusCode = httpStatusCode;
     if (className) {
       this.className = className;
     }
@@ -130,6 +135,7 @@ export class OneKeyError<
       code: number;
       message: string;
       requestId?: string;
+      httpStatusCode?: number;
       data?: DataT;
       stack?: string;
     } = {
@@ -141,6 +147,9 @@ export class OneKeyError<
     }
     if (this.requestId !== undefined) {
       serialized.requestId = this.requestId;
+    }
+    if (this.httpStatusCode !== undefined) {
+      serialized.httpStatusCode = this.httpStatusCode;
     }
     // TODO read error.stack cause app crash
     // if (this.stack) {

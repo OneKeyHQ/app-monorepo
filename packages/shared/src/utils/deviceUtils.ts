@@ -23,9 +23,11 @@ import type {
   IFetchFirmwareVerifyHashParams,
   IFirmwareVerifyInfo,
   IOneKeyDeviceFeatures,
+  IOneKeyDeviceFeaturesWithAppParams,
   IOneKeyDeviceType,
 } from '../../types/device';
 import type {
+  Features,
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
@@ -72,13 +74,13 @@ export enum EHardwareUiStateAction {
 }
 
 type IGetDeviceVersionParams = {
-  device: SearchDevice | undefined;
+  device: IDBDevice | Omit<SearchDevice, 'commType'> | undefined;
   features: IOneKeyDeviceFeatures | undefined;
 };
 
 // TODO move to db converter
 function dbDeviceToSearchDevice(device: IDBDevice) {
-  const result: SearchDevice = {
+  const result: Omit<SearchDevice, 'commType'> = {
     ...device,
     connectId: device.connectId,
     uuid: device.uuid,
@@ -143,6 +145,10 @@ async function getDeviceVersionStr(params: IGetDeviceVersionParams) {
     await getDeviceVersion(params);
   // keep empty if version not found
   return `${bootloaderVersion}--${bleVersion}--${firmwareVersion}`;
+}
+
+function isTouchDevice(deviceType: IDeviceType) {
+  return [EDeviceType.Touch, EDeviceType.Pro].includes(deviceType);
 }
 
 async function getDeviceTypeFromFeatures({
@@ -303,7 +309,7 @@ async function buildDeviceName({
   device,
   features,
 }: {
-  device?: SearchDevice;
+  device?: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
 }): Promise<string> {
   const label = await buildDeviceLabel({ features });
@@ -345,6 +351,11 @@ async function getDeviceVerifyVersionsFromFeatures({
     return null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  const firmwareType = await getFirmwareType({
+    features: features as IOneKeyDeviceFeatures,
+  });
+
   const {
     onekey_firmware_version: onekeyFirmwareVersion,
     onekey_ble_version: onekeyBleVersion,
@@ -359,6 +370,7 @@ async function getDeviceVerifyVersionsFromFeatures({
     firmwareVersion: onekeyFirmwareVersion,
     bluetoothVersion: onekeyBleVersion,
     bootloaderVersion: onekeyBootVersion,
+    firmwareType,
   };
 }
 
@@ -500,7 +512,7 @@ function getRawDeviceId({
   device,
   features,
 }: {
-  device: SearchDevice;
+  device: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
 }) {
   // SearchDevice.deviceId is undefined when BLE connecting
@@ -537,10 +549,104 @@ function getDefaultHardwareTransportType(): EHardwareTransportType {
   if (platformEnv.isNative) {
     return EHardwareTransportType.BLE;
   }
+  // Because of uDev rules, using http bridge in linux desktop
+  if (platformEnv.isDesktopLinux) {
+    return EHardwareTransportType.Bridge;
+  }
   if (platformEnv.isSupportWebUSB) {
     return EHardwareTransportType.WEBUSB;
   }
   return EHardwareTransportType.Bridge;
+}
+
+function getFirmwareTypeByCachedFeatures({
+  features,
+}: {
+  features:
+    | (IOneKeyDeviceFeatures & { $app_firmware_type?: EFirmwareType })
+    | undefined;
+}) {
+  if (!features) {
+    return EFirmwareType.Universal;
+  }
+
+  return features.$app_firmware_type;
+}
+
+async function getFirmwareType({
+  features,
+}: {
+  features:
+    | (IOneKeyDeviceFeatures & { $app_firmware_type?: EFirmwareType })
+    | undefined;
+}) {
+  if (!features) {
+    return EFirmwareType.Universal;
+  }
+
+  if (
+    features.$app_firmware_type &&
+    features.$app_firmware_type === EFirmwareType.BitcoinOnly
+  ) {
+    return EFirmwareType.BitcoinOnly;
+  }
+
+  const { getFirmwareType: sdkGetFirmwareType } = await CoreSDKLoader();
+  return sdkGetFirmwareType(features);
+}
+
+function getFirmwareTypeLabelByFirmwareType({
+  firmwareType,
+  returnUniversal,
+  displayFormat,
+}: {
+  firmwareType: EFirmwareType | undefined;
+  returnUniversal?: boolean;
+  displayFormat?: 'withSpace' | 'withoutSpace';
+}) {
+  const space = displayFormat === 'withSpace' ? ' ' : '';
+
+  if (!firmwareType) {
+    if (returnUniversal) {
+      return `Universal${space}`;
+    }
+    return '';
+  }
+
+  if (firmwareType === EFirmwareType.BitcoinOnly) {
+    return `Bitcoin-Only${space}`;
+  }
+
+  if (!!returnUniversal && firmwareType === EFirmwareType.Universal) {
+    return `Universal${space}`;
+  }
+  return '';
+}
+
+async function getFirmwareTypeLabel({
+  features,
+  returnUniversal,
+  displayFormat,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+  returnUniversal?: boolean;
+  displayFormat?: 'withSpace' | 'withoutSpace';
+}) {
+  if (!features) {
+    return getFirmwareTypeLabelByFirmwareType({
+      firmwareType: undefined,
+      returnUniversal,
+      displayFormat,
+    });
+  }
+
+  const { getFirmwareType: sdkGetFirmwareType } = await CoreSDKLoader();
+  const firmwareType = sdkGetFirmwareType(features);
+  return getFirmwareTypeLabelByFirmwareType({
+    firmwareType,
+    returnUniversal,
+    displayFormat,
+  });
 }
 
 async function isBtcOnlyFirmware({
@@ -551,9 +657,31 @@ async function isBtcOnlyFirmware({
   if (!features) {
     return false;
   }
-  const { getFirmwareType } = await CoreSDKLoader();
-  const firmwareType = getFirmwareType(features);
+  const firmwareType = await getFirmwareType({ features });
   return firmwareType === EFirmwareType.BitcoinOnly;
+}
+
+async function buildDeviceUSBConnectId({
+  features,
+}: {
+  features: Features | undefined;
+}): Promise<string | null> {
+  if (!features) {
+    return null;
+  }
+  const { getDeviceUUID } = await CoreSDKLoader();
+  return getDeviceUUID(features);
+}
+
+async function attachAppParamsToFeatures({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures;
+}): Promise<IOneKeyDeviceFeaturesWithAppParams> {
+  const firmwareType = await getFirmwareType({
+    features,
+  });
+  return { ...features, $app_firmware_type: firmwareType };
 }
 
 export default {
@@ -584,4 +712,11 @@ export default {
   getDeviceConnectId,
   getDefaultHardwareTransportType,
   isBtcOnlyFirmware,
+  getFirmwareTypeByCachedFeatures,
+  getFirmwareType,
+  getFirmwareTypeLabel,
+  getFirmwareTypeLabelByFirmwareType,
+  isTouchDevice,
+  buildDeviceUSBConnectId,
+  attachAppParamsToFeatures,
 };

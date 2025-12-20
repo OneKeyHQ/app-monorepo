@@ -279,6 +279,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     showIcon,
     replaceType,
     hideValue,
+    compact,
   } = props;
   const { networkId, payload, nativeAmount, actions, networkLogoURI } =
     decodedTx;
@@ -412,7 +413,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       {...((change as string)?.includes('+') && {
         color: '$textSuccess',
       })}
-      {...(tableLayout && {
+      {...((tableLayout || compact) && {
         size: '$bodyMdMedium',
       })}
     >
@@ -483,6 +484,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       networkId={networkId}
       networkLogoURI={networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}
+      compact={compact}
       {...componentProps}
     />
   );

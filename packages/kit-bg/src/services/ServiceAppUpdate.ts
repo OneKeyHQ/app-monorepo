@@ -86,15 +86,13 @@ class ServiceAppUpdate extends ServiceBase {
         status: EAppUpdateStatus.done,
         jsBundleVersion: undefined,
         jsBundle: undefined,
+        downloadedEvent: undefined,
       }));
     }
   }
 
   @backgroundMethod()
   async isNeedSyncAppUpdateInfo(forceUpdate = false) {
-    if (forceUpdate) {
-      return true;
-    }
     const { status, updateAt } = await appUpdatePersistAtom.get();
     clearTimeout(syncTimerId);
     if (
@@ -106,6 +104,10 @@ class ServiceAppUpdate extends ServiceBase {
 
     if (firstLaunch) {
       firstLaunch = false;
+      return true;
+    }
+
+    if (forceUpdate) {
       return true;
     }
 
@@ -314,6 +316,7 @@ class ServiceAppUpdate extends ServiceBase {
       status: EAppUpdateStatus.done,
       jsBundle: undefined,
       previousAppVersion: undefined,
+      downloadedEvent: undefined,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
   }
@@ -387,26 +390,6 @@ class ServiceAppUpdate extends ServiceBase {
       );
       await appUpdatePersistAtom.set((prev) => {
         const isUpdating = prev.status !== EAppUpdateStatus.done;
-        const hasVersionChanged = shouldUpdate && !isUpdating;
-        let downloadedEvent: IUpdateDownloadedEvent | undefined;
-        if (hasVersionChanged) {
-          if (
-            releaseInfo.downloadUrl &&
-            releaseInfo.downloadUrl.startsWith('https')
-          ) {
-            downloadedEvent = {
-              ...prev.downloadedEvent,
-              downloadUrl: releaseInfo.downloadUrl,
-            };
-          }
-
-          if (releaseInfo.jsBundle && releaseInfo.jsBundle.downloadUrl) {
-            downloadedEvent = {
-              ...prev.downloadedEvent,
-              downloadUrl: releaseInfo.jsBundle.downloadUrl,
-            };
-          }
-        }
         return {
           ...prev,
           ...releaseInfo,
@@ -415,11 +398,12 @@ class ServiceAppUpdate extends ServiceBase {
           summary: releaseInfo?.summary || '',
           latestVersion: releaseInfo.version || prev.latestVersion,
           updateAt: Date.now(),
-          status: hasVersionChanged ? EAppUpdateStatus.notify : prev.status,
-          previousAppVersion: hasVersionChanged
-            ? platformEnv.version
-            : undefined,
-          downloadedEvent,
+          status:
+            shouldUpdate && !isUpdating ? EAppUpdateStatus.notify : prev.status,
+          previousAppVersion:
+            shouldUpdate && !isUpdating
+              ? platformEnv.version
+              : prev.previousAppVersion,
         };
       });
     } else {

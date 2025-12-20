@@ -9,7 +9,7 @@ import {
   Shortcut,
   View,
   XStack,
-  useIsHorizontalLayout,
+  useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -21,17 +21,20 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 export function UniversalSearchInput({
   containerProps,
   size = 'large',
+  initialTab,
 }: {
   containerProps?: IStackStyle;
   size?: 'large' | 'medium' | 'small';
+  initialTab?: 'market' | 'dapp';
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
+      params: initialTab ? { initialTab } : undefined,
     });
-  }, [navigation]);
+  }, [navigation, initialTab]);
 
   const isLarge = size === 'large';
   if (size === 'small') {
@@ -77,7 +80,7 @@ export function UniversalSearchInput({
 }
 
 export function MDUniversalSearchInput() {
-  const isHorizontal = useIsHorizontalLayout();
+  const isHorizontal = useIsWebHorizontalLayout();
   return isHorizontal ? null : (
     <XStack px="$5" pt="$0.5">
       <UniversalSearchInput

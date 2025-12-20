@@ -332,6 +332,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     const dbAccount = await this.vault.getAccount();
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
+    const { receiveAddressPath } = params.chainExtraParams || {};
     const sdk = await this.getHardwareSDKInstance({
       connectId: deviceParams.dbDevice.connectId,
     });
@@ -358,7 +359,9 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
 
           const response = await sdk.btcSignMessage(connectId, deviceId, {
             ...params.deviceParams?.deviceCommonParams,
-            path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+            path:
+              receiveAddressPath ??
+              `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
             coin: coinName,
             messageHex: Buffer.from(message).toString('hex'),
             dAppSignType:
@@ -491,6 +494,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         pathPrefix,
         pathSuffix,
         coinName,
+        receiveAddressPath,
         showOnOnekeyFn,
       }) => {
         const sdk = await this.getHardwareSDKInstance({
@@ -500,7 +504,9 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         const response = await sdk.btcGetAddress(connectId, deviceId, {
           ...params.deviceParams.deviceCommonParams,
           bundle: indexes.map((index, arrIndex) => ({
-            path: `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
+            path:
+              receiveAddressPath ??
+              `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
             coin: coinName?.toLowerCase(),
             showOnOneKey: showOnOnekeyFn(arrIndex),
           })),

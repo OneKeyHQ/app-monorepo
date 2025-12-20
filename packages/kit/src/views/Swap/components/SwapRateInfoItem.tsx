@@ -33,12 +33,12 @@ const SwapRateInfoItem = ({
       formatter,
     );
     if (rateSwitch) {
-      return `1 ${toToken?.symbol?.toUpperCase() ?? ''} = ${formatRate} ${
-        fromToken?.symbol?.toUpperCase() ?? ''
+      return `1 ${toToken?.symbol ?? ''} = ${formatRate} ${
+        fromToken?.symbol ?? ''
       }`;
     }
-    return `1 ${fromToken?.symbol?.toUpperCase() ?? ''} = ${formatRate} ${
-      toToken?.symbol?.toUpperCase() ?? ''
+    return `1 ${fromToken?.symbol ?? ''} = ${formatRate} ${
+      toToken?.symbol ?? ''
     }`;
   }, [fromToken, rate, rateSwitch, toToken]);
 

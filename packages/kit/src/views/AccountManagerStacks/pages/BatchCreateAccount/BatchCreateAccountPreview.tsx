@@ -23,7 +23,6 @@ import {
   Select,
   SizableText,
   Skeleton,
-  Spinner,
   Stack,
   Table,
   Toast,
@@ -630,7 +629,11 @@ function BatchCreateAccountPreviewPage({
           <YStack py="$1">
             <SizableText size="$bodyMd">
               {accountUtils.shortenAddress({
-                address: account.displayAddress || account.address,
+                address: networkUtils.isBTCNetwork(networkId)
+                  ? account.addressDetail.masterAddress ||
+                    account.displayAddress ||
+                    account.address
+                  : account.displayAddress || account.address,
               })}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -687,6 +690,7 @@ function BatchCreateAccountPreviewPage({
       getAccountCheckedState,
       intl,
       network?.symbol,
+      networkId,
     ],
   );
 
@@ -716,6 +720,30 @@ function BatchCreateAccountPreviewPage({
     }
     return false;
   }, [previewError, isLoading]);
+
+  const tableView = useMemo(() => {
+    // return null;
+    return (
+      <Table
+        onRow={onRow}
+        rowProps={{
+          gap: platformEnv.isNative ? '$8' : '$4',
+          px: '$3',
+          mx: '$2',
+          minHeight: '$12',
+        }}
+        estimatedItemSize="$12"
+        headerRowProps={{ py: '$2', minHeight: 36 }}
+        showSkeleton={isLoading}
+        // showSkeleton
+        skeletonCount={3}
+        dataSource={accounts}
+        columns={columns as any}
+        extraData={extraData}
+        keyExtractor={(item) => item.id}
+      />
+    );
+  }, [accounts, columns, extraData, isLoading, onRow]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -763,24 +791,7 @@ function BatchCreateAccountPreviewPage({
             </Stack>
           </Stack>
         ) : (
-          <Table
-            onRow={onRow}
-            rowProps={{
-              gap: platformEnv.isNative ? '$8' : '$4',
-              px: '$3',
-              mx: '$2',
-              minHeight: '$12',
-            }}
-            estimatedItemSize="$12"
-            headerRowProps={{ py: '$2', minHeight: 36 }}
-            showSkeleton={isLoading}
-            // showSkeleton
-            skeletonCount={3}
-            dataSource={accounts}
-            columns={columns as any}
-            extraData={extraData}
-            keyExtractor={(item) => item.id}
-          />
+          tableView
         )}
       </Page.Body>
       <Page.Footer>

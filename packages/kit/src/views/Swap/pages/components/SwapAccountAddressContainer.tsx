@@ -33,7 +33,7 @@ const SwapAccountAddressContainer = ({
   const [toToken] = useSwapSelectToTokenAtom();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-
+  const { activeAccount: activeToAccount } = useActiveAccount({ num: 1 });
   const networkComponent = useMemo(() => {
     const networkInfo = swapSupportAllNetwork.find(
       (net) =>
@@ -96,16 +96,40 @@ const SwapAccountAddressContainer = ({
         })}
       </SizableText>
       {networkComponent}
-      {type === ESwapDirectionType.FROM &&
-      activeAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
-      !!fromToken ? (
+      {(type === ESwapDirectionType.FROM &&
+        activeAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
+        !!fromToken) ||
+      (type === ESwapDirectionType.TO &&
+        activeToAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
+        !!toToken) ? (
         <AddressTypeSelector
+          refreshOnOpen
           placement="bottom-start"
-          networkId={fromToken.networkId}
-          indexedAccountId={activeAccount.indexedAccount?.id ?? ''}
-          walletId={activeAccount.wallet?.id ?? ''}
-          activeDeriveType={activeAccount.deriveType}
-          activeDeriveInfo={activeAccount.deriveInfo}
+          networkId={
+            type === ESwapDirectionType.FROM
+              ? fromToken?.networkId ?? ''
+              : toToken?.networkId ?? ''
+          }
+          indexedAccountId={
+            type === ESwapDirectionType.FROM
+              ? activeAccount.indexedAccount?.id ?? ''
+              : activeToAccount.indexedAccount?.id ?? ''
+          }
+          walletId={
+            type === ESwapDirectionType.FROM
+              ? activeAccount.wallet?.id ?? ''
+              : activeToAccount.wallet?.id ?? ''
+          }
+          activeDeriveType={
+            type === ESwapDirectionType.FROM
+              ? activeAccount.deriveType
+              : activeToAccount.deriveType
+          }
+          activeDeriveInfo={
+            type === ESwapDirectionType.FROM
+              ? activeAccount.deriveInfo
+              : activeToAccount.deriveInfo
+          }
           renderSelectorTrigger={
             <DeriveTypeSelectorTriggerIconRenderer
               autoShowLabel={false}

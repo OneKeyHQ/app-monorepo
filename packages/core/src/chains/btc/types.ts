@@ -133,3 +133,37 @@ export type ITxOutput = {
   tokenAddress?: string;
   payload?: { [key: string]: any };
 };
+
+export interface IBtcBlockbookDerivedInfo {
+  type: 'XPUBAddress';
+  name: string;
+  path: string;
+  transfers: number;
+  decimals: number;
+  balance?: string;
+  totalReceived?: string;
+  totalSent?: string;
+}
+
+export interface IBtcFreshAddress {
+  address: string | undefined;
+  name: string;
+  path: string;
+  transfers: number;
+  isDerivedByApp: boolean;
+  balance?: string;
+  totalReceived?: string;
+  totalSent?: string;
+  pendingTransactions?: string[];
+}
+
+export interface IBtcFreshAddressStructure {
+  change: {
+    used: IBtcFreshAddress[];
+    unused: IBtcFreshAddress[];
+  };
+  fresh: {
+    used: IBtcFreshAddress[];
+    unused: IBtcFreshAddress[];
+  };
+}

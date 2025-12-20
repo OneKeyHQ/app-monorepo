@@ -1,9 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Heading,
   Icon,
   Page,
@@ -12,6 +13,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAssetDetailRoutes,
@@ -36,7 +38,7 @@ function UTXODetails() {
 
   const { inputs, outputs, networkId, accountId, txId } = route.params;
 
-  const { network } = useAccountData({ networkId });
+  const { account, network } = useAccountData({ accountId, networkId });
 
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -75,8 +77,50 @@ function UTXODetails() {
     },
   );
 
+  const { result: changeAddressesSet } = usePromiseResult<Set<string>>(
+    async () => {
+      if (!accountId || !networkId) {
+        return new Set<string>();
+      }
+
+      const utxoAccount = account as IDBUtxoAccount | undefined;
+      const xpubSegwit = utxoAccount?.xpubSegwit ?? utxoAccount?.xpub;
+
+      if (!xpubSegwit) {
+        return new Set<string>();
+      }
+
+      const btcFreshAddresses =
+        await backgroundApiProxy.simpleDb.btcFreshAddress.getBTCFreshAddresses({
+          networkId,
+          xpubSegwit,
+        });
+
+      const changeAddresses = [
+        ...(btcFreshAddresses?.change?.used ?? []),
+        ...(btcFreshAddresses?.change?.unused ?? []),
+      ]
+        .map((item) => item.address ?? item.name)
+        .filter((item): item is string => Boolean(item));
+
+      return new Set(changeAddresses);
+    },
+    [account, accountId, networkId],
+    {
+      initResult: new Set<string>(),
+    },
+  );
+
+  const changeAddressSet = useMemo(
+    () => changeAddressesSet ?? new Set<string>(),
+    [changeAddressesSet],
+  );
+
   const renderUTXOList = useCallback(
-    (utxos: { address: string; balance: string }[]) => (
+    (
+      utxos: { address: string; balance: string }[],
+      options?: { showChangeBadge?: boolean },
+    ) => (
       <Stack>
         {utxos.map((utxo, index) => (
           // <XStack key={index} gap="$2">
@@ -92,7 +136,6 @@ function UTXODetails() {
             })}
           >
             <SizableText
-              mb="$1"
               size="$bodyMd"
               $gtMd={{
                 size: '$bodySm',
@@ -100,12 +143,27 @@ function UTXODetails() {
             >
               {utxo.address}
             </SizableText>
+            {options?.showChangeBadge && changeAddressSet.has(utxo.address) ? (
+              <Badge
+                badgeType="success"
+                badgeSize="sm"
+                mt="$1.5"
+                alignSelf="flex-start"
+              >
+                <Badge.Text>
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_change_address,
+                  })}
+                </Badge.Text>
+              </Badge>
+            ) : null}
             <SizableText
               color="$textSubdued"
               size="$bodyMd"
               $gtMd={{
                 size: '$bodySm',
               }}
+              mt="$1.5"
             >
               {`${utxo.balance} ${network?.symbol ?? ''}`}
             </SizableText>
@@ -113,7 +171,7 @@ function UTXODetails() {
         ))}
       </Stack>
     ),
-    [network?.symbol],
+    [changeAddressSet, intl, network?.symbol],
   );
 
   const renderUTXODetails = useCallback(() => {
@@ -184,7 +242,9 @@ function UTXODetails() {
             })}{' '}
             • {result?.outputs.length ?? 0}
           </Heading>
-          {renderUTXOList(result?.outputs ?? [])}
+          {renderUTXOList(result?.outputs ?? [], {
+            showChangeBadge: true,
+          })}
         </Stack>
       </Stack>
     );

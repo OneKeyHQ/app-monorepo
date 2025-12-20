@@ -1,5 +1,5 @@
 import type { CompositionEvent } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -9,7 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Input } from '../../forms/Input';
 
-import type { IInputProps } from '../../forms/Input';
+import type { IInputProps, IInputRef } from '../../forms/Input';
 
 export type ISearchBarProps = IInputProps & {
   onSearchTextChange?: (text: string) => void;
@@ -17,6 +17,7 @@ export type ISearchBarProps = IInputProps & {
 };
 
 const NATIVE_COMPOSITION_SPACE = String.fromCharCode(8198);
+const DEFAULT_DELAY_MS = 350;
 
 export function SearchBar({
   value: controlledValue,
@@ -25,11 +26,30 @@ export function SearchBar({
   testID,
   containerProps,
   debounceInterval = 300, // debounce works only if value is undefined
+  autoFocus,
+  selectTextOnFocus,
   ...rest
 }: ISearchBarProps) {
   const [internalValue, setInternalValue] = useState('');
   const compositionLockRef = useRef(false);
   const searchTextRef = useRef('');
+  const inputRef = useRef<IInputRef | null>(null);
+
+  const resolvedAutoFocusDelayMs = autoFocus ? DEFAULT_DELAY_MS : undefined;
+  const shouldDelayAutoFocus =
+    !!autoFocus && (resolvedAutoFocusDelayMs ?? 0) > 0;
+
+  useEffect(() => {
+    if (!shouldDelayAutoFocus || !resolvedAutoFocusDelayMs) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, resolvedAutoFocusDelayMs);
+    return () => clearTimeout(timer);
+  }, [resolvedAutoFocusDelayMs, shouldDelayAutoFocus]);
+
+  const resolvedAutoFocus = shouldDelayAutoFocus ? false : autoFocus;
 
   // Use controlled value if provided, otherwise use internal state
   const value = controlledValue !== undefined ? controlledValue : internalValue;
@@ -43,17 +63,8 @@ export function SearchBar({
       } else {
         // on Web
         if (compositionLockRef.current) {
-          if (!searchTextRef.current) {
-            onSearchTextChange?.(text.replaceAll(' ', ''));
-          } else {
-            onSearchTextChange?.(
-              `${searchTextRef.current}${
-                text
-                  ?.slice(searchTextRef.current.length)
-                  ?.replaceAll(' ', '') || ''
-              }`,
-            );
-          }
+          // During composition, skip search callback to avoid multiple triggers
+          // The final value will be handled in compositionEnd
           return;
         }
         searchTextRef.current = text;
@@ -100,13 +111,21 @@ export function SearchBar({
   const handleCompositionEnd = useCallback(
     (e: CompositionEvent) => {
       compositionLockRef.current = false;
-      handleChange(`${searchTextRef.current}${e.data || ''}`);
+      const target = e.target as HTMLInputElement;
+      const finalValue = target?.value || '';
+      // Update ref to maintain state consistency
+      searchTextRef.current = finalValue;
+      onSearchTextChange?.(finalValue);
+      onChangeText?.(finalValue);
     },
-    [handleChange],
+    [onSearchTextChange, onChangeText],
   );
   const intl = useIntl();
   return (
     <Input
+      ref={inputRef}
+      autoFocus={resolvedAutoFocus}
+      selectTextOnFocus={selectTextOnFocus}
       value={value}
       onChangeText={handleChange}
       leftIconName="SearchOutline"

@@ -237,7 +237,7 @@ function SignatureAssetDetailItem({
     if (inSimulation) {
       return 'md';
     }
-    return isSmallSize ? 'sm' : 'lg';
+    return isSmallSize ? 'xs' : 'lg';
   }, [inSimulation, isSmallSize]);
 
   return (
@@ -394,9 +394,8 @@ function AssetsNFT(props: IAssetsNFTProps) {
     <SignatureAssetDetailItem
       label={component.label}
       amount={component.amount}
-      symbol={
-        component.nft.metadata?.name || component.nft.collectionName || ''
-      }
+      name={component.nft.metadata?.name || component.nft.collectionName || ''}
+      symbol={component.nft.collectionSymbol || ''}
       type="nft"
       tokenProps={{
         isNFT: true,

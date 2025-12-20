@@ -26,10 +26,10 @@ export const {
   atom: perpsAllAssetsFilteredAtom,
   use: usePerpsAllAssetsFilteredAtom,
 } = contextAtom<{
-  assets: HL.IPerpsUniverse[];
+  assetsByDex: HL.IPerpsUniverse[][];
   query: string;
 }>({
-  assets: [],
+  assetsByDex: [],
   query: '',
 });
 
@@ -38,14 +38,17 @@ export const {
   use: usePerpsAllAssetsFilteredLengthAtom,
 } = contextAtomComputed((get) => {
   const perpsAllAssetsFiltered = get(perpsAllAssetsFilteredAtom());
-  return perpsAllAssetsFiltered.assets.length;
+  return perpsAllAssetsFiltered.assetsByDex.reduce(
+    (sum, assets) => sum + assets.length,
+    0,
+  );
 });
 
 export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
   contextAtom<{
-    assetCtxs: HL.IPerpsAssetCtx[];
+    assetCtxsByDex: HL.IPerpsAssetCtx[][];
   }>({
-    assetCtxs: [],
+    assetCtxsByDex: [],
   });
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
@@ -135,6 +138,7 @@ export const {
 export type IPerpsActiveOpenOrdersAtom = {
   accountAddress: string | undefined;
   openOrders: HL.IPerpsFrontendOrder[];
+  openOrdersByCoin: Record<string, HL.IPerpsFrontendOrder[]>;
 };
 export const {
   atom: perpsActiveOpenOrdersAtom,
@@ -142,6 +146,7 @@ export const {
 } = contextAtom<IPerpsActiveOpenOrdersAtom>({
   accountAddress: undefined,
   openOrders: [],
+  openOrdersByCoin: {},
 });
 
 export const {
@@ -149,7 +154,8 @@ export const {
   use: usePerpsActiveOpenOrdersLengthAtom,
 } = contextAtomComputed((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
-  return openOrders.length ?? 0;
+  const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
+  return filteredOpenOrders.length ?? 0;
 });
 
 export const {
@@ -161,11 +167,49 @@ export const {
   }>
 >((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
-  return openOrders.reduce((acc, order, index) => {
+  const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
+  return filteredOpenOrders.reduce((acc, order, index) => {
     acc[order.coin] = [...(acc[order.coin] || []), index];
     return acc;
   }, {} as { [coin: string]: number[] });
 });
+
+export const perpsOpenOrdersByCoinAtomCache = new Map<
+  string,
+  ReturnType<typeof contextAtomComputed<HL.IPerpsFrontendOrder[]>>
+>();
+
+function getOrCreatePerpsOpenOrdersByCoinAtom(coin: string) {
+  let entry = perpsOpenOrdersByCoinAtomCache.get(coin);
+  if (!entry) {
+    entry = contextAtomComputed((get) => {
+      const { openOrdersByCoin } = get(perpsActiveOpenOrdersAtom());
+      return openOrdersByCoin?.[coin] ?? [];
+    });
+    perpsOpenOrdersByCoinAtomCache.set(coin, entry);
+  }
+  return entry;
+}
+
+export function usePerpsOpenOrdersByCoin(
+  coin: string,
+): HL.IPerpsFrontendOrder[] {
+  const { use } = getOrCreatePerpsOpenOrdersByCoinAtom(coin);
+  const [orders] = use();
+  return orders;
+}
+
+export type IPerpsLedgerUpdatesAtom = {
+  accountAddress: string | undefined;
+  updates: HL.IUserNonFundingLedgerUpdate[];
+  isSubscribed: boolean;
+};
+export const { atom: perpsLedgerUpdatesAtom, use: usePerpsLedgerUpdatesAtom } =
+  contextAtom<IPerpsLedgerUpdatesAtom>({
+    accountAddress: undefined,
+    updates: [],
+    isSubscribed: false,
+  });
 
 export interface ITradingFormEnv {
   markPrice?: string;

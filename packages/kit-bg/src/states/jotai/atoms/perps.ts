@@ -2,16 +2,19 @@
 import BigNumber from 'bignumber.js';
 
 import type {
+  IFill,
   IHex,
   IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
+  IPerpTokenSelectorConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
+import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
@@ -36,6 +39,15 @@ export const {
     accountAddress: null,
     deriveType: 'default',
   },
+});
+
+// perpsActiveAccountRefreshHookAtom
+export const {
+  target: perpsActiveAccountRefreshHookAtom,
+  use: usePerpsActiveAccountRefreshHookAtom,
+} = globalAtom<{ refreshHook: number }>({
+  name: EAtomNames.perpsActiveAccountRefreshHookAtom,
+  initialValue: { refreshHook: 0 },
 });
 
 export type IPerpsActiveAccountSummaryAtom =
@@ -93,6 +105,7 @@ export type IPerpsActiveAccountStatusDetails = {
   agentOk: boolean;
   referralCodeOk: boolean;
   builderFeeOk: boolean;
+  internalRebateBoundOk: boolean;
 };
 export type IPerpsActiveAccountStatusInfoAtom =
   | {
@@ -131,7 +144,8 @@ export const {
       details?.agentOk &&
       details?.builderFeeOk &&
       details?.referralCodeOk &&
-      details?.activatedOk;
+      details?.activatedOk &&
+      details?.internalRebateBoundOk;
     const accountNotSupport =
       !account?.accountAddress && !account?.indexedAccountId;
     const canCreateAddress =
@@ -231,6 +245,20 @@ export const {
   initialValue: undefined,
 });
 
+// Token Selector Config (Persisted)
+export const {
+  target: perpTokenSelectorConfigPersistAtom,
+  use: usePerpTokenSelectorConfigPersistAtom,
+} = globalAtom<IPerpTokenSelectorConfig | null>({
+  name: EAtomNames.perpTokenSelectorConfigPersistAtom,
+  persist: true,
+  initialValue: {
+    field: 'volume24h',
+    direction: 'desc',
+    activeTab: 'all',
+  },
+});
+
 export type IPerpsActiveOrderBookOptionsAtom =
   | (IL2BookOptions & {
       coin: string;
@@ -263,6 +291,80 @@ export const {
     },
   },
 });
+
+export interface IPerpsDepositNetwork {
+  networkId: string;
+  name: string;
+  code: string;
+  shortcode: string;
+  shortname: string;
+  logoURI: string;
+  symbol: string;
+  decimals: number;
+}
+
+export interface IPerpsDepositNetworksAtom {
+  networks: IPerpsDepositNetwork[];
+  currentPerpsDepositSelectedNetwork?: IPerpsDepositNetwork;
+}
+export const {
+  target: perpsDepositNetworksAtom,
+  use: usePerpsDepositNetworksAtom,
+} = globalAtom<IPerpsDepositNetworksAtom>({
+  name: EAtomNames.perpsDepositNetworksAtom,
+  initialValue: {
+    networks: [],
+  },
+});
+export interface IPerpsDepositToken {
+  networkId: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  networkLogoURI: string;
+  price?: string;
+  balanceParsed?: string;
+  fiatValue?: string;
+  isNative?: boolean;
+  logoURI?: string;
+}
+
+export interface IPerpsDepositTokensAtom {
+  tokens: Record<string, IPerpsDepositToken[]>;
+  currentPerpsDepositSelectedToken?: IPerpsDepositToken;
+}
+export const {
+  target: perpsDepositTokensAtom,
+  use: usePerpsDepositTokensAtom,
+} = globalAtom<IPerpsDepositTokensAtom>({
+  name: EAtomNames.perpsDepositTokensAtom,
+  initialValue: {
+    tokens: {},
+  },
+});
+
+export interface IPerpsDepositOrderAtom {
+  isArbUSDCOrder: boolean;
+  fromTxId: string;
+  toTxId?: string;
+  amount: string;
+  token: IPerpsDepositToken;
+  status: ESwapTxHistoryStatus;
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  time?: number;
+}
+
+export const { target: perpsDepositOrderAtom, use: usePerpsDepositOrderAtom } =
+  globalAtom<{ orders: IPerpsDepositOrderAtom[] }>({
+    name: EAtomNames.perpsDepositOrderAtom,
+    persist: true,
+    initialValue: {
+      orders: [],
+    },
+  });
+
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;
 }
@@ -291,6 +393,33 @@ export const {
   initialValue: {
     skipOrderConfirm: false,
   },
+});
+
+export interface IPerpsTradingPreferences {
+  sizeInputUnit: 'token' | 'usd' | 'margin';
+  slippage: number;
+}
+export const {
+  target: perpsTradingPreferencesAtom,
+  use: usePerpsTradingPreferencesAtom,
+} = globalAtom<IPerpsTradingPreferences>({
+  name: EAtomNames.perpsTradingPreferencesAtom,
+  persist: true,
+  initialValue: {
+    sizeInputUnit: 'usd',
+    slippage: 8,
+  },
+});
+
+export type IPerpsLastUsedLeverageAtom = Record<string, number>;
+
+export const {
+  target: perpsLastUsedLeverageAtom,
+  use: usePerpsLastUsedLeverageAtom,
+} = globalAtom<IPerpsLastUsedLeverageAtom>({
+  name: EAtomNames.perpsLastUsedLeverageAtom,
+  persist: true,
+  initialValue: {},
 });
 
 // #endregion
@@ -335,6 +464,26 @@ export const {
 } = globalAtom<{ refreshHook: number }>({
   name: EAtomNames.perpsTradesHistoryRefreshHookAtom,
   initialValue: { refreshHook: 0 },
+});
+
+export interface IPerpsTradesHistoryDataAtom {
+  fills: IFill[];
+  isLoaded: boolean;
+  latestTime: number;
+  accountAddress: string | undefined;
+}
+
+export const {
+  target: perpsTradesHistoryDataAtom,
+  use: usePerpsTradesHistoryDataAtom,
+} = globalAtom<IPerpsTradesHistoryDataAtom>({
+  name: EAtomNames.perpsTradesHistoryDataAtom,
+  initialValue: {
+    fills: [],
+    isLoaded: false,
+    latestTime: 0,
+    accountAddress: undefined,
+  },
 });
 
 export const {

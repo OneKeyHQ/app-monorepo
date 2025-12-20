@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,9 +8,9 @@ import {
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EModalFirmwareUpdateRoutes,
-  IModalFirmwareUpdateParamList,
+import {
+  type EModalFirmwareUpdateRoutes,
+  type IModalFirmwareUpdateParamList,
 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -42,12 +42,55 @@ function PageFirmwareUpdateInstallV2() {
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
   const [isDoneInternal, setIsDoneInternal] = useState(false);
   const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
+  const needOnboarding =
+    stepInfo.step === EFirmwareUpdateSteps.updateDone
+      ? stepInfo.payload?.needOnboarding ?? false
+      : false;
 
   useEffect(() => {
     setTimeout(() => {
       setIsDoneInternal(isDone);
     }, 1500);
   }, [isDone]);
+
+  const onCloseUpdateModal = useCallback(() => {
+    actions.closeUpdateModal();
+  }, [actions]);
+
+  const onRestartOnboarding = useCallback(async () => {
+    void actions.restartOnboarding({ deviceType: result?.deviceType });
+  }, [actions, result?.deviceType]);
+
+  const FooterContent = useMemo(() => {
+    if (isDoneInternal && needOnboarding) {
+      return (
+        <FirmwareUpdatePageFooter
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_import_wallet,
+          })}
+          onConfirm={onRestartOnboarding}
+        />
+      );
+    }
+
+    if (isDoneInternal) {
+      return (
+        <FirmwareUpdatePageFooter
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_close,
+          })}
+          onConfirm={onCloseUpdateModal}
+        />
+      );
+    }
+    return null;
+  }, [
+    intl,
+    isDoneInternal,
+    needOnboarding,
+    onCloseUpdateModal,
+    onRestartOnboarding,
+  ]);
 
   /*
      await backgroundApiProxy.serviceFirmwareUpdate.startFirmwareUpdateWorkflow(
@@ -80,16 +123,7 @@ function PageFirmwareUpdateInstallV2() {
           ) : null}
           {/* FirmwareInstallingViewV2 ->  FirmwareInstallingViewBase -> FirmwareUpdateProgressBar */}
           <FirmwareInstallingViewV2 result={result} isDone={isDone} />
-          {isDoneInternal ? (
-            <FirmwareUpdatePageFooter
-              onConfirmText={intl.formatMessage({
-                id: ETranslations.global_close,
-              })}
-              onConfirm={() => {
-                actions.closeUpdateModal();
-              }}
-            />
-          ) : null}
+          {FooterContent}
         </>
       );
     }
@@ -110,10 +144,9 @@ function PageFirmwareUpdateInstallV2() {
     stepInfo.step,
     result,
     navigation,
-    intl,
-    actions,
-    isDoneInternal,
     isDone,
+    isDoneInternal,
+    FooterContent,
   ]);
 
   return (

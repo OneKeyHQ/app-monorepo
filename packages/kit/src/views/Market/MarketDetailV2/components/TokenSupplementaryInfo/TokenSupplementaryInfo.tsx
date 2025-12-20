@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
@@ -46,25 +47,25 @@ const formatSupplyValue = (
   return typeof formatted === 'string' ? formatted : String(formatted);
 };
 
-const formatCurrencyValue = (value: ISupplyValue) => {
+const formatCurrencyValue = (value: ISupplyValue, currencySymbol: string) => {
   const formatted = formatSupplyValue(value);
-  return formatted === FALLBACK_VALUE ? formatted : `$${formatted}`;
+  return formatted === FALLBACK_VALUE
+    ? formatted
+    : `${currencySymbol}${formatted}`;
 };
 
 export function TokenSupplementaryInfo() {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
   const { tokenDetail } = useTokenDetail();
+  const currencySymbol = settings?.currencyInfo?.symbol ?? '$';
 
   const rows = useMemo(() => {
     if (!tokenDetail) {
       return [];
     }
 
-    // Note: circulatingSupply and maxSupply are not available in IMarketTokenDetail
-    // Using fdv and marketCap as alternatives (similar to mobile TokenOverview)
-    const circulatingSupply = toSupplyInput(
-      tokenDetail.fdv || tokenDetail.marketCap,
-    );
+    const circulatingSupply = toSupplyInput(tokenDetail.circulatingSupply);
     const marketCap = toSupplyInput(tokenDetail.marketCap);
     const fdv = toSupplyInput(tokenDetail.fdv);
 
@@ -84,7 +85,7 @@ export function TokenSupplementaryInfo() {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_market_cap,
         }),
-        value: formatCurrencyValue(marketCap),
+        value: formatCurrencyValue(marketCap, currencySymbol),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_mc_tips,
         }),
@@ -92,13 +93,13 @@ export function TokenSupplementaryInfo() {
       {
         key: 'fdv',
         label: intl.formatMessage({ id: ETranslations.global_fdv }),
-        value: formatCurrencyValue(fdv),
+        value: formatCurrencyValue(fdv, currencySymbol),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_fdv_desc,
         }),
       },
     ];
-  }, [intl, tokenDetail]);
+  }, [currencySymbol, intl, tokenDetail]);
 
   if (!tokenDetail) {
     return null;

@@ -2,17 +2,56 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
+    <!-- Hardened Runtime entitlements for Electron -->
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
     <true/>
     <key>com.apple.security.cs.allow-dyld-environment-variables</key>
     <true/>
+
+    <!-- Device access -->
     <key>com.apple.security.device.audio-input</key>
     <true/>
     <key>com.apple.security.device.camera</key>
     <true/>
     <key>com.apple.security.device.bluetooth</key>
     <true/>
+    <key>com.apple.security.device.usb</key>
+    <true/>
+
+    <!-- Network access (required for CloudKit) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- Application Identifier - Required for CloudKit with Developer ID -->
+    <key>com.apple.application-identifier</key>
+    <string>BVJ3FU5H2K.so.onekey.wallet.desktop</string>
+
+    <!-- CloudKit configuration - Matches Provisioning Profile wildcards -->
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+      <string>CloudKit</string>
+    </array>
+    <key>com.apple.developer.icloud-container-environment</key>
+    <string>Production</string>
+    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
+    <string>BVJ3FU5H2K.so.onekey.wallet</string>
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+      <string>iCloud.so.onekey.wallet</string>
+    </array>
+    <key>com.apple.developer.ubiquity-container-identifiers</key>
+    <array>
+      <string>iCloud.so.onekey.wallet</string>
+    </array>
+
+    <!-- App Groups - Matches Provisioning Profile -->
+    <key>com.apple.security.application-groups</key>
+    <array>
+      <string>group.so.onekey.wallet</string>
+    </array>
   </dict>
 </plist>

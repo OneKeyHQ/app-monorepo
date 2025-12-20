@@ -72,7 +72,7 @@ export function WalletActionSell({ onClose }: { onClose: () => void }) {
       isSoftwareWalletOnlyUser,
     });
 
-    handleFiatCrypto();
+    handleFiatCrypto(undefined);
     onClose();
   }, [
     isSellDisabled,

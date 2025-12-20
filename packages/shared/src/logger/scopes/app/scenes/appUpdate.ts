@@ -84,6 +84,11 @@ export class AppUpdateScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'info' })
+  public restartRNApp() {
+    return {};
+  }
+
+  @LogToLocal({ level: 'info' })
   public startManualInstallPackage(params: unknown) {
     return params;
   }

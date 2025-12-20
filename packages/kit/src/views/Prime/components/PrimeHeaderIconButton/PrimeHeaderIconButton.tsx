@@ -1,12 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { HeaderIconButton, Stack, Toast } from '@onekeyhq/components';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
-
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 export function PrimeHeaderIconButton({
   onPress,
@@ -15,7 +14,7 @@ export function PrimeHeaderIconButton({
   onPress?: () => void | Promise<void>;
   networkId?: string;
 }) {
-  const { isReady, user } = usePrimeAuthV2();
+  const { isReady, user } = useOneKeyAuth();
   const isPrime = user?.primeSubscription?.isActive;
 
   const navigation = useAppNavigation();
@@ -23,13 +22,13 @@ export function PrimeHeaderIconButton({
   const themeVariant = useThemeVariant();
 
   const icon = useMemo(() => {
-    if (isPrime && user?.privyUserId) {
+    if (isPrime && user?.onekeyUserId) {
       return themeVariant === 'light'
         ? 'OnekeyPrimeLightColored'
         : 'OnekeyPrimeDarkColored';
     }
     return 'PrimeOutline';
-  }, [isPrime, themeVariant, user?.privyUserId]);
+  }, [isPrime, themeVariant, user?.onekeyUserId]);
 
   const onPrimeButtonPressed = useCallback(async () => {
     if (onPress) {

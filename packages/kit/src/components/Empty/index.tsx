@@ -4,3 +4,4 @@ export * from './EmptySearch';
 export * from './EmptyNFT';
 export * from './EmptyToken';
 export * from './EmptyApproval';
+export * from './EmptyDeFi';

@@ -3,9 +3,11 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IEventActiveAssetCtxParameters,
   IEventActiveAssetDataParameters,
+  IEventAllDexsClearinghouseStateParameters,
   IEventL2BookParameters,
+  IEventOpenOrdersParameters,
   IEventUserFillsParameters,
-  IEventWebData2Parameters,
+  IEventUserNonFundingLedgerUpdatesParameters,
   IHex,
   IPerpsSubscriptionParams,
   IWsAllMidsParameters,
@@ -34,7 +36,31 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,
   },
+  [ESubscriptionType.WEB_DATA3]: {
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
+    priority: 2,
+  },
+  [ESubscriptionType.ALL_DEXS_CLEARINGHOUSE_STATE]: {
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
+    priority: 2,
+  },
+  [ESubscriptionType.OPEN_ORDERS]: {
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
+    priority: 2,
+  },
+  [ESubscriptionType.ALL_DEXS_ASSET_CTXS]: {
+    eventType: EPerpsSubscriptionCategory.MARKET,
+    priority: 2,
+  },
+  [ESubscriptionType.TWAP_STATES]: {
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
+    priority: 2,
+  },
   [ESubscriptionType.USER_FILLS]: {
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
+    priority: 2,
+  },
+  [ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES]: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,
   },
@@ -46,22 +72,6 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 3,
   },
-  // [ESubscriptionType.TRADES]: {
-  //   eventType: EPerpsSubscriptionCategory.MARKET,
-  //   priority: 4,
-  // },
-  // [ESubscriptionType.BBO]: {
-  //   eventType: EPerpsSubscriptionCategory.MARKET,
-  //   priority: 3,
-  // },
-  // [ESubscriptionType.USER_EVENTS]: {
-  //   eventType: EPerpsSubscriptionCategory.ACCOUNT,
-  //   priority: 2,
-  // },
-  // [ESubscriptionType.USER_NOTIFICATIONS]: {
-  //   eventType: EPerpsSubscriptionCategory.ACCOUNT,
-  //   priority: 3,
-  // },
 };
 
 export interface ISubscriptionSpec<T extends ESubscriptionType> {
@@ -76,6 +86,7 @@ export interface ISubscriptionState {
   currentSymbol: string;
   isConnected: boolean;
   l2BookOptions?: IL2BookOptions | null;
+  enableLedgerUpdates?: boolean;
 }
 
 export interface ISubscriptionDiff {
@@ -118,13 +129,27 @@ export function calculateRequiredSubscriptions(
 ): ISubscriptionSpec<ESubscriptionType>[] {
   const specs: ISubscriptionSpec<ESubscriptionType>[] = [];
 
+  // Market Data: All Mids (Global)
+  // TODO: verify if 'dex' parameter is supported in sdk/types for IWsAllMidsParameters
+  // The user log shows {"type":"allMids","dex":"ALL_DEXS"}, so we include it.
   const allMidsParams: IWsAllMidsParameters = {
-    // dex: '',
+    // @ts-ignore
+    dex: 'ALL_DEXS',
   };
   specs.push(
     buildSubscriptionSpec({
       type: ESubscriptionType.ALL_MIDS,
       params: allMidsParams,
+    }),
+  );
+
+  // Market Data: All Dexs Asset Contexts (Global) - Replaces per-asset context?
+  // User log shows {"type":"allDexsAssetCtxs"}
+  const allDexsAssetCtxsParams = {};
+  specs.push(
+    buildSubscriptionSpec({
+      type: ESubscriptionType.ALL_DEXS_ASSET_CTXS,
+      params: allDexsAssetCtxsParams,
     }),
   );
 
@@ -136,6 +161,17 @@ export function calculateRequiredSubscriptions(
       buildSubscriptionSpec({
         type: ESubscriptionType.ACTIVE_ASSET_CTX,
         params: activeAssetCtxParams,
+      }),
+    );
+
+    const activeAssetDataParams: IEventActiveAssetDataParameters = {
+      coin: state.currentSymbol,
+      user: state.currentUser || PERPS_EMPTY_ADDRESS,
+    };
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.ACTIVE_ASSET_DATA,
+        params: activeAssetDataParams,
       }),
     );
 
@@ -155,17 +191,37 @@ export function calculateRequiredSubscriptions(
     }
   }
 
+  // User Data
   if (state.currentUser) {
-    const webData2Params: IEventWebData2Parameters = {
-      user: state.currentUser,
-    };
+    const allDexsClearinghouseStateParams: IEventAllDexsClearinghouseStateParameters =
+      {
+        user: state.currentUser,
+      };
     specs.push(
       buildSubscriptionSpec({
-        type: ESubscriptionType.WEB_DATA2,
-        params: webData2Params,
+        type: ESubscriptionType.ALL_DEXS_CLEARINGHOUSE_STATE,
+        params: allDexsClearinghouseStateParams,
       }),
     );
 
+    const openOrdersParams: IEventOpenOrdersParameters = {
+      user: state.currentUser,
+      dex: 'ALL_DEXS',
+    };
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.OPEN_ORDERS,
+        params: openOrdersParams,
+      }),
+    );
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.WEB_DATA3,
+        params: {
+          user: state.currentUser,
+        },
+      }),
+    );
     const userFillsParams: IEventUserFillsParameters = {
       user: state.currentUser,
       aggregateByTime: true,
@@ -179,6 +235,22 @@ export function calculateRequiredSubscriptions(
       }),
     );
 
+    if (state.enableLedgerUpdates) {
+      const ledgerUpdatesParams: IEventUserNonFundingLedgerUpdatesParameters = {
+        user: state.currentUser,
+      };
+      specs.push(
+        buildSubscriptionSpec({
+          type: ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
+          params: ledgerUpdatesParams,
+        }),
+      );
+    }
+
+    // Legacy or specific per-asset data (Optional, based on need.
+    // Usually WebData3 covers general state, but if specific asset data needed:
+    // User log implies global subscriptions are preferred.)
+    /*
     if (state.currentSymbol) {
       const activeAssetDataParams: IEventActiveAssetDataParameters = {
         user: state.currentUser,
@@ -191,16 +263,10 @@ export function calculateRequiredSubscriptions(
         }),
       );
     }
+    */
   } else {
-    const webData2Params: IEventWebData2Parameters = {
-      user: PERPS_EMPTY_ADDRESS,
-    };
-    specs.push(
-      buildSubscriptionSpec({
-        type: ESubscriptionType.WEB_DATA2,
-        params: webData2Params,
-      }),
-    );
+    // WebData3 requires a user address.
+    // If no user, we likely only need market data (handled above).
   }
 
   return specs.sort((a, b) => a.priority - b.priority);

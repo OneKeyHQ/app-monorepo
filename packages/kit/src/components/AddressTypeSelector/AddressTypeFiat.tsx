@@ -2,7 +2,12 @@ import { memo, useMemo } from 'react';
 
 import { find } from 'lodash';
 
-import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { NetworkAvatarBase } from '../NetworkAvatar';
@@ -19,6 +24,8 @@ function AddressTypeFiat({
   const [settings] = useSettingsPersistAtom();
 
   const { tokenMap, networkLogoURI } = useAddressTypeSelectorStableContext();
+
+  const media = useMedia();
 
   const tokenFiat = useMemo(() => {
     if (!tokenMap) {
@@ -43,10 +50,7 @@ function AddressTypeFiat({
       <XStack alignItems="center" gap="$1" pb="$0.5">
         <NetworkAvatarBase logoURI={networkLogoURI ?? ''} size={16} />
         <NumberSizeableText
-          size="$bodyMdMedium"
-          $gtMd={{
-            size: '$bodySmMedium',
-          }}
+          size={media.gtMd ? '$bodySmMedium' : '$bodyMdMedium'}
           formatter="balance"
         >
           {tokenFiat.balanceParsed}

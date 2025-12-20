@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, XStack } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -16,10 +17,12 @@ function BasicTradeOrBuy({
   token,
   accountId,
   networkId,
+  containerStyle,
 }: {
   token: IToken;
   accountId: string;
   networkId: string;
+  containerStyle?: IXStackProps;
 }) {
   const {
     activeAccount: { wallet },
@@ -39,7 +42,7 @@ function BasicTradeOrBuy({
   }
 
   return (
-    <XStack ai="center" jc="space-between" pt="$5">
+    <XStack ai="center" jc="space-between" pt="$5" {...containerStyle}>
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage(
           { id: ETranslations.earn_not_enough_token },
@@ -71,10 +74,12 @@ export function TradeOrBuy({
   token,
   accountId,
   networkId,
+  containerStyle,
 }: {
   token: IToken;
   accountId: string;
   networkId: string;
+  containerStyle?: IXStackProps;
 }) {
   return (
     <HomeTokenListProviderMirror>
@@ -82,6 +87,7 @@ export function TradeOrBuy({
         token={token}
         accountId={accountId}
         networkId={networkId}
+        containerStyle={containerStyle}
       />
     </HomeTokenListProviderMirror>
   );

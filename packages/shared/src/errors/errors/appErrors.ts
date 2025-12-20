@@ -82,6 +82,18 @@ export class TransferInvalidCodeError extends OneKeyAppError {
   }
 }
 
+export class PrimeTransferImportCancelledError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PrimeTransferImportCancelledError',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PrimeTransferImportCancelledError;
+}
+
 export class RequestLimitExceededError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -302,6 +314,21 @@ export class PrimeLoginDialogCancelError extends OneKeyAppError {
   override className = EOneKeyErrorClassNames.PrimeLoginDialogCancelError;
 
   override name = EOneKeyErrorClassNames.PrimeLoginDialogCancelError;
+}
+
+export class PrimeSendEmailOTPCancelError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PrimeSendEmailOTPCancelError',
+        defaultKey: ETranslations.global_cancel,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PrimeSendEmailOTPCancelError;
+
+  override name = EOneKeyErrorClassNames.PrimeSendEmailOTPCancelError;
 }
 
 export class FailedToTransfer extends OneKeyAppError {
@@ -1085,6 +1112,29 @@ export class ManageTokenInsufficientBalanceError extends OneKeyAppError<IManageT
       normalizeErrorProps(props, {
         defaultMessage: 'ManageTokenInsufficientBalanceError',
         defaultKey: ETranslations.manage_token_account_no_found,
+      }),
+    );
+  }
+}
+
+export class BTCFreshAddressCanNotConnectDappError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BTCFreshAddressCanNotConnectDappError',
+        defaultKey:
+          ETranslations.wallet_banner_single_address_required_description,
+      }),
+    );
+  }
+}
+
+export class HomeScreenNotSupportFormatError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'HomeScreenNotSupportFormat',
+        defaultKey: ETranslations.homescreen_format_supported,
       }),
     );
   }

@@ -108,13 +108,13 @@ export function AccountCopyButton({
         deriveInfo: activeAccount?.deriveInfoItems?.find(
           (item) => item.value === defaultDeriveType,
         )?.item,
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     } else {
       copyAddressWithDeriveType({
         address:
           account?.address || indexedAccount?.associateAccount?.address || '',
-        networkName: network?.shortname,
+        networkName: network?.name,
       });
     }
     onClose();
@@ -123,7 +123,7 @@ export function AccountCopyButton({
     wallet?.type,
     network?.id,
     network?.isAllNetworks,
-    network?.shortname,
+    network?.name,
     isSoftwareWalletOnlyUser,
     vaultSettings?.mergeDeriveAssetsEnabled,
     onClose,

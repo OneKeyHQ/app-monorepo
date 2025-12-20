@@ -21,6 +21,11 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { BTCFreshAddressCanNotConnectDappError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -53,6 +58,15 @@ class ProviderApiBtc extends ProviderApiBase {
   public providerName = IInjectedProviderNames.btc;
 
   private semaphore = new Semaphore(1);
+
+  private readonly BTC_FRESH_ADDRESS_DIALOG_DEBOUNCE_MS =
+    timerUtils.getTimeDurationMs({ seconds: 1 });
+
+  private btcFreshAddressConnectDialogCooling = false;
+
+  private btcFreshAddressConnectDialogCooldownTimer?: ReturnType<
+    typeof setTimeout
+  >;
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
@@ -102,11 +116,44 @@ class ProviderApiBtc extends ProviderApiBase {
     };
   }
 
+  private resetFreshAddressConnectDialogDebounceTimer() {
+    if (this.btcFreshAddressConnectDialogCooldownTimer) {
+      clearTimeout(this.btcFreshAddressConnectDialogCooldownTimer);
+    }
+    this.btcFreshAddressConnectDialogCooldownTimer = setTimeout(() => {
+      this.btcFreshAddressConnectDialogCooling = false;
+      this.btcFreshAddressConnectDialogCooldownTimer = undefined;
+    }, this.BTC_FRESH_ADDRESS_DIALOG_DEBOUNCE_MS);
+  }
+
+  private emitBtcFreshAddressConnectDappRejectedWithDebounce() {
+    if (this.btcFreshAddressConnectDialogCooling) {
+      this.resetFreshAddressConnectDialogDebounceTimer();
+      return;
+    }
+    this.btcFreshAddressConnectDialogCooling = true;
+    appEventBus.emit(
+      EAppEventBusNames.BtcFreshAddressConnectDappRejected,
+      undefined,
+    );
+    this.resetFreshAddressConnectDialogDebounceTimer();
+  }
+
+  private async checkIfEnableConnect() {
+    const enabledBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (enabledBTCFreshAddress) {
+      this.emitBtcFreshAddressConnectDappRejectedWithDebounce();
+      throw new BTCFreshAddressCanNotConnectDappError();
+    }
+  }
+
   // Provider API
   @providerApiMethod()
   public async requestAccounts(request: IJsBridgeMessagePayload) {
     return this.semaphore.runExclusive(async () => {
       defaultLogger.discovery.dapp.dappRequest({ request });
+      await this.checkIfEnableConnect();
       const accounts = await this.getAccounts(request);
       if (accounts && accounts.length) {
         return accounts;
@@ -376,6 +423,7 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignMessageParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
+    await this.checkIfEnableConnect();
     const { message, type } = params;
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
@@ -451,6 +499,7 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignPsbtParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
+    await this.checkIfEnableConnect();
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
 
@@ -493,6 +542,7 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignPsbtsParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
+    await this.checkIfEnableConnect();
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
 

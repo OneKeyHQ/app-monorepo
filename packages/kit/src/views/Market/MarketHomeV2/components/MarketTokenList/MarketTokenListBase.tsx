@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import {
-  ETableSortType,
+  ListEndIndicator,
   Spinner,
   Stack,
   Table,
@@ -14,6 +14,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  ECopyFrom,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -54,6 +58,10 @@ type IMarketTokenListBaseProps = {
   toolbar?: ReactNode;
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
+  showEndReachedIndicator?: boolean;
+  hideTokenAge?: boolean;
+  watchlistFrom?: EWatchlistFrom;
+  copyFrom?: ECopyFrom;
 };
 
 function MarketTokenListBase({
@@ -62,11 +70,21 @@ function MarketTokenListBase({
   toolbar,
   result,
   isWatchlistMode = false,
+  showEndReachedIndicator = false,
+  hideTokenAge = false,
+  watchlistFrom,
+  copyFrom,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
   const { md } = useMedia();
 
-  const marketTokenColumns = useMarketTokenColumns();
+  const marketTokenColumns = useMarketTokenColumns(
+    networkId,
+    isWatchlistMode,
+    hideTokenAge,
+    watchlistFrom,
+    copyFrom,
+  );
 
   const {
     data,
@@ -138,6 +156,10 @@ function MarketTokenListBase({
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
+      if (!isWatchlistMode) {
+        return undefined;
+      }
+
       // Sorting logic
       const sortKey =
         SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
@@ -147,7 +169,6 @@ function MarketTokenListBase({
           onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
             handleSortChange(sortKey, order);
           },
-          disableSort: isWatchlistMode ? [] : [ETableSortType.ASC],
         };
       }
 
@@ -169,20 +190,21 @@ function MarketTokenListBase({
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
 
   const TableFooterComponent = useMemo(() => {
-    return isLoadingMore ? (
-      <Stack alignItems="center" justifyContent="center" py="$4">
-        <Spinner size="small" />
-      </Stack>
-    ) : null;
-  }, [isLoadingMore]);
+    if (isLoadingMore) {
+      return (
+        <Stack alignItems="center" justifyContent="center" py="$4">
+          <Spinner size="small" />
+        </Stack>
+      );
+    }
 
-  if (showSkeleton && platformEnv.isNativeAndroid) {
-    return (
-      <Stack flex={1} alignItems="center" justifyContent="center" py="$4">
-        <Spinner size="small" />
-      </Stack>
-    );
-  }
+    // Show end indicator when no more data to load
+    if (showEndReachedIndicator && !canLoadMore && data.length > 0) {
+      return <ListEndIndicator />;
+    }
+
+    return null;
+  }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
 
   return (
     <Stack flex={1} width="100%">

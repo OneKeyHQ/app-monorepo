@@ -1,9 +1,9 @@
 import type { FC } from 'react';
-import { useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page } from '@onekeyhq/components';
+import { HeaderIconButton, Page } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -29,20 +29,24 @@ type IEditableChainSelectorProps = {
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   recentNetworksEnabled?: boolean;
+  accountNetworkValues: Record<string, string>;
+  accountNetworkValueCurrency?: string;
 };
 
-function getHeaderRightComponent(
-  label: string,
-  handleEditButtonPress: () => void,
-) {
-  return (
-    <Button variant="tertiary" onPress={handleEditButtonPress}>
-      {label}
-    </Button>
-  );
-}
+// function getHeaderRightComponent(
+//   label: string,
+//   handleEditButtonPress: () => void,
+// ) {
+//   return (
+//     <Button variant="tertiary" onPress={handleEditButtonPress}>
+//       {label}
+//     </Button>
+//   );
+// }
 
 export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
+  accountNetworkValues,
+  accountNetworkValueCurrency,
   mainnetItems,
   testnetItems,
   unavailableItems,
@@ -59,17 +63,19 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
   recentNetworksEnabled = true,
 }) => {
   const intl = useIntl();
-  const [isEditMode, setIsEditMode] = useState(false);
+  // const [isEditMode, setIsEditMode] = useState(false);
   const [allNetworksChanged, setAllNetworksChanged] = useState(false);
-  const headerRight = useMemo(
-    () => () =>
-      getHeaderRightComponent(
-        isEditMode
-          ? intl.formatMessage({ id: ETranslations.global_done })
-          : intl.formatMessage({ id: ETranslations.global_edit }),
-        () => setIsEditMode(!isEditMode),
-      ),
-    [intl, isEditMode],
+  const headerRight = useCallback(
+    () => (
+      <HeaderIconButton
+        icon="PlusLargeSolid"
+        onPress={() => onAddCustomNetwork?.()}
+        title={intl.formatMessage({
+          id: ETranslations.custom_network_add_network_action_text,
+        })}
+      />
+    ),
+    [onAddCustomNetwork, intl],
   );
   return (
     <Page
@@ -87,7 +93,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
       />
       <Page.Body>
         <EditableChainSelectorContent
-          isEditMode={isEditMode}
+          // isEditMode={isEditMode}
           frequentlyUsedItems={frequentlyUsedItems}
           unavailableItems={unavailableItems}
           accountId={accountId}
@@ -103,6 +109,8 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           onFrequentlyUsedItemsChange={onFrequentlyUsedItemsChange}
           setAllNetworksChanged={setAllNetworksChanged}
           recentNetworksEnabled={recentNetworksEnabled}
+          accountNetworkValues={accountNetworkValues}
+          accountNetworkValueCurrency={accountNetworkValueCurrency}
         />
       </Page.Body>
     </Page>

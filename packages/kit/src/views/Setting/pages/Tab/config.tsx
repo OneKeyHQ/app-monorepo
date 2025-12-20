@@ -9,8 +9,9 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
   isShowAppUpdateUIWhenUpdating,
@@ -53,12 +54,13 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
-import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
+import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 import { showApiEndpointDialog } from '../../components/ApiEndpointDialog';
 
 import {
   AutoLockListItem,
+  BTCFreshAddressListItem,
   BiologyAuthListItem,
   CleanDataListItem,
   ClearAppCacheListItem,
@@ -70,7 +72,9 @@ import {
   ThemeListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
-import { exportLogs } from './exportLogs';
+import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
+import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
+import { OneKeyIdTabItem } from './OneKeyIdTabItem';
 import { SubSearchSettings } from './SubSettings';
 
 import type { RouteProp } from '@react-navigation/native';
@@ -88,6 +92,7 @@ export interface ISubSettingConfig {
 }
 
 export enum ESettingsTabNames {
+  OneKeyID = 'OneKeyID',
   Backup = 'Backup',
   Preferences = 'Preferences',
   Wallet = 'Wallet',
@@ -115,6 +120,11 @@ export type ISettingsConfig = (
         settingsConfig: ISettingsConfig;
       }>;
       configs: (ISubSettingConfig | undefined | null)[][];
+      // Custom tab item renderer for special tabs like OneKey ID
+      renderTabItem?: ComponentType<{
+        selected?: boolean;
+        onPress?: () => void;
+      }>;
     }
   | undefined
 )[];
@@ -134,117 +144,134 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  const { copyText } = useClipboard();
   const biometricAuthInfo = useBiometricAuthInfo();
   const userAgreementUrl = useHelpLink({ path: 'articles/11461297' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { isLoggedIn } = usePrimeAuthV2();
+  const { isLoggedIn } = useOneKeyAuth();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [settings] = useSettingsPersistAtom();
+
+  const { cloudBackupFeatureInfo, goToPageBackupList, startBackup } =
+    useCloudBackup();
+
   return useMemo(
     () => [
+      // OneKey ID tab with custom rendering
       {
-        name: ESettingsTabNames.Backup,
-        icon: 'CloudUploadSolid',
-        title: intl.formatMessage({ id: ETranslations.global_backup }),
-        configs: [
-          [
-            platformEnv.isNative
-              ? {
-                  icon: 'RepeatOutline',
-                  title: intl.formatMessage({
-                    id: platformEnv.isNativeAndroid
-                      ? ETranslations.settings_google_drive_backup
-                      : ETranslations.settings_icloud_backup,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.pushModal(EModalRoutes.CloudBackupModal, {
-                      screen: ECloudBackupRoutes.CloudBackupHome,
-                    });
-                  },
-                }
-              : null,
-            isPrimeAvailable
-              ? {
-                  // OneKey Cloud
-                  icon: 'CloudOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_onekey_cloud,
-                  }),
-                  onPress: (navigation) => {
-                    defaultLogger.prime.subscription.primeEntryClick({
-                      featureName: EPrimeFeatures.OneKeyCloud,
-                      entryPoint: 'settingsPage',
-                    });
-
-                    navigation?.pushModal(EModalRoutes.PrimeModal, {
-                      screen: EPrimePages.PrimeCloudSync,
-                    });
-                  },
-                }
-              : undefined,
-          ],
-          [
-            {
-              // OneKey Transfer
-              icon: 'MultipleDevicesOutline',
-              title: intl.formatMessage({
-                id: ETranslations.transfer_transfer,
-              }),
-              subtitle: intl.formatMessage({
-                id: ETranslations.prime_transfer_description,
-              }),
-              onPress: (navigation) => {
-                navigation?.pushModal(EModalRoutes.PrimeModal, {
-                  screen: EPrimePages.PrimeTransfer,
-                });
-              },
-            },
-          ],
-          [
-            {
-              icon: 'SignatureOutline',
-              title: intl.formatMessage({
-                id: ETranslations.manual_backup,
-              }),
-              onPress: (navigation) => {
-                navigation?.pushModal(EModalRoutes.ManualBackupModal, {
-                  screen: EManualBackupRoutes.ManualBackupSelectWallet,
-                });
-              },
-            },
-            platformEnv.isNative
-              ? {
-                  icon: 'OnekeyLiteOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_onekey_lite,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.pushModal(EModalRoutes.LiteCardModal, {
-                      screen: ELiteCardRoutes.LiteCardHome,
-                    });
-                  },
-                }
-              : undefined,
-            {
-              // OneKey Keytag
-              icon: 'OnekeyKeytagOutline',
-              title: intl.formatMessage({
-                id: ETranslations.global_onekey_keytag,
-              }),
-              onPress: (navigation) => {
-                defaultLogger.setting.page.enterKeyTag();
-                navigation?.pushModal(EModalRoutes.KeyTagModal, {
-                  screen: EModalKeyTagRoutes.UserOptions,
-                });
-              },
-            },
-          ],
-        ],
+        name: ESettingsTabNames.OneKeyID,
+        icon: 'PeopleSolid',
+        title: 'OneKey ID',
+        renderTabItem: OneKeyIdTabItem,
+        Component: OneKeyIdSubSettings,
+        configs: [],
       },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            name: ESettingsTabNames.Backup,
+            icon: 'CloudUploadSolid',
+            title: intl.formatMessage({ id: ETranslations.global_backup }),
+            configs: [
+              [
+                cloudBackupFeatureInfo?.supportCloudBackup
+                  ? {
+                      icon: cloudBackupFeatureInfo?.icon,
+                      title: cloudBackupFeatureInfo?.title,
+                      onPress: (navigation) => {
+                        navigation?.popStack();
+                        void startBackup({ alwaysGoToBackupDetail: true });
+                        // void goToPageBackupList();
+                        // navigation?.pushModal(EModalRoutes.CloudBackupModal, {
+                        //   screen: ECloudBackupRoutes.CloudBackupHome,
+                        // });
+                      },
+                    }
+                  : null,
+                isPrimeAvailable
+                  ? {
+                      // OneKey Cloud
+                      icon: 'CloudOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_onekey_cloud,
+                      }),
+                      onPress: (navigation) => {
+                        defaultLogger.prime.subscription.primeEntryClick({
+                          featureName: EPrimeFeatures.OneKeyCloud,
+                          entryPoint: 'settingsPage',
+                        });
+
+                        navigation?.pushModal(EModalRoutes.PrimeModal, {
+                          screen: EPrimePages.PrimeCloudSync,
+                        });
+                      },
+                    }
+                  : undefined,
+              ],
+              [
+                !platformEnv.isWebDappMode
+                  ? {
+                      // OneKey Transfer
+                      icon: 'MultipleDevicesOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.transfer_transfer,
+                      }),
+                      subtitle: intl.formatMessage({
+                        id: ETranslations.prime_transfer_description,
+                      }),
+                      onPress: (navigation) => {
+                        navigation?.pushModal(EModalRoutes.PrimeModal, {
+                          screen: EPrimePages.PrimeTransfer,
+                        });
+                      },
+                    }
+                  : undefined,
+              ],
+              [
+                !platformEnv.isWebDappMode
+                  ? {
+                      icon: 'SignatureOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.manual_backup,
+                      }),
+                      onPress: (navigation) => {
+                        navigation?.pushModal(EModalRoutes.ManualBackupModal, {
+                          screen: EManualBackupRoutes.ManualBackupSelectWallet,
+                        });
+                      },
+                    }
+                  : undefined,
+                platformEnv.isNative
+                  ? {
+                      icon: 'OnekeyLiteOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_onekey_lite,
+                      }),
+                      onPress: (navigation) => {
+                        navigation?.pushModal(EModalRoutes.LiteCardModal, {
+                          screen: ELiteCardRoutes.LiteCardHome,
+                        });
+                      },
+                    }
+                  : undefined,
+                {
+                  // OneKey Keytag
+                  icon: 'OnekeyKeytagOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_onekey_keytag,
+                  }),
+                  onPress: (navigation) => {
+                    defaultLogger.setting.page.enterKeyTag();
+                    navigation?.pushModal(EModalRoutes.KeyTagModal, {
+                      screen: EModalKeyTagRoutes.UserOptions,
+                    });
+                  },
+                },
+              ],
+            ],
+          },
       {
         name: ESettingsTabNames.Preferences,
         icon: 'SettingsSolid',
@@ -326,15 +353,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         }),
         configs: [
           [
-            {
-              icon: 'ContactsOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_address_book,
-              }),
-              onPress: (navigation) => {
-                void onPressAddressBook(navigation);
-              },
-            },
+            platformEnv.isWebDappMode
+              ? undefined
+              : {
+                  icon: 'ContactsOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_address_book,
+                  }),
+                  onPress: (navigation) => {
+                    void onPressAddressBook(navigation);
+                  },
+                },
           ],
           [
             !platformEnv.isWeb
@@ -350,29 +379,35 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 }
               : undefined,
-            {
-              icon: 'LabOutline',
-              title: intl.formatMessage({
-                id: ETranslations.global_customize_transaction,
-              }),
-              onPress: (navigation) => {
-                defaultLogger.setting.page.enterCustomizeTransaction();
-                navigation?.push(EModalSettingRoutes.SettingCustomTransaction);
-              },
-            },
+            platformEnv.isWebDappMode
+              ? undefined
+              : {
+                  icon: 'LabOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_customize_transaction,
+                  }),
+                  onPress: (navigation) => {
+                    defaultLogger.setting.page.enterCustomizeTransaction();
+                    navigation?.push(
+                      EModalSettingRoutes.SettingCustomTransaction,
+                    );
+                  },
+                },
           ],
           [
-            {
-              icon: 'BranchesOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_account_derivation_path,
-              }),
-              onPress: (navigation) => {
-                navigation?.push(
-                  EModalSettingRoutes.SettingAccountDerivationModal,
-                );
-              },
-            },
+            platformEnv.isWebDappMode
+              ? undefined
+              : {
+                  icon: 'BranchesOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_account_derivation_path,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.push(
+                      EModalSettingRoutes.SettingAccountDerivationModal,
+                    );
+                  },
+                },
           ],
           [
             !perpConfigCommon.disablePerp && !perpConfigCommon.usePerpWeb
@@ -387,6 +422,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : null,
           ],
+          [
+            platformEnv.isWebDappMode
+              ? undefined
+              : {
+                  icon: 'FlashCardSolid',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_btc_multiple_addresses,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_btc_multiple_addresses_description,
+                  }),
+                  renderElement: <BTCFreshAddressListItem />,
+                },
+          ],
         ],
       },
       {
@@ -397,14 +446,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         }),
         configs: [
           [
-            isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport)
+            isPasswordSet &&
+            (biologyAuthIsSupport || webAuthIsSupport) &&
+            !platformEnv.isWebDappMode
               ? {
                   title: biometricAuthInfo.title,
                   icon: biometricAuthInfo.icon,
                   renderElement: <BiologyAuthListItem />,
                 }
               : null,
-            isPasswordSet
+            isPasswordSet && !platformEnv.isWebDappMode
               ? {
                   icon: 'ClockTimeHistoryOutline',
                   title: intl.formatMessage({
@@ -413,75 +464,83 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <AutoLockListItem />,
                 }
               : null,
-            {
-              icon: 'KeyOutline',
-              title: intl.formatMessage({
-                id: isPasswordSet
-                  ? ETranslations.global_change_passcode
-                  : ETranslations.global_set_passcode,
-              }),
-              onPress: async () => {
-                if (isPasswordSet) {
-                  const oldEncodedPassword =
-                    await backgroundApiProxy.servicePassword.promptPasswordVerify(
-                      {
-                        reason: EReasonForNeedPassword.Security,
-                      },
-                    );
-                  const dialog = Dialog.show({
-                    title: intl.formatMessage({
-                      id: ETranslations.global_change_passcode,
-                    }),
-                    renderContent: (
-                      <PasswordUpdateContainer
-                        oldEncodedPassword={oldEncodedPassword.password}
-                        onUpdateRes={async (data) => {
-                          if (data) {
-                            await dialog.close();
-                          }
-                        }}
-                      />
-                    ),
-                    showFooter: false,
-                  });
-                } else {
-                  void backgroundApiProxy.servicePassword.promptPasswordVerify();
-                }
-              },
-            },
+            platformEnv.isWebDappMode
+              ? undefined
+              : {
+                  icon: 'KeyOutline',
+                  title: intl.formatMessage({
+                    id: isPasswordSet
+                      ? ETranslations.global_change_passcode
+                      : ETranslations.global_set_passcode,
+                  }),
+                  onPress: async () => {
+                    if (isPasswordSet) {
+                      const oldEncodedPassword =
+                        await backgroundApiProxy.servicePassword.promptPasswordVerify(
+                          {
+                            reason: EReasonForNeedPassword.Security,
+                          },
+                        );
+                      const dialog = Dialog.show({
+                        title: intl.formatMessage({
+                          id: ETranslations.global_change_passcode,
+                        }),
+                        renderContent: (
+                          <PasswordUpdateContainer
+                            oldEncodedPassword={oldEncodedPassword.password}
+                            onUpdateRes={async (data) => {
+                              if (data) {
+                                await dialog.close();
+                              }
+                            }}
+                          />
+                        ),
+                        showFooter: false,
+                      });
+                    } else {
+                      void backgroundApiProxy.servicePassword.promptPasswordVerify();
+                    }
+                  },
+                },
           ],
           [
-            {
-              icon: 'ShieldCheckDoneOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_protection,
-              }),
-              onPress: (navigation) => {
-                navigation?.push(EModalSettingRoutes.SettingProtectModal);
-              },
-            },
-            {
-              icon: 'LinkOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_connected_sites,
-              }),
-              onPress: (navigation) => {
-                navigation?.pushModal(EModalRoutes.DAppConnectionModal, {
-                  screen: EDAppConnectionModal.ConnectionList,
-                });
-              },
-            },
-            {
-              icon: 'NoteOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_signature_record,
-              }),
-              onPress: (navigation) => {
-                navigation?.push(
-                  EModalSettingRoutes.SettingSignatureRecordModal,
-                );
-              },
-            },
+            platformEnv.isWebDappMode
+              ? undefined
+              : {
+                  icon: 'ShieldCheckDoneOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_protection,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.push(EModalSettingRoutes.SettingProtectModal);
+                  },
+                },
+            platformEnv.isWebDappMode
+              ? undefined
+              : {
+                  icon: 'LinkOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_connected_sites,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.DAppConnectionModal, {
+                      screen: EDAppConnectionModal.ConnectionList,
+                    });
+                  },
+                },
+            platformEnv.isWebDappMode
+              ? undefined
+              : {
+                  icon: 'NoteOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_signature_record,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.push(
+                      EModalSettingRoutes.SettingSignatureRecordModal,
+                    );
+                  },
+                },
           ],
           [
             platformEnv.isExtension
@@ -531,72 +590,73 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
         ],
       },
-      {
-        name: ESettingsTabNames.Network,
-        icon: 'GlobusSolid',
-        title: intl.formatMessage({
-          id: ETranslations.global_network,
-        }),
-        configs: [
-          [
-            {
-              icon: 'GlobusOutline',
-              title: intl.formatMessage({
-                id: ETranslations.custom_network_add_network_action_text,
-              }),
-              onPress: (navigation) => {
-                defaultLogger.setting.page.enterCustomRPC();
-                navigation?.push(EModalSettingRoutes.SettingCustomNetwork);
-              },
-            },
-            {
-              icon: 'BezierNodesOutline',
-              title: intl.formatMessage({
-                id: ETranslations.custom_rpc_title,
-              }),
-              onPress: (navigation) => {
-                defaultLogger.setting.page.enterCustomRPC();
-                navigation?.push(EModalSettingRoutes.SettingCustomRPC);
-              },
-            },
-            platformEnv.isSupportWebUSB ||
-            (platformEnv.isSupportDesktopBle && platformEnv.isDev)
-              ? {
-                  icon: 'UsbOutline',
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            name: ESettingsTabNames.Network,
+            icon: 'GlobusSolid',
+            title: intl.formatMessage({
+              id: ETranslations.global_network,
+            }),
+            configs: [
+              [
+                {
+                  icon: 'GlobusOutline',
                   title: intl.formatMessage({
-                    id: ETranslations.device_hardware_communication,
+                    id: ETranslations.custom_network_add_network_action_text,
                   }),
-                  renderElement: <HardwareTransportTypeListItem />,
-                }
-              : undefined,
-            (platformEnv.isExtension || platformEnv.isWeb) &&
-            settings.hardwareTransportType !== EHardwareTransportType.WEBUSB
-              ? {
-                  icon: 'ApiConnectionOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_hardware_bridge_status,
-                  }),
-                  onPress: () => {
-                    openUrlExternal(BRIDGE_STATUS_URL);
+                  onPress: (navigation) => {
+                    defaultLogger.setting.page.enterCustomRPC();
+                    navigation?.push(EModalSettingRoutes.SettingCustomNetwork);
                   },
-                }
-              : undefined,
-          ],
-          [
-            {
-              icon: 'FileDownloadOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_export_network_config_label,
-              }),
-              onPress: (navigation) => {
-                navigation?.push(
-                  EModalSettingRoutes.SettingExportCustomNetworkConfig,
-                );
-              },
-            },
-          ],
-        ],
-      },
+                },
+                {
+                  icon: 'BezierNodesOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.custom_rpc_title,
+                  }),
+                  onPress: (navigation) => {
+                    defaultLogger.setting.page.enterCustomRPC();
+                    navigation?.push(EModalSettingRoutes.SettingCustomRPC);
+                  },
+                },
+                platformEnv.isDev
+                  ? {
+                      icon: 'UsbOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.device_hardware_communication,
+                      }),
+                      renderElement: <HardwareTransportTypeListItem />,
+                    }
+                  : undefined,
+                (platformEnv.isExtension || platformEnv.isWeb) &&
+                settings.hardwareTransportType !== EHardwareTransportType.WEBUSB
+                  ? {
+                      icon: 'ApiConnectionOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.settings_hardware_bridge_status,
+                      }),
+                      onPress: () => {
+                        openUrlExternal(BRIDGE_STATUS_URL);
+                      },
+                    }
+                  : undefined,
+              ],
+              [
+                {
+                  icon: 'FileDownloadOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_export_network_config_label,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.push(
+                      EModalSettingRoutes.SettingExportCustomNetworkConfig,
+                    );
+                  },
+                },
+              ],
+            ],
+          },
       {
         name: ESettingsTabNames.About,
         icon: 'InfoCircleSolid',
@@ -701,50 +761,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_export_state_logs,
               }),
-              onPress: (navigation) => {
-                Dialog.show({
-                  icon: 'FileDownloadOutline',
+              onPress: () => {
+                showExportLogsDialog({
                   title: intl.formatMessage({
-                    id: ETranslations.settings_export_state_logs,
+                    id: ETranslations.settings_upload_state_logs,
                   }),
-                  renderContent: (
-                    <Stack>
-                      <SizableText size="$bodyLg">
-                        {intl.formatMessage({
-                          id: ETranslations.settings_logs_do_not_include_sensitive_data,
-                        })}
-                      </SizableText>
-                      <Stack h="$5" />
-                      <SizableText size="$bodyLg">
-                        {intl.formatMessage(
-                          {
-                            id: ETranslations.settings_export_state_logs_desc,
-                          },
-                          {
-                            email: (
-                              <SizableText
-                                size="$bodyLg"
-                                textDecorationLine="underline"
-                                onPress={() => copyText('hi@onekey.so')}
-                              >
-                                hi@onekey.so
-                              </SizableText>
-                            ),
-                          },
-                        )}
-                      </SizableText>
-                    </Stack>
-                  ),
-                  confirmButtonProps: {
-                    variant: 'primary',
-                  },
-                  onConfirmText: intl.formatMessage({
-                    id: ETranslations.global_export,
-                  }),
-                  onConfirm: () => {
-                    const str = new Date().toISOString().replace(/[-:.]/g, '');
-                    void exportLogs(`OneKeyLogs-${str}`);
-                  },
                 });
               },
             },
@@ -776,13 +797,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   }),
                   renderElement: <DevSettingsSection />,
                 },
-                {
-                  icon: 'ApiConnectionOutline',
-                  title: 'API Endpoint Management',
-                  onPress: () => {
-                    showApiEndpointDialog();
-                  },
-                },
               ],
             ],
           }
@@ -800,6 +814,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     ],
     [
       intl,
+      cloudBackupFeatureInfo?.supportCloudBackup,
+      cloudBackupFeatureInfo?.icon,
+      cloudBackupFeatureInfo?.title,
       isPrimeAvailable,
       perpConfigCommon.disablePerp,
       perpConfigCommon.usePerpWeb,
@@ -813,11 +830,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
+      startBackup,
       onPressAddressBook,
       helpCenterUrl,
       userAgreementUrl,
       privacyPolicyUrl,
-      copyText,
     ],
   );
 };

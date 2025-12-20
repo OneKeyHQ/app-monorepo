@@ -32,9 +32,12 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   name: RouteName;
   tabBarIcon: (focused?: boolean) => IKeyOfIcons;
   translationId: ETranslations;
-  children: ITabSubNavigatorConfig<any, any>[];
+  collapseSideBarTranslationId?: ETranslations;
+  children: ITabSubNavigatorConfig<any, any>[] | null;
   freezeOnBlur?: boolean;
   disable?: boolean;
+  hidden?: boolean;
+  inMoreAction?: boolean;
   rewrite?: string;
   /** with exact property set to true, current screen will ignore the parent screen's path config */
   exact?: boolean;
@@ -44,6 +47,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   tabbarOnPress?: () => void;
   onPressWhenSelected?: () => void;
   trackId?: string;
+  hideOnTabBar?: boolean;
 }
 
 export interface ICommonNavigatorConfig<
@@ -72,4 +76,5 @@ export interface ITabNavigatorExtraConfig<RouteName extends string> {
 export interface ITabNavigatorProps<RouteName extends string> {
   config: ITabNavigatorConfig<RouteName>[];
   extraConfig?: ITabNavigatorExtraConfig<RouteName>;
+  showTabBar?: boolean;
 }

@@ -20,7 +20,7 @@ export function DashText({
   dashGap = 2,
   dashThickness = 1,
   dashColor = '$textSubdued',
-  length = 80,
+  length = 200,
   ...textProps
 }: IDashTextProps) {
   const [textWidth, setTextWidth] = useState(0);
@@ -36,22 +36,24 @@ export function DashText({
           {children}
         </SizableText>
       </YStack>
-      <XStack
-        gap={dashGap}
-        overflow="hidden"
-        flexWrap="nowrap"
-        width={textWidth}
-      >
-        {Array.from({ length }, (_, i) => (
-          <YStack
-            key={i}
-            width={dashLength}
-            height={dashThickness}
-            bg={dashColor}
-            flexShrink={0}
-          />
-        ))}
-      </XStack>
+      {textWidth > 0 && length > 0 ? (
+        <XStack
+          gap={dashGap}
+          overflow="hidden"
+          flexWrap="nowrap"
+          width={textWidth}
+        >
+          {Array.from({ length }, (_, i) => (
+            <YStack
+              key={i}
+              width={dashLength}
+              height={dashThickness}
+              bg={dashColor}
+              flexShrink={0}
+            />
+          ))}
+        </XStack>
+      ) : null}
     </YStack>
   );
 }

@@ -14,6 +14,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { buildCallRemoteApiMethod } from '../../../apis/RemoteApiProxyBase';
 
@@ -25,6 +26,7 @@ import type { Socket } from 'socket.io';
 // TODO clear selfPairingCode when transfer complete or exit
 let selfPairingCode: string | null = null;
 let isVerifiedRoomId: string | null = null;
+let selfTransferType: EPrimeTransferDataType | undefined;
 
 // ECDHE Key exchange interfaces (matching client side)
 export interface IECDHEKeyExchangeRequest {
@@ -232,6 +234,12 @@ export class E2EEClientToClientApi {
     appEventBus.emit(EAppEventBusNames.PrimeTransferCancel, undefined);
   }
 
+  async getTransferType(): Promise<{
+    transferType: EPrimeTransferDataType | undefined;
+  }> {
+    return { transferType: selfTransferType };
+  }
+
   async sendTransferData({ rawData }: { rawData: string }) {
     await appGlobals.$backgroundApiProxy.servicePrimeTransfer.receiveTransferData(
       {
@@ -307,6 +315,14 @@ function setSelfPairingCode({ pairingCode }: { pairingCode: string }) {
   selfPairingCode = pairingCode;
 }
 
+function setSelfTransferType({
+  transferType,
+}: {
+  transferType: EPrimeTransferDataType | undefined;
+}) {
+  selfTransferType = transferType;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getSelfPairingCode() {
   return selfPairingCode;
@@ -322,10 +338,12 @@ function checkIsVerifiedRoomId(roomId: string) {
 function clearSensitiveData() {
   selfPairingCode = null;
   isVerifiedRoomId = null;
+  selfTransferType = undefined;
 }
 
 export default {
   setSelfPairingCode,
+  setSelfTransferType,
   e2eeClientToClientApiSetup,
   checkIsVerifiedRoomId,
   clearSensitiveData,

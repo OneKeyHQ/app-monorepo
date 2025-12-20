@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -7,8 +8,13 @@ import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { closeModalPages } from '../../../hooks/usePageNavigation';
 
 export const isOnboardingFromExtensionUrl = () => {
   // eslint-disable-next-line unicorn/prefer-global-this
@@ -20,15 +26,13 @@ export const isOnboardingFromExtensionUrl = () => {
 
 export const useToOnBoardingPage = () => {
   const navigation = useAppNavigation();
-
   return useMemo(
     () =>
       async ({
-        isFullModal = false,
         params,
       }: {
         isFullModal?: boolean;
-        params?: IOnboardingParamList[EOnboardingPages.GetStarted];
+        params?: IOnboardingParamList[EOnboardingPagesV2.GetStarted];
       } = {}) => {
         if (platformEnv.isWebDappMode) {
           navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -37,36 +41,59 @@ export const useToOnBoardingPage = () => {
           return;
         }
 
+        // Check if onboarding is done to determine which page to navigate to
+        const { isOnboardingDone } =
+          await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
+
         if (
           platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel
         ) {
-          await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            routes: [
-              isFullModal ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
-              EModalRoutes.OnboardingModal,
-              EOnboardingPages.GetStarted,
-            ],
-            params: {
+          if (isOnboardingDone) {
+            // Returning user - navigate to CreateOrImportWallet with fullOptions
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+              path: `/onboarding/CreateOrImportWallet`,
+              params: { fullOptions: true },
+            });
+          } else {
+            // First-time user - navigate to GetStarted
+            const newParams = {
               ...params,
-              isFullModal,
               fromExt: true,
-            },
-          });
+            };
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+              path: `/onboarding/get-started`,
+              params: newParams,
+            });
+          }
           if (platformEnv.isExtensionUiSidePanel) {
             window.close();
           }
         } else {
-          navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
-            EModalRoutes.OnboardingModal,
-            {
-              screen: EOnboardingPages.GetStarted,
+          await closeModalPages();
+          await timerUtils.wait(150);
+          if (isOnboardingDone) {
+            rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
               params: {
-                ...params,
-                isFullModal,
+                screen: EOnboardingPagesV2.CreateOrImportWallet,
+                params: {
+                  fullOptions: true,
+                },
               },
-            },
-          );
+            });
+          } else {
+            // First-time user - navigate to GetStarted
+            rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
+              params: {
+                screen: EOnboardingPagesV2.GetStarted,
+                params: {
+                  ...params,
+                },
+              },
+            });
+          }
         }
       },
     [navigation],

@@ -6,7 +6,6 @@ import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import {
@@ -15,7 +14,6 @@ import {
 } from '../../states/jotai/contexts/tokenList';
 
 type IProps = {
-  filteredTokens: IAccountToken[];
   tableLayout?: boolean;
   onManageToken?: () => void;
   manageTokenEnabled?: boolean;
@@ -55,7 +53,11 @@ function SortButton({
       userSelect="none"
       onPress={onPress}
     >
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
+      <SizableText
+        size="$headingXs"
+        color="$textSubdued"
+        textTransform="uppercase"
+      >
         {label}
       </SizableText>
       {iconName ? (
@@ -101,7 +103,7 @@ function TokenListHeader({ tableLayout }: IProps) {
           }}
         />
       </Stack>
-      <Stack flexGrow={1} flexBasis={0} maxWidth="$36" alignItems="flex-end">
+      <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
         <SortButton
           label={intl.formatMessage({ id: ETranslations.global_balance })}
           iconName={renderSortButton(ETokenListSortType.Value)}

@@ -82,12 +82,20 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
         buildModelName: true,
       });
 
+      const firmwareTypeLabel = await deviceUtils.getFirmwareTypeLabel({
+        features: device?.featuresInfo,
+        displayFormat: 'withSpace',
+      });
+      const firmwareVersion = `${firmwareTypeLabel}${getDisplayVersion(
+        versions?.firmwareVersion,
+      )}`;
+
       return {
         model: model ?? VERSION_PLACEHOLDER,
         bleName: device.featuresInfo.ble_name ?? VERSION_PLACEHOLDER,
         bleVersion: getDisplayVersion(versions?.bleVersion),
         bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
-        firmwareVersion: getDisplayVersion(versions?.firmwareVersion),
+        firmwareVersion,
         serialNumber:
           deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ??
           VERSION_PLACEHOLDER,

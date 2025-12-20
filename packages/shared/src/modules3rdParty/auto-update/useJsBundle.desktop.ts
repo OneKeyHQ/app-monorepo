@@ -4,7 +4,7 @@ export const getJsBundlePath = () => {
 };
 
 export const getJsBundlePathAsync = async () => {
-  return globalThis.desktopApiProxy.system.getJsBundlePath();
+  return globalThis.desktopApiProxy.bundleUpdate.getJsBundlePath();
 };
 
 export const useJsBundle = () => {
@@ -12,6 +12,7 @@ export const useJsBundle = () => {
 };
 
 export const useJsBundleAsync = async () => {
-  const bundlePath = await globalThis.desktopApiProxy.system.getJsBundlePath();
+  const bundlePath =
+    await globalThis.desktopApiProxy.bundleUpdate.getJsBundlePath();
   return !!bundlePath;
 };

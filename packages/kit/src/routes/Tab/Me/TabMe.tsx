@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
+import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -27,7 +27,6 @@ const TabMe = () => {
   const onExpand = useCallback(() => {
     extUtils.openUrlInTab(EXT_HTML_FILES.uiExpandTab).catch(console.error);
   }, []);
-  const toOnBoardingPage = useToOnBoardingPage();
   const { navigateToV4MigrationPage } = useV4MigrationActions();
 
   return (
@@ -40,13 +39,6 @@ const TabMe = () => {
             }}
           >
             切换到首页
-          </Button>
-          <Button
-            onPress={() => {
-              void toOnBoardingPage({ isFullModal: true });
-            }}
-          >
-            Onboarding
           </Button>
           <Button onPress={onPress} testID="me-settings">
             设置
@@ -93,7 +85,11 @@ const TabMe = () => {
 };
 
 function TabMeContainer() {
-  return <TabMe />;
+  return (
+    <TabletHomeContainer>
+      <TabMe />
+    </TabletHomeContainer>
+  );
 }
 
 export default TabMeContainer;

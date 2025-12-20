@@ -48,6 +48,25 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   }
 
   @backgroundMethod()
+  public async getLocalPendingHistoryByNetwork({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<{ pendingTxs: ILocalHistory['pendingTxs'] }> {
+    const rawData = await this.getRawData();
+
+    const pendingTxs = Object.fromEntries(
+      Object.entries(rawData?.pendingTxs ?? {}).filter(([key]) =>
+        key.startsWith(networkId),
+      ),
+    );
+
+    return {
+      pendingTxs,
+    };
+  }
+
+  @backgroundMethod()
   public async saveLocalHistoryPendingTxs({
     networkId,
     accountAddress,

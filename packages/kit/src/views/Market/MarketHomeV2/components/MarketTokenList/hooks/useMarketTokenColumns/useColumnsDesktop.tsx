@@ -21,11 +21,23 @@ import {
 
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { Txns } from '../../components/Txns';
+import { getTokenAgeInfo } from '../../utils/tokenListHelpers';
 
 import type { IMarketToken } from '../../MarketTokenData';
 
+const TOKEN_AGE_TRANSLATION_MAP = {
+  hour: ETranslations.dexmarket_token_age_h,
+  day: ETranslations.dexmarket_token_age_d,
+  month: ETranslations.dexmarket_token_age_m,
+  year: ETranslations.dexmarket_token_age_y,
+} as const;
+
 export const useColumnsDesktop = (
   networkId?: string,
+  isWatchlistMode?: boolean,
+  hideTokenAge?: boolean,
+  watchlistFrom?: EWatchlistFrom,
+  copyFrom?: ECopyFrom,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const [settings] = useSettingsPersistAtom();
@@ -46,7 +58,7 @@ export const useColumnsDesktop = (
           <MarketStarV2
             chainId={record.chainId || networkId || ''}
             contractAddress={record.address}
-            from={EWatchlistFrom.Homepage}
+            from={watchlistFrom || EWatchlistFrom.Homepage}
             tokenSymbol={record.symbol}
             size="small"
           />
@@ -67,7 +79,8 @@ export const useColumnsDesktop = (
           symbol={record.symbol}
           address={record.address}
           showCopyButton
-          copyFrom={ECopyFrom.Homepage}
+          copyFrom={copyFrom || ECopyFrom.Homepage}
+          communityRecognized={record.communityRecognized}
         />
       ),
       renderSkeleton: () => (
@@ -206,6 +219,28 @@ export const useColumnsDesktop = (
               {text === 0 ? '--' : text}
             </NumberSizeableText>
           ),
+          renderSkeleton: () => <Skeleton width={60} height={16} />,
+        }
+      : undefined,
+    gtXl && !isWatchlistMode && !hideTokenAge
+      ? {
+          title: intl.formatMessage({ id: ETranslations.dexmarket_token_age }),
+          dataIndex: 'tokenAge',
+          columnProps: { flex: 0.9 },
+          render: (_: unknown, record: IMarketToken) => {
+            const ageInfo = getTokenAgeInfo(record.firstTradeTime);
+
+            if (!ageInfo) {
+              return <SizableText size="$bodyMd">--</SizableText>;
+            }
+
+            const ageLabel = intl.formatMessage(
+              { id: TOKEN_AGE_TRANSLATION_MAP[ageInfo.unit] },
+              { amount: ageInfo.amount },
+            );
+
+            return <SizableText size="$bodyMd">{ageLabel}</SizableText>;
+          },
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }
       : undefined,

@@ -467,4 +467,49 @@ export class SimpleDb {
     Object.defineProperty(this, 'chainResource', { value });
     return value;
   }
+
+  get btcFreshAddress() {
+    const SimpleDbEntityBTCFreshAddress = (
+      require('../entity/SimpleDbEntityBTCFreshAddress') as unknown as typeof import('../entity/SimpleDbEntityBTCFreshAddress')
+    ).SimpleDbEntityBTCFreshAddress;
+    const value = new SimpleDbEntityBTCFreshAddress();
+    Object.defineProperty(this, 'btcFreshAddress', { value });
+    return value;
+  }
+
+  get btcFreshAddressMeta() {
+    const SimpleDbEntityBTCFreshAddressMeta = (
+      require('../entity/SimpleDbEntityBTCFreshAddressMeta') as unknown as typeof import('../entity/SimpleDbEntityBTCFreshAddressMeta')
+    ).SimpleDbEntityBTCFreshAddressMeta;
+    const value = new SimpleDbEntityBTCFreshAddressMeta();
+    Object.defineProperty(this, 'btcFreshAddressMeta', { value });
+    return value;
+  }
+
+  get walletStatus() {
+    const SimpleDbEntityWalletStatus = (
+      require('../entity/SimpleDbEntityWalletStatus') as unknown as typeof import('../entity/SimpleDbEntityWalletStatus')
+    ).SimpleDbEntityWalletStatus;
+    const value = new SimpleDbEntityWalletStatus();
+    Object.defineProperty(this, 'walletStatus', { value });
+    return value;
+  }
+
+  get ipTable() {
+    const SimpleDbEntityIpTable = (
+      require('../entity/SimpleDbEntityIpTable') as unknown as typeof import('../entity/SimpleDbEntityIpTable')
+    ).SimpleDbEntityIpTable;
+    const value = new SimpleDbEntityIpTable();
+    Object.defineProperty(this, 'ipTable', { value });
+    return value;
+  }
+
+  get deFi() {
+    const SimpleDbEntityDeFi = (
+      require('../entity/SimpleDbEntityDeFi') as unknown as typeof import('../entity/SimpleDbEntityDeFi')
+    ).SimpleDbEntityDeFi;
+    const value = new SimpleDbEntityDeFi();
+    Object.defineProperty(this, 'deFi', { value });
+    return value;
+  }
 }

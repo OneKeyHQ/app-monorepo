@@ -16,9 +16,10 @@ import _ from 'lodash';
 import { useWindowDimensions } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import { Portal } from '../../../hocs';
 import { useBackHandler } from '../../../hooks';
@@ -66,7 +67,7 @@ function WebModalNavigator({
 }: IProps) {
   const screenHeight = useWindowDimensions().height;
   const media = useMedia();
-  const { state, descriptors, navigation, NavigationContent } =
+  const { state, descriptors, navigation, NavigationContent, describe } =
     useNavigationBuilder<
       StackNavigationState<ParamListBase>,
       StackRouterOptions,
@@ -120,6 +121,18 @@ function WebModalNavigator({
       ),
     [rootNavigation, state.routes],
   );
+
+  const hasModalRoute = useMemo(() => {
+    return (
+      rootNavigation
+        ?.getState?.()
+        ?.routes?.some(
+          (route) =>
+            route.name === ERootRoutes.Modal ||
+            route.name === ERootRoutes.iOSFullScreen,
+        ) ?? false
+    );
+  }, [rootNavigation]);
 
   useEffect(() => {
     if (ROOT_NAVIGATION_INDEX_LISTENER) {
@@ -270,7 +283,7 @@ function WebModalNavigator({
               platformEnv.isNative ? undefined : onPageContainerPressOut
             }
           >
-            {currentRouteIndex <= 1 && !isExistBackdrop ? (
+            {hasModalRoute && !isExistBackdrop ? (
               <YStack
                 testID={backdropId}
                 ref={(ref) => {
@@ -340,6 +353,7 @@ function WebModalNavigator({
                 // @ts-expect-error
                 descriptors={descriptors}
                 navigation={navigation}
+                describe={describe as any}
               />
             </Stack>
           </Stack>

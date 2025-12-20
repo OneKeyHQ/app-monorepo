@@ -18,8 +18,11 @@ export { MarginModeSelector } from './selectors/MarginModeSelector';
 
 // Modal components
 export { showOrderConfirmDialog } from './modals/OrderConfirmModal';
-export { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
+export { showDepositWithdrawDialog } from './modals/DepositWithdrawModal';
 export { LeverageAdjustModal } from './modals/LeverageAdjustModal';
+
+// Hooks
+export { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 
 // Types
 export type { ISide } from './selectors/TradeSideToggle';

@@ -363,9 +363,6 @@ function MobileTabListModal() {
         onSelectedItem={(id) => {
           void setCurrentWebTab(id);
           navigation.pop();
-          if (platformEnv.isNativeIOSPad) {
-            navigation.switchTab(ETabRoutes.MultiTabBrowser);
-          }
         }}
         onCloseItem={handleCloseTab}
         onLongPress={(id) => {
@@ -449,7 +446,7 @@ function MobileTabListModal() {
           onAddTab={handleAddNewTab}
           onCloseAll={() => {
             triggerCloseTab.current = true;
-            void closeAllWebTabs();
+            void closeAllWebTabs({ navigation });
           }}
           onDone={() => {
             navigation.pop();
