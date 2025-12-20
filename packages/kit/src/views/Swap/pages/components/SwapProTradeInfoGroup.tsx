@@ -3,8 +3,10 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { NumberSizeableText, YStack } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import {
+  useSwapLimitPriceUseRateAtom,
+  useSwapProDirectionAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSpeedQuoteFetchingAtom,
@@ -15,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
+import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import {
   useSwapProInputToken,
@@ -40,10 +43,23 @@ const SwapProTradeInfoGroup = ({
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
+  const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
+  const limitPriceValue = useMemo(() => {
+    const displayLimitRate = new BigNumber(swapLimitPriceUseRate.rate || 0);
+    if (displayLimitRate.isZero() || displayLimitRate.isNaN()) {
+      return '--';
+    }
+    const formattedDisplayLimitRate = numberFormat(displayLimitRate.toFixed(), {
+      formatter: 'price',
+    });
+    return `1 ${inputToken?.symbol ?? '-'} = ${
+      formattedDisplayLimitRate ?? '--'
+    } ${toToken?.symbol ?? '-'}`;
+  }, [swapLimitPriceUseRate.rate, inputToken?.symbol, toToken?.symbol]);
   const balanceValue = useMemo(() => {
     const balanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
     if (balanceBN.isZero() || balanceBN.isNaN()) {
-      return `0 ${inputToken?.symbol ?? '-'}`;
+      return '0';
     }
     return balanceBN.toFixed();
   }, [inputToken]);
@@ -119,6 +135,29 @@ const SwapProTradeInfoGroup = ({
           py: '$1',
         }}
       />
+      {swapProTradeType === ESwapProTradeType.LIMIT ? (
+        <SwapCommonInfoItem
+          title={intl.formatMessage({ id: ETranslations.Limit_limit_price })}
+          valueComponent={
+            <SizableText
+              size="$bodySmMedium"
+              numberOfLines={2}
+              textAlign="right"
+              maxWidth="$40"
+            >
+              {limitPriceValue}
+            </SizableText>
+          }
+          titleProps={ITEM_TITLE_PROPS}
+          valueProps={ITEM_VALUE_PROPS}
+          isLoading={false}
+          containerProps={{
+            py: '$1',
+            alignItems: 'flex-start',
+            minHeight: '$10',
+          }}
+        />
+      ) : null}
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
         value={receiveValue}

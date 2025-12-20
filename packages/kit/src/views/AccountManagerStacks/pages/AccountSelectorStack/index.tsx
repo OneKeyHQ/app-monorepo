@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, XStack } from '@onekeyhq/components';
+import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
   EAppEventBusNames,
@@ -17,6 +17,15 @@ import type {
 import { WalletDetails } from './WalletDetails';
 import { AccountSelectorWalletListSideBar } from './WalletList';
 
+const useSafeAreaInsetsTop = platformEnv.isNativeAndroid
+  ? () => {
+      const { top } = useSafeAreaInsets();
+      return top;
+    }
+  : () => {
+      return undefined;
+    };
+
 export function AccountSelectorStack({
   num,
   hideNonBackedUpWallet,
@@ -24,11 +33,12 @@ export function AccountSelectorStack({
   num: number;
   hideNonBackedUpWallet?: boolean;
 }) {
+  const top = useSafeAreaInsetsTop();
   return (
-    <Page lazyLoad safeAreaEnabled={false}>
+    <Page lazyLoad safeAreaEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
-        <XStack flex={1}>
+        <XStack flex={1} top={top}>
           {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
           {platformEnv.isWebDappMode ? null : (
             <AccountSelectorWalletListSideBar
