@@ -63,6 +63,10 @@ export const OAUTH_DESKTOP_WEBVIEW_HEIGHT = 640;
 // Poll / focus interval used by web popup + extension OAuth window focusing
 export const OAUTH_POLL_INTERVAL_MS = 500;
 
+// OneKey-owned state (defense-in-depth) used for OAuth flows where the upstream provider
+// does not reliably include `state` in the authorize URL / callback.
+export const ONEKEY_OAUTH_STATE_KEY = 'onekey_oauth_state';
+
 // Common OAuth callback token keys (hash/search params)
 export const OAUTH_TOKEN_KEY_ACCESS_TOKEN = 'access_token';
 export const OAUTH_TOKEN_KEY_REFRESH_TOKEN = 'refresh_token';

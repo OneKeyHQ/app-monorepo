@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import type { ComponentRef, ForwardedRef } from 'react';
+import { forwardRef, useMemo } from 'react';
+import type { ComponentRef } from 'react';
 
 import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
 import {
@@ -14,10 +14,10 @@ import { useIsGroupLoading } from './context';
 
 import type { ISkeletonProps } from './type';
 
-export function BaseSkeleton(
-  { colorMode, children, show, ...props }: ISkeletonProps,
-  ref: ForwardedRef<ComponentRef<typeof Stack>>,
-) {
+export const BaseSkeleton = forwardRef<
+  ComponentRef<typeof Stack>,
+  ISkeletonProps
+>(({ colorMode, children, show, ...props }: ISkeletonProps, ref) => {
   const [{ className: classNameProp, ...restProps }, style] = usePropsAndStyle(
     props,
     {
@@ -65,4 +65,6 @@ export function BaseSkeleton(
   ) : (
     children || null
   );
-}
+});
+
+BaseSkeleton.displayName = 'BaseSkeleton';

@@ -227,9 +227,10 @@ export async function startOAuthServer(): Promise<{ port: number }> {
           });
           req.on('end', () => {
             try {
-              const { code, state } = JSON.parse(body) as {
+              const { code, state, oneKeyState } = JSON.parse(body) as {
                 code: string;
                 state?: string;
+                oneKeyState?: string;
               };
 
               if (code && mainWindow && !mainWindow.isDestroyed()) {
@@ -237,6 +238,7 @@ export async function startOAuthServer(): Promise<{ port: number }> {
                 mainWindow.webContents.send(OAUTH_CALLBACK_DESKTOP_CHANNEL, {
                   code,
                   state,
+                  oneKeyState,
                 });
               }
 

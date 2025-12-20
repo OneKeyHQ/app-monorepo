@@ -74,6 +74,7 @@ export const OAUTH_CALLBACK_SUCCESS_HTML = `<!DOCTYPE html>
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
+      const oneKeyState = urlParams.get('onekey_oauth_state');
       // Clear URL query ASAP to avoid leaking code in the address bar.
       try {
         history.replaceState(null, document.title, window.location.pathname);
@@ -84,7 +85,7 @@ export const OAUTH_CALLBACK_SUCCESS_HTML = `<!DOCTYPE html>
         fetch('/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, state }),
+          body: JSON.stringify({ code, state, oneKeyState }),
         }).then(() => {
           setTimeout(tryClose, 1500);
         }).catch(() => {

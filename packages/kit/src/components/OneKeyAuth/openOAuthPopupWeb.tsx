@@ -195,11 +195,10 @@ export async function openOAuthPopupWeb(options: {
               popup,
             );
           } else {
-            resolveOnce(
-              {
-                success: false,
-                session: undefined,
-              },
+            rejectOnce(
+              new OneKeyLocalError(
+                'OAuth authentication failed: no session found after popup closed',
+              ),
               popup,
             );
           }
@@ -219,19 +218,31 @@ export async function openOAuthPopupWeb(options: {
             const state = url.searchParams.get('state');
             const oneKeyState = url.searchParams.get(ONEKEY_OAUTH_STATE_KEY);
 
+            if (!code) {
+              rejectOnce(
+                new OneKeyLocalError('Authorization code is missing'),
+                popup,
+              );
+              return;
+            }
+
+            if (!expectedOneKeyState) {
+              rejectOnce(
+                new OneKeyLocalError('Expected OneKey OAuth state is missing'),
+                popup,
+              );
+              return;
+            }
+
             // Validate OneKey state (defense-in-depth).
-            if (expectedOneKeyState) {
-              if (!oneKeyState) {
-                rejectOnce(
-                  new OneKeyLocalError('OAuth state is missing'),
-                  popup,
-                );
-                return;
-              }
-              if (oneKeyState !== expectedOneKeyState) {
-                rejectOnce(new OneKeyLocalError('OAuth state mismatch'), popup);
-                return;
-              }
+            if (!oneKeyState) {
+              rejectOnce(new OneKeyLocalError('OAuth state is missing'), popup);
+              return;
+            }
+
+            if (oneKeyState !== expectedOneKeyState) {
+              rejectOnce(new OneKeyLocalError('OAuth state mismatch'), popup);
+              return;
             }
 
             // Validate state (anti-CSRF / anti-injection). Supabase OAuth URLs should include `state=...`
@@ -250,62 +261,48 @@ export async function openOAuthPopupWeb(options: {
               }
             }
 
-            if (code) {
-              // const _sessionBefore = await client.auth.getSession();
+            // Exchange authorization code for session tokens using PKCE
+            // The Supabase client automatically uses the stored code_verifier
+            const { data, error } = await client.auth.exchangeCodeForSession(
+              code,
+            );
 
-              // Exchange authorization code for session tokens using PKCE
-              // The Supabase client automatically uses the stored code_verifier
-              const { data, error } = await client.auth.exchangeCodeForSession(
-                code,
-              );
+            if (error) {
+              rejectOnce(new OneKeyLocalError(error.message), popup);
+              return;
+            }
 
-              // const _sessionAfter = await client.auth.getSession();
-
-              if (error) {
-                rejectOnce(new OneKeyLocalError(error.message), popup);
-                return;
-              }
-
-              const session = data.session;
-              if (session) {
-                const accessToken = session.access_token;
-                const refreshToken = session.refresh_token;
-
-                await handleSessionPersistence({
-                  accessToken,
-                  refreshToken,
-                  persistSession,
-                  loginToPrime: false, // openOAuthPopupWeb doesn't handle Prime login
-                });
-
-                resolveOnce(
-                  {
-                    success: true,
-                    session: {
-                      accessToken,
-                      refreshToken,
-                    },
-                  },
-                  popup,
-                );
-              } else {
-                resolveOnce(
-                  {
-                    success: false,
-                    session: undefined,
-                  },
-                  popup,
-                );
-              }
-            } else {
-              resolveOnce(
-                {
-                  success: false,
-                  session: undefined,
-                },
+            const session = data.session;
+            if (!session) {
+              rejectOnce(
+                new OneKeyLocalError(
+                  'Failed to exchange authorization code for session',
+                ),
                 popup,
               );
+              return;
             }
+
+            const accessToken = session.access_token;
+            const refreshToken = session.refresh_token;
+
+            await handleSessionPersistence({
+              accessToken,
+              refreshToken,
+              persistSession,
+              loginToPrime: false, // openOAuthPopupWeb doesn't handle Prime login
+            });
+
+            resolveOnce(
+              {
+                success: true,
+                session: {
+                  accessToken,
+                  refreshToken,
+                },
+              },
+              popup,
+            );
           }
         } catch {
           // Cross-origin error - popup is on different domain, continue polling
@@ -319,13 +316,7 @@ export async function openOAuthPopupWeb(options: {
 
     // Cleanup after timeout (5 minutes)
     timeoutId = setTimeout(() => {
-      resolveOnce(
-        {
-          success: false,
-          session: undefined,
-        },
-        popup,
-      );
+      rejectOnce(new OneKeyLocalError('OAuth sign-in timed out'), popup);
     }, OAUTH_FLOW_TIMEOUT_MS);
   });
 }

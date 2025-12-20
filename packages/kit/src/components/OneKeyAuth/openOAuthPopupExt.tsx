@@ -210,10 +210,7 @@ export async function openOAuthPopupExtIdentity(options: {
         }
       }
       if (!code) {
-        return {
-          success: false,
-          session: undefined,
-        };
+        throw new OneKeyLocalError('Authorization code is missing');
       }
 
       const { data, error: exchangeError } =
@@ -223,10 +220,9 @@ export async function openOAuthPopupExtIdentity(options: {
       }
 
       if (!data.session) {
-        return {
-          success: false,
-          session: undefined,
-        };
+        throw new OneKeyLocalError(
+          'Failed to exchange authorization code for session',
+        );
       }
 
       const accessToken = data.session.access_token;
@@ -259,10 +255,9 @@ export async function openOAuthPopupExtIdentity(options: {
     const callbackUrl = await launchWebAuthFlowWithTimeout(authUrl);
 
     if (!callbackUrl) {
-      return {
-        success: false,
-        session: undefined,
-      };
+      throw new OneKeyLocalError(
+        'OAuth authentication failed: callback URL is missing',
+      );
     }
 
     return signIn({ callbackUrl, signInParams });
@@ -333,10 +328,7 @@ export async function openOAuthPopupExtIdentity(options: {
       }
 
       if (!data.session) {
-        return {
-          success: false,
-          session: undefined,
-        };
+        throw new OneKeyLocalError('Failed to exchange ID token for session');
       }
 
       const accessToken = data.session.access_token;
@@ -741,10 +733,11 @@ export function openOAuthPopupExtWindow(options: {
               });
             });
           } else {
-            resolve({
-              success: false,
-              session: undefined,
-            });
+            reject(
+              new OneKeyLocalError(
+                'OAuth authentication failed: access token or refresh token is missing',
+              ),
+            );
           }
         } catch (error) {
           reject(

@@ -10,6 +10,7 @@ import {
   EDesktopOAuthMethod,
   EExtensionOAuthMethod,
   GOOGLE_CHROME_EXTENSION_CLIENT_ID,
+  ONEKEY_OAUTH_STATE_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -18,9 +19,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getOAuthRedirectUrlDesktop,
   openOAuthPopupDesktopDeepLink,
+  openOAuthPopupDesktopLocalhost,
   openOAuthPopupDesktopWebview,
 } from '../openOAuthPopupDesktop';
-import { openOAuthPopupDesktopLocalhost } from '../openOAuthPopupDesktopLocalhost';
 import {
   getOAuthRedirectUrlExt,
   openOAuthPopupExtIdToken,
@@ -104,8 +105,6 @@ export function useSupabaseAuth() {
       const { persistSession } = options ?? {};
       const clientTemp: SupabaseClient = createTemporarySupabaseClient();
 
-      const ONEKEY_OAUTH_STATE_KEY = 'onekey_oauth_state';
-
       // For extension with CHROME_IDENTITY_API or CHROME_GET_AUTH_TOKEN methods,
       // we don't need Supabase OAuth URL - these methods build their own Google OAuth URL
       // and use signInWithIdToken instead
@@ -155,9 +154,11 @@ export function useSupabaseAuth() {
       // nonce into redirectTo so the callback must carry it back to us.
       if (
         redirectTo &&
-        !platformEnv.isNative &&
-        !platformEnv.isDesktop &&
-        !platformEnv.isExtension
+        (platformEnv.isWeb ||
+          // Desktop localhost server method
+          (platformEnv.isDesktop &&
+            DEFAULT_DESKTOP_OAUTH_METHOD ===
+              EDesktopOAuthMethod.LOCALHOST_SERVER))
       ) {
         try {
           const redirectUrl = new URL(redirectTo);
