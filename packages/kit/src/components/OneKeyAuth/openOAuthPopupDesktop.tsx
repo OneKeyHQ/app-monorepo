@@ -16,8 +16,6 @@ import type {
   IOAuthPopupResult,
 } from './openOAuthPopupTypes';
 
-export { EDesktopOAuthMethod };
-
 // ============================================================================
 // Desktop OAuth Methods
 // ============================================================================

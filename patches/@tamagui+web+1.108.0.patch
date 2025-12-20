@@ -1,37 +1,18 @@
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-index 47addac..808ba9d 100644
+index 47addac..3b32c89 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-@@ -160,11 +160,76 @@ function unlisten() {
+@@ -160,11 +160,60 @@ function unlisten() {
    }), dispose.clear();
  }
  var setupVersion = -1;
 +
-+let isDualScreenDevice = false;
-+
-+const DualScreenInfoNative = require('react-native').NativeModules.DualScreenInfo;
-+
-+const ScreenOrientation = require('expo-screen-orientation');
 +
 +const ExpoDevice = require('expo-device');
-+
-+
-+if (DualScreenInfoNative && DualScreenInfoNative.isDualScreenDevice) {
-+  DualScreenInfoNative.isDualScreenDevice().then((result) => {
-+    isDualScreenDevice = result;
-+  });
-+}
-+
-+function checkTabletSplitView(callback) {
-+  if (isDualScreenDevice) {
-+    // DualScreenInfoNative.isSpanning().then((result) => {
-+    //   callback(!!result);
-+    // });
++function isTabletOrAndroid(callback) {
++  if (import_constants.isAndroid) {
 +    callback(true);
 +  } else if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
-+    // ScreenOrientation.getOrientationAsync().then((result) => {
-+    //   callback(result === ScreenOrientation.Orientation.LANDSCAPE_LEFT || result === ScreenOrientation.Orientation.LANDSCAPE_RIGHT);
-+    // });
 +    callback(true);
 +  } else {
 +    callback(false);
@@ -43,9 +24,12 @@ index 47addac..808ba9d 100644
      var update = function() {
        var next = !!getMatch().matches;
 -      next !== mediaState[key2] && (mediaState = _object_spread_props(_object_spread({}, mediaState), _define_property({}, key2, next)), updateCurrentState());
-+      checkTabletSplitView((isSplitView) => {
-+        if (isSplitView) {
++      isTabletOrAndroid((_result5) => {
++        if (_result5) {
 +           switch (key2) {
++            case 'md':
++              next = true;
++              break;
 +            case 'gtMd':
 +              next = false;
 +              break;

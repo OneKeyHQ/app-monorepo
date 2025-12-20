@@ -8,6 +8,7 @@ import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PopularTrading } from '../components/PopularTrading';
+import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RecentHistory } from '../components/RecentHistory';
 import { SupportHub } from '../components/SupportHub';
 import { TokenListBlock } from '../components/TokenListBlock';
@@ -65,7 +66,9 @@ function PortfolioContainerWithProvider() {
       <ProviderJotaiContextDeFiList>
         <ProviderJotaiContextHistoryList>
           <ProviderJotaiContextEarn>
-            <Tabs.ScrollView>
+            <Tabs.ScrollView
+              refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
+            >
               <PortfolioContainer />
             </Tabs.ScrollView>
           </ProviderJotaiContextEarn>

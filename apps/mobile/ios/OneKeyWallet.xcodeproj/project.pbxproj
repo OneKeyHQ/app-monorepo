@@ -24,7 +24,6 @@
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EA73E1F22C3EAEAD000E9398 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */; };
-		EA7A13F42D9EEC2C002BD82F /* RCTRootViewBackground.m in Sources */ = {isa = PBXBuildFile; fileRef = EA7A13F32D9EEC2B002BD82F /* RCTRootViewBackground.m */; };
 		EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */; };
 		EA9FF4ED2BDFFDBB00AC618A /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = EA9FF4EC2BDFFDBB00AC618A /* web-embed */; };
 		F42739F92D24DABD0072EBA9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F42739F82D24DABD0072EBA9 /* StoreKit.framework */; };
@@ -110,8 +109,6 @@
 		E386ED542C788C1F00B1E360 /* fr-FR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "fr-FR"; path = "fr-FR.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		E386ED552C788C7500B1E360 /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "OneKeyWallet/GoogleService-Info.plist"; sourceTree = "<group>"; };
-		EA7A13F22D9EEC13002BD82F /* RCTRootViewBackground.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RCTRootViewBackground.h; sourceTree = "<group>"; };
-		EA7A13F32D9EEC2B002BD82F /* RCTRootViewBackground.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RCTRootViewBackground.m; sourceTree = "<group>"; };
 		EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		EA9FF4EC2BDFFDBB00AC618A /* web-embed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "web-embed"; path = "OneKeyWallet/web-embed"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -167,8 +164,6 @@
 				EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */,
 				35EE15B32B9A2ACD004C86AC /* InfoPlist.strings */,
 				C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */,
-				EA7A13F22D9EEC13002BD82F /* RCTRootViewBackground.h */,
-				EA7A13F32D9EEC2B002BD82F /* RCTRootViewBackground.m */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				2DAB62C802804CA1BF90BB10 /* noop-file.swift */,
 				3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */,
@@ -564,7 +559,6 @@
 				31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */,
 				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
 				07BBD7EC2E7C85FA00A3654D /* Verification.m in Sources */,
-				EA7A13F42D9EEC2C002BD82F /* RCTRootViewBackground.m in Sources */,
 				07A0D9DD2E7997C6005A1AA2 /* BundleUpdateModule.m in Sources */,
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
 			);

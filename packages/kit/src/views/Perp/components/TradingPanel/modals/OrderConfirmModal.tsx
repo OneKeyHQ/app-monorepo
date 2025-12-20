@@ -139,7 +139,7 @@ function OrderConfirmContent({
               })}
             </SizableText>
           ) : (
-            <SizableText size="$bodyMd">$ {formData.price}</SizableText>
+            <SizableText size="$bodyMdMedium">$ {formData.price}</SizableText>
           )}
         </XStack>
 

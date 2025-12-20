@@ -61,8 +61,10 @@ const SwapProLimitPriceInput = ({
   const reverseChangeComponent = useMemo(() => {
     return (
       <XStack alignItems="center" gap="$1" onPress={onReverseChange}>
-        <SizableText size="$bodyMd">{fromSymbolLabel}</SizableText>
-        <Icon name="SwapVerSolid" color="$iconSubdued" size="$4" />
+        <SizableText size="$bodyMd" maxWidth="$16" numberOfLines={1}>
+          {fromSymbolLabel}
+        </SizableText>
+        <Icon name="SwapHorSolid" color="$iconSubdued" size="$4" />
       </XStack>
     );
   }, [fromSymbolLabel, onReverseChange]);

@@ -27,8 +27,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // Extension OAuth Methods
 // ============================================================================
 
-export { EExtensionOAuthMethod };
-
 /**
  * Get OAuth redirect URL for Chrome Extension
  *

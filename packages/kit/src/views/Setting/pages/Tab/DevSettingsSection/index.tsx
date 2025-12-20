@@ -40,6 +40,10 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  isDualScreenDevice,
+  isSpanning,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import {
   requestPermissionsAsync,
@@ -68,7 +72,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
-import { exportLogs } from '../exportLogs';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
@@ -397,6 +400,8 @@ const BaseDevSettingsSection = () => {
                       channel: globalThis?.desktopApi?.channel,
                       isMas: globalThis?.desktopApi?.isMas,
                       systemVersion: globalThis?.desktopApi?.systemVersion,
+                      isDualScreenDevice: isDualScreenDevice(),
+                      isSpanning: isSpanning(),
                       ...platformEnv,
                     },
                   });

@@ -5,6 +5,7 @@ import { RefreshControl, ScrollView } from 'react-native';
 
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import {
+  Alert,
   DebugRenderTracker,
   IconButton,
   SizableText,
@@ -24,6 +25,7 @@ import {
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
+import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
@@ -139,6 +141,8 @@ export function PerpMobileLayout() {
       }
     >
       <PerpTips />
+      <PerpMobileNetworkAlert />
+
       <PerpTickerBar />
       <XStack gap="$2.5" px="$4" pb="$4">
         <YStack flexBasis="35%" flexShrink={1}>

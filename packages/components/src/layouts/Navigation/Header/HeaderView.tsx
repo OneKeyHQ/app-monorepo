@@ -217,6 +217,7 @@ function HeaderView({
             headerRightContainerStyle={
               isOnboardingScreen ? { flexGrow: 0 } : headerRightContainerStyle
             }
+            headerTitleAllowFontScaling={false}
             headerRight={
               typeof headerRight === 'function'
                 ? ({ tintColor }) => {
