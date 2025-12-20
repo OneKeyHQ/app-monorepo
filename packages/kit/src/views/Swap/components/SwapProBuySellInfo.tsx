@@ -53,13 +53,15 @@ const SwapProBuySellInfo = ({
       .toNumber();
   }, [sellCount, totalCount]);
   const buyVolume = useMemo(() => {
-    const buyVolumeValue = getCountByTimeRange(
+    const buyVolumeCount = getCountByTimeRange(
       tokenDetailInfo,
       timeRange,
-      'volume',
-      '',
+      'buy',
+      'Count',
     );
-    return numberFormat(buyVolumeValue.toString(), {
+    const priceBN = new BigNumber(tokenDetailInfo?.price || 0);
+    const buyVolumeValue = priceBN.multipliedBy(buyVolumeCount);
+    return numberFormat(buyVolumeValue.toFixed(), {
       formatter: 'marketCap',
       formatterOptions: {
         currency: currencyInfo.symbol,
@@ -67,13 +69,15 @@ const SwapProBuySellInfo = ({
     });
   }, [tokenDetailInfo, timeRange, currencyInfo.symbol]);
   const sellVolume = useMemo(() => {
-    const sellVolumeValue = getCountByTimeRange(
+    const sellVolumeCount = getCountByTimeRange(
       tokenDetailInfo,
       timeRange,
-      'volume',
-      '',
+      'sell',
+      'Count',
     );
-    return numberFormat(sellVolumeValue.toString(), {
+    const priceBN = new BigNumber(tokenDetailInfo?.price || 0);
+    const sellVolumeValue = priceBN.multipliedBy(sellVolumeCount);
+    return numberFormat(sellVolumeValue.toFixed(), {
       formatter: 'marketCap',
       formatterOptions: {
         currency: currencyInfo.symbol,

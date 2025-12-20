@@ -7,6 +7,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EHardwareTransportType } from '../../types';
 
+import { createConfigFetcher } from './configFetcher';
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
 
 import type { EOnekeyDomain } from '../../types';
@@ -74,10 +75,13 @@ const createHardwareSDKInstance = async (params: {
       env = 'desktop-web-ble' as const;
     }
 
+    const configFetcher = await createConfigFetcher();
+
     const settings: Partial<ConnectSettings> = {
       debug: params.debugMode,
       fetchConfig: true,
       env,
+      configFetcher,
     };
 
     HardwareSDK = await importHardwareSDK({

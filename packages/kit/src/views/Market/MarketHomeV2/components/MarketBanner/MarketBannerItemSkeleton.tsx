@@ -14,7 +14,7 @@ export function MarketBannerItemSkeleton({ compact }: { compact?: boolean }) {
         justifyContent="space-between"
       >
         <YStack gap="$1">
-          <Skeleton w="$16" h="$3.5" />
+          <Skeleton w="$16" h="$3" />
           <Skeleton w="$10" h="$3" />
         </YStack>
         <TokenGroupSkeleton size="xs" count={3} overlapOffset="$-3" />

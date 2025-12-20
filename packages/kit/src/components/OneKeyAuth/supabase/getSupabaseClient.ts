@@ -32,3 +32,24 @@ export function getSupabaseClient() {
   }
   return { client, storage };
 }
+
+/**
+ * Create a temporary Supabase client that does not persist sessions automatically.
+ * This is useful for OAuth flows where you want to get session data without
+ * automatically writing it to storage.
+ *
+ * @returns A Supabase client configured with persistSession: false
+ */
+export function createTemporarySupabaseClient() {
+  return createClient(
+    SUPABASE_PROJECT_URL ?? '',
+    SUPABASE_PUBLIC_API_KEY ?? '',
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false, // Don't persist session automatically
+        detectSessionInUrl: false,
+      },
+    },
+  );
+}

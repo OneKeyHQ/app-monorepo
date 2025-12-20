@@ -25,7 +25,6 @@ import {
   swapDefaultSetTokens,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
-  swapSlippageAutoValue,
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -79,7 +78,6 @@ import {
   swapProSellToTokenAtom,
   swapProSupportNetworksTokenListAtom,
   swapProSupportNetworksTokenListLoadingAtom,
-  swapProToTotalValueAtom,
   swapProTokenDetailWebsocketAtom,
   swapProTokenMarketDetailInfoAtom,
   swapProTokenMarketDetailInfoLoadingAtom,
@@ -934,7 +932,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   cleanSpeedQuote = contextAtomMethod(async (get, set) => {
     set(swapSpeedQuoteFetchingAtom(), false);
     set(swapSpeedQuoteResultAtom(), undefined);
-    set(swapProToTotalValueAtom(), '');
   });
 
   cleanLimitOrderMarketPriceInterval = () => {
