@@ -53,7 +53,7 @@ export const UndistributedRewardCard: FC<IUndistributedRewardCardProps> = ({
             icon="InfoCircleOutline"
             variant="tertiary"
             size="small"
-            iconColor="$iconSubdued"
+            iconProps={{ color: '$iconSubdued' }}
             onPress={onIconPress}
           />
         ) : null}
