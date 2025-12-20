@@ -1,4 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
+
+const IS_DEV = process.env.NODE_ENV !== 'production';
+
 /**
  * OAuth IPC event channel name for desktop OAuth callback
  */
@@ -103,17 +106,20 @@ export const GOOGLE_CHROME_EXTENSION_CLIENT_ID =
 
 // Supabase (OneKeyAuth)
 // Project URL at https://supabase.com/dashboard/project/_/settings/api
-// export const SUPABASE_PROJECT_URL = 'https://zvxscjkvkjepbrjncvzt.supabase.co';
-export const SUPABASE_PROJECT_URL = 'https://wtspqckturkzhstyjabx.supabase.co'; // local test
+export const SUPABASE_PROJECT_URL = IS_DEV
+  ? 'https://wtspqckturkzhstyjabx.supabase.co' // local test
+  : 'https://zvxscjkvkjepbrjncvzt.supabase.co';
 
 // Publishable key at https://supabase.com/dashboard/project/_/settings/api-keys/new
-// export const SUPABASE_PUBLIC_API_KEY = 'sb_publishable_ryfw0-h47JC2lHFRB2yrjw_iS_1KPgW';
-export const SUPABASE_PUBLIC_API_KEY =
-  'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN'; // local test
+export const SUPABASE_PUBLIC_API_KEY = IS_DEV
+  ? 'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN' // local test
+  : 'sb_publishable_ryfw0-h47JC2lHFRB2yrjw_iS_1KPgW';
 
 // Supabase OAuth Providers
 // https://supabase.com/dashboard/project/_/auth/providers
+
 // Supabase OAuth Redirect URIs
 // https://supabase.com/dashboard/project/_/auth/url-configuration
+
 // Supabase DOCS
 // - https://supabase.com/docs/guides/auth/social-login/auth-google
