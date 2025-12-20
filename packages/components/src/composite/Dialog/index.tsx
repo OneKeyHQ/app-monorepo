@@ -21,7 +21,6 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   AnimatePresence,
   Sheet,
-  SizableText,
   TMDialog,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -46,7 +45,7 @@ import {
 } from '../../hooks';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
-import { Spinner, Stack } from '../../primitives';
+import { SizableText, Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
