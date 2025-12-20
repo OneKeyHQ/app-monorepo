@@ -85,7 +85,6 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import { onHomePageRefresh } from '../PullToRefresh';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 const networkIdsMap = getNetworkIdsMap();
@@ -2008,7 +2007,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         allAggregateTokenMap={allAggregateTokenMap}
         showNetworkIcon={!!network?.isAllNetworks}
         hideZeroBalanceTokens={!!network?.isAllNetworks}
-        onRefresh={onHomePageRefresh}
         manageTokenEnabled={manageTokenEnabled}
         onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}
