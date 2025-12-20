@@ -16,8 +16,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import { EModalMarketRoutes } from '../../../../router';
-
 interface IMarketToken {
   tokenAddress: string;
   networkId: string;
@@ -80,7 +78,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
           screen: EModalRoutes.MarketModal,
           params: {
-            screen: EModalMarketRoutes.MarketDetailV2,
+            // Use string literal to avoid circular dependency with router/index.tsx
+            screen: 'MarketDetailV2',
             params,
           },
         });
