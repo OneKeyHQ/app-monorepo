@@ -17,12 +17,17 @@ import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
 
 import type { IWebTab } from '../../types';
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
 import type { WebViewProps } from 'react-native-webview';
 
-type IWebContentProps = IWebTab & WebViewProps;
+type IWebContentProps = IWebTab &
+  WebViewProps & {
+    isCurrent?: boolean;
+    customReceiveHandler?: IJsBridgeReceiveHandler;
+  };
 
-function WebContent({ id, url }: IWebContentProps) {
+function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
   const phishingUrlRef = useRef<string>('');
@@ -119,6 +124,7 @@ function WebContent({ id, url }: IWebContentProps) {
       ref.__domReady = true;
     }
   }, [id]);
+
   const webview = useMemo(
     () => {
       const isValidate = validateWebviewSrc({ url, isTopFrame: true });
@@ -129,6 +135,7 @@ function WebContent({ id, url }: IWebContentProps) {
         <WebView
           id={id}
           src={url}
+          customReceiveHandler={customReceiveHandler}
           onWebViewRef={(ref) => {
             if (ref && ref.innerRef) {
               if (!webviewRefs[id]) {
@@ -159,6 +166,7 @@ function WebContent({ id, url }: IWebContentProps) {
       onDidStartLoading,
       onDidStartNavigation,
       onDomReady,
+      customReceiveHandler,
       // onPageTitleUpdated,
       // onPageFaviconUpdated,
     ],
