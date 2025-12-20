@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
@@ -199,4 +199,3 @@ export function useUniversalBorrowRepay({
     [accountId, networkId, navigationToTxConfirm],
   );
 }
-

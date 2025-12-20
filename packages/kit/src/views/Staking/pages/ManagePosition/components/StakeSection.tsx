@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import {
+  useUniversalBorrowBorrow,
+  useUniversalBorrowSupply,
+} from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -23,10 +27,6 @@ import { UniversalBorrowBorrow } from '../../../components/UniversalBorrowBorrow
 import { UniversalBorrowSupply } from '../../../components/UniversalBorrowSupply';
 import { UniversalStake } from '../../../components/UniversalStake';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
-import {
-  useUniversalBorrowBorrow,
-  useUniversalBorrowSupply,
-} from '../../../hooks/useUniversalBorrowHooks';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
 
 export const StakeSection = ({
@@ -206,7 +206,9 @@ export const StakeSection = ({
           stakingInfo: token
             ? {
                 label:
-                  action === 'borrow' ? EEarnLabels.Withdraw : EEarnLabels.Stake,
+                  action === 'borrow'
+                    ? EEarnLabels.Withdraw
+                    : EEarnLabels.Stake,
                 protocol: earnUtils.getEarnProviderName({
                   providerName: provider,
                 }),
@@ -375,8 +377,8 @@ export const StakeSection = ({
           tokenInfo={tokenInfo}
           protocolInfo={protocolInfo}
           isDisabled={isDisabled}
-          borrowMarketAddress={borrowApiCtx.borrowApiParams!.marketAddress}
-          borrowReserveAddress={borrowApiCtx.borrowApiParams!.reserveAddress}
+          borrowMarketAddress={borrowApiCtx.borrowApiParams?.marketAddress}
+          borrowReserveAddress={borrowApiCtx.borrowApiParams?.reserveAddress}
           approveTarget={{
             accountId,
             networkId,

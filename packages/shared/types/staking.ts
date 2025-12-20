@@ -1894,6 +1894,12 @@ export interface IBorrowReserveDetail {
 }
 
 export interface IBorrowTransactionConfirmation {
+  mySupply?: {
+    current?: {
+      title: IEarnText;
+      description: IEarnText;
+    };
+  };
   apyDetail?: {
     title: IEarnText;
     button: IEarnPopupActionIcon;

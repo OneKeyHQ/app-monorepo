@@ -1,6 +1,10 @@
 import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
+import {
+  useUniversalBorrowRepay,
+  useUniversalBorrowWithdraw,
+} from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
@@ -14,10 +18,6 @@ import { UniversalBorrowRepay } from '../../../components/UniversalBorrowRepay';
 import { UniversalBorrowWithdraw } from '../../../components/UniversalBorrowWithdraw';
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
-import {
-  useUniversalBorrowRepay,
-  useUniversalBorrowWithdraw,
-} from '../../../hooks/useUniversalBorrowHooks';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
 
 export const WithdrawSection = ({
@@ -238,8 +238,8 @@ export const WithdrawSection = ({
           }
           protocolVault={protocolInfo?.vault ?? ''}
           isDisabled={isDisabled}
-          borrowMarketAddress={borrowApiCtx.borrowApiParams!.marketAddress}
-          borrowReserveAddress={borrowApiCtx.borrowApiParams!.reserveAddress}
+          borrowMarketAddress={borrowApiCtx.borrowApiParams?.marketAddress}
+          borrowReserveAddress={borrowApiCtx.borrowApiParams?.reserveAddress}
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
