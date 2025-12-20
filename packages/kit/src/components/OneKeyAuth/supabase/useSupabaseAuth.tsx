@@ -111,19 +111,6 @@ export function useSupabaseAuth() {
       if (platformEnv.isExtension) {
         if (
           DEFAULT_EXTENSION_OAUTH_METHOD ===
-          EExtensionOAuthMethod.CHROME_IDENTITY_API
-        ) {
-          // Use launchWebAuthFlow + signInWithIdToken (Supabase recommended)
-          // This method builds its own Google OAuth URL with response_type=id_token
-          return openOAuthPopupExtIdentity({
-            client: clientTemp,
-            config: { googleClientId: GOOGLE_CHROME_EXTENSION_CLIENT_ID },
-            handleSessionPersistence: handleOAuthSessionPersistence,
-            persistSession,
-          });
-        }
-        if (
-          DEFAULT_EXTENSION_OAUTH_METHOD ===
           EExtensionOAuthMethod.CHROME_GET_AUTH_TOKEN
         ) {
           // Use getAuthToken (requires manifest oauth2 config)
@@ -152,14 +139,7 @@ export function useSupabaseAuth() {
 
       // Defense-in-depth: Supabase PKCE URL may not include `state`. We embed our own
       // nonce into redirectTo so the callback must carry it back to us.
-      if (
-        redirectTo &&
-        (platformEnv.isWeb ||
-          // Desktop localhost server method
-          (platformEnv.isDesktop &&
-            DEFAULT_DESKTOP_OAUTH_METHOD ===
-              EDesktopOAuthMethod.LOCALHOST_SERVER))
-      ) {
+      if (redirectTo) {
         redirectTo = ensureOneKeyOAuthState(redirectTo);
       }
 
@@ -225,6 +205,20 @@ export function useSupabaseAuth() {
 
       // For extension with DIRECT_EXTENSION_SCHEME (does not work, kept for reference)
       if (platformEnv.isExtension) {
+        if (
+          DEFAULT_EXTENSION_OAUTH_METHOD ===
+          EExtensionOAuthMethod.CHROME_IDENTITY_API
+        ) {
+          // Use launchWebAuthFlow + signInWithIdToken (Supabase recommended)
+          // Pass authUrl from external creation (similar to web version)
+          return openOAuthPopupExtIdentity({
+            client: clientTemp,
+            config: { googleClientId: GOOGLE_CHROME_EXTENSION_CLIENT_ID },
+            handleSessionPersistence: handleOAuthSessionPersistence,
+            persistSession,
+            authUrl,
+          });
+        }
         return openOAuthPopupExtWindow({
           authUrl,
           handleSessionPersistence: handleOAuthSessionPersistence,

@@ -29,7 +29,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // ============================================================================
 // Extension OAuth Methods
 // ============================================================================
-
+const getRedirectUrl = (): string => {
+  // https://<extension-id>.chromiumapp.org/
+  let redirectUrl = chrome.identity.getRedirectURL();
+  // Remove trailing slash to match Google Cloud Console configuration (and existing behavior).
+  if (redirectUrl.endsWith('/')) {
+    redirectUrl = redirectUrl.slice(0, -1);
+  }
+  return redirectUrl;
+};
 /**
  * Get OAuth redirect URL for Chrome Extension
  *
@@ -48,8 +56,7 @@ export function getOAuthRedirectUrlExt(
     method === EExtensionOAuthMethod.CHROME_IDENTITY_API ||
     method === EExtensionOAuthMethod.CHROME_GET_AUTH_TOKEN
   ) {
-    // These methods handle redirect URL internally, not needed externally
-    return undefined;
+    return getRedirectUrl();
   }
   // Use direct chrome-extension:// scheme
   // Format: chrome-extension://<extension-id>/ui-oauth-callback.html
@@ -90,8 +97,15 @@ export async function openOAuthPopupExtIdentity(options: {
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
   persistSession?: boolean;
+  authUrl?: string;
 }): Promise<IOAuthPopupResult> {
-  const { client, config, handleSessionPersistence, persistSession } = options;
+  const {
+    client,
+    config,
+    handleSessionPersistence,
+    persistSession,
+    authUrl: externalAuthUrl,
+  } = options;
   const { googleClientId, scopes = GOOGLE_OAUTH_DEFAULT_SCOPES } = config;
 
   if (!chrome.identity) {
@@ -102,16 +116,6 @@ export async function openOAuthPopupExtIdentity(options: {
         'Try rebuilding the extension and reloading it in chrome://extensions.',
     );
   }
-
-  const getRedirectUrl = (): string => {
-    // https://<extension-id>.chromiumapp.org/
-    let redirectUrl = chrome.identity.getRedirectURL();
-    // Remove trailing slash to match Google Cloud Console configuration (and existing behavior).
-    if (redirectUrl.endsWith('/')) {
-      redirectUrl = redirectUrl.slice(0, -1);
-    }
-    return redirectUrl;
-  };
 
   type IExtensionOAuthFlowParams = { redirectUrl: string };
   type IExtensionOAuthFlowSignInParams = {
@@ -158,24 +162,7 @@ export async function openOAuthPopupExtIdentity(options: {
 
   const buildPkceFlowParams = ({ redirectUrl }: IExtensionOAuthFlowParams) => ({
     getAuthUrl: async () => {
-      // Ensure redirectUrl contains ONEKEY_OAUTH_STATE_KEY parameter
-      const redirectUrlWithState = ensureOneKeyOAuthState(redirectUrl);
-
-      const oauthUrlResult = await client.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          skipBrowserRedirect: true,
-          redirectTo: redirectUrlWithState,
-          queryParams: {
-            prompt: 'select_account',
-          },
-        },
-      });
-
-      if (oauthUrlResult.error) {
-        throw new OneKeyLocalError(oauthUrlResult.error.message);
-      }
-      const authUrl = oauthUrlResult.data?.url;
+      const authUrl = externalAuthUrl;
       if (!authUrl) {
         throw new OneKeyLocalError('Failed to create Supabase OAuth URL.');
       }
@@ -285,25 +272,6 @@ export async function openOAuthPopupExtIdentity(options: {
     },
   });
 
-  const processFlow = async ({
-    redirectUrl,
-    buildFlowParams,
-  }: IExtensionOAuthFlowParams & {
-    buildFlowParams: IExtensionOAuthFlowBuilder;
-  }) => {
-    const { getAuthUrl, signIn } = buildFlowParams({ redirectUrl });
-    const { authUrl, signInParams } = await getAuthUrl();
-    const callbackUrl = await launchWebAuthFlowWithTimeout(authUrl);
-
-    if (!callbackUrl) {
-      throw new OneKeyLocalError(
-        'OAuth authentication failed: callback URL is missing',
-      );
-    }
-
-    return signIn({ callbackUrl, signInParams });
-  };
-
   const buildOidcFlowParams = ({ redirectUrl }: IExtensionOAuthFlowParams) => ({
     getAuthUrl: async () => {
       // Build Google OAuth URL manually with response_type=id_token
@@ -392,6 +360,28 @@ export async function openOAuthPopupExtIdentity(options: {
     },
   });
 
+  const processFlow = async () => {
+    const redirectUrl = getRedirectUrl();
+
+    const { getAuthUrl, signIn } = EXTENSION_OAUTH_USE_PKCE_FLOW
+      ? buildPkceFlowParams({ redirectUrl })
+      : buildOidcFlowParams({ redirectUrl });
+
+    const result = await getAuthUrl();
+    const authUrl = result.authUrl;
+    const signInParams = result.signInParams;
+
+    const callbackUrl = await launchWebAuthFlowWithTimeout(authUrl);
+
+    if (!callbackUrl) {
+      throw new OneKeyLocalError(
+        'OAuth authentication failed: callback URL is missing',
+      );
+    }
+
+    return signIn({ callbackUrl, signInParams });
+  };
+
   // Launch the OAuth flow
   // Note: chrome.identity.launchWebAuthFlow doesn't support window size/position options
   // Chrome controls the OAuth window and may not allow modifications
@@ -455,8 +445,6 @@ export async function openOAuthPopupExtIdentity(options: {
     }
   };
 
-  const redirectUrl = getRedirectUrl();
-
   try {
     // --------------------------------------------------------------------------
     // PKCE mode (Supabase OAuth URL + exchangeCodeForSession)
@@ -468,16 +456,7 @@ export async function openOAuthPopupExtIdentity(options: {
     // When true, use Supabase OAuth + PKCE code flow and exchange the returned code for a session.
     // When false (default), use Google OIDC id_token + nonce and exchange via signInWithIdToken().
     // --------------------------------------------------------------------------
-    if (EXTENSION_OAUTH_USE_PKCE_FLOW) {
-      return await processFlow({
-        redirectUrl,
-        buildFlowParams: buildPkceFlowParams,
-      });
-    }
-    return await processFlow({
-      redirectUrl,
-      buildFlowParams: buildOidcFlowParams,
-    });
+    return await processFlow();
   } catch (error) {
     // User closed the popup or other error
     if (
