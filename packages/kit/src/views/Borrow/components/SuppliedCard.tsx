@@ -22,6 +22,41 @@ import { Card } from './Card';
 
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
 
+const SuppliedHeader = ({
+  data,
+}: {
+  data?: IBorrowReserveItem['supplied'];
+}) => {
+  return (
+    <XStack mt="$3" mb="$5" px="$5" gap="$5">
+      {data?.suppliedBalance?.title ? (
+        <XStack gap="$1">
+          <EarnText
+            text={{
+              text: 'Supplied balance',
+              size: '$bodyMd',
+              color: '$textSubdued',
+            }}
+          />
+          <EarnText text={data?.suppliedBalance?.title} />
+        </XStack>
+      ) : null}
+      {data?.suppliedApy?.title ? (
+        <XStack gap="$1">
+          <EarnText
+            text={{
+              text: 'APY',
+              size: '$bodyMd',
+              color: '$textSubdued',
+            }}
+          />
+          <EarnText text={data?.suppliedApy?.title} />
+        </XStack>
+      ) : null}
+    </XStack>
+  );
+};
+
 export const SuppliedCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
   const navigation = useAppNavigation();
@@ -51,9 +86,7 @@ export const SuppliedCard = () => {
   return (
     <Card title="Your supplies">
       {/* FIXME[borrow]: i18n */}
-      <XStack mt="$3" mb="$5" px="$5">
-        hello world
-      </XStack>
+      {!showLoading ? <SuppliedHeader data={reserves?.supplied} /> : null}
       <BorrowTableList<ISuppliedAsset>
         data={reserves?.supplied.assets || []}
         isLoading={showLoading}

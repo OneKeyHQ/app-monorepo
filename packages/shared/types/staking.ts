@@ -1774,9 +1774,15 @@ export interface IBorrowReserveItem {
     };
   };
   supplied: {
-    suppliedBalance: string;
-    supplyApy: string;
-    collateralBalance: string;
+    suppliedBalance: {
+      title: IEarnText;
+    };
+    suppliedApy: {
+      title: IEarnText;
+    };
+    collateralBalance: {
+      title: IEarnText;
+    };
     assets: {
       reserveAddress: string;
       token: IBorrowToken;
