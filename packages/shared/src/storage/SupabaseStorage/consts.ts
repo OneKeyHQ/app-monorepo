@@ -1,13 +1,8 @@
 /* eslint-disable spellcheck/spell-checker */
 // Supabase project URL
 
-import {
-  SUPABASE_PROJECT_URL,
-  SUPABASE_PUBLIC_API_KEY,
-} from '../../consts/authConsts';
+import { SUPABASE_PROJECT_URL } from '../../consts/authConsts';
 import { OneKeyLocalError } from '../../errors';
-
-export { SUPABASE_PROJECT_URL, SUPABASE_PUBLIC_API_KEY };
 
 export const SUPABASE_STORAGE_KEY_PREFIX = 'OneKeySupabaseAuth__';
 
