@@ -114,6 +114,8 @@ const icons = {
   NftPegIllus: () => import("./react/illus/NftPeg"),
   OkxChainIllus: () => import("./react/illus/OkxChain"),
   OnekeyBrandingPillIllus: () => import("./react/illus/OnekeyBrandingPill"),
+  OnekeyBrandingPillDarkIllus: () =>
+    import("./react/illus/OnekeyBrandingPillDark"),
   OnekeyLogoIllus: () => import("./react/illus/OnekeyLogo"),
   OnekeyTextIllus: () => import("./react/illus/OnekeyText"),
   OnekeyTextOnlyIllus: () => import("./react/illus/OnekeyTextOnly"),
