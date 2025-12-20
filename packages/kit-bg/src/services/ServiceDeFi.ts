@@ -16,6 +16,8 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
 
+import type { IDeFiDBStruct } from '../dbs/simple/entity/SimpleDbEntityDeFi';
+
 @backgroundClass()
 class ServiceDeFi extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -247,14 +249,19 @@ class ServiceDeFi extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async getAccountsLocalDeFiOverview(
+  public async getAccountsLocalDeFiOverview({
+    accounts,
+    deFiRawData,
+  }: {
     accounts: {
       accountAddress?: string;
       xpub?: string;
-    }[],
-  ) {
+    }[];
+    deFiRawData?: IDeFiDBStruct;
+  }) {
     return this.backgroundApi.simpleDb.deFi.getAccountsDeFiOverview({
       accounts,
+      deFiRawData,
     });
   }
 

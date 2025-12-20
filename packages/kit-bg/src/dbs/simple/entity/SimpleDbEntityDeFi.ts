@@ -93,13 +93,15 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
   @backgroundMethod()
   async getAccountsDeFiOverview({
     accounts,
+    deFiRawData,
   }: {
     accounts: {
       accountAddress?: string;
       xpub?: string;
     }[];
+    deFiRawData?: IDeFiDBStruct;
   }) {
-    const rawData = await this.getRawData();
+    const rawData = deFiRawData ?? (await this.getRawData());
     return accounts
       .map(({ accountAddress, xpub }) => {
         const key = accountUtils.buildAccountLocalAssetsKey({
