@@ -81,7 +81,6 @@ import type {
   IEarnTextTooltip,
   IEarnTokenInfo,
   IProtocolInfo,
-  IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 import {
   EApproveType,
@@ -90,50 +89,6 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type { FontSizeTokens } from 'tamagui';
-
-const buildBorrowTxConfirmationAsStake = (
-  tx: IBorrowTransactionConfirmation,
-): IStakeTransactionConfirmation => {
-  const emptyText = { text: '' };
-  const rewards = [
-    tx.healthFactor
-      ? {
-          title: tx.healthFactor.title,
-          description: tx.healthFactor.description,
-        }
-      : undefined,
-    tx.refundableFee
-      ? {
-          title: tx.refundableFee.title,
-          description: tx.refundableFee.description,
-          tooltip: tx.refundableFee.tooltip,
-        }
-      : undefined,
-    tx.liquidationAt
-      ? {
-          title: tx.liquidationAt.title,
-          description: tx.liquidationAt.description,
-        }
-      : undefined,
-  ].filter((item): item is IStakeTransactionConfirmation['rewards'][number] =>
-    Boolean(item),
-  );
-
-  return {
-    title: emptyText,
-    rewards,
-    receive: {
-      title: emptyText,
-      description: emptyText,
-      tooltip: {
-        type: 'text',
-        data: {
-          title: emptyText,
-        },
-      },
-    },
-  };
-};
 
 type IUniversalBorrowActionApproveTarget = {
   accountId: string;
@@ -389,7 +344,7 @@ function UniversalBorrowActionPrimaryContent({
   ]);
 
   const [transactionConfirmation, setTransactionConfirmation] = useState<
-    IStakeTransactionConfirmation | undefined
+    IBorrowTransactionConfirmation | undefined
   >();
 
   const borrowApiCtx = useBorrowApiParams({
@@ -420,39 +375,18 @@ function UniversalBorrowActionPrimaryContent({
               amount,
             },
           );
-        return buildBorrowTxConfirmationAsStake(resp);
+        return resp;
       }
-      const resp =
-        await backgroundApiProxy.serviceStaking.getTransactionConfirmation({
-          networkId,
-          provider: providerName,
-          symbol: tokenInfo?.token.symbol || '',
-          vault: useVaultProvider ? protocolInfo?.vault || '' : '',
-          accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
-          action: ECheckAmountActionType.STAKING,
-          amount,
-          identity: stakefishIdentity,
-        });
-      return resp;
+
+      return undefined;
     },
-    [
-      isDisabled,
-      borrowApiCtx,
-      networkId,
-      providerName,
-      tokenInfo?.token.symbol,
-      useVaultProvider,
-      protocolInfo?.vault,
-      protocolInfo?.earnAccount?.accountAddress,
-      stakefishIdentity,
-    ],
+    [borrowApiCtx, isDisabled],
   );
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
       const resp = await fetchTransactionConfirmation(amount || '0');
-      // FIXME
-      setTransactionConfirmation(undefined);
+      setTransactionConfirmation(resp);
     },
     350,
   );
@@ -1148,27 +1082,27 @@ function UniversalBorrowActionPrimaryContent({
       return items;
     }
 
-    if (transactionConfirmation?.receive?.title?.text) {
-      items.push(
-        <CalculationListItem key="receive">
-          <CalculationListItem.Label
-            size={transactionConfirmation.receive.title.size || '$bodyMd'}
-            color={transactionConfirmation.receive.title.color}
-            tooltip={
-              transactionConfirmation.receive.tooltip.type === 'text'
-                ? transactionConfirmation.receive.tooltip?.data?.title?.text
-                : undefined
-            }
-          >
-            {transactionConfirmation.receive.title.text}
-          </CalculationListItem.Label>
-          <EarnText
-            text={transactionConfirmation.receive.description}
-            size="$bodyMdMedium"
-          />
-        </CalculationListItem>,
-      );
-    }
+    // if (transactionConfirmation?.receive?.title?.text) {
+    //   items.push(
+    //     <CalculationListItem key="receive">
+    //       <CalculationListItem.Label
+    //         size={transactionConfirmation.receive.title.size || '$bodyMd'}
+    //         color={transactionConfirmation.receive.title.color}
+    //         tooltip={
+    //           transactionConfirmation.receive.tooltip.type === 'text'
+    //             ? transactionConfirmation.receive.tooltip?.data?.title?.text
+    //             : undefined
+    //         }
+    //       >
+    //         {transactionConfirmation.receive.title.text}
+    //       </CalculationListItem.Label>
+    //       <EarnText
+    //         text={transactionConfirmation.receive.description}
+    //         size="$bodyMdMedium"
+    //       />
+    //     </CalculationListItem>,
+    //   );
+    // }
     if (estimateFeeResp) {
       items.push(
         <EstimateNetworkFee
@@ -1206,7 +1140,6 @@ function UniversalBorrowActionPrimaryContent({
     onFeeRateChange,
     providerName,
     showEstimateGasAlert,
-    transactionConfirmation?.receive,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
   const isShowStakeProgress =
@@ -1363,60 +1296,90 @@ function UniversalBorrowActionPrimaryContent({
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          {showApyDetail && transactionConfirmation?.apyDetail ? (
-            <XStack gap="$1" ai="center" mb="$3.5">
-              <EarnText
-                text={transactionConfirmation.apyDetail.description}
-                size="$headingLg"
-                color="$textSuccess"
-              />
-              <EarnActionIcon
-                title={transactionConfirmation.apyDetail.title.text}
-                actionIcon={transactionConfirmation.apyDetail.button}
-              />
-            </XStack>
-          ) : null}
-          <YStack gap="$2">
-            {transactionConfirmation?.title?.text ? (
-              <XStack ai="center" gap="$1">
+          <YStack gap="$6">
+            {transactionConfirmation?.healthFactor ? (
+              <XStack ai="flex-start" gap="$1" jc="space-between">
                 <EarnText
-                  text={transactionConfirmation?.title}
-                  color="$textSubdued"
-                  size="$bodyMd"
+                  text={{ text: 'Health factor' }}
+                  color="$textText"
+                  size="$bodyLg"
                   boldTextProps={{
                     size: '$bodyMdMedium',
                   }}
                 />
-                {transactionConfirmation?.tooltip ? (
-                  <Popover
-                    placement="top"
-                    title={transactionConfirmation?.title?.text}
-                    renderTrigger={
-                      <IconButton
-                        iconColor="$iconSubdued"
-                        size="small"
-                        icon="InfoCircleOutline"
-                        variant="tertiary"
-                      />
-                    }
-                    renderContent={
-                      <Stack p="$5">
+                <YStack>
+                  <XStack ai="center" gap="$3">
+                    <EarnText
+                      text={transactionConfirmation.healthFactor?.title}
+                      size="$headingLg"
+                    />
+                    {transactionConfirmation.healthFactor?.description ? (
+                      <>
+                        <Icon
+                          name="ArrowRightSolid"
+                          size="$4"
+                          color="$iconDisabled"
+                        />
                         <EarnText
                           text={
-                            transactionConfirmation?.tooltip?.type === 'text'
-                              ? transactionConfirmation?.tooltip?.data
-                                  ?.description
-                              : undefined
+                            transactionConfirmation.healthFactor?.description
                           }
-                          size="$bodyMd"
+                          size="$headingLg"
                         />
-                      </Stack>
-                    }
-                  />
-                ) : null}
+                      </>
+                    ) : null}
+                  </XStack>
+                </YStack>
               </XStack>
             ) : null}
-            {transactionConfirmation?.rewards.map((reward) => {
+            {transactionConfirmation?.mySupply ? (
+              <XStack ai="flex-start" gap="$1" jc="space-between">
+                <EarnText
+                  text={{ text: 'My Supply' }}
+                  color="$textText"
+                  size="$bodyLg"
+                  boldTextProps={{
+                    size: '$bodyMdMedium',
+                  }}
+                />
+                <XStack ai="center" gap="$3">
+                  <YStack ai="flex-end">
+                    <EarnText
+                      text={transactionConfirmation.mySupply.current?.title}
+                      size="$headingLg"
+                    />
+                    <EarnText
+                      text={
+                        transactionConfirmation.mySupply.current?.description
+                      }
+                      size="$bodySmMedium"
+                    />
+                  </YStack>
+                  {transactionConfirmation.mySupply.latest ? (
+                    <Icon
+                      name="ArrowRightSolid"
+                      size="$4"
+                      color="$iconDisabled"
+                    />
+                  ) : null}
+                  {transactionConfirmation.mySupply.latest ? (
+                    <YStack ai="flex-end">
+                      <EarnText
+                        text={transactionConfirmation.mySupply.latest?.title}
+                        size="$headingLg"
+                      />
+                      <EarnText
+                        text={
+                          transactionConfirmation.mySupply.latest?.description
+                        }
+                        size="$bodySmMedium"
+                      />
+                    </YStack>
+                  ) : null}
+                </XStack>
+              </XStack>
+            ) : null}
+            {/* {transactionConfirmation?.rewards.map((reward) => {
               const hasTooltip = reward.tooltip?.type === 'text';
               let descriptionTextSize = (
                 hasTooltip ? '$bodyMd' : '$bodyLgMedium'
@@ -1461,7 +1424,7 @@ function UniversalBorrowActionPrimaryContent({
                   </XStack>
                 </XStack>
               );
-            })}
+            })} */}
           </YStack>
           <Divider my="$5" />
           <YStack gap="$5">
@@ -1864,7 +1827,7 @@ function UniversalBorrowActionSecondaryContent({
   }, 300);
 
   const [transactionConfirmation, setTransactionConfirmation] = useState<
-    IStakeTransactionConfirmation | undefined
+    IBorrowTransactionConfirmation | undefined
   >();
   const fetchTransactionConfirmation = useCallback(
     async (amount: string) => {
@@ -1880,43 +1843,18 @@ function UniversalBorrowActionSecondaryContent({
               amount,
             },
           );
-        return buildBorrowTxConfirmationAsStake(resp);
+        return resp;
       }
 
-      const resp =
-        await backgroundApiProxy.serviceStaking.getTransactionConfirmation({
-          networkId: networkId || '',
-          provider: providerName || '',
-          symbol: tokenSymbol || '',
-          vault: earnUtils.isVaultBasedProvider({
-            providerName: providerName ?? '',
-          })
-            ? protocolVault || ''
-            : '',
-          accountAddress,
-          action: ECheckAmountActionType.UNSTAKING,
-          amount,
-          identity,
-        });
-      return resp;
+      return undefined;
     },
-    [
-      isDisabled,
-      borrowApiCtx,
-      accountAddress,
-      protocolVault,
-      networkId,
-      providerName,
-      tokenSymbol,
-      identity,
-    ],
+    [isDisabled, borrowApiCtx],
   );
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
       const resp = await fetchTransactionConfirmation(amount || '0');
-      // FIXME
-      setTransactionConfirmation(undefined);
+      setTransactionConfirmation(resp);
     },
     350,
   );
@@ -2031,27 +1969,27 @@ function UniversalBorrowActionSecondaryContent({
     if (Number(amountValue) <= 0) {
       return items;
     }
-    if (transactionConfirmation?.receive?.title?.text) {
-      items.push(
-        <CalculationListItem>
-          <CalculationListItem.Label
-            size={transactionConfirmation.receive.title.size || '$bodyMd'}
-            color={transactionConfirmation.receive.title.color}
-            tooltip={
-              transactionConfirmation.receive.tooltip.type === 'text'
-                ? transactionConfirmation.receive.tooltip?.data?.title?.text
-                : undefined
-            }
-          >
-            {transactionConfirmation.receive.title.text}
-          </CalculationListItem.Label>
-          <EarnText
-            text={transactionConfirmation.receive.description}
-            size="$bodyMdMedium"
-          />
-        </CalculationListItem>,
-      );
-    }
+    // if (transactionConfirmation?.receive?.title?.text) {
+    //   items.push(
+    //     <CalculationListItem>
+    //       <CalculationListItem.Label
+    //         size={transactionConfirmation.receive.title.size || '$bodyMd'}
+    //         color={transactionConfirmation.receive.title.color}
+    //         tooltip={
+    //           transactionConfirmation.receive.tooltip.type === 'text'
+    //             ? transactionConfirmation.receive.tooltip?.data?.title?.text
+    //             : undefined
+    //         }
+    //       >
+    //         {transactionConfirmation.receive.title.text}
+    //       </CalculationListItem.Label>
+    //       <EarnText
+    //         text={transactionConfirmation.receive.description}
+    //         size="$bodyMdMedium"
+    //       />
+    //     </CalculationListItem>,
+    //   );
+    // }
     if (estimateFeeResp) {
       items.push(
         <EstimateNetworkFee
@@ -2061,7 +1999,7 @@ function UniversalBorrowActionSecondaryContent({
       );
     }
     return items;
-  }, [amountValue, estimateFeeResp, transactionConfirmation?.receive]);
+  }, [amountValue, estimateFeeResp]);
   const isAccordionTriggerDisabled = !amountValue;
 
   return (
@@ -2166,7 +2104,7 @@ function UniversalBorrowActionSecondaryContent({
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          {showApyDetail && transactionConfirmation?.apyDetail ? (
+          {/* {showApyDetail && transactionConfirmation?.apyDetail ? (
             <XStack gap="$1" ai="center" mb="$3.5">
               <EarnText
                 text={transactionConfirmation.apyDetail.description}
@@ -2178,9 +2116,9 @@ function UniversalBorrowActionSecondaryContent({
                 actionIcon={transactionConfirmation.apyDetail.button}
               />
             </XStack>
-          ) : null}
+          ) : null} */}
           <YStack gap="$2">
-            {transactionConfirmation?.title?.text ? (
+            {/* {transactionConfirmation?.title?.text ? (
               <XStack ai="center" gap="$1">
                 <EarnText
                   text={transactionConfirmation?.title}
@@ -2215,8 +2153,8 @@ function UniversalBorrowActionSecondaryContent({
                   />
                 ) : null}
               </XStack>
-            ) : null}
-            {transactionConfirmation?.rewards.map((reward) => {
+            ) : null} */}
+            {/* {transactionConfirmation?.rewards.map((reward) => {
               const hasTooltip = reward.tooltip?.type === 'text';
               let descriptionTextSize = (
                 hasTooltip ? '$bodyMd' : '$bodyLgMedium'
@@ -2260,7 +2198,7 @@ function UniversalBorrowActionSecondaryContent({
                   </XStack>
                 </XStack>
               );
-            })}
+            })} */}
           </YStack>
           <Divider my="$5" />
           <Accordion

@@ -1899,6 +1899,10 @@ export interface IBorrowTransactionConfirmation {
       title: IEarnText;
       description: IEarnText;
     };
+    latest?: {
+      title: IEarnText;
+      description: IEarnText;
+    };
   };
   apyDetail?: {
     title: IEarnText;
