@@ -354,7 +354,14 @@ export const ShareImageGenerator = forwardRef<
     useImperativeHandle(ref, () => ({ generate }));
 
     return (
-      <Stack position="absolute" opacity={0} pointerEvents="none">
+      <Stack
+        position="absolute"
+        left={-9999}
+        top={0}
+        opacity={0}
+        pointerEvents="none"
+        zIndex={-1}
+      >
         <canvas
           ref={canvasRef}
           width={CANVAS_CONFIG.size}

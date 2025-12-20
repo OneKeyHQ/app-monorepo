@@ -5,7 +5,6 @@ import { RefreshControl, ScrollView } from 'react-native';
 
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import {
-  Alert,
   DebugRenderTracker,
   IconButton,
   SizableText,
@@ -140,8 +139,10 @@ export function PerpMobileLayout() {
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
-      <PerpTips />
-      <PerpMobileNetworkAlert />
+      <YStack>
+        <PerpTips />
+        <PerpMobileNetworkAlert />
+      </YStack>
 
       <PerpTickerBar />
       <XStack gap="$2.5" px="$4" pb="$4">

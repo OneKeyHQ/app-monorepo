@@ -4,18 +4,24 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  DEFAULT_DESKTOP_OAUTH_METHOD,
+  DEFAULT_EXTENSION_OAUTH_METHOD,
+  EDesktopOAuthMethod,
+  EExtensionOAuthMethod,
+  GOOGLE_CHROME_EXTENSION_CLIENT_ID,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
-  EDesktopOAuthMethod,
   getOAuthRedirectUrlDesktop,
   openOAuthPopupDesktopDeepLink,
   openOAuthPopupDesktopWebview,
 } from '../openOAuthPopupDesktop';
+import { openOAuthPopupDesktopLocalhost } from '../openOAuthPopupDesktopLocalhost';
 import {
-  EExtensionOAuthMethod,
   getOAuthRedirectUrlExt,
   openOAuthPopupExtIdToken,
   openOAuthPopupExtIdentity,
@@ -30,40 +36,13 @@ import {
   openOAuthPopupWeb,
 } from '../openOAuthPopupWeb';
 
-import { getSupabaseClient } from './getSupabaseClient';
+import {
+  createTemporarySupabaseClient,
+  getSupabaseClient,
+} from './getSupabaseClient';
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
-import type { AuthResponse } from '@supabase/supabase-js';
-
-// Configure which OAuth method to use for extensions
-// See EExtensionOAuthMethod in openOAuthPopupExt.tsx for options
-// - CHROME_IDENTITY_API: Recommended - uses launchWebAuthFlow + signInWithIdToken
-// - CHROME_GET_AUTH_TOKEN: Alternative - uses getAuthToken (requires manifest oauth2 config)
-// - DIRECT_EXTENSION_SCHEME: Does NOT work - Chrome blocks chrome-extension:// redirects
-const EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
-  EExtensionOAuthMethod.CHROME_IDENTITY_API;
-
-// Google OAuth Client ID for Chrome Extension
-//
-// IMPORTANT: Different OAuth methods require different OAuth Client types in Google Cloud Console:
-//
-// - CHROME_IDENTITY_API (launchWebAuthFlow): Must use "Web Application" type OAuth Client
-//   Redirect URI: https://<extension-id>.chromiumapp.org (without trailing slash)
-//
-// - CHROME_GET_AUTH_TOKEN (getAuthToken): Must use "Chrome Extension" type OAuth Client
-//   Uses manifest.json oauth2.client_id, no redirect URI config needed
-//
-// TODO: Move this to environment variables or config
-const GOOGLE_CHROME_EXTENSION_CLIENT_ID =
-  process.env.GOOGLE_CHROME_EXTENSION_CLIENT_ID ||
-  // Web Application type (for CHROME_IDENTITY_API / launchWebAuthFlow)
-  '244450898872-d22ubafv8ca38s6fp0kflhdr6e3s386u.apps.googleusercontent.com';
-// Chrome Extension type (for CHROME_GET_AUTH_TOKEN / getAuthToken)
-// '244450898872-foi2b6mtfqus1ed46hu5j03abne6b04s.apps.googleusercontent.com'
-
-// Configure which OAuth method to use for desktop
-// See EDesktopOAuthMethod in openOAuthPopupDesktop.tsx for options
-const DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod = EDesktopOAuthMethod.WEBVIEW;
+import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
 
 // Helper function to handle OAuth session persistence
 // This function is called after successfully extracting tokens from OAuth callback
@@ -104,17 +83,6 @@ export function useSupabaseAuth() {
 
   void supabaseUser?.id;
 
-  const signOut = useCallback(async () => {
-    const res = await getSupabaseClient().client.auth.signOut({
-      scope: 'local',
-    });
-    console.log('useSupabaseAuth_signOut', res);
-    if (res.error) {
-      console.error('Error signing out:', res.error);
-    }
-    return res;
-  }, []);
-
   // ============ OAuth Sign In Methods ============
 
   const performOAuthSignIn = useCallback(
@@ -133,25 +101,29 @@ export function useSupabaseAuth() {
         refreshToken: string;
       };
     }> => {
-      const { persistSession = false } = options ?? {};
+      const { persistSession } = options ?? {};
+      const clientTemp: SupabaseClient = createTemporarySupabaseClient();
 
       // For extension with CHROME_IDENTITY_API or CHROME_GET_AUTH_TOKEN methods,
       // we don't need Supabase OAuth URL - these methods build their own Google OAuth URL
       // and use signInWithIdToken instead
       if (platformEnv.isExtension) {
         if (
-          EXTENSION_OAUTH_METHOD === EExtensionOAuthMethod.CHROME_IDENTITY_API
+          DEFAULT_EXTENSION_OAUTH_METHOD ===
+          EExtensionOAuthMethod.CHROME_IDENTITY_API
         ) {
           // Use launchWebAuthFlow + signInWithIdToken (Supabase recommended)
           // This method builds its own Google OAuth URL with response_type=id_token
           return openOAuthPopupExtIdentity({
+            client: clientTemp,
             config: { googleClientId: GOOGLE_CHROME_EXTENSION_CLIENT_ID },
             handleSessionPersistence: handleOAuthSessionPersistence,
             persistSession,
           });
         }
         if (
-          EXTENSION_OAUTH_METHOD === EExtensionOAuthMethod.CHROME_GET_AUTH_TOKEN
+          DEFAULT_EXTENSION_OAUTH_METHOD ===
+          EExtensionOAuthMethod.CHROME_GET_AUTH_TOKEN
         ) {
           // Use getAuthToken (requires manifest oauth2 config)
           // Chrome handles OAuth internally, no redirect URL needed
@@ -168,28 +140,29 @@ export function useSupabaseAuth() {
       if (platformEnv.isNative) {
         redirectTo = getOAuthRedirectUrlNative();
       } else if (platformEnv.isDesktop) {
-        redirectTo = getOAuthRedirectUrlDesktop(DESKTOP_OAUTH_METHOD);
+        redirectTo = await getOAuthRedirectUrlDesktop(
+          DEFAULT_DESKTOP_OAUTH_METHOD,
+        );
       } else if (platformEnv.isExtension) {
-        redirectTo = getOAuthRedirectUrlExt(EXTENSION_OAUTH_METHOD);
+        redirectTo = getOAuthRedirectUrlExt(DEFAULT_EXTENSION_OAUTH_METHOD);
       } else {
         redirectTo = getOAuthRedirectUrlWeb();
       }
 
-      const oauthUrlResult =
-        await getSupabaseClient().client.auth.signInWithOAuth({
-          provider,
-          options: {
-            skipBrowserRedirect: true,
-            redirectTo,
-            queryParams: {
-              // Google OAuth prompt options:
-              // - select_account: Force show account picker (let user choose which account to use)
-              // - consent: Force show authorization consent screen (re-request permissions)
-              // Combined: Show both account picker and consent screen
-              prompt: 'select_account', // 'select_account consent'  'select_account'
-            },
+      const oauthUrlResult = await clientTemp.auth.signInWithOAuth({
+        provider,
+        options: {
+          skipBrowserRedirect: true,
+          redirectTo,
+          queryParams: {
+            // Google OAuth prompt options:
+            // - select_account: Force show account picker (let user choose which account to use)
+            // - consent: Force show authorization consent screen (re-request permissions)
+            // Combined: Show both account picker and consent screen
+            prompt: 'select_account', // 'select_account consent'  'select_account'
           },
-        });
+        },
+      });
 
       if (oauthUrlResult.error) {
         throw new OneKeyLocalError(oauthUrlResult.error.message);
@@ -212,7 +185,17 @@ export function useSupabaseAuth() {
 
       // For desktop (Electron), handle OAuth based on configured method
       if (platformEnv.isDesktop) {
-        if (DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.WEBVIEW) {
+        if (
+          DEFAULT_DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.LOCALHOST_SERVER
+        ) {
+          return openOAuthPopupDesktopLocalhost({
+            authUrl,
+            client: clientTemp,
+            handleSessionPersistence: handleOAuthSessionPersistence,
+            persistSession,
+          });
+        }
+        if (DEFAULT_DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.WEBVIEW) {
           return openOAuthPopupDesktopWebview({
             authUrl,
             handleSessionPersistence: handleOAuthSessionPersistence,
@@ -238,7 +221,7 @@ export function useSupabaseAuth() {
       // Open OAuth popup window for web
       const popupResult = await openOAuthPopupWeb({
         authUrl,
-        client: getSupabaseClient().client,
+        client: clientTemp,
         handleSessionPersistence: handleOAuthSessionPersistence,
         persistSession,
       });
@@ -375,6 +358,17 @@ export function useSupabaseAuth() {
   );
 
   // ============ Session Management Methods ============
+
+  const signOut = useCallback(async () => {
+    const res = await getSupabaseClient().client.auth.signOut({
+      scope: 'local',
+    });
+    console.log('useSupabaseAuth_signOut', res);
+    if (res.error) {
+      console.error('Error signing out:', res.error);
+    }
+    return res;
+  }, []);
 
   const getAccessToken = useCallback(async () => {
     const res = await getSupabaseClient().client.auth.getSession();

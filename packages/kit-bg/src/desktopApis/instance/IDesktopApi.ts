@@ -6,6 +6,7 @@ import type DesktopApiDev from '../DesktopApiDev';
 import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import type DesktopApiKeychain from '../DesktopApiKeychain';
 import type DesktopApiNotification from '../DesktopApiNotification';
+import type DesktopApiOAuthLocalServer from '../DesktopApiOAuthLocalServer';
 import type DesktopApiSecurity from '../DesktopApiSecurity';
 import type DesktopApiSniRequest from '../DesktopApiSniRequest';
 import type DesktopApiStorage from '../DesktopApiStorage';
@@ -26,4 +27,5 @@ export interface IDesktopApi {
   cloudKit: DesktopApiCloudKit;
   keychain: DesktopApiKeychain;
   sniRequest: DesktopApiSniRequest;
+  oauthLocalServer: DesktopApiOAuthLocalServer;
 }
