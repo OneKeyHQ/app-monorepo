@@ -1,5 +1,7 @@
 import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 
+import type { IEarnPermit2ApproveSignData } from './staking';
+
 export enum EEarnProviderEnum {
   Lido = 'Lido',
   Everstake = 'Everstake',
@@ -14,6 +16,7 @@ export enum EEarnProviderEnum {
 
 export type ISupportedSymbol =
   | 'ETH'
+  | 'ADA'
   | 'USDC'
   | 'USDT'
   | 'DAI'
@@ -27,6 +30,8 @@ export type ISupportedSymbol =
   | 'BTC'
   | 'SBTC'
   | 'USDf'
+  | 'MORPHO'
+  | 'LISTA'
   | 'USDe';
 
 export interface IStakingFlowConfig {
@@ -40,6 +45,7 @@ export interface IStakingFlowConfig {
   claimWithTx?: boolean;
   usePublicKey?: boolean;
   claimWithAmount?: boolean;
+  allowPartialWithdraw?: boolean;
 }
 
 interface IProviderConfig {
@@ -65,6 +71,7 @@ export interface IEarnPermitCache {
   tokenAddress: string;
   amount: string;
   signature: string;
+  permit2Data?: IEarnPermit2ApproveSignData;
   expiredAt: number;
 }
 
@@ -79,7 +86,6 @@ export enum EAvailableAssetsTypeEnum {
   All = 'all',
   StableCoins = 'stableCoins',
   NativeTokens = 'nativeTokens',
-  Recommend = 'recommend',
 }
 
 export interface IEarnAvailableAssetProtocol {

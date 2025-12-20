@@ -1,12 +1,11 @@
 import {
-  SizableText,
   createStyledContext,
   styled,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { XStack } from '../../primitives';
+import { SizableText, XStack } from '../../primitives';
 
 import type { IXStackProps } from '../../primitives';
 

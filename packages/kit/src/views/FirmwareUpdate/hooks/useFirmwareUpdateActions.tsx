@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
@@ -10,20 +11,30 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFirmwareUpdateRoutes,
   EModalRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { closeModalPages } from '../../../hooks/usePageNavigation';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
+
+import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
+import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export function useFirmwareUpdateActions() {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
   const openChangeLogOfExtension = useThrottledCallback(
-    async (params: { connectId: string | undefined }) =>
+    async (params: {
+      connectId: string | undefined;
+      firmwareType: EFirmwareType | undefined;
+      baseReleaseInfo?: AllFirmwareRelease;
+    }) =>
       backgroundApiProxy.serviceApp.openExtensionExpandTab({
         routes: [
           ERootRoutes.Modal,
@@ -45,7 +56,10 @@ export function useFirmwareUpdateActions() {
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        void openChangeLogOfExtension({ connectId });
+        void openChangeLogOfExtension({
+          connectId,
+          firmwareType: undefined,
+        });
         if (platformEnv.isExtensionUiSidePanel) {
           window.close();
         }
@@ -53,6 +67,7 @@ export function useFirmwareUpdateActions() {
       }
       navigation.push(EModalFirmwareUpdateRoutes.ChangeLog, {
         connectId,
+        firmwareType: undefined,
       });
     },
     [navigation, openChangeLogOfExtension],
@@ -62,12 +77,24 @@ export function useFirmwareUpdateActions() {
   appGlobals.$$appEventBus.emit('ShowFirmwareUpdateForce',{ connectId: '3383' })
   */
   const openChangeLogModal = useCallback(
-    ({ connectId }: { connectId: string | undefined }) => {
+    ({
+      connectId,
+      firmwareType,
+      baseReleaseInfo,
+    }: {
+      connectId: string | undefined;
+      firmwareType?: EFirmwareType;
+      baseReleaseInfo?: AllFirmwareRelease;
+    }) => {
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        void openChangeLogOfExtension({ connectId });
+        void openChangeLogOfExtension({
+          connectId,
+          firmwareType,
+          baseReleaseInfo,
+        });
         if (platformEnv.isExtensionUiSidePanel) {
           window.close();
         }
@@ -82,6 +109,8 @@ export function useFirmwareUpdateActions() {
               screen: EModalFirmwareUpdateRoutes.ChangeLog,
               params: {
                 connectId,
+                firmwareType,
+                baseReleaseInfo,
               },
             },
           }),
@@ -92,6 +121,8 @@ export function useFirmwareUpdateActions() {
           screen: EModalFirmwareUpdateRoutes.ChangeLog,
           params: {
             connectId,
+            firmwareType,
+            baseReleaseInfo,
           },
         });
       }
@@ -103,14 +134,45 @@ export function useFirmwareUpdateActions() {
     navigation.popStack();
   }, [navigation]);
 
+  const restartOnboarding = useCallback(
+    async ({ deviceType }: { deviceType: EDeviceType | undefined }) => {
+      await closeModalPages();
+      rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.ConnectYourDevice,
+          params: {
+            deviceType: [deviceType],
+          },
+        },
+      });
+    },
+    [],
+  );
+
   const showBootloaderMode = useCallback(
     ({
       connectId,
       existsFirmware,
+      onBeforeUpdate,
     }: {
       connectId: string | undefined;
       existsFirmware?: boolean;
+      onBeforeUpdate?: () => Promise<string | undefined>;
     }) => {
+      const handleUpdateClick = async () => {
+        // Call onBeforeUpdate callback if provided (for onboarding USB preparation)
+        const finalConnectId = onBeforeUpdate
+          ? await onBeforeUpdate()
+          : connectId;
+
+        // Only open modal if USB preparation succeeded (finalConnectId is defined)
+        // If undefined, it means USB is not available and a dialog was already shown
+        if (finalConnectId !== undefined) {
+          openChangeLogModal({ connectId: finalConnectId });
+        }
+      };
+
       if (existsFirmware) {
         Dialog.show({
           title: intl.formatMessage({
@@ -127,7 +189,7 @@ export function useFirmwareUpdateActions() {
             id: ETranslations.global_got_it,
           }),
           onCancel: async () => {
-            openChangeLogModal({ connectId });
+            await handleUpdateClick();
           },
           onCancelText: intl.formatMessage({
             id: ETranslations.update_update_now,
@@ -144,7 +206,7 @@ export function useFirmwareUpdateActions() {
           dismissOnOverlayPress: false,
           showCancelButton: false,
           onConfirm: async () => {
-            openChangeLogModal({ connectId });
+            await handleUpdateClick();
           },
           onConfirmText: intl.formatMessage({
             id: ETranslations.update_update_now,
@@ -176,10 +238,49 @@ export function useFirmwareUpdateActions() {
 
   const showCheckList = useCallback(
     ({ result }: { result: ICheckAllFirmwareReleaseResult | undefined }) => {
-      Dialog.confirm({
-        title: intl.formatMessage({
+      let title;
+
+      const updateFirmwareInfo = result?.updateInfos?.firmware;
+      if (
+        updateFirmwareInfo &&
+        updateFirmwareInfo?.fromFirmwareType &&
+        updateFirmwareInfo?.toFirmwareType &&
+        updateFirmwareInfo.toFirmwareType !==
+          updateFirmwareInfo.fromFirmwareType &&
+        updateFirmwareInfo.toFirmwareType === EFirmwareType.BitcoinOnly
+      ) {
+        title = intl.formatMessage(
+          {
+            id: ETranslations.device_checklist_switch_firmware_type,
+          },
+          {
+            type: 'Bitcoin-only',
+          },
+        );
+      } else if (
+        updateFirmwareInfo &&
+        updateFirmwareInfo?.fromFirmwareType &&
+        updateFirmwareInfo?.toFirmwareType &&
+        updateFirmwareInfo.toFirmwareType !==
+          updateFirmwareInfo.fromFirmwareType &&
+        updateFirmwareInfo.toFirmwareType === EFirmwareType.Universal
+      ) {
+        title = intl.formatMessage(
+          {
+            id: ETranslations.device_checklist_switch_firmware_type,
+          },
+          {
+            type: 'Universal',
+          },
+        );
+      } else {
+        title = intl.formatMessage({
           id: ETranslations.update_ready_to_upgrade_checklist,
-        }),
+        });
+      }
+
+      Dialog.confirm({
+        title,
         icon: 'ChecklistOutline',
         renderContent: <FirmwareUpdateCheckList result={result} />,
         onConfirmText: intl.formatMessage({
@@ -198,5 +299,6 @@ export function useFirmwareUpdateActions() {
     showBootloaderMode,
     showForceUpdate,
     showCheckList,
+    restartOnboarding,
   };
 }

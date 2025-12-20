@@ -2,17 +2,20 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
-import { Page, rootNavigationRef } from '@onekeyhq/components';
+import {
+  Page,
+  rootNavigationRef,
+  switchTab,
+  useIsTabletMainView,
+} from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
   IPageNavigationProp,
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
-import type {
-  ETabRoutes,
-  IModalParamList,
-  ITabStackParamList,
-} from '@onekeyhq/shared/src/routes';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import type { IModalParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 const getModalRoute = () => {
@@ -77,8 +80,10 @@ function useAppNavigation<
     | IPageNavigationProp<any>
     | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
+  // rootNavigationRef
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
+  const isTabletMainView = useIsTabletMainView();
 
   if (navigationRef.current !== navigation) {
     navigationRef.current = navigation;
@@ -95,28 +100,6 @@ function useAppNavigation<
       popStack();
     }
   }, [popStack]);
-
-  const switchTab = useCallback(
-    <T extends ETabRoutes>(
-      route: T,
-      params?: {
-        screen: keyof ITabStackParamList[T];
-        params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
-      },
-    ) => {
-      rootNavigationRef.current?.navigate(
-        ERootRoutes.Main,
-        {
-          screen: route,
-          params,
-        },
-        {
-          pop: true,
-        },
-      );
-    },
-    [],
-  );
 
   const pushModalPage = useCallback(
     <T extends EModalRoutes>(
@@ -163,6 +146,7 @@ function useAppNavigation<
         });
         return;
       }
+
       // If there is no stack route, use navigate to create a router stack.
       navigationInstance.navigate(modalType, {
         screen: route,
@@ -180,9 +164,16 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
-      pushModalPage(ERootRoutes.Modal, route, params as any);
+      if (isTabletMainView) {
+        appEventBus.emit(EAppEventBusNames.PushModalPageInTabletDetailView, {
+          route,
+          params,
+        });
+      } else {
+        pushModalPage(ERootRoutes.Modal, route, params as any);
+      }
     },
-    [pushModalPage],
+    [isTabletMainView, pushModalPage],
   );
 
   const pushFullModal = useCallback(
@@ -220,6 +211,10 @@ function useAppNavigation<
 
   const push: typeof navigationRef.current.push = useCallback(
     (...args) => {
+      if (isTabletMainView) {
+        appEventBus.emit(EAppEventBusNames.PushPageInTabletDetailView, args);
+        return;
+      }
       const modalRoute = getModalRoute();
       if (modalRoute) {
         const isSettingsModal =
@@ -245,9 +240,9 @@ function useAppNavigation<
           }
         }
       }
-      navigationRef.current.push(...args);
+      navigationRef.current.navigate(...args);
     },
-    [navigation],
+    [isTabletMainView, navigation],
   );
 
   const replace: typeof navigationRef.current.replace = useCallback(
@@ -270,7 +265,11 @@ function useAppNavigation<
 
   const popTo: typeof navigationRef.current.popTo = useCallback(
     (...args: any) => {
-      navigationRef.current.popTo(...args);
+      const [screen, params, options] = args;
+      navigationRef.current.navigate(screen, params, {
+        pop: true,
+        ...options,
+      });
     },
     [],
   );
@@ -304,7 +303,6 @@ function useAppNavigation<
       replace,
       reset,
       setOptions,
-      switchTab,
     ],
   );
 }

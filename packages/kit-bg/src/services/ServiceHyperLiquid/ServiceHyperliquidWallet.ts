@@ -78,6 +78,12 @@ export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
 
   backgroundApi: IBackgroundApi;
 
+  private _tempSignature?: {
+    value: Record<string, unknown>;
+    signatureHex: string;
+    signerAddress: string;
+  };
+
   constructor(accountId: string, backgroundApi: IBackgroundApi) {
     this.accountId = accountId;
     this.backgroundApi = backgroundApi;
@@ -140,7 +146,18 @@ export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
       });
     }
 
+    this._tempSignature = {
+      value,
+      signatureHex: result,
+      signerAddress: address,
+    };
     return result;
+  }
+
+  getTempSignatureAndClear() {
+    const temp = this._tempSignature;
+    this._tempSignature = undefined;
+    return temp;
   }
 
   async getAddress(): Promise<string> {

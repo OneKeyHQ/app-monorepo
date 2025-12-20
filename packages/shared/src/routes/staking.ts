@@ -9,6 +9,7 @@ export enum EModalStakingRoutes {
   InvestmentDetails = 'InvestmentDetails',
   Stake = 'Stake',
   Withdraw = 'Withdraw',
+  ManagePosition = 'ManagePosition',
   Claim = 'Claim',
   ProtocolDetails = 'ProtocolDetails',
   ProtocolDetailsV2 = 'ProtocolDetailsV2',
@@ -29,6 +30,8 @@ type IBaseRouteParams = {
 interface IDetailPageInfoParams extends IBaseRouteParams {
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
+  symbol?: string;
+  provider?: string;
 }
 export type IModalStakingParamList = {
   [EModalStakingRoutes.InvestmentDetails]: undefined;
@@ -52,6 +55,15 @@ export type IModalStakingParamList = {
     details?: IStakeProtocolDetails;
     // note: does not contain accountId, etc. account information
   };
+  [EModalStakingRoutes.ManagePosition]: {
+    networkId: string;
+    symbol: string;
+    provider: string;
+    details?: IStakeProtocolDetails;
+    vault?: string;
+    tab?: 'deposit' | 'withdraw';
+    tokenImageUri?: string;
+  };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;
     onSuccess?: () => void;
@@ -62,6 +74,7 @@ export type IModalStakingParamList = {
     amount?: string;
     fromPage?: EModalStakingRoutes.WithdrawOptions;
     onSuccess?: () => void;
+    allowPartialWithdraw?: boolean;
   };
   [EModalStakingRoutes.Claim]: IDetailPageInfoParams &
     IDetailPageInfoParams & {
@@ -70,8 +83,12 @@ export type IModalStakingParamList = {
       identity?: string;
       claimableAmount?: string;
     };
-  [EModalStakingRoutes.ClaimOptions]: IDetailPageInfoParams;
-  [EModalStakingRoutes.WithdrawOptions]: IDetailPageInfoParams;
+  [EModalStakingRoutes.ClaimOptions]: IDetailPageInfoParams & {
+    onSuccess?: () => void;
+  };
+  [EModalStakingRoutes.WithdrawOptions]: IDetailPageInfoParams & {
+    onSuccess?: () => void;
+  };
   [EModalStakingRoutes.AssetProtocolList]: IBaseRouteParams & {
     symbol: string;
     filter?: boolean;

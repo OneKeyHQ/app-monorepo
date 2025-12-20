@@ -33,18 +33,24 @@ import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
 import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
 
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
+
+export type IDeviceManagementListModalItem = IHwQrWalletWithDevice & {
+  firmwareTypeBadge?: EFirmwareType;
+};
+
 function DeviceManagementListModal() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { result: hwQrWalletList = [], run: refreshHwQrWalletList } =
-    usePromiseResult<Array<IHwQrWalletWithDevice>>(
+    usePromiseResult<Array<IDeviceManagementListModalItem>>(
       async () => {
         const r =
           await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
             filterHiddenWallet: true,
             skipDuplicateDevice: true,
           });
-        return Object.values(r)
+        const devices: Array<IDeviceManagementListModalItem> = Object.values(r)
           .filter(
             (item): item is IHwQrWalletWithDevice =>
               Boolean(item.device) && !item.wallet.deprecated,
@@ -55,6 +61,14 @@ function DeviceManagementListModal() {
             const orderB = b.wallet.walletOrder || b.wallet.walletNo;
             return orderA - orderB;
           });
+
+        for (const item of devices) {
+          const firmwareTypeBadge = await deviceUtils.getFirmwareType({
+            features: item.device?.featuresInfo,
+          });
+          item.firmwareTypeBadge = firmwareTypeBadge;
+        }
+        return devices;
       },
       [],
       {
@@ -103,10 +117,11 @@ function DeviceManagementListModal() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: IHwQrWalletWithDevice }) => {
+    ({ item }: { item: IDeviceManagementListModalItem }) => {
       const walletAvatarProps: IWalletAvatarProps = {
         wallet: item.wallet,
         status: 'default',
+        firmwareTypeBadge: item.firmwareTypeBadge,
       };
       return (
         <ListItem

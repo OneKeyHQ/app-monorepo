@@ -707,34 +707,6 @@ const mode: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
-const mvm: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '73927',
-  'id': 'evm--73927',
-  'name': 'Mixin',
-  'symbol': 'ETH',
-  'code': 'mvm',
-  'shortcode': 'mvm',
-  'shortname': 'MVM',
-  'decimals': 18,
-  'feeMeta': {
-    'decimals': 9,
-    'symbol': 'Gwei',
-    'isEIP1559FeeEnabled': false,
-    'isWithL1BaseFee': false,
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': false,
-  'extensions': {
-    'position': 9999,
-    'isTokenSupported': true,
-    'isNFTEnabled': false,
-  },
-  'logoURI':
-    'https://uni.onekey-asset.com/static/chain/mixin-virtual-machine.png',
-  'defaultEnabled': true,
-  'backendIndex': false,
-};
 const metis: IServerNetwork = {
   'impl': 'evm',
   'chainId': '1088',
@@ -1153,33 +1125,6 @@ const dymension: IServerNetwork = {
     'isNFTEnabled': false,
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/dymension.png',
-  'defaultEnabled': true,
-  'backendIndex': false,
-};
-const dis: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '513100',
-  'id': 'evm--513100',
-  'name': 'DIS CHAIN',
-  'symbol': 'DIS',
-  'code': 'dis',
-  'shortcode': 'dis',
-  'shortname': 'DIS',
-  'decimals': 18,
-  'feeMeta': {
-    'decimals': 9,
-    'symbol': 'Gwei',
-    'isEIP1559FeeEnabled': false,
-    'isWithL1BaseFee': false,
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': false,
-  'extensions': {
-    'position': 9999,
-    'isTokenSupported': true,
-    'isNFTEnabled': false,
-  },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/dis.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -1891,6 +1836,35 @@ const monadTestnet: IServerNetwork = {
   'backendIndex': false,
 };
 
+const hoodi: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '560048',
+  'id': 'evm--560048',
+  'name': 'Hoodi Testnet',
+  'symbol': 'ETH',
+  'code': 'hoodi',
+  'shortcode': 'hoodi',
+  'shortname': 'Hoodi',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': false,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni.onekey-asset.com/dashboard/logo/upload_1756881610802.0.9132280905497288.0.jpeg',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
 const btc: IServerNetwork = {
   'chainId': '0',
   'code': 'btc',
@@ -2489,26 +2463,6 @@ const sol: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const polkadot: IServerNetwork = {
-  'chainId': 'polkadot',
-  'code': 'dot',
-  'decimals': 10,
-  'id': 'dot--polkadot',
-  'impl': 'dot',
-  'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/polkadot.png',
-  'name': 'Polkadot',
-  'shortcode': 'dot',
-  'shortname': 'DOT',
-  'symbol': 'DOT',
-  'feeMeta': {
-    'decimals': 10,
-    'symbol': 'DOT',
-  },
-  'defaultEnabled': true,
-  'status': ENetworkStatus.LISTED,
-};
-
 const astar: IServerNetwork = {
   'chainId': 'astar',
   'code': 'astar',
@@ -2524,26 +2478,6 @@ const astar: IServerNetwork = {
   'feeMeta': {
     'decimals': 18,
     'symbol': '18',
-  },
-  'defaultEnabled': true,
-  'status': ENetworkStatus.LISTED,
-};
-
-const kusama: IServerNetwork = {
-  'chainId': 'kusama',
-  'code': 'ksm',
-  'decimals': 12,
-  'id': 'dot--kusama',
-  'impl': 'dot',
-  'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/kusama.png',
-  'name': 'Kusama',
-  'shortcode': 'ksm',
-  'shortname': 'KSM',
-  'symbol': 'KSM',
-  'feeMeta': {
-    'decimals': 12,
-    'symbol': 'KSM',
   },
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
@@ -2584,6 +2518,106 @@ const joystream: IServerNetwork = {
   'feeMeta': {
     'decimals': 10,
     'symbol': 'JOY',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const hydradx: IServerNetwork = {
+  'chainId': 'hydration',
+  'code': 'hydration',
+  'decimals': 12,
+  'id': 'dot--hydration',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/hdx.png',
+  'name': 'Hydration',
+  'shortcode': 'hydration',
+  'shortname': 'HDX',
+  'symbol': 'HDX',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'HDX',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const assethubPolkadot: IServerNetwork = {
+  'chainId': 'polkadot-asset-hub',
+  'code': 'assetHub',
+  'decimals': 10,
+  'id': 'dot--asset-hub',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-assethub.png',
+  'name': 'Polkadot AssetHub',
+  'shortcode': 'assetHub',
+  'shortname': 'DOT',
+  'symbol': 'DOT',
+  'feeMeta': {
+    'decimals': 10,
+    'symbol': 'DOT',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const assethubKusama: IServerNetwork = {
+  'impl': 'dot',
+  'chainId': 'dot--kusama-assethub',
+  'id': 'dot--kusama-assethub',
+  'name': 'Kusama AssetHub',
+  'symbol': 'KSM',
+  'code': 'ksmAssetHub',
+  'shortcode': 'ksmAssetHub',
+  'shortname': 'KsmAssetHub',
+  'decimals': 12,
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'KSM',
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-ksm-assethub.png',
+  'defaultEnabled': false,
+};
+
+const bifrost: IServerNetwork = {
+  'chainId': 'bifrost-ksm',
+  'code': 'bifrost',
+  'decimals': 12,
+  'id': 'dot--bifrost-ksm',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bnc.png',
+  'name': 'Bifrost Kusama',
+  'shortcode': 'bifrost',
+  'shortname': 'BNC',
+  'symbol': 'BNC',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'BNC',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const bifrostDot: IServerNetwork = {
+  'chainId': 'dot-bifrost',
+  'code': 'dot-bifrost',
+  'decimals': 12,
+  'id': 'dot--bifrost',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bifrost.png',
+  'name': 'Bifrost Polkadot',
+  'shortcode': 'dot-bifrost',
+  'shortname': 'BNC',
+  'symbol': 'BNC',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'BNC',
   },
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
@@ -2896,7 +2930,6 @@ export const presetNetworksMap = {
   octa,
   moonbeam,
   mode,
-  mvm,
   metis,
   merlinmainnet,
   mantle,
@@ -2913,7 +2946,6 @@ export const presetNetworksMap = {
   etc,
   ace,
   dymension,
-  dis,
   cyeth,
   cronos,
   core,
@@ -2935,6 +2967,7 @@ export const presetNetworksMap = {
   hsk,
   rsk,
   unichain,
+  hoodi,
 
   // cosmos
   celestia,
@@ -2948,11 +2981,14 @@ export const presetNetworksMap = {
   noble,
 
   // polkadot
-  polkadot,
   astar,
-  kusama,
   manta,
   joystream,
+  hydradx,
+  bifrost,
+  bifrostDot,
+  assethubPolkadot,
+  assethubKusama,
 
   aptos,
   lightning,
@@ -3085,7 +3121,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     octa,
     moonbeam,
     mode,
-    mvm,
     metis,
     merlinmainnet,
     mantle,
@@ -3102,7 +3137,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     etc,
     ace,
     dymension,
-    dis,
     cyeth,
     cronos,
     core,
@@ -3129,6 +3163,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     worldChain,
     hyperEvm,
     monadTestnet,
+    hoodi,
 
     // cosmos
     celestia,
@@ -3144,11 +3179,14 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     noble,
 
     // polkadot
-    polkadot,
     astar,
-    kusama,
     manta,
     joystream,
+    hydradx,
+    bifrost,
+    bifrostDot,
+    assethubPolkadot,
+    assethubKusama,
 
     aptos,
     lightning,
@@ -3187,8 +3225,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 export const getNetworksSupportFilterScamHistory = memoFn(
   (): IServerNetwork[] => [
     eth,
+    sol,
     sepolia,
     holesky,
+    hoodi,
     base,
     optimism,
     avalanche,

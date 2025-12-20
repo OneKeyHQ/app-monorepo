@@ -172,6 +172,7 @@ export interface IPerpServerReferrerConfig {
   referrerRate?: number;
   agentTTL?: number;
   referralCode?: string;
+  configVersion?: string;
 }
 
 export interface IPerpServerCommonConfig {
@@ -750,13 +751,16 @@ class ServiceWebviewPerp extends ServiceBase {
       this.lastExtPerpTab =
         await this.backgroundApi.serviceApp.openExtensionExpandTab({
           // routes: [ERootRoutes.Main, ETabRoutes.Perp], // not working for extension
-          path: '/perp',
+          path: '/perps',
         });
     }
   }
 
   @backgroundMethod()
   async setPerpUserConfig(type: EPerpUserType) {
+    // if (type === EPerpUserType.PERP_WEB) {
+    //   void this.backgroundApi.serviceHyperliquidSubscription.pauseSubscriptions();
+    // }
     await perpsUserConfigPersistAtom.set((prev) => ({
       ...prev,
       perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },

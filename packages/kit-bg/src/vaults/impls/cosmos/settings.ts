@@ -151,6 +151,18 @@ const settings: IVaultSettings = {
             },
           },
         },
+        [EEarnProviderEnum.Stakefish]: {
+          supportedSymbols: ['ATOM'],
+          configs: {
+            'ATOM': {
+              enabled: true,
+              tokenAddress: 'uatom',
+              displayProfit: true,
+              usePublicKey: true,
+              claimWithAmount: true,
+            },
+          },
+        },
       },
     },
   },

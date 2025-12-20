@@ -12,6 +12,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -45,23 +46,33 @@ export function useSyncDappAccountToHomeAccount() {
       });
 
       if (isOtherWallet) {
-        await actions.current.confirmAccountSelect({
-          num: 0,
-          indexedAccount: undefined,
-          othersWalletAccount: account,
-          autoChangeToAccountMatchedNetworkId: networkId,
-        });
+        setTimeout(
+          () => {
+            void actions.current.confirmAccountSelect({
+              num: 0,
+              indexedAccount: undefined,
+              othersWalletAccount: account,
+              autoChangeToAccountMatchedNetworkId: networkId,
+            });
+          },
+          platformEnv.isExtension ? 200 : 0,
+        );
       } else {
         const indexedAccount = await serviceAccount.getIndexedAccount({
           id: indexedAccountId ?? '',
         });
-        await actions.current.confirmAccountSelect({
-          num: 0,
-          indexedAccount,
-          othersWalletAccount: undefined,
-          autoChangeToAccountMatchedNetworkId: undefined,
-          forceSelectToNetworkId: networkId,
-        });
+        setTimeout(
+          () => {
+            void actions.current.confirmAccountSelect({
+              num: 0,
+              indexedAccount,
+              othersWalletAccount: undefined,
+              autoChangeToAccountMatchedNetworkId: undefined,
+              forceSelectToNetworkId: networkId,
+            });
+          },
+          platformEnv.isExtension ? 200 : 0,
+        );
       }
     },
     [actions],

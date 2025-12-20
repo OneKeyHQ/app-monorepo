@@ -9,20 +9,23 @@ import {
   Tabs,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 
-const tabNameToTranslationKey = {
+const tabNameToTranslationKey: Record<string, string> = {
   'Positions': ETranslations.perp_position_title,
   'Open Orders': ETranslations.perp_open_orders_title,
   'Trades History': ETranslations.perp_trades_history_title,
+  'Account': ETranslations.perp_account_history,
 };
 
 function TabBarItem({
@@ -52,6 +55,14 @@ function TabBarItem({
     return '';
   }, [positionsLength, openOrdersLength, name]);
 
+  const translationKey = tabNameToTranslationKey[name];
+  let tabTitle = translationKey;
+  if (translationKey.startsWith('perp.')) {
+    tabTitle = intl.formatMessage({
+      id: translationKey as ETranslations,
+    });
+  }
+
   return (
     <DebugRenderTracker
       position="bottom-center"
@@ -64,14 +75,9 @@ function TabBarItem({
         borderBottomWidth={isFocused ? '$0.5' : '$0'}
         borderBottomColor="$borderActive"
         onPress={() => onPress(name)}
+        cursor="pointer"
       >
-        <SizableText size="$headingXs">
-          {`${intl.formatMessage({
-            id: tabNameToTranslationKey[
-              name as keyof typeof tabNameToTranslationKey
-            ],
-          })} ${tabCount}`}
-        </SizableText>
+        <SizableText size="$headingXs">{`${tabTitle} ${tabCount}`}</SizableText>
       </XStack>
     </DebugRenderTracker>
   );
@@ -90,8 +96,8 @@ function PerpOrderInfoPanel() {
       headerHeight={80}
       initialTabName="Positions"
       onTabChange={async (tab) => {
-        if (tab.tabName === 'Trades History') {
-          // do nothing
+        if (tab.tabName === 'Account') {
+          void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
         }
       }}
       renderTabBar={(props) => (
@@ -104,6 +110,7 @@ function PerpOrderInfoPanel() {
             borderRadius: 0,
             margin: 0,
             padding: 0,
+            cursor: 'default',
           }}
         />
       )}
@@ -116,6 +123,9 @@ function PerpOrderInfoPanel() {
       </Tabs.Tab>
       <Tabs.Tab name="Trades History">
         <PerpTradesHistoryList useTabsList />
+      </Tabs.Tab>
+      <Tabs.Tab name="Account">
+        <PerpAccountList useTabsList />
       </Tabs.Tab>
     </Tabs.Container>
   );

@@ -97,11 +97,18 @@ export class FirmwareUpdateDetectMap {
               detectCache?.updateInfo?.ble?.hasUpgrade,
           );
 
-          let toVersionFirmware;
+          let toFirmwareVersion;
           if (detectCache?.updateInfo?.firmware?.hasUpgrade) {
-            toVersionFirmware =
+            toFirmwareVersion =
               detectCache?.updateInfo?.firmware?.toVersion ??
               value?.[connectId]?.toVersion;
+          }
+
+          let toFirmwareType;
+          if (detectCache?.updateInfo?.firmware?.hasUpgrade) {
+            toFirmwareType =
+              detectCache?.updateInfo?.firmware?.toFirmwareType ??
+              value?.[connectId]?.toFirmwareType;
           }
 
           let toVersionBle;
@@ -117,7 +124,8 @@ export class FirmwareUpdateDetectMap {
               ...value?.[connectId],
               hasUpgrade,
               connectId,
-              toVersion: toVersionFirmware,
+              toVersion: toFirmwareVersion,
+              toFirmwareType,
               toVersionBle,
             },
           };

@@ -6,6 +6,8 @@ import { createFont, createTokens } from '@tamagui/web';
 import { createTamagui } from 'tamagui';
 
 import {
+  blue,
+  blueDark,
   brand,
   brandDark,
   caution,
@@ -16,6 +18,8 @@ import {
   infoDark,
   neutral,
   neutralDark,
+  orange,
+  orangeDark,
   pink,
   pinkDark,
   primary,
@@ -28,6 +32,8 @@ import {
   purpleDark,
   success,
   successDark,
+  teal,
+  tealDark,
 } from './colors';
 import { webFontFamily } from './src/utils/webFontFamily';
 
@@ -37,6 +43,8 @@ const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 
 const basicFontVariants = {
   size: {
+    bodyXs: 11,
+    bodyXsMedium: 11,
     bodySm: 12,
     bodySmMedium: 12,
     bodyMd: 14,
@@ -56,6 +64,8 @@ const basicFontVariants = {
     heading5xl: 40,
   },
   lineHeight: {
+    bodyXs: 14,
+    bodyXsMedium: 14,
     bodySm: 16,
     bodySmMedium: 16,
     bodyMd: 20,
@@ -75,6 +85,8 @@ const basicFontVariants = {
     heading5xl: 48,
   },
   weight: {
+    bodyXs: '400',
+    bodyXsMedium: '500',
     bodySm: '400',
     bodySmMedium: '500',
     bodyMd: '400',
@@ -94,6 +106,8 @@ const basicFontVariants = {
     heading5xl: '700',
   },
   transform: {
+    bodyXs: 'none',
+    bodyXsMedium: 'none',
     bodySm: 'none',
     bodySmMedium: 'none',
     bodyMd: 'none',
@@ -113,6 +127,8 @@ const basicFontVariants = {
     heading5xl: 'none',
   },
   letterSpacing: {
+    bodyXs: 0,
+    bodyXsMedium: 0,
     bodySm: 0,
     bodySmMedium: 0,
     bodyMd: 0,
@@ -214,6 +230,10 @@ const lightColors = {
   ...critical,
   ...purple,
   ...pink,
+  ...gray,
+  ...blue,
+  ...orange,
+  ...teal,
   bg: '#FFFFFF',
   bgActive: neutral.neutral4,
   bgApp: '#FFFFFF',
@@ -312,6 +332,10 @@ const darkColors: typeof lightColors = {
   ...criticalDark,
   ...purpleDark,
   ...pinkDark,
+  ...grayDark,
+  ...blueDark,
+  ...orangeDark,
+  ...tealDark,
   bg: '#1b1b1b',
   bgActive: neutralDark.neutral4,
   bgApp: '#0f0f0f',
@@ -467,7 +491,6 @@ const mergedTokens = createTokens({
     100: 400,
     160: 640,
     180: 720,
-    sideBarWidth: 208,
   },
   radius: {
     0: 0,

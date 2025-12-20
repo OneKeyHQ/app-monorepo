@@ -10,6 +10,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { brandDark } from '@onekeyhq/components/colors/primitive/brand';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
@@ -83,7 +84,20 @@ export function AccountSelectorTriggerBase({
         userSelect="none"
       >
         {isWebDappModeWithNoWallet ? (
-          <Button size="small" variant="primary">
+          <Button
+            size="small"
+            variant="primary"
+            bg={brandDark.brand11}
+            color="$text"
+            shadowOpacity={0}
+            elevation={0}
+            hoverStyle={{
+              opacity: 0.9,
+            }}
+            pressStyle={{
+              opacity: 0.8,
+            }}
+          >
             {intl.formatMessage({ id: ETranslations.global_connect_wallet })}
           </Button>
         ) : (

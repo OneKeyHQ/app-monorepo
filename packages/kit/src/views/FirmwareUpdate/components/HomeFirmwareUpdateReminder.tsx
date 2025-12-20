@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -98,10 +99,16 @@ function HomeFirmwareUpdateReminderCmp() {
     if (result?.shouldUpdate) {
       let message = 'New firmware is available';
       if (result?.detectResult?.toVersion) {
+        const firmwareTypeLabel =
+          deviceUtils.getFirmwareTypeLabelByFirmwareType({
+            firmwareType: result?.detectResult?.toFirmwareType,
+            displayFormat: 'withSpace',
+          });
+        const version = `${firmwareTypeLabel}${result?.detectResult?.toVersion}`;
         message = intl.formatMessage(
           { id: ETranslations.update_firmware_version_available },
           {
-            version: result?.detectResult?.toVersion,
+            version,
           },
         );
       } else if (result?.detectResult?.toVersionBle) {
@@ -134,6 +141,7 @@ function HomeFirmwareUpdateReminderCmp() {
   }, [
     result?.shouldUpdate,
     result?.detectResult?.toVersion,
+    result?.detectResult?.toFirmwareType,
     result?.detectResult?.toVersionBle,
     intl,
     closePopover,

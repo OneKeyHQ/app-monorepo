@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Carousel,
@@ -6,8 +6,10 @@ import {
   YStack,
   useTabContainerWidth,
 } from '@onekeyhq/components';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
@@ -28,6 +30,21 @@ interface IDesktopLayoutProps {
   onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
+const useIsFirstFocus = () => {
+  const isFirstFocusRef = useRef(false);
+  const [isFirstFocus, setIsFirstFocus] = useState(false);
+  const isFocused = useRouteIsFocused();
+  useEffect(() => {
+    if (isFirstFocusRef.current) {
+      return;
+    }
+    if (isFocused) {
+      isFirstFocusRef.current = true;
+      setIsFirstFocus(true);
+    }
+  }, [isFocused]);
+  return isFirstFocus;
+};
 export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
@@ -43,8 +60,15 @@ export function DesktopLayout({
     handlePageChanged,
   } = useMarketTabsLogic(onTabChange);
 
-  const height = useMemo(() => {
-    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
+  const { height, containerStyle } = useMemo(() => {
+    const computedHeight = platformEnv.isNative
+      ? undefined
+      : 'calc(100vh - 96px)';
+    const style: Record<string, any> = { height: computedHeight };
+    if (platformEnv.isWebDappMode) {
+      style.paddingBottom = 60;
+    }
+    return { height: computedHeight, containerStyle: style };
   }, []);
 
   const pageWidth = useTabContainerWidth();
@@ -67,8 +91,13 @@ export function DesktopLayout({
     [filterBarProps, height, selectedNetworkId, watchlistTabName],
   );
 
+  const isFocused = useIsFirstFocus();
+  if (!isFocused) {
+    return null;
+  }
   return (
     <YStack>
+      <MarketBannerList />
       <Tabs.TabBar
         divider={false}
         onTabPress={handleTabChange}
@@ -80,7 +109,7 @@ export function DesktopLayout({
         defaultIndex={defaultIndex}
         onPageChanged={handlePageChanged}
         disableAnimation
-        containerStyle={{ height }}
+        containerStyle={containerStyle}
         ref={carouselRef as any}
         loop={false}
         showPagination={false}

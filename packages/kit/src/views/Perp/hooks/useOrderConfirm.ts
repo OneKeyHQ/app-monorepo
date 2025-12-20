@@ -8,11 +8,10 @@ import {
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import {
-  usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+
+import { useTradingPrice } from './useTradingPrice';
 
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
@@ -28,10 +27,10 @@ export function useOrderConfirm(
   options?: IUseOrderConfirmOptions,
 ): IUseOrderConfirmReturn {
   const [formData] = useTradingFormAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
+  const { midPrice, midPriceBN } = useTradingPrice();
 
   const handleConfirm = useCallback(
     async (overrideSide?: 'long' | 'short') => {
@@ -63,7 +62,7 @@ export function useOrderConfirm(
       if (formDataSnapshot.hasTpsl && (tpValue || slValue)) {
         const entryPrice =
           effectiveFormData.type === 'market'
-            ? new BigNumber(activeAssetCtx?.ctx?.markPrice || '0')
+            ? midPriceBN
             : new BigNumber(effectiveFormData.price || '0');
 
         let calculatedTpTriggerPx: BigNumber | null = null;
@@ -122,7 +121,7 @@ export function useOrderConfirm(
           await hyperliquidActions.current.orderOpen({
             assetId: activeAsset.assetId,
             formData: effectiveFormData,
-            price: activeAssetCtx?.ctx?.markPrice || '0',
+            price: midPrice || '0',
           });
         } else {
           await hyperliquidActions.current.orderOpen({
@@ -138,7 +137,8 @@ export function useOrderConfirm(
       }
     },
     [
-      activeAssetCtx?.ctx?.markPrice,
+      midPrice,
+      midPriceBN,
       activeAsset.assetId,
       formData,
       hyperliquidActions,

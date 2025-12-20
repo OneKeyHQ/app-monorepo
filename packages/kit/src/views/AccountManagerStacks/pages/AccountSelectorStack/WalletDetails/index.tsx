@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
@@ -30,7 +31,10 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type {
+  IAccountSelectorAccountsListSectionData,
+  IAccountSelectorSelectedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
@@ -40,6 +44,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { HiddenWalletRememberSwitch } from '../../../components/WalletEdit/HiddenWalletRememberSwitch';
@@ -64,6 +69,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const actions = useAccountSelectorActions();
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const route = useAccountSelectorRoute();
+  const selectedAccountRef =
+    useRef<IAccountSelectorSelectedAccount>(selectedAccount);
+  selectedAccountRef.current = selectedAccount;
 
   const linkNetwork: boolean | undefined = route.params?.linkNetwork;
   const linkNetworkId: string | undefined = route.params?.linkNetworkId;
@@ -112,8 +120,14 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   } = usePromiseResult(
     async () => {
       if (!selectedAccount?.focusedWallet || !usedDeriveType) {
+        defaultLogger.accountSelector.listData.listDataMissingParams({
+          focusedWallet: selectedAccount?.focusedWallet,
+          deriveType: usedDeriveType,
+          selectedAccount: selectedAccountRef.current,
+        });
         return Promise.resolve(undefined);
       }
+
       // await timerUtils.wait(1000);
       const accountSelectorAccountsListData =
         await serviceAccountSelector.buildAccountSelectorAccountsListData({
@@ -146,6 +160,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       },
     },
   );
+
   const sectionDataOriginal = useMemo(
     () => listDataResult?.sectionData || [],
     [listDataResult?.sectionData],
@@ -186,6 +201,13 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     () => focusedWalletInfo?.wallet?.deprecated,
     [focusedWalletInfo?.wallet?.deprecated],
   );
+
+  const { enabledNetworksCompatibleWithWalletId, networkInfoMap } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: focusedWalletInfo?.wallet?.id ?? '',
+      networkId: selectedNetworkId,
+      withNetworksInfo: true,
+    });
 
   useEffect(() => {
     const fn = async () => {
@@ -531,6 +553,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                 listDataResult?.mergeDeriveAssetsEnabled
               }
               hideAddress={hideAddress}
+              enabledNetworksCompatibleWithWalletId={
+                enabledNetworksCompatibleWithWalletId
+              }
+              networkInfoMap={networkInfoMap}
             />
           )}
           renderSectionFooter={({
@@ -581,6 +607,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     allowSelectEmptyAccount,
     createQrWallet,
     editable,
+    enabledNetworksCompatibleWithWalletId,
     focusedWalletInfo,
     getItemLayout,
     handleLayoutCacheSet,
@@ -598,6 +625,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     linkedNetworkId,
     listDataResult?.mergeDeriveAssetsEnabled,
     listViewLayout.height,
+    networkInfoMap,
     num,
     searchText,
     sectionData,
@@ -676,7 +704,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />
       ) : null}
 
-      {!isMockedStandardHwWallet &&
+      {!platformEnv.isWebDappMode &&
+      !isMockedStandardHwWallet &&
       sectionDataOriginal?.length &&
       focusedWalletInfo?.wallet?.id ? (
         <AccountSearchBar

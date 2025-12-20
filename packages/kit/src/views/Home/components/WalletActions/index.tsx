@@ -226,7 +226,11 @@ function WalletActions({ ...rest }: IXStackProps) {
         return <WalletActionSend key="send" customization={customization} />;
       case 'receive':
         return (
-          <WalletActionReceive key="receive" customization={customization} />
+          <WalletActionReceive
+            key="receive"
+            customization={customization}
+            useSelector
+          />
         );
       case 'swap':
         return platformEnv.isExtensionUiPopup ||

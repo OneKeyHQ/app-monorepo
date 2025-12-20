@@ -64,6 +64,25 @@ class ServiceWalletBanner extends ServiceBase {
   async getClosedForeverBanners() {
     return this.backgroundApi.simpleDb.walletBanner.getClosedForeverBanners();
   }
+
+  @backgroundMethod()
+  async getLocalTopBanners() {
+    return this.backgroundApi.simpleDb.walletBanner.getTopBanners();
+  }
+
+  @backgroundMethod()
+  async updateLocalTopBanners({
+    topBanners,
+    limit = 3,
+  }: {
+    topBanners: IWalletBanner[];
+    limit?: number;
+  }) {
+    const filteredTopBanners = topBanners.slice(0, limit);
+    await this.backgroundApi.simpleDb.walletBanner.updateTopBanners({
+      topBanners: filteredTopBanners,
+    });
+  }
 }
 
 export default ServiceWalletBanner;

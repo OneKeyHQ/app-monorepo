@@ -1,13 +1,13 @@
 import { memo } from 'react';
 
-import { SidebarBanner } from './SideBanner';
+import { BottomMenu } from './BottomMenu';
 import { WebPageTabBar } from './WebPageTabBar';
 
 function BasicPortalBodyContainer() {
   return (
     <>
       <WebPageTabBar />
-      <SidebarBanner />
+      <BottomMenu />
     </>
   );
 }

@@ -10,6 +10,7 @@ import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IConnectExternalWalletPayload } from '@onekeyhq/shared/types/analytics/onboarding';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
@@ -19,6 +20,7 @@ import {
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 import useAppNavigation from '../useAppNavigation';
+import { closeOnboardingPages } from '../usePageNavigation';
 
 export function useConnectExternalWallet() {
   const [jotaiLoading, setJotaiLoading] =
@@ -143,6 +145,8 @@ export function useConnectExternalWallet() {
           othersWalletAccountId: account.id,
         });
         navigation.popStack();
+        await timerUtils.wait(150);
+        await closeOnboardingPages();
         await dialogRef.current?.close();
 
         let finalConnectionInfo: IExternalConnectionInfo;

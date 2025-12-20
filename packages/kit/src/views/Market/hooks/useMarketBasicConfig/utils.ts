@@ -1,16 +1,12 @@
-import type {
-  IMarketBasicConfigData,
-  IMarketBasicConfigToken,
-  IMarketTokenListItem,
-} from '@onekeyhq/shared/types/marketV2';
+import type { IMarketBasicConfigData } from '@onekeyhq/shared/types/marketV2';
 
 /**
  * Extract default network ID from basic config
  */
 export function getDefaultNetworkId(
   basicConfig?: IMarketBasicConfigData,
-): string {
-  return basicConfig?.networkList?.[0]?.networkId || 'sol--101';
+): string | undefined {
+  return basicConfig?.networkList?.[0]?.networkId;
 }
 
 /**

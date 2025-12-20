@@ -1,3 +1,5 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
+
 import {
   backgroundMethod,
   toastIfError,
@@ -22,6 +24,7 @@ import type {
   IDeviceVerifyVersionCompareResult,
   IFetchFirmwareVerifyHashParams,
   IFirmwareVerifyInfo,
+  IFirmwareVerifyResult,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -97,23 +100,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async firmwareAuthenticate({
     device,
     skipDeviceCancel,
-  }: IFirmwareAuthenticateParams): Promise<{
-    verified: boolean;
-    device: SearchDevice | IDBDevice;
-    payload: {
-      deviceType: IDeviceType;
-      data: string;
-      cert: string;
-      signature: string;
-    };
-    result:
-      | {
-          message?: string;
-          data?: string;
-          code?: number;
-        }
-      | undefined;
-  }> {
+  }: IFirmwareAuthenticateParams): Promise<IFirmwareVerifyResult> {
     const { connectId, deviceType } = device;
     if (!connectId) {
       throw new OneKeyLocalError(
@@ -292,6 +279,11 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       const client = await this.serviceHardware.getClient(
         EServiceEndpointEnum.Utility,
       );
+
+      let firmwareType: 'universal' | 'btconly' = 'universal';
+      if (params.firmwareType === EFirmwareType.BitcoinOnly) {
+        firmwareType = 'btconly';
+      }
       const resp = await client.get<{
         data: {
           firmwares: IFirmwareVerifyInfo[];
@@ -302,6 +294,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
           system: params.firmwareVersion,
           bluetooth: params.bluetoothVersion,
           bootloader: params.bootloaderVersion,
+          firmwareType,
         },
       });
       return resp.data.data.firmwares;

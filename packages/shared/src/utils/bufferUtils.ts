@@ -81,6 +81,14 @@ function bytesToText(
   return toBuffer(bytes).toString(encoding || 'utf8');
 }
 
+function bytesToBase64(bytes: Buffer | Uint8Array): string {
+  return toBuffer(bytes).toString('base64');
+}
+
+function base64ToBytes(base64: string): Buffer {
+  return toBuffer(base64, 'base64');
+}
+
 const bufferUtils = {
   toBuffer,
   bytesToHex,
@@ -90,6 +98,8 @@ const bufferUtils = {
   hexToText,
   utf8ToBytes,
   bytesToUtf8,
+  bytesToBase64,
+  base64ToBytes,
 };
 
 export default bufferUtils;

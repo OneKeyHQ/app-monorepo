@@ -1,11 +1,17 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { Stack, useOrientation } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { useCurrency } from '../../Currency';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
@@ -14,7 +20,10 @@ import {
   useAutoTokenDetailUpdate,
   useTradingViewV2WebSocket,
 } from './hooks';
-import { useTradingViewMessageHandler } from './messageHandlers';
+import {
+  fetchAndSendAccountMarks,
+  useTradingViewMessageHandler,
+} from './messageHandlers';
 
 import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
@@ -28,16 +37,16 @@ interface IBaseTradingViewV2Props {
   decimal: number;
   onPanesCountChange?: (count: number) => void;
   dataSource?: 'websocket' | 'polling';
+  accountAddress?: string;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
-  const isLandscape = useOrientation();
-  const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
+  const currencyInfo = useCurrency();
 
   const {
     tokenAddress = '',
@@ -46,6 +55,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     decimal,
     onPanesCountChange,
     dataSource,
+    accountAddress,
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
@@ -54,6 +64,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     networkId,
     webRef,
     onPanesCountChange,
+    accountAddress,
+    tokenSymbol: symbol,
   });
 
   const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
@@ -86,8 +98,75 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     webRef,
     enabled: isVisible && dataSource === 'websocket',
     chartType: '1m',
-    currency: 'usd',
+    currency: currencyInfo.id,
   });
+
+  // Load marks on page enter and refresh when swap transaction succeeds
+  useEffect(() => {
+    if (!isVisible || !accountAddress || !tokenAddress || !networkId) return;
+
+    const refreshMarks = () => {
+      const now = Math.floor(Date.now() / 1000);
+      void fetchAndSendAccountMarks({
+        accountAddress,
+        tokenAddress,
+        networkId,
+        from: now - 86_400,
+        to: now,
+        tokenSymbol: symbol,
+        webRef,
+      });
+    };
+
+    // Load marks when page becomes visible
+    refreshMarks();
+
+    const handleSwapSuccess = (payload: {
+      status: ESwapTxHistoryStatus;
+      fromToken?: {
+        networkId: string;
+        contractAddress?: string;
+        address?: string;
+      };
+      toToken?: {
+        networkId: string;
+        contractAddress?: string;
+        address?: string;
+      };
+    }) => {
+      if (
+        payload.status !== ESwapTxHistoryStatus.SUCCESS &&
+        payload.status !== ESwapTxHistoryStatus.PARTIALLY_FILLED
+      ) {
+        return;
+      }
+
+      // Check if current token matches fromToken or toToken
+      const fromAddr =
+        payload.fromToken?.contractAddress || payload.fromToken?.address;
+      const toAddr =
+        payload.toToken?.contractAddress || payload.toToken?.address;
+      const isMatch =
+        (payload.fromToken?.networkId === networkId &&
+          fromAddr === tokenAddress) ||
+        (payload.toToken?.networkId === networkId && toAddr === tokenAddress);
+
+      if (!isMatch) return;
+
+      refreshMarks();
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.SwapTxHistoryStatusUpdate,
+      handleSwapSuccess,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapTxHistoryStatusUpdate,
+        handleSwapSuccess,
+      );
+    };
+  }, [isVisible, accountAddress, tokenAddress, networkId, symbol, webRef]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
@@ -130,7 +209,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     <Stack position="relative" flex={1}>
       {webView}
 
-      {platformEnv.isNativeIOS || isIPadPortrait ? (
+      {platformEnv.isNativeIOS ? (
         <Stack
           position="absolute"
           left={0}

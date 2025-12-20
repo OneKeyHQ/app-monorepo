@@ -22,7 +22,7 @@ import {
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   getDefaultLocale,
@@ -272,6 +272,7 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.appUpdateCache) {
       await this.backgroundApi.serviceAppUpdate.clearCache();
+      await this.backgroundApi.simpleDb.ipTable.clearRawData();
     }
     if (values.browserHistory) {
       // clear Browser History, Bookmarks, Pins
@@ -623,7 +624,9 @@ class ServiceSetting extends ServiceBase {
       return;
     }
 
-    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
+    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets({
+      excludeKeylessWallet: true,
+    });
 
     const hasHdOrHwWallet =
       wallets?.some((wallet) => {
@@ -658,6 +661,14 @@ class ServiceSetting extends ServiceBase {
       controller.abort(),
     );
     this._fetchWalletConfigControllers = [];
+  }
+
+  @backgroundMethod()
+  public async setSelectedBrowserTab(tab: ETranslations) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      selectedBrowserTab: tab,
+    }));
   }
 
   @backgroundMethod()

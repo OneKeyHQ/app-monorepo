@@ -75,6 +75,16 @@ class ServiceDevSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async updateFirmwareUpdateDevSettings(
+    values: Partial<IFirmwareUpdateDevSettings>,
+  ) {
+    await firmwareUpdateDevSettingsPersistAtom.set((prev) => ({
+      ...prev,
+      ...values,
+    }));
+  }
+
+  @backgroundMethod()
   public async initAnalytics() {
     const devSettings = await this.getDevSetting();
     const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();

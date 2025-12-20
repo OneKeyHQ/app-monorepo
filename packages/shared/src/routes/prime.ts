@@ -1,15 +1,16 @@
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 
 // eslint-disable-next-line import/order
-import type {
-  EOneKeyDeepLinkPath,
-  IEOneKeyDeepLinkParams,
-} from '../consts/deeplinkConsts';
+import type { EOnboardingV2KeylessWalletCreationMode } from './onboardingv2';
 import type {
   IE2EESocketUserInfo,
   IPrimeTransferData,
 } from '../../types/prime/primeTransferTypes';
 import type { IPrimeServerUserInfo } from '../../types/prime/primeTypes';
+import type {
+  EOneKeyDeepLinkPath,
+  IEOneKeyDeepLinkParams,
+} from '../consts/deeplinkConsts';
 
 export enum EPrimePages {
   PrimeDashboard = 'PrimeDashboard',
@@ -21,6 +22,8 @@ export enum EPrimePages {
   PrimeDeleteAccount = 'PrimeDeleteAccount',
   PrimeTransfer = 'PrimeTransfer',
   PrimeTransferPreview = 'PrimeTransferPreview',
+  OneKeyId = 'OneKeyId',
+  KeylessWallet = 'KeylessWallet',
 }
 
 export enum EPrimeFeatures {
@@ -36,6 +39,7 @@ export enum EPrimeFeatures {
 export type IPrimeParamList = {
   [EPrimePages.PrimeDashboard]: {
     networkId?: string;
+    fromFeature?: EPrimeFeatures;
   };
   [EPrimePages.PrimeDeviceLimit]: {
     isExceedDeviceLimit?: boolean;
@@ -62,5 +66,9 @@ export type IPrimeParamList = {
         }
       | undefined;
     transferData: IPrimeTransferData;
+  };
+  [EPrimePages.OneKeyId]: undefined;
+  [EPrimePages.KeylessWallet]: {
+    mode?: EOnboardingV2KeylessWalletCreationMode;
   };
 };

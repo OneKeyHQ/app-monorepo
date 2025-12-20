@@ -1,13 +1,13 @@
-import { act, useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -47,43 +47,50 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     defaultTokens,
     provider,
     swapMevNetConfig,
-  } = useSpeedSwapInit(networkId || '');
+  } = useSpeedSwapInit(networkId || '', true);
 
   const { activeAccount } = useActiveAccount({ num: 0 });
 
-  const checkAccountNetworkSupport = useCallback(() => {
-    if (
-      accountUtils.isImportedAccount({
-        accountId: activeAccount?.account?.id ?? '',
-      }) ||
-      accountUtils.isWatchingAccount({
-        accountId: activeAccount?.account?.id ?? '',
-      }) ||
-      accountUtils.isExternalAccount({
-        accountId: activeAccount?.account?.id ?? '',
-      })
-    ) {
-      const { impl } = networkUtils.parseNetworkId({
-        networkId: activeAccount?.network?.id ?? '',
-      });
-      const { impl: networkImpl } = networkUtils.parseNetworkId({
-        networkId: networkId ?? '',
-      });
-      return impl === networkImpl;
-    }
-    return true;
-  }, [activeAccount?.account?.id, activeAccount?.network?.id, networkId]);
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      const result =
+        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+          {
+            walletId: activeAccount?.wallet?.id ?? '',
+            accountId: activeAccount?.account?.id ?? '',
+            accountImpl: activeAccount?.account?.impl,
+            activeNetworkId: networkId ?? '',
+          },
+        );
+      return !!result?.networkImpl;
+    },
+    [
+      activeAccount?.wallet?.id,
+      activeAccount?.account?.id,
+      activeAccount?.account?.impl,
+      networkId,
+    ],
+    {
+      initResult: undefined,
+    },
+  );
 
   const supportSpeedSwap = useMemo(() => {
+    let isAccountNetworkSupported: boolean;
+    if (accountNetworkNotSupported) {
+      isAccountNetworkSupported = false;
+    } else {
+      isAccountNetworkSupported = true;
+    }
+
     const speedSwapEnabled = originalSupportSpeedSwap;
     const tokenSwapEnabled = tokenDetail?.supportSwap?.enable !== false;
     const isEnabled =
-      speedSwapEnabled && tokenSwapEnabled && checkAccountNetworkSupport();
-
+      speedSwapEnabled && tokenSwapEnabled && isAccountNetworkSupported;
     let warningMessage = !tokenSwapEnabled
       ? tokenDetail?.supportSwap?.warningMessage
       : undefined;
-    if (!checkAccountNetworkSupport() && !warningMessage) {
+    if (!isAccountNetworkSupported && !warningMessage) {
       warningMessage = intl.formatMessage({
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
@@ -93,8 +100,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       warningMessage,
     };
   }, [
+    accountNetworkNotSupported,
     intl,
-    checkAccountNetworkSupport,
     originalSupportSpeedSwap,
     tokenDetail?.supportSwap?.enable,
     tokenDetail?.supportSwap?.warningMessage,
@@ -135,7 +142,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     speedSwapBuildTxLoading,
     checkTokenAllowanceLoading,
     speedSwapApproveHandler,
-    speedSwapApproveLoading,
+    speedSwapApproveActionLoading,
+    speedSwapApproveTransactionLoading,
     shouldApprove,
     balance,
     balanceToken,
@@ -209,7 +217,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balanceLoading={fetchBalanceLoading}
       isLoading={
         isLoading ||
-        speedSwapApproveLoading ||
+        speedSwapApproveActionLoading ||
+        speedSwapApproveTransactionLoading ||
         speedSwapBuildTxLoading ||
         checkTokenAllowanceLoading
       }

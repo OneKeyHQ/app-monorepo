@@ -18,6 +18,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
+import {
+  useAccountOverviewActions,
+  useWalletTopBannersAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
@@ -28,33 +32,40 @@ const closedBanners: Record<string, boolean> = {};
 
 function WalletBanner() {
   const {
-    activeAccount: { account, network, wallet, indexedAccount },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
   const closedBannerInitRef = useRef(false);
 
+  const bannersInitRef = useRef(false);
+
   const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
+
+  const [{ banners }] = useWalletTopBannersAtom();
+  const { updateWalletTopBanners } = useAccountOverviewActions().current;
 
   const { handleBannerOnPress } = useWalletBanner({
     account,
     network,
     wallet,
-    indexedAccountId: indexedAccount?.id,
   });
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
   >({});
 
-  const { result: banners } = usePromiseResult(
+  const { result: latestBanners } = usePromiseResult(
     async () => {
       if (isNil(account?.id)) {
         return [];
       }
-      return backgroundApiProxy.serviceWalletBanner.fetchWalletBanner({
-        accountId: account.id,
-      });
+      const resp =
+        await backgroundApiProxy.serviceWalletBanner.fetchWalletBanner({
+          accountId: account.id,
+        });
+      bannersInitRef.current = true;
+      return resp;
     },
     [account?.id],
     {
@@ -62,26 +73,22 @@ function WalletBanner() {
     },
   );
 
-  const { result: filteredBanners } = usePromiseResult(
-    async () => {
-      if (!closedBannerInitRef.current) return [];
+  usePromiseResult(async () => {
+    if (!closedBannerInitRef.current || !bannersInitRef.current) return;
 
-      if (banners.length === 0) {
-        return banners;
+    const filteredBanners = latestBanners.filter((banner) => {
+      if (banner.position && banner.position !== 'home') {
+        return false;
       }
-
-      return banners.filter((banner) => {
-        if (banner.position && banner.position !== 'home') {
-          return false;
-        }
-        return !closedForeverBanners[banner.id];
-      });
-    },
-    [banners, closedForeverBanners],
-    {
-      initResult: [],
-    },
-  );
+      return !closedForeverBanners[banner.id];
+    });
+    updateWalletTopBanners({
+      banners: filteredBanners,
+    });
+    await backgroundApiProxy.serviceWalletBanner.updateLocalTopBanners({
+      topBanners: filteredBanners,
+    });
+  }, [latestBanners, closedForeverBanners, updateWalletTopBanners]);
 
   const handleDismiss = useCallback(async (item: IWalletBanner) => {
     if (item.closeable) {
@@ -105,30 +112,36 @@ function WalletBanner() {
     }
   }, []);
 
-  useEffect(() => {
-    const fetchClosedForeverBanners = async () => {
-      const resp =
-        await backgroundApiProxy.serviceWalletBanner.getClosedForeverBanners();
-      closedBannerInitRef.current = true;
-      setClosedForeverBanners({
-        ...closedBanners,
-        ...resp,
-      });
-    };
-    void fetchClosedForeverBanners();
-  }, []);
-
   const { gtMd } = useMedia();
 
   const handlePageChanged = useDebouncedCallback((index: number) => {
-    if (filteredBanners[index]) {
+    if (banners[index]) {
       defaultLogger.wallet.walletBanner.walletBannerViewed({
-        bannerId: filteredBanners[index].id,
+        bannerId: banners[index].id,
       });
     }
   }, 180);
 
-  if (filteredBanners.length === 0) {
+  const initLocalBanners = useCallback(async () => {
+    const walletBannerRawData =
+      await backgroundApiProxy.simpleDb.walletBanner.getRawData();
+    const localTopBanners = walletBannerRawData?.topBanners ?? [];
+    const localClosedForeverBanners = walletBannerRawData?.closedForever ?? {};
+    updateWalletTopBanners({
+      banners: localTopBanners,
+    });
+    closedBannerInitRef.current = true;
+    setClosedForeverBanners({
+      ...closedBanners,
+      ...localClosedForeverBanners,
+    });
+  }, [updateWalletTopBanners, setClosedForeverBanners]);
+
+  useEffect(() => {
+    void initLocalBanners();
+  }, [initLocalBanners]);
+
+  if (banners.length === 0) {
     return null;
   }
 
@@ -137,7 +150,7 @@ function WalletBanner() {
       <Carousel
         loop={false}
         marginRatio={gtMd ? 0.28 : 0}
-        data={filteredBanners}
+        data={banners}
         autoPlayInterval={3800}
         maxPageWidth={840}
         containerStyle={{
@@ -168,7 +181,7 @@ function WalletBanner() {
                   gap: '$3',
                   py: '$3',
                 }}
-                borderRadius="$2"
+                borderRadius="$3"
                 $platform-native={{
                   borderWidth: StyleSheet.hairlineWidth,
                   borderColor: '$borderSubdued',

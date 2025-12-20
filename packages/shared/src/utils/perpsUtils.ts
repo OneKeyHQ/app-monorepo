@@ -818,6 +818,8 @@ function calculateLiquidationPrice(
 
   if (hasExistingPosition) {
     // Calculate existing position metrics
+    // IMPORTANT: Use current mark price for maintenance margin calculation, not entry price
+    // Maintenance margin is based on position's current market value, not entry value
     const existingPositionValue = existingPositionSize
       .abs()
       .multipliedBy(effectivePrice);
@@ -1195,6 +1197,38 @@ export function sortPerpsAssetIndices({
   return indicesWithData.map((item) => item.index);
 }
 
+export function parseSignatureToRSV(signatureHex: string): {
+  r: string;
+  s: string;
+  v: number;
+} {
+  const cleanSig = signatureHex.replace(/^0x/, '');
+  return {
+    r: `0x${cleanSig.slice(0, 64)}`,
+    s: `0x${cleanSig.slice(64, 128)}`,
+    v: parseInt(cleanSig.slice(128, 130), 16),
+  };
+}
+
+// Parse coin with dex prefix, e.g., "xyz:NVDA" -> { displayName: "NVDA", dexLabel: "xyz" }
+export function parseDexCoin(coin: string): {
+  displayName: string;
+  dexLabel?: string;
+} {
+  if (coin.includes(':')) {
+    const [dexLabel, name] = coin.split(':', 2);
+    const displayName = name || coin;
+    return {
+      displayName,
+      dexLabel: dexLabel || undefined,
+    };
+  }
+  return {
+    displayName: coin,
+    dexLabel: undefined,
+  };
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1253,5 +1287,6 @@ export default {
   computeMaxTradeSize,
   resolveTradingSize,
   resolveTradingSizeBN,
+  parseSignatureToRSV,
   getHyperliquidTokenImageUrl,
 };

@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -12,6 +13,8 @@ import {
   allNetworksStateAtom,
   approvalsInfoAtom,
   contextAtomMethod,
+  walletStatusAtom,
+  walletTopBannersAtom,
 } from './atoms';
 
 class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
@@ -81,6 +84,32 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateWalletStatus = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        showReceiveInfo?: boolean;
+        receiveInfoInit?: boolean;
+        showReferralCodeBlock?: boolean;
+        referralCodeBlockInit?: boolean;
+      },
+    ) => {
+      set(walletStatusAtom(), {
+        ...get(walletStatusAtom()),
+        ...payload,
+      });
+    },
+  );
+
+  updateWalletTopBanners = contextAtomMethod(
+    (get, set, payload: { banners: IWalletBanner[] }) => {
+      set(walletTopBannersAtom(), {
+        banners: payload.banners,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -95,11 +124,15 @@ export function useAccountOverviewActions() {
   const updateAccountOverviewState = actions.updateAccountOverviewState.use();
   const updateAllNetworksState = actions.updateAllNetworksState.use();
   const updateApprovalsInfo = actions.updateApprovalsInfo.use();
+  const updateWalletStatus = actions.updateWalletStatus.use();
+  const updateWalletTopBanners = actions.updateWalletTopBanners.use();
 
   return useRef({
     updateAllNetworksState,
     updateAccountWorth,
     updateAccountOverviewState,
     updateApprovalsInfo,
+    updateWalletStatus,
+    updateWalletTopBanners,
   });
 }

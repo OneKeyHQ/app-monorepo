@@ -51,6 +51,7 @@ export function createChartDom(
   domNode: HTMLElement,
   onHover: IOnHoverFunction,
   height: number,
+  textColor?: string,
 ) {
   const chart = createChartFunc(domNode, {
     height,
@@ -58,20 +59,36 @@ export function createChartDom(
       background: {
         color: 'transparent',
       },
+      textColor,
     },
     crosshair: {
-      vertLine: { visible: false },
-      horzLine: { visible: false },
+      vertLine: {
+        visible: false,
+        labelVisible: false,
+      },
+      horzLine: {
+        visible: false,
+        labelVisible: false,
+      },
     },
     grid: {
       vertLines: { visible: false },
       horzLines: { visible: false },
     },
     timeScale: {
-      visible: false,
+      visible: true,
       fixLeftEdge: true,
       fixRightEdge: true,
       lockVisibleTimeRangeOnResize: true,
+      borderVisible: false,
+      timeVisible: false,
+      secondsVisible: false,
+      tickMarkFormatter: (time: UTCTimestamp | BusinessDay) => {
+        const date = new Date((time as number) * 1000);
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${month}/${day}`;
+      },
     },
     rightPriceScale: {
       visible: false,
@@ -120,8 +137,12 @@ export function updateChartDom({
       topColor,
       bottomColor,
       lineWidth: 2,
-      crosshairMarkerBorderColor: '#fff',
-      crosshairMarkerRadius: 5,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 4,
+      crosshairMarkerBorderColor: lineColor,
+      crosshairMarkerBackgroundColor: '#FFFFFF',
     });
     newSeries.setData(formattedData);
     chart._onekey_series = newSeries;

@@ -1,8 +1,8 @@
 import platformEnv from '../platformEnv';
 
+import { buildAppStorageFactory } from './appStorageBuildFactory';
 import mockStorageInstance from './instance/mockStorageInstance';
 import nativeAsyncStorageInstance from './instance/nativeAsyncStorageInstance';
-import { buildAppStorageFactory } from './syncStorage';
 
 import type { IAppStorageHub } from './appStorageTypes';
 

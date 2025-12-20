@@ -5,6 +5,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { navigateToNotificationDetailByLocalParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   openUrlExternal,
@@ -18,13 +19,17 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useBrowserAction } from '../../../states/jotai/contexts/discovery';
+import { DiscoveryBrowserProviderMirror } from '../../../views/Discovery/components/DiscoveryBrowserProviderMirror';
 
 import { useInitialNotification } from './hooks';
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
+  const navigation = useAppNavigation();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
   const activeAccountRef = useRef(activeAccount);
@@ -41,6 +46,8 @@ function BaseNotificationHandlerContainer() {
       avatarUrl: activeAccountRef.current?.wallet?.avatar,
     };
   }, [activeAccountRef]);
+
+  const browserAction = useBrowserAction().current;
 
   useEffect(() => {
     const handleShowFallbackUpdateDialog = ({
@@ -112,9 +119,32 @@ function BaseNotificationHandlerContainer() {
         showFallbackUpdateDialog(null);
       });
     };
+    const handleShowNotificationDappNavigation = (url: string) => {
+      if (platformEnv.isNative || platformEnv.isDesktop) {
+        browserAction.handleOpenWebSite({
+          webSite: {
+            url,
+            title: '',
+            logo: undefined,
+            sortIndex: undefined,
+          },
+          navigation,
+          shouldPopNavigation: true,
+          switchToMultiTabBrowser: platformEnv.isDesktop,
+          useCurrentWindow: false,
+          tabId: '',
+        });
+      } else {
+        openUrlExternal(url);
+      }
+    };
     appEventBus.on(
       EAppEventBusNames.ShowNotificationPageNavigation,
       handleShowNotificationPageNavigation,
+    );
+    appEventBus.on(
+      EAppEventBusNames.ShowNotificationInDappPage,
+      handleShowNotificationDappNavigation,
     );
     return () => {
       appEventBus.off(
@@ -129,8 +159,12 @@ function BaseNotificationHandlerContainer() {
         EAppEventBusNames.ShowNotificationPageNavigation,
         handleShowNotificationPageNavigation,
       );
+      appEventBus.off(
+        EAppEventBusNames.ShowNotificationInDappPage,
+        handleShowNotificationDappNavigation,
+      );
     };
-  }, [getLocalParams, showFallbackUpdateDialog]);
+  }, [browserAction, getLocalParams, navigation, showFallbackUpdateDialog]);
   useInitialNotification();
   return null;
 }
@@ -145,7 +179,9 @@ export function NotificationHandlerContainer() {
   );
   return (
     <AccountSelectorProviderMirror config={config} enabledNum={[0]}>
-      <BaseNotificationHandlerContainer />
+      <DiscoveryBrowserProviderMirror>
+        <BaseNotificationHandlerContainer />
+      </DiscoveryBrowserProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }

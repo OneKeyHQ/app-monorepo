@@ -17,6 +17,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { ESettingsTabNames } from '../../../Setting/pages/Tab/config';
+
 export function BTCFreshAddressProvider() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -32,7 +34,7 @@ export function BTCFreshAddressProvider() {
       return;
     }
     if (network?.id) {
-      void backgroundApiProxy.serviceAccountProfile.syncBTCFreshAddressByIndexedAccountId(
+      void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByIndexedAccountId(
         {
           indexedAccountId: indexedAccount.id,
           networkId: network.id,
@@ -80,7 +82,10 @@ export function BTCFreshAddressProvider() {
         onConfirm: () => {
           resetRef();
           navigation.pushModal(EModalRoutes.SettingModal, {
-            screen: EModalSettingRoutes.SettingListModal,
+            screen: EModalSettingRoutes.SettingListSubModal,
+            params: {
+              name: ESettingsTabNames.Wallet,
+            },
           });
         },
         onCancel: resetRef,

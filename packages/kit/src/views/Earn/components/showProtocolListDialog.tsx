@@ -149,7 +149,6 @@ function ProtocolListDialogContent({
       const groupedData = groupProtocolsByGroup(data);
       setProtocolData(groupedData);
     } catch (error) {
-      console.error('Failed to fetch protocol data:', error);
       setProtocolData([]);
     } finally {
       setIsLoading(false);
@@ -313,8 +312,6 @@ export function showProtocolListDialog({
     vault?: string;
   }) => Promise<void>;
 }) {
-  console.log('showProtocolListDialog called with:', { symbol });
-
   const dialog = Dialog.show({
     title: appLocale.intl.formatMessage(
       {
@@ -361,7 +358,7 @@ export function showProtocolListDialog({
                 : undefined,
             });
           } catch (error) {
-            console.error('Failed to select protocol:', error);
+            // Handle error silently
           } finally {
             void dialog.close();
           }

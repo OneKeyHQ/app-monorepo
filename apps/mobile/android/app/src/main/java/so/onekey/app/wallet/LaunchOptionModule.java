@@ -125,6 +125,11 @@ public class LaunchOptionModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void registerDeviceToken(Promise promise) {
+        promise.resolve(true);
+    }
+
+    @ReactMethod
     public void getStartupTime(Promise promise) {
         Long startupTime = getStartupTime();
         promise.resolve(startupTime != null ? startupTime.doubleValue() : 0.0);

@@ -6,11 +6,9 @@ import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';
-import {
-  useMedia,
-  withStaticProperties,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -20,7 +18,7 @@ import {
   shortcutsMap,
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import { Divider } from '../../content';
+import { Divider } from '../../content/Divider';
 import { Portal } from '../../hocs';
 import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
@@ -47,6 +45,7 @@ export interface IActionListItemProps {
   label: string;
   extra?: ReactNode;
   description?: string;
+  descriptionNumberOfLines?: number;
   destructive?: boolean;
   onPress?: (close: () => void) => void | Promise<boolean | void>;
   onClose?: () => void;
@@ -86,6 +85,7 @@ export function ActionListItem(
     label,
     extra,
     description,
+    descriptionNumberOfLines,
     onPress,
     destructive,
     disabled,
@@ -175,8 +175,7 @@ export function ActionListItem(
               {label}
             </SizableText>
 
-            {(platformEnv.isDesktop || platformEnv.isNativeIOSPad) &&
-            keys?.length ? (
+            {platformEnv.isDesktop && keys?.length ? (
               <Shortcut>
                 {keys.map((key) => (
                   <Shortcut.Key key={key}>{key}</Shortcut.Key>
@@ -185,7 +184,13 @@ export function ActionListItem(
             ) : null}
           </XStack>
           {description ? (
-            <SizableText size="$bodyMd" color="$textSubdued" textAlign="left">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              textAlign="left"
+              numberOfLines={descriptionNumberOfLines}
+              ellipsizeMode={descriptionNumberOfLines ? 'tail' : undefined}
+            >
               {description}
             </SizableText>
           ) : null}

@@ -12,6 +12,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import {
   EMessageTypesBtc,
   EMessageTypesCommon,
@@ -24,7 +25,11 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
-import type { IAccountDeriveTypes } from '../vaults/types';
+import type {
+  IAccountDeriveTypes,
+  IPrepareHardwareAccountsParams,
+  IPrepareHdAccountsParams,
+} from '../vaults/types';
 
 @backgroundClass()
 class ServiceInternalSignAndVerify extends ServiceBase {
@@ -154,8 +159,18 @@ class ServiceInternalSignAndVerify extends ServiceBase {
     format: string;
     networkId: string;
     accountId: string;
+    indexedAccountId: string | undefined;
+    deriveType: IAccountDeriveTypes | undefined;
   }) {
-    const { networkId, accountId, message, isHexString, format } = params;
+    const {
+      networkId,
+      accountId,
+      indexedAccountId,
+      deriveType,
+      message,
+      isHexString,
+      format,
+    } = params;
     let unsignedMessage: IUnsignedMessage | undefined;
     if (networkId === getNetworkIdsMap().eth) {
       const decodedMessage = isHexString
@@ -211,11 +226,33 @@ class ServiceInternalSignAndVerify extends ServiceBase {
       throw new OneKeyLocalError('Invalid unsigned message');
     }
 
-    const { password, deviceParams } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
-        accountId,
-        reason: EReasonForNeedPassword.CreateTransaction,
-      });
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    let deviceParams: IDeviceSharedCallParams | undefined;
+    let password: string | undefined;
+    let chainExtraParams:
+      | IPrepareHardwareAccountsParams['chainExtraParams']
+      | undefined;
+    if (walletId && indexedAccountId && deriveType) {
+      const ret =
+        await this.backgroundApi.serviceAccount.getPrepareHDOrHWAccountsParams({
+          walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+          networkId,
+          indexedAccountId,
+          deriveType,
+        });
+      deviceParams = ret.deviceParams;
+      chainExtraParams = (ret.prepareParams as IPrepareHardwareAccountsParams)
+        .chainExtraParams;
+      password = (ret.prepareParams as IPrepareHdAccountsParams).password;
+    } else {
+      const promptPasswordRet =
+        await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+          accountId,
+          reason: EReasonForNeedPassword.CreateTransaction,
+        });
+      deviceParams = promptPasswordRet.deviceParams;
+      password = promptPasswordRet.password;
+    }
 
     const vault = await vaultFactory.getVault({
       networkId,
@@ -229,6 +266,7 @@ class ServiceInternalSignAndVerify extends ServiceBase {
             messages: [validUnsignedMessage],
             password,
             deviceParams,
+            chainExtraParams,
           });
           return _signedMessage;
         },

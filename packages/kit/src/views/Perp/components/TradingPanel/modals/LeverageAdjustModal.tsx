@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
@@ -173,7 +174,7 @@ const LeverageContent = memo(
                     id: ETranslations.perp_leverage_desc_warning,
                   },
                   {
-                    token: tokenInfo.coin,
+                    token: parseDexCoin(tokenInfo.coin).displayName,
                     leverage: `${maxLeverage}x`,
                   },
                 )}
@@ -239,7 +240,8 @@ export const LeverageAdjustModal = memo(
         title: intl.formatMessage({
           id: ETranslations.perp_trading_adjust_leverage,
         }),
-
+        disableDrag: true,
+        dismissOnOverlayPress: false,
         renderContent: (
           <PerpsProviderMirror>
             <LeverageContent

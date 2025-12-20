@@ -7,9 +7,12 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
   ETabDeveloperRoutes,
   ETabMarketRoutes,
+  ETabReferFriendsRoutes,
   ETabRoutes,
   ETabSwapRoutes,
   ETestModalPages,
@@ -52,7 +55,11 @@ const buildAllowListMapKey = (screenNames: string[]) => screenNames.join(',');
 export const getAllowPathFromScreenNames = (screenNames: string[]) =>
   allowListMap.get(buildAllowListMapKey(screenNames)) || '/';
 
-export const buildAllowList = (screens: IScreenPathConfig) => {
+export const buildAllowList = (
+  screens: IScreenPathConfig,
+  perpDisabled: boolean,
+  perpTabShowWeb?: boolean,
+) => {
   // if (platformEnv.isDev) {
   //   // Check for duplicate screen names in the screens configuration
   //   const screenNameMap = new Map<string, string[]>();
@@ -121,6 +128,8 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     return fullPath;
   }
 
+  const { TabReferAFriend, TabInviteReward } = ETabReferFriendsRoutes;
+
   // fill in the route name as the key according to the route stacks order
   // Page: /main/tab-Home/TabHomeStack1
   const rules = {
@@ -145,19 +154,15 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabReferAFriend}`]:
+      { showUrl: true, showParams: false },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabInviteReward}`]:
+      { showUrl: true, showParams: false },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Earn}`]: {
       showUrl: true,
       showParams: true,
     },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}`]: {
-      showUrl: true,
-      showParams: true,
-    },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
-      showUrl: true,
-      showParams: true,
-    },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.WebviewPerpTrade}`]: {
       showUrl: true,
       showParams: true,
     },
@@ -167,6 +172,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showParams: true,
       },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.StakingModal}${EModalStakingRoutes.ProtocolDetailsV2}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.StakingModal}${EModalStakingRoutes.ManagePosition}`]:
       {
         showUrl: true,
         showParams: true,
@@ -182,6 +192,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showParams: true,
       },
 
+    [pagePath`${ERootRoutes.Onboarding}${EOnboardingV2Routes.OnboardingV2}${EOnboardingPagesV2.GetStarted}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     // Discovery Pages
     // [pagePath`${ERootRoutes.Main}${ETabRoutes.Discovery}${ETabDiscoveryRoutes.TabDiscovery}`]:
     //   {
@@ -214,6 +229,23 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
+    ...(perpTabShowWeb
+      ? {
+          [pagePath`${ERootRoutes.Main}${ETabRoutes.WebviewPerpTrade}`]: {
+            showUrl: true,
+            showParams: true,
+          },
+        }
+      : {
+          ...(!perpDisabled
+            ? {
+                [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
+                  showUrl: true,
+                  showParams: true,
+                },
+              }
+            : {}),
+        }),
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isExtension) {

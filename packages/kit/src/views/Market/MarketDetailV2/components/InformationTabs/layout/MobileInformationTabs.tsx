@@ -3,13 +3,20 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Tabs, YStack } from '@onekeyhq/components';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  NUMBER_FORMATTER,
+  formatDisplayNumber,
+} from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
+import { Portfolio } from '../components/Portfolio';
 import { TransactionsHistory } from '../components/TransactionsHistory';
 import { useBottomTabAnalytics } from '../hooks/useBottomTabAnalytics';
+import { useNetworkAccountAddress } from '../hooks/useNetworkAccountAddress';
 
 import { StickyHeader } from './StickyHeader';
 
@@ -34,19 +41,39 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
 export function MobileInformationTabs({
   renderHeader,
   onScrollEnd,
+  portfolioData,
+  isRefreshing,
 }: {
   renderHeader: CollapsibleProps['renderHeader'];
   onScrollEnd: () => void;
+  portfolioData: IMarketAccountPortfolioItem[];
+  isRefreshing?: boolean;
 }) {
   const intl = useIntl();
-  const { tokenAddress, networkId } = useTokenDetail();
+  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const { handleTabChange } = useBottomTabAnalytics();
+  const { accountAddress } = useNetworkAccountAddress(networkId);
 
-  const shouldShowHolders = useMemo(() => {
-    return networkId === getNetworkIdsMap().sol;
-  }, [networkId]);
+  const holdersTabName = useMemo(() => {
+    const baseTitle = intl.formatMessage({
+      id: ETranslations.dexmarket_holders,
+    });
+    const holders = tokenDetail?.holders;
+    if (holders !== undefined && holders > 0) {
+      const displayValue = String(
+        formatDisplayNumber(NUMBER_FORMATTER.marketCap(String(holders))),
+      );
+      return `${baseTitle} (${displayValue})`;
+    }
+    return baseTitle;
+  }, [intl, tokenDetail?.holders]);
 
   const tabs = useMemo(() => {
+    // Check if current network supports holders tab
+    const shouldShowHoldersTab = isHoldersTabSupported(networkId);
+    // Check if there's an account address available
+    const shouldShowPortfolioTab = !!accountAddress;
+
     const items = [
       <Tabs.Tab
         key="transactions"
@@ -60,21 +87,37 @@ export function MobileInformationTabs({
           onScrollEnd={onScrollEnd}
         />
       </Tabs.Tab>,
-    ];
-    if (shouldShowHolders) {
-      items.push(
+      shouldShowPortfolioTab && (
         <Tabs.Tab
-          key="holders"
+          key="portfolio"
           name={intl.formatMessage({
-            id: ETranslations.dexmarket_holders,
+            id: ETranslations.dexmarket_details_myposition,
           })}
         >
+          <Portfolio
+            portfolioData={portfolioData}
+            isRefreshing={!!isRefreshing}
+            accountAddress={accountAddress}
+          />
+        </Tabs.Tab>
+      ),
+      shouldShowHoldersTab && (
+        <Tabs.Tab key="holders" name={holdersTabName}>
           <Holders tokenAddress={tokenAddress} networkId={networkId} />
-        </Tabs.Tab>,
-      );
-    }
+        </Tabs.Tab>
+      ),
+    ].filter(Boolean);
     return items;
-  }, [intl, tokenAddress, networkId, onScrollEnd, shouldShowHolders]);
+  }, [
+    intl,
+    tokenAddress,
+    networkId,
+    onScrollEnd,
+    holdersTabName,
+    accountAddress,
+    portfolioData,
+    isRefreshing,
+  ]);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <MobileInformationTabsHeader {...props} />;

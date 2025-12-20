@@ -2,7 +2,12 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { BrowserWindow, app, dialog } from 'electron';
+import {
+  BrowserWindow,
+  app,
+  dialog,
+  autoUpdater as nativeUpdater,
+} from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 import { CancellationToken, autoUpdater } from 'electron-updater';
@@ -11,10 +16,14 @@ import { readCleartextMessage, readKey } from 'openpgp';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { ETranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
+import { ElectronTranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
 import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
+import {
+  clearWindowProgressBar,
+  updateWindowProgressBar,
+} from '@onekeyhq/desktop/app/windowProgressBar';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
@@ -80,6 +89,7 @@ autoUpdater.autoInstallOnAppQuit = false;
 autoUpdater.disableDifferentialDownload = true;
 autoUpdater.logger = logger;
 
+const isMac = process.platform === 'darwin';
 const isMas = process.mas;
 const isSnapStore = process.platform === 'linux' && process.env.SNAP;
 const isWindowsMsStore =
@@ -213,6 +223,7 @@ class DesktopApiAppUpdate {
         mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
           message,
         });
+        clearWindowProgressBar(this.getMainWindow());
       }
     });
 
@@ -233,6 +244,7 @@ class DesktopApiAppUpdate {
           transferred: progressObj.transferred,
         },
       );
+      updateWindowProgressBar(this.getMainWindow(), progressObj.percent);
     });
 
     autoUpdater.on(
@@ -259,6 +271,7 @@ class DesktopApiAppUpdate {
         );
         setTimeout(() => {
           this.isDownloading = false;
+          clearWindowProgressBar(this.getMainWindow());
         }, 2500);
       },
     );
@@ -350,6 +363,7 @@ class DesktopApiAppUpdate {
     if (this.isDownloading) {
       return;
     }
+    clearWindowProgressBar(this.getMainWindow());
     store.setUpdateBuildNumber('');
     logger.info(
       'auto-updater',
@@ -465,7 +479,7 @@ class DesktopApiAppUpdate {
         return sha256;
       }
       throw new OneKeyLocalError(
-        ETranslations.update_signature_verification_failed_alert_text,
+        ElectronTranslations.update_signature_verification_failed_alert_text,
       );
     } catch (error) {
       logger.error(
@@ -482,8 +496,8 @@ class DesktopApiAppUpdate {
         lowerCaseMessage.includes('ascii armor integrity check failed');
       throw new OneKeyLocalError(
         isInValid
-          ? ETranslations.update_signature_verification_failed_alert_text
-          : ETranslations.update_installation_package_possibly_compromised,
+          ? ElectronTranslations.update_signature_verification_failed_alert_text
+          : ElectronTranslations.update_installation_package_possibly_compromised,
       );
     }
   }
@@ -527,7 +541,7 @@ class DesktopApiAppUpdate {
     } catch (error) {
       logger.info('auto-updater', 'verifyFile error', error);
       throw new OneKeyLocalError(
-        ETranslations.update_installation_package_possibly_compromised,
+        ElectronTranslations.update_installation_package_possibly_compromised,
       );
     }
     return true;
@@ -549,21 +563,35 @@ class DesktopApiAppUpdate {
       .showMessageBox({
         type: 'question',
         buttons: [
-          i18nText(ETranslations.update_install_and_restart),
-          i18nText(ETranslations.global_later),
+          i18nText(ElectronTranslations.update_install_and_restart),
+          i18nText(ElectronTranslations.global_later),
         ],
         defaultId: 0,
-        message: i18nText(ETranslations.update_new_update_downloaded),
+        message: i18nText(ElectronTranslations.update_new_update_downloaded),
       })
       .then((selection) => {
         if (selection.response === 0) {
           store.setUpdateBuildNumber(buildNumber);
           logger.info('auto-update', 'button[0] was clicked', buildNumber);
-          app.removeAllListeners('window-all-closed');
-          this.getMainWindow()?.removeAllListeners('close');
-          for (const window of BrowserWindow.getAllWindows()) {
-            window.close();
-            window.destroy();
+          // https://github.com/electron-userland/electron-builder/issues/8997#issuecomment-2969507357
+          /**
+           * On macOS 15+ auto-update / relaunch issues:
+           * - https://github.com/electron-userland/electron-builder/issues/8795
+           * - https://github.com/electron-userland/electron-builder/issues/8997
+           */
+          if (isMac) {
+            app.removeAllListeners('before-quit');
+            app.removeAllListeners('window-all-closed');
+            BrowserWindow.getAllWindows().forEach((win) => {
+              if (win.isDestroyed()) {
+                return;
+              }
+              win.removeAllListeners('close');
+              win.close();
+            });
+            nativeUpdater.once('before-quit-for-update', () => {
+              app.exit();
+            });
           }
           autoUpdater.quitAndInstall(false);
         }

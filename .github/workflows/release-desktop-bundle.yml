@@ -110,13 +110,20 @@ jobs:
           BUNDLE_SHA256=$(shasum -a 256 "$BUNDLE_FILE" | cut -d ' ' -f 1)
           BUNDLE_SIZE=$(stat -f%z "$BUNDLE_FILE" 2>/dev/null || stat -c%s "$BUNDLE_FILE")
           GENERATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-          
+          APP_VERSION=$(echo ${{ env.BUILD_APP_VERSION }})
+          BUILD_NUMBER=$(echo ${{ env.BUILD_NUMBER }})
+          BUILD_BUNDLE_VERSION=$(echo ${{ env.BUILD_BUNDLE_VERSION }})
+
           cat > electron-bundle.json.info << EOF
           {
             "fileName": "$BUNDLE_FILE",
             "sha256": "$BUNDLE_SHA256",
             "size": $BUNDLE_SIZE,
             "generatedAt": "$GENERATED_AT"
+            "appVersion": "$APP_VERSION",
+            "buildNumber": "$BUILD_NUMBER",
+            "bundleVersion": "$BUILD_BUNDLE_VERSION",
+            "appType": "electron"
           }
           EOF
       
@@ -129,6 +136,9 @@ jobs:
           METADATA_SHA256=$(shasum -a 256 "$METADATA_FILE" | cut -d ' ' -f 1)
           METADATA_SIZE=$(stat -f%z "$METADATA_FILE" 2>/dev/null || stat -c%s "$METADATA_FILE")
           GENERATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+          APP_VERSION=$(echo ${{ env.BUILD_APP_VERSION }})
+          BUILD_NUMBER=$(echo ${{ env.BUILD_NUMBER }})
+          BUILD_BUNDLE_VERSION=$(echo ${{ env.BUILD_BUNDLE_VERSION }})
 
           cat > electron.metadata.json.info << EOF
           {
@@ -136,6 +146,10 @@ jobs:
             "sha256": "$METADATA_SHA256",
             "size": $METADATA_SIZE,
             "generatedAt": "$GENERATED_AT"
+            "appVersion": "$APP_VERSION",
+            "buildNumber": "$BUILD_NUMBER",
+            "bundleVersion": "$BUILD_BUNDLE_VERSION"
+            "appType": "electron"
           }
           EOF
       

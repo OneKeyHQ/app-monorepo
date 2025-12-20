@@ -159,6 +159,10 @@ export class PushProviderWebSocket extends PushProviderBase {
           msgId: payload.msgId,
           action: ENotificationPushMessageAckAction.arrived,
         });
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason:
+            'WebSocket: DEVICE_LOGOUT, EAppSocketEventNames.primeDeviceLogout',
+        });
         appEventBus.emit(EAppEventBusNames.PrimeDeviceLogout, undefined);
         defaultLogger.notification.websocket.consoleLog(
           'WebSocket 收到 primeDeviceLogout 消息:',

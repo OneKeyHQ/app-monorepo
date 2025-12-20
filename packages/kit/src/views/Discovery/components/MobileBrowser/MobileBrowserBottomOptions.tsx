@@ -130,7 +130,7 @@ function MobileBrowserBottomOptions({
             onPress: onCloseTab,
             testID: 'action-list-item-close-tab-in-browser',
           },
-          platformEnv.isNativeIOSPad && onGoBackHomePage
+          onGoBackHomePage
             ? {
                 label: intl.formatMessage({
                   id: ETranslations.explore_back_to_home,

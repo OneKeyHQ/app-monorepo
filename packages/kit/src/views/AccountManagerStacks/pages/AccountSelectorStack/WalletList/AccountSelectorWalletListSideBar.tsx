@@ -40,6 +40,8 @@ import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
 
+import type { IAccountSelectorWalletInfo } from '../../../type';
+
 interface IWalletListProps {
   num: number;
   hideNonBackedUpWallet?: boolean;
@@ -71,7 +73,7 @@ export function AccountSelectorWalletListSideBarPerfTest({
 }: IWalletListProps) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const actions = useAccountSelectorActions(); // make render twice first time
-  const { selectedAccount } = useSelectedAccount({ num }); // make render twice first time
+  const { selectedAccount: _selectedAccount } = useSelectedAccount({ num }); // make render twice first time
 
   defaultLogger.accountSelector.perf.renderWalletListSideBar({
     selectedAccount: {} as any,
@@ -119,7 +121,12 @@ export function AccountSelectorWalletListSideBar({
     result: walletsResult,
     setResult,
     run: reloadWallets,
-  } = usePromiseResult(
+  } = usePromiseResult<
+    | {
+        wallets: IAccountSelectorWalletInfo[];
+      }
+    | undefined
+  >(
     async () => {
       noop(reloadWalletsHook);
       defaultLogger.accountSelector.perf.buildWalletListSideBarData();
@@ -128,7 +135,23 @@ export function AccountSelectorWalletListSideBar({
         ignoreEmptySingletonWalletAccounts: true,
         ignoreNonBackedUpWallets: hideNonBackedUpWallet,
       });
-      return r;
+
+      const wallets = r.wallets.map((wallet) => {
+        const isQrWallet = accountUtils.isQrWallet({
+          walletId: wallet.id,
+        });
+
+        const badge = isQrWallet ? 'QR' : undefined;
+
+        return {
+          ...wallet,
+          badge,
+        };
+      });
+
+      return {
+        wallets,
+      };
     },
     [serviceAccount, hideNonBackedUpWallet, reloadWalletsHook],
     {
@@ -296,7 +319,8 @@ export function AccountSelectorWalletListSideBar({
 
   const { md } = useMedia();
 
-  const listViewRef = useRef<ISortableListViewRef<IDBWallet>>(null);
+  const listViewRef =
+    useRef<ISortableListViewRef<IAccountSelectorWalletInfo>>(null);
 
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
   return (
@@ -347,7 +371,7 @@ export function AccountSelectorWalletListSideBar({
           />
         )}
         keyExtractor={(item) => `${item.id}`}
-        data={wallets as IDBWallet[]}
+        data={wallets as IAccountSelectorWalletInfo[]}
         onDragEnd={async (result) => {
           if (!walletsResult) {
             return;
@@ -365,12 +389,6 @@ export function AccountSelectorWalletListSideBar({
         }}
         extraData={[selectedAccount.focusedWallet, reloadWalletsHook]}
         renderItem={({ item, drag, dragProps }) => {
-          const badge = accountUtils.isQrWallet({
-            walletId: item.id,
-          })
-            ? 'QR'
-            : undefined;
-
           return (
             <Stack pb="$3" dataSet={dragProps}>
               <WalletListItem
@@ -380,7 +398,7 @@ export function AccountSelectorWalletListSideBar({
                 onWalletPress={onWalletPress}
                 onWalletLongPress={drag}
                 testID={`wallet-${item.id}`}
-                badge={badge}
+                badge={item.badge}
                 isEditMode={isEditableRouteParams}
                 shouldShowCreateHiddenWalletButtonFn={
                   shouldShowCreateHiddenWalletButtonFn

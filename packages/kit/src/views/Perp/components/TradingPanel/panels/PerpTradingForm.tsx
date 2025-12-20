@@ -26,17 +26,20 @@ import {
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatPriceToSignificantDigits,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -76,7 +79,6 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
 
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
@@ -85,9 +87,14 @@ function PerpTradingForm({
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const { midPrice, midPriceBN } = useTradingPrice();
   const currentTokenName = activeAsset?.coin;
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
+  const perpsSelectedDisplayName = useMemo(
+    () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
+    [perpsSelectedSymbol.coin],
+  );
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const { universe } = perpsSelectedSymbol;
   const [shouldShowEnableTradingButton] =
@@ -100,35 +107,28 @@ function PerpTradingForm({
   );
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
-  const prevTokenRef = useRef<string>(currentTokenName || '');
-  const tokenSwitchingRef = useRef<string | false>(false);
 
   useEffect(() => {
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
 
-    if (
-      prevType !== 'limit' &&
-      currentType === 'limit' &&
-      activeAssetCtx?.ctx?.markPrice
-    ) {
+    if (prevType !== 'limit' && currentType === 'limit' && midPrice) {
       updateForm({
-        price: formatPriceToSignificantDigits(activeAssetCtx?.ctx?.markPrice),
+        price: formatPriceToSignificantDigits(midPrice),
       });
     }
 
     prevTypeRef.current = currentType;
-  }, [
-    formData.type,
-    formData.price,
-    activeAssetCtx?.ctx?.markPrice,
-    updateForm,
-  ]);
+  }, [formData.type, formData.price, midPrice, updateForm]);
 
   useEffect(() => {
+    const rawAvailable = activeAssetData?.availableToTrade;
+    const maxAvailable = rawAvailable
+      ? Math.max(Number(rawAvailable[0] ?? 0), Number(rawAvailable[1] ?? 0))
+      : 0;
     const nextEnv = {
-      markPrice: activeAssetCtx?.ctx?.markPrice,
-      availableToTrade: activeAssetData?.availableToTrade,
+      markPrice: midPrice,
+      availableToTrade: [maxAvailable, maxAvailable],
       leverageValue: activeAssetData?.leverage?.value,
       fallbackLeverage: activeAsset?.universe?.maxLeverage,
       szDecimals: activeAsset?.universe?.szDecimals,
@@ -154,7 +154,7 @@ function PerpTradingForm({
       });
     }
   }, [
-    activeAssetCtx?.ctx?.markPrice,
+    midPrice,
     activeAssetData?.availableToTrade,
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
@@ -164,54 +164,14 @@ function PerpTradingForm({
     updateForm,
   ]);
 
-  // Token Switch Effect: Handle price updates when user switches tokens
-  // This prevents stale price data from being used during token transitions
-  useEffect(() => {
-    const prevToken = prevTokenRef.current;
-    const hasTokenChanged =
-      currentTokenName && prevToken && prevToken !== currentTokenName;
-    const isDataSynced = prevToken === currentTokenName;
-    const shouldUpdatePrice =
-      tokenSwitchingRef.current === currentTokenName &&
-      formData.type === 'limit' &&
-      currentTokenName &&
-      activeAssetCtx?.ctx?.markPrice &&
-      isDataSynced;
-
-    // Step 1: Detect token switch and mark switching state
-    if (hasTokenChanged) {
-      tokenSwitchingRef.current = currentTokenName;
-      prevTokenRef.current = currentTokenName;
-      return; // Early return to avoid price update with stale data
-    }
-
-    // Step 2: Update price after token data is synchronized (prevents stale price)
-    if (shouldUpdatePrice && activeAssetCtx?.ctx?.markPrice) {
-      updateForm({
-        price: formatPriceToSignificantDigits(activeAssetCtx?.ctx?.markPrice),
-      });
-      tokenSwitchingRef.current = false;
-    }
-
-    // Step 3: Initialize token reference on first load
-    if (!prevToken && currentTokenName) {
-      prevTokenRef.current = currentTokenName;
-    }
-  }, [
-    currentTokenName,
-    activeAssetCtx?.ctx?.markPrice,
-    formData.type,
-    updateForm,
-  ]);
-
   // Reference Price: Get the effective trading price (limit price or market price)
   const [, referencePriceString] = useMemo(() => {
     let price = new BigNumber(0);
     if (formData.type === 'limit' && formData.price) {
       price = new BigNumber(formData.price);
     }
-    if (formData.type === 'market' && activeAssetCtx?.ctx?.markPrice) {
-      price = new BigNumber(activeAssetCtx?.ctx?.markPrice);
+    if (formData.type === 'market') {
+      price = midPriceBN;
     }
     return [
       price,
@@ -223,7 +183,7 @@ function PerpTradingForm({
   }, [
     formData.type,
     formData.price,
-    activeAssetCtx?.ctx?.markPrice,
+    midPriceBN,
     activeAsset?.universe?.szDecimals,
   ]);
 
@@ -240,13 +200,15 @@ function PerpTradingForm({
     }, [perpsPositions, perpsSelectedSymbol.coin]);
 
   const availableToTrade = useMemo(() => {
-    const accountValue = new BigNumber(accountSummary?.accountValue || '0');
-    const totalMarginUsed = new BigNumber(
-      accountSummary?.totalMarginUsed || '0',
+    const available = activeAssetData?.availableToTrade;
+    if (!available) return '0';
+    const longValue = Number(available[0] ?? 0);
+    const shortValue = Number(available[1] ?? 0);
+    return new BigNumber(Math.max(longValue, shortValue)).toFixed(
+      2,
+      BigNumber.ROUND_DOWN,
     );
-    const availableToTradeBN = accountValue.minus(totalMarginUsed);
-    return availableToTradeBN.toFixed();
-  }, [accountSummary]);
+  }, [activeAssetData?.availableToTrade]);
 
   const switchToManual = useCallback(() => {
     if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
@@ -366,54 +328,65 @@ function PerpTradingForm({
   return (
     <YStack gap={isMobile ? '$2.5' : '$4'}>
       {isMobile ? (
-        <XStack alignItems="center" flex={1} gap="$2.5">
-          <YStack flex={1}>
-            <OrderTypeSelector
-              value={formData.type}
-              onChange={(type: 'market' | 'limit') => updateForm({ type })}
-              disabled={isSubmitting}
-              isMobile
-            />
-          </YStack>
-        </XStack>
-      ) : (
-        <YStack>
-          <XStack>
-            {orderTypeOptions.map((option) => (
-              <XStack
-                pb="$2.5"
-                key={option.value}
-                ml="$2.5"
-                mr="$2"
-                borderBottomWidth={
-                  formData.type === option.value ? '$0.5' : '$0'
-                }
-                borderBottomColor="$borderActive"
-                onPress={() => handleOrderTypeChange(option.name)}
-                cursor="pointer"
-              >
-                <SizableText
-                  size="$headingXs"
-                  fontSize={14}
-                  color={
-                    formData.type === option.value ? '$text' : '$textSubdued'
-                  }
-                >
-                  {option.name}
-                </SizableText>
-              </XStack>
-            ))}
+        <>
+          <XStack alignItems="center" flex={1} gap="$2.5">
+            <YStack flex={1}>
+              <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+            </YStack>
+            <LeverageAdjustModal isMobile={isMobile} />
           </XStack>
-          <Divider />
-        </YStack>
-      )}
 
-      <XStack alignItems="center" flex={1} gap={isMobile ? '$2.5' : '$3'}>
-        <YStack flex={1}>
-          <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-        </YStack>
-        <LeverageAdjustModal isMobile={isMobile} />
-      </XStack>
+          <XStack alignItems="center" flex={1} gap="$2.5">
+            <YStack flex={1}>
+              <OrderTypeSelector
+                value={formData.type}
+                onChange={(type: 'market' | 'limit') => updateForm({ type })}
+                disabled={isSubmitting}
+                isMobile
+              />
+            </YStack>
+          </XStack>
+        </>
+      ) : (
+        <>
+          <YStack>
+            <XStack>
+              {orderTypeOptions.map((option) => (
+                <XStack
+                  pb="$2.5"
+                  key={option.value}
+                  ml="$2.5"
+                  mr="$2"
+                  borderBottomWidth={
+                    formData.type === option.value ? '$0.5' : '$0'
+                  }
+                  borderBottomColor="$borderActive"
+                  onPress={() => handleOrderTypeChange(option.name)}
+                  cursor="pointer"
+                >
+                  <SizableText
+                    size="$headingXs"
+                    fontSize={14}
+                    color={
+                      formData.type === option.value ? '$text' : '$textSubdued'
+                    }
+                  >
+                    {option.name}
+                  </SizableText>
+                </XStack>
+              ))}
+            </XStack>
+            <Divider />
+          </YStack>
+
+          <XStack alignItems="center" flex={1} gap="$3">
+            <YStack flex={1}>
+              <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+            </YStack>
+            <LeverageAdjustModal isMobile={isMobile} />
+          </XStack>
+        </>
+      )}
 
       <YStack
         gap="$2.5"
@@ -456,7 +429,7 @@ function PerpTradingForm({
                   selectedSymbolPositionSide as ITradeSide,
                 )}
               >
-                {selectedSymbolPositionValue} {perpsSelectedSymbol.coin}
+                {selectedSymbolPositionValue} {perpsSelectedDisplayName}
               </SizableText>
             )}
           </XStack>
@@ -465,12 +438,10 @@ function PerpTradingForm({
 
       {formData.type === 'limit' || isMobile ? (
         <PriceInput
-          onUseMarketPrice={() => {
-            if (activeAssetCtx?.ctx?.markPrice) {
+          onUseMidPrice={() => {
+            if (midPrice) {
               updateForm({
-                price: formatPriceToSignificantDigits(
-                  activeAssetCtx?.ctx?.markPrice,
-                ),
+                price: formatPriceToSignificantDigits(midPrice),
               });
             }
           }}
@@ -493,13 +464,14 @@ function PerpTradingForm({
         side={formData.side}
         activeAsset={activeAsset}
         activeAssetCtx={activeAssetCtx}
-        symbol={perpsSelectedSymbol.coin}
+        symbol={perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
         sizeInputMode={tradingComputed.sizeInputMode}
         sliderPercent={tradingComputed.sizePercent}
         onRequestManualMode={switchToManual}
         isMobile={isMobile}
+        leverage={formData.leverage ?? 1}
       />
 
       <YStack {...(isMobile && { pt: '$2', pb: '$2' })}>

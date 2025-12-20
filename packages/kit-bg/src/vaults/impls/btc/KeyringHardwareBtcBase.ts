@@ -332,6 +332,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     const dbAccount = await this.vault.getAccount();
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
+    const { receiveAddressPath } = params.chainExtraParams || {};
     const sdk = await this.getHardwareSDKInstance({
       connectId: deviceParams.dbDevice.connectId,
     });
@@ -358,7 +359,9 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
 
           const response = await sdk.btcSignMessage(connectId, deviceId, {
             ...params.deviceParams?.deviceCommonParams,
-            path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+            path:
+              receiveAddressPath ??
+              `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
             coin: coinName,
             messageHex: Buffer.from(message).toString('hex'),
             dAppSignType:

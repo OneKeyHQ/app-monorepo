@@ -20,7 +20,7 @@ export function NoAddressWarning({
   accountId: string;
   networkId: string;
   indexedAccountId?: string;
-  onCreateAddress: () => void;
+  onCreateAddress: () => void | Promise<void>;
 }) {
   const intl = useIntl();
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +47,7 @@ export function NoAddressWarning({
         },
         selectAfterCreate: false,
       });
-      onCreateAddress();
+      await onCreateAddress();
     } finally {
       setIsLoading(false);
     }

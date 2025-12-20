@@ -81,9 +81,15 @@ export function V4MigrationDone({
             //   StackActions.replace(ETabHomeRoutes.TabHome, undefined),
             // );
 
-            navigation.navigate(ERootRoutes.Main, {
-              screen: ETabRoutes.Home,
-            });
+            navigation.navigate(
+              ERootRoutes.Main,
+              {
+                screen: ETabRoutes.Home,
+              },
+              {
+                pop: true,
+              },
+            );
 
             setTimeout(() => {
               void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();

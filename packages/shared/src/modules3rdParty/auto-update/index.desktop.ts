@@ -219,4 +219,6 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.getNativeBuildNumber(),
   getJsBundlePath: () =>
     globalThis.desktopApiProxy.bundleUpdate.getJsBundlePath(),
+  getSha256FromFilePath: (filePath) =>
+    globalThis.desktopApiProxy.bundleUpdate.getSha256FromFilePath(filePath),
 };

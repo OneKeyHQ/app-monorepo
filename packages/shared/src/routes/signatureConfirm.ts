@@ -66,10 +66,13 @@ export type IModalSignatureConfirmParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     isAllNetworks?: boolean;
+    disableAddressTypeSelector?: boolean;
+    showAddressTypeSelectorWhenDisabled?: boolean;
   };
   [EModalSignatureConfirmRoutes.TxConfirm]: {
     networkId: string;
     accountId: string;
+    indexedAccountId?: string;
     unsignedTxs: IUnsignedTxPro[];
     sourceInfo?: IDappSourceInfo;
     signOnly?: boolean;

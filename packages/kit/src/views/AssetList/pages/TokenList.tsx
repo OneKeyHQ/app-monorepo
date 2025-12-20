@@ -66,6 +66,7 @@ function TokenList() {
     aggregateTokensMap,
     accountAddress,
     allAggregateTokenMap,
+    searchKeyLengthThreshold,
   } = route.params;
   const { tokens, map: tokenMap, keys } = tokenList;
 
@@ -207,6 +208,7 @@ function TokenList() {
           hideValue={hideValue}
           allAggregateTokenMap={allAggregateTokenMap}
           showNetworkIcon={isAllNetworks}
+          searchKeyLengthThreshold={searchKeyLengthThreshold}
         />
       </Page.Body>
     </Page>

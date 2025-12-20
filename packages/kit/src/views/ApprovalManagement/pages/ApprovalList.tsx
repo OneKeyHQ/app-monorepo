@@ -1,7 +1,8 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/native';
-import { pickBy } from 'lodash';
+import { CanceledError } from 'axios';
+import { isEmpty, isNil, pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -9,6 +10,10 @@ import { Button, Page, Toast, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/routes/approvalManagement';
@@ -17,10 +22,12 @@ import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkSelectorTriggerApproval } from '../../../components/AccountSelector';
 import ApprovalListView from '../../../components/ApprovalListView';
-import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../../hooks/useAllNetwork';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
+  ProviderJotaiContextApprovalList,
   useApprovalListActions,
   useApprovalListAtom,
   useContractMapAtom,
@@ -29,7 +36,6 @@ import {
   useSelectedTokensAtom,
   useTokenMapAtom,
 } from '../../../states/jotai/contexts/approvalList';
-import { HomeApprovalListProviderMirror } from '../../Home/components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import ApprovalActions from '../components/ApprovalActions';
 import { useBulkRevoke } from '../hooks/useBulkRevoke';
 
@@ -49,7 +55,11 @@ function ApprovalList() {
     walletId,
     indexedAccountId,
     isBulkRevokeMode: routeBulkMode,
+    approvals: approvalsProp,
+    tokenMap: tokenMapProp,
+    contractMap: contractMapProp,
   } = route.params;
+
   const intl = useIntl();
   const navigation = useAppNavigation();
   const {
@@ -58,7 +68,13 @@ function ApprovalList() {
     updateSearchNetwork,
     updateSelectedTokens,
     updateIsBulkRevokeMode,
+    updateApprovalList,
+    updateTokenMap,
+    updateContractMap,
+    updateApprovalListState,
   } = useApprovalListActions().current;
+
+  const approvalListInitRef = useRef(false);
 
   const { navigationToBulkRevokeProcess, isBuildingRevokeTxs } =
     useBulkRevoke();
@@ -69,21 +85,141 @@ function ApprovalList() {
   const [{ approvals }] = useApprovalListAtom();
   const [{ tokenMap }] = useTokenMapAtom();
   const [{ contractMap }] = useContractMapAtom();
-  const { enabledNetworksCompatibleWithWalletId } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId,
-      networkId,
-    });
+
+  const { run } = usePromiseResult(async () => {
+    if (!searchNetworkId) {
+      return;
+    }
+
+    if (!approvalListInitRef.current) {
+      updateApprovalListState({
+        isRefreshing: true,
+      });
+    }
+
+    let realAccountId = accountId;
+
+    const globalDeriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId: searchNetworkId,
+      });
+
+    if (indexedAccountId) {
+      const { accounts } =
+        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+          indexedAccountIds: [indexedAccountId ?? ''],
+          networkId: searchNetworkId,
+          deriveType: globalDeriveType,
+        });
+      realAccountId = accounts[0]?.id ?? accountId;
+    }
+
+    await backgroundApiProxy.serviceApproval.abortFetchAccountApprovals();
+
+    try {
+      const resp =
+        await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
+          accountId: realAccountId,
+          networkId: searchNetworkId,
+          indexedAccountId,
+          networksEnabledOnly: false,
+        });
+
+      updateApprovalList({ data: resp.contractApprovals });
+      updateTokenMap({ data: resp.tokenMap });
+      updateContractMap({ data: resp.contractMap });
+    } catch (error) {
+      if (error instanceof CanceledError) {
+        console.log('fetchAccountApprovals canceled');
+      } else {
+        throw error;
+      }
+    } finally {
+      updateApprovalListState({
+        isRefreshing: false,
+        initialized: true,
+      });
+    }
+  }, [
+    updateApprovalListState,
+    accountId,
+    searchNetworkId,
+    indexedAccountId,
+    updateApprovalList,
+    updateTokenMap,
+    updateContractMap,
+  ]);
 
   useEffect(() => {
-    if (
-      typeof routeBulkMode !== 'undefined' &&
-      !accountUtils.isWatchingWallet({ walletId })
-    ) {
+    const refreshAnyway = () => {
+      void run({ alwaysSetState: true });
+    };
+
+    appEventBus.on(EAppEventBusNames.RefreshApprovalList, refreshAnyway);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshApprovalList, refreshAnyway);
+    };
+  }, [run]);
+
+  useEffect(() => {
+    if (!isNil(routeBulkMode) && !accountUtils.isWatchingWallet({ walletId })) {
       updateIsBulkRevokeMode(!!routeBulkMode);
     }
-    // Only apply on mount or when param changes
-  }, [routeBulkMode, updateIsBulkRevokeMode, walletId]);
+    return () => {
+      updateSearchKey('');
+      updateIsBulkRevokeMode(false);
+      updateSelectedTokens({
+        selectedTokens: {},
+      });
+    };
+  }, [
+    routeBulkMode,
+    updateIsBulkRevokeMode,
+    updateSearchKey,
+    updateSelectedTokens,
+    walletId,
+  ]);
+
+  useEffect(() => {
+    if (!isNil(approvalsProp)) {
+      if (!isEmpty(approvalsProp)) {
+        approvalListInitRef.current = true;
+        updateApprovalListState({
+          isRefreshing: false,
+          initialized: true,
+        });
+      }
+      updateApprovalList({ data: approvalsProp });
+    }
+    if (!isNil(tokenMapProp)) {
+      updateTokenMap({ data: tokenMapProp });
+    }
+    if (!isNil(contractMapProp)) {
+      updateContractMap({ data: contractMapProp });
+    }
+  }, [
+    approvalsProp,
+    tokenMapProp,
+    contractMapProp,
+    updateApprovalList,
+    updateTokenMap,
+    updateContractMap,
+    updateApprovalListState,
+  ]);
+
+  useEffect(() => {
+    const networksSupportBulkRevokeApproval =
+      getNetworksSupportBulkRevokeApproval();
+
+    if (
+      networkUtils.isAllNetwork({ networkId }) ||
+      networksSupportBulkRevokeApproval[networkId]
+    ) {
+      updateSearchNetwork(networkId);
+    } else {
+      updateSearchNetwork(getNetworkIdsMap().onekeyall);
+    }
+  }, [networkId, updateSearchNetwork]);
 
   const filteredSelectedTokensByNetwork = useMemo(() => {
     if (searchNetworkId === getNetworkIdsMap().onekeyall) {
@@ -115,19 +251,13 @@ function ApprovalList() {
   }, [filteredSelectedTokensByNetwork, filteredApprovalsByNetwork]);
 
   const renderNetworkFilter = useCallback(() => {
-    if (!networkUtils.isAllNetwork({ networkId })) {
-      return null;
-    }
-
     const networksSupportBulkRevokeApproval =
       getNetworksSupportBulkRevokeApproval();
 
     const availableNetworkIds: string[] = [getNetworkIdsMap().onekeyall];
 
-    enabledNetworksCompatibleWithWalletId.forEach((network) => {
-      if (networksSupportBulkRevokeApproval[network.id]) {
-        availableNetworkIds.push(network.id);
-      }
+    Object.keys(networksSupportBulkRevokeApproval).forEach((n) => {
+      availableNetworkIds.push(n);
     });
 
     return (
@@ -136,17 +266,13 @@ function ApprovalList() {
           networkIds={availableNetworkIds}
           value={searchNetworkId}
           onChange={(value) => {
+            approvalListInitRef.current = false;
             updateSearchNetwork(value);
           }}
         />
       </XStack>
     );
-  }, [
-    enabledNetworksCompatibleWithWalletId,
-    networkId,
-    searchNetworkId,
-    updateSearchNetwork,
-  ]);
+  }, [searchNetworkId, updateSearchNetwork]);
   const renderHeaderRight = useCallback(() => {
     return (
       <Button
@@ -192,6 +318,8 @@ function ApprovalList() {
           });
         },
         selectedTokens: filteredSelectedTokensByNetwork,
+        tokenMap,
+        contractMap,
       });
     },
     [
@@ -199,6 +327,8 @@ function ApprovalList() {
       isBulkRevokeMode,
       updateSelectedTokens,
       filteredSelectedTokensByNetwork,
+      tokenMap,
+      contractMap,
     ],
   );
   const handleSelectAll = useCallback(() => {
@@ -248,16 +378,9 @@ function ApprovalList() {
       />
     );
   };
-  const handleOnClose = useCallback(() => {
-    updateSearchKey('');
-    updateIsBulkRevokeMode(false);
-    updateSelectedTokens({
-      selectedTokens: {},
-    });
-  }, [updateIsBulkRevokeMode, updateSelectedTokens, updateSearchKey]);
 
   return (
-    <Page onClose={handleOnClose}>
+    <Page>
       <Page.Header
         title={
           isBulkRevokeMode
@@ -278,7 +401,7 @@ function ApprovalList() {
           withHeader
           hideRiskOverview={accountUtils.isWatchingWallet({ walletId })}
           accountId={accountId}
-          networkId={networkId}
+          networkId={searchNetworkId}
           indexedAccountId={indexedAccountId}
           onPress={handleApprovalOnPress}
         />
@@ -290,9 +413,9 @@ function ApprovalList() {
 
 const ApprovalListWithProvider = memo(() => {
   return (
-    <HomeApprovalListProviderMirror>
+    <ProviderJotaiContextApprovalList>
       <ApprovalList />
-    </HomeApprovalListProviderMirror>
+    </ProviderJotaiContextApprovalList>
   );
 });
 

@@ -261,4 +261,5 @@ export interface IMarketSearchV2Token {
   decimals: number;
   liquidity: string;
   volume_24h: string;
+  communityRecognized?: boolean;
 }
