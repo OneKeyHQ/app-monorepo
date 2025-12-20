@@ -91,7 +91,7 @@ export function openOAuthPopupDesktopWebview(options: {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  persistSession: boolean;
+  persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   const { authUrl, handleSessionPersistence, persistSession } = options;
 
@@ -298,7 +298,7 @@ export function openOAuthPopupDesktopDeepLink(options: {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  persistSession: boolean;
+  persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   const { authUrl, handleSessionPersistence, persistSession } = options;
 

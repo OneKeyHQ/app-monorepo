@@ -93,6 +93,10 @@ export function useSupabaseAuth() {
         // When false (default): Only return tokens in memory, don't call setSession
         // When true: Call setSession to persist and enable auto-refresh
         persistSession?: boolean;
+        // Extension only: when true, use Supabase OAuth + PKCE code flow in
+        // `openOAuthPopupExtIdentity()` instead of the default id_token + nonce flow.
+        // Defaults to false to preserve existing behavior.
+        extensionUsePkce?: boolean;
       },
     ): Promise<{
       success: boolean;
@@ -101,7 +105,7 @@ export function useSupabaseAuth() {
         refreshToken: string;
       };
     }> => {
-      const { persistSession = false } = options ?? {};
+      const { persistSession } = options ?? {};
       const clientTemp: SupabaseClient = createTemporarySupabaseClient();
 
       // For extension with CHROME_IDENTITY_API or CHROME_GET_AUTH_TOKEN methods,

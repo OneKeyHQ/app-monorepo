@@ -1,6 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 import {
   EExtensionOAuthMethod,
+  EXTENSION_OAUTH_USE_PKCE_FLOW,
   GOOGLE_OAUTH_AUTHORIZE_URL,
   GOOGLE_OAUTH_DEFAULT_SCOPES,
   GOOGLE_OAUTH_TOKENINFO_URL,
@@ -15,13 +16,12 @@ import {
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-
 import type {
   IExtensionOAuthConfig,
   IHandleOAuthSessionPersistenceParams,
   IOAuthPopupResult,
 } from './openOAuthPopupTypes';
-import { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // ============================================================================
 // Extension OAuth Methods
@@ -88,7 +88,7 @@ export async function openOAuthPopupExtIdentity(options: {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  persistSession: boolean;
+  persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   const { client, config, handleSessionPersistence, persistSession } = options;
   const { googleClientId, scopes = GOOGLE_OAUTH_DEFAULT_SCOPES } = config;
@@ -101,6 +101,222 @@ export async function openOAuthPopupExtIdentity(options: {
         'Try rebuilding the extension and reloading it in chrome://extensions.',
     );
   }
+
+  const getRedirectUrl = (): string => {
+    // https://<extension-id>.chromiumapp.org/
+    let redirectUrl = chrome.identity.getRedirectURL();
+    // Remove trailing slash to match Google Cloud Console configuration (and existing behavior).
+    if (redirectUrl.endsWith('/')) {
+      redirectUrl = redirectUrl.slice(0, -1);
+    }
+    return redirectUrl;
+  };
+
+  type IExtensionOAuthFlowParams = { redirectUrl: string };
+  type IExtensionOAuthFlowSignInParams = { rawNonce?: string };
+  type IExtensionOAuthFlowGetAuthUrlResult = {
+    authUrl: string;
+    signInParams: IExtensionOAuthFlowSignInParams;
+  };
+  type IExtensionOAuthFlowSignInInput = {
+    callbackUrl: string;
+    signInParams: IExtensionOAuthFlowSignInParams;
+  };
+  type IExtensionOAuthFlowBuilder = (params: IExtensionOAuthFlowParams) => {
+    getAuthUrl: () => Promise<IExtensionOAuthFlowGetAuthUrlResult>;
+    signIn: (
+      input: IExtensionOAuthFlowSignInInput,
+    ) => Promise<IOAuthPopupResult>;
+  };
+
+  const buildPkceFlowParams = ({ redirectUrl }: IExtensionOAuthFlowParams) => ({
+    getAuthUrl: async () => {
+      const oauthUrlResult = await client.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          skipBrowserRedirect: true,
+          redirectTo: redirectUrl,
+          queryParams: {
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (oauthUrlResult.error) {
+        throw new OneKeyLocalError(oauthUrlResult.error.message);
+      }
+      const authUrl = oauthUrlResult.data?.url;
+      if (!authUrl) {
+        throw new OneKeyLocalError('Failed to create Supabase OAuth URL.');
+      }
+      return {
+        authUrl,
+        signInParams: {},
+      };
+    },
+    signIn: async ({ callbackUrl }: IExtensionOAuthFlowSignInInput) => {
+      // https://<extension-id>.chromiumapp.org/?code=xxxx
+      const url = new URL(callbackUrl);
+      const error =
+        url.searchParams.get('error') ||
+        url.searchParams.get('error_description');
+      if (error) {
+        throw new OneKeyLocalError(error);
+      }
+
+      const code = url.searchParams.get('code');
+      if (!code) {
+        return {
+          success: false,
+          session: undefined,
+        };
+      }
+
+      const { data, error: exchangeError } =
+        await client.auth.exchangeCodeForSession(code);
+      if (exchangeError) {
+        throw new OneKeyLocalError(exchangeError.message);
+      }
+
+      if (!data.session) {
+        return {
+          success: false,
+          session: undefined,
+        };
+      }
+
+      const accessToken = data.session.access_token;
+      const refreshToken = data.session.refresh_token;
+
+      await handleSessionPersistence({
+        accessToken,
+        refreshToken,
+        persistSession,
+      });
+
+      return {
+        success: true,
+        session: {
+          accessToken,
+          refreshToken,
+        },
+      };
+    },
+  });
+
+  const processFlow = async ({
+    redirectUrl,
+    buildFlowParams,
+  }: IExtensionOAuthFlowParams & {
+    buildFlowParams: IExtensionOAuthFlowBuilder;
+  }) => {
+    const { getAuthUrl, signIn } = buildFlowParams({ redirectUrl });
+    const { authUrl, signInParams } = await getAuthUrl();
+    const callbackUrl = await chrome.identity.launchWebAuthFlow({
+      url: authUrl,
+      interactive: true,
+    });
+
+    if (!callbackUrl) {
+      return {
+        success: false,
+        session: undefined,
+      };
+    }
+
+    return signIn({ callbackUrl, signInParams });
+  };
+
+  const buildOidcFlowParams = ({ redirectUrl }: IExtensionOAuthFlowParams) => ({
+    getAuthUrl: async () => {
+      // Build Google OAuth URL manually with response_type=id_token
+      // This is the key difference from the standard OAuth flow
+      const authUrl = new URL(GOOGLE_OAUTH_AUTHORIZE_URL);
+
+      authUrl.searchParams.set('client_id', googleClientId);
+      authUrl.searchParams.set('response_type', 'id_token');
+      authUrl.searchParams.set('access_type', 'offline');
+      authUrl.searchParams.set('redirect_uri', redirectUrl);
+      authUrl.searchParams.set('scope', scopes.join(' '));
+      // Generate a random nonce for security
+      // Supabase requires: hash the nonce before sending to Google, but pass raw nonce to Supabase
+      const rawNonce = crypto.randomUUID();
+      // Hash the nonce using SHA-256 for Google OAuth
+      const encoder = new TextEncoder();
+      const nonceData = encoder.encode(rawNonce);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', nonceData);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashedNonce = hashArray
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      // Pass hashed nonce to Google OAuth URL
+      authUrl.searchParams.set('nonce', hashedNonce);
+      // Force account selection
+      authUrl.searchParams.set('prompt', 'select_account');
+
+      return {
+        authUrl: authUrl.href,
+        signInParams: { rawNonce },
+      };
+    },
+    signIn: async ({
+      callbackUrl,
+      signInParams,
+    }: IExtensionOAuthFlowSignInInput) => {
+      const rawNonce = signInParams.rawNonce;
+      if (!rawNonce) {
+        throw new OneKeyLocalError('Missing nonce for Google OAuth sign-in.');
+      }
+      // Parse id_token from the callback URL hash
+      const url = new URL(callbackUrl);
+      const hashParams = new URLSearchParams(url.hash.substring(1));
+      const idToken = hashParams.get(OAUTH_TOKEN_KEY_ID_TOKEN);
+
+      if (!idToken) {
+        throw new OneKeyLocalError('No ID token received from Google OAuth');
+      }
+
+      // Exchange ID token for Supabase session using signInWithIdToken
+      // Pass raw nonce to Supabase (not hashed)
+      // Use a temporary client that doesn't persist sessions automatically
+      // This allows us to get the session data without persisting it automatically
+      const tempClient = client;
+      const { data, error } = await tempClient.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+        nonce: rawNonce, // Pass raw nonce to Supabase
+      });
+
+      if (error) {
+        throw new OneKeyLocalError(error.message);
+      }
+
+      if (!data.session) {
+        return {
+          success: false,
+          session: undefined,
+        };
+      }
+
+      const accessToken = data.session.access_token;
+      const refreshToken = data.session.refresh_token;
+
+      // Handle session persistence (only if persistSession is true)
+      await handleSessionPersistence({
+        accessToken,
+        refreshToken,
+        persistSession,
+      });
+
+      return {
+        success: true,
+        session: {
+          accessToken,
+          refreshToken,
+        },
+      };
+    },
+  });
 
   // Launch the OAuth flow
   // Note: chrome.identity.launchWebAuthFlow doesn't support window size/position options
@@ -155,106 +371,7 @@ export async function openOAuthPopupExtIdentity(options: {
 
   chrome.windows.onCreated.addListener(windowUpdateListener);
 
-  try {
-    // Build Google OAuth URL manually with response_type=id_token
-    // This is the key difference from the standard OAuth flow
-    let redirectUrl = chrome.identity.getRedirectURL();
-    // Remove trailing slash to match Google Cloud Console configuration
-    if (redirectUrl.endsWith('/')) {
-      redirectUrl = redirectUrl.slice(0, -1);
-    }
-    const authUrl = new URL(GOOGLE_OAUTH_AUTHORIZE_URL);
-
-    authUrl.searchParams.set('client_id', googleClientId);
-    authUrl.searchParams.set('response_type', 'id_token');
-    authUrl.searchParams.set('access_type', 'offline');
-    authUrl.searchParams.set('redirect_uri', redirectUrl);
-    authUrl.searchParams.set('scope', scopes.join(' '));
-    // Generate a random nonce for security
-    // Supabase requires: hash the nonce before sending to Google, but pass raw nonce to Supabase
-    const rawNonce = crypto.randomUUID();
-    // Hash the nonce using SHA-256 for Google OAuth
-    const encoder = new TextEncoder();
-    const nonceData = encoder.encode(rawNonce);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', nonceData);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashedNonce = hashArray
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-    // Pass hashed nonce to Google OAuth URL
-    authUrl.searchParams.set('nonce', hashedNonce);
-    // Force account selection
-    authUrl.searchParams.set('prompt', 'select_account');
-
-    const callbackUrl = await chrome.identity.launchWebAuthFlow({
-      url: authUrl.href,
-      interactive: true,
-    });
-
-    // Clean up listener and focus interval if OAuth flow completes
-    chrome.windows.onCreated.removeListener(windowUpdateListener);
-    if (focusInterval !== null) {
-      clearInterval(focusInterval);
-      focusInterval = null;
-    }
-
-    if (!callbackUrl) {
-      return {
-        success: false,
-        session: undefined,
-      };
-    }
-
-    // Parse id_token from the callback URL hash
-    const url = new URL(callbackUrl);
-    const hashParams = new URLSearchParams(url.hash.substring(1));
-    const idToken = hashParams.get(OAUTH_TOKEN_KEY_ID_TOKEN);
-
-    if (!idToken) {
-      throw new OneKeyLocalError('No ID token received from Google OAuth');
-    }
-
-    // Exchange ID token for Supabase session using signInWithIdToken
-    // Pass raw nonce to Supabase (not hashed)
-    // Use a temporary client that doesn't persist sessions automatically
-    // This allows us to get the session data without persisting it automatically
-    const tempClient = client;
-    const { data, error } = await tempClient.auth.signInWithIdToken({
-      provider: 'google',
-      token: idToken,
-      nonce: rawNonce, // Pass raw nonce to Supabase
-    });
-
-    if (error) {
-      throw new OneKeyLocalError(error.message);
-    }
-
-    if (!data.session) {
-      return {
-        success: false,
-        session: undefined,
-      };
-    }
-
-    const accessToken = data.session.access_token;
-    const refreshToken = data.session.refresh_token;
-
-    // Handle session persistence (only if persistSession is true)
-    await handleSessionPersistence({
-      accessToken,
-      refreshToken,
-      persistSession,
-    });
-
-    return {
-      success: true,
-      session: {
-        accessToken,
-        refreshToken,
-      },
-    };
-  } catch (error) {
-    // Clean up listener and focus interval on error
+  const cleanup = () => {
     if (windowUpdateListener) {
       chrome.windows.onCreated.removeListener(windowUpdateListener);
     }
@@ -262,6 +379,32 @@ export async function openOAuthPopupExtIdentity(options: {
       clearInterval(focusInterval);
       focusInterval = null;
     }
+  };
+
+  const redirectUrl = getRedirectUrl();
+
+  try {
+    // --------------------------------------------------------------------------
+    // PKCE mode (Supabase OAuth URL + exchangeCodeForSession)
+    //
+    // Still uses:
+    // - chrome.identity.launchWebAuthFlow()
+    // so it matches the extension constraint and avoids relying on window.open().
+    //
+    // When true, use Supabase OAuth + PKCE code flow and exchange the returned code for a session.
+    // When false (default), use Google OIDC id_token + nonce and exchange via signInWithIdToken().
+    // --------------------------------------------------------------------------
+    if (EXTENSION_OAUTH_USE_PKCE_FLOW) {
+      return await processFlow({
+        redirectUrl,
+        buildFlowParams: buildPkceFlowParams,
+      });
+    }
+    return await processFlow({
+      redirectUrl,
+      buildFlowParams: buildOidcFlowParams,
+    });
+  } catch (error) {
     // User closed the popup or other error
     if (
       error instanceof Error &&
@@ -272,6 +415,12 @@ export async function openOAuthPopupExtIdentity(options: {
     throw new OneKeyLocalError(
       error instanceof Error ? error.message : 'Extension OAuth failed',
     );
+  } finally {
+    try {
+      cleanup();
+    } catch {
+      // Ignore cleanup errors to avoid masking the original OAuth error.
+    }
   }
 }
 
@@ -307,7 +456,7 @@ export async function openOAuthPopupExtIdToken(_options: {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  persistSession: boolean;
+  persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   if (!chrome.identity) {
     throw new OneKeyLocalError(
@@ -440,7 +589,7 @@ export function openOAuthPopupExtWindow(options: {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  persistSession: boolean;
+  persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   const { authUrl, handleSessionPersistence, persistSession } = options;
 

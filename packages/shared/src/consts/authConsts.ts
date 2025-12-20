@@ -79,6 +79,8 @@ export const GOOGLE_OAUTH_DEFAULT_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.profile',
 ];
 
+export const EXTENSION_OAUTH_USE_PKCE_FLOW = true;
+
 // Email OTP
 export const EMAIL_OTP_COUNTDOWN_SECONDS = 60;
 

@@ -44,7 +44,7 @@ export async function openOAuthPopupDesktopLocalhost(options: {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  persistSession: boolean;
+  persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   const { authUrl, client, handleSessionPersistence, persistSession } = options;
 

@@ -42,7 +42,7 @@ export async function openOAuthPopupNative(options: {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  persistSession: boolean;
+  persistSession?: boolean;
 }): Promise<IOAuthPopupResult> {
   const { authUrl, redirectTo, handleSessionPersistence, persistSession } =
     options;
