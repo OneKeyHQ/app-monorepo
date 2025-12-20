@@ -66,6 +66,37 @@ function extractRootDomain(hostname: string): string {
 }
 
 /**
+ * Domains that should use the current API environment's IP configuration
+ * These domains don't have their own IP Table config, but share the same
+ * infrastructure as the main API domains (onekeycn.com/onekeytest.com)
+ */
+const SHARED_IP_DOMAINS = ['onekey.so'];
+
+/**
+ * Get the mapped domain for IP lookup
+ * For domains in SHARED_IP_DOMAINS, use the current API environment's domain
+ */
+async function getMappedDomainForIpLookup(
+  rootDomain: string,
+): Promise<string | null> {
+  if (!SHARED_IP_DOMAINS.includes(rootDomain)) {
+    return null;
+  }
+
+  try {
+    const { getEndpointsMap } = await import('../../config/endpointsMap');
+    const { ONEKEY_API_HOST, ONEKEY_TEST_API_HOST } = await import(
+      '../../config/appConfig'
+    );
+    const endpointsMap = await getEndpointsMap();
+    const isTestEnv = endpointsMap.wallet?.includes(ONEKEY_TEST_API_HOST);
+    return isTestEnv ? ONEKEY_TEST_API_HOST : ONEKEY_API_HOST;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Check if IP Table should be used based on environment and dev settings
  * @returns true if IP Table should be used, false otherwise
  */
@@ -126,17 +157,27 @@ async function getSelectedIpForHostInternal(
     const { config, runtime } = configWithRuntime;
     const rootDomain = extractRootDomain(hostname);
 
+    // For shared IP domains (e.g., onekey.so), use the current API environment's domain
+    const mappedDomain = await getMappedDomainForIpLookup(rootDomain);
+    const lookupDomain = mappedDomain || rootDomain;
+
+    if (mappedDomain) {
+      debugLog(
+        `[IpTableAdapter] Mapped domain for IP lookup: ${rootDomain} -> ${mappedDomain}`,
+      );
+    }
+
     // Check strict mode first
     const devSettings = await requestHelper.getDevSettingsPersistAtom();
     const strictMode = devSettings?.settings?.forceIpTableStrict;
 
     // First, try to get selected IP from runtime.selections
-    const selectedIp = runtime?.selections[rootDomain];
+    const selectedIp = runtime?.selections[lookupDomain];
 
     // If selectedIp exists (not undefined), use it
     if (selectedIp) {
       debugLog(
-        `[IpTableAdapter] Using selected IP from runtime: ${rootDomain} -> ${selectedIp}`,
+        `[IpTableAdapter] Using selected IP from runtime: ${lookupDomain} -> ${selectedIp}`,
       );
       return selectedIp;
     }
@@ -145,18 +186,20 @@ async function getSelectedIpForHostInternal(
     // In strict mode, override this and use fallback IP from config
     if (selectedIp === '') {
       if (!strictMode) {
-        debugLog(`[IpTableAdapter] Explicitly using domain for: ${rootDomain}`);
+        debugLog(
+          `[IpTableAdapter] Explicitly using domain for: ${lookupDomain}`,
+        );
         return null;
       }
       debugLog(
-        `[IpTableAdapter] Strict mode: overriding domain choice for ${rootDomain}`,
+        `[IpTableAdapter] Strict mode: overriding domain choice for ${lookupDomain}`,
       );
       // Fall through to strict mode fallback logic below
     }
 
     // If no selection (or strict mode overriding domain choice), fallback to first available IP from config
-    if (strictMode && config.domains[rootDomain]) {
-      const endpoints = config.domains[rootDomain].endpoints;
+    if (strictMode && config.domains[lookupDomain]) {
+      const endpoints = config.domains[lookupDomain].endpoints;
       if (endpoints && endpoints.length > 0) {
         const fallbackIp = endpoints[0].ip;
         return fallbackIp;

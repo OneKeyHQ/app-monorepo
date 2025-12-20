@@ -26,10 +26,7 @@ import SwapProActionButton from './SwapProActionButton';
 import SwapProInputContainer from './SwapProInputContainer';
 import SwapProLimitPriceValue from './SwapProLimitPriceValue';
 import { SwapProSlippageSetting } from './SwapProSlippageSetting';
-import SwapProToTotalValue from './SwapProToTotalValue';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
-
-import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 
 interface ISwapProTradingPanelProps {
   swapProConfig: ISwapProSpeedConfig;
@@ -117,7 +114,7 @@ const SwapProTradingPanel = ({
         />
       </YStack>
       <YStack>
-        <SwapProToTotalValue />
+        {/* <SwapProToTotalValue /> */}
         <SwapProTradeInfoGroup balanceLoading={balanceLoading} />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
         <SwapProSlippageSetting isMEV={isMev} />

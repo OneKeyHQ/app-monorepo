@@ -45,84 +45,95 @@ import type {
   IVaultSettingsNetworkInfo,
 } from './types';
 
+const settingsLoader: Record<
+  string,
+  () => Promise<{ default: IVaultSettings }>
+> = {
+  [IMPL_EVM]: () => import('./impls/evm/settings'),
+  [IMPL_BTC]: () => import('./impls/btc/settings'),
+  [IMPL_TBTC]: () => import('./impls/tbtc/settings'),
+  [IMPL_DOGE]: () => import('./impls/doge/settings'),
+  [IMPL_BCH]: () => import('./impls/bch/settings'),
+  [IMPL_LTC]: () => import('./impls/ltc/settings'),
+  [IMPL_NEURAI]: () => import('./impls/neurai/settings'),
+  [IMPL_ALGO]: () => import('./impls/algo/settings'),
+  [IMPL_COSMOS]: () => import('./impls/cosmos/settings'),
+  [IMPL_NEAR]: () => import('./impls/near/settings'),
+  [IMPL_CFX]: () => import('./impls/cfx/settings'),
+  [IMPL_TRON]: () => import('./impls/tron/settings'),
+  [IMPL_SOL]: () => import('./impls/sol/settings'),
+  [IMPL_FIL]: () => import('./impls/fil/settings'),
+  [IMPL_CKB]: () => import('./impls/ckb/settings'),
+  [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
+  [IMPL_LIGHTNING_TESTNET]: () => import('./impls/lightning/settings-testnet'),
+  [IMPL_NOSTR]: () => import('./impls/nostr/settings'),
+  [IMPL_ADA]: () => import('./impls/ada/settings'),
+  [IMPL_XRP]: () => import('./impls/xrp/settings'),
+  [IMPL_DOT]: () => import('./impls/dot/settings'),
+  [IMPL_TON]: () => import('./impls/ton/settings'),
+  [IMPL_NEXA]: () => import('./impls/nexa/settings'),
+  [IMPL_SUI]: () => import('./impls/sui/settings'),
+  [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
+  [IMPL_APTOS]: () => import('./impls/aptos/settings'),
+  [IMPL_DNX]: () => import('./impls/dnx/settings'),
+  [IMPL_ALLNETWORKS]: () => import('./impls/all/settings'),
+  [IMPL_SCDO]: () => import('./impls/scdo/settings'),
+  [IMPL_ALPH]: () => import('./impls/alph/settings'),
+  [IMPL_BFC]: () => import('./impls/bfc/settings'),
+  [IMPL_NEO]: () => import('./impls/neo/settings'),
+  [IMPL_AGGREGATE]: () => import('./impls/aggregate/settings'),
+};
+
 function validateVaultSettings({
   settings,
-  networkId,
+  label,
 }: {
   settings: IVaultSettings;
-  networkId: string;
+  label: string;
 }) {
   if (process.env.NODE_ENV !== 'production') {
     if (!settings.accountDeriveInfo.default) {
       throw new OneKeyLocalError(
-        `no default accountDeriveInfo found in vault settings: ${networkId}`,
+        `no default accountDeriveInfo found in vault settings: ${label}`,
       );
     }
     if (!Object.isFrozen(settings)) {
       throw new OneKeyLocalError(
-        `VaultSettings should be frozen, please use Object.freeze() >>>> networkId=${networkId}`,
+        `VaultSettings should be frozen, please use Object.freeze() >>>> ${label}`,
       );
     }
   }
 }
 
-async function getVaultSettingsFn({ networkId }: { networkId: string }) {
+const loadVaultSettingsByImpl = cacheUtils.memoizee(
+  async (impl: string): Promise<IVaultSettings> => {
+    const loader = settingsLoader[impl];
+    if (!loader) {
+      throw new OneKeyLocalError(`no settings found: impl=${impl}`);
+    }
+
+    const settings = (await loader()).default;
+    validateVaultSettings({ settings, label: `impl=${impl}` });
+    return settings;
+  },
+  {
+    promise: true,
+    normalizer: (args) => args[0],
+  },
+);
+
+export async function getVaultSettings({ networkId }: { networkId: string }) {
   if (!networkId) {
     throw new OneKeyLocalError('networkId is not defined');
   }
   const impl = networkUtils.getNetworkImpl({ networkId });
-  const settingsLoader: Record<
-    string,
-    () => Promise<{ default: IVaultSettings }>
-  > = {
-    [IMPL_EVM]: () => import('./impls/evm/settings'),
-    [IMPL_BTC]: () => import('./impls/btc/settings'),
-    [IMPL_TBTC]: () => import('./impls/tbtc/settings'),
-    [IMPL_DOGE]: () => import('./impls/doge/settings'),
-    [IMPL_BCH]: () => import('./impls/bch/settings'),
-    [IMPL_LTC]: () => import('./impls/ltc/settings'),
-    [IMPL_NEURAI]: () => import('./impls/neurai/settings'),
-    [IMPL_ALGO]: () => import('./impls/algo/settings'),
-    [IMPL_COSMOS]: () => import('./impls/cosmos/settings'),
-    [IMPL_NEAR]: () => import('./impls/near/settings'),
-    [IMPL_CFX]: () => import('./impls/cfx/settings'),
-    [IMPL_TRON]: () => import('./impls/tron/settings'),
-    [IMPL_SOL]: () => import('./impls/sol/settings'),
-    [IMPL_FIL]: () => import('./impls/fil/settings'),
-    [IMPL_CKB]: () => import('./impls/ckb/settings'),
-    [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
-    [IMPL_LIGHTNING_TESTNET]: () =>
-      import('./impls/lightning/settings-testnet'),
-    [IMPL_NOSTR]: () => import('./impls/nostr/settings'),
-    [IMPL_ADA]: () => import('./impls/ada/settings'),
-    [IMPL_XRP]: () => import('./impls/xrp/settings'),
-    [IMPL_DOT]: () => import('./impls/dot/settings'),
-    [IMPL_TON]: () => import('./impls/ton/settings'),
-    [IMPL_NEXA]: () => import('./impls/nexa/settings'),
-    [IMPL_SUI]: () => import('./impls/sui/settings'),
-    [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
-    [IMPL_APTOS]: () => import('./impls/aptos/settings'),
-    [IMPL_DNX]: () => import('./impls/dnx/settings'),
-    [IMPL_ALLNETWORKS]: () => import('./impls/all/settings'),
-    [IMPL_SCDO]: () => import('./impls/scdo/settings'),
-    [IMPL_ALPH]: () => import('./impls/alph/settings'),
-    [IMPL_BFC]: () => import('./impls/bfc/settings'),
-    [IMPL_NEO]: () => import('./impls/neo/settings'),
-    [IMPL_AGGREGATE]: () => import('./impls/aggregate/settings'),
-  };
-  const loader = settingsLoader[impl];
-  if (!loader) {
-    throw new OneKeyLocalError(`no settings found: impl=${impl}`);
-  }
-  const settings = (await settingsLoader[impl]()).default;
-  validateVaultSettings({ settings, networkId });
-  return settings;
+  return loadVaultSettingsByImpl(impl);
 }
 
-export const getVaultSettings = cacheUtils.memoizee(getVaultSettingsFn, {
-  promise: true,
-  primitive: true,
-});
+export async function preloadAllVaultSettings() {
+  const impls = Object.keys(settingsLoader);
+  await Promise.all(impls.map((impl) => loadVaultSettingsByImpl(impl)));
+}
 
 export async function getVaultSettingsAccountDeriveInfo({
   // template,

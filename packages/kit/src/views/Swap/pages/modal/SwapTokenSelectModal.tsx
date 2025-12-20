@@ -184,6 +184,7 @@ const SwapTokenSelectPage = () => {
     type,
     currentSelectNetwork?.networkId,
     searchKeywordDebounce,
+    swapTypeSwitch,
   );
   const alertIndex = useMemo(
     () =>

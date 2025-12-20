@@ -14,6 +14,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  ECopyFrom,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -56,6 +60,8 @@ type IMarketTokenListBaseProps = {
   isWatchlistMode?: boolean;
   showEndReachedIndicator?: boolean;
   hideTokenAge?: boolean;
+  watchlistFrom?: EWatchlistFrom;
+  copyFrom?: ECopyFrom;
 };
 
 function MarketTokenListBase({
@@ -66,6 +72,8 @@ function MarketTokenListBase({
   isWatchlistMode = false,
   showEndReachedIndicator = false,
   hideTokenAge = false,
+  watchlistFrom,
+  copyFrom,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
   const { md } = useMedia();
@@ -74,6 +82,8 @@ function MarketTokenListBase({
     networkId,
     isWatchlistMode,
     hideTokenAge,
+    watchlistFrom,
+    copyFrom,
   );
 
   const {
