@@ -57,7 +57,11 @@ export function ReferAFriendIntroPhase({
             },
             {
               amount: (
-                <SizableText size="$heading2xl" color="$textSuccess">
+                <SizableText
+                  key="reward-amount"
+                  size="$heading2xl"
+                  color="$textSuccess"
+                >
                   {`${postConfig.referralReward.unit}${postConfig.referralReward.amount}`}
                 </SizableText>
               ),

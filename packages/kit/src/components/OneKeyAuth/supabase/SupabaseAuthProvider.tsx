@@ -53,7 +53,7 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   // Fetch the profile when the session changes
   // TODO profile fetch ERROR
   /*
-  // https://wtspqckturkzhstyjabx.supabase.co/rest/v1/profiles?select=*&id=eq.0c2b6a65-d588-4549-994a-f009745f9e32
+  // https://xxxx.supabase.co/rest/v1/profiles?select=*&id=eq.0c2b6a65-d588-4549-994a-f009745f9e32
     {
       "code": "PGRST205",
       "details": null,
