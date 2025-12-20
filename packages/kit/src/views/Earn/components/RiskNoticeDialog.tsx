@@ -93,6 +93,7 @@ function RiskNoticeDialogContent({
 
 export function showRiskNoticeDialogBeforeDepositOrWithdraw({
   onConfirm,
+  onClose,
   networkId,
   providerName,
   address,
@@ -100,6 +101,7 @@ export function showRiskNoticeDialogBeforeDepositOrWithdraw({
   riskNoticeDialogContent,
 }: {
   onConfirm: () => Promise<void>;
+  onClose?: () => void;
   networkId: string;
   providerName: string;
   address: string;
@@ -110,6 +112,7 @@ export function showRiskNoticeDialogBeforeDepositOrWithdraw({
     icon: 'InfoCircleOutline',
     title: riskNoticeDialogContent.title.text,
     showFooter: false,
+    onClose,
     renderContent: (
       <RiskNoticeDialogContent
         onConfirm={onConfirm}

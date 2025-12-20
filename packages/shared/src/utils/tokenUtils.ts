@@ -6,6 +6,7 @@ import { getNetworkIdsMap } from '../config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
+import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
 
 import type {
@@ -94,6 +95,7 @@ export function getFilteredTokenBySearchKey({
   searchTokenList,
   allowEmptyWhenBelowMinLength,
   aggregateTokenListMap,
+  searchKeyLengthThreshold,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
@@ -101,6 +103,7 @@ export function getFilteredTokenBySearchKey({
   searchTokenList?: IAccountToken[];
   allowEmptyWhenBelowMinLength?: boolean;
   aggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
+  searchKeyLengthThreshold?: number;
 }) {
   let mergedTokens = tokens;
 
@@ -122,7 +125,10 @@ export function getFilteredTokenBySearchKey({
       (token) => `${token.address}_${token.networkId ?? ''}`,
     );
   }
-  if (!searchKey || searchKey.length < SEARCH_KEY_MIN_LENGTH) {
+  if (
+    !searchKey ||
+    searchKey.length < (searchKeyLengthThreshold ?? SEARCH_KEY_MIN_LENGTH)
+  ) {
     return allowEmptyWhenBelowMinLength ? [] : mergedTokens;
   }
 
@@ -948,4 +954,122 @@ export function checkIsOnlyOneTokenHasBalance({
     tokenHasBalance: tokenHasBalanceCount > 1 ? undefined : tokenHasBalance,
     tokenHasBalanceCount,
   };
+}
+
+export function filterAccountTokenListByLimit({
+  tokenList,
+  smallBalanceTokenList,
+  riskyTokenList,
+  limit,
+  tokenListMap,
+}: {
+  tokenList: IAccountToken[];
+  smallBalanceTokenList: IAccountToken[];
+  riskyTokenList: IAccountToken[];
+  limit: number;
+  tokenListMap: Record<string, ITokenFiat>;
+}) {
+  let filteredTokenList = tokenList;
+  let filteredSmallBalanceTokenList = smallBalanceTokenList;
+  let filteredRiskyTokenList = riskyTokenList;
+  let filteredTokenListMap: Record<string, ITokenFiat> = {};
+
+  const totalTokens =
+    tokenList.length + smallBalanceTokenList.length + riskyTokenList.length;
+  if (totalTokens > limit) {
+    const trimList = (
+      list: IAccountToken[],
+      removeCount: number,
+    ): [IAccountToken[], number] => {
+      if (removeCount <= 0 || list.length === 0) {
+        return [list, 0];
+      }
+      const remainingLength = Math.max(list.length - removeCount, 0);
+      const trimmedList = list.slice(0, remainingLength);
+      return [trimmedList, list.length - trimmedList.length];
+    };
+
+    let tokensToRemove = totalTokens - limit;
+    let removedCount = 0;
+
+    [filteredRiskyTokenList, removedCount] = trimList(
+      filteredRiskyTokenList,
+      tokensToRemove,
+    );
+    tokensToRemove -= removedCount;
+
+    [filteredSmallBalanceTokenList, removedCount] = trimList(
+      filteredSmallBalanceTokenList,
+      tokensToRemove,
+    );
+    tokensToRemove -= removedCount;
+
+    [filteredTokenList, removedCount] = trimList(
+      filteredTokenList,
+      tokensToRemove,
+    );
+
+    filteredTokenListMap = {};
+    const retainedTokens = [
+      ...filteredTokenList,
+      ...filteredSmallBalanceTokenList,
+      ...filteredRiskyTokenList,
+    ];
+    for (const token of retainedTokens) {
+      filteredTokenListMap[token.$key] = tokenListMap[token.$key] ?? {};
+    }
+  } else {
+    filteredTokenListMap = tokenListMap;
+  }
+  return {
+    filteredTokenList,
+    filteredSmallBalanceTokenList,
+    filteredRiskyTokenList,
+    filteredTokenListMap,
+  };
+}
+
+export function calculateAccountTokensValue({
+  accountId,
+  networkId,
+  tokensWorth,
+  mergeDeriveAssetsEnabled,
+}: {
+  accountId: string;
+  networkId: string;
+  tokensWorth: {
+    worth: Record<string, string>;
+    createAtNetworkWorth: string;
+    accountId: string;
+    initialized: boolean;
+    updateAll?: boolean;
+  };
+  mergeDeriveAssetsEnabled: boolean;
+}) {
+  if (networkUtils.isAllNetwork({ networkId })) {
+    const allWorth = Object.values(tokensWorth.worth).reduce(
+      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+      '0',
+    );
+    return allWorth;
+  }
+
+  if (mergeDeriveAssetsEnabled) {
+    const allWorth = Object.values(tokensWorth.worth).reduce(
+      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+      '0',
+    );
+    return allWorth;
+  }
+
+  return (
+    tokensWorth.worth[
+      accountUtils.buildAccountValueKey({
+        accountId,
+        networkId,
+      })
+    ] ??
+    Object.values(tokensWorth.worth)[0] ??
+    '0'
+  );
 }

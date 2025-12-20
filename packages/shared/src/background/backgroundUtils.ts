@@ -112,34 +112,28 @@ export function warningIfNotRunInBackground({
       // iOS safari get wrong error.stack
       return;
     }
+    if (globalThis.$onekeyIsInBackground === true) {
+      return;
+    }
     try {
       throw new NotAutoPrintError();
     } catch (error) {
       const err = error as Error;
       errorUtils.autoPrintErrorIgnore(err);
 
-      if (
-        err.stack &&
-        !err.stack.includes('backgroundApiInit') &&
-        !err.stack.includes('BackgroundApiBase') &&
-        !err.stack.includes('BackgroundApi') &&
-        !err.stack.includes('background.bundle.js') &&
-        !err.stack.includes('background.')
-      ) {
-        const msg = `${name} should run in background`;
+      const msg = `${name} should run in background`;
 
-        console.error(
-          '######',
-          msg,
-          '>>>>>>',
-          target,
-          '<<<<<<',
-          err.stack,
-          '@@@@@@',
-        );
+      console.error(
+        '######',
+        msg,
+        '>>>>>>',
+        target,
+        '<<<<<<',
+        err.stack,
+        '@@@@@@',
+      );
 
-        throw new OneKeyLocalError(msg);
-      }
+      throw new OneKeyLocalError(msg);
     }
   }
 }

@@ -22,7 +22,7 @@ interface ICancelAllOrdersContentProps {
 function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
-  const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleConfirm = useCallback(async () => {
@@ -33,9 +33,9 @@ function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
       await actions.current.ensureTradingEnabled();
       const symbolsMetaMap =
         await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
-          coins: orders.map((o) => o.coin),
+          coins: openOrders.map((o) => o.coin),
         });
-      const ordersToCancel = orders
+      const ordersToCancel = openOrders
         .map((order) => {
           const tokenInfo = symbolsMetaMap[order.coin];
           if (!tokenInfo || isNil(tokenInfo?.assetId)) {
@@ -62,7 +62,7 @@ function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [actions, isSubmitting, onClose, orders]);
+  }, [actions, isSubmitting, onClose, openOrders]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {

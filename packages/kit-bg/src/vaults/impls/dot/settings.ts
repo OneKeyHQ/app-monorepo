@@ -61,26 +61,12 @@ const settings: IVaultSettings = {
       addressPrefix: '0',
       nativeTokenAddress: 'DOT',
     },
-    'dot--polkadot': {
-      curve: 'ed25519',
-      addressPrefix: '0',
-      nativeTokenAddress: 'DOT',
-      genesisHash:
-        '0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3',
-    },
     'dot--astar': {
       curve: 'ed25519',
       addressPrefix: '5',
       nativeTokenAddress: 'ASTR',
       genesisHash:
         '0x9eb76c5184c4ab8679d2d5d819fdf90b9c001403e9e17da2e14b6d8aec4029c6',
-    },
-    'dot--kusama': {
-      curve: 'ed25519',
-      addressPrefix: '2',
-      nativeTokenAddress: 'KSM',
-      genesisHash:
-        '0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe',
     },
     'dot--manta': {
       curve: 'ed25519',
@@ -95,6 +81,41 @@ const settings: IVaultSettings = {
       nativeTokenAddress: 'JOY',
       genesisHash:
         '0x6b5e488e0fa8f9821110d5c13f4c468abcd43ce5e297e62b34c53c3346465956',
+    },
+    'dot--hydration': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'HDX',
+      genesisHash:
+        '0xafdc188f45c71dacbaa0b62e16a91f726c7b8699a9748cdf715459de6b7f366d',
+    },
+    'dot--asset-hub': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'DOT',
+      genesisHash:
+        '0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f',
+    },
+    'dot--bifrost-ksm': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'BNC',
+      genesisHash:
+        '0x9f28c6a68e0fc9646eff64935684f6eeeece527e37bbe1f213d22caa1d9d6bed',
+    },
+    'dot--bifrost': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'BNC',
+      genesisHash:
+        '0x262e1b2ad728475fd6fe88e62d34c200abe6fd693931ddad144059b1eb884e5b',
+    },
+    'dot--kusama-assethub': {
+      curve: 'ed25519',
+      addressPrefix: '2',
+      nativeTokenAddress: 'KSM',
+      genesisHash:
+        '0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a',
     },
   },
 };

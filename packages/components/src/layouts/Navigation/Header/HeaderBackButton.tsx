@@ -1,15 +1,13 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { type IIconButtonProps } from '../../../actions';
 
 import HeaderButtonGroup from './HeaderButtonGroup';
-import HeaderCollapseButton, {
-  useHeaderCollapseButtonVisibility,
-} from './HeaderCollapseButton';
+import { useHeaderCollapseButtonVisibility } from './HeaderCollapseButton';
 import HeaderIconButton from './HeaderIconButton';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
@@ -41,6 +39,7 @@ export function NavCloseButton(props: INavButtonProps) {
 function HeaderBackButton({
   isModelScreen,
   isRootScreen,
+  isOnboardingScreen,
   canGoBack,
   renderLeft,
   ...props
@@ -50,8 +49,8 @@ function HeaderBackButton({
     canGoBack?: boolean;
   }) {
   const isVerticalLayout = useMedia().md;
-
-  const showCloseButton = isModelScreen && !isRootScreen && !canGoBack;
+  const showCloseButton =
+    (isModelScreen || isOnboardingScreen) && !isRootScreen && !canGoBack;
   const showCollapseButton = isRootScreen && !isVerticalLayout;
   const showBackButton = canGoBack || showCloseButton;
 
@@ -75,16 +74,7 @@ function HeaderBackButton({
     return null;
   };
 
-  const renderCollapseButton = useCallback(
-    () =>
-      showCollapseButton ? (
-        <HeaderCollapseButton
-          {...headerCollapseButtonProps}
-          isRootScreen={isRootScreen}
-        />
-      ) : null,
-    [showCollapseButton, headerCollapseButtonProps, isRootScreen],
-  );
+  const renderCollapseButton = useCallback(() => null, []);
 
   // If neither button should be shown, return null early.
   if (!showCollapseButton && !showBackButton && !renderLeft) {

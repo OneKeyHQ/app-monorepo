@@ -48,6 +48,7 @@ export type IModalAssetListParamList = {
         tokens: IAccountToken[];
       }
     >;
+    searchKeyLengthThreshold?: number;
   };
   [EModalAssetListRoutes.TokenManagerModal]: {
     walletId: string;

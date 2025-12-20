@@ -247,6 +247,37 @@ function getNetworkIdFromShortCode({
   return networkIdsMap[shortCode as keyof typeof networkIdsMap];
 }
 
+function getEnabledNFTNetworkIds(): string[] {
+  const networkIdsMap = getNetworkIdsMap();
+
+  return [
+    networkIdsMap.onekeyall,
+    networkIdsMap.eth,
+    networkIdsMap.base,
+    networkIdsMap.optimism,
+    networkIdsMap.bsc,
+    networkIdsMap.polygon,
+    networkIdsMap.arbitrum,
+    networkIdsMap.avalanche,
+    networkIdsMap.sol,
+  ];
+}
+
+function getEnabledDeFiNetworkIds(): string[] {
+  const networkIdsMap = getNetworkIdsMap();
+  return [
+    networkIdsMap.onekeyall,
+    networkIdsMap.eth,
+    networkIdsMap.base,
+    networkIdsMap.optimism,
+    networkIdsMap.bsc,
+    networkIdsMap.polygon,
+    networkIdsMap.arbitrum,
+    networkIdsMap.avalanche,
+    networkIdsMap.sol,
+  ];
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -269,4 +300,5 @@ export default {
   getNetworkIdFromShortCode,
   isViewInExplorerDisabled,
   isAggregateNetwork,
+  getEnabledNFTNetworkIds,
 };

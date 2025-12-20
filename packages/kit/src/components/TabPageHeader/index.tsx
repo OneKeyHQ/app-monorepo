@@ -6,30 +6,35 @@ import { useAccountSelectorContextData } from '../../states/jotai/contexts/accou
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-import { HeaderLeft } from './HeaderLeft';
+import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
+export { DiscoveryHeaderSegment };
+
 export function TabPageHeader({
   sceneName,
   tabRoute,
+  selectedHeaderTab,
   renderCustomHeaderRightItems,
   customHeaderRightItems,
   customHeaderLeftItems,
   hideSearch = false,
+  hideHeaderLeft = false,
 }: ITabPageHeaderProp) {
   const renderHeaderLeft = useCallback(
     () => (
       <HeaderLeft
+        selectedHeaderTab={selectedHeaderTab}
         sceneName={sceneName}
         tabRoute={tabRoute}
         customHeaderLeftItems={customHeaderLeftItems}
       />
     ),
-    [sceneName, tabRoute, customHeaderLeftItems],
+    [selectedHeaderTab, sceneName, tabRoute, customHeaderLeftItems],
   );
 
   const { config } = useAccountSelectorContextData();
@@ -40,6 +45,7 @@ export function TabPageHeader({
         <HomeTokenListProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
             <HeaderRight
+              selectedHeaderTab={selectedHeaderTab}
               sceneName={sceneName}
               tabRoute={tabRoute}
               customHeaderRightItems={customHeaderRightItems}
@@ -50,6 +56,7 @@ export function TabPageHeader({
       ) : null,
     [
       config,
+      selectedHeaderTab,
       sceneName,
       tabRoute,
       customHeaderRightItems,
@@ -66,7 +73,7 @@ export function TabPageHeader({
     <>
       <Page.Header
         headerTitle={renderHeaderTitle}
-        headerLeft={renderHeaderLeft}
+        headerLeft={hideHeaderLeft ? undefined : renderHeaderLeft}
         headerRight={renderHeaderRight}
       />
 

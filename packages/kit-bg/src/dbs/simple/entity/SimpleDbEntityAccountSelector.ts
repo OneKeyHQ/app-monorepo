@@ -166,12 +166,17 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
 
   async getGlobalDeriveType({
     networkId,
+    rawData,
   }: {
     networkId: string;
+    rawData?: IAccountSelectorPersistInfo | null;
   }): Promise<IAccountDeriveTypes | undefined> {
     const scope = EGlobalDeriveTypesScopes.global; // shared scope
     // TODO swapTo scope
-    const map = (await this.getRawData())?.globalDeriveTypesMap?.[scope];
+
+    const rawDataValue = rawData ?? (await this.getRawData());
+
+    const map = rawDataValue?.globalDeriveTypesMap?.[scope];
     const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
       networkId,
     });

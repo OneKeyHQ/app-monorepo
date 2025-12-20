@@ -12,6 +12,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -65,6 +66,10 @@ interface ITokenIdentityItemProps {
    * Where the copy action is triggered from.
    */
   copyFrom?: ECopyFrom;
+  /**
+   * Whether the token is community recognized.
+   */
+  communityRecognized?: boolean;
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -77,6 +82,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   showVolume = false,
   volume,
   copyFrom = ECopyFrom.Homepage,
+  communityRecognized,
 }) => {
   const { gtMd } = useMedia();
   const { copyText } = useClipboard();
@@ -131,14 +137,16 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
       />
 
       <Stack flex={1} minWidth={0}>
-        <SizableText
-          width={100}
-          size="$bodyLgMedium"
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {symbol}
-        </SizableText>
+        <XStack alignItems="center" gap="$1" bg="red3">
+          <SizableText
+            size="$bodyLgMedium"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {symbol}
+          </SizableText>
+          {communityRecognized ? <CommunityRecognizedBadge /> : null}
+        </XStack>
         {shouldShowSecondRow ? (
           <XStack alignItems="center" gap="$1" height="$4">
             {shouldShowVolume ? (

@@ -6,6 +6,9 @@ export type IBtcFreshAddressMetaRecord = {
   lastUpdateTime?: number;
   txCount?: number;
   localUsedAddressesHash?: string;
+  lastUsedAccountId?: string;
+  lastUsedWalletName?: string;
+  lastUsedAccountName?: string;
 };
 
 export interface IBtcFreshAddressMetaDb {
@@ -29,6 +32,11 @@ export class SimpleDbEntityBTCFreshAddressMeta extends SimpleDbEntityBase<IBtcFr
 
   async getRecord(params: { networkId: string; xpubSegwit: string }) {
     const key = this.getKey(params);
+    const raw = await this.getRawData();
+    return raw?.data?.[key];
+  }
+
+  async getRecordByKey(key: string) {
     const raw = await this.getRawData();
     return raw?.data?.[key];
   }

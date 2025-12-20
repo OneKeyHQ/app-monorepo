@@ -14,6 +14,7 @@ export * from './Icon';
 export * from './Image';
 export * from './Label';
 export * from './SizeableText';
+export * from './GradientMask';
 export * from './Skeleton';
 export * from './Spinner';
 export * from './Stack';

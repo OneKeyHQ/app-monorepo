@@ -215,18 +215,23 @@ function TokenDetailsHeader(props: IProps) {
         isNFT: false,
         token: tokenDetails?.info ?? tokenInfo,
         isAllNetworks,
+        disableAddressTypeSelector: true,
+        showAddressTypeSelectorWhenDisabled: !accountUtils.isOthersWallet({
+          walletId,
+        }),
       },
     });
   }, [
-    accountId,
-    isAllNetworks,
-    navigation,
+    wallet?.type,
     network?.id,
+    isSoftwareWalletOnlyUser,
+    navigation,
     networkId,
+    accountId,
     tokenDetails?.info,
     tokenInfo,
-    wallet?.type,
-    isSoftwareWalletOnlyUser,
+    isAllNetworks,
+    walletId,
   ]);
 
   const isReceiveDisabled = useMemo(
@@ -329,13 +334,12 @@ function TokenDetailsHeader(props: IProps) {
               trackID="wallet-token-details-bridge"
             />
             <WalletActionEarn
-              accountId={accountId}
               tokenAddress={tokenInfo.address}
               networkId={networkId}
-              indexedAccountId={indexedAccountId}
               walletType={wallet?.type}
               source="tokenDetails"
               trackID="wallet-token-details-stake"
+              logoURI={tokenInfo.logoURI}
             />
             <ReviewControl>
               <ActionBuy

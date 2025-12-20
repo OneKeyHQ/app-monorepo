@@ -15,6 +15,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -26,6 +27,7 @@ import {
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useOrderConfirm } from '../../hooks';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
@@ -75,12 +77,15 @@ function SideButtonInternal({
   const calculations = useTradingCalculationsForSide(side);
   const {
     computedSizeForSide,
-    liquidationPrice,
+    liquidationPrice: liquidationPriceRaw,
     orderValue,
-    marginRequired,
+    marginRequired: marginRequiredRaw,
     isNoEnoughMargin,
     effectivePriceBN,
   } = calculations;
+
+  const marginRequired = useDebounce(marginRequiredRaw, 100);
+  const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
 
   // Check if inputs are empty
   const hasEmptyInputs = useMemo(() => {
@@ -156,7 +161,8 @@ function SideButtonInternal({
       .decimalPlaces(szDecimals, BigNumber.ROUND_DOWN)
       .toFixed(szDecimals);
     const symbol = activeAsset?.coin || '';
-    return `${sizeValue} ${symbol}`;
+    const displayName = symbol ? parseDexCoin(symbol).displayName : '';
+    return `${sizeValue} ${displayName}`;
   }, [
     orderValue,
     tradingPreferences.sizeInputUnit,

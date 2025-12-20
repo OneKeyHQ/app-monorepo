@@ -18,6 +18,7 @@ export interface ILaunchOptionsManagerInterface {
   getBundleStartTime(): Promise<number>;
   getJsReadyFromPerformanceNow(): Promise<number>;
   getUIVisibleFromPerformanceNow(): Promise<number>;
+  registerDeviceToken(): Promise<boolean>;
 }
 
 export enum ELaunchOptionsLaunchType {

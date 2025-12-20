@@ -25,6 +25,7 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
 
 function ExportAddresses({
@@ -114,6 +115,19 @@ function ExportAddresses({
   const handleExportAddresses = useCallback(async () => {
     setIsExporting(true);
 
+    for (const item of addressesData) {
+      if (item.type === 'address') {
+        const queryResult =
+          await backgroundApiProxy.serviceAccountProfile.queryAddress({
+            networkId,
+            address: item.address ?? '',
+            enableWalletName: true,
+            skipValidateAddress: true,
+          });
+        item.accountName = queryResult.accountName ?? item.accountName;
+      }
+    }
+
     const exportData = addressesData
       .filter((item) => item.type === 'address')
       .map((item) => ({
@@ -132,7 +146,7 @@ function ExportAddresses({
 
     await csvExporterUtils.exportCSV(exportData, filename);
     setIsExporting(false);
-  }, [addressesData, network?.name, parentWalletName, wallet?.name]);
+  }, [addressesData, network?.name, parentWalletName, wallet?.name, networkId]);
   const handleCopyAddresses = useCallback(() => {
     copyText(
       addressesData

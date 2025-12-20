@@ -16,6 +16,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -33,7 +34,7 @@ import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
-function ContractAddress({ address }: { address: string }) {
+export function ContractAddress({ address }: { address: string }) {
   const { copyText } = useClipboard();
   const contractAddress = accountUtils.shortenAddress({
     address,
@@ -67,7 +68,7 @@ function ContractAddress({ address }: { address: string }) {
   );
 }
 
-function MarketTokenLiquidity({
+export function MarketTokenLiquidity({
   liquidity,
   volume24h,
 }: {
@@ -153,6 +154,7 @@ export function UniversalSearchV2MarketTokenItem({
     liquidity,
     volume_24h: volume24h,
     isNative,
+    communityRecognized,
   } = item.payload;
 
   // Hide favorite button in extension popup and side panel
@@ -213,12 +215,17 @@ export function UniversalSearchV2MarketTokenItem({
       renderAvatar={
         <MarketTokenIcon uri={logoUrl} size="lg" networkId={network} />
       }
-      title={symbol}
-      subtitle={<ContractAddress address={address} />}
-      subtitleProps={{
-        numberOfLines: 1,
-      }}
     >
+      <ListItem.Text
+        flex={1}
+        primary={
+          <XStack alignItems="center" gap="$1">
+            <SizableText size="$bodyLgMedium">{symbol}</SizableText>
+            {communityRecognized ? <CommunityRecognizedBadge /> : null}
+          </XStack>
+        }
+        secondary={<ContractAddress address={address} />}
+      />
       <XStack alignItems="center">
         <YStack alignItems="flex-end">
           <BaseMarketTokenPrice

@@ -25,16 +25,20 @@ const commonButtonStyleProps: IButtonProps = {
 export interface ITradeTypeSelectorProps {
   value: ITradeType;
   onChange: (value: ITradeType) => void;
+  size?: IButtonProps['size'];
 }
 
 export function TradeTypeSelector({
   value,
   onChange,
+  size,
 }: ITradeTypeSelectorProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
   const isBuyActive = value === 'buy';
   const isSellActive = value === 'sell';
+
+  const buttonSize = size ?? (gtMd ? 'small' : 'medium');
 
   const options = [
     {
@@ -46,9 +50,9 @@ export function TradeTypeSelector({
             onChange(ESwapDirection.BUY);
           }}
           {...commonButtonStyleProps}
-          bg={isBuyActive ? '$buttonSuccess' : '$transparent'}
+          bg={isBuyActive ? '$bgSuccessStrong' : '$transparent'}
           color={isBuyActive ? '$textOnColor' : '$textSubdued'}
-          size={gtMd ? 'small' : 'medium'}
+          size={buttonSize}
         >
           {intl.formatMessage({ id: ETranslations.global_buy })}
         </Button>
@@ -62,9 +66,9 @@ export function TradeTypeSelector({
             console.log('onPress');
             onChange(ESwapDirection.SELL);
           }}
-          bg={isSellActive ? '$buttonCritical' : '$transparent'}
+          bg={isSellActive ? '$bgCriticalStrong' : '$transparent'}
           color={isSellActive ? '$textOnColor' : '$textSubdued'}
-          size={gtMd ? 'small' : 'medium'}
+          size={buttonSize}
           {...commonButtonStyleProps}
         >
           {intl.formatMessage({ id: ETranslations.global_sell })}

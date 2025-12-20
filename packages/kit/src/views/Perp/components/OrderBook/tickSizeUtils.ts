@@ -195,16 +195,15 @@ export function buildTickOptions(
 }
 
 /**
- * Get the default tick option (middle index for better UX balance)
+ * Get the default tick option
  */
 export function getDefaultTickOption(options: ITickParam[]): ITickParam {
   if (!options.length) {
     throw new OneKeyError('tick options must not be empty');
   }
 
-  // Default to middle index for better balance between detail and readability
-  const middleIndex = Math.floor(options.length / 2);
-  return options[middleIndex];
+  // Default to the first option
+  return options[0];
 }
 
 /**

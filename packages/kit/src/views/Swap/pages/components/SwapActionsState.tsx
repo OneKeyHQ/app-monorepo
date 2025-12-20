@@ -10,10 +10,12 @@ import {
   SizableText,
   Stack,
   XStack,
+  rootNavigationRef,
   useIsModalPage,
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
@@ -25,7 +27,13 @@ import {
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
@@ -108,13 +116,21 @@ const SwapActionsState = ({
   const isModalPage = useIsModalPage();
   const { md } = useMedia();
 
-  const onActionHandlerBefore = useCallback(() => {
+  const onActionHandlerBefore = useCallback(async () => {
     if (swapActionState.noConnectWallet) {
-      navigation.pushModal(EModalRoutes.OnboardingModal, {
-        screen: platformEnv.isWebDappMode
-          ? EOnboardingPages.ConnectWalletOptions
-          : EOnboardingPages.GetStarted,
-      });
+      if (platformEnv.isWebDappMode) {
+        navigation.pushModal(EModalRoutes.OnboardingModal, {
+          screen: EOnboardingPages.ConnectWalletOptions,
+        });
+      } else {
+        await closeModalPages();
+        rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.GetStarted,
+          },
+        });
+      }
       return;
     }
     if (swapActionState.isRefreshQuote) {

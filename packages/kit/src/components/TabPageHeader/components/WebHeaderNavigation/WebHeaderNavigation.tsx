@@ -3,17 +3,16 @@ import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  OneKeyLogo,
-  XStack,
-  useMedia,
-  useOnRouterChange,
-} from '@onekeyhq/components';
+import { OneKeyLogo, XStack, useOnRouterChange } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useToReferFriendsModalByRootNavigation } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabEarnRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { HeaderNavigation } from './HeaderNavigation';
 
@@ -35,7 +34,7 @@ function useWebHeaderNavigation({
 
   useOnRouterChange((state) => {
     if (!state) {
-      setCurrentTab(ETabRoutes.Home);
+      setCurrentTab(null);
       return;
     }
     const rootState = state?.routes.find(
@@ -55,15 +54,20 @@ function useWebHeaderNavigation({
       case ETabRoutes.Market:
         return 'market';
       case ETabRoutes.Perp:
-        return 'contract';
+      case ETabRoutes.WebviewPerpTrade:
+        return 'perps';
       case ETabRoutes.Earn:
         return 'defi';
       case ETabRoutes.Swap:
         return 'swap';
+      case ETabRoutes.ReferFriends:
+        return 'commission';
       default:
-        return undefined;
+        return null;
     }
   }, [controlledActiveKey, currentTab]);
+
+  const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
 
   const handleNavigationChange = useCallback(
     (key: string) => {
@@ -73,11 +77,17 @@ function useWebHeaderNavigation({
         case 'market':
           navigation.switchTab(ETabRoutes.Market);
           break;
-        case 'contract':
-          navigation.switchTab(ETabRoutes.Perp);
+        case 'perps':
+          if (perpTabShowWeb) {
+            navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+          } else {
+            navigation.switchTab(ETabRoutes.Perp);
+          }
           break;
         case 'defi':
-          navigation.switchTab(ETabRoutes.Earn);
+          navigation.switchTab(ETabRoutes.Earn, {
+            screen: ETabEarnRoutes.EarnHome,
+          });
           break;
         case 'swap':
           navigation.switchTab(ETabRoutes.Swap);
@@ -89,7 +99,7 @@ function useWebHeaderNavigation({
           break;
       }
     },
-    [navigation, onNavigationChange, toReferFriendsModal],
+    [navigation, onNavigationChange, perpTabShowWeb, toReferFriendsModal],
   );
 
   const navigationItems: IHeaderNavigationItem[] = useMemo(
@@ -98,10 +108,14 @@ function useWebHeaderNavigation({
         key: 'market',
         label: intl.formatMessage({ id: ETranslations.global_market }),
       },
-      {
-        key: 'contract',
-        label: intl.formatMessage({ id: ETranslations.global_contract }),
-      },
+      ...(!perpDisabled
+        ? [
+            {
+              key: 'perps',
+              label: intl.formatMessage({ id: ETranslations.global_perp }),
+            },
+          ]
+        : []),
       {
         key: 'defi',
         label: intl.formatMessage({ id: ETranslations.global_earn }),
@@ -117,7 +131,7 @@ function useWebHeaderNavigation({
         }),
       },
     ],
-    [intl],
+    [intl, perpDisabled],
   );
 
   return {
@@ -139,14 +153,8 @@ export function WebHeaderNavigation({
   rightContent,
   ...rest
 }: IWebHeaderNavigationProps) {
-  const { gtMd } = useMedia();
-
   const { navigationItems, activeNavigationKey, handleNavigationChange } =
     useWebHeaderNavigation(rest);
-
-  if (!(platformEnv.isWeb && gtMd)) {
-    return <>{children ?? null}</>;
-  }
 
   return (
     <XStack ai="center" gap="$4" width="100%" jc="space-between">

@@ -19,6 +19,10 @@ const MarketDetailV2 = LazyLoadPage(
   () => import('../../../views/Market/MarketDetailV2'),
 );
 
+const MarketBannerDetail = LazyLoadPage(
+  () => import('../../../views/Market/MarketBannerDetail'),
+);
+
 export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
@@ -36,5 +40,11 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: MarketDetailV2,
     headerShown: !platformEnv.isNative,
     rewrite: '/token/:network/:tokenAddress',
+  },
+  {
+    name: ETabMarketRoutes.MarketBannerDetail,
+    component: MarketBannerDetail,
+    headerShown: !platformEnv.isNative,
+    rewrite: '/banner/:tokenListId',
   },
 ];

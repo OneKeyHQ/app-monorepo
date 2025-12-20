@@ -59,6 +59,7 @@ export function useFirmwareUpdateErrors({
         code: [
           HardwareErrorCode.PinCancelled,
           HardwareErrorCode.ActionCancelled,
+          HardwareErrorCode.CallQueueActionCancelled,
           HardwareErrorCode.DeviceInterruptedFromOutside,
         ],
       })

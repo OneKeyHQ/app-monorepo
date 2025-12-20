@@ -1,30 +1,17 @@
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
 
-import {
-  getLocalUsedAddressFromLocalPendingTxs,
-  transformAddress,
-} from '@onekeyhq/core/src/chains/btc/sdkBtc/fresh-address';
-import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
@@ -52,15 +39,13 @@ import simpleDb from '../dbs/simple/simpleDb';
 import {
   activeAccountValueAtom,
   currencyPersistAtom,
-  settingsPersistAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
-import type VaultBtc from '../vaults/impls/btc/Vault';
-import type { IAccountDeriveTypes } from '../vaults/types';
+import type BTCVault from '../vaults/impls/btc/Vault';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -106,6 +91,8 @@ class ServiceAccountProfile extends ServiceBase {
       xpub,
       // cardanoPubKey, // only for UTXO query, not for balance query
       withNetWorth: true,
+    }).catch((e) => {
+      throw e;
     });
   }
 
@@ -171,10 +158,12 @@ class ServiceAccountProfile extends ServiceBase {
     networkId,
     fromAddress,
     toAddress,
+    checkInteraction,
   }: {
     fromAddress?: string;
     networkId: string;
     toAddress: string;
+    checkInteraction?: boolean;
   }): Promise<{
     isScam: boolean;
     isContract: boolean;
@@ -205,6 +194,7 @@ class ServiceAccountProfile extends ServiceBase {
           networkId,
           fromAddress,
           toAddress,
+          checkInteraction,
         },
       });
       const {
@@ -266,11 +256,22 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
+    // For BTC network with fresh address enabled, skip interaction check
+    let checkInteraction: boolean | undefined;
+    if (networkUtils.isBTCNetwork(networkId)) {
+      const enableBTCFreshAddress =
+        await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+      if (enableBTCFreshAddress) {
+        checkInteraction = false;
+      }
+    }
+
     const { isContract, interacted, addressLabel, isScam, isCex, badges } =
       await this.getAddressAccountBadge({
         networkId,
         fromAddress,
         toAddress,
+        checkInteraction,
       });
     if (
       checkInteractionStatus &&
@@ -440,6 +441,19 @@ class ServiceAccountProfile extends ServiceBase {
         walletAccountItems = [walletAccountItem];
       }
 
+      if (
+        walletAccountItems.length === 0 &&
+        networkUtils.isBTCNetwork(networkId)
+      ) {
+        walletAccountItems =
+          await this.backgroundApi.serviceFreshAddress.getAccountNameFromFreshAddress(
+            {
+              address,
+              networkId,
+            },
+          );
+      }
+
       if (walletAccountItems.length > 0) {
         let item = walletAccountItems[0];
         try {
@@ -482,6 +496,8 @@ class ServiceAccountProfile extends ServiceBase {
           console.error(e);
           // pass
         }
+        result.walletName = item.walletName;
+        result.accountName = item.accountName;
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
         result.walletAccountId = item.accountId;
         if (enableAddressDeriveInfo) {
@@ -771,233 +787,35 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
-  async syncBTCFreshAddressByAccountId({
-    accountId,
-    networkId,
-  }: {
-    accountId: string;
-    networkId: string;
-  }) {
-    if (
-      (networkUtils.isBTCNetwork(networkId) &&
-        accountUtils.isHdAccount({ accountId })) ||
-      accountUtils.isHwAccount({ accountId })
-    ) {
-      const dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
-        accountId,
-      });
-      const indexedAccount =
-        await this.backgroundApi.serviceAccount.getIndexedAccountByAccount({
-          account: dbAccount,
-        });
-      if (indexedAccount) {
-        void this.backgroundApi.serviceAccountProfile.syncBTCFreshAddressByIndexedAccountId(
-          {
-            indexedAccountId: indexedAccount.id,
-            networkId,
-          },
-        );
-      }
-    }
-  }
-
-  @backgroundMethod()
-  async syncBTCFreshAddressByIndexedAccountId({
-    indexedAccountId,
-    networkId,
-  }: {
-    indexedAccountId: string;
-    networkId: string;
-  }) {
-    if (
-      networkId !== getNetworkIdsMap().onekeyall &&
-      !networkUtils.isBTCNetwork(networkId)
-    ) {
-      return;
-    }
-    const enableBTCFreshAddress = (await settingsPersistAtom.get())
-      .enableBTCFreshAddress;
-    if (!enableBTCFreshAddress) {
-      return;
-    }
-
-    const currentNetworkId =
-      networkId === getNetworkIdsMap().onekeyall
-        ? getNetworkIdsMap().btc
-        : networkId;
-
-    const btcAccounts =
-      await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-        {
-          networkId: currentNetworkId,
-          indexedAccountId,
-          excludeEmptyAccount: true,
-        },
-      );
-    btcAccounts.networkAccounts?.forEach((account) => {
-      if (account.account?.id) {
-        void this.syncBTCFreshAddress({
-          networkId: btcAccounts.network.id,
-          accountId: account.account.id,
-          deriveType: account.deriveType,
-        });
-      }
-    });
-  }
-
-  @backgroundMethod()
-  async syncBTCFreshAddress({
-    networkId,
-    accountId,
-    deriveType,
-  }: {
-    networkId: string;
-    accountId: string;
-    deriveType: IAccountDeriveTypes;
-  }) {
-    const account = (await this.backgroundApi.serviceAccount.getDBAccount({
-      accountId,
-    })) as IDBUtxoAccount;
-    if (!account?.xpub || !account?.xpubSegwit) {
-      throw new OneKeyLocalError('Account xpub not found');
-    }
-    const xpubForMeta =
-      deriveType === 'BIP86' ? account.xpubSegwit : account.xpub;
-    const btcFreshAddressMetaRecord =
-      (await this.backgroundApi.simpleDb.btcFreshAddressMeta.getRecord({
-        networkId,
-        xpubSegwit: xpubForMeta,
-      })) ?? {};
-    const { lastUpdateTime, txCount: currentTxCount } =
-      btcFreshAddressMetaRecord;
-    const lastLocalUsedAddressesHash =
-      btcFreshAddressMetaRecord.localUsedAddressesHash;
-    if (
-      lastUpdateTime &&
-      Date.now() - lastUpdateTime <
-        timerUtils.getTimeDurationMs({
-          seconds: 10,
-        })
-    ) {
-      // Throttle sync requests within 10 seconds
-      return;
-    }
-
-    const { localUsedAddressesHash, localUsedAddressesMap } =
-      await this.getLocalPendingTxsForFreshAddress({
-        networkId,
-      });
-
-    const isSameLocalUsedAddressesHash =
-      lastLocalUsedAddressesHash &&
-      lastLocalUsedAddressesHash === localUsedAddressesHash;
-
-    if (!isNil(currentTxCount)) {
-      const accountDetailsWithTxCount = await this.fetchAccountDetails({
-        accountId,
-        networkId,
-        withTransactionCount: true,
-      });
-      if (
-        (accountDetailsWithTxCount.transactionCount || 0) === currentTxCount &&
-        isSameLocalUsedAddressesHash
-      ) {
-        await this.backgroundApi.simpleDb.btcFreshAddressMeta.updateRecord({
-          networkId,
-          xpubSegwit: xpubForMeta,
-          patch: {
-            lastUpdateTime: Date.now(),
-          },
-        });
-        return;
-      }
-    }
-
-    const accountDetailsWithXpubDerivedTokens = await this.fetchAccountDetails({
-      accountId,
-      networkId,
-      withXpubDerivedTokens: true,
-      withTransactionCount: true,
-    });
-    if (
-      !Array.isArray(accountDetailsWithXpubDerivedTokens.xpubDerivedTokens) ||
-      !accountDetailsWithXpubDerivedTokens.xpubDerivedTokens.length
-    ) {
-      await this.backgroundApi.simpleDb.btcFreshAddressMeta.updateRecord({
-        networkId,
-        xpubSegwit: xpubForMeta,
-        patch: {
-          lastUpdateTime: Date.now(),
-        },
-      });
-      return;
-    }
-
-    const vault = (await vaultFactory.getVault({
-      networkId,
-      accountId,
-    })) as VaultBtc;
-    const network = await vault.getBtcForkNetwork();
-    const { encoding } = await vault.validateAddress(account.address);
-    if (!encoding) {
-      throw new OneKeyLocalError('Invalid account address');
-    }
-    const derivedInfos = await transformAddress({
-      network,
-      xpub: account.xpub,
-      addressEncoding: encoding,
-      derivedInfos: accountDetailsWithXpubDerivedTokens.xpubDerivedTokens,
-      localUsedAddressesMap,
-    });
-    if (derivedInfos) {
-      await this.backgroundApi.simpleDb.btcFreshAddress.updateBTCFreshAddresses(
-        {
-          networkId,
-          xpubSegwit:
-            encoding === EAddressEncodings.P2TR
-              ? account.xpubSegwit
-              : account.xpub,
-          value: derivedInfos,
-        },
-      );
-    }
-    await this.backgroundApi.simpleDb.btcFreshAddressMeta.updateRecord({
-      networkId,
-      xpubSegwit: xpubForMeta,
-      patch: {
-        txCount: accountDetailsWithXpubDerivedTokens.transactionCount || 0,
-        lastUpdateTime: Date.now(),
-        localUsedAddressesHash,
-      },
-    });
-    appEventBus.emit(EAppEventBusNames.BtcFreshAddressUpdated, undefined);
-  }
-
-  private getLocalPendingTxsForFreshAddress = memoizee(
-    async ({ networkId }: { networkId: string }) => {
-      const localPendingTxs =
-        await this.backgroundApi.simpleDb.localHistory.getLocalPendingHistoryByNetwork(
-          {
-            networkId,
-          },
-        );
-      return getLocalUsedAddressFromLocalPendingTxs({
-        pendingTxs: localPendingTxs.pendingTxs,
-      });
-    },
-    {
-      promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
-    },
-  );
-
-  @backgroundMethod()
   async isSoftwareWalletOnlyUser() {
     const hwQrWallets =
       await this.backgroundApi.serviceAccount.getAllHwQrWalletWithDevice({
         filterHiddenWallet: true,
       });
     return Object.keys(hwQrWallets).length === 0;
+  }
+
+  @backgroundMethod()
+  public async getAccountUtxos({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    const vaultSettings = await vault.getVaultSettings();
+    if (!vaultSettings.coinControlEnabled) {
+      throw new OneKeyLocalError(
+        'CoinControl is not supported for this network',
+      );
+    }
+    const { utxoList } = await (vault as BTCVault)._collectUTXOsInfoByApi();
+
+    return utxoList;
   }
 
   // Get wallet type

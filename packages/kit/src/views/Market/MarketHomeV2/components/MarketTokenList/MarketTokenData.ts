@@ -3,6 +3,7 @@ export interface IMarketToken {
   name: string;
   symbol: string;
   address: string;
+  decimals: number;
   price: number;
   change24h: number;
   marketCap: number;
@@ -14,8 +15,10 @@ export interface IMarketToken {
   tokenImageUri: string;
   networkLogoUri: string;
   networkId: string;
+  firstTradeTime?: number;
   walletInfo?: import('./components/Txns').ITxnsWalletInfo;
   chainId?: string;
   sortIndex?: number;
   isNative?: boolean;
+  communityRecognized?: boolean;
 }

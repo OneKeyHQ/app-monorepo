@@ -4,14 +4,18 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
   Divider,
   Page,
+  SizableText,
   Stack,
   Switch,
   Toast,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -33,7 +37,8 @@ export default function Home() {
     await backupToggleDialog.maybeShow(true);
     setSubmitError('');
     try {
-      await backgroundApiProxy.serviceCloudBackup.backupNow();
+      console.log('backupNowOnPress');
+      // await backgroundApiProxy.serviceCloudBackup.backupNow();
     } catch (e) {
       setSubmitError('Sync failed, please retry.');
       Toast.error({
@@ -91,57 +96,26 @@ export default function Home() {
         })}
       />
       <Page.Body>
-        <BackupDeviceList
-          ListHeaderComponent={
-            <>
-              <ListItem
-                title={intl.formatMessage({
-                  id: platformEnv.isNativeAndroid
-                    ? ETranslations.backup_backup_to_google_drive
-                    : ETranslations.backup_backup_to_icloud,
-                })}
+        <BackupDeviceList />
+        <MultipleClickStack
+          height="$10"
+          showDevBgColor
+          debugComponent={
+            <YStack gap="$2">
+              <Button
+                onPress={async () => {
+                  const metaData =
+                    await backgroundApiProxy.serviceCloudBackup.getMetaDataFromCloud();
+                  Dialog.debugMessage({
+                    debugMessage: metaData,
+                  });
+                }}
               >
-                <Stack
-                  pointerEvents="box-only"
-                  onPress={async () => {
-                    await backupToggleDialog.maybeShow(!isEnabled);
-                    if (!isEnabled) {
-                      await backupNowOnPress();
-                    } else if (platformEnv.isNativeAndroid) {
-                      navigation.pop();
-                    }
-                  }}
-                >
-                  <Switch value={isEnabled} />
-                </Stack>
-              </ListItem>
-              {isEnabled ? (
-                <ListItem
-                  pt="$3"
-                  title={intl.formatMessage({
-                    id: platformEnv.isNativeAndroid
-                      ? ETranslations.backup_google_drive_status
-                      : ETranslations.backup_icloud_status,
-                  })}
-                >
-                  {renderBackupStatus()}
-                </ListItem>
-              ) : null}
-              <Divider pt="$6" />
-            </>
+                getMetaDataFromCloud
+              </Button>
+            </YStack>
           }
         />
-        <Stack m="$5">
-          <Button
-            mt="$4"
-            borderRadius="$3"
-            py="$3"
-            disabled={isInProgress}
-            onPress={backupNowOnPress}
-          >
-            {intl.formatMessage({ id: ETranslations.backup_backup_now })}
-          </Button>
-        </Stack>
       </Page.Body>
     </Page>
   );

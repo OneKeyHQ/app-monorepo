@@ -88,7 +88,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         {displayUrl
           ? hiddenHttpsUrl
           : intl.formatMessage({
-              id: ETranslations.explore_search_dapps,
+              id: ETranslations.global_universal_search_placeholder,
             })}
       </SizableText>
     </XStack>

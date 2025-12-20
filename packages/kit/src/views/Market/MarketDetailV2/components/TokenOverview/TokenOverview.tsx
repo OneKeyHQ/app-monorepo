@@ -38,17 +38,15 @@ interface ITokenDetail {
   holders?: string | number;
   tvl?: string | number;
   liquidity?: string | number;
+  circulatingSupply?: string | number;
   logoUrl?: string;
   name?: string;
   symbol?: string;
 }
 
 const formatCirculatingSupply = (tokenDetail: ITokenDetail): string => {
-  if (tokenDetail.fdv) {
-    return formatTokenValue(tokenDetail.fdv);
-  }
-  if (tokenDetail.marketCap) {
-    return formatTokenValue(tokenDetail.marketCap);
+  if (tokenDetail.circulatingSupply) {
+    return formatTokenValue(tokenDetail.circulatingSupply);
   }
   return '--';
 };

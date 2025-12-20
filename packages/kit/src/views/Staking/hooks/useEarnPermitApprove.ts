@@ -1,14 +1,16 @@
 import { useCallback } from 'react';
 
-import { BundlerAction } from '@morpho-org/bundler-sdk-ethers';
 import BigNumber from 'bignumber.js';
-import { ethers } from 'ethersV6';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  MorphoBaseBundlerContract,
+  MorphoBundlerContract,
+} from '@onekeyhq/shared/src/consts/addresses';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import type { IEarnPermit2ApproveSignData } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
@@ -20,6 +22,11 @@ interface IUseEarnPermitApproveParams {
   amountValue: string;
   providerName: string;
   vaultAddress: string;
+}
+
+export interface IPermitSignatureResult {
+  signature: string;
+  unsignedMessage: IEarnPermit2ApproveSignData;
 }
 
 export function useEarnPermitApprove() {
@@ -36,7 +43,7 @@ export function useEarnPermitApprove() {
       amountValue,
       providerName,
       vaultAddress,
-    }: IUseEarnPermitApproveParams) => {
+    }: IUseEarnPermitApproveParams): Promise<IPermitSignatureResult> => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
         networkId,
@@ -54,8 +61,12 @@ export function useEarnPermitApprove() {
 
       // check spender address
       if (
-        permit2Data.message.spender.toLowerCase() !==
-        MorphoBundlerContract.toLowerCase()
+        (networkId === getNetworkIdsMap().eth &&
+          permit2Data.message.spender.toLowerCase() !==
+            MorphoBundlerContract.toLowerCase()) ||
+        (networkId === getNetworkIdsMap().base &&
+          permit2Data.message.spender.toLowerCase() !==
+            MorphoBaseBundlerContract.toLowerCase())
       ) {
         const error = new Error(
           `Invalid spender address. Expected: ${MorphoBundlerContract}, Got: ${permit2Data.message.spender}`,
@@ -79,33 +90,10 @@ export function useEarnPermitApprove() {
         walletInternalSign: true,
       });
 
-      let permitBundlerAction;
-      if (token.symbol === 'USDC') {
-        permitBundlerAction = BundlerAction.permit(
-          permit2Data.domain.verifyingContract,
-          permit2Data.message.value,
-          permit2Data.message.deadline,
-          // @ts-expect-error
-          ethers.Signature.from(signHash),
-          true,
-        );
-      } else if (token.symbol === 'DAI') {
-        if (!permit2Data.message.expiry) {
-          throw new OneKeyLocalError('Expiry is required for DAI');
-        }
-        permitBundlerAction = BundlerAction.permitDai(
-          permit2Data.message.nonce,
-          permit2Data.message.expiry,
-          true,
-          // @ts-expect-error
-          ethers.Signature.from(signHash),
-          false,
-        );
-      } else {
-        throw new OneKeyLocalError('Unsupported token');
-      }
-
-      return permitBundlerAction;
+      return {
+        signature: signHash,
+        unsignedMessage: permit2Data,
+      };
     },
     [navigationToMessageConfirmAsync],
   );

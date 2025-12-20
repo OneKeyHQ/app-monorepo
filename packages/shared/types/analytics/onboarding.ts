@@ -15,6 +15,7 @@ interface IImportWalletPayload {
     | 'keyTag'
     | 'cloud'
     | 'lite'
+    | 'importPhraseOrPrivateKey'
     | 'transfer';
 }
 

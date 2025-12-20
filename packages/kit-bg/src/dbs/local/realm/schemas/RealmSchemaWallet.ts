@@ -2,6 +2,7 @@ import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
 import type { IDBWallet, IDBWalletType } from '../../types';
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type Realm from 'realm';
 
 class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
@@ -41,6 +42,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public deprecated?: boolean;
 
+  public firmwareTypeAtCreated?: EFirmwareType;
+
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Wallet,
     primaryKey: 'id',
@@ -67,6 +70,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       xfp: 'string?',
       airGapAccountsInfoRaw: 'string?',
       deprecated: { type: 'bool', default: false },
+      firmwareTypeAtCreated: 'string?',
     },
   };
 
@@ -92,6 +96,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       xfp: this.xfp,
       airGapAccountsInfoRaw: this.airGapAccountsInfoRaw,
       deprecated: this.deprecated || false,
+      firmwareTypeAtCreated: this.firmwareTypeAtCreated,
     };
   }
 }

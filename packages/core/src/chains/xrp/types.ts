@@ -8,6 +8,7 @@ export interface IEncodedTxXrp {
   Flags?: number;
   Sequence?: number;
   LastLedgerSequence?: number;
+  Memos?: IXrpMemoField[];
 }
 
 export type IDecodedTxExtraXrp = {
@@ -15,3 +16,11 @@ export type IDecodedTxExtraXrp = {
   lastLedgerSequence?: number;
   ledgerIndex?: number;
 };
+
+export interface IXrpMemoField {
+  Memo: {
+    MemoData?: string;
+    MemoType?: string;
+    MemoFormat?: string;
+  };
+}

@@ -21,12 +21,13 @@ import {
   Stack,
   XStack,
   YStack,
-  useIsHorizontalLayout,
+  useIsWebHorizontalLayout,
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -54,7 +55,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useOnLock } from '../../hooks/useOnLock';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
@@ -62,7 +62,6 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
-import { usePrimeAuthV2 } from '../../views/Prime/hooks/usePrimeAuthV2';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
@@ -96,7 +95,7 @@ function MoreActionProvider({ children }: PropsWithChildren) {
 
 function MoreActionContentHeader() {
   const intl = useIntl();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
 
   const { closePopover } = usePopoverContext();
   const { isPrimeAvailable } = usePrimeAvailable();
@@ -104,7 +103,7 @@ function MoreActionContentHeader() {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
 
-  const { loginOneKeyId } = useLoginOneKeyId();
+  const { loginOneKeyId } = useOneKeyAuth();
 
   const handleLogin = useCallback(async () => {
     await closePopover?.();
@@ -285,8 +284,8 @@ function MoreActionContentGridItem({
     }
   }, [closePopover, onPress, trackID]);
 
-  const { user } = usePrimeAuthV2();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+  const { user } = useOneKeyAuth();
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   if (isPrimeFeature && !isPrimeAvailable) {
     return null;
@@ -428,7 +427,7 @@ function MoreActionContentGrid() {
   });
   const { gtMd } = useMedia();
   const toMyOneKeyModal = useToMyOneKeyModal();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
 
   const handleDeviceManagement = useCallback(async () => {
     await toMyOneKeyModal();
@@ -447,7 +446,7 @@ function MoreActionContentGrid() {
 
   const checkIsPrimeUser = useCallback(
     (showFeature: EPrimeFeatures) => {
-      if (user?.primeSubscription?.isActive && user?.privyUserId) {
+      if (user?.primeSubscription?.isActive && user?.onekeyUserId) {
         return true;
       }
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -500,7 +499,7 @@ function MoreActionContentGrid() {
 
   const scanQrCode = useScanQrCode();
 
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   const handleScan = useCallback(async () => {
     await scanQrCode.start({
@@ -519,23 +518,27 @@ function MoreActionContentGrid() {
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const items = useMemo(() => {
     return [
-      {
-        title: intl.formatMessage({
-          id: ETranslations.address_book_title,
-        }),
-        icon: 'ContactsOutline',
-        onPress: openAddressBook,
-        testID: 'address-book',
-        trackID: 'wallet-address-book',
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_my_onekey,
-        }),
-        icon: 'OnekeyDeviceCustom',
-        onPress: handleDeviceManagement,
-        testID: 'my-onekey',
-      },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.address_book_title,
+            }),
+            icon: 'ContactsOutline',
+            onPress: openAddressBook,
+            testID: 'address-book',
+            trackID: 'wallet-address-book',
+          },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.global_my_onekey,
+            }),
+            icon: 'OnekeyDeviceCustom',
+            onPress: handleDeviceManagement,
+            testID: 'my-onekey',
+          },
       {
         title: intl.formatMessage({
           id: ETranslations.settings_settings,
@@ -560,13 +563,15 @@ function MoreActionContentGrid() {
         testID: 'referral',
         onPress: toReferFriendsPage,
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
-        icon: 'ScanOutline' as const,
-        onPress: handleScan,
-        testID: 'scan-qr-code',
-        trackID: 'wallet-scan',
-      },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
+            icon: 'ScanOutline' as const,
+            onPress: handleScan,
+            testID: 'scan-qr-code',
+            trackID: 'wallet-scan',
+          },
       gtMd
         ? undefined
         : {
@@ -580,23 +585,25 @@ function MoreActionContentGrid() {
             badges: badge,
             trackID: 'notification-in-more-action',
           },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_bulk_copy_addresses,
-        }),
-        icon: 'Copy3Outline',
-        onPress: () => {
-          if (!isPrimeUser) {
-            defaultLogger.prime.subscription.primeEntryClick({
-              featureName: EPrimeFeatures.BulkCopyAddresses,
-              entryPoint: 'moreActions',
-            });
-          }
-          void openBulkCopyAddressesModal();
-        },
-        trackID: 'bulk-copy-addresses-in-more-action',
-        isPrimeFeature: true,
-      },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.global_bulk_copy_addresses,
+            }),
+            icon: 'Copy3Outline',
+            onPress: () => {
+              if (!isPrimeUser) {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.BulkCopyAddresses,
+                  entryPoint: 'moreActions',
+                });
+              }
+              void openBulkCopyAddressesModal();
+            },
+            trackID: 'bulk-copy-addresses-in-more-action',
+            isPrimeFeature: true,
+          },
     ].filter(Boolean) as IMoreActionContentGridItemProps[];
   }, [
     badge,
@@ -626,7 +633,7 @@ function MoreActionContentGrid() {
 }
 
 const useIsShowRedDot = () => {
-  const isHorizontal = useIsHorizontalLayout();
+  const isHorizontal = useIsWebHorizontalLayout();
   const [{ firstTimeGuideOpened, badge: notificationBadges }] =
     useNotificationsAtom();
   if (isHorizontal) {

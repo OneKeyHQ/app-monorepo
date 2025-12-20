@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { flatten, groupBy, isEmpty, isNaN, isNil, map } from 'lodash';
+import {
+  flatten,
+  groupBy,
+  isEmpty,
+  isNaN,
+  isNil,
+  map,
+  uniq,
+  uniqBy,
+} from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -406,24 +415,35 @@ function BulkCopyAddresses({
       return {};
     }
 
-    const indexes = [];
+    let indexes = [];
+    let customNetworks: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[] = [];
+
+    let addressCount = 0;
 
     for (const networkAccount of networkAccounts ?? []) {
-      if (
-        networkAccount.networkAccounts.length > 0 &&
-        !isNil(networkAccount.networkAccounts[0].account?.pathIndex)
-      ) {
-        indexes.push(networkAccount.networkAccounts[0].account?.pathIndex);
+      for (const account of networkAccount.networkAccounts) {
+        if (!isNil(account.account?.pathIndex)) {
+          customNetworks.push({
+            networkId: networkAccount.network.id,
+            deriveType: account.deriveType,
+          });
+          indexes.push(account.account.pathIndex);
+        }
       }
     }
 
-    let addressCount = indexes.length;
+    indexes = uniq(indexes);
+    customNetworks = uniqBy(
+      customNetworks,
+      (item) => `${item.networkId}_${item.deriveType}`,
+    );
 
-    if (vaultSettings?.mergeDeriveAssetsEnabled) {
-      addressCount *= Object.keys(
-        vaultSettings?.accountDeriveInfo ?? {},
-      ).length;
-    }
+    addressCount = new BigNumber(customNetworks.length)
+      .multipliedBy(indexes.length)
+      .toNumber();
 
     const normalParams: IBatchBuildAccountsNormalFlowParams = {
       walletId: selectedWalletId,
@@ -433,12 +453,12 @@ function BulkCopyAddresses({
           networkId: selectedNetworkId,
         }),
       saveToDb: false,
-      indexes,
-      createAllDeriveTypes: true,
+      indexes: uniq(indexes),
       showUIProgress: true,
       errorMessage: intl.formatMessage({
         id: ETranslations.global_bulk_copy_addresses_loading_error,
       }),
+      customNetworks,
       hideCheckingDeviceLoading: true,
       progressTotalCount: addressCount,
     };
@@ -453,8 +473,6 @@ function BulkCopyAddresses({
     selectedWalletId,
     selectedNetworkId,
     selectedWallet,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-    vaultSettings?.accountDeriveInfo,
     intl,
     handleGenerateAddresses,
     networkAccounts,
@@ -706,6 +724,19 @@ function BulkCopyAddresses({
         let accountsData = networkAccountsByDeriveType;
         if (isHwWallet && !exportWithoutDevice) {
           accountsData = await handleGenerateAddressesByAccounts();
+          if (networkAccountsByDeriveType) {
+            for (const [deriveType, accounts] of Object.entries(accountsData)) {
+              accountsData[deriveType] =
+                accounts.filter((account) =>
+                  networkAccountsByDeriveType?.[deriveType]?.some(
+                    (item) =>
+                      item.account &&
+                      account.account &&
+                      item.account.id === account.account.id,
+                  ),
+                ) ?? [];
+            }
+          }
         }
 
         navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {

@@ -110,16 +110,8 @@ function ApprovalListViewCmp(props: IProps) {
   }, [approvalListState.initialized, approvalListState.isRefreshing]);
 
   const EmptyComponentElement = useMemo(() => {
-    if (showSkeleton) {
-      return (
-        <YStack style={{ flex: 1 }}>
-          <ListLoading isTokenSelectorView={!tableLayout} />
-        </YStack>
-      );
-    }
-
     return <EmptyApproval />;
-  }, [showSkeleton, tableLayout]);
+  }, []);
 
   const filteredApprovals = useMemo(() => {
     let _filteredApprovals = approvals;
@@ -179,6 +171,14 @@ function ApprovalListViewCmp(props: IProps) {
       (ListComponentRef.current as any)?.recomputeLayout?.();
     }
   }, []);
+
+  if (showSkeleton) {
+    return (
+      <YStack style={{ flex: 1 }}>
+        <ListLoading isTokenSelectorView={!tableLayout} />
+      </YStack>
+    );
+  }
 
   return (
     <ListComponent

@@ -48,12 +48,6 @@ export const useWatchListV2Action = () => {
 
       try {
         void actions.current.addIntoWatchListV2(watchListItems);
-
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.market_added_to_watchlist,
-          }),
-        });
       } catch (error) {
         Toast.error({
           title: intl.formatMessage({

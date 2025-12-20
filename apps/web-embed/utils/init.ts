@@ -44,6 +44,9 @@ const initRequestHelper = () => {
       Promise.resolve({
         hideValue: false,
       }),
+    getIpTableConfig: async () => {
+      return null;
+    },
   });
 };
 

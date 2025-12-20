@@ -47,7 +47,7 @@ class ServiceNFT extends ServiceBase {
         accountId,
         reason: EReasonForNeedPassword.Default,
       });
-    await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () =>
         this.backgroundApi.serviceHardware.uploadResource(
           deviceParams?.dbDevice.connectId ?? '',

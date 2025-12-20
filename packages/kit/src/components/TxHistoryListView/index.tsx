@@ -1,5 +1,5 @@
 import type { ComponentProps, ForwardedRef, ReactElement } from 'react';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -57,6 +57,7 @@ type IProps = {
   onPressHistory?: (history: IAccountHistoryTx) => void;
   initialized?: boolean;
   inTabList?: boolean;
+  isTabFocused?: boolean;
   contentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   hideValue?: boolean;
   onRefresh?: () => void;
@@ -73,6 +74,9 @@ type IProps = {
   isSingleAccount?: boolean;
   tokenMap?: Record<string, ITokenFiat>;
   ref?: ForwardedRef<typeof SectionList>;
+  plainMode?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
 };
 
 const ListFooterComponent = ({
@@ -194,18 +198,37 @@ const ListFooterComponent = ({
 
 function TxHistoryListViewSectionHeader(
   props: IHistoryListSectionGroup & {
+    inTabList?: boolean;
+    isTabFocused?: boolean;
     index: number;
     recomputeLayout: () => void;
   },
 ) {
-  const { title, titleKey, data, index, recomputeLayout } = props;
+  const {
+    title,
+    titleKey,
+    data,
+    index,
+    recomputeLayout,
+    inTabList,
+    isTabFocused,
+  } = props;
   const intl = useIntl();
   const titleText = title || intl.formatMessage({ id: titleKey }) || '';
 
+  useEffect(() => {
+    if (
+      data[0] &&
+      data[0].decodedTx.status === EDecodedTxStatus.Pending &&
+      ((inTabList && isTabFocused) || !inTabList)
+    ) {
+      setTimeout(() => {
+        recomputeLayout();
+      }, 350);
+    }
+  }, [data, inTabList, isTabFocused, recomputeLayout]);
+
   if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
-    setTimeout(() => {
-      recomputeLayout();
-    }, 350);
     return (
       <XStack
         px="$5"
@@ -249,6 +272,7 @@ function BaseTxHistoryListView(props: IProps) {
     initialized,
     contentContainerStyle,
     inTabList = false,
+    isTabFocused,
     hideValue,
     listViewStyleProps,
     onRefresh,
@@ -259,6 +283,9 @@ function BaseTxHistoryListView(props: IProps) {
     isSingleAccount,
     tokenMap,
     ref,
+    plainMode,
+    emptyTitle,
+    emptyDescription,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -322,9 +349,11 @@ function BaseTxHistoryListView(props: IProps) {
         titleKey={titleKey}
         data={tx}
         index={index}
+        inTabList={inTabList}
+        isTabFocused={isTabFocused}
       />
     ),
-    [recomputeLayout],
+    [recomputeLayout, inTabList, isTabFocused],
   );
 
   const resolvedContentContainerStyle = useStyle(
@@ -366,13 +395,15 @@ function BaseTxHistoryListView(props: IProps) {
     }
     return (
       <EmptyHistory
-        showViewInExplorer
+        showViewInExplorer={!plainMode}
         walletId={walletId}
         accountId={accountId}
         networkId={networkId}
         indexedAccountId={indexedAccountId}
         isSingleAccount={isSingleAccount}
         tokenMap={tokenMap}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
       />
     );
   }, [
@@ -387,7 +418,38 @@ function BaseTxHistoryListView(props: IProps) {
     isSingleAccount,
     tokenMap,
     tableLayout,
+    plainMode,
+    emptyTitle,
+    emptyDescription,
   ]);
+
+  if (plainMode) {
+    if (sections.length === 0) {
+      return EmptyComponentElement;
+    }
+
+    return (
+      <YStack>
+        {sections.map((section, index) => (
+          <YStack key={section.title}>
+            {renderSectionHeader({ section, index })}
+            {section.data.map((item, itemIndex) => (
+              <TxHistoryListItem
+                key={item.id}
+                historyTx={item}
+                index={itemIndex}
+                showIcon={showIcon}
+                onPress={onPressHistory}
+                tableLayout={tableLayout}
+                hideValue={hideValue}
+                compact={plainMode}
+              />
+            ))}
+          </YStack>
+        ))}
+      </YStack>
+    );
+  }
 
   return (
     <ListComponent

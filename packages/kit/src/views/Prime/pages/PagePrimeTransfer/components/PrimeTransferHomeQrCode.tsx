@@ -148,7 +148,11 @@ export function PrimeTransferHomeQrCode() {
               borderWidth={1}
               borderColor="$neutral2"
             >
-              <QRCode value={pairingCodeQRCode} size={208} />
+              <QRCode
+                key={pairingCodeQRCode}
+                value={pairingCodeQRCode}
+                size={208}
+              />
             </Stack>
           )}
         </YStack>

@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -617,10 +617,10 @@ class ServiceHardware extends ServiceBase {
     // return Promise.reject(deviceError);
   }
 
-  private connectDevice = (connectId: string) =>
-    this.getFeaturesWithoutCache({
-      connectId,
-    });
+  @backgroundMethod()
+  async connectDevice(params: IDeviceGetFeaturesOptions) {
+    return this.getFeaturesWithoutCache(params);
+  }
 
   private handlerConnectError = (e: any) => {
     const error: deviceErrors.OneKeyHardwareError | undefined =
@@ -638,11 +638,16 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async connect({
     device,
+    hardwareCallContext,
   }: {
     device: SearchDevice;
+    hardwareCallContext?: EHardwareCallContext;
   }): Promise<Features | undefined> {
     const { connectId } = device;
-    if (!connectId) {
+    if (
+      !connectId &&
+      hardwareCallContext !== EHardwareCallContext.UPDATE_FIRMWARE
+    ) {
       throw new OneKeyLocalError(
         'hardware connect ERROR: connectId is undefined',
       );
@@ -650,14 +655,17 @@ class ServiceHardware extends ServiceBase {
 
     // Get compatible connectId for the current transport type
     const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId,
+      connectId: connectId || undefined,
       featuresDeviceId: device.deviceId,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      hardwareCallContext:
+        hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
     });
 
     if (platformEnv.isNative) {
       try {
-        return await this.connectDevice(compatibleConnectId);
+        return await this.connectDevice({
+          connectId: compatibleConnectId,
+        });
       } catch (e: any) {
         this.handlerConnectError(e);
       }
@@ -666,7 +674,13 @@ class ServiceHardware extends ServiceBase {
        * USB does not need the extra getFeatures call
        */
       try {
-        return await this.connectDevice(compatibleConnectId);
+        return await this.connectDevice({
+          connectId: compatibleConnectId,
+          params: {
+            allowEmptyConnectId:
+              hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE,
+          },
+        });
       } catch (e: any) {
         return (device as KnownDevice).features;
       }
@@ -1210,14 +1224,71 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
+  private fixHardwareBitcoinOnlyState(params: IUpdateFirmwareWorkflowParams) {
+    let bitcoinOnlyFlag:
+      | {
+          fw_vendor: string | undefined;
+          capabilities: number[] | undefined;
+          $app_firmware_type?: EFirmwareType;
+        }
+      | undefined;
+    const capabilityBitcoinLike = 2;
+    const bitcoinOnlyFwVendor = 'OneKey Bitcoin-only';
+    try {
+      const updateFirmwareInfo = params?.releaseResult?.updateInfos?.firmware;
+      if (
+        updateFirmwareInfo?.fromFirmwareType === EFirmwareType.Universal &&
+        updateFirmwareInfo?.toFirmwareType === EFirmwareType.BitcoinOnly
+      ) {
+        const originalCapabilities =
+          (params?.releaseResult?.features
+            ?.capabilities as unknown as number[]) || [];
+        const newCapabilities = originalCapabilities.filter(
+          (item) => item !== capabilityBitcoinLike,
+        );
+
+        bitcoinOnlyFlag = {
+          fw_vendor: bitcoinOnlyFwVendor,
+          capabilities: newCapabilities,
+          $app_firmware_type: EFirmwareType.BitcoinOnly,
+        };
+      } else if (
+        updateFirmwareInfo?.fromFirmwareType === EFirmwareType.BitcoinOnly &&
+        updateFirmwareInfo?.toFirmwareType === EFirmwareType.Universal
+      ) {
+        const originalCapabilities =
+          (params?.releaseResult?.features
+            ?.capabilities as unknown as number[]) || [];
+        const capabilities = [...originalCapabilities];
+
+        const hasExists = capabilities.find(
+          (item) => item === capabilityBitcoinLike,
+        );
+        if (!hasExists) {
+          capabilities.push(capabilityBitcoinLike);
+        }
+
+        bitcoinOnlyFlag = {
+          fw_vendor: undefined,
+          capabilities,
+          $app_firmware_type: EFirmwareType.Universal,
+        };
+      }
+    } catch (error) {
+      // ignore
+    }
+    return bitcoinOnlyFlag;
+  }
+
   @backgroundMethod()
   async updateDeviceVersionAfterFirmwareUpdate(
     params: IUpdateFirmwareWorkflowParams,
   ) {
+    const connectId = params.releaseResult.originalConnectId;
     const dbDevice = await localDb.getDeviceByQuery({
-      connectId: params.releaseResult.originalConnectId,
+      connectId,
     });
-    if (!dbDevice) {
+    if (!dbDevice || !connectId) {
       return;
     }
     const versionInfo: IDeviceVersionCacheInfo = {
@@ -1250,9 +1321,47 @@ class ServiceHardware extends ServiceBase {
       }
     });
 
+    const bitcoinOnlyFlag = this.fixHardwareBitcoinOnlyState(params);
+
     await localDb.updateDeviceVersionInfo({
       dbDeviceId: dbDevice.id,
       versionCacheInfo: filteredVersionInfo as IDeviceVersionCacheInfo,
+      bitcoinOnlyFlag,
+    });
+    if (bitcoinOnlyFlag) {
+      await this.updateHwWalletsDeprecatedStatus({
+        connectId,
+      });
+    }
+  }
+
+  @backgroundMethod()
+  async updateHwWalletsDeprecatedStatus({ connectId }: { connectId: string }) {
+    const allHwWallets =
+      await this.backgroundApi.serviceAccount.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: false,
+        filterQrWallet: true,
+      });
+
+    const willUpdateDeprecateMap: Record<string, boolean> = {};
+
+    for (const walletWithDevice of Object.values(allHwWallets)) {
+      const wallet = walletWithDevice.wallet;
+      const device = walletWithDevice.device;
+
+      if (wallet?.id && device?.connectId) {
+        const isSameConnectId =
+          device.connectId === connectId || device.bleConnectId === connectId;
+
+        // only handle wallet with same connectId
+        if (isSameConnectId) {
+          willUpdateDeprecateMap[wallet.id] = true;
+        }
+      }
+    }
+
+    await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
+      willUpdateDeprecateMap,
     });
   }
 
@@ -1422,9 +1531,15 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
-    await hardwareSDK.switchTransport(
-      transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
-    );
+    let env: 'webusb' | 'desktop-web-ble' | 'web';
+    if (transportType === EHardwareTransportType.WEBUSB) {
+      env = 'webusb';
+    } else if (transportType === EHardwareTransportType.DesktopWebBle) {
+      env = 'desktop-web-ble';
+    } else {
+      env = 'web';
+    }
+    await hardwareSDK.switchTransport(env);
   }
 
   @backgroundMethod()
@@ -1485,6 +1600,14 @@ class ServiceHardware extends ServiceBase {
       operationId: undefined,
     });
     defaultLogger.setting.device.clearForceTransportType();
+  }
+
+  @backgroundMethod()
+  async getCurrentForceTransportType(): Promise<
+    EHardwareTransportType | undefined
+  > {
+    const state = await hardwareForceTransportAtom.get();
+    return state.forceTransportType;
   }
 
   @backgroundMethod()
@@ -1613,6 +1736,16 @@ class ServiceHardware extends ServiceBase {
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
   }) {
+    // Allow connectId to be null in the following EHardwareCallContext cases
+    if (
+      EHardwareCallContext.UPDATE_FIRMWARE === hardwareCallContext &&
+      !connectId &&
+      !featuresDeviceId &&
+      !features
+    ) {
+      return '';
+    }
+
     if (!connectId) {
       throw new OneKeyLocalError('connectId is required');
     }
@@ -1709,19 +1842,22 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async isBtcOnlyWallet({ walletId }: { walletId: string }) {
-    if (!accountUtils.isHwWallet({ walletId })) {
-      return false;
+    if (
+      accountUtils.isHwWallet({ walletId }) ||
+      accountUtils.isQrWallet({ walletId })
+    ) {
+      try {
+        const device = await this.backgroundApi.serviceAccount.getWalletDevice({
+          walletId,
+        });
+        return await deviceUtils.isBtcOnlyFirmware({
+          features: device?.featuresInfo,
+        });
+      } catch {
+        return false;
+      }
     }
-    try {
-      const device = await this.backgroundApi.serviceAccount.getWalletDevice({
-        walletId,
-      });
-      return await deviceUtils.isBtcOnlyFirmware({
-        features: device?.featuresInfo,
-      });
-    } catch {
-      return false;
-    }
+    return false;
   }
 
   @backgroundMethod()

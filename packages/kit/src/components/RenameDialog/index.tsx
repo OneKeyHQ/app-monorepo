@@ -117,6 +117,7 @@ export function RenameInputWithNameSelector({
     contentType: EChangeHistoryContentType.Name;
   };
 }) {
+  const intl = useIntl();
   const { result: shouldShowV4AccountNameSelector } =
     usePromiseResult(async () => {
       if (indexedAccount) {
@@ -158,6 +159,11 @@ export function RenameInputWithNameSelector({
           />
         ) : null}
       </Stack>
+      <Form.FieldDescription>
+        {intl.formatMessage({
+          id: ETranslations.account_name_form_helper_text,
+        })}
+      </Form.FieldDescription>
       {disabledMaxLengthLabel ? null : (
         <Form.FieldDescription textAlign="right">{`${value?.length || 0}/${
           maxLength ?? ''

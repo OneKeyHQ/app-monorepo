@@ -26,12 +26,14 @@ import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC'
 import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import type { SimpleDbEntityDeFi } from '../entity/SimpleDbEntityDeFi';
 import type { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import type { SimpleDbEntityEarnExtra } from '../entity/SimpleDbEntityEarnExtra';
 import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
 import type { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
+import type { SimpleDbEntityIpTable } from '../entity/SimpleDbEntityIpTable';
 import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
@@ -56,6 +58,7 @@ import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwa
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
+import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -270,4 +273,12 @@ export class SimpleDbProxy
   btcFreshAddressMeta = this._createProxyService(
     'btcFreshAddressMeta',
   ) as SimpleDbEntityBTCFreshAddressMeta;
+
+  walletStatus = this._createProxyService(
+    'walletStatus',
+  ) as SimpleDbEntityWalletStatus;
+
+  ipTable = this._createProxyService('ipTable') as SimpleDbEntityIpTable;
+
+  deFi = this._createProxyService('deFi') as SimpleDbEntityDeFi;
 }

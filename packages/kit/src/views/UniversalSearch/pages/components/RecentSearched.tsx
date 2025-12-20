@@ -119,7 +119,7 @@ export function RecentSearched({
             onPress={handlePress}
             item={i}
             searchType={i.type}
-            key={i.text}
+            key={i.id}
           />
         ))}
       </Stack>

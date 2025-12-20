@@ -1,7 +1,11 @@
 import { getSdkError } from '@walletconnect/utils';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { IMPL_ALGO, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_ALGO,
+  IMPL_COSMOS,
+  IMPL_EVM,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -17,6 +21,7 @@ import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types
 import walletConnectClient from '../../services/ServiceWalletConnect/walletConnectClient';
 
 import { WalletConnectRequestProxyAlgo } from './WalletConnectRequestProxyAlgo';
+import { WalletConnectRequestProxyCosmos } from './WalletConnectRequestProxyCosmos';
 import { WalletConnectRequestProxyEth } from './WalletConnectRequestProxyEth';
 
 import type {
@@ -42,6 +47,9 @@ class ProviderApiWalletConnect {
       client: this,
     }),
     [IMPL_ALGO]: new WalletConnectRequestProxyAlgo({
+      client: this,
+    }),
+    [IMPL_COSMOS]: new WalletConnectRequestProxyCosmos({
       client: this,
     }),
   };
@@ -139,6 +147,7 @@ class ProviderApiWalletConnect {
       proposal?.params?.requiredNamespaces,
     );
     const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
+
     const metadata = proposal.params.proposer.metadata;
     if (notSupportedChains.length > 0) {
       console.error(
@@ -297,7 +306,7 @@ class ProviderApiWalletConnect {
         requestProxy,
       });
       const ret = await requestProxy.request(
-        { sessionRequest: request },
+        { sessionRequest: request, wcChain: chain.wcChain },
         request.params.request,
       );
       console.log('====>onSessionRequest ret: ', ret);

@@ -159,6 +159,7 @@ class ServiceSend extends ServiceBase {
       signature,
       rawTxType,
       tronResourceRentalInfo,
+      useDefaultRpc,
     } = params;
 
     // check if the network has custom rpc
@@ -168,7 +169,8 @@ class ServiceSend extends ServiceBase {
       );
     let disableBroadcast: boolean | undefined;
     let txid = '';
-    if (customRpcInfo?.rpc && customRpcInfo?.enabled) {
+    // Use custom RPC only if it's enabled AND user hasn't chosen to use default RPC
+    if (customRpcInfo?.rpc && customRpcInfo?.enabled && !useDefaultRpc) {
       disableBroadcast = true;
       const vault = await vaultFactory.getVault({ accountId, networkId });
       const result = await vault.broadcastTransactionFromCustomRpc({
@@ -318,6 +320,7 @@ class ServiceSend extends ServiceBase {
       signOnly,
       rawTxType,
       tronResourceRentalInfo,
+      useDefaultRpc,
     } = params;
 
     const accountAddress =
@@ -361,6 +364,7 @@ class ServiceSend extends ServiceBase {
           signedTx,
           rawTxType,
           tronResourceRentalInfo,
+          useDefaultRpc,
         });
       };
 
@@ -444,6 +448,7 @@ class ServiceSend extends ServiceBase {
       transferPayload,
       successfullySentTxs,
       tronResourceRentalInfo,
+      useDefaultRpc,
     } = params;
 
     const isMultiTxs = unsignedTxs.length > 1;
@@ -470,6 +475,7 @@ class ServiceSend extends ServiceBase {
               accountId,
               signOnly: false,
               tronResourceRentalInfo,
+              useDefaultRpc,
             });
         const decodedTx = await this.buildDecodedTx({
           networkId,
@@ -681,6 +687,7 @@ class ServiceSend extends ServiceBase {
 
     newUnsignedTx.accountId = accountId;
     newUnsignedTx.networkId = networkId;
+    newUnsignedTx.indexedAccountId = account.indexedAccountId;
 
     return newUnsignedTx;
   }
@@ -831,11 +838,22 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     toAddress: string;
   }) {
+    // For BTC network with fresh address enabled, skip interaction check
+    let checkInteraction: boolean | undefined;
+    if (networkUtils.isBTCNetwork(networkId)) {
+      const enableBTCFreshAddress =
+        await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+      if (enableBTCFreshAddress) {
+        checkInteraction = false;
+      }
+    }
+
     const { isContract, isScam } =
       await this.backgroundApi.serviceAccountProfile.getAddressAccountBadge({
         networkId,
         fromAddress,
         toAddress,
+        checkInteraction,
       });
     if (isContract || isScam) {
       await new Promise<boolean>((resolve, reject) => {

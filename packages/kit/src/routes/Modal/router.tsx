@@ -2,7 +2,7 @@ import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
@@ -22,8 +22,10 @@ import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { ManualBackupRouter } from '../../views/ManualBackup/router';
 import { ModalMarketStack } from '../../views/Market/router';
+import { NetworkDoctorModalRouter } from '../../views/NetworkDoctor/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
+import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
 import { ModalPerpStack } from '../../views/Perp/router';
 import { PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
@@ -214,6 +216,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     name: EModalRoutes.SignAndVerifyModal,
     children: ModalSignAndVerifyRouter,
   },
+  {
+    name: EModalRoutes.NetworkDoctorModal,
+    children: NetworkDoctorModalRouter,
+  },
 ];
 
 // Pages in Dev Mode
@@ -227,7 +233,6 @@ if (platformEnv.isDev) {
 export const modalRouter = router;
 
 export const fullModalRouter = [
-  onboardingRouterConfig,
   {
     name: EModalRoutes.AppUpdateModal,
     children: AppUpdateRouter,
@@ -249,3 +254,25 @@ export const fullModalRouter = [
     children: ModalSignatureConfirmStack,
   },
 ];
+
+export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Routes>[] =
+  [
+    {
+      onMounted: () => {
+        console.log('OnboardingModal onMounted');
+      },
+      onUnmounted: async () => {
+        await v4migrationAtom.set((v) => ({
+          ...v,
+          isProcessing: false,
+          isMigrationModalOpen: false,
+        }));
+        console.log('OnboardingModal onUnmounted');
+        await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
+      },
+      name: EOnboardingV2Routes.OnboardingV2,
+      rewrite: '/onboarding',
+      exact: true,
+      children: OnboardingRouterV2,
+    },
+  ];

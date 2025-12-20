@@ -50,12 +50,14 @@ import {
 } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import { BTC_TX_PLACEHOLDER_VSIZE } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
+  BTCFreshAddressCanNotConnectDappError,
   InsufficientBalance,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -76,9 +78,11 @@ import type {
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
-import type {
-  IInternalDappTxParams,
-  IStakeTxBtcBabylon,
+import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+import {
+  EInternalDappEnum,
+  type IInternalDappTxParams,
+  type IStakeTxBtcBabylon,
 } from '@onekeyhq/shared/types/staking';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
@@ -873,7 +877,44 @@ export default class VaultBtc extends VaultBase {
 
     const isBatchTransfer = transfersInfo.length > 1;
 
-    const { utxoList: utxosInfo } = await this._collectUTXOsInfoByApi();
+    let { utxoList: utxosInfo } = await this._collectUTXOsInfoByApi();
+
+    // Coin Control: Filter UTXOs if manually selected
+    const selectedUtxoKeys = transfersInfo[0]?.selectedUtxoKeys;
+    const utxoSelectionStrategy =
+      transfersInfo[0]?.utxoSelectionStrategy ?? EUtxoSelectionStrategy.Default;
+    const totalUtxoCount = utxosInfo.length;
+
+    const hasSelectedUtxos = selectedUtxoKeys && selectedUtxoKeys.length > 0;
+    if (hasSelectedUtxos) {
+      const selectedKeysSet = new Set(selectedUtxoKeys);
+      utxosInfo = utxosInfo.filter((utxo) => {
+        const utxoKey = `${utxo.txid}:${utxo.vout}`;
+        return selectedKeysSet.has(utxoKey);
+      });
+
+      if (utxosInfo.length === 0) {
+        throw new InsufficientBalance({
+          info: {
+            symbol: network.symbol,
+          },
+        });
+      }
+
+      defaultLogger.transaction.send.coinControlSelected({
+        network: network.id,
+        selectedUtxoCount: utxosInfo.length,
+        totalUtxoCount,
+        selectedUtxoKeys,
+      });
+    }
+
+    // Determine if UTXOs should be marked as required (must be used)
+    // ForceSelected: all selected UTXOs must be included in the transaction
+    // Default: coin selector algorithm decides which UTXOs to use
+    const forceUseAllSelectedUtxos =
+      hasSelectedUtxos &&
+      utxoSelectionStrategy === EUtxoSelectionStrategy.ForceSelected;
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
@@ -894,6 +935,7 @@ export default class VaultBtc extends VaultBase {
         address,
         path,
         confirmations,
+        required: forceUseAllSelectedUtxos ? true : undefined,
       }),
     );
 
@@ -972,6 +1014,24 @@ export default class VaultBtc extends VaultBase {
       changeAddress,
       txType,
     });
+
+    if (hasSelectedUtxos) {
+      console.log('Coin Control: Coin selection result', {
+        inputs,
+        outputs,
+        fee,
+        bytes,
+        strategy: utxoSelectionStrategy,
+      });
+      defaultLogger.transaction.send.coinControlResult({
+        network: network.id,
+        inputCount: inputs?.length,
+        outputCount: outputs?.length,
+        fee,
+        txSize: bytes,
+        strategy: utxoSelectionStrategy,
+      });
+    }
 
     return {
       inputs,
@@ -1128,20 +1188,9 @@ export default class VaultBtc extends VaultBase {
     return lookup;
   }
 
-  _collectUTXOsInfoByApi = memoizee(
-    async () => {
+  _collectUTXOsInfoByApiWithCache = memoizee(
+    async (withCheckInscription: boolean) => {
       try {
-        const inscriptionProtection =
-          await this.backgroundApi.serviceSetting.getInscriptionProtection();
-        const checkInscriptionProtectionEnabled =
-          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
-            {
-              networkId: this.networkId,
-              accountId: this.accountId,
-            },
-          );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && inscriptionProtection;
         const { utxoList, frozenUtxoList, allUtxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
@@ -1149,6 +1198,7 @@ export default class VaultBtc extends VaultBase {
             withUTXOList: true,
             withFrozenBalance: true,
             withCheckInscription,
+            withUTXOBlockTime: true,
           });
         if (!utxoList) {
           throw new OneKeyInternalError(
@@ -1172,6 +1222,21 @@ export default class VaultBtc extends VaultBase {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
     },
   );
+
+  async _collectUTXOsInfoByApi() {
+    const inscriptionProtection =
+      await this.backgroundApi.serviceSetting.getInscriptionProtection();
+    const checkInscriptionProtectionEnabled =
+      await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+        {
+          networkId: this.networkId,
+          accountId: this.accountId,
+        },
+      );
+    const withCheckInscription =
+      checkInscriptionProtectionEnabled && inscriptionProtection;
+    return this._collectUTXOsInfoByApiWithCache(withCheckInscription);
+  }
 
   async _getRelPathsToAddressByApi({
     addresses, // addresses in tx.inputs
@@ -1397,7 +1462,7 @@ export default class VaultBtc extends VaultBase {
         )
       ) {
         throw new OneKeyInternalError({
-          key: ETranslations.feedback_unable_to_send_frozen_balance,
+          key: ETranslations.feedback_unable_to_send_protected_ordinals,
         });
       }
     }
@@ -1471,6 +1536,11 @@ export default class VaultBtc extends VaultBase {
   override async buildInternalDappEncodedTx(
     params: IInternalDappTxParams,
   ): Promise<IEncodedTxBtc> {
+    if (params.internalDappType === EInternalDappEnum.Staking) {
+      if (await this.isEnabledBtcFreshAddress()) {
+        throw new BTCFreshAddressCanNotConnectDappError();
+      }
+    }
     const { psbtHex } = params.internalDappTx as IStakeTxBtcBabylon;
     const network = await this.getNetwork();
     const formattedPsbtHex = formatPsbtHex(psbtHex);
@@ -1653,7 +1723,13 @@ export default class VaultBtc extends VaultBase {
     }
 
     const { enableBTCFreshAddress } = await settingsPersistAtom.get();
-    if (!enableBTCFreshAddress) {
+    if (
+      !accountUtils.isEnabledBtcFreshAddress({
+        networkId,
+        walletId: this.walletId,
+        enableBTCFreshAddress,
+      })
+    ) {
       return fallback;
     }
 
@@ -1757,21 +1833,85 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
+  public async deriveAddressesByPaths({
+    dbAccount,
+    paths,
+  }: {
+    dbAccount: IDBUtxoAccount;
+    paths: string[];
+  }): Promise<Record<string, string>> {
+    if (!paths.length) {
+      return {};
+    }
+
+    const deriveXpub = dbAccount.xpub;
+    if (!deriveXpub) {
+      throw new OneKeyInternalError('Account xpub not found');
+    }
+
+    const uniquePaths = Array.from(new Set(paths.filter(Boolean)));
+    if (!uniquePaths.length) {
+      return {};
+    }
+
+    const { encoding } = await this.validateAddress(dbAccount.address);
+    const result: Record<string, string> = {};
+
+    // Sequentially derive addresses to reuse memoized cache and surface errors deterministically.
+    for (const path of uniquePaths) {
+      const derivationPath = checkIfValidPath(path);
+      const pathSegments = derivationPath.split('/');
+      if (pathSegments.length < 6) {
+        throw new OneKeyInternalError(
+          'Receive address path invalid, please contact support.',
+        );
+      }
+
+      const relativePath = `${pathSegments[4]}/${pathSegments[5]}`;
+      // reuse memoized helper to benefit from caching across calls
+      const derivedAddress = await this.memoizedDeriveReceiveAddress({
+        deriveXpub,
+        fullPath: derivationPath,
+        relativePath,
+        addressEncoding: encoding,
+        networkId: this.networkId,
+        accountAddress: dbAccount.address,
+      });
+
+      result[path] = derivedAddress;
+    }
+
+    return result;
+  }
+
   private async getChangeAddress({ dbAccount }: { dbAccount: IDBUtxoAccount }) {
     const fallbackAddress =
       (dbAccount as INetworkAccount).addressDetail.masterAddress ||
       dbAccount.address;
     const fallback = {
       address: fallbackAddress,
-      path: checkIfValidPath(getBIP44Path(dbAccount, fallbackAddress)),
+      path: getBIP44Path(
+        dbAccount,
+        fallbackAddress,
+        !(
+          accountUtils.isImportedAccount({
+            accountId: dbAccount.id,
+          }) ||
+          accountUtils.isWatchingAccount({
+            accountId: dbAccount.id,
+          })
+        ),
+      ),
     };
 
-    const isHwOrHdWallet =
-      accountUtils.isHwWallet({ walletId: this.walletId }) ||
-      accountUtils.isHdWallet({ walletId: this.walletId });
     const isEnabledBtcFreshAddress = await this.isEnabledBtcFreshAddress();
-    const isBTCNetwork = networkUtils.isBTCNetwork(this.networkId);
-    if (!isHwOrHdWallet || !isEnabledBtcFreshAddress || !isBTCNetwork) {
+    if (
+      !accountUtils.isEnabledBtcFreshAddress({
+        enableBTCFreshAddress: isEnabledBtcFreshAddress,
+        networkId: this.networkId,
+        walletId: this.walletId,
+      })
+    ) {
       return fallback;
     }
 

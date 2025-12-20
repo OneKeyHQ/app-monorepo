@@ -40,8 +40,6 @@ export const PERPS_EMPTY_ADDRESS =
 
 // 'id': 'evm--42161',
 export const PERPS_NETWORK_ID: string = presetNetworksMap.arbitrum.id;
-export const PERPS_ARB_USDC_ADDRESS =
-  '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
 export const PERPS_ETH_NETWORK_ID: string = presetNetworksMap.eth.id;
 // 'chainId': '42161',
 export const PERPS_EVM_CHAIN_ID_NUM: string =
@@ -59,3 +57,27 @@ export const PERPS_USER_FILLS_TIME_RANGE = timerUtils.getTimeDurationMs({
 });
 
 export const PERPS_HISTORY_FILLS_URL = 'https://hypurrscan.io/address/';
+
+/**
+ * Filtered transaction types in account ledger history
+ *
+ * These types are not displayed in the Account tab because:
+ * - spotTransfer: Spot account transfers, not relevant to Perp account balance
+ * - vaultDeposit/vaultWithdraw/vaultDistribution: Vault operations, not direct user actions
+ * - vaultLeaderCommission: Vault leader commission, automatic distribution
+ * - spotGenesis: System initialization, not user operations
+ * - cStakingTransfer: C-Staking transfers, not Perp account operations
+ */
+export const PERPS_FILTERED_LEDGER_TYPES = new Set<string>([
+  'spotTransfer',
+  'vaultDistribution',
+  'vaultWithdraw',
+  'vaultDeposit',
+  'spotGenesis',
+  'cStakingTransfer',
+  'vaultLeaderCommission',
+  'rewardsClaim',
+]);
+
+// Disable wallet binding on perps page
+export const DISABLE_PERPS_WALLET_BIND = false;

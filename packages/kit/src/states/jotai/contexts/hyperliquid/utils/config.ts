@@ -5,57 +5,39 @@ import { EActionType, EErrorType } from './types';
 
 import type { IToastConfig } from './types';
 
+const t = (id: ETranslations) => () => appLocale.intl.formatMessage({ id });
+
 export const ERROR_PATTERNS: Record<EErrorType, string[]> = {
   [EErrorType.INVALID_AGENT]: ['User or API Wallet', 'does not exist'],
 };
 
-export const ERROR_MESSAGES: Record<EErrorType, string> = {
-  [EErrorType.INVALID_AGENT]: appLocale.intl.formatMessage({
-    id: ETranslations.perp_error_enable,
-  }),
+export const ERROR_MESSAGES: Record<EErrorType, () => string> = {
+  [EErrorType.INVALID_AGENT]: t(ETranslations.perp_error_enable),
 };
 
 export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   [EActionType.PLACE_ORDER]: {
-    loading: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_opening_order,
-    }),
-    successTitle: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_order_submitted,
-    }),
+    loading: t(ETranslations.perp_toast_opening_order),
+    successTitle: t(ETranslations.perp_toast_order_submitted),
   },
 
   [EActionType.ORDER_OPEN]: {
-    loading: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_placing_order,
-    }),
-    successTitle: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_order_submitted,
-    }),
+    loading: t(ETranslations.perp_toast_placing_order),
+    successTitle: t(ETranslations.perp_toast_order_submitted),
   },
 
   [EActionType.ORDERS_CLOSE]: {
-    loading: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_closing_position,
-    }),
-    successTitle: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_order_submitted,
-    }),
+    loading: t(ETranslations.perp_toast_closing_position),
+    successTitle: t(ETranslations.perp_toast_order_submitted),
   },
 
   [EActionType.LIMIT_ORDER_CLOSE]: {
-    loading: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_placing_limit_close,
-    }),
-    successTitle: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_placing_limit_close_submit,
-    }),
+    loading: t(ETranslations.perp_toast_placing_limit_close),
+    successTitle: t(ETranslations.perp_toast_placing_limit_close_submit),
   },
 
   [EActionType.UPDATE_LEVERAGE]: {
-    loading: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_upadating_leverage,
-    }),
+    loading: t(ETranslations.perp_toast_upadating_leverage),
     successTitle: (mode: string) =>
       appLocale.intl.formatMessage(
         {
@@ -92,21 +74,13 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   },
 
   [EActionType.UPDATE_ISOLATED_MARGIN]: {
-    loading: appLocale.intl.formatMessage({
-      id: ETranslations.perp_trading_adjust_margin_update,
-    }),
-    successTitle: appLocale.intl.formatMessage({
-      id: ETranslations.perp_trading_adjust_margin_updated,
-    }),
+    loading: t(ETranslations.perp_trading_adjust_margin_update),
+    successTitle: t(ETranslations.perp_trading_adjust_margin_updated),
   },
 
   [EActionType.SET_POSITION_TPSL]: {
-    loading: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_setting_tp_sl,
-    }),
-    successTitle: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_setting_tp_sl_sucess,
-    }),
+    loading: t(ETranslations.perp_toast_setting_tp_sl),
+    successTitle: t(ETranslations.perp_toast_setting_tp_sl_sucess),
   },
 
   [EActionType.CANCEL_ORDER]: {
@@ -117,18 +91,12 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
         },
         { count },
       ),
-    successTitle: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_canceling_order_sucess,
-    }),
+    successTitle: t(ETranslations.perp_toast_canceling_order_sucess),
   },
 
   [EActionType.WITHDRAW]: {
-    loading: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_withdraw_loading,
-    }),
-    successTitle: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_withdraw_success,
-    }),
+    loading: t(ETranslations.perp_toast_withdraw_loading),
+    successTitle: t(ETranslations.perp_toast_withdraw_success),
     successMessage: (amount: string) =>
       appLocale.intl.formatMessage(
         {

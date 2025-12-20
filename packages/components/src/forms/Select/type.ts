@@ -26,6 +26,7 @@ export interface ISelectItem {
   value: string | number | boolean | undefined;
   leading?: ListItemProps['icon'];
   description?: string;
+  disabled?: boolean;
 }
 
 export interface ISelectItemProps extends ISelectItem {

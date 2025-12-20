@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import {
   Accordion,
@@ -7,8 +7,16 @@ import {
   SizableText,
   Stack,
 } from '@onekeyhq/components';
-import { exportLogs } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  collectLogDigest,
+  exportLogs,
+  uploadLogBundle,
+} from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -17,9 +25,41 @@ import LoggingConfigCheckbox from './LoggerConfigGallery';
 import { Layout } from './utils/Layout';
 
 const LoggerDemo = () => {
+  useEffect(() => {
+    const handler = ({ stage, progressPercent, message }: any) => {
+      console.log(
+        '[LoggerDemo][upload-progress]',
+        stage,
+        progressPercent,
+        message,
+      );
+    };
+    appEventBus.on(EAppEventBusNames.ClientLogUploadProgress, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ClientLogUploadProgress, handler);
+    };
+  }, []);
+
   const downloadLog = useCallback(() => {
     void exportLogs('onekey_logs');
   }, []);
+
+  const uploadLog = useCallback(async () => {
+    const digest = await collectLogDigest('onekey_logs');
+    console.log('Log Digest:', digest);
+    const token = await backgroundApiProxy.serviceLogger.requestUploadToken({
+      sizeBytes: digest.sizeBytes,
+      sha256: digest.sha256,
+    });
+    console.log('Upload token:', token);
+
+    const res = await uploadLogBundle({
+      uploadToken: token.uploadToken,
+      digest,
+    });
+    console.log('Upload result:', res);
+  }, []);
+
   return (
     <Stack gap="$2">
       <Accordion
@@ -106,6 +146,7 @@ const LoggerDemo = () => {
               Log Browser Tabs
             </Button>
             <Button onPress={downloadLog}>Download Log</Button>
+            <Button onPress={uploadLog}>Upload Log</Button>
             <Button
               onPress={() => {
                 console.log(
@@ -130,6 +171,30 @@ const LoggerDemo = () => {
           </Accordion.Content>
         </Accordion.Item>
       </Accordion>
+      <Button onPress={uploadLog}>Upload Log</Button>
+      <Button
+        onPress={() => {
+          alert(
+            JSON.stringify(
+              {
+                isWebDappMode: platformEnv.isWebDappMode,
+              },
+              null,
+              2,
+            ),
+          );
+        }}
+      >
+        Show PlatformEnv
+      </Button>
+      <Button
+        onPress={async () => {
+          const res = await backgroundApiProxy.serviceDemo.demoGetPlatformEnv();
+          alert(JSON.stringify(res, null, 2));
+        }}
+      >
+        Show PlatformEnv(bg)
+      </Button>
     </Stack>
   );
 };

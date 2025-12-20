@@ -256,13 +256,17 @@ class ProviderApiPolkadot extends ProviderApiBase {
     const vaultSettings = await getVaultSettings({
       networkId: accountInfo?.networkId ?? '',
     });
-    const { genesisHash } =
-      vaultSettings.networkInfo[accountInfo?.networkId ?? ''];
 
-    if (
-      genesisHash &&
-      genesisHash.toLowerCase() !== params.genesisHash?.toLowerCase()
-    ) {
+    let networkKeyRes;
+    for (const networkInfo of Object.keys(vaultSettings.networkInfo)) {
+      const { genesisHash } = vaultSettings.networkInfo[networkInfo];
+      if (genesisHash?.toLowerCase() === params.genesisHash?.toLowerCase()) {
+        networkKeyRes = networkInfo;
+        break;
+      }
+    }
+
+    if (!networkKeyRes) {
       throw web3Errors.provider.custom({
         code: 4002,
         message: 'network not supported',
@@ -281,7 +285,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
         encodedTx: encodeTx,
         signOnly: true,
         accountId: account.id,
-        networkId: accountInfo?.networkId ?? '',
+        networkId: networkKeyRes ?? '',
       });
 
     return Promise.resolve({
