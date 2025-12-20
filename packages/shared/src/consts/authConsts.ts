@@ -111,3 +111,5 @@ export const SUPABASE_PUBLIC_API_KEY =
 // https://supabase.com/dashboard/project/_/auth/providers
 // Supabase OAuth Redirect URIs
 // https://supabase.com/dashboard/project/_/auth/url-configuration
+// Supabase DOCS
+// - https://supabase.com/docs/guides/auth/social-login/auth-google

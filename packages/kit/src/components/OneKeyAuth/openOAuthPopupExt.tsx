@@ -15,13 +15,13 @@ import {
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { createTemporarySupabaseClient } from './supabase/getSupabaseClient';
 
 import type {
   IExtensionOAuthConfig,
   IHandleOAuthSessionPersistenceParams,
   IOAuthPopupResult,
 } from './openOAuthPopupTypes';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 // ============================================================================
 // Extension OAuth Methods
@@ -83,13 +83,14 @@ export function getOAuthRedirectUrlExt(
  * @returns Promise with success status and session tokens
  */
 export async function openOAuthPopupExtIdentity(options: {
+  client: SupabaseClient;
   config: IExtensionOAuthConfig;
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
   persistSession: boolean;
 }): Promise<IOAuthPopupResult> {
-  const { config, handleSessionPersistence, persistSession } = options;
+  const { client, config, handleSessionPersistence, persistSession } = options;
   const { googleClientId, scopes = GOOGLE_OAUTH_DEFAULT_SCOPES } = config;
 
   if (!chrome.identity) {
@@ -217,7 +218,7 @@ export async function openOAuthPopupExtIdentity(options: {
     // Pass raw nonce to Supabase (not hashed)
     // Use a temporary client that doesn't persist sessions automatically
     // This allows us to get the session data without persisting it automatically
-    const tempClient = createTemporarySupabaseClient();
+    const tempClient = client;
     const { data, error } = await tempClient.auth.signInWithIdToken({
       provider: 'google',
       token: idToken,

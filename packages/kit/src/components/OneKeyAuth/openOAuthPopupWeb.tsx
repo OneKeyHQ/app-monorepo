@@ -3,8 +3,6 @@ import {
   OAUTH_POLL_INTERVAL_MS,
   OAUTH_POPUP_HEIGHT,
   OAUTH_POPUP_WIDTH,
-  OAUTH_TOKEN_KEY_ACCESS_TOKEN,
-  OAUTH_TOKEN_KEY_REFRESH_TOKEN,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -24,6 +22,26 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  */
 export function getOAuthRedirectUrlWeb(): string {
   return `${globalThis.location?.origin || ''}/auth/callback`;
+}
+
+// Focus the popup window to bring it to front, with error handling
+function focusPopup(win: Window | null) {
+  try {
+    win?.focus();
+  } catch (e) {
+    // Focusing may fail (e.g., popup not allowed or browser restrictions)
+    // We silently ignore the error as it does not affect auth flow
+  }
+}
+
+// Close the popup window safely, with error handling
+function closePopup(win: Window | null) {
+  try {
+    win?.close();
+  } catch (e) {
+    // Closing may fail (e.g., popup already closed or browser restrictions)
+    // We silently ignore the error as the popup is either already closed or inaccessible
+  }
 }
 
 /**
@@ -73,13 +91,12 @@ export async function openOAuthPopupWeb(options: {
       return;
     }
 
-    // Focus the popup window to bring it to front
-    popup.focus();
+    focusPopup(popup);
 
-    // Poll for popup close and check for auth tokens
+    // Poll for popup close and check for auth code (PKCE flow)
     const pollInterval = setInterval(async () => {
       try {
-        popup.focus();
+        focusPopup(popup);
         // Check if popup is closed
         if (popup.closed) {
           clearInterval(pollInterval);
@@ -103,40 +120,55 @@ export async function openOAuthPopupWeb(options: {
           return;
         }
 
-        // Try to read the popup URL to check for callback
+        // Try to read the popup URL to check for callback with authorization code
         try {
           const popupUrl = popup.location.href;
-          if (
-            popupUrl &&
-            popupUrl.includes(`${OAUTH_TOKEN_KEY_ACCESS_TOKEN}=`)
-          ) {
+          // PKCE flow: check for 'code' parameter in URL (not access_token)
+          if (popupUrl && popupUrl.includes('code=')) {
             clearInterval(pollInterval);
-            popup.close();
+            closePopup(popup);
 
-            // Parse tokens from URL
+            // Parse authorization code from URL query string
             const url = new URL(popupUrl);
-            const hashParams = new URLSearchParams(
-              url.hash.substring(1) || url.search.substring(1),
-            );
+            const code = url.searchParams.get('code');
 
-            const accessToken = hashParams.get(OAUTH_TOKEN_KEY_ACCESS_TOKEN);
-            const refreshToken = hashParams.get(OAUTH_TOKEN_KEY_REFRESH_TOKEN);
+            if (code) {
+              // Exchange authorization code for session tokens using PKCE
+              // The Supabase client automatically uses the stored code_verifier
+              const { data, error } = await client.auth.exchangeCodeForSession(
+                code,
+              );
 
-            if (accessToken && refreshToken) {
-              await handleSessionPersistence({
-                accessToken,
-                refreshToken,
-                persistSession,
-                loginToPrime: false, // openOAuthPopupWeb doesn't handle Prime login
-              });
+              if (error) {
+                reject(new OneKeyLocalError(error.message));
+                return;
+              }
 
-              resolve({
-                success: true,
-                session: {
+              const session = data.session;
+              if (session) {
+                const accessToken = session.access_token;
+                const refreshToken = session.refresh_token;
+
+                await handleSessionPersistence({
                   accessToken,
                   refreshToken,
-                },
-              });
+                  persistSession,
+                  loginToPrime: false, // openOAuthPopupWeb doesn't handle Prime login
+                });
+
+                resolve({
+                  success: true,
+                  session: {
+                    accessToken,
+                    refreshToken,
+                  },
+                });
+              } else {
+                resolve({
+                  success: false,
+                  session: undefined,
+                });
+              }
             } else {
               resolve({
                 success: false,
@@ -149,7 +181,7 @@ export async function openOAuthPopupWeb(options: {
         }
       } catch (error) {
         clearInterval(pollInterval);
-        popup.close();
+        closePopup(popup);
         reject(error);
       }
     }, OAUTH_POLL_INTERVAL_MS);
@@ -158,7 +190,7 @@ export async function openOAuthPopupWeb(options: {
     setTimeout(() => {
       clearInterval(pollInterval);
       if (popup && !popup.closed) {
-        popup.close();
+        closePopup(popup);
       }
       resolve({
         success: false,

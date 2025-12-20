@@ -36,10 +36,13 @@ import {
   openOAuthPopupWeb,
 } from '../openOAuthPopupWeb';
 
-import { getSupabaseClient } from './getSupabaseClient';
+import {
+  createTemporarySupabaseClient,
+  getSupabaseClient,
+} from './getSupabaseClient';
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
-import type { AuthResponse } from '@supabase/supabase-js';
+import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
 
 // Helper function to handle OAuth session persistence
 // This function is called after successfully extracting tokens from OAuth callback
@@ -80,17 +83,6 @@ export function useSupabaseAuth() {
 
   void supabaseUser?.id;
 
-  const signOut = useCallback(async () => {
-    const res = await getSupabaseClient().client.auth.signOut({
-      scope: 'local',
-    });
-    console.log('useSupabaseAuth_signOut', res);
-    if (res.error) {
-      console.error('Error signing out:', res.error);
-    }
-    return res;
-  }, []);
-
   // ============ OAuth Sign In Methods ============
 
   const performOAuthSignIn = useCallback(
@@ -110,6 +102,7 @@ export function useSupabaseAuth() {
       };
     }> => {
       const { persistSession = false } = options ?? {};
+      const clientTemp: SupabaseClient = createTemporarySupabaseClient();
 
       // For extension with CHROME_IDENTITY_API or CHROME_GET_AUTH_TOKEN methods,
       // we don't need Supabase OAuth URL - these methods build their own Google OAuth URL
@@ -122,6 +115,7 @@ export function useSupabaseAuth() {
           // Use launchWebAuthFlow + signInWithIdToken (Supabase recommended)
           // This method builds its own Google OAuth URL with response_type=id_token
           return openOAuthPopupExtIdentity({
+            client: clientTemp,
             config: { googleClientId: GOOGLE_CHROME_EXTENSION_CLIENT_ID },
             handleSessionPersistence: handleOAuthSessionPersistence,
             persistSession,
@@ -155,21 +149,20 @@ export function useSupabaseAuth() {
         redirectTo = getOAuthRedirectUrlWeb();
       }
 
-      const oauthUrlResult =
-        await getSupabaseClient().client.auth.signInWithOAuth({
-          provider,
-          options: {
-            skipBrowserRedirect: true,
-            redirectTo,
-            queryParams: {
-              // Google OAuth prompt options:
-              // - select_account: Force show account picker (let user choose which account to use)
-              // - consent: Force show authorization consent screen (re-request permissions)
-              // Combined: Show both account picker and consent screen
-              prompt: 'select_account', // 'select_account consent'  'select_account'
-            },
+      const oauthUrlResult = await clientTemp.auth.signInWithOAuth({
+        provider,
+        options: {
+          skipBrowserRedirect: true,
+          redirectTo,
+          queryParams: {
+            // Google OAuth prompt options:
+            // - select_account: Force show account picker (let user choose which account to use)
+            // - consent: Force show authorization consent screen (re-request permissions)
+            // Combined: Show both account picker and consent screen
+            prompt: 'select_account', // 'select_account consent'  'select_account'
           },
-        });
+        },
+      });
 
       if (oauthUrlResult.error) {
         throw new OneKeyLocalError(oauthUrlResult.error.message);
@@ -197,6 +190,7 @@ export function useSupabaseAuth() {
         ) {
           return openOAuthPopupDesktopLocalhost({
             authUrl,
+            client: clientTemp,
             handleSessionPersistence: handleOAuthSessionPersistence,
             persistSession,
           });
@@ -227,7 +221,7 @@ export function useSupabaseAuth() {
       // Open OAuth popup window for web
       const popupResult = await openOAuthPopupWeb({
         authUrl,
-        client: getSupabaseClient().client,
+        client: clientTemp,
         handleSessionPersistence: handleOAuthSessionPersistence,
         persistSession,
       });
@@ -364,6 +358,17 @@ export function useSupabaseAuth() {
   );
 
   // ============ Session Management Methods ============
+
+  const signOut = useCallback(async () => {
+    const res = await getSupabaseClient().client.auth.signOut({
+      scope: 'local',
+    });
+    console.log('useSupabaseAuth_signOut', res);
+    if (res.error) {
+      console.error('Error signing out:', res.error);
+    }
+    return res;
+  }, []);
 
   const getAccessToken = useCallback(async () => {
     const res = await getSupabaseClient().client.auth.getSession();

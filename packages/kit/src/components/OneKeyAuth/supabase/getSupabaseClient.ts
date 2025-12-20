@@ -26,6 +26,7 @@ export function getSupabaseClient() {
           autoRefreshToken: true,
           persistSession: true,
           detectSessionInUrl: false,
+          flowType: 'pkce', // Use PKCE flow for better security - tokens are never exposed in URL
         },
       },
     );
@@ -49,6 +50,7 @@ export function createTemporarySupabaseClient() {
         autoRefreshToken: false,
         persistSession: false, // Don't persist session automatically
         detectSessionInUrl: false,
+        flowType: 'pkce', // Use PKCE flow for better security - tokens are never exposed in URL
       },
     },
   );

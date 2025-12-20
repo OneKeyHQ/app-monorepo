@@ -11,39 +11,42 @@ import type {
   IHandleOAuthSessionPersistenceParams,
   IOAuthPopupResult,
 } from './openOAuthPopupTypes';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * OAuth helper for Desktop (Electron) platform using localhost HTTP server
  * with Supabase OAuth redirecting back to localhost (fixed port range).
  *
- * This method uses Supabase as the OAuth intermediary:
- * Google -> Supabase -> localhost callback (tokens in URL hash)
+ * This method uses Supabase as the OAuth intermediary with PKCE flow:
+ * Google -> Supabase -> localhost callback (authorization code in URL query)
  *
  * How it works:
  * 1. Main process starts a localhost HTTP server on a fixed port range
  * 2. Renderer opens Supabase OAuth URL in system browser (skipBrowserRedirect=true)
- * 3. Supabase handles Google OAuth and exchanges code on server side
- * 4. Supabase redirects back to localhost callback with tokens in URL hash
- * 5. Main process extracts tokens and sends them to renderer via IPC
- * 6. Renderer persists session via Supabase client auth.setSession
+ * 3. Supabase handles Google OAuth and redirects back with authorization code
+ * 4. Main process extracts code from URL query and sends it to renderer via IPC
+ * 5. Renderer exchanges code for session tokens using Supabase client
+ * 6. Renderer persists session via handleSessionPersistence
  *
  * Supabase Configuration:
  * - Add Redirect URLs (fixed port range)
  *
  * @param options - Configuration options
  * @param options.authUrl - Supabase OAuth URL (skipBrowserRedirect=true)
+ * @param options.client - Supabase client instance for exchanging code
  * @param options.handleSessionPersistence - Function to handle session persistence
  * @param options.persistSession - Whether to persist the session
  * @returns Promise with success status and session tokens
  */
 export async function openOAuthPopupDesktopLocalhost(options: {
   authUrl: string;
+  client: SupabaseClient;
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
   persistSession: boolean;
 }): Promise<IOAuthPopupResult> {
-  const { authUrl, handleSessionPersistence, persistSession } = options;
+  const { authUrl, client, handleSessionPersistence, persistSession } = options;
 
   // Check if desktopApiProxy is available
   if (!platformEnv.isDesktop || !globalThis.desktopApiProxy?.oauthLocalServer) {
@@ -60,13 +63,11 @@ export async function openOAuthPopupDesktopLocalhost(options: {
         let dialogClosed = false;
         let waitingDialog: IDialogInstance | null = null;
 
-        // Listen for callback with tokens (access_token / refresh_token) via IPC
+        // Listen for callback with authorization code via IPC (PKCE flow)
         const handleCallback = async (
           _event: Electron.IpcRendererEvent,
           data: {
-            accessToken?: string;
-            refreshToken?: string;
-            idToken?: string;
+            code?: string;
           },
         ) => {
           if (settled) {
@@ -84,13 +85,31 @@ export async function openOAuthPopupDesktopLocalhost(options: {
           try {
             dialogClosed = true;
             await Promise.resolve(waitingDialog?.close());
-            const accessToken = data.accessToken;
-            const refreshToken = data.refreshToken;
+            const code = data.code;
 
-            if (!accessToken || !refreshToken) {
+            if (!code) {
               resolve({ success: false, session: undefined });
               return;
             }
+
+            // Exchange authorization code for session tokens using PKCE
+            // The Supabase client automatically uses the stored code_verifier
+            const { data: exchangeData, error } =
+              await client.auth.exchangeCodeForSession(code);
+
+            if (error) {
+              reject(new OneKeyLocalError(error.message));
+              return;
+            }
+
+            const session = exchangeData.session;
+            if (!session) {
+              resolve({ success: false, session: undefined });
+              return;
+            }
+
+            const accessToken = session.access_token;
+            const refreshToken = session.refresh_token;
 
             // Handle session persistence
             await handleSessionPersistence({

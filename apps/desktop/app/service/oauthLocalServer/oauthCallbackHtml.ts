@@ -69,28 +69,27 @@ export const OAUTH_CALLBACK_SUCCESS_HTML = `<!DOCTYPE html>
     <script>
       ${OAUTH_CALLBACK_CLOSE_SCRIPT}
 
-      // Extract tokens from URL hash
-      const hash = window.location.hash.substring(1);
-      const params = new URLSearchParams(hash);
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
-      const idToken = params.get('id_token');
-      // Clear URL hash ASAP to avoid leaking tokens in the address bar.
-      clearUrlHash();
+      // PKCE flow: Extract authorization code from URL query string
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      // Clear URL query ASAP to avoid leaking code in the address bar.
+      try {
+        history.replaceState(null, document.title, window.location.pathname);
+      } catch (e) {}
 
-      if (accessToken && refreshToken) {
-        // Send tokens to local server endpoint
+      if (code) {
+        // Send authorization code to local server endpoint
         fetch('/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accessToken, refreshToken, idToken }),
+          body: JSON.stringify({ code }),
         }).then(() => {
           setTimeout(tryClose, 1500);
         }).catch(() => {
           setTimeout(tryClose, 1500);
         });
       } else {
-        // No tokens found, close window
+        // No code found, close window
         setTimeout(tryClose, 1500);
       }
     </script>

@@ -83,10 +83,16 @@ function getChromiumBinsForLinux(appName: string): string[] {
   ];
 }
 
+const shouldOpenChromeAppWindow = false;
 function tryOpenChromeAppWindow(url: string): boolean {
   const width = OAUTH_POPUP_WIDTH;
   const height = OAUTH_POPUP_HEIGHT;
-  const commonArgs = [`--app=${url}`, `--window-size=${width},${height}`];
+  // Note: --window-size must come BEFORE --app, and --new-window helps when Chrome is already running
+  const commonArgs = [
+    // '--new-window',
+    `--window-size=${width},${height}`,
+    `--app=${url}`,
+  ];
 
   try {
     const handlerName = getDefaultBrowserNameForUrl(url);
@@ -194,9 +200,9 @@ export async function startOAuthServer(): Promise<{ port: number }> {
       oauthServer = createServer((req, res) => {
         const url = new URL(req.url || '/', 'http://localhost');
 
-        // Handle callback from OAuth (Supabase redirects back to localhost with tokens in URL hash)
+        // Handle callback from OAuth (Supabase redirects back to localhost with authorization code in URL query)
         if (url.pathname === '/callback') {
-          // Tokens are in URL hash (not sent to server), so we return HTML with JS to extract them.
+          // PKCE flow: authorization code is in URL query string (not hash)
           const error = url.searchParams.get('error');
 
           if (error) {
@@ -208,38 +214,27 @@ export async function startOAuthServer(): Promise<{ port: number }> {
             return;
           }
 
-          // Return HTML page that extracts tokens from URL hash and sends to server
+          // Return HTML page that extracts code from URL query and sends to server
           res.writeHead(200, {
             'Content-Type': 'text/html; charset=utf-8',
           });
           res.end(OAUTH_CALLBACK_SUCCESS_HTML);
         } else if (url.pathname === '/complete' && req.method === 'POST') {
-          // Receive tokens from browser JS
+          // Receive authorization code from browser JS
           let body = '';
           req.on('data', (chunk) => {
             body += (chunk as Buffer).toString();
           });
           req.on('end', () => {
             try {
-              const { accessToken, refreshToken, idToken } = JSON.parse(
-                body,
-              ) as {
-                accessToken: string;
-                refreshToken: string;
-                idToken?: string;
+              const { code } = JSON.parse(body) as {
+                code: string;
               };
 
-              if (
-                accessToken &&
-                refreshToken &&
-                mainWindow &&
-                !mainWindow.isDestroyed()
-              ) {
-                // Send tokens to renderer process
+              if (code && mainWindow && !mainWindow.isDestroyed()) {
+                // Send authorization code to renderer process
                 mainWindow.webContents.send(OAUTH_CALLBACK_DESKTOP_CHANNEL, {
-                  accessToken,
-                  refreshToken,
-                  idToken,
+                  code,
                 });
               }
 
@@ -300,12 +295,12 @@ export async function openOAuthBrowser(url: string): Promise<void> {
   // but we can't reliably remove the address bar or control window size for the default browser.
   // Best-effort: try Chromium "app window" mode (`--app=...`) which usually has no address bar,
   // and supports `--window-size`. Fallback to default browser.
-  // const opened = tryOpenChromeAppWindow(url);
-  // if (!opened) {
-  //   await shell.openExternal(url);
-  // }
-
-  await shell.openExternal(url);
+  const opened = shouldOpenChromeAppWindow
+    ? tryOpenChromeAppWindow(url)
+    : false;
+  if (!opened) {
+    await shell.openExternal(url);
+  }
 }
 
 export async function stopOAuthServer(): Promise<void> {
