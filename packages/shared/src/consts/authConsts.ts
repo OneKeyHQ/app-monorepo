@@ -107,12 +107,14 @@ export const GOOGLE_CHROME_EXTENSION_CLIENT_ID =
 // Supabase (OneKeyAuth)
 // Project URL at https://supabase.com/dashboard/project/_/settings/api
 export const SUPABASE_PROJECT_URL = IS_DEV
-  ? 'https://wtspqckturkzhstyjabx.supabase.co' // local test
+  ? process.env.SUPABASE_PROJECT_URL ||
+    'https://zvxscjkvkjepbrjncvzt.supabase.co' // local test
   : 'https://zvxscjkvkjepbrjncvzt.supabase.co';
 
 // Publishable key at https://supabase.com/dashboard/project/_/settings/api-keys/new
 export const SUPABASE_PUBLIC_API_KEY = IS_DEV
-  ? 'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN' // local test
+  ? process.env.SUPABASE_PUBLIC_API_KEY ||
+    'sb_publishable_ryfw0-h47JC2lHFRB2yrjw_iS_1KPgW' // local test
   : 'sb_publishable_ryfw0-h47JC2lHFRB2yrjw_iS_1KPgW';
 
 // Supabase OAuth Providers

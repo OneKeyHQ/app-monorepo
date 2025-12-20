@@ -105,6 +105,7 @@ import {
   useSwapLimitPartiallyFillAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
+  useSwapProInputAmountAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
   useSwapStepNetFeeLevelAtom,
@@ -230,6 +231,7 @@ export function useSwapBuildTx() {
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
   const [, setSwapQuoteResultList] = useSwapQuoteListAtom();
+  const [, setSwapProFromAmount] = useSwapProInputAmountAtom();
   const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [, setSettings] = useSettingsAtom();
   const { navigationToMessageConfirm, navigationToTxConfirm } =
@@ -270,6 +272,7 @@ export function useSwapBuildTx() {
       value: '',
       isInput: false,
     }); // send success, clear to token amount
+    setSwapProFromAmount('');
     setSwapQuoteResultList([]);
     setSwapQuoteEventTotalCount({
       count: 0,
@@ -285,6 +288,7 @@ export function useSwapBuildTx() {
     setSwapQuoteEventTotalCount,
     setSwapQuoteResultList,
     setSwapToTokenAmount,
+    setSwapProFromAmount,
   ]);
 
   const goBackQrCodeModal = useCallback(() => {
