@@ -14,6 +14,7 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 let shouldShowHdOrHwAccountRemoveDialog = true;
@@ -165,10 +166,24 @@ export function AccountRemoveButton({
 
   const { loading, removeFn } = useRemoveAccountFn();
 
+  const label = useMemo(() => {
+    if (platformEnv.isWebDappMode) {
+      return intl.formatMessage({ id: ETranslations.explore_disconnect });
+    }
+    return intl.formatMessage({ id: ETranslations.global_remove });
+  }, [intl]);
+
+  const icon = useMemo(() => {
+    if (platformEnv.isWebDappMode) {
+      return 'BrokenLink2Outline' as const;
+    }
+    return 'DeleteOutline' as const;
+  }, []);
+
   return (
     <ActionList.Item
-      icon="DeleteOutline"
-      label={intl.formatMessage({ id: ETranslations.global_remove })}
+      icon={icon}
+      label={label}
       destructive
       isLoading={loading}
       onClose={onClose}
