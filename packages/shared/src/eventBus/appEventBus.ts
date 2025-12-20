@@ -410,6 +410,9 @@ export interface IAppEventBusPayload {
       | ETranslations.global_earn;
     openUrl?: boolean;
   };
+  [EAppEventBusNames.SwitchEarnTab]: {
+    tab: 'assets' | 'portfolio' | 'faqs';
+  };
   [EAppEventBusNames.SwitchTabBar]: {
     route: ETabRoutes;
   };

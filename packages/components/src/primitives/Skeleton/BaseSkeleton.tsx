@@ -31,7 +31,6 @@ export function BaseSkeleton({
       ? 'ok-skeleton-dark'
       : 'ok-skeleton-light';
 
-  console.log('themeName', colorMode || themeName, className);
   const borderRadius = useMemo(() => {
     if (restProps.radius === 'round') {
       return 9999;

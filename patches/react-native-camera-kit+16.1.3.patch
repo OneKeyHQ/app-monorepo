@@ -1,0 +1,80 @@
+diff --git a/node_modules/react-native-camera-kit/src/Camera.android.tsx b/node_modules/react-native-camera-kit/src/Camera.android.tsx
+index 17309e9..65edce2 100644
+--- a/node_modules/react-native-camera-kit/src/Camera.android.tsx
++++ b/node_modules/react-native-camera-kit/src/Camera.android.tsx
+@@ -11,9 +11,9 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+   // RN doesn't support optional view props yet (sigh)
+   // so we have to use -1 to indicate 'undefined'
+   // All int/float/double props from src/specs/CameraNativeComponent.ts need be mentioned here
+-  props.zoom = props.zoom ?? -1;
+-  props.maxZoom = props.maxZoom ?? -1;
+-  props.scanThrottleDelay = props.scanThrottleDelay ?? -1;
++  // props.zoom = props.zoom ?? -1;
++  // props.maxZoom = props.maxZoom ?? -1;
++  // props.scanThrottleDelay = props.scanThrottleDelay ?? -1;
+ 
+   React.useImperativeHandle(ref, () => ({
+     capture: async (options = {}) => {
+@@ -32,8 +32,17 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+   transformedProps.frameColor = processColor(props.frameColor) as any;
+   transformedProps.laserColor = processColor(props.laserColor) as any;
+ 
+-  // @ts-expect-error props for codegen differ a bit from the user-facing ones
+-  return <NativeCamera style={{ minWidth: 100, minHeight: 100 }} ref={nativeRef} {...transformedProps} />;
++  return (
++    // @ts-expect-error props for codegen differ a bit from the user-facing ones
++    <NativeCamera
++      style={{ minWidth: 100, minHeight: 100 }}
++      ref={nativeRef}
++      {...transformedProps}
++      zoom={props.zoom ?? -1}
++      maxZoom={props.maxZoom ?? -1}
++      scanThrottleDelay={props.scanThrottleDelay ?? -1}
++    />
++  );
+ });
+ 
+ export default Camera;
+diff --git a/node_modules/react-native-camera-kit/src/Camera.ios.tsx b/node_modules/react-native-camera-kit/src/Camera.ios.tsx
+index 2c5c970..8bd2c03 100644
+--- a/node_modules/react-native-camera-kit/src/Camera.ios.tsx
++++ b/node_modules/react-native-camera-kit/src/Camera.ios.tsx
+@@ -8,16 +8,6 @@ import NativeCameraKitModule from './specs/NativeCameraKitModule';
+ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+   const nativeRef = React.useRef(null);
+ 
+-  // RN doesn't support optional view props yet (sigh)
+-  // so we have to use -1 to indicate 'undefined'
+-  // All int/float/double props from src/specs/CameraNativeComponent.ts need be mentioned here
+-  props.zoom = props.zoom ?? -1;
+-  props.maxZoom = props.maxZoom ?? -1;
+-  props.scanThrottleDelay = props.scanThrottleDelay ?? -1;
+-
+-  props.resetFocusTimeout = props.resetFocusTimeout ?? 0;
+-  props.resetFocusWhenMotionDetected = props.resetFocusWhenMotionDetected ?? true;
+-
+   React.useImperativeHandle(ref, () => ({
+     capture: async () => {
+       return await NativeCameraKitModule.capture({}, findNodeHandle(nativeRef.current) ?? undefined);
+@@ -30,8 +20,19 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+     },
+   }));
+ 
+-  // @ts-expect-error props for codegen differ a bit from the user-facing ones
+-  return <NativeCamera style={{ minWidth: 100, minHeight: 100 }} ref={nativeRef} {...props} />;
++  return (
++    // @ts-expect-error props for codegen differ a bit from the user-facing ones
++    <NativeCamera
++      style={{ minWidth: 100, minHeight: 100 }}
++      ref={nativeRef} 
++      {...props}
++      zoom={props.zoom ?? -1}
++      maxZoom={props.maxZoom ?? -1}
++      scanThrottleDelay={props.scanThrottleDelay ?? -1}
++      resetFocusTimeout={props.resetFocusTimeout ?? 0}
++      resetFocusWhenMotionDetected={props.resetFocusWhenMotionDetected ?? true}
++    />
++  );
+ });
+ 
+ export default Camera;
