@@ -40,10 +40,12 @@ export function AccountSelectorStack({
       <Page.Body>
         <XStack flex={1} top={top}>
           {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
-          <AccountSelectorWalletListSideBar
-            num={num}
-            hideNonBackedUpWallet={hideNonBackedUpWallet}
-          />
+          {platformEnv.isWebDappMode ? null : (
+            <AccountSelectorWalletListSideBar
+              num={num}
+              hideNonBackedUpWallet={hideNonBackedUpWallet}
+            />
+          )}
 
           {/* <WalletDetailsPerfTest num={num} /> */}
           <WalletDetails num={num} />
