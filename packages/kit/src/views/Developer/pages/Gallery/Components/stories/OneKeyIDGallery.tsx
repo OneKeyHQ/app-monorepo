@@ -18,6 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Layout } from './utils/Layout';
@@ -289,6 +290,26 @@ function OneKeyIDApiTests() {
       {decodedToken !== null ? (
         <Stack gap="$2" mt="$4">
           <SizableText size="$headingMd">Decoded Access Token</SizableText>
+          {decodedToken.iat && typeof decodedToken.iat === 'number' ? (
+            <XStack gap="$2" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Issued at:
+              </SizableText>
+              <SizableText size="$bodyMd">
+                {formatDate(new Date(decodedToken.iat * 1000))}
+              </SizableText>
+            </XStack>
+          ) : null}
+          {decodedToken.exp && typeof decodedToken.exp === 'number' ? (
+            <XStack gap="$2" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Expires at:
+              </SizableText>
+              <SizableText size="$bodyMd">
+                {formatDate(new Date(decodedToken.exp * 1000))}
+              </SizableText>
+            </XStack>
+          ) : null}
           <ScrollView
             maxHeight={300}
             borderWidth={1}

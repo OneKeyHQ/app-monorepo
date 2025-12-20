@@ -29,13 +29,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * OAuth helper for Desktop (Electron) platform using localhost HTTP server
- * with Supabase OAuth redirecting back to localhost (fixed port range).
+ * with Supabase OAuth redirecting back to localhost (system-assigned port).
  *
  * This method uses Supabase as the OAuth intermediary with PKCE flow:
  * Google -> Supabase -> localhost callback (authorization code in URL query)
  *
  * How it works:
- * 1. Main process starts a localhost HTTP server on a fixed port range
+ * 1. Main process starts a localhost HTTP server on a system-assigned port (listen(0))
  * 2. Renderer opens Supabase OAuth URL in system browser (skipBrowserRedirect=true)
  * 3. Supabase handles Google OAuth and redirects back with authorization code
  * 4. Main process extracts code from URL query and sends it to renderer via IPC
@@ -43,7 +43,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * 6. Renderer persists session via handleSessionPersistence
  *
  * Supabase Configuration:
- * - Add Redirect URLs (fixed port range)
+ * - Redirect URL is dynamically constructed with the assigned port
  *
  * @param options - Configuration options
  * @param options.authUrl - Supabase OAuth URL (skipBrowserRedirect=true)
@@ -343,7 +343,7 @@ export async function getOAuthRedirectUrlDesktop(
       port = serverResult.port;
     } catch (e) {
       throw new OneKeyLocalError(
-        'OAuth local ports are occupied. Please close conflicting apps and try again.',
+        'Failed to start OAuth local server. Please try again.',
       );
     }
     if (!port) {

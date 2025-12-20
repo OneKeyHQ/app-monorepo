@@ -160,24 +160,6 @@ function tryOpenChromeAppWindow(url: string): boolean {
   return false;
 }
 
-// Fixed port range for OAuth callback
-// Web Application type requires explicit port configuration in Google Cloud Console
-// These ports must be added to Authorized redirect URIs:
-// http://localhost:19185/oauth_callback_desktop
-// http://localhost:19285/oauth_callback_desktop
-// http://localhost:19385/oauth_callback_desktop
-// http://localhost:19485/oauth_callback_desktop
-// http://localhost:19585/oauth_callback_desktop
-// http://127.0.0.1:19185/oauth_callback_desktop
-// http://127.0.0.1:19285/oauth_callback_desktop
-// http://127.0.0.1:19385/oauth_callback_desktop
-// http://127.0.0.1:19485/oauth_callback_desktop
-// http://127.0.0.1:19585/oauth_callback_desktop
-const OAUTH_PORTS = [
-  19_185, 19_285, 19_385, 19_485, 19_585,
-  //
-];
-
 // Export functions for DesktopApiOAuth to use
 export async function startOAuthServer(): Promise<{ port: number }> {
   return new Promise((resolve, reject) => {
@@ -187,103 +169,85 @@ export async function startOAuthServer(): Promise<{ port: number }> {
       oauthServer = null;
     }
 
-    // Try each port in sequence until one is available
-    let portIndex = 0;
-    const startIndex = Math.floor(Math.random() * OAUTH_PORTS.length);
+    oauthServer = createServer((req, res) => {
+      const url = new URL(req.url || '/', 'http://localhost');
 
-    const tryStartServer = (): void => {
-      if (portIndex >= OAUTH_PORTS.length) {
-        reject(new Error('All OAuth ports are occupied'));
-        return;
-      }
+      // Handle callback from OAuth (Supabase redirects back to localhost with authorization code in URL query)
+      if (url.pathname === OAUTH_CALLBACK_DESKTOP_PATH) {
+        // PKCE flow: authorization code is in URL query string (not hash)
+        const error = url.searchParams.get('error');
 
-      const port = OAUTH_PORTS[(startIndex + portIndex) % OAUTH_PORTS.length];
-      oauthServer = createServer((req, res) => {
-        const url = new URL(req.url || '/', 'http://localhost');
-
-        // Handle callback from OAuth (Supabase redirects back to localhost with authorization code in URL query)
-        if (url.pathname === OAUTH_CALLBACK_DESKTOP_PATH) {
-          // PKCE flow: authorization code is in URL query string (not hash)
-          const error = url.searchParams.get('error');
-
-          if (error) {
-            // OAuth error occurred
-            res.writeHead(200, {
-              'Content-Type': 'text/html; charset=utf-8',
-            });
-            res.end(OAUTH_CALLBACK_ERROR_HTML(error));
-            return;
-          }
-
-          // Return HTML page that extracts code from URL query and sends to server
+        if (error) {
+          // OAuth error occurred
           res.writeHead(200, {
             'Content-Type': 'text/html; charset=utf-8',
           });
-          res.end(OAUTH_CALLBACK_SUCCESS_HTML);
-        } else if (url.pathname === '/complete' && req.method === 'POST') {
-          // Receive authorization code from browser JS
-          let body = '';
-          req.on('data', (chunk) => {
-            body += (chunk as Buffer).toString();
-          });
-          req.on('end', () => {
-            try {
-              const { code, state, oneKeyState } = JSON.parse(body) as {
-                code: string;
-                state?: string;
-                oneKeyState?: string;
-              };
+          res.end(OAUTH_CALLBACK_ERROR_HTML(error));
+          return;
+        }
 
-              if (code && mainWindow && !mainWindow.isDestroyed()) {
-                // Send authorization code to renderer process
-                mainWindow.webContents.send(OAUTH_CALLBACK_DESKTOP_CHANNEL, {
-                  code,
-                  state,
-                  oneKeyState,
-                });
-              }
+        // Return HTML page that extracts code from URL query and sends to server
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+        });
+        res.end(OAUTH_CALLBACK_SUCCESS_HTML);
+      } else if (url.pathname === '/complete' && req.method === 'POST') {
+        // Receive authorization code from browser JS
+        let body = '';
+        req.on('data', (chunk) => {
+          body += (chunk as Buffer).toString();
+        });
+        req.on('end', () => {
+          try {
+            const { code, state, oneKeyState } = JSON.parse(body) as {
+              code: string;
+              state?: string;
+              oneKeyState?: string;
+            };
 
-              res.writeHead(200, { 'Content-Type': 'text/plain' });
-              res.end('OK');
-
-              // Close server after receiving callback
-              setTimeout(() => {
-                oauthServer?.close();
-                oauthServer = null;
-              }, 1000);
-            } catch (error) {
-              res.writeHead(400, { 'Content-Type': 'text/plain' });
-              res.end('Invalid request');
+            if (code && mainWindow && !mainWindow.isDestroyed()) {
+              // Send authorization code to renderer process
+              mainWindow.webContents.send(OAUTH_CALLBACK_DESKTOP_CHANNEL, {
+                code,
+                state,
+                oneKeyState,
+              });
             }
-          });
-        } else {
-          // 404 for other paths
-          res.writeHead(404, { 'Content-Type': 'text/plain' });
-          res.end('Not Found');
-        }
-      });
 
-      // Try to listen on the current port
-      oauthServer.listen(port, '127.0.0.1', () => {
-        resolve({ port });
-      });
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.end('OK');
 
-      // eslint-disable-next-line spellcheck/spell-checker
-      oauthServer.on('error', (error: NodeJS.ErrnoException) => {
-        // If port is in use, try next port
-        if (error.code === 'EADDRINUSE') {
-          oauthServer?.close();
-          oauthServer = null;
-          portIndex += 1;
-          tryStartServer();
-        } else {
-          reject(error);
-        }
-      });
-    };
+            // Close server after receiving callback
+            setTimeout(() => {
+              oauthServer?.close();
+              oauthServer = null;
+            }, 1000);
+          } catch (error) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('Invalid request');
+          }
+        });
+      } else {
+        // 404 for other paths
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+      }
+    });
 
-    // Start trying ports
-    tryStartServer();
+    // Use listen(0) to let the system automatically assign an available port
+    oauthServer.listen(0, '127.0.0.1', () => {
+      const address = oauthServer?.address();
+      if (address && typeof address === 'object' && address.port) {
+        resolve({ port: address.port });
+      } else {
+        reject(new Error('Failed to get assigned port from server'));
+      }
+    });
+
+    // eslint-disable-next-line spellcheck/spell-checker
+    oauthServer.on('error', (error: NodeJS.ErrnoException) => {
+      reject(error);
+    });
 
     // Auto-close server after 5 minutes timeout
     setTimeout(() => {
