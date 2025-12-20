@@ -38,7 +38,7 @@ export async function getOAuthRedirectUrlDesktop(
   method: EDesktopOAuthMethod,
 ): Promise<string> {
   // Desktop LOCALHOST: use Supabase OAuth (skipBrowserRedirect) and a localhost callback.
-  // Flow: Google -> Supabase -> localhost (tokens in hash) -> app persists session.
+  // Flow: Google -> Supabase -> localhost (`code` in query, PKCE) -> app persists session.
   if (method === EDesktopOAuthMethod.LOCALHOST_SERVER) {
     if (!globalThis.desktopApiProxy?.oauthLocalServer) {
       throw new OneKeyLocalError(

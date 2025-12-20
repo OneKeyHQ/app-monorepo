@@ -62,12 +62,24 @@ export async function openOAuthPopupDesktopLocalhost(options: {
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
         let dialogClosed = false;
         let waitingDialog: IDialogInstance | null = null;
+        let expectedState: string | null = null;
+
+        try {
+          expectedState = new URL(authUrl).searchParams.get('state');
+        } catch {
+          expectedState = null;
+        }
+
+        const cleanupFn = {
+          cleanup: async () => {},
+        };
 
         // Listen for callback with authorization code via IPC (PKCE flow)
         const handleCallback = async (
           _event: Electron.IpcRendererEvent,
           data: {
             code?: string;
+            state?: string;
           },
         ) => {
           if (settled) {
@@ -86,10 +98,27 @@ export async function openOAuthPopupDesktopLocalhost(options: {
             dialogClosed = true;
             await Promise.resolve(waitingDialog?.close());
             const code = data.code;
+            const state = data.state;
 
             if (!code) {
+              await cleanupFn.cleanup();
               resolve({ success: false, session: undefined });
               return;
+            }
+
+            // Validate state (anti-CSRF / anti-injection). This does not change the redirect URI.
+            // Supabase OAuth URLs should include `state=...` and the redirect callback should echo it back.
+            if (expectedState) {
+              if (!state) {
+                await cleanupFn.cleanup();
+                reject(new OneKeyLocalError('OAuth state is missing'));
+                return;
+              }
+              if (state !== expectedState) {
+                await cleanupFn.cleanup();
+                reject(new OneKeyLocalError('OAuth state mismatch'));
+                return;
+              }
             }
 
             // Exchange authorization code for session tokens using PKCE
@@ -98,12 +127,14 @@ export async function openOAuthPopupDesktopLocalhost(options: {
               await client.auth.exchangeCodeForSession(code);
 
             if (error) {
+              await cleanupFn.cleanup();
               reject(new OneKeyLocalError(error.message));
               return;
             }
 
             const session = exchangeData.session;
             if (!session) {
+              await cleanupFn.cleanup();
               resolve({ success: false, session: undefined });
               return;
             }
@@ -118,11 +149,13 @@ export async function openOAuthPopupDesktopLocalhost(options: {
               persistSession,
             });
 
+            await cleanupFn.cleanup();
             resolve({
               success: true,
               session: { accessToken, refreshToken },
             });
           } catch (error) {
+            await cleanupFn.cleanup();
             reject(
               new OneKeyLocalError(
                 error instanceof Error ? error.message : 'OAuth failed',
@@ -131,7 +164,7 @@ export async function openOAuthPopupDesktopLocalhost(options: {
           }
         };
 
-        const cleanup = async (): Promise<void> => {
+        cleanupFn.cleanup = async () => {
           if (timeoutId) {
             clearTimeout(timeoutId);
             timeoutId = null;
@@ -174,7 +207,7 @@ export async function openOAuthPopupDesktopLocalhost(options: {
             settled = true;
             dialogClosed = true;
             await close();
-            await cleanup();
+            await cleanupFn.cleanup();
             reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
           },
           onClose: async (extra) => {
@@ -182,7 +215,7 @@ export async function openOAuthPopupDesktopLocalhost(options: {
             if (extra?.flag === 'cancel' && !settled) {
               settled = true;
               dialogClosed = true;
-              await cleanup();
+              await cleanupFn.cleanup();
               reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
             }
           },
@@ -205,7 +238,7 @@ export async function openOAuthPopupDesktopLocalhost(options: {
             return;
           }
           settled = true;
-          void cleanup().finally(() => {
+          void cleanupFn.cleanup().finally(() => {
             reject(new OneKeyLocalError('OAuth sign-in timed out'));
           });
         }, OAUTH_FLOW_TIMEOUT_MS);

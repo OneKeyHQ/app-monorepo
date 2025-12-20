@@ -2,9 +2,10 @@
  * HTML templates returned by the localhost OAuth callback server (`/callback`).
  *
  * Why this exists:
- * - Supabase redirects back to `http://127.0.0.1:<port>/callback` with tokens in the URL hash.
- * - The URL hash is not sent to the server, so we return an HTML page with JS to extract it,
- *   then POST tokens to `/complete`.
+ * - Supabase redirects back to `http://127.0.0.1:<port>/callback` with `code` (and `state`)
+ *   in the URL query string (PKCE authorization code flow).
+ * - We return an HTML page with JS to extract `code`/`state`, then POST them to `/complete`
+ *   so the desktop app can validate state (anti-CSRF) and exchange the code for a session.
  *
  * Note:
  * - Browsers may block `window.close()` unless the tab/window was opened by script.
@@ -72,6 +73,7 @@ export const OAUTH_CALLBACK_SUCCESS_HTML = `<!DOCTYPE html>
       // PKCE flow: Extract authorization code from URL query string
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
+      const state = urlParams.get('state');
       // Clear URL query ASAP to avoid leaking code in the address bar.
       try {
         history.replaceState(null, document.title, window.location.pathname);
@@ -82,7 +84,7 @@ export const OAUTH_CALLBACK_SUCCESS_HTML = `<!DOCTYPE html>
         fetch('/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ code, state }),
         }).then(() => {
           setTimeout(tryClose, 1500);
         }).catch(() => {

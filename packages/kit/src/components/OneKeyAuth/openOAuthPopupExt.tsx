@@ -113,7 +113,10 @@ export async function openOAuthPopupExtIdentity(options: {
   };
 
   type IExtensionOAuthFlowParams = { redirectUrl: string };
-  type IExtensionOAuthFlowSignInParams = { rawNonce?: string };
+  type IExtensionOAuthFlowSignInParams = {
+    rawNonce?: string;
+    expectedState?: string;
+  };
   type IExtensionOAuthFlowGetAuthUrlResult = {
     authUrl: string;
     signInParams: IExtensionOAuthFlowSignInParams;
@@ -127,6 +130,28 @@ export async function openOAuthPopupExtIdentity(options: {
     signIn: (
       input: IExtensionOAuthFlowSignInInput,
     ) => Promise<IOAuthPopupResult>;
+  };
+
+  const launchWebAuthFlowWithTimeout = async (url: string) => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    try {
+      return await Promise.race([
+        chrome.identity.launchWebAuthFlow({
+          url,
+          interactive: true,
+        }),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(new OneKeyLocalError('OAuth sign-in timed out'));
+          }, OAUTH_FLOW_TIMEOUT_MS);
+        }),
+      ]);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    }
   };
 
   const buildPkceFlowParams = ({ redirectUrl }: IExtensionOAuthFlowParams) => ({
@@ -149,14 +174,26 @@ export async function openOAuthPopupExtIdentity(options: {
       if (!authUrl) {
         throw new OneKeyLocalError('Failed to create Supabase OAuth URL.');
       }
+      let expectedState: string | undefined;
+      try {
+        expectedState = new URL(authUrl).searchParams.get('state') ?? undefined;
+      } catch {
+        expectedState = undefined;
+      }
       return {
         authUrl,
-        signInParams: {},
+        signInParams: { expectedState },
       };
     },
-    signIn: async ({ callbackUrl }: IExtensionOAuthFlowSignInInput) => {
+    signIn: async ({
+      callbackUrl,
+      signInParams,
+    }: IExtensionOAuthFlowSignInInput) => {
       // https://<extension-id>.chromiumapp.org/?code=xxxx
       const url = new URL(callbackUrl);
+      if (!callbackUrl.startsWith(redirectUrl)) {
+        throw new OneKeyLocalError('Invalid OAuth redirect URL');
+      }
       const error =
         url.searchParams.get('error') ||
         url.searchParams.get('error_description');
@@ -165,6 +202,15 @@ export async function openOAuthPopupExtIdentity(options: {
       }
 
       const code = url.searchParams.get('code');
+      const state = url.searchParams.get('state');
+      if (signInParams.expectedState) {
+        if (!state) {
+          throw new OneKeyLocalError('OAuth state is missing');
+        }
+        if (state !== signInParams.expectedState) {
+          throw new OneKeyLocalError('OAuth state mismatch');
+        }
+      }
       if (!code) {
         return {
           success: false,
@@ -212,10 +258,7 @@ export async function openOAuthPopupExtIdentity(options: {
   }) => {
     const { getAuthUrl, signIn } = buildFlowParams({ redirectUrl });
     const { authUrl, signInParams } = await getAuthUrl();
-    const callbackUrl = await chrome.identity.launchWebAuthFlow({
-      url: authUrl,
-      interactive: true,
-    });
+    const callbackUrl = await launchWebAuthFlowWithTimeout(authUrl);
 
     if (!callbackUrl) {
       return {

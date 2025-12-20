@@ -227,14 +227,16 @@ export async function startOAuthServer(): Promise<{ port: number }> {
           });
           req.on('end', () => {
             try {
-              const { code } = JSON.parse(body) as {
+              const { code, state } = JSON.parse(body) as {
                 code: string;
+                state?: string;
               };
 
               if (code && mainWindow && !mainWindow.isDestroyed()) {
                 // Send authorization code to renderer process
                 mainWindow.webContents.send(OAUTH_CALLBACK_DESKTOP_CHANNEL, {
                   code,
+                  state,
                 });
               }
 

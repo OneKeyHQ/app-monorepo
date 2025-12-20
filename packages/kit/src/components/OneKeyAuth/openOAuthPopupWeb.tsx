@@ -67,6 +67,50 @@ export async function openOAuthPopupWeb(options: {
 }): Promise<IOAuthPopupResult> {
   const { authUrl, client, handleSessionPersistence, persistSession } = options;
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let inFlight = false;
+    let pollIntervalId: ReturnType<typeof setInterval> | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let expectedState: string | null = null;
+
+    try {
+      expectedState = new URL(authUrl).searchParams.get('state');
+    } catch {
+      expectedState = null;
+    }
+
+    const cleanup = (popup: Window | null) => {
+      if (pollIntervalId) {
+        clearInterval(pollIntervalId);
+        pollIntervalId = null;
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      if (popup && !popup.closed) {
+        closePopup(popup);
+      }
+    };
+
+    const resolveOnce = (result: IOAuthPopupResult, popup: Window | null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup(popup);
+      resolve(result);
+    };
+
+    const rejectOnce = (error: unknown, popup: Window | null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup(popup);
+      reject(error);
+    };
+
     // Calculate popup window position (centered)
     const width = OAUTH_POPUP_WIDTH;
     const height = OAUTH_POPUP_HEIGHT;
@@ -83,10 +127,11 @@ export async function openOAuthPopupWeb(options: {
     );
 
     if (!popup) {
-      reject(
+      rejectOnce(
         new OneKeyLocalError(
           'Popup was blocked. Please allow popups and try again.',
         ),
+        null,
       );
       return;
     }
@@ -94,28 +139,49 @@ export async function openOAuthPopupWeb(options: {
     focusPopup(popup);
 
     // Poll for popup close and check for auth code (PKCE flow)
-    const pollInterval = setInterval(async () => {
+    pollIntervalId = setInterval(async () => {
+      if (inFlight) {
+        return;
+      }
+      inFlight = true;
       try {
+        if (settled) {
+          return;
+        }
         focusPopup(popup);
         // Check if popup is closed
         if (popup.closed) {
-          clearInterval(pollInterval);
-
           // Check if we got a session after popup closed
           const { data } = await client.auth.getSession();
           if (data.session) {
-            resolve({
-              success: true,
-              session: {
-                accessToken: data.session.access_token,
-                refreshToken: data.session.refresh_token,
+            const accessToken = data.session.access_token;
+            const refreshToken = data.session.refresh_token;
+
+            await handleSessionPersistence({
+              accessToken,
+              refreshToken,
+              persistSession,
+              loginToPrime: false, // openOAuthPopupWeb doesn't handle Prime login
+            });
+
+            resolveOnce(
+              {
+                success: true,
+                session: {
+                  accessToken,
+                  refreshToken,
+                },
               },
-            });
+              popup,
+            );
           } else {
-            resolve({
-              success: false,
-              session: undefined,
-            });
+            resolveOnce(
+              {
+                success: false,
+                session: undefined,
+              },
+              popup,
+            );
           }
           return;
         }
@@ -125,12 +191,28 @@ export async function openOAuthPopupWeb(options: {
           const popupUrl = popup.location.href;
           // PKCE flow: check for 'code' parameter in URL (not access_token)
           if (popupUrl && popupUrl.includes('code=')) {
-            clearInterval(pollInterval);
             closePopup(popup);
 
             // Parse authorization code from URL query string
             const url = new URL(popupUrl);
             const code = url.searchParams.get('code');
+            const state = url.searchParams.get('state');
+
+            // Validate state (anti-CSRF / anti-injection). Supabase OAuth URLs should include `state=...`
+            // and the redirect callback should echo it back.
+            if (expectedState) {
+              if (!state) {
+                rejectOnce(
+                  new OneKeyLocalError('OAuth state is missing'),
+                  popup,
+                );
+                return;
+              }
+              if (state !== expectedState) {
+                rejectOnce(new OneKeyLocalError('OAuth state mismatch'), popup);
+                return;
+              }
+            }
 
             if (code) {
               // Exchange authorization code for session tokens using PKCE
@@ -140,7 +222,7 @@ export async function openOAuthPopupWeb(options: {
               );
 
               if (error) {
-                reject(new OneKeyLocalError(error.message));
+                rejectOnce(new OneKeyLocalError(error.message), popup);
                 return;
               }
 
@@ -156,46 +238,54 @@ export async function openOAuthPopupWeb(options: {
                   loginToPrime: false, // openOAuthPopupWeb doesn't handle Prime login
                 });
 
-                resolve({
-                  success: true,
-                  session: {
-                    accessToken,
-                    refreshToken,
+                resolveOnce(
+                  {
+                    success: true,
+                    session: {
+                      accessToken,
+                      refreshToken,
+                    },
                   },
-                });
+                  popup,
+                );
               } else {
-                resolve({
-                  success: false,
-                  session: undefined,
-                });
+                resolveOnce(
+                  {
+                    success: false,
+                    session: undefined,
+                  },
+                  popup,
+                );
               }
             } else {
-              resolve({
-                success: false,
-                session: undefined,
-              });
+              resolveOnce(
+                {
+                  success: false,
+                  session: undefined,
+                },
+                popup,
+              );
             }
           }
         } catch {
           // Cross-origin error - popup is on different domain, continue polling
         }
       } catch (error) {
-        clearInterval(pollInterval);
-        closePopup(popup);
-        reject(error);
+        rejectOnce(error, popup);
+      } finally {
+        inFlight = false;
       }
     }, OAUTH_POLL_INTERVAL_MS);
 
     // Cleanup after timeout (5 minutes)
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      if (popup && !popup.closed) {
-        closePopup(popup);
-      }
-      resolve({
-        success: false,
-        session: undefined,
-      });
+    timeoutId = setTimeout(() => {
+      resolveOnce(
+        {
+          success: false,
+          session: undefined,
+        },
+        popup,
+      );
     }, OAUTH_FLOW_TIMEOUT_MS);
   });
 }
