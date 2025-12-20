@@ -5,6 +5,7 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
   EDesktopOAuthMethod,
   OAUTH_CALLBACK_DESKTOP_CHANNEL,
+  OAUTH_CALLBACK_DESKTOP_PATH,
   OAUTH_DESKTOP_WEBVIEW_HEIGHT,
   OAUTH_DESKTOP_WEBVIEW_WIDTH,
   OAUTH_FLOW_TIMEOUT_MS,
@@ -348,7 +349,8 @@ export async function getOAuthRedirectUrlDesktop(
     if (!port) {
       throw new OneKeyLocalError('OAuth local server returned invalid port.');
     }
-    return `http://127.0.0.1:${port}/callback`;
+    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+    return `http://127.0.0.1:${port}${OAUTH_CALLBACK_DESKTOP_PATH}`;
   }
 
   // Both WEBVIEW and DEEP_LINK methods use the same deep link URL

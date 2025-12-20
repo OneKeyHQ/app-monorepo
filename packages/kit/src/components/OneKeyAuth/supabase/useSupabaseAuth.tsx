@@ -10,12 +10,12 @@ import {
   EDesktopOAuthMethod,
   EExtensionOAuthMethod,
   GOOGLE_CHROME_EXTENSION_CLIENT_ID,
-  ONEKEY_OAUTH_STATE_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ensureOneKeyOAuthState } from '../oauthUtils';
 import {
   getOAuthRedirectUrlDesktop,
   openOAuthPopupDesktopDeepLink,
@@ -160,26 +160,7 @@ export function useSupabaseAuth() {
             DEFAULT_DESKTOP_OAUTH_METHOD ===
               EDesktopOAuthMethod.LOCALHOST_SERVER))
       ) {
-        try {
-          const redirectUrl = new URL(redirectTo);
-          if (!redirectUrl.searchParams.has(ONEKEY_OAUTH_STATE_KEY)) {
-            // Prefer crypto-grade random on web; if unavailable, skip rather than generating weak state.
-            const bytes = new Uint8Array(16);
-            const cryptoObj = globalThis.crypto as
-              | undefined
-              | { getRandomValues: (arr: Uint8Array) => Uint8Array };
-            if (cryptoObj?.getRandomValues) {
-              cryptoObj.getRandomValues(bytes);
-              const state = Array.from(bytes)
-                .map((b) => b.toString(16).padStart(2, '0'))
-                .join('');
-              redirectUrl.searchParams.set(ONEKEY_OAUTH_STATE_KEY, state);
-              redirectTo = redirectUrl.toString();
-            }
-          }
-        } catch {
-          // ignore
-        }
+        redirectTo = ensureOneKeyOAuthState(redirectTo);
       }
 
       const oauthUrlResult = await clientTemp.auth.signInWithOAuth({

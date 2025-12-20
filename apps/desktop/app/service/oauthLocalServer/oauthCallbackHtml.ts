@@ -1,8 +1,8 @@
 /**
- * HTML templates returned by the localhost OAuth callback server (`/callback`).
+ * HTML templates returned by the localhost OAuth callback server (`/oauth_callback_desktop`).
  *
  * Why this exists:
- * - Supabase redirects back to `http://127.0.0.1:<port>/callback` with `code` (and `state`)
+ * - Supabase redirects back to `http://127.0.0.1:<port>/oauth_callback_desktop` with `code` (and `state`)
  *   in the URL query string (PKCE authorization code flow).
  * - We return an HTML page with JS to extract `code`/`state`, then POST them to `/complete`
  *   so the desktop app can validate state (anti-CSRF) and exchange the code for a session.

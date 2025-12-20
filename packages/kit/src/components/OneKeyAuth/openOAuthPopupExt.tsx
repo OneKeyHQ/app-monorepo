@@ -13,8 +13,11 @@ import {
   OAUTH_TOKEN_KEY_ACCESS_TOKEN,
   OAUTH_TOKEN_KEY_ID_TOKEN,
   OAUTH_TOKEN_KEY_REFRESH_TOKEN,
+  ONEKEY_OAUTH_STATE_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { ensureOneKeyOAuthState } from './oauthUtils';
 
 import type {
   IExtensionOAuthConfig,
@@ -114,6 +117,7 @@ export async function openOAuthPopupExtIdentity(options: {
   type IExtensionOAuthFlowSignInParams = {
     rawNonce?: string;
     expectedState?: string;
+    expectedOneKeyState?: string;
   };
   type IExtensionOAuthFlowGetAuthUrlResult = {
     authUrl: string;
@@ -154,11 +158,14 @@ export async function openOAuthPopupExtIdentity(options: {
 
   const buildPkceFlowParams = ({ redirectUrl }: IExtensionOAuthFlowParams) => ({
     getAuthUrl: async () => {
+      // Ensure redirectUrl contains ONEKEY_OAUTH_STATE_KEY parameter
+      const redirectUrlWithState = ensureOneKeyOAuthState(redirectUrl);
+
       const oauthUrlResult = await client.auth.signInWithOAuth({
         provider: 'google',
         options: {
           skipBrowserRedirect: true,
-          redirectTo: redirectUrl,
+          redirectTo: redirectUrlWithState,
           queryParams: {
             prompt: 'select_account',
           },
@@ -173,14 +180,30 @@ export async function openOAuthPopupExtIdentity(options: {
         throw new OneKeyLocalError('Failed to create Supabase OAuth URL.');
       }
       let expectedState: string | undefined;
+      let expectedOneKeyState: string | undefined;
       try {
-        expectedState = new URL(authUrl).searchParams.get('state') ?? undefined;
+        const authUrlObj = new URL(authUrl);
+        expectedState = authUrlObj.searchParams.get('state') ?? undefined;
+
+        // Parse our own state from the embedded redirect_to URL (defense-in-depth)
+        const redirectTo = authUrlObj.searchParams.get('redirect_to');
+        if (redirectTo) {
+          try {
+            const redirectToUrl = new URL(redirectTo);
+            expectedOneKeyState =
+              redirectToUrl.searchParams.get(ONEKEY_OAUTH_STATE_KEY) ??
+              undefined;
+          } catch {
+            expectedOneKeyState = undefined;
+          }
+        }
       } catch {
         expectedState = undefined;
+        expectedOneKeyState = undefined;
       }
       return {
         authUrl,
-        signInParams: { expectedState },
+        signInParams: { expectedState, expectedOneKeyState },
       };
     },
     signIn: async ({
@@ -201,6 +224,27 @@ export async function openOAuthPopupExtIdentity(options: {
 
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state');
+      const oneKeyState = url.searchParams.get(ONEKEY_OAUTH_STATE_KEY);
+
+      if (!code) {
+        throw new OneKeyLocalError('Authorization code is missing');
+      }
+
+      // Validate OneKey state (defense-in-depth).
+      if (!oneKeyState) {
+        throw new OneKeyLocalError('OAuth state is missing');
+      }
+
+      if (!signInParams.expectedOneKeyState) {
+        throw new OneKeyLocalError('Expected OneKey OAuth state is missing');
+      }
+
+      if (oneKeyState !== signInParams.expectedOneKeyState) {
+        throw new OneKeyLocalError('OAuth state mismatch');
+      }
+
+      // Validate state (anti-CSRF / anti-injection). Supabase OAuth URLs should include `state=...`
+      // and the redirect callback should echo it back.
       if (signInParams.expectedState) {
         if (!state) {
           throw new OneKeyLocalError('OAuth state is missing');
@@ -208,9 +252,6 @@ export async function openOAuthPopupExtIdentity(options: {
         if (state !== signInParams.expectedState) {
           throw new OneKeyLocalError('OAuth state mismatch');
         }
-      }
-      if (!code) {
-        throw new OneKeyLocalError('Authorization code is missing');
       }
 
       const { data, error: exchangeError } =

@@ -1,4 +1,5 @@
 import {
+  OAUTH_CALLBACK_WEB_PATH,
   OAUTH_FLOW_TIMEOUT_MS,
   OAUTH_POLL_INTERVAL_MS,
   OAUTH_POPUP_HEIGHT,
@@ -17,13 +18,14 @@ const ONEKEY_OAUTH_STATE_KEY = 'onekey_oauth_state';
 /**
  * Get OAuth redirect URL for web platform
  *
- * Uses the current origin with /auth/callback path
- * Example: https://app.onekey.so/auth/callback
+ * Uses the current origin with /oauth_callback_web path
+ * Example: https://app.onekey.so/oauth_callback_web
  *
  * @returns The redirect URL for web OAuth
  */
 export function getOAuthRedirectUrlWeb(): string {
-  return `${globalThis.location?.origin || ''}/auth/callback`;
+  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+  return `${globalThis.location?.origin || ''}${OAUTH_CALLBACK_WEB_PATH}`;
 }
 
 // Focus the popup window to bring it to front, with error handling

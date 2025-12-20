@@ -5,6 +5,7 @@ import { app, shell } from 'electron';
 
 import {
   OAUTH_CALLBACK_DESKTOP_CHANNEL,
+  OAUTH_CALLBACK_DESKTOP_PATH,
   OAUTH_POPUP_HEIGHT,
   OAUTH_POPUP_WIDTH,
 } from '@onekeyhq/shared/src/consts/authConsts';
@@ -162,16 +163,16 @@ function tryOpenChromeAppWindow(url: string): boolean {
 // Fixed port range for OAuth callback
 // Web Application type requires explicit port configuration in Google Cloud Console
 // These ports must be added to Authorized redirect URIs:
-// http://localhost:19185/callback
-// http://localhost:19285/callback
-// http://localhost:19385/callback
-// http://localhost:19485/callback
-// http://localhost:19585/callback
-// http://127.0.0.1:19185/callback
-// http://127.0.0.1:19285/callback
-// http://127.0.0.1:19385/callback
-// http://127.0.0.1:19485/callback
-// http://127.0.0.1:19585/callback
+// http://localhost:19185/oauth_callback_desktop
+// http://localhost:19285/oauth_callback_desktop
+// http://localhost:19385/oauth_callback_desktop
+// http://localhost:19485/oauth_callback_desktop
+// http://localhost:19585/oauth_callback_desktop
+// http://127.0.0.1:19185/oauth_callback_desktop
+// http://127.0.0.1:19285/oauth_callback_desktop
+// http://127.0.0.1:19385/oauth_callback_desktop
+// http://127.0.0.1:19485/oauth_callback_desktop
+// http://127.0.0.1:19585/oauth_callback_desktop
 const OAUTH_PORTS = [
   19_185, 19_285, 19_385, 19_485, 19_585,
   //
@@ -201,7 +202,7 @@ export async function startOAuthServer(): Promise<{ port: number }> {
         const url = new URL(req.url || '/', 'http://localhost');
 
         // Handle callback from OAuth (Supabase redirects back to localhost with authorization code in URL query)
-        if (url.pathname === '/callback') {
+        if (url.pathname === OAUTH_CALLBACK_DESKTOP_PATH) {
           // PKCE flow: authorization code is in URL query string (not hash)
           const error = url.searchParams.get('error');
 

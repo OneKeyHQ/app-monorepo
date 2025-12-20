@@ -8,6 +8,16 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 export const OAUTH_CALLBACK_DESKTOP_CHANNEL =
   'oauth:desktop_localhost_server:callback';
 
+/**
+ * OAuth callback path for desktop localhost server
+ */
+export const OAUTH_CALLBACK_DESKTOP_PATH = '/oauth_callback_desktop';
+
+/**
+ * OAuth callback path for web platform
+ */
+export const OAUTH_CALLBACK_WEB_PATH = '/oauth_callback_web/';
+
 // ============================================================================
 // OAuth shared constants (OneKeyAuth)
 // ============================================================================
