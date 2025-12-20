@@ -26,8 +26,11 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalStakingRoutes,
+  IModalStakingParamList,
+} from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
@@ -150,23 +153,23 @@ function AssetProtocolListContent({
   const { accountId, indexedAccountId, symbol } = appRoute.params;
   const appNavigation = useAppNavigation();
   const onPress = useCallback(
-    ({ item }: { item: IStakeProtocolListItem }) => {
+    async ({ item }: { item: IStakeProtocolListItem }) => {
       defaultLogger.staking.page.selectProvider({
         network: item.network.networkId,
         stakeProvider: item.provider.name,
       });
-      appNavigation.navigate(EModalStakingRoutes.ProtocolDetails, {
-        accountId,
+      appNavigation.push(ETabEarnRoutes.EarnProtocolDetails, {
         networkId: item.network.networkId,
-        indexedAccountId,
         symbol,
         provider: item.provider.name,
-        vault: earnUtils.isMorphoProvider({ providerName: item.provider.name })
+        vault: earnUtils.isVaultBasedProvider({
+          providerName: item.provider.name,
+        })
           ? item.provider.vault
           : undefined,
       });
     },
-    [appNavigation, accountId, indexedAccountId, symbol],
+    [appNavigation, symbol],
   );
   const [
     {
@@ -268,8 +271,7 @@ function AssetProtocolList() {
         symbol,
         accountId,
         indexedAccountId,
-        networkId,
-        filter,
+        filterNetworkId: filter ? networkId : undefined,
       }),
     [filter, symbol, networkId, accountId, indexedAccountId],
     { watchLoading: true },

@@ -2,6 +2,7 @@ import type { IBadgeType, IKeyOfIcons } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
 import type { ENFTType, IAccountNFT } from './nft';
+import type { ISwapTxInfo } from './swap/types';
 import type { IToken, ITokenFiat } from './token';
 import type { ISendTxOnSuccessData } from './tx';
 
@@ -17,6 +18,11 @@ export enum EParseTxComponentType {
   Divider = 'divider',
   InternalAssets = 'internalAssets',
   DateTime = 'datetime',
+  Simulation = 'simulation',
+}
+
+export enum EParseTxComponentRole {
+  SwapReceiver = 'swapReceiver',
 }
 
 export enum EParseTxType {
@@ -56,6 +62,7 @@ export interface IDisplayComponentNetwork {
 
 export interface IDisplayComponentAddress {
   type: EParseTxComponentType.Address;
+  role?: EParseTxComponentRole;
   label: string;
   address: string;
   tags: {
@@ -66,6 +73,7 @@ export interface IDisplayComponentAddress {
   }[];
   isNavigable?: boolean;
   networkId?: string;
+  showAccountName?: boolean;
 }
 
 export interface IDisplayComponentAmount {
@@ -78,7 +86,10 @@ export interface IDisplayComponentNFT {
   type: EParseTxComponentType.NFT;
   label: string;
   nft: IAccountNFT;
+  networkId: string;
   amount: string;
+  showNetwork: boolean;
+  isSmallSize?: boolean;
   transferDirection?: ETransferDirection;
 }
 
@@ -92,7 +103,18 @@ export interface IDisplayComponentToken {
   amountParsed: string;
   networkId: string;
   showNetwork: boolean;
+  isSmallSize?: boolean;
   transferDirection?: ETransferDirection;
+}
+
+export interface IDisplayComponentSimulation {
+  type: EParseTxComponentType.Simulation;
+  label: string;
+  assets: (
+    | IDisplayComponentInternalAssets
+    | IDisplayComponentNFT
+    | IDisplayComponentToken
+  )[];
 }
 
 export interface IDisplayComponentAssets {
@@ -115,6 +137,7 @@ export interface IDisplayComponentInternalAssets {
   amountParsed: string;
   networkId?: string;
   isNFT?: boolean;
+  isSmallSize?: boolean;
   transferDirection?: ETransferDirection;
   NFTType?: ENFTType;
 }
@@ -133,6 +156,7 @@ export interface IDisplayComponentApprove {
   isInfiniteAmount: boolean;
   networkId: string;
   showNetwork: boolean;
+  isSmallSize?: boolean;
 }
 
 export interface IDisplayComponentDefault {
@@ -142,6 +166,7 @@ export interface IDisplayComponentDefault {
 }
 
 export type IDisplayComponent =
+  | IDisplayComponentSimulation
   | IDisplayComponentDivider
   | IDisplayComponentAssets
   | IDisplayComponentInternalAssets
@@ -164,6 +189,11 @@ export interface ISignatureConfirmDisplay {
   title: string;
   components: IDisplayComponent[];
   alerts: string[];
+  mevProtectionProvider?: {
+    name: string;
+    logoURI: string;
+    logoURIDark?: string;
+  };
 }
 
 export interface IParseTransactionParams {
@@ -171,6 +201,7 @@ export interface IParseTransactionParams {
   accountId: string;
   encodedTx: IEncodedTx;
   accountAddress?: string;
+  origin?: string;
 }
 
 export interface IParseTransactionResp {
@@ -195,6 +226,7 @@ export interface IParseMessageParams {
   networkId: string;
   accountAddress?: string;
   message: string;
+  swapInfo?: ISwapTxInfo;
 }
 
 export interface IParseMessageResp {

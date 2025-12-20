@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Stack } from '../../primitives/Stack';
 
 import type { IOptimizationViewType } from './type';
+import type { IStackProps } from '../../primitives/Stack';
 
 const ViewNativeComponent: {
   default: ElementType<IOptimizationViewType>;
@@ -16,6 +17,6 @@ export * from './type';
 // E2E mode needs to be enabled screenshot in Android
 export const OptimizationView = platformEnv.isE2E
   ? function (props: IOptimizationViewType) {
-      return <Stack {...props} />;
+      return <Stack {...(props as IStackProps)} />;
     }
   : ViewNativeComponent.default;

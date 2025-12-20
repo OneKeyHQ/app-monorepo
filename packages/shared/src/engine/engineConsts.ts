@@ -117,6 +117,9 @@ const COINTYPE_NEO = '888';
 const IMPL_ALLNETWORKS = 'onekeyall';
 const COINTYPE_ALLNETWORKS = '0000';
 
+const IMPL_AGGREGATE = 'aggregate';
+const COINTYPE_AGGREGATE = '17718571205';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -191,7 +194,7 @@ export const HISTORY_CONSTS = {
   DISPLAY_TX_LIMIT: 50,
   REFRESH_DROPPED_TX_IN: 5 * 60 * 1000,
   SET_IS_FINAL_EXPIRED_IN: 24 * 60 * 60 * 1000,
-  PENDING_QUEUE_MAX_LENGTH: 10,
+  PENDING_QUEUE_MAX_LENGTH: 100,
 };
 
 export enum EAppSocketEvents {
@@ -203,18 +206,6 @@ export const getEnabledAccountDynamicNetworkIds = (): string[] => [
   getNetworkIdsMap().polygon,
   getNetworkIdsMap().arbitrum,
   getNetworkIdsMap().optimism,
-];
-
-// TODO move to networkUtils
-export const getEnabledNFTNetworkIds = (): string[] => [
-  getNetworkIdsMap().onekeyall,
-  getNetworkIdsMap().eth,
-  getNetworkIdsMap().optimism,
-  getNetworkIdsMap().bsc,
-  getNetworkIdsMap().polygon,
-  getNetworkIdsMap().arbitrum,
-  getNetworkIdsMap().avalanche,
-  getNetworkIdsMap().sol,
 ];
 
 function getSupportedImpls() {
@@ -260,6 +251,7 @@ export {
   COINTYPE_ALPH,
   COINTYPE_BFC,
   COINTYPE_NEO,
+  COINTYPE_AGGREGATE,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -294,6 +286,7 @@ export {
   IMPL_ALPH,
   IMPL_BFC,
   IMPL_NEO,
+  IMPL_AGGREGATE,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,
@@ -314,3 +307,6 @@ export const CHAINS_DISPLAYED_IN_DEV: string[] = [];
 export const UNIQUE_TOKEN_SYMBOLS: Record<string, Array<string>> = {
   [IMPL_EVM]: ['USDC', 'USDT'],
 };
+
+export const FIRST_EVM_ADDRESS_PATH = "m/44'/60'/0'/0/0";
+export const FIRST_BTC_TAPROOT_ADDRESS_PATH = "m/86'/0'/0'";

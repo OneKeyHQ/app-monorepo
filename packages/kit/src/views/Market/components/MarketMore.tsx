@@ -2,7 +2,11 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IActionListItemProps,
+  IStackProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import { ActionList, IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -10,7 +14,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { useReviewControl } from '../../../components/ReviewControl';
 
 import { useLazyMarketTradeActions } from './tradeHook';
-import { useWatchListAction } from './wachListHooks';
+import { useWatchListAction } from './watchListHooks';
 
 function BasicMarketMore({
   coingeckoId,
@@ -26,8 +30,8 @@ function BasicMarketMore({
 } & IStackProps) {
   const intl = useIntl();
   const actions = useWatchListAction();
-  const MoveToTop = useCallback(() => {
-    actions.MoveToTop(coingeckoId);
+  const MoveToTop = useCallback(async () => {
+    await actions.MoveToTop(coingeckoId);
   }, [actions, coingeckoId]);
   const tradeActions = useLazyMarketTradeActions(coingeckoId);
   const show = useReviewControl();
@@ -84,7 +88,7 @@ function BasicMarketMore({
           variant="tertiary"
           iconSize="$5"
           disabled={sections.length === 0}
-          {...props}
+          {...(props as IXStackProps)}
         />
       }
       sections={sections}

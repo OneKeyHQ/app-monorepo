@@ -1,5 +1,3 @@
-import stringify from 'fast-json-stable-stringify';
-
 import { RpcCacheMethodMap } from './constants';
 
 interface ICacheKey {
@@ -41,10 +39,10 @@ export class RpcCache {
     return this._randomKeys[networkId];
   }
 
-  private generateKey({ address, networkId, data }: ICacheKey): string {
+  generateKey({ address, networkId, data }: ICacheKey): string {
     return `${address ?? ''}--${networkId ?? ''}--${this.getRandomKey(
       networkId,
-    )}--${data.method}--${stringify(data.params)}`;
+    )}--${data.method}--${JSON.stringify(data.params)}`;
   }
 
   get(params: ICacheKey): any | undefined {

@@ -1,6 +1,7 @@
-import { PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
+import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import {
@@ -27,27 +28,12 @@ import {
 } from '../../types';
 
 import { OffchainMessage } from './sdkSol/OffchainMessage';
+import { parseToNativeTx } from './sdkSol/parse';
 
 import type { IEncodedTxSol, INativeTxSol } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 
 const curve: ICurveName = 'ed25519';
-
-function parseToNativeTx(
-  encodedTx: IEncodedTxSol,
-): Promise<INativeTxSol | null> {
-  if (!encodedTx) {
-    return Promise.resolve(null);
-  }
-
-  const txByte = bs58.decode(encodedTx);
-
-  try {
-    return Promise.resolve(Transaction.from(txByte));
-  } catch (e) {
-    return Promise.resolve(VersionedTransaction.deserialize(txByte));
-  }
-}
 
 async function signTransaction({
   nativeTx,
@@ -105,7 +91,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return bs58.encode(
@@ -115,7 +101,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         ]),
       );
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -136,12 +122,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
-    const nativeTx = await parseToNativeTx(encodedTx);
+    const nativeTx = parseToNativeTx(encodedTx);
     const feePayer = new PublicKey(
       checkIsDefined(account.pub || account.pubKey),
     );
     if (!nativeTx) {
-      throw new Error('nativeTx is null');
+      throw new OneKeyLocalError('nativeTx is null');
     }
 
     return signTransaction({
@@ -172,7 +158,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       return bs58.encode(signature);
     }
 
-    throw new Error('signMessage not supported');
+    throw new OneKeyLocalError('signMessage not supported');
   }
 
   override async getAddressFromPrivate(
@@ -196,6 +182,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return Promise.resolve({
       address,
       publicKey: address, // base58 encoded
+      __hwExtraInfo__: undefined,
     });
   }
 

@@ -11,6 +11,13 @@ module.exports = ({ basePath }) => ({
   plugins: [
     new webpack.HotModuleReplacementPlugin(),
     new ReactRefreshWebpackPlugin({ overlay: false }),
+    new webpack.DefinePlugin({
+      // Inject the current file's resource path into a global variable
+      __CURRENT_FILE_PATH__: webpack.DefinePlugin.runtimeValue(
+        (info) => JSON.stringify(info.module.resource),
+        [], // No file dependencies needed for this case
+      ),
+    }),
   ],
   devServer: {
     open: true,

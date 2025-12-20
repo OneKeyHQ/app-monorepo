@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Button, Divider, Empty, ListView, Page } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IConnectionStorageType } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -83,14 +84,14 @@ function ConnectionList() {
       <Page.Body>
         <ListView
           contentContainerStyle={{
-            flex: 1,
+            flex: platformEnv.isNative ? undefined : 1,
             pb: '$10',
           }}
           estimatedItemSize={199}
           scrollEnabled
           data={data}
           ListEmptyComponent={ConnectionListEmpty}
-          keyExtractor={(item, index) => item.origin}
+          keyExtractor={(item) => item.origin}
           renderItem={({ item }) => (
             <ConnectionListItem
               item={item}

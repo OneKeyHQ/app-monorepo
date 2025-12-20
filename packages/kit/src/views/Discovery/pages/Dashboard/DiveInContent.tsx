@@ -1,10 +1,19 @@
 import { useIntl } from 'react-intl';
 import { Path, Svg } from 'react-native-svg';
 
-import { SizableText, Stack, useThemeValue } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  Stack,
+  useThemeValue,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-export const DiveInContent = () => {
+interface IDiveInContentProps {
+  onReload: () => void;
+}
+
+export const DiveInContent = ({ onReload }: IDiveInContentProps) => {
   const intl = useIntl();
   const defaultColor = useThemeValue('neutral6');
 
@@ -35,6 +44,11 @@ export const DiveInContent = () => {
           id: ETranslations.browser_dive_in_description,
         })}
       </SizableText>
+      <Button variant="secondary" size="medium" onPress={onReload}>
+        {intl.formatMessage({
+          id: ETranslations.explore_reload,
+        })}
+      </Button>
     </Stack>
   );
 };

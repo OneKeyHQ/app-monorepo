@@ -15,7 +15,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordModeAtom,
-  usePasswordPersistAtom,
+  // usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -79,7 +79,7 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
   const [loading, setLoading] = useState(false);
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
-  const [, setPasswordPersist] = usePasswordPersistAtom();
+  // const [, setPasswordPersist] = usePasswordPersistAtom();
   const [passwordMode] = usePasswordModeAtom();
   const { setWebAuthEnable } = useWebAuthActions();
   const onSetupPassword = useCallback(
@@ -105,41 +105,50 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         Toast.success({
           title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
-        onSetupRes(setUpPasswordRes);
-        Dialog.show({
-          title: intl.formatMessage({
-            id: ETranslations.auth_Passcode_protection,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.auth_Passcode_protection_description,
-          }),
-          renderIcon: (
-            <XStack
-              w="$14"
-              h="$14"
-              justifyContent="center"
-              alignItems="center"
-              bg="$bgCaution"
-              borderRadius="$full"
-            >
-              <Icon
-                name="QuestionmarkOutline"
-                color="$iconCaution"
-                w="$8"
-                h="$8"
-              />
-            </XStack>
-          ),
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.global_enable,
-          }),
-          onConfirm: () => {
-            setPasswordPersist((v) => ({
-              ...v,
-              enablePasswordErrorProtection: true,
-            }));
-          },
+        setTimeout(() => {
+          onSetupRes(setUpPasswordRes);
         });
+        // Dialog.show({
+        //   title: intl.formatMessage({
+        //     id: ETranslations.auth_Passcode_protection,
+        //   }),
+        //   description: intl.formatMessage({
+        //     id: ETranslations.auth_Passcode_protection_description,
+        //   }),
+        //   renderIcon: (
+        //     <XStack
+        //       w="$14"
+        //       h="$14"
+        //       justifyContent="center"
+        //       alignItems="center"
+        //       bg="$bgCaution"
+        //       borderRadius="$full"
+        //     >
+        //       <Icon
+        //         name="QuestionmarkOutline"
+        //         color="$iconCaution"
+        //         w="$8"
+        //         h="$8"
+        //       />
+        //     </XStack>
+        //   ),
+        //   onConfirmText: intl.formatMessage({
+        //     id: ETranslations.global_enable,
+        //   }),
+        //   onConfirm: () => {
+        //     setPasswordPersist((v) => ({
+        //       ...v,
+        //       enablePasswordErrorProtection: true,
+        //     }));
+        //     onSetupRes(setUpPasswordRes);
+        //   },
+        //   onCancel: () => {
+        //     onSetupRes(setUpPasswordRes);
+        //   },
+        //   onClose: () => {
+        //     onSetupRes(setUpPasswordRes);
+        //   },
+        // });
       } catch (e) {
         console.log('e.stack', (e as Error)?.stack);
         console.error(e);
@@ -152,14 +161,7 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         setLoading(false);
       }
     },
-    [
-      intl,
-      isBiologyAuthSwitchOn,
-      isSupport,
-      onSetupRes,
-      setPasswordPersist,
-      setWebAuthEnable,
-    ],
+    [intl, isBiologyAuthSwitchOn, isSupport, onSetupRes, setWebAuthEnable],
   );
 
   return (

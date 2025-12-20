@@ -20,6 +20,8 @@ if (process.env.NODE_ENV !== 'production') {
     process.env.BUILD_NUMBER || `${dateFns.format(Date.now(), 'MMddHHmm')}-dev`;
 }
 
+process.env.BUILD_TIME = Date.now();
+
 const errorResult = results.find((result) => result.error);
 
 if (errorResult) {

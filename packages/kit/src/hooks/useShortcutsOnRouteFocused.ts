@@ -1,6 +1,6 @@
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 export const useShortcutsOnRouteFocused = (
-  shortcutKey: EShortcutEvents,
-  onShortcuts: () => void,
+  _shortcutKey: EShortcutEvents,
+  _onShortcuts: () => void,
 ) => {};

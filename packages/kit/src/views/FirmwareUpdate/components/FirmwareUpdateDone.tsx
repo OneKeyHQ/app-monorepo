@@ -12,8 +12,10 @@ import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 
 export function FirmwareUpdateDone({
   result,
+  needOnboarding,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
+  needOnboarding: boolean;
 }) {
   const intl = useIntl();
   const actions = useFirmwareUpdateActions();
@@ -26,12 +28,19 @@ export function FirmwareUpdateDone({
           id: ETranslations.update_all_updates_complete,
         })}
       />
-      <FirmwareChangeLogContentView result={result} isDone />
+      <FirmwareChangeLogContentView mx="$-5" result={result} />
       <FirmwareUpdatePageFooter
-        onConfirmText={intl.formatMessage({ id: ETranslations.global_got_it })}
-        onConfirm={() => {
-          actions.closeUpdateModal();
-        }}
+        onConfirmText={
+          needOnboarding
+            ? intl.formatMessage({ id: ETranslations.global_import_wallet })
+            : intl.formatMessage({ id: ETranslations.global_got_it })
+        }
+        onConfirm={
+          needOnboarding
+            ? () =>
+                actions.restartOnboarding({ deviceType: result?.deviceType })
+            : () => actions.closeUpdateModal()
+        }
       />
     </Stack>
   );

@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   IMPL_ADA,
+  IMPL_AGGREGATE,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
   IMPL_ALPH,
@@ -41,6 +42,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyInternalError,
+  OneKeyLocalError,
   VaultKeyringNotDefinedError,
 } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -111,7 +113,9 @@ export async function createKeyringInstance(vault: VaultBase) {
 export async function createVaultInstance(options: IVaultOptions) {
   ensureRunOnBackground();
   if (!options.networkId) {
-    throw new Error('createVaultInstance ERROR: networkId is required');
+    throw new OneKeyLocalError(
+      'createVaultInstance ERROR: networkId is required',
+    );
   }
   const impl = networkUtils.getNetworkImpl({
     networkId: options.networkId,
@@ -156,10 +160,11 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_ALPH]: () => import('./impls/alph/Vault') as any,
     [IMPL_BFC]: () => import('./impls/bfc/Vault') as any,
     [IMPL_NEO]: () => import('./impls/neo/Vault') as any,
+    [IMPL_AGGREGATE]: () => import('./impls/aggregate/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {
-    throw new Error(`no vault found: impl=${impl}`);
+    throw new OneKeyLocalError(`no vault found: impl=${impl}`);
   }
   const VaultClass = (await loader()).default;
 

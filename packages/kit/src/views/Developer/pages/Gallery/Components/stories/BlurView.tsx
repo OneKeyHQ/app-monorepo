@@ -100,6 +100,7 @@ function DynamicDemo() {
 
 const BlurViewGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="BlurView"
     elements={[
       {

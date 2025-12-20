@@ -2,7 +2,9 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   convertAddressToSignatureConfirmAddress,
   convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
@@ -10,7 +12,9 @@ import {
   convertNetworkToSignatureConfirmNetwork,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { ITronResourceRentalInfo } from '@onekeyhq/shared/types/fee';
 import {
+  EParseTxComponentRole,
   EParseTxComponentType,
   EParseTxType,
 } from '@onekeyhq/shared/types/signatureConfirm';
@@ -21,6 +25,7 @@ import type {
   IParseTransactionParams,
   IParseTransactionResp,
 } from '@onekeyhq/shared/types/signatureConfirm';
+import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
@@ -62,6 +67,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           accountAddress,
           unsignedTx,
           isMultiTxs,
+          sourceInfo: params.sourceInfo,
         }),
       ),
     );
@@ -78,8 +84,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
           address: accountAddress,
-          networkId,
-          owner: r[0]?.owner,
+          showAccountName:
+            networkUtils.isLightningNetworkByNetworkId(networkId),
         }),
       );
 
@@ -115,6 +121,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       transferPayload,
       saveToLocalHistory,
       isMultiTxs,
+      sourceInfo,
     } = params;
 
     let parsedTx: IParseTransactionResp | null = null;
@@ -135,15 +142,13 @@ class ServiceSignatureConfirm extends ServiceBase {
       const isSwftOrder = swapInfo.swapBuildResData.swftOrder?.orderId;
       const isChangellyOrder =
         swapInfo.swapBuildResData.changellyOrder?.orderId;
-      const isOKXOrder = (
-        swapInfo.swapBuildResData.ctx as {
-          okxChainId: string;
-        }
-      )?.okxChainId;
 
-      if (isOKXOrder) {
+      if (isBridge && (isSwftOrder || isChangellyOrder)) {
         disableParseTxThroughApi = true;
-      } else if (isBridge && (isSwftOrder || isChangellyOrder)) {
+      } else if (
+        networkUtils.isTronNetworkByNetworkId(networkId) &&
+        (isSwftOrder || isChangellyOrder)
+      ) {
         disableParseTxThroughApi = true;
       }
     }
@@ -157,6 +162,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           accountId,
           accountAddress,
           encodedTx: unsignedTx.encodedTx,
+          origin: sourceInfo?.origin,
         });
       } catch (e) {
         console.log('parse tx through api failed', e);
@@ -189,6 +195,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (parsedTx) {
       decodedTx.isConfirmationRequired = parsedTx.isConfirmationRequired;
+      decodedTx.txParseType = parsedTx.type;
     }
 
     if (parsedTx && parsedTx.parsedTx?.data) {
@@ -219,12 +226,16 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.isLocalParsed = true;
     }
 
+    if (transferPayload?.isCustomHexData) {
+      decodedTx.isCustomHexData = true;
+    }
+
     return decodedTx;
   }
 
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
-    const { accountId, networkId, encodedTx } = params;
+    const { accountId, networkId, encodedTx, origin } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -252,6 +263,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         networkId,
         accountAddress,
         encodedTx: encodedTxToParse,
+        origin,
       },
       {
         headers:
@@ -265,7 +277,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseMessage(params: IParseMessageParams) {
-    const { accountId, networkId, message } = params;
+    const { accountId, networkId, message, swapInfo } = params;
     let accountAddress = params.accountAddress;
     if (!accountAddress) {
       accountAddress =
@@ -302,11 +314,64 @@ class ServiceSignatureConfirm extends ServiceBase {
             ),
         },
       );
-      return resp.data.data;
+
+      const parsedMessage = resp.data.data;
+
+      if (
+        swapInfo &&
+        swapInfo.swapBuildResData.result.info.provider ===
+          ESwapProvider.Swap1inchFusion
+      ) {
+        // fix: 1inch fusion receiver address
+        parsedMessage?.display?.components?.forEach((component) => {
+          if (
+            component.type === EParseTxComponentType.Address &&
+            component.role === EParseTxComponentRole.SwapReceiver
+          ) {
+            component.address = swapInfo.receivingAddress;
+            component.tags = [];
+          }
+        });
+      }
+
+      return parsedMessage;
     } catch (e) {
       console.log('parse message failed', e);
       return null;
     }
+  }
+
+  @toastIfError()
+  @backgroundMethod()
+  async preActionsBeforeSending(params: {
+    accountId: string;
+    networkId: string;
+    unsignedTxs: IUnsignedTxPro[];
+    tronResourceRentalInfo?: ITronResourceRentalInfo;
+  }) {
+    const { accountId, networkId, unsignedTxs, tronResourceRentalInfo } =
+      params;
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    return vault.preActionsBeforeSending({
+      unsignedTxs,
+      tronResourceRentalInfo,
+    });
+  }
+
+  @backgroundMethod()
+  async preActionsBeforeConfirm(params: {
+    accountId: string;
+    networkId: string;
+    unsignedTxs: IUnsignedTxPro[];
+  }) {
+    const { accountId, networkId, unsignedTxs } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.preActionsBeforeConfirm({
+      unsignedTxs,
+    });
   }
 
   @backgroundMethod()
@@ -320,6 +385,35 @@ class ServiceSignatureConfirm extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     await vault.afterSendTxAction({
       result,
+    });
+  }
+
+  @backgroundMethod()
+  async updateRecentRecipients({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }) {
+    await this.backgroundApi.simpleDb.recentRecipients.updateRecentRecipients({
+      networkId,
+      address,
+      updatedAt: Date.now(),
+    });
+  }
+
+  @backgroundMethod()
+  async getRecentRecipients({
+    networkId,
+    limit,
+  }: {
+    networkId: string;
+    limit?: number;
+  }) {
+    return this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
+      networkId,
+      limit,
     });
   }
 }

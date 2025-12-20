@@ -12,6 +12,7 @@
     "optimization/**",
     "primitives/**",
     "types/**",
-    "utils/**"
+    "utils/**",
+    "shared/**"
   ]
 }

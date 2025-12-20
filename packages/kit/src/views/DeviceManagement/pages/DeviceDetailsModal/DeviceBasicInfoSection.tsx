@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type { IBadgeType, IIconProps, IKeyOfIcons } from '@onekeyhq/components';
@@ -13,16 +14,27 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
+import { useFirmwareChangeDialog } from './FirmwareChangeDialog';
+
+import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
+
 function DeviceBasicInfoSection({
   data,
   onPressHomescreen,
   onPressAuthRequest,
   onPressCheckForUpdates,
+  onPressTroubleshooting,
+  authRequestLoading,
 }: {
   data: IHwQrWalletWithDevice;
   onPressHomescreen: () => void;
   onPressAuthRequest: () => void;
-  onPressCheckForUpdates: () => void;
+  onPressCheckForUpdates: (
+    firmwareType?: EFirmwareType,
+    baseReleaseInfo?: AllFirmwareRelease,
+  ) => void;
+  onPressTroubleshooting: () => void;
+  authRequestLoading: boolean;
 }) {
   const { wallet, device } = data;
   const intl = useIntl();
@@ -30,15 +42,19 @@ function DeviceBasicInfoSection({
 
   const defaultInfo = useMemo(
     () => ({
-      firmwareVersion: '-',
-      walletAvatarBadge: isQrWallet ? 'QR' : undefined,
+      firmwareVersion: '0.0.0',
+      firmwareVersionDisplay: '-',
+      firmwareType: undefined,
+      isAllowChangeFirmwareType: false,
+      walletAvatarBadge: undefined,
       verifiedBadgeType: 'default' as IBadgeType,
       verifiedBadgeText: '-',
       verifiedBadgeTextColor: '$iconCritical' as IIconProps['color'],
       verifiedBadgeIconName: 'ErrorSolid' as IKeyOfIcons,
       verifiedBadgeIconColor: '$iconCritical' as IIconProps['color'],
+      addWallpaperTitleId: ETranslations.global_wallpaper,
     }),
-    [isQrWallet],
+    [],
   );
 
   const { result: deviceInfo } = usePromiseResult(
@@ -49,6 +65,10 @@ function DeviceBasicInfoSection({
 
       const versions = await deviceUtils.getDeviceVersion({
         device,
+        features: device.featuresInfo,
+      });
+
+      const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
         features: device.featuresInfo,
       });
 
@@ -68,23 +88,103 @@ function DeviceBasicInfoSection({
         },
       };
 
+      const isAllowChangeFirmwareType = [
+        EDeviceType.Pro,
+        EDeviceType.Classic1s,
+        EDeviceType.ClassicPure,
+      ].includes(deviceType);
+      const firmwareType = await deviceUtils.getFirmwareType({
+        features: device.featuresInfo,
+      });
+      const firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
+        firmwareType,
+        displayFormat: 'withSpace',
+      });
+
+      const firmwareVersionDisplay = versions?.firmwareVersion
+        ? `${firmwareTypeLabel}v${versions?.firmwareVersion}`
+        : '-';
+
       const status = isVerified
         ? verificationStatus.success
         : verificationStatus.critical;
 
       return {
-        firmwareVersion: versions?.firmwareVersion ?? '-',
-        walletAvatarBadge: isQrWallet ? 'QR' : undefined,
+        firmwareVersion: versions?.firmwareVersion ?? '0.0.0',
+        firmwareVersionDisplay,
+        firmwareType,
+        isAllowChangeFirmwareType,
+        walletAvatarBadge: undefined,
         verifiedBadgeType: status.type,
         verifiedBadgeIconName: status.icon,
         verifiedBadgeIconColor: status.color,
         verifiedBadgeText: intl.formatMessage({ id: status.textId }),
         verifiedBadgeTextColor: status.color,
+        addWallpaperTitleId: deviceUtils.isTouchDevice(deviceType)
+          ? ETranslations.global_wallpaper_add
+          : ETranslations.global_wallpaper,
       };
     },
-    [device, isQrWallet, intl, defaultInfo],
+    [device, intl, defaultInfo],
     { initResult: defaultInfo },
   );
+
+  const { show: showFirmwareChangeDialog } = useFirmwareChangeDialog({
+    device,
+    onSuccess: (
+      targetFirmwareType: EFirmwareType,
+      fromFirmwareType: EFirmwareType,
+      baseReleaseInfo,
+    ) => {
+      onPressCheckForUpdates(targetFirmwareType, baseReleaseInfo);
+    },
+    onUpgradeFirmware: () => {
+      onPressCheckForUpdates();
+    },
+  });
+
+  const onPressFirmwareTypeChange = useCallback(() => {
+    showFirmwareChangeDialog({
+      hasAllowChangeFirmwareType: deviceInfo.isAllowChangeFirmwareType,
+      targetFirmwareType:
+        deviceInfo.firmwareType === EFirmwareType.BitcoinOnly
+          ? EFirmwareType.Universal
+          : EFirmwareType.BitcoinOnly,
+      fromFirmwareType: deviceInfo.firmwareType ?? EFirmwareType.Universal,
+    });
+  }, [
+    deviceInfo.firmwareType,
+    deviceInfo.isAllowChangeFirmwareType,
+    showFirmwareChangeDialog,
+  ]);
+
+  const firmwareTypeChangeView = useMemo(() => {
+    if (!deviceInfo.isAllowChangeFirmwareType) {
+      return null;
+    }
+    return (
+      <ListItem
+        title={intl.formatMessage(
+          {
+            id: ETranslations.device_settings_switch_firmware_type,
+          },
+          {
+            type:
+              deviceInfo.firmwareType === EFirmwareType.BitcoinOnly
+                ? 'Universal'
+                : 'Bitcoin-only',
+          },
+        )}
+        drillIn
+        onPress={onPressFirmwareTypeChange}
+      />
+    );
+  }, [
+    deviceInfo.isAllowChangeFirmwareType,
+    deviceInfo.firmwareType,
+    intl,
+    onPressFirmwareTypeChange,
+  ]);
 
   return (
     <YStack pt="$3" pb="$3" gap="$5" bg="$bgSubdued" borderRadius="$4">
@@ -95,16 +195,17 @@ function DeviceBasicInfoSection({
             wallet={wallet}
             status="default"
             badge={deviceInfo.walletAvatarBadge}
+            firmwareTypeBadge={deviceInfo.firmwareType}
           />
         </XStack>
         <YStack flex={1}>
           <XStack ml={-5} pr="$5">
-            <WalletRenameButton wallet={wallet} />
+            <WalletRenameButton wallet={wallet} editable />
           </XStack>
           {isQrWallet ? null : (
             <XStack mt="$1.5" gap="$1.5">
               <Badge badgeSize="sm" badgeType="default">
-                {`v${deviceInfo.firmwareVersion}`}
+                {deviceInfo.firmwareVersionDisplay}
               </Badge>
               <Badge badgeSize="sm" badgeType={deviceInfo.verifiedBadgeType}>
                 <XStack ai="center" gap="$1.5">
@@ -129,7 +230,7 @@ function DeviceBasicInfoSection({
         <YStack>
           <ListItem
             title={intl.formatMessage({
-              id: ETranslations.global_homescreen,
+              id: deviceInfo.addWallpaperTitleId,
             })}
             drillIn
             onPress={onPressHomescreen}
@@ -140,13 +241,22 @@ function DeviceBasicInfoSection({
             })}
             drillIn
             onPress={onPressAuthRequest}
+            isLoading={authRequestLoading}
           />
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.global_check_for_updates,
             })}
             drillIn
-            onPress={onPressCheckForUpdates}
+            onPress={() => onPressCheckForUpdates()}
+          />
+          {firmwareTypeChangeView}
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.global_hardware_troubleshooting,
+            })}
+            drillIn
+            onPress={onPressTroubleshooting}
           />
         </YStack>
       )}

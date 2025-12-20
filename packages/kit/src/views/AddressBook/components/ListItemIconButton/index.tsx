@@ -57,8 +57,16 @@ export function BasicListItemIconButton({
           icon: 'PeopleOutline',
           onPress: async () => {
             if (id) {
+              const { password } =
+                await backgroundApiProxy.servicePassword.promptPasswordVerify();
+              if (!password) {
+                return;
+              }
               const addressBookItem =
-                await backgroundApiProxy.serviceAddressBook.findItemById(id);
+                await backgroundApiProxy.serviceAddressBook.findItemById({
+                  id,
+                  password,
+                });
               if (addressBookItem) {
                 // appNavigation.pushModal(EModalRoutes.MainModal, {
                 //   screen: ETabHomeRoutes.TabHomeUrlAccountPage,

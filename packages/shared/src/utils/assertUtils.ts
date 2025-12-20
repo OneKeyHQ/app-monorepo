@@ -11,6 +11,7 @@ import {
 } from 'lodash';
 
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors/errors/localError';
 import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
@@ -27,11 +28,13 @@ export const check = (statement: any, orError?: IErrorType) => {
     // eslint-disable-next-line no-param-reassign
     orError = orError || 'Invalid statement';
     // eslint-disable-next-line no-param-reassign
-    orError = orError instanceof Error ? orError : new Error(orError);
+    orError =
+      orError instanceof Error ? orError : new OneKeyLocalError(orError);
 
     throw orError;
   }
 };
+
 export const checkIsDefined = <T>(something?: T, orError?: IErrorType): T => {
   check(
     typeof something !== 'undefined',
@@ -49,11 +52,11 @@ export const checkIsUndefined = (something: any, orError?: IErrorType) => {
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
-    // `throw new Error()` won't print error object in iOS/Android,
+    // `throw new OneKeyLocalError()` won't print error object in iOS/Android,
     //    so we print it manually by `console.error()`
     console.error(msg, ...args);
   }
-  throw new Error(msg);
+  throw new OneKeyLocalError(msg);
 }
 
 export function isSerializable(obj: any, keyPath?: string[]) {
@@ -113,6 +116,7 @@ export function toggleBgApiSerializableChecking(enabled: boolean) {
     data,
   );
 }
+
 export function isBgApiSerializableCheckingDisabled() {
   try {
     const data =
@@ -138,6 +142,7 @@ export function isBgApiSerializableCheckingDisabled() {
     return false;
   }
 }
+
 export function ensureSerializable(
   obj: any,
   stringify = false,
@@ -154,7 +159,7 @@ export function ensureSerializable(
           );
         }
 
-        throw new Error('Object should be serializable');
+        throw new OneKeyLocalError('Object should be serializable');
       }
     }
   }
@@ -186,12 +191,12 @@ export function ensurePromiseObject(
 export function ensureRunOnBackground() {
   // eslint-disable-next-line import/no-named-as-default-member
   if (!platformEnv.isJest && platformEnv.isExtensionUi) {
-    throw new Error('this code can not run on UI');
+    throw new OneKeyLocalError('this code can not run on UI');
   }
 }
 
 export function ensureRunOnNative() {
   if (!platformEnv.isJest && !platformEnv.isNative) {
-    throw new Error('this code can not run on non-native');
+    throw new OneKeyLocalError('this code can not run on non-native');
   }
 }

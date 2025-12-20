@@ -7,23 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
+		076068BF2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; };
+		076068C02E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */; };
+		07A0D9DD2E7997C6005A1AA2 /* BundleUpdateModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 07A0D9DC2E7997C6005A1AA2 /* BundleUpdateModule.m */; };
+		07A167A92E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
+		07A167AA2E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
+		07BBD7EC2E7C85FA00A3654D /* Verification.m in Sources */ = {isa = PBXBuildFile; fileRef = 07BBD7EB2E7C85FA00A3654D /* Verification.m */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
+		2788FF4A611FA65E5DD92E66 /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */; };
 		31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAB62C802804CA1BF90BB10 /* noop-file.swift */; };
 		35EE15B12B9A2ACD004C86AC /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 35EE15B32B9A2ACD004C86AC /* InfoPlist.strings */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */; };
-		66629869BAECC5C48E46292A /* Pods_OneKeyWallet.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7AF803390CE7CF8ECC3DBAB /* Pods_OneKeyWallet.framework */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		C28C89F82C85D3A700D9A657 /* JPushManager.m in Sources */ = {isa = PBXBuildFile; fileRef = C28C89F62C85D3A600D9A657 /* JPushManager.m */; };
-		C29B683A2B46F90E0084CE36 /* RCTBundleModule.m in Sources */ = {isa = PBXBuildFile; fileRef = C29B68382B46F90E0084CE36 /* RCTBundleModule.m */; };
 		EA73E1F22C3EAEAD000E9398 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */; };
 		EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */; };
 		EA9FF4ED2BDFFDBB00AC618A /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = EA9FF4EC2BDFFDBB00AC618A /* web-embed */; };
 		F42739F92D24DABD0072EBA9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F42739F82D24DABD0072EBA9 /* StoreKit.framework */; };
+		LAUNCH0012E85D3A700D9A657 /* LaunchOptionsManager.m in Sources */ = {isa = PBXBuildFile; fileRef = LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,6 +41,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		076068C12E7EF3BA00E007B2 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				076068C02E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C274DAC62AE2644400755275 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -51,12 +66,16 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = "gopenpgp-3.3.0.xcframework"; path = "XCFrameworks/gopenpgp-3.3.0.xcframework"; sourceTree = "<group>"; };
+		0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		07A0D9DB2E7997C6005A1AA2 /* BundleUpdateModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BundleUpdateModule.h; path = OneKeyWallet/BundleUpdateModule.h; sourceTree = "<group>"; };
+		07A0D9DC2E7997C6005A1AA2 /* BundleUpdateModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BundleUpdateModule.m; path = OneKeyWallet/BundleUpdateModule.m; sourceTree = "<group>"; };
+		07A167A82E576AF7006A3117 /* OneKeyLogo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = OneKeyLogo.icon; sourceTree = "<group>"; };
+		07BBD7EA2E7C85FA00A3654D /* Verification.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Verification.h; path = OneKeyWallet/Verification.h; sourceTree = "<group>"; };
+		07BBD7EB2E7C85FA00A3654D /* Verification.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = Verification.m; path = OneKeyWallet/Verification.m; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* OneKeyWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OneKeyWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		13B07FAF1A68108700A75B9A /* AppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppDelegate.h; path = OneKeyWallet/AppDelegate.h; sourceTree = "<group>"; };
-		13B07FB01A68108700A75B9A /* AppDelegate.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = AppDelegate.mm; path = OneKeyWallet/AppDelegate.mm; sourceTree = "<group>"; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OneKeyWallet/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = OneKeyWallet/Info.plist; sourceTree = "<group>"; };
-		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = OneKeyWallet/main.m; sourceTree = "<group>"; };
 		2DAB62C802804CA1BF90BB10 /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "OneKeyWallet/noop-file.swift"; sourceTree = "<group>"; };
 		3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "OneKeyWallet-Bridging-Header.h"; path = "OneKeyWallet/OneKeyWallet-Bridging-Header.h"; sourceTree = "<group>"; };
 		35EE15B22B9A2ACD004C86AC /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -64,21 +83,16 @@
 		35EE15B52B9A2AD1004C86AC /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		35EE15B62B9A2AD1004C86AC /* id */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = id; path = id.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		6C2E3173556A471DD304B334 /* Pods-OneKeyWallet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.debug.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.debug.xcconfig"; sourceTree = "<group>"; };
-		7A4D352CD337FB3A3BF06240 /* Pods-OneKeyWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.release.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.release.xcconfig"; sourceTree = "<group>"; };
+		7930D3EB206A16EE7BAE3E3F /* Pods-OneKeyWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.release.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.release.xcconfig"; sourceTree = "<group>"; };
+		8F3684A92F0AE732D0290D9A /* Pods-OneKeyWallet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.debug.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.debug.xcconfig"; sourceTree = "<group>"; };
+		9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-OneKeyWallet.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		C252A0802B46FBCC00F5B925 /* RCTBridge+RNPrivateBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "RCTBridge+RNPrivateBridge.h"; path = "OneKeyWallet/RCTBridge+RNPrivateBridge.h"; sourceTree = "<group>"; };
 		C274DABD2AE2644400755275 /* ServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C274DABF2AE2644400755275 /* NotificationService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NotificationService.h; sourceTree = "<group>"; };
 		C274DAC02AE2644400755275 /* NotificationService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NotificationService.m; sourceTree = "<group>"; };
 		C274DAC22AE2644400755275 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		C28C89F62C85D3A600D9A657 /* JPushManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = JPushManager.m; path = OneKeyWallet/JPushManager.m; sourceTree = "<group>"; };
-		C28C89F72C85D3A700D9A657 /* JPushManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = JPushManager.h; path = OneKeyWallet/JPushManager.h; sourceTree = "<group>"; };
-		C29B68382B46F90E0084CE36 /* RCTBundleModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RCTBundleModule.m; path = OneKeyWallet/RCTBundleModule.m; sourceTree = "<group>"; };
-		C29B68392B46F90E0084CE36 /* RCTBundleModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RCTBundleModule.h; path = OneKeyWallet/RCTBundleModule.h; sourceTree = "<group>"; };
 		C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = OneKeyWallet.entitlements; path = OneKeyWallet/OneKeyWallet.entitlements; sourceTree = "<group>"; };
-		D7AF803390CE7CF8ECC3DBAB /* Pods_OneKeyWallet.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_OneKeyWallet.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E386ED442C7889E000B1E360 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E386ED452C788A1300B1E360 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E386ED472C788A2700B1E360 /* hi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = hi; path = hi.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -99,6 +113,8 @@
 		EA9FF4EC2BDFFDBB00AC618A /* web-embed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "web-embed"; path = "OneKeyWallet/web-embed"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F42739F82D24DABD0072EBA9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LaunchOptionsManager.m; path = OneKeyWallet/LaunchOptionsManager.m; sourceTree = "<group>"; };
+		LAUNCH0012E85D3A700D9A658 /* LaunchOptionsManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LaunchOptionsManager.h; path = OneKeyWallet/LaunchOptionsManager.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -106,8 +122,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				66629869BAECC5C48E46292A /* Pods_OneKeyWallet.framework in Frameworks */,
+				076068BF2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework in Frameworks */,
 				F42739F92D24DABD0072EBA9 /* StoreKit.framework in Frameworks */,
+				2788FF4A611FA65E5DD92E66 /* libPods-OneKeyWallet.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -134,23 +151,23 @@
 			children = (
 				EA9FF4EC2BDFFDBB00AC618A /* web-embed */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
-				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */,
-				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
-				C28C89F72C85D3A700D9A657 /* JPushManager.h */,
-				C28C89F62C85D3A600D9A657 /* JPushManager.m */,
-				C252A0802B46FBCC00F5B925 /* RCTBridge+RNPrivateBridge.h */,
-				C29B68392B46F90E0084CE36 /* RCTBundleModule.h */,
-				C29B68382B46F90E0084CE36 /* RCTBundleModule.m */,
+				0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */,
+				07BBD7EA2E7C85FA00A3654D /* Verification.h */,
+				07BBD7EB2E7C85FA00A3654D /* Verification.m */,
+				07A0D9DB2E7997C6005A1AA2 /* BundleUpdateModule.h */,
+				07A0D9DC2E7997C6005A1AA2 /* BundleUpdateModule.m */,
+				LAUNCH0012E85D3A700D9A658 /* LaunchOptionsManager.h */,
+				LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */,
 				35EE15B32B9A2ACD004C86AC /* InfoPlist.strings */,
 				C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */,
-				13B07FB71A68108700A75B9A /* main.m */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				2DAB62C802804CA1BF90BB10 /* noop-file.swift */,
 				3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */,
+				07A167A82E576AF7006A3117 /* OneKeyLogo.icon */,
 			);
 			name = OneKeyWallet;
 			sourceTree = "<group>";
@@ -158,9 +175,10 @@
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */,
 				F42739F82D24DABD0072EBA9 /* StoreKit.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				D7AF803390CE7CF8ECC3DBAB /* Pods_OneKeyWallet.framework */,
+				9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -219,8 +237,8 @@
 		D65327D7A22EEC0BE12398D9 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				6C2E3173556A471DD304B334 /* Pods-OneKeyWallet.debug.xcconfig */,
-				7A4D352CD337FB3A3BF06240 /* Pods-OneKeyWallet.release.xcconfig */,
+				8F3684A92F0AE732D0290D9A /* Pods-OneKeyWallet.debug.xcconfig */,
+				7930D3EB206A16EE7BAE3E3F /* Pods-OneKeyWallet.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -240,17 +258,17 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "OneKeyWallet" */;
 			buildPhases = (
-				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
+				860344BEAD92EB4C2606DBCA /* [CP] Check Pods Manifest.lock */,
 				D8981D2998B0CB74725DB299 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				EA7958392B70B02A00E0382F /* Bundle React Native code and images */,
-				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				03B908104778C43B74243E6A /* [CP] Embed Pods Frameworks */,
 				C274DAC62AE2644400755275 /* Embed Foundation Extensions */,
-				C214A9FD2B3A799D00878A6F /* Copy Split Bundles */,
 				2FA0D2DF4C8B4E3B9FCE32CA /* Upload Debug Symbols to Sentry */,
+				076068C12E7EF3BA00E007B2 /* Embed Frameworks */,
+				3EDAD8685393FC102363B5F8 /* [CP] Embed Pods Frameworks */,
+				EFE2221F1F14C7E02A5D3839 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -339,6 +357,7 @@
 			files = (
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				35EE15B12B9A2ACD004C86AC /* InfoPlist.strings in Resources */,
+				07A167A92E576AF7006A3117 /* OneKeyLogo.icon in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
@@ -351,20 +370,35 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				07A167AA2E576AF7006A3117 /* OneKeyLogo.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		03B908104778C43B74243E6A /* [CP] Embed Pods Frameworks */ = {
+		2FA0D2DF4C8B4E3B9FCE32CA /* Upload Debug Symbols to Sentry */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Upload Debug Symbols to Sentry";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh ../../../node_modules/@sentry/react-native/scripts/sentry-xcode-debug-files.sh";
+		};
+		3EDAD8685393FC102363B5F8 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-frameworks.sh",
-				"${PODS_ROOT}/../../../../node_modules/@onekeyfe/react-native-lite-card/ios/GPChannelSDKCore.framework",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeLiteCard/GPChannelSDKCore.framework/GPChannelSDKCore",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
 			);
 			name = "[CP] Embed Pods Frameworks";
@@ -377,7 +411,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
+		860344BEAD92EB4C2606DBCA /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -399,77 +433,6 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		2FA0D2DF4C8B4E3B9FCE32CA /* Upload Debug Symbols to Sentry */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Upload Debug Symbols to Sentry";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/bin/sh ../../../node_modules/@sentry/react-native/scripts/sentry-xcode-debug-files.sh";
-		};
-		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-resources.sh",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/JXCategoryView/JXCategoryView.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/JXPagingView/JXPagerView.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/PurchasesHybridCommon/PurchasesHybridCommon.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RNImageCropPicker/RNImageCropPickerPrivacyInfo.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RNImageCropPicker/QBImagePicker.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/RCTI18nStrings.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCat/RevenueCat.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/Sentry/Sentry.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/TOCropViewController/TOCropViewControllerBundle.bundle",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/JXCategoryView.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/JXPagerView.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/PurchasesHybridCommon.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNImageCropPickerPrivacyInfo.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/QBImagePicker.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCTI18nStrings.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Sentry.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/TOCropViewControllerBundle.bundle",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		C214A9FD2B3A799D00878A6F /* Copy Split Bundles */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 8;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Copy Split Bundles";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "if [ -d \"../dist/chunks\" ]; then\n    cp -r ../dist/chunks/* ${TARGET_BUILD_DIR}/${TARGET_NAME}.app/\nfi\n";
-		};
 		D8981D2998B0CB74725DB299 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -479,11 +442,16 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/OneKeyWallet/OneKeyWallet.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-OneKeyWallet/expo-configure-project.sh",
 			);
 			name = "[Expo] Configure project";
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(SRCROOT)/Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -508,6 +476,78 @@
 			shellPath = /bin/sh;
 			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios relative | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n/bin/sh `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode.sh'\"` `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
 		};
+		EFE2221F1F14C7E02A5D3839 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/CocoaLumberjack/CocoaLumberjackPrivacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXNotifications/ExpoNotifications_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoDevice/ExpoDevice_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoLocalization/ExpoLocalization_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/PurchasesHybridCommon/PurchasesHybridCommon.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RCT-Folly/RCT-Folly_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNImageCropPicker/RNImageCropPickerPrivacyInfo.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNImageCropPicker/QBImagePicker.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNPermissions/RNPermissionsPrivacyInfo.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ReactNativeFs/RNFS_PrivacyInfo.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RealmJS/RealmJS.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCat/RevenueCat.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/SDWebImage/SDWebImage.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/SSZipArchive/SSZipArchive.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/Sentry/Sentry.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/TOCropViewController/TOCropViewControllerBundle.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/boost/boost_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/glog/glog_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-ios/LottiePrivacyInfo.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-react-native/Lottie_React_Native_Privacy.bundle",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CocoaLumberjackPrivacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoDevice_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoLocalization_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/PurchasesHybridCommon.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCT-Folly_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNImageCropPickerPrivacyInfo.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/QBImagePicker.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNPermissionsPrivacyInfo.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNFS_PrivacyInfo.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RealmJS.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SDWebImage.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SSZipArchive.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Sentry.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/TOCropViewControllerBundle.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/boost_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/glog_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/LottiePrivacyInfo.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Lottie_React_Native_Privacy.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -515,11 +555,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C28C89F82C85D3A700D9A657 /* JPushManager.m in Sources */,
-				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
-				C29B683A2B46F90E0084CE36 /* RCTBundleModule.m in Sources */,
-				13B07FC11A68108700A75B9A /* main.m in Sources */,
+				LAUNCH0012E85D3A700D9A657 /* LaunchOptionsManager.m in Sources */,
 				31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */,
+				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
+				07BBD7EC2E7C85FA00A3654D /* Verification.m in Sources */,
+				07A0D9DD2E7997C6005A1AA2 /* BundleUpdateModule.m in Sources */,
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -574,9 +614,10 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C2E3173556A471DD304B334 /* Pods-OneKeyWallet.debug.xcconfig */;
+			baseConfigurationReference = 8F3684A92F0AE732D0290D9A /* Pods-OneKeyWallet.debug.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = OneKeyLogo;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = OneKeyWallet/OneKeyWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -586,14 +627,14 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = BVJ3FU5H2K;
 				ENABLE_BITCODE = NO;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = "$(REACT_NATIVE_ROOT)/../react-native-lite-card/ios/GPChannelSDKCore.framework";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"FB_SONARKIT_ENABLED=1",
 				);
 				INFOPLIST_FILE = OneKeyWallet/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -609,7 +650,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = so.onekey.wallet;
 				PRODUCT_NAME = OneKeyWallet;
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "OneKeyWalletX Profile Development";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "OneKeyWalletX Profile Development-25/7/14";
 				SWIFT_OBJC_BRIDGING_HEADER = "OneKeyWallet/OneKeyWallet-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -620,9 +661,10 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7A4D352CD337FB3A3BF06240 /* Pods-OneKeyWallet.release.xcconfig */;
+			baseConfigurationReference = 7930D3EB206A16EE7BAE3E3F /* Pods-OneKeyWallet.release.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = OneKeyLogo;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = OneKeyWallet/OneKeyWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -631,7 +673,7 @@
 				DEVELOPMENT_TEAM = BVJ3FU5H2K;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				INFOPLIST_FILE = OneKeyWallet/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -711,6 +753,8 @@
 					"${PODS_CONFIGURATION_BUILD_DIR}/React-NativeModulesApple/React_NativeModulesApple.framework/Headers",
 					"${PODS_CONFIGURATION_BUILD_DIR}/React-graphics/React_graphics.framework/Headers",
 					"${PODS_CONFIGURATION_BUILD_DIR}/React-graphics/React_graphics.framework/Headers/react/renderer/graphics/platform/ios",
+					"${PODS_CONFIGURATION_BUILD_DIR}/React-runtimeexecutor/React_runtimeexecutor.framework/Headers",
+					"${PODS_CONFIGURATION_BUILD_DIR}/React-runtimeexecutor/React_runtimeexecutor.framework/Headers/platform/ios",
 				);
 				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -728,6 +772,7 @@
 				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				USE_HERMES = true;
 			};
 			name = Debug;
@@ -787,6 +832,8 @@
 					"${PODS_CONFIGURATION_BUILD_DIR}/React-NativeModulesApple/React_NativeModulesApple.framework/Headers",
 					"${PODS_CONFIGURATION_BUILD_DIR}/React-graphics/React_graphics.framework/Headers",
 					"${PODS_CONFIGURATION_BUILD_DIR}/React-graphics/React_graphics.framework/Headers/react/renderer/graphics/platform/ios",
+					"${PODS_CONFIGURATION_BUILD_DIR}/React-runtimeexecutor/React_runtimeexecutor.framework/Headers",
+					"${PODS_CONFIGURATION_BUILD_DIR}/React-runtimeexecutor/React_runtimeexecutor.framework/Headers/platform/ios",
 				);
 				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -834,7 +881,7 @@
 				INFOPLIST_FILE = ServiceExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ServiceExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -847,7 +894,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = so.onekey.wallet.ServiceExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "OneKeyWallet ServiceExtension development";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "OneKeyWallet ServiceExtension development-25/7/14";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -875,7 +922,7 @@
 				INFOPLIST_FILE = ServiceExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ServiceExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

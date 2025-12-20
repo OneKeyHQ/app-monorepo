@@ -1,6 +1,6 @@
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
-import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInit';
+import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type {
   IGlobalEventBusSyncBroadcastParams,

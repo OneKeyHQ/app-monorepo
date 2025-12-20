@@ -7,6 +7,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
@@ -48,6 +49,7 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+  qrAccountEnabled: true,
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
@@ -97,10 +99,25 @@ const settings: IVaultSettings = {
             },
           },
         },
+        [EEarnProviderEnum.Stakefish]: {
+          supportedSymbols: ['SOL'],
+          configs: {
+            'SOL': {
+              enabled: true,
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+              displayProfit: true,
+              withdrawWithTx: true,
+              claimWithTx: true,
+            },
+          },
+        },
       },
     },
   },
   stakingResultPollingInterval: 5,
+  maxRetryBroadcastTxCount: 5,
+  minRetryBroadcastTxInterval: timerUtils.getTimeDurationMs({ seconds: 1 }),
+  enabledInternalSignAndVerify: true,
 };
 
 export default Object.freeze(settings);

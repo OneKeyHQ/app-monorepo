@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { atom, createStore, useAtom } from 'jotai';
 
 import type {
@@ -12,6 +13,7 @@ import {
   contextAtomComputedBase,
   contextAtomMethodBase,
 } from '@onekeyhq/kit-bg/src/states/jotai/utils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { WritableAtom } from 'jotai';
 
@@ -62,7 +64,9 @@ export function createJotaiContext<TContextConfig = undefined>() {
   function useContextData() {
     const data = useContext(Context);
     if (!data?.store) {
-      throw new Error('useContextStore ERROR: store not initialized');
+      throw new OneKeyLocalError(
+        'useContextStore ERROR: store not initialized',
+      );
     }
     return data;
   }

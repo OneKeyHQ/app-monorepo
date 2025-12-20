@@ -2,6 +2,7 @@ import memoizee from 'memoizee';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
@@ -29,7 +30,7 @@ export const marketWatchListAtom = memoizee(() =>
     }),
     (get, set, arg: any) => {
       if (arg === INIT) {
-        void backgroundApiProxy.simpleDb.marketWatchList
+        void backgroundApiProxy.serviceMarket
           .getMarketWatchList()
           .then((data) => {
             set(basicMarketWatchListAtom(), data);

@@ -7,6 +7,7 @@ import type {
   EMessageTypesEth,
   EMessageTypesSolana,
   EMessageTypesTon,
+  EMessageTypesTron,
 } from '@onekeyhq/shared/types/message';
 
 import type { ISignMessageRequest } from '../chains/aptos/types';
@@ -28,6 +29,20 @@ export type IUnsignedMessageAptos = {
   payload?: ISignMessageRequest;
 };
 
+export type ISignDataPayloadText = {
+  type: 'text';
+  text: string;
+};
+export type ISignDataPayloadBinary = {
+  type: 'binary';
+  bytes: string;
+};
+export type ISignDataPayloadCell = {
+  type: 'cell';
+  schema: string;
+  cell: string;
+};
+
 export type IUnsignedMessageTon = {
   type: EMessageTypesTon;
   message: string;
@@ -37,6 +52,10 @@ export type IUnsignedMessageTon = {
     timestamp: number;
     appDomain?: string;
     address?: string;
+    payload?:
+      | ISignDataPayloadText
+      | ISignDataPayloadBinary
+      | ISignDataPayloadCell;
   };
 };
 
@@ -78,7 +97,14 @@ export type IUnsignedMessageSolana = {
   message: string;
   payload?: {
     version?: number;
+    applicationDomain?: string;
   };
+};
+
+export type IUnsignedMessageTron = {
+  type: EMessageTypesTron;
+  message: string;
+  payload?: any;
 };
 
 export type IUnsignedMessage =
@@ -87,6 +113,7 @@ export type IUnsignedMessage =
   | IUnsignedMessageBtc
   | IUnsignedMessageAptos
   | IUnsignedMessageTon
+  | IUnsignedMessageTron
   | IUnsignedMessageAda
   | IUnsignedMessageAlph
   | IUnsignedMessageCfx

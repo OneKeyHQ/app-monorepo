@@ -1,13 +1,13 @@
-import { XStack } from '../../../primitives';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
-import type { GetProps } from 'tamagui';
+import { XStack } from '../../../primitives';
 
 export default function HeaderButtonGroup(props: GetProps<typeof XStack>) {
   const { children, ...rest } = props;
 
   return (
     <XStack
-      gap="$5"
+      gap="$4"
       alignItems="center"
       testID="Navigation-HeaderView-ButtonGroup"
       {...rest}

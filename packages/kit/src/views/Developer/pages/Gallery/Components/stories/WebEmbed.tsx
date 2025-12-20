@@ -35,7 +35,11 @@ export function WebEmbedDevConfig() {
   );
 
   useEffect(() => {
-    void updateConfig({ url: url0, debug: debug0 });
+    if (debug0) {
+      void updateConfig({ url: url0, debug: debug0 });
+    } else {
+      void updateConfig({ url: '', debug: debug0 });
+    }
   }, [url0, debug0, updateConfig]);
 
   useEffect(() => {
@@ -60,7 +64,12 @@ export function WebEmbedDevConfig() {
           Webview Url ( Real device, please use local LAN network ip address,
           and update WEB_EMBED_API_WHITE_LIST_ORIGIN )
         </SizableText>
-        <Input value={url0} onChangeText={setUrl} />
+        <Input
+          value={url0}
+          onChangeText={setUrl}
+          placeholder="http://192.168.31.111:3008"
+        />
+        <SizableText>http:// or https:// prefix required</SizableText>
       </YStack>
 
       {/* <WebViewWebEmbed src="http://localhost:3008/" /> */}
@@ -70,7 +79,32 @@ export function WebEmbedDevConfig() {
           alert(JSON.stringify(result));
         }}
       >
-        Test RPC
+        Test1
+      </Button>
+      <Button
+        onPress={async () => {
+          const result = await webembedApiProxy.test.test2();
+          alert(JSON.stringify(result));
+          console.log(result);
+          console.log(JSON.stringify(result));
+        }}
+      >
+        Test2
+      </Button>
+
+      <Button
+        onPress={() => {
+          void webembedApiProxy.test.trackEvent();
+        }}
+      >
+        Test Tracking Event
+      </Button>
+      <Button
+        onPress={() => {
+          void webembedApiProxy.test.captureException();
+        }}
+      >
+        Test Capture Exception
       </Button>
     </YStack>
   );
@@ -79,6 +113,7 @@ export function WebEmbedDevConfig() {
 function WebEmbedGallery() {
   return (
     <Layout
+      getFilePath={() => __CURRENT_FILE_PATH__}
       componentName="WebEmbed"
       elements={[
         {

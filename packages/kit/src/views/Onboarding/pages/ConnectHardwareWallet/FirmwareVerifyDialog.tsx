@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
@@ -17,19 +18,24 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   type OneKeyError,
   type OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
+import { DefectiveFirmware } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IDeviceVerifyVersionCompareResult,
@@ -54,6 +60,7 @@ export enum EFirmwareAuthenticationDialogContentType {
   verification_temporarily_unavailable = 'verification_temporarily_unavailable',
   error_fallback = 'error_fallback',
   unofficial_firmware_detected = 'unofficial_firmware_detected',
+  defective_firmware_detected = 'defective_firmware_detected',
 }
 
 function useFirmwareVerifyBase({
@@ -110,6 +117,10 @@ function useFirmwareVerifyBase({
             ? EFirmwareAuthenticationDialogContentType.verification_verify
             : EFirmwareAuthenticationDialogContentType.verification_successful,
         );
+      } else if (authResult.result?.code === 10_104) {
+        setResult('unknown');
+        setErrorObj({ code: authResult.result?.code || -99_999 });
+        setContentType(EFirmwareAuthenticationDialogContentType.network_error);
       } else {
         setResult('unofficial');
         setErrorObj({ code: authResult.result?.code || -99_999 });
@@ -157,8 +168,19 @@ function useFirmwareVerifyBase({
 
       // Handle local exceptions
       const { code, message } = error as OneKeyError;
+
+      // Handle DefectiveFirmware error specifically
+      if (error instanceof DefectiveFirmware) {
+        setContentType(
+          EFirmwareAuthenticationDialogContentType.defective_firmware_detected,
+        );
+        setErrorObj({ code, message });
+        return;
+      }
+
       switch (code) {
         case HardwareErrorCode.ActionCancelled:
+        case HardwareErrorCode.CallQueueActionCancelled:
         case HardwareErrorCode.NewFirmwareForceUpdate:
           void dialogInstance.close();
           break;
@@ -179,6 +201,12 @@ function useFirmwareVerifyBase({
           );
           setErrorObj({ code, message });
           break;
+        case HardwareErrorCode.DefectiveFirmware:
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.defective_firmware_detected,
+          );
+          setErrorObj({ code, message });
+          return;
         default:
           setContentType(
             EFirmwareAuthenticationDialogContentType.error_fallback,
@@ -447,6 +475,7 @@ export function EnumBasicDialogContentContainer({
   contentType,
   onActionPress,
   onContinuePress,
+  onDevSkipVerificationPress,
   errorObj,
   certificateResult,
   versionCompareResult,
@@ -459,11 +488,13 @@ export function EnumBasicDialogContentContainer({
   };
   onActionPress?: () => void;
   onContinuePress?: () => void;
+  onDevSkipVerificationPress?: () => void;
   certificateResult?: IFirmwareAuthenticationState;
   versionCompareResult?: IDeviceVerifyVersionCompareResult;
   useNewProcess?: boolean;
 }) {
   const intl = useIntl();
+  const dialogInstance = useDialogInstance();
 
   const [showRiskyWarning, setShowRiskyWarning] = useState(false);
   const renderFooter = useCallback(
@@ -516,6 +547,22 @@ export function EnumBasicDialogContentContainer({
     [intl, onContinuePress, showRiskyWarning],
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [devSettings] = useDevSettingsPersistAtom();
+
+  const [canSkipUnofficialDeviceState, setCanSkipUnofficialDeviceState] =
+    useState(false);
+
+  const canSkipUnofficialDevice = useMemo(() => {
+    // return canSkipUnofficialDeviceState;
+    return platformEnv.isDev || canSkipUnofficialDeviceState;
+  }, [canSkipUnofficialDeviceState]);
+
+  const handleDevSkipVerificationPress = useCallback(() => {
+    onDevSkipVerificationPress?.();
+    onContinuePress?.();
+  }, [onContinuePress, onDevSkipVerificationPress]);
+
   const content = useMemo(() => {
     switch (contentType) {
       case EFirmwareAuthenticationDialogContentType.default:
@@ -527,7 +574,7 @@ export function EnumBasicDialogContentContainer({
                 id: ETranslations.device_auth_request_title,
               })}
             </Dialog.Title>
-            <Dialog.Description>
+            <Dialog.Description mb="$-5">
               {intl.formatMessage({
                 id: ETranslations.device_auth_request_desc,
               })}
@@ -664,12 +711,18 @@ export function EnumBasicDialogContentContainer({
           <>
             <Dialog.Header>
               <Dialog.Icon icon="ErrorOutline" tone="destructive" />
-              <Dialog.Title>
-                {intl.formatMessage({
-                  id: ETranslations.device_auth_unofficial_device_detected,
-                })}
-                <SizableText>{`(${errorObj.code})`}</SizableText>
-              </Dialog.Title>
+              <MultipleClickStack
+                onPress={() => {
+                  setCanSkipUnofficialDeviceState(true);
+                }}
+              >
+                <Dialog.Title>
+                  {intl.formatMessage({
+                    id: ETranslations.device_auth_unofficial_device_detected,
+                  })}
+                  <SizableText>{`(${errorObj.code})`}</SizableText>
+                </Dialog.Title>
+              </MultipleClickStack>
               <Dialog.Description>
                 {intl.formatMessage({
                   id: ETranslations.device_auth_unofficial_device_detected_help_text,
@@ -687,14 +740,14 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
-            {platformEnv.isDev ? (
+            {canSkipUnofficialDevice ? (
               <Button
                 $md={
                   {
                     size: 'large',
                   } as any
                 }
-                onPress={onContinuePress}
+                onPress={handleDevSkipVerificationPress}
               >
                 Skip it And Create Wallet(Only in Dev)
               </Button>
@@ -706,11 +759,17 @@ export function EnumBasicDialogContentContainer({
           <>
             <Dialog.Header>
               <Dialog.Icon icon="ErrorOutline" tone="destructive" />
-              <Dialog.Title>
-                {intl.formatMessage({
-                  id: ETranslations.device_auth_unofficial_device_detected,
-                })}
-              </Dialog.Title>
+              <MultipleClickStack
+                onPress={() => {
+                  setCanSkipUnofficialDeviceState(true);
+                }}
+              >
+                <Dialog.Title>
+                  {intl.formatMessage({
+                    id: ETranslations.device_auth_unofficial_device_detected,
+                  })}
+                </Dialog.Title>
+              </MultipleClickStack>
               <Dialog.Description>
                 {intl.formatMessage({
                   id: ETranslations.device_auth_unofficial_device_detected_help_text,
@@ -734,7 +793,7 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
-            {platformEnv.isDev ? (
+            {canSkipUnofficialDevice ? (
               <Button
                 mt="$5"
                 $md={
@@ -780,23 +839,59 @@ export function EnumBasicDialogContentContainer({
             {renderFooter()}
           </>
         );
+      case EFirmwareAuthenticationDialogContentType.defective_firmware_detected:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="CrossedLargeOutline" tone="destructive" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.hardware_defective_firmware_error_title,
+                })}
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.hardware_defective_firmware_error,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as any
+              }
+              variant="primary"
+              onPress={async () => {
+                await showIntercom();
+                void dialogInstance.close();
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_contact_us })}
+            </Button>
+          </>
+        );
       default:
         return (
           <>
             <Dialog.Header>
               <Dialog.Icon tone="warning" icon="ErrorOutline" />
               <Dialog.Title>
-                {errorObj.message ||
-                  intl.formatMessage({
-                    id: ETranslations.global_unknown_error,
-                  })}
-                ({errorObj.code || 'unknown'})
+                <HyperlinkText
+                  size="$headingXl"
+                  translationId={
+                    (errorObj.message as ETranslations) ||
+                    ETranslations.global_unknown_error
+                  }
+                  defaultMessage={errorObj.message}
+                />
+                <SizableText size="$headingXl">
+                  ({errorObj.code || 'unknown'})
+                </SizableText>
               </Dialog.Title>
-              <Dialog.Description>
-                {intl.formatMessage({
-                  id: ETranslations.global_unknown_error_retry_message,
-                })}
-              </Dialog.Description>
+              <Dialog.HyperlinkTextDescription
+                translationId={ETranslations.global_unknown_error_retry_message}
+              />
             </Dialog.Header>
             <Button
               $md={
@@ -815,26 +910,31 @@ export function EnumBasicDialogContentContainer({
     }
   }, [
     contentType,
-    errorObj.code,
-    errorObj.message,
     intl,
-    onActionPress,
-    onContinuePress,
-    renderFooter,
+    useNewProcess,
     certificateResult,
     versionCompareResult,
-    useNewProcess,
+    onActionPress,
+    errorObj.code,
+    errorObj.message,
+    renderFooter,
+    canSkipUnofficialDevice,
+    handleDevSkipVerificationPress,
+    onContinuePress,
+    dialogInstance,
   ]);
   return <YStack>{content}</YStack>;
 }
 
 export function FirmwareAuthenticationDialogContent({
   onContinue,
+  onDevSkipVerificationPress,
   device,
   skipDeviceCancel,
   useNewProcess,
 }: {
   onContinue: (params: { checked: boolean }) => void;
+  onDevSkipVerificationPress?: () => void;
   device: SearchDevice | IDBDevice;
   skipDeviceCancel?: boolean;
   useNewProcess?: boolean;
@@ -858,6 +958,10 @@ export function FirmwareAuthenticationDialogContent({
   const handleContinuePress = useCallback(() => {
     onContinue({ checked: false });
   }, [onContinue]);
+
+  const handleDevSkipVerificationPress = useCallback(() => {
+    onDevSkipVerificationPress?.();
+  }, [onDevSkipVerificationPress]);
 
   const content = useMemo(() => {
     const propsMap: Record<
@@ -893,50 +997,86 @@ export function FirmwareAuthenticationDialogContent({
         contentType={contentType}
         onActionPress={propsMap[result].onPress}
         onContinuePress={handleContinuePress}
+        onDevSkipVerificationPress={handleDevSkipVerificationPress}
         certificateResult={result}
         versionCompareResult={versionCompareResult}
       />
     );
   }, [
-    result,
+    useNewProcess,
     errorObj,
     contentType,
+    result,
     handleContinuePress,
+    handleDevSkipVerificationPress,
+    versionCompareResult,
     onContinue,
     requestsUrl,
     reset,
     setContentType,
     verify,
-    versionCompareResult,
-    useNewProcess,
   ]);
 
   return <Stack gap="$5">{content}</Stack>;
 }
 
 export function useFirmwareVerifyDialog() {
+  const [isLoading, setIsLoading] = useState(false);
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
       features,
+      onVerified,
       onContinue,
+      onDevSkipVerificationPress,
+      onClose,
     }: {
       device: SearchDevice | IDBDevice;
       features: IOneKeyDeviceFeatures | undefined;
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
+      onClose: () => Promise<void> | void;
+      onVerified?: (params: { checked: boolean }) => Promise<void> | void;
+      onDevSkipVerificationPress?: () => void;
     }) => {
-      console.log('====> features: ', features);
-      // use old features to quick check if need new version
-      const shouldUseNewAuthenticateVersion =
-        await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmwareByHash(
-          {
-            features,
-          },
+      const onCloseFn = async () => {
+        await onClose?.();
+        setIsLoading(false);
+        if (device.connectId) {
+          await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
+            {
+              connectId: device.connectId,
+              skipDeviceCancel: true, // FirmwareAuthenticationDialogContent onClose
+            },
+          );
+        }
+      };
+
+      setIsLoading(true);
+      // await backgroundApiProxy.serviceApp.showDialogLoading({
+      //   title: appLocale.intl.formatMessage({
+      //     id: ETranslations.global_processing,
+      //   }),
+      // });
+      let shouldUseNewAuthenticateVersion = false;
+      try {
+        console.log('====> features: ', features);
+        // use old features to quick check if need new version
+        shouldUseNewAuthenticateVersion =
+          await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmwareByHash(
+            {
+              features,
+            },
+          );
+        console.log(
+          'shouldUseNewAuthenticateVersion: ====>>>: ',
+          shouldUseNewAuthenticateVersion,
         );
-      console.log(
-        'shouldUseNewAuthenticateVersion: ====>>>: ',
-        shouldUseNewAuthenticateVersion,
-      );
+      } catch (error) {
+        await onCloseFn();
+        throw error;
+      } finally {
+        // await backgroundApiProxy.serviceApp.hideDialogLoading();
+      }
       const firmwareAuthenticationDialog = Dialog.show({
         tone: 'success',
         icon: 'DocumentSearch2Outline',
@@ -949,27 +1089,22 @@ export function useFirmwareVerifyDialog() {
             skipDeviceCancel
             device={device}
             onContinue={async ({ checked }) => {
+              await onVerified?.({ checked });
               await firmwareAuthenticationDialog.close();
               await onContinue({ checked });
             }}
+            onDevSkipVerificationPress={onDevSkipVerificationPress || noop}
             useNewProcess={shouldUseNewAuthenticateVersion}
           />
         ),
-        async onClose() {
-          if (device.connectId) {
-            await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
-              {
-                connectId: device.connectId,
-                skipDeviceCancel: true, // FirmwareAuthenticationDialogContent onClose
-              },
-            );
-          }
-        },
+        onCancel: onCloseFn,
+        onClose: onCloseFn,
       });
     },
     [],
   );
   return {
     showFirmwareVerifyDialog,
+    isLoading,
   };
 }

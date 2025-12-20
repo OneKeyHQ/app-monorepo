@@ -36,7 +36,17 @@ export function useSwapTxHistoryActions() {
       gasFeeFiatValue?: string;
       swapTxInfo: ISwapTxInfo;
     }) => {
-      if (swapTxInfo && swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
+      if (
+        swapTxInfo &&
+        (swapTxInfo.protocol === EProtocolOfExchange.SWAP ||
+          swapTxInfo.swapBuildResData.result.isWrapped)
+      ) {
+        const useOrderId = Boolean(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId ||
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
+        );
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
           currency: settingsAtom.currencyInfo?.symbol,
@@ -64,14 +74,15 @@ export function useSwapTxHistoryActions() {
           },
           txInfo: {
             txId,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            useOrderId: !!swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId,
+            useOrderId,
             gasFeeFiatValue,
             gasFeeInNative,
             orderId:
               swapTxInfo.swapBuildResData.swftOrder?.orderId ??
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId,
+              swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId ??
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
             sender: swapTxInfo.accountAddress,
             receiver: swapTxInfo.receivingAddress,
           },
@@ -90,10 +101,14 @@ export function useSwapTxHistoryActions() {
               swapTxInfo.swapBuildResData.result?.fee?.protocolFees ?? 0,
             otherFeeInfos:
               swapTxInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
-            orderId: swapTxInfo.swapBuildResData.orderId,
+            orderId:
+              swapTxInfo.swapBuildResData.orderId ??
+              swapTxInfo.swapBuildResData.result?.quoteId,
             supportUrl: swapTxInfo.swapBuildResData.result?.supportUrl,
             orderSupportUrl:
               swapTxInfo.swapBuildResData.result?.orderSupportUrl,
+            oneKeyFeeExtraInfo:
+              swapTxInfo.swapBuildResData.result?.oneKeyFeeExtraInfo,
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };

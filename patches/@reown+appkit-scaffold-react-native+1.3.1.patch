@@ -1,0 +1,54 @@
+diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
+index 2afcde5..4ee2428 100644
+--- a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
++++ b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
+@@ -40,7 +40,7 @@ function AppKit() {
+   const {
+     isLandscape
+   } = (0, _useCustomDimensions.useCustomDimensions)();
+-  const portraitHeight = height - 80;
++  const portraitHeight = height - 200;
+   const landScapeHeight = height * 0.95 - (_reactNative.StatusBar.currentHeight ?? 0);
+   const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
+   const AuthView = authProvider?.AuthView;
+diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
+index f93d8c6..d5444a0 100644
+--- a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
++++ b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
+@@ -33,7 +33,7 @@ export function AppKit() {
+   const {
+     isLandscape
+   } = useCustomDimensions();
+-  const portraitHeight = height - 80;
++  const portraitHeight = height - 200;
+   const landScapeHeight = height * 0.95 - (StatusBar.currentHeight ?? 0);
+   const authProvider = connectors.find(c => c.type === 'AUTH')?.provider;
+   const AuthView = authProvider?.AuthView;
+diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
+index 6823724..ad717fc 100644
+--- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
++++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
+@@ -33,7 +33,7 @@ export function AppKit() {
+   const { themeMode, themeVariables } = useSnapshot(ThemeController.state);
+   const { height } = useWindowDimensions();
+   const { isLandscape } = useCustomDimensions();
+-  const portraitHeight = height - 80;
++  const portraitHeight = height - 200;
+   const landScapeHeight = height * 0.95 - (StatusBar.currentHeight ?? 0);
+   const authProvider = connectors.find(c => c.type === 'AUTH')?.provider as AppKitFrameProvider;
+   const AuthView = authProvider?.AuthView;
+diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts
+index ac3a35a..58c4a88 100644
+--- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts
++++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/styles.ts
+@@ -3,7 +3,9 @@ import { StyleSheet } from 'react-native';
+ export default StyleSheet.create({
+   modal: {
+     margin: 0,
+-    justifyContent: 'flex-end'
++    justifyContent: 'flex-end',
++    zIndex: 99993173111111,                                                                                   
++    elevation: 99993173111111 
+   },
+   card: {
+     borderBottomLeftRadius: 0,

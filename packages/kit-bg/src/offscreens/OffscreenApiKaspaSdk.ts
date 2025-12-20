@@ -31,4 +31,10 @@ export default class OffscreenApiKaspaSdk implements IKaspaSdkApi {
     // @ts-ignore
     return api.buildUnsignedTxForHardware(...args);
   }
+
+  async deserializeFromSafeJSON(...args: any[]) {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.deserializeFromSafeJSON(...args);
+  }
 }

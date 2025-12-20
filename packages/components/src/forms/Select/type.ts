@@ -1,9 +1,13 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 
+import type {
+  ListItemProps,
+  SheetProps,
+} from '@onekeyhq/components/src/shared/tamagui';
+
 import type { IPopoverProps } from '../../actions';
 import type { IInputProps } from '../Input';
 import type { GestureResponderEvent } from 'react-native';
-import type { ListItemProps, SheetProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
   value?: string | number | boolean;
@@ -22,6 +26,7 @@ export interface ISelectItem {
   value: string | number | boolean | undefined;
   leading?: ListItemProps['icon'];
   description?: string;
+  disabled?: boolean;
 }
 
 export interface ISelectItemProps extends ISelectItem {
@@ -54,4 +59,5 @@ export type ISelectProps<
   placement?: IPopoverProps['placement'];
   testID?: string;
   offset?: IPopoverProps['offset'];
+  usingPercentSnapPoints?: boolean;
 }>;

@@ -2,6 +2,8 @@
 import { uniq } from 'lodash';
 import { Platform } from 'react-native';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { ONEKEY_LOGO_ICON_URL } from '../consts';
 import {
   ONEKEY_APP_DEEP_LINK,
@@ -9,7 +11,7 @@ import {
 } from '../consts/deeplinkConsts';
 import {
   IMPL_ALGO,
-  // IMPL_COSMOS,
+  IMPL_COSMOS,
   // IMPL_DOT,
   IMPL_EVM,
 } from '../engine/engineConsts';
@@ -26,6 +28,7 @@ export const DAPP_SIDE_SINGLE_WALLET_MODE = true;
 export const WALLET_CONNECT_V2_PROJECT_ID = '5e21f5018bfdeb78af03187a432a301d';
 
 export const WALLET_CONNECT_RELAY_URL = 'wss://relay.walletconnect.com';
+// type Level = "fatal" | "error" | "warn" | "info" | "debug" | "trace";
 export const WALLET_CONNECT_LOGGER_LEVEL: IWalletConnectLoggerLevel = 'error';
 
 const platformName = uniq([
@@ -37,7 +40,7 @@ const platformName = uniq([
   .join('-');
 
 if (!platformName) {
-  throw new Error('platformName is empty');
+  throw new OneKeyLocalError('platformName is empty');
 }
 
 export const WALLET_CONNECT_CLIENT_NAME = platformEnv.appFullName;
@@ -46,15 +49,25 @@ export const WALLET_CONNECT_CLIENT_META = {
   name: WALLET_CONNECT_CLIENT_NAME,
   description: WALLET_CONNECT_CLIENT_DESC,
   // wallet-connect identify different dApps by url
-  url: platformEnv.isWeb
-    ? `https://1key.so`
-    : `https://${platformName}.1key.so`,
+  get url(): string {
+    if (platformEnv.isWeb) {
+      // walletconnect server should verify if the url matched the origin of request, so we should not use fixed url
+      // return `https://app.onekey.so`;
+      return globalThis.location.origin;
+    }
+    return `https://${platformName}.app.onekey.so`;
+  },
+  set url(value) {
+    // AppKit sdk will update url, but we don't want to change it
+    // do nothing
+    // debugger;
+  },
   icons: [ONEKEY_LOGO_ICON_URL],
   // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
   redirect: platformEnv.isNative
     ? {
         native: ONEKEY_APP_DEEP_LINK, // 'onekey-wallet://',
-        universal: WalletConnectUniversalLinkFull, // 'https://1key.so/wc/connect',
+        universal: WalletConnectUniversalLinkFull, // 'https://app.onekey.so/wc/connect',
       }
     : (undefined as any),
 };
@@ -164,6 +177,7 @@ export const EIP155_EVENTS = {
  * cosmos
  */
 export const COSMOS_SIGNING_METHODS = {
+  COSMOS_GET_ACCOUNTS: 'cosmos_getAccounts',
   COSMOS_SIGN_DIRECT: 'cosmos_signDirect',
   COSMOS_SIGN_AMINO: 'cosmos_signAmino',
 };
@@ -188,7 +202,7 @@ export const supportMethodsMap: Record<INamespaceUnion, string[]> = {
 export const supportEventsMap: Record<INamespaceUnion, string[]> = {
   eip155: ['accountsChanged', 'chainChanged'],
   // solana: [],
-  // cosmos: [],
+  // cosmos: ['accountsChanged'], // chainChanged not supported
   // polkadot: [],
   // tron: [],
   algorand: ['accountsChanged', 'chainChanged'],

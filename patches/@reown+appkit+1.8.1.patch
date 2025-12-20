@@ -1,0 +1,14 @@
+diff --git a/node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js b/node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js
+index bc4a3d5..3d3ef4b 100644
+--- a/node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js
++++ b/node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js
+@@ -248,7 +248,8 @@ export class AppKitBaseClient {
+             const currentOrigin = window.location.origin;
+             const isOriginAllowed = WcHelpersUtil.isOriginAllowed(currentOrigin, allowedOrigins, WcConstantsUtil.DEFAULT_ALLOWED_ANCESTORS);
+             if (!isOriginAllowed) {
+-                AlertController.open(ErrorUtil.ALERT_ERRORS.ORIGIN_NOT_ALLOWED, 'error');
++                console.error('AppKitBaseClient: Origin not allowed', currentOrigin);
++                // AlertController.open(ErrorUtil.ALERT_ERRORS.ORIGIN_NOT_ALLOWED, 'error');
+             }
+         }
+         catch (error) {

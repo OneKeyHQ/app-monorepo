@@ -2,6 +2,7 @@ import { debounce, merge } from 'lodash';
 import natsort from 'natsort';
 
 import appGlobals from '../appGlobals';
+import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 
 import type { BaseScene } from './base/baseScene';
@@ -89,6 +90,14 @@ const saveLoggerConfig = debounce(
 
 // eslint-disable-next-line no-async-promise-executor
 const savedLoggerConfigAsync = new Promise<ILoggerConfig>(async (resolve) => {
+  if (platformEnv.isWebEmbed) {
+    resolve({
+      highlightDurationGt: '100',
+      colorfulLog: false,
+      enabled: {},
+    });
+    return;
+  }
   const config = await getSavedLoggerConfig();
   resolve(config);
 });

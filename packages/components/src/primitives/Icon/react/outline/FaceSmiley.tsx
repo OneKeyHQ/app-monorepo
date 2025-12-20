@@ -1,9 +1,10 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgFaceSmiley = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
       fill="currentColor"
-      d="M11 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm5 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"
+      d="M11 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m5 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"
     />
     <Path
       stroke="currentColor"

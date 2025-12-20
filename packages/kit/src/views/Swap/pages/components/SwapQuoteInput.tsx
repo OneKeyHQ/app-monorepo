@@ -1,14 +1,9 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback } from 'react';
 
-import { InputAccessoryView } from 'react-native';
-
-import { IconButton, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { IconButton, Stack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
-  useSwapLimitPriceFromAmountAtom,
-  useSwapLimitPriceToAmountAtom,
-  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenDetailFetchingAtom,
@@ -16,21 +11,16 @@ import {
   useSwapSelectedToTokenBalanceAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EProtocolOfExchange,
-  ESwapDirectionType,
-  SwapAmountInputAccessoryViewID,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
-import { useSwapApproving } from '../../hooks/useSwapApproving';
-import { useSwapQuote } from '../../hooks/useSwapQuote';
+import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
 import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
 } from '../../hooks/useSwapState';
-import { validateAmountInput } from '../../utils/utils';
 
 import SwapInputContainer from './SwapInputContainer';
 
@@ -38,11 +28,13 @@ interface ISwapQuoteInputProps {
   selectLoading?: boolean;
   onSelectToken: (type: ESwapDirectionType) => void;
   onSelectPercentageStage?: (stage: number) => void;
+  onBalanceMaxPress?: () => void;
 }
 
 const SwapQuoteInput = ({
   onSelectToken,
   selectLoading,
+  onBalanceMaxPress,
   onSelectPercentageStage,
 }: ISwapQuoteInputProps) => {
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
@@ -53,71 +45,20 @@ const SwapQuoteInput = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const { alternationToken } = useSwapActions().current;
-  const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
-  const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
-  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
-  useSwapQuote();
   useSwapFromAccountNetworkSync();
-  useSwapApproving();
 
   const getTransform = useCallback(() => {
     if (!platformEnv.isNative) {
       return { transform: 'translate(-50%, -50%)' };
     }
     return {
-      transform: [{ translateX: -24 }, { translateY: -24 }],
+      transform: [{ translateX: -13 }, { translateY: -13 }], // size small
     };
   }, []);
 
-  useEffect(() => {
-    if (
-      swapQuoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
-      !swapQuoteCurrentSelect?.isWrapped &&
-      swapLimitPriceFromAmount
-    ) {
-      setFromInputAmount({
-        value: swapLimitPriceFromAmount,
-        isInput: false,
-      });
-    }
-  }, [
-    setFromInputAmount,
-    swapLimitPriceFromAmount,
-    swapQuoteCurrentSelect?.isWrapped,
-    swapQuoteCurrentSelect?.protocol,
-  ]);
-
-  useEffect(() => {
-    if (
-      swapQuoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
-      !swapQuoteCurrentSelect?.isWrapped &&
-      swapLimitPriceToAmount
-    ) {
-      setToInputAmount({
-        value: swapLimitPriceToAmount,
-        isInput: false,
-      });
-    }
-  }, [
-    setToInputAmount,
-    swapLimitPriceToAmount,
-    swapQuoteCurrentSelect?.isWrapped,
-    swapQuoteCurrentSelect?.protocol,
-  ]);
-
-  useEffect(() => {
-    if (
-      swapQuoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT ||
-      swapQuoteCurrentSelect?.isWrapped
-    ) {
-      setToInputAmount({
-        value: swapQuoteCurrentSelect?.toAmount ?? '',
-        isInput: false,
-      });
-    }
-  }, [swapQuoteCurrentSelect, setToInputAmount, setFromInputAmount]);
+  useSwapLimitPriceCheck(fromToken, toToken);
 
   return (
     <YStack gap="$2">
@@ -136,18 +77,11 @@ const SwapQuoteInput = ({
         }}
         onSelectPercentageStage={onSelectPercentageStage}
         amountValue={fromInputAmount.value}
-        onBalanceMaxPress={() => {
-          const maxAmount = fromTokenBalance;
-          setFromInputAmount({
-            value: maxAmount,
-            isInput: true,
-          });
-        }}
+        onBalanceMaxPress={onBalanceMaxPress}
         onSelectToken={onSelectToken}
         balance={fromTokenBalance}
       />
       <Stack
-        bg="$bgApp"
         borderRadius="$full"
         style={{
           position: 'absolute',
@@ -159,20 +93,20 @@ const SwapQuoteInput = ({
       >
         <IconButton
           alignSelf="center"
-          bg="$bgSubdued"
-          icon="SwitchVerOutline"
-          size="medium"
+          bg="$bgApp"
+          variant="tertiary"
+          icon="SwapVerOutline"
+          iconProps={{
+            color: '$icon',
+          }}
+          size="small"
           disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
           onPress={alternationToken}
-          hoverStyle={{
-            bg: '$bgStrongHover',
-          }}
-          pressStyle={{
-            bg: '$bgStrongActive',
-          }}
-          borderRadius="$full"
-          borderWidth="$1.5"
-          borderColor="$bgApp"
+          borderWidth="$1"
+          cursor="pointer"
+          hoverStyle={{}}
+          pressStyle={{}}
+          opacity={1}
         />
       </Stack>
       <SwapInputContainer
@@ -192,12 +126,6 @@ const SwapQuoteInput = ({
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
       />
-
-      {platformEnv.isNativeIOS ? (
-        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
-          <SizableText h="$0" />
-        </InputAccessoryView>
-      ) : null}
     </YStack>
   );
 };

@@ -4,6 +4,8 @@
 // FIX:     ReferenceError: self is not defined
 globalThis.self = globalThis.self || globalThis;
 
+const MockMMKV = require('./apps/desktop/app/libs/react-native-mmkv-mock');
+
 class LocalStorageMock {
   constructor() {
     this.store = {};
@@ -53,17 +55,6 @@ jest.mock('react-native-file-logger', () => ({
   },
 }));
 
-jest.mock('react-native-device-info', () => ({
-  getBuildNumber: jest.fn(),
-  getDeviceId: jest.fn(),
-  getIncrementalSync: jest.fn(),
-  getModel: jest.fn(),
-  getSystemName: jest.fn(),
-  getSystemVersion: jest.fn(),
-  getTotalMemorySync: jest.fn(),
-  getUsedMemorySync: jest.fn(),
-}));
-
 jest.mock('@sentry/electron/renderer', () => ({
   init: () => jest.fn(),
 }));
@@ -82,6 +73,11 @@ jest.mock('@sentry/react-native', () => ({
 
 jest.mock('expo-localization', () => ({
   locale: '',
+}));
+
+jest.mock('react-native-mmkv', () => ({
+  __esModule: true,
+  createMMKV: MockMMKV.createMMKV,
 }));
 
 // ** shim TextEncoder

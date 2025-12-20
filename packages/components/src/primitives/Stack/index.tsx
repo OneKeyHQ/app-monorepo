@@ -1,23 +1,19 @@
 import {
+  type StackProps,
   Stack as TMStack,
   ThemeableStack as TMThemeableStack,
   XStack as TMXStack,
   YStack as TMYStack,
   ZStack as TMZStack,
-} from 'tamagui';
-
-import type { StackStyle } from '@tamagui/web/types/types';
-import type {
-  StackProps,
-  ThemeableStackProps,
-  XStackProps,
-  YStackProps,
-  ZStackProps,
-} from 'tamagui';
+  type ThemeableStackProps,
+  type XStackProps,
+  type YStackProps,
+  type ZStackProps,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 export const Stack = TMStack;
 
-export type IStackStyle = StackStyle;
+export type IStackStyle = StackProps;
 export type IStackProps = StackProps;
 
 export const XStack = TMXStack;

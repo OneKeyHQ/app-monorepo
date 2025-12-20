@@ -5,6 +5,7 @@
     "components/**",
     "hooks/**",
     "provider/Container/**",
+    "provider/KeyboardProvider/**",
     "provider/demo/**",
     "routes/config/**",
     "routes/Modal/*",
@@ -14,13 +15,14 @@
     "views/*/background",
     "views/*/pages/**",
     "views/*/config/*",
-    "views/*/components/**",
+    "views/**/components/**",
     "views/*/assets/*",
     "views/*/hooks",
     "views/*/hooks/usePrivyUniversal",
     "views/*/hooks/usePrivyUniversalV2",
     "views/*/purchasesSdk",
     "views/*/router",
-    "views/*/utils/**"
+    "views/*/utils/**",
+    "views/FirmwareUpdate/componentsV2/**"
   ]
 }

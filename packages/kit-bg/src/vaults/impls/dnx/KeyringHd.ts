@@ -1,6 +1,6 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -17,7 +17,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async prepareAccounts(): Promise<IDBAccount[]> {
-    throw new Error(
+    throw new OneKeyLocalError(
       appLocale.intl.formatMessage({
         id: ETranslations.global_bulk_add_account_dnx_error,
       }),

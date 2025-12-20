@@ -1,9 +1,10 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgMoonStar = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
       fill="currentColor"
-      d="m16.24 5.018.812-1.624a.5.5 0 0 1 .894 0l.812 1.624a.5.5 0 0 0 .224.223l1.623.812a.5.5 0 0 1 0 .894l-1.623.812a.5.5 0 0 0-.224.223l-.812 1.624a.5.5 0 0 1-.894 0l-.812-1.624a.5.5 0 0 0-.223-.223l-1.623-.812a.5.5 0 0 1 0-.894l1.623-.812a.5.5 0 0 0 .223-.223Z"
+      d="m16.24 5.018.812-1.624a.5.5 0 0 1 .894 0l.812 1.624a.5.5 0 0 0 .224.223l1.623.812a.5.5 0 0 1 0 .894l-1.623.812a.5.5 0 0 0-.224.223l-.812 1.624a.5.5 0 0 1-.894 0l-.812-1.624a.5.5 0 0 0-.223-.223l-1.623-.812a.5.5 0 0 1 0-.894l1.623-.812a.5.5 0 0 0 .223-.223"
     />
     <Path
       fill="currentColor"

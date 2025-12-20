@@ -7,7 +7,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
-  EDecodedTxDirection,
   type IDecodedTx,
 } from '@onekeyhq/shared/types/tx';
 
@@ -57,7 +56,8 @@ function LightningTxFlow({ decodedTx }: { decodedTx: IDecodedTx }) {
       return (
         <InfoItem
           label={intl.formatMessage({ id: ETranslations.global_to })}
-          renderContent={
+          renderContent={account?.name ?? ''}
+          description={
             <AddressInfo
               address={account?.addressDetail.normalizedAddress ?? ''}
               accountId={accountId}
@@ -70,7 +70,8 @@ function LightningTxFlow({ decodedTx }: { decodedTx: IDecodedTx }) {
     return (
       <InfoItem
         label={intl.formatMessage({ id: ETranslations.global_from })}
-        renderContent={
+        renderContent={account?.name ?? ''}
+        description={
           <AddressInfo
             address={account?.addressDetail.normalizedAddress ?? ''}
             accountId={accountId}

@@ -1,5 +1,10 @@
 import Axios from 'axios';
 
+import {
+  EWebEmbedPostMessageType,
+  postMessage,
+} from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
+
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
 import { headerPlatform } from '../request/InterceptorConsts';
@@ -20,6 +25,8 @@ export class Analytics {
 
   private cacheEvents = [] as [string, Record<string, any> | undefined][];
 
+  private cacheUserProfile = [] as Record<string, any>[];
+
   private request: AxiosInstance | null = null;
 
   private basicInfo = {} as {
@@ -28,9 +35,20 @@ export class Analytics {
 
   private deviceInfo: Record<string, any> | null = null;
 
-  init({ instanceId, baseURL }: { instanceId: string; baseURL: string }) {
+  private enableAnalyticsInDev = false;
+
+  init({
+    instanceId,
+    baseURL,
+    enableAnalyticsInDev = false,
+  }: {
+    instanceId: string;
+    baseURL: string;
+    enableAnalyticsInDev?: boolean;
+  }) {
     this.instanceId = instanceId;
     this.baseURL = baseURL;
+    this.enableAnalyticsInDev = enableAnalyticsInDev;
     while (this.cacheEvents.length) {
       const params = this.cacheEvents.pop();
       if (params) {
@@ -38,13 +56,41 @@ export class Analytics {
         this.trackEvent(eventName as any, eventProps);
       }
     }
+    while (this.cacheUserProfile.length) {
+      const attributes = this.cacheUserProfile.pop();
+      if (attributes) {
+        this.updateUserProfile(attributes);
+      }
+    }
   }
 
-  private lazyAxios() {
+  private async lazyAxios() {
     if (!this.request) {
-      this.request = Axios.create({
+      const baseConfig = {
         baseURL: this.baseURL,
         timeout: 30 * 1000,
+      };
+
+      // Lazy load IP Table adapter to avoid circular dependencies in tests
+      let ipTableAdapter;
+      try {
+        const { isSupportIpTablePlatform } = await import(
+          '../utils/ipTableUtils'
+        );
+        if (isSupportIpTablePlatform()) {
+          const { createIpTableAdapter } = await import(
+            '../request/helpers/ipTableAdapter'
+          );
+          ipTableAdapter = createIpTableAdapter(baseConfig);
+        }
+      } catch (error) {
+        // Ignore errors in test environment or when modules are not available
+        console.warn('[Analytics] Failed to load IP Table adapter:', error);
+      }
+
+      this.request = Axios.create({
+        ...baseConfig,
+        adapter: ipTableAdapter,
       });
     }
     return this.request;
@@ -54,10 +100,20 @@ export class Analytics {
     if (eventProps?.pageName) {
       this.basicInfo.pageName = eventProps.pageName;
     }
-    if (!this.instanceId || !this.baseURL) {
-      this.cacheEvents.push([eventName, eventProps]);
+    if (this.instanceId && this.baseURL) {
+      if (platformEnv.isWebEmbed) {
+        postMessage({
+          type: EWebEmbedPostMessageType.TrackEvent,
+          data: {
+            eventName,
+            eventProps,
+          },
+        });
+      } else {
+        void this.requestEvent(eventName, eventProps);
+      }
     } else {
-      void this.requestEvent(eventName, eventProps);
+      this.cacheEvents.push([eventName, eventProps]);
     }
   }
 
@@ -76,13 +132,17 @@ export class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
-    if (platformEnv.isDev || platformEnv.isE2E) {
+    if (
+      (platformEnv.isDev || platformEnv.isE2E) &&
+      !this.enableAnalyticsInDev
+    ) {
       return;
     }
+    const deviceInfo = await this.lazyDeviceInfo();
     const event = {
+      ...deviceInfo,
       ...eventProps,
       distinct_id: this.instanceId,
-      ...(await this.lazyDeviceInfo()),
     } as Record<string, string>;
     if (
       !platformEnv.isNative &&
@@ -93,7 +153,7 @@ export class Analytics {
     ) {
       event.currentUrl = globalThis.location.href;
     }
-    const axios = this.lazyAxios();
+    const axios = await this.lazyAxios();
     await axios.post(TRACK_EVENT_PATH, {
       eventName,
       eventProps: event,
@@ -101,10 +161,13 @@ export class Analytics {
   }
 
   private async requestUserProfile(attributes: Record<string, any>) {
-    if (platformEnv.isDev || platformEnv.isE2E) {
+    if (
+      (platformEnv.isDev || platformEnv.isE2E) &&
+      !this.enableAnalyticsInDev
+    ) {
       return;
     }
-    const axios = this.lazyAxios();
+    const axios = await this.lazyAxios();
     await axios.post(TRACK_ATTRIBUTES_PATH, {
       distinctId: this.instanceId,
       attributes: {
@@ -119,7 +182,11 @@ export class Analytics {
     appWalletCount?: number;
     hwWalletCount?: number;
   }) {
-    void this.requestUserProfile(attributes);
+    if (this.instanceId && this.baseURL) {
+      void this.requestUserProfile(attributes);
+    } else {
+      this.cacheUserProfile.push(attributes);
+    }
   }
 }
 

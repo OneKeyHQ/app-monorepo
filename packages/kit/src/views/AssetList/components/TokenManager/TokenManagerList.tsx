@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,12 +16,16 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
+import TokenIconView from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type { ICustomTokenItem } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IAggregateToken,
+  ICustomTokenItem,
+} from '@onekeyhq/shared/types/token';
 
 function ListHeaderComponent({
   onAddCustomToken,
@@ -34,7 +40,7 @@ function ListHeaderComponent({
         id: ETranslations.manage_token_custom_token_title,
       })}
       drillIn
-      onPress={onAddCustomToken}
+      onPress={onAddCustomToken as any}
     />
   );
 }
@@ -170,9 +176,30 @@ function TokenManagerList({
   searchValue: string;
   searchResult: ICustomTokenItem[] | null;
   showListHeader?: boolean;
+  aggregateTokenConfigMap?: Record<string, IAggregateToken>;
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
+
+  const renderItemBadge = useCallback(
+    (item: IAccountToken) => {
+      if (item.isAggregateToken) {
+        return (
+          <Badge>
+            {intl.formatMessage({ id: ETranslations.global__multichain })}
+          </Badge>
+        );
+      }
+
+      if (isAllNetwork) {
+        return <Badge>{networkMaps?.[item.networkId ?? '']?.name ?? ''}</Badge>;
+      }
+
+      return null;
+    },
+    [intl, isAllNetwork, networkMaps],
+  );
+
   if (isLoadingRemoteData || !dataSource) {
     return <SkeletonList />;
   }
@@ -202,20 +229,30 @@ function TokenManagerList({
       renderItem={({ item }: { item: ICustomTokenItem }) => (
         <ListItem>
           <TokenIconView
+            $key={item.$key}
             icon={item.logoURI}
             networkId={item.networkId ?? networkId}
             isAllNetworks
+            showNetworkIcon={isAllNetwork || item.isAggregateToken}
           />
           <YStack flex={1}>
-            <XStack gap="$2" alignItems="center">
-              <SizableText size="$bodyLgMedium" color="$text">
+            <XStack gap="$2" alignItems="center" flexShrink={1}>
+              <SizableText
+                size="$bodyLgMedium"
+                color="$text"
+                flexShrink={1}
+                numberOfLines={1}
+              >
                 {item.symbol}
               </SizableText>
-              {isAllNetwork ? (
-                <Badge>{networkMaps?.[item.networkId ?? '']?.name ?? ''}</Badge>
-              ) : null}
+              {renderItemBadge(item)}
             </XStack>
-            <SizableText size="$bodyMd" color="$textSubdued">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              flexShrink={1}
+              numberOfLines={1}
+            >
               {item.name}
             </SizableText>
           </YStack>

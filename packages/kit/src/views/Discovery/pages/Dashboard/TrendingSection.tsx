@@ -1,96 +1,59 @@
 import { useCallback, useMemo } from 'react';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EDiscoveryModalRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
+
+import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
 import { TrendingSectionItems } from './TrendingSectionItems';
 
 import type { IMatchDAppItemType } from '../../types';
 
+interface ITrendingSectionProps {
+  data: IDApp[];
+  isLoading: boolean;
+}
+
 export function TrendingSection({
-  handleOpenWebSite,
-}: {
-  handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
-}) {
+  data = [],
+  isLoading = false,
+}: ITrendingSectionProps) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
+  const handleWebSite = useWebSiteHandler();
+  const dataSource = useMemo<IDApp[]>(() => data ?? [], [data]);
 
-  const { result: trendingData, run: refreshTrendingData } = usePromiseResult<
-    IDApp[]
-  >(
-    async () => {
-      const data =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      return data.trending || [];
+  const handleOpenWebSite = useCallback(
+    ({ dApp, webSite }: IMatchDAppItemType) => {
+      handleWebSite({
+        webSite,
+        dApp,
+        shouldPopNavigation: false,
+        enterMethod: EEnterMethod.trending,
+      });
     },
-    [],
-    {
-      watchLoading: true,
-    },
+    [handleWebSite],
   );
-
-  const onPressMore = useCallback(() => {
-    // Navigate to a trending view if needed
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-      params: {
-        url: 'trending',
-      },
-    });
-  }, [navigation]);
-
-  const dataSource = useMemo<IDApp[]>(() => trendingData ?? [], [trendingData]);
-
-  const isLoadingTrending = isNil(trendingData);
-  const hasTrendingItems = dataSource.length > 0;
 
   return (
     <Stack minHeight="$40">
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading selected>
-          Trending
+          {intl.formatMessage({
+            id: ETranslations.market_trending,
+          })}
         </DashboardSectionHeader.Heading>
       </DashboardSectionHeader>
 
-      {hasTrendingItems ? (
-        <TrendingSectionItems
-          dataSource={dataSource}
-          handleOpenWebSite={handleOpenWebSite}
-        />
-      ) : (
-        <Stack
-          bg="$bgSubdued"
-          py="$6"
-          flex={1}
-          borderRadius="$3"
-          borderCurve="continuous"
-          justifyContent="center"
-        >
-          {isLoadingTrending ? (
-            <Skeleton w="100%" />
-          ) : (
-            <SizableText
-              size="$bodyLg"
-              color="$textDisabled"
-              textAlign="center"
-            >
-              No trending apps
-            </SizableText>
-          )}
-        </Stack>
-      )}
+      <TrendingSectionItems
+        isLoading={isLoading}
+        dataSource={dataSource}
+        handleOpenWebSite={handleOpenWebSite}
+      />
     </Stack>
   );
 }

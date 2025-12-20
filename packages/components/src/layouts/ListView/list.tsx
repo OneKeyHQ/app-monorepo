@@ -1,13 +1,22 @@
 import type { ForwardedRef, MutableRefObject } from 'react';
 import { forwardRef, useMemo } from 'react';
 
-import { usePropsAndStyle, useStyle } from '@tamagui/core';
+import { FlashList } from '@shopify/flash-list';
 import { FlatList } from 'react-native';
-import { getTokenValue } from 'tamagui';
 
-import { DebugRenderTracker } from '../../utils';
+import {
+  getTokenValue,
+  usePropsAndStyle,
+  useStyle,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  StackStyle,
+  Tokens,
+} from '@onekeyhq/components/src/shared/tamagui';
 
-import type { StackStyle, Tokens } from '@tamagui/web/types/types';
+import { DebugRenderTracker } from '../../utils/DebugRenderTracker';
+
+import type { IDebugRenderTrackerProps } from '../../utils/DebugRenderTracker';
 import type {
   FlatListProps,
   ListRenderItem,
@@ -32,17 +41,19 @@ export type IListViewProps<T> = Omit<
     ListHeaderComponentStyle?: StackStyle;
     ListFooterComponentStyle?: StackStyle;
   } & {
+    useFlashList?: boolean;
     data: ArrayLike<T> | null | undefined;
     renderItem: ListRenderItem<T> | null | undefined;
     ref?: MutableRefObject<IListViewRef<any> | null>;
 
     // Do not remove the following properties, they are set for ListView.native.tsx
 
-    /*
-      Average height of your cell
-      See https://shopify.github.io/flash-list/docs/estimated-item-size/#how-to-calculate
-    */
-    estimatedItemSize: number | `$${keyof Tokens['size']}`;
+    /**
+     * @deprecated
+     * @description unused props in FlashList v2.
+     * See https://shopify.github.io/flash-list/docs/v2-migration#step-2-remove-deprecated-props
+     */
+    estimatedItemSize?: number | `$${keyof Tokens['size']}`;
     overrideItemLayout?: (
       layout: { span?: number; size?: number },
       item: T,
@@ -56,6 +67,7 @@ export type IListViewProps<T> = Omit<
       offsetEnd: number;
       blankArea: number;
     }) => void;
+    debugRenderTrackerProps?: IDebugRenderTrackerProps;
   };
 
 function BaseListView<T>(
@@ -67,6 +79,8 @@ function BaseListView<T>(
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
     estimatedItemSize,
+    useFlashList,
+    debugRenderTrackerProps,
     ...props
   }: IListViewProps<T>,
   ref: ForwardedRef<IListViewRef<T>>,
@@ -121,9 +135,14 @@ function BaseListView<T>(
     });
   }, [itemSize]);
 
+  const ListViewComponent = useFlashList ? FlashList<T> : FlatList<T>;
   return (
-    <DebugRenderTracker>
-      <FlatList<T>
+    <DebugRenderTracker
+      position="top-right"
+      name="ListView"
+      {...debugRenderTrackerProps}
+    >
+      <ListViewComponent
         ref={ref}
         style={style as StyleProp<ViewStyle>}
         columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
@@ -134,7 +153,7 @@ function BaseListView<T>(
         renderItem={renderItem}
         getItemLayout={getItemLayout}
         windowSize={5}
-        {...restProps}
+        {...(restProps as any)}
         // we can't set it on web
         refreshControl={undefined}
       />
@@ -143,4 +162,6 @@ function BaseListView<T>(
 }
 
 // forwardRef cannot cast typescript generic
-export const ListView = forwardRef(BaseListView) as typeof BaseListView;
+export const ListView = forwardRef(BaseListView) as <T>(
+  props: IListViewProps<T> & { ref?: React.Ref<FlatList<T>> },
+) => React.ReactElement | null;

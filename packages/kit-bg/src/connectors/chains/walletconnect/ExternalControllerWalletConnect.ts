@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
@@ -11,7 +11,7 @@ import type {
   IExternalListWalletsResult,
 } from '@onekeyhq/shared/types/externalWallet.types';
 
-import walletConnectStorage from '../../../services/ServiceWalletConnect/walletConnectStorage';
+import walletConnectClient from '../../../services/ServiceWalletConnect/walletConnectClient';
 import { ExternalControllerBase } from '../../base/ExternalControllerBase';
 
 import { ExternalConnectorWalletConnect } from './ExternalConnectorWalletConnect';
@@ -107,20 +107,24 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   }: IExternalCheckNetworkOrAddressMatchedPayload) {
     const { connectedAddresses, address, connectionInfo } = account;
     const topic = connectionInfo?.walletConnect?.topic;
-    const sessions = await walletConnectStorage.dappSideStorage.getSessions();
+    const sessions = await walletConnectClient.getDappSideStorageSessions();
+    // const sessions = await walletConnectStorage.dappSideStorage.getSessions();
     if (!sessions.find((item) => item.topic === topic)) {
       // (cleanupInactiveSessions)
-      throw new Error(
+      throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
-          id: ETranslations.feedback_walletconnect_session_discconected,
+          id: ETranslations.feedback_walletconnect_session_disconnected,
         }),
       );
     }
     if (!connectedAddresses[networkId]) {
-      throw new Error(
+      const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
+        networkId,
+      });
+      throw new OneKeyLocalError(
         `${appLocale.intl.formatMessage({
           id: ETranslations.feedback_external_wallet_does_not_approve_network,
-        })}: ${networkId}`,
+        })}: ${network?.name || network?.shortname || networkId}`,
       );
     }
     // TODO checksum compare
@@ -129,9 +133,9 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
         .toLowerCase()
         .includes(address.toLowerCase())
     ) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `${appLocale.intl.formatMessage({
-          id: ETranslations.feedback_external_wallet_doesn_not_approve_address,
+          id: ETranslations.feedback_external_wallet_does_not_approve_address,
         })}: ${networkId} ${address}`,
       );
     }
@@ -140,19 +144,25 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   override sendTransactionByWalletConnect(
     payload: IExternalSendTransactionByWalletConnectPayload,
   ): Promise<ISignedTxPro> {
-    throw new Error('Not available, use ExternalControllerEvm directly');
+    throw new OneKeyLocalError(
+      'Not available, use ExternalControllerEvm directly',
+    );
   }
 
   override signMessageByWalletConnect(
     payload: IExternalSignMessageByWalletConnectPayload,
   ): Promise<ISignedMessagePro> {
-    throw new Error('Not available, use ExternalControllerEvm directly');
+    throw new OneKeyLocalError(
+      'Not available, use ExternalControllerEvm directly',
+    );
   }
 
   override handleWalletConnectEvents(
     params: IExternalHandleWalletConnectEventsParams,
   ): Promise<void> {
-    throw new Error('Not available, use ExternalControllerEvm directly');
+    throw new OneKeyLocalError(
+      'Not available, use ExternalControllerEvm directly',
+    );
   }
 
   override async sendTransaction(

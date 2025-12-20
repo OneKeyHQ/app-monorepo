@@ -18,6 +18,10 @@ import {
   useHardwareUiStateAtom,
   useHardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IDeviceFirmwareType } from '@onekeyhq/shared/types/device';
@@ -26,6 +30,7 @@ import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePrevious } from '../../../hooks/usePrevious';
 
+import { FirmwareUpdatePromptBootloaderWebDevice } from './FirmwareUpdatePromptBootloaderWebDevice';
 import { FirmwareVersionProgressBar } from './FirmwareVersionProgressBar';
 
 type IProgressType =
@@ -118,7 +123,7 @@ export function FirmwareUpdateProgressBar({
   isDone?: boolean;
 }) {
   const intl = useIntl();
-  const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [state] = useHardwareUiStateAtom();
   const [stateFull] = useHardwareUiStateCompletedAtom();
   const [progress, setProgress] = useState(1);
@@ -284,6 +289,16 @@ export function FirmwareUpdateProgressBar({
             }),
         },
         {
+          type: [
+            EFirmwareUpdateTipMessages.SelectDeviceInBootloaderForWebDevice,
+          ],
+          progress: () => 11,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.firmware_update_grant_usb_instruction,
+            }),
+        },
+        {
           type: [EFirmwareUpdateTipMessages.GoToBootloaderSuccess],
           progress: () => 12,
           desc: () =>
@@ -408,7 +423,11 @@ export function FirmwareUpdateProgressBar({
   }, [firmwareType, prevFirmwareType, retryInfo]);
 
   useEffect(() => {
-    if (stepInfo?.step === EFirmwareUpdateSteps.updateStart || !firmwareType) {
+    if (
+      (stepInfo?.step === EFirmwareUpdateSteps.updateStart || !firmwareType) &&
+      stepInfo?.step !==
+        EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice
+    ) {
       setDesc(defaultDesc());
     }
   }, [defaultDesc, firmwareType, stepInfo?.step]);
@@ -476,6 +495,37 @@ export function FirmwareUpdateProgressBar({
     }
   }, [lastFirmwareTipMessage]);
 
+  const previousStepInfo = useRef(stepInfo);
+  useEffect(() => {
+    const fn = () => {
+      previousStepInfo.current = stepInfo;
+      setStepInfo({
+        step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice,
+        payload: undefined,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.RequestDeviceInBootloaderForWebDevice, fn);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
+        fn,
+      );
+    };
+  }, [setStepInfo, stepInfo]);
+
+  const renderGrantUSBAccessButton = useCallback(() => {
+    if (
+      stepInfo?.step ===
+      EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice
+    ) {
+      return (
+        <FirmwareUpdatePromptBootloaderWebDevice
+          previousStepInfo={previousStepInfo.current}
+        />
+      );
+    }
+  }, [stepInfo?.step, previousStepInfo]);
+
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const debugInfo = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
@@ -523,6 +573,7 @@ export function FirmwareUpdateProgressBar({
         fromVersion={firmwareVersionInfo?.fromVersion}
         toVersion={firmwareVersionInfo?.toVersion}
       />
+      {renderGrantUSBAccessButton()}
       {debugInfo}
     </Stack>
   );

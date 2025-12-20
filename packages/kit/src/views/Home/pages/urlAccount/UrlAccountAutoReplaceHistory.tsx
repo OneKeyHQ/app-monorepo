@@ -23,7 +23,6 @@ export function UrlAccountAutoReplaceHistory({ num }: { num: number }) {
   accountRef.current = activeAccount?.account;
   const address = activeAccount?.account?.address;
   const networkId = activeAccount?.network?.id;
-  const networkCode = activeAccount?.network?.code;
   const selectedAccountId = `${selectedAccount?.walletId || ''}-${
     selectedAccount?.indexedAccountId || ''
   }-${selectedAccount?.othersWalletAccountId || ''}`;
@@ -33,7 +32,7 @@ export function UrlAccountAutoReplaceHistory({ num }: { num: number }) {
     shouldReplaceUrlInDelay.current = false;
   }
 
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const replaceUrl = useCallback(
     ({ delay }: { delay: number }) => {

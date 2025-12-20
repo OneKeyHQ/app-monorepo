@@ -26,12 +26,15 @@ function getBN(buffer: Buffer, isLittleEndian = false) {
   return new BN(hex, 16);
 }
 
-function nonceFunctionRFC6979(privkey: Buffer, msgbuf: Buffer): BN {
-  let V = Buffer.from(
+async function nonceFunctionRFC6979(
+  privkey: Buffer,
+  msgbuf: Buffer,
+): Promise<BN> {
+  let V: Buffer = Buffer.from(
     '0101010101010101010101010101010101010101010101010101010101010101',
     'hex',
   );
-  let K = Buffer.from(
+  let K: Buffer = Buffer.from(
     '0000000000000000000000000000000000000000000000000000000000000000',
     'hex',
   );
@@ -43,11 +46,11 @@ function nonceFunctionRFC6979(privkey: Buffer, msgbuf: Buffer): BN {
     Buffer.from('Schnorr+SHA256  ', 'ascii'),
   ]);
 
-  K = hmacSHA256(K, Buffer.concat([V, Buffer.from('00', 'hex'), blob]));
-  V = hmacSHA256(K, V);
+  K = await hmacSHA256(K, Buffer.concat([V, Buffer.from('00', 'hex'), blob]));
+  V = await hmacSHA256(K, V);
 
-  K = hmacSHA256(K, Buffer.concat([V, Buffer.from('01', 'hex'), blob]));
-  V = hmacSHA256(K, V);
+  K = await hmacSHA256(K, Buffer.concat([V, Buffer.from('01', 'hex'), blob]));
+  V = await hmacSHA256(K, V);
 
   let k = new BN(0);
   let T;
@@ -55,15 +58,15 @@ function nonceFunctionRFC6979(privkey: Buffer, msgbuf: Buffer): BN {
   const N = new BN(ec.curve.n.toArray());
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    V = hmacSHA256(K, V);
+    V = await hmacSHA256(K, V);
     T = getBN(V);
 
     k = T;
     if (k.gt(new BN(0)) && k.lt(N)) {
       break;
     }
-    K = hmacSHA256(K, Buffer.concat([V, Buffer.from('00', 'hex')]));
-    V = hmacSHA256(K, V);
+    K = await hmacSHA256(K, Buffer.concat([V, Buffer.from('00', 'hex')]));
+    V = await hmacSHA256(K, V);
   }
   return k;
 }
@@ -105,12 +108,12 @@ function pointToCompressed(point: curve.base.BasePoint): Buffer {
   return Buffer.concat([prefix, xbuf]);
 }
 
-function findSignature(d: BN, e: BN) {
+async function findSignature(d: BN, e: BN) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/no-unsafe-member-access
   const G: curve.base.BasePoint = ec.curve.g as curve.base.BasePoint;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
   const n: BN = new BN(ec.curve.n.toArray());
-  let k = nonceFunctionRFC6979(
+  let k = await nonceFunctionRFC6979(
     getBufferFromBN(d, 'be', 32),
     getBufferFromBN(e, 'be', 32),
   );
@@ -123,7 +126,7 @@ function findSignature(d: BN, e: BN) {
 
   const r = R.getX();
   const e0 = getBN(
-    sha256(
+    await sha256(
       Buffer.concat([
         getrBuffer(r),
         pointToCompressed(P),
@@ -139,21 +142,24 @@ function findSignature(d: BN, e: BN) {
   };
 }
 
-export function sign(privateKey: Buffer, digest: Buffer): Buffer {
+export async function sign(
+  privateKey: Buffer,
+  digest: Buffer,
+): Promise<Buffer> {
   const privateKeyBN = getBN(privateKey);
   const digestBN = getBN(digest);
-  const { r, s } = findSignature(privateKeyBN, digestBN);
+  const { r, s } = await findSignature(privateKeyBN, digestBN);
   return Buffer.concat([
     getBufferFromBN(r, 'be', 32),
     getBufferFromBN(s, 'be', 32),
   ]);
 }
 
-export function verify(
+export async function verify(
   publicKey: Buffer,
   digest: Buffer,
   signature: Buffer,
-): boolean {
+): Promise<boolean> {
   if (signature.length !== 64) {
     return false;
   }
@@ -190,7 +196,7 @@ export function verify(
   }
   const Br = getrBuffer(r);
   const Bp = pointToCompressed(P);
-  const hash = sha256(Buffer.concat([Br, Bp, hashbuf]));
+  const hash = await sha256(Buffer.concat([Br, Bp, hashbuf]));
 
   // const e = BN.fromBuffer(hash, 'big').umod(n);
   const e = new BN(hash, 'be').umod(n);

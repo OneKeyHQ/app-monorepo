@@ -1,15 +1,14 @@
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import type { IHardwareHomeScreenData } from './hardwareHomeScreenData';
+import type { IDeviceHomeScreen } from '@onekeyhq/shared/types/device';
 
 class UploadedHomeScreenCache {
   cache: Partial<{
     [dbDeviceId: string]: {
-      data?: IHardwareHomeScreenData[];
+      data?: IDeviceHomeScreen[];
     };
   }> = {};
 
-  saveCache(dbDeviceId: string, data: IHardwareHomeScreenData) {
+  saveCache(dbDeviceId: string, data: IDeviceHomeScreen) {
     this.delayedClear();
     if (!dbDeviceId) {
       return;
@@ -20,6 +19,19 @@ class UploadedHomeScreenCache {
     const dataArray = this?.cache?.[dbDeviceId]?.data;
     if (dataArray) {
       dataArray.push(data);
+    }
+  }
+
+  removeCache(dbDeviceId: string, id: string) {
+    this.delayedClear();
+    if (!dbDeviceId) {
+      return;
+    }
+    const data = this.cache[dbDeviceId]?.data;
+    if (data) {
+      this.cache[dbDeviceId] = {
+        data: data.filter((item) => item.name !== id),
+      };
     }
   }
 

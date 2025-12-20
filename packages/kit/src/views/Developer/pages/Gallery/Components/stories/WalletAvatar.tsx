@@ -26,6 +26,7 @@ const wallet: IDBWallet = {
 
 const ToastGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="WalletAvatar"
     elements={[
       {

@@ -5,7 +5,7 @@ import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.e
 
 import type { IActionListSection } from '../../../actions';
 import type { IKeyOfIcons } from '../../../primitives';
-import type { RouteProp } from '@react-navigation/core/lib/typescript/src/types';
+import type { RouteProp } from '@react-navigation/core';
 import type { ParamListBase } from '@react-navigation/routers';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
@@ -32,15 +32,22 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   name: RouteName;
   tabBarIcon: (focused?: boolean) => IKeyOfIcons;
   translationId: ETranslations;
-  children: ITabSubNavigatorConfig<any, any>[];
+  collapseSideBarTranslationId?: ETranslations;
+  children: ITabSubNavigatorConfig<any, any>[] | null;
   freezeOnBlur?: boolean;
   disable?: boolean;
+  hidden?: boolean;
+  inMoreAction?: boolean;
   rewrite?: string;
   /** with exact property set to true, current screen will ignore the parent screen's path config */
   exact?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   actionList?: IActionListSection[];
   shortcutKey?: EShortcutEvents;
+  tabbarOnPress?: () => void;
+  onPressWhenSelected?: () => void;
+  trackId?: string;
+  hideOnTabBar?: boolean;
 }
 
 export interface ICommonNavigatorConfig<
@@ -69,4 +76,5 @@ export interface ITabNavigatorExtraConfig<RouteName extends string> {
 export interface ITabNavigatorProps<RouteName extends string> {
   config: ITabNavigatorConfig<RouteName>[];
   extraConfig?: ITabNavigatorExtraConfig<RouteName>;
+  showTabBar?: boolean;
 }

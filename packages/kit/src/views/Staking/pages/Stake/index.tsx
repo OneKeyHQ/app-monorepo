@@ -1,115 +1,116 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, rootNavigationRef } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms/jotaiContextStoreMap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import { formatMillisecondsToBlocks } from '@onekeyhq/shared/src/utils/dateUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
+import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
+import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { UniversalStake } from '../../components/UniversalStake';
-import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
-import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 function BasicStakePage() {
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.Stake
   >();
-  const { accountId, networkId, details, onSuccess, indexedAccountId } =
-    route.params;
-  const { token, provider, rewardToken } = details;
+  const {
+    accountId,
+    networkId,
+    tokenInfo,
+    protocolInfo,
+    currentAllowance,
+    onSuccess,
+  } = route.params;
+  const token = tokenInfo?.token as IToken;
+  const symbol = tokenInfo?.token.symbol || '';
+  const providerName = protocolInfo?.provider || '';
+  const { removePermitCache } = useEarnActions().current;
 
-  const { result: tokenResult } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getProtocolDetails({
-        accountId,
-        networkId,
-        indexedAccountId,
-        symbol: token.info.symbol,
-        provider: provider.name,
-      }),
-    [accountId, networkId, indexedAccountId, token, provider],
-    {
-      revalidateOnFocus: true,
-    },
-  );
-
-  const balanceParsed = tokenResult?.token.balanceParsed || token.balanceParsed;
-  const price = tokenResult?.token.price || token.price;
-
-  const tokenInfo = token.info;
-
-  const actionTag = buildLocalTxStatusSyncId(details);
+  const actionTag = protocolInfo?.stakeTag || '';
   const [btcFeeRate, setBtcFeeRate] = useState<string | undefined>();
   const btcFeeRateInit = useRef<boolean>(false);
 
   const onFeeRateChange = useMemo(() => {
     if (
-      provider.name.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
+      providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
     ) {
       return (value: string) => setBtcFeeRate(value);
     }
-  }, [provider.name]);
-
-  const btcStakingTerm = useMemo<number | undefined>(() => {
-    if (provider?.minStakeTerm) {
-      return formatMillisecondsToBlocks(provider.minStakeTerm);
-    }
-    return undefined;
-  }, [provider]);
+  }, [providerName]);
 
   const handleStake = useUniversalStake({ accountId, networkId });
   const appNavigation = useAppNavigation();
   const onConfirm = useCallback(
-    async (amount: string) => {
+    async ({
+      amount,
+      approveType,
+      permitSignature,
+      unsignedMessage,
+    }: IApproveConfirmFnParams) => {
       await handleStake({
         amount,
-        symbol: tokenInfo.symbol,
-        provider: provider.name,
+        approveType,
+        permitSignature,
+        unsignedMessage,
+        symbol,
+        provider: providerName,
         stakingInfo: {
           label: EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
-            providerName: provider.name,
+            providerName,
           }),
-          protocolLogoURI: provider.logoURI,
-          send: { token: tokenInfo, amount },
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          send: { token, amount },
           tags: [actionTag],
         },
-        term: btcStakingTerm,
+        // TODO: remove term after babylon remove term
+        term: undefined,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
-        morphoVault: earnUtils.isMorphoProvider({
-          providerName: provider.name,
+        protocolVault: earnUtils.isVaultBasedProvider({
+          providerName,
         })
-          ? provider.vault
+          ? protocolInfo?.vault
           : undefined,
         onSuccess: async (txs) => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
-            token: tokenInfo,
-            stakingProtocol: provider.name,
+            token,
+            stakingProtocol: providerName,
           });
           const tx = txs[0];
+          if (approveType === EApproveType.Permit && permitSignature) {
+            removePermitCache({
+              accountId,
+              networkId,
+              tokenAddress: tokenInfo?.token.address || '',
+              amount,
+            });
+          }
           if (
             tx &&
-            provider.name.toLowerCase() ===
+            providerName.toLowerCase() ===
               EEarnProviderEnum.Babylon.toLowerCase()
           ) {
             await backgroundApiProxy.serviceStaking.addBabylonTrackingItem({
@@ -119,7 +120,8 @@ function BasicStakePage() {
               accountId,
               networkId,
               amount,
-              minStakeTerm: provider.minStakeTerm,
+              // TODO: remove term after babylon remove term
+              minStakeTerm: undefined,
             });
           }
           onSuccess?.();
@@ -128,56 +130,23 @@ function BasicStakePage() {
     },
     [
       handleStake,
-      appNavigation,
-      tokenInfo,
-      provider,
+      symbol,
+      providerName,
+      protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.vault,
+      token,
       actionTag,
+      btcFeeRate,
+      appNavigation,
       onSuccess,
-      btcStakingTerm,
+      removePermitCache,
       accountId,
       networkId,
-      btcFeeRate,
+      tokenInfo?.token.address,
     ],
   );
 
   const intl = useIntl();
-  const providerLabel = useProviderLabel(provider.name);
-
-  const isReachBabylonCap = useMemo<boolean | undefined>(() => {
-    if (provider && provider.name === EEarnProviderEnum.Babylon.toLowerCase()) {
-      return provider.stakeDisable;
-    }
-    return false;
-  }, [provider]);
-
-  const showEstReceive = useMemo<boolean>(
-    () =>
-      earnUtils.isLidoProvider({
-        providerName: provider.name,
-      }) ||
-      earnUtils.isMorphoProvider({
-        providerName: provider.name,
-      }),
-    [provider],
-  );
-
-  const estReceiveTokenRate = useMemo(() => {
-    if (
-      earnUtils.isLidoProvider({
-        providerName: provider.name,
-      })
-    ) {
-      return provider.lidoStTokenRate;
-    }
-    if (
-      earnUtils.isMorphoProvider({
-        providerName: provider.name,
-      })
-    ) {
-      return provider.morphoTokenRate;
-    }
-    return '1';
-  }, [provider]);
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!networkUtils.isBTCNetwork(networkId)) {
@@ -209,50 +178,47 @@ function BasicStakePage() {
       btcFeeRateInit.current = true;
     }
   }, [estimateFeeUTXO]);
+  const tokenSymbol = tokenInfo?.token.symbol || '';
+  const balanceParsed = tokenInfo?.balanceParsed || '';
+  const decimals =
+    protocolInfo?.protocolInputDecimals ?? tokenInfo?.token.decimals ?? 0;
 
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_earn_token },
-          { 'token': tokenInfo.symbol },
+          { token: tokenSymbol },
         )}
       />
       <Page.Body>
         <UniversalStake
           accountId={accountId}
           networkId={networkId}
-          decimals={details.token.info.decimals}
-          details={details}
-          apr={
-            Number(provider.aprWithoutFee) > 0
-              ? provider.aprWithoutFee
-              : undefined
-          }
-          price={price}
+          decimals={decimals}
           balance={balanceParsed}
-          minAmount={provider.minStakeAmount}
-          maxAmount={provider.maxStakeAmount}
-          minStakeTerm={provider.minStakeTerm}
-          minStakeBlocks={provider.minStakeBlocks}
-          tokenImageUri={tokenInfo.logoURI}
-          tokenSymbol={tokenInfo.symbol}
-          providerLogo={provider.logoURI}
-          providerName={provider.name}
-          providerLabel={providerLabel}
-          stakingTime={provider.stakingTime}
-          nextLaunchLeft={provider.nextLaunchLeft}
-          isReachBabylonCap={isReachBabylonCap}
-          rewardToken={rewardToken}
-          isDisabled={isReachBabylonCap}
-          updateFrequency={tokenResult?.updateFrequency}
-          showEstReceive={showEstReceive}
-          estReceiveToken={rewardToken}
-          estReceiveTokenRate={estReceiveTokenRate}
+          tokenImageUri={token?.logoURI}
+          tokenSymbol={token.symbol}
+          providerLogo={protocolInfo?.providerDetail.logoURI}
+          providerName={protocolInfo?.provider}
           onConfirm={onConfirm}
-          minTransactionFee={provider.minTransactionFee}
+          approveType={protocolInfo?.approve?.approveType}
+          currentAllowance={currentAllowance}
+          minTransactionFee={protocolInfo?.minTransactionFee}
           estimateFeeUTXO={estimateFeeUTXO}
           onFeeRateChange={onFeeRateChange}
+          tokenInfo={tokenInfo}
+          protocolInfo={protocolInfo}
+          approveTarget={{
+            accountId,
+            networkId,
+            spenderAddress: earnUtils.isVaultBasedProvider({
+              providerName: protocolInfo?.provider || '',
+            })
+              ? protocolInfo?.vault ?? ''
+              : protocolInfo?.approve?.approveTarget ?? '',
+            token: tokenInfo?.token,
+          }}
         />
       </Page.Body>
     </Page>
@@ -268,7 +234,11 @@ export default function StakePage() {
       }}
       enabledNum={[0]}
     >
-      <BasicStakePage />
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
+        <DiscoveryBrowserProviderMirror>
+          <BasicStakePage />
+        </DiscoveryBrowserProviderMirror>
+      </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }

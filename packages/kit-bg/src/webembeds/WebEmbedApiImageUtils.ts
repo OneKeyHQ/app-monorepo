@@ -15,6 +15,28 @@ class WebEmbedApiImageUtils {
   ): Promise<string> {
     return imageUtils.convertToBlackAndWhiteImageBase64(colorImageBase64, mime);
   }
+
+  async applyRoundedCorners(params: {
+    base64: string;
+    width: number;
+    height: number;
+    radius: number;
+    backgroundColor?: string;
+  }): Promise<string> {
+    return imageUtils.applyRoundedCorners(params);
+  }
+
+  async processImageBlur(params: {
+    base64Data: string;
+    blurRadius?: number;
+    overlayOpacity?: number;
+  }): Promise<{
+    hex: string;
+    width: number;
+    height: number;
+  }> {
+    return imageUtils.processImageBlur(params);
+  }
 }
 
 export default WebEmbedApiImageUtils;

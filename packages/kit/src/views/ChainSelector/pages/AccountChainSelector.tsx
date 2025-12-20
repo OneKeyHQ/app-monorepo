@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -10,10 +10,18 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
   EChainSelectorPages,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EditableChainSelector } from '../components/EditableChainSelector';
 import { PureChainSelector } from '../components/PureChainSelector';
@@ -32,9 +40,12 @@ const defaultChainSelectorNetworks: {
 };
 
 type IChainSelectorBaseProps = {
+  sceneName: EAccountSelectorSceneName;
   num: number;
   networkIds?: string[];
   editable?: boolean;
+  recordNetworkHistoryEnabled?: boolean;
+  recentNetworksEnabled?: boolean;
 };
 
 type IAccountChainSelectorProps = IChainSelectorBaseProps & {
@@ -57,30 +68,91 @@ const EditableAccountChainSelector = ({
   onEditCustomNetwork,
 }: IAccountChainSelectorProps) => {
   const {
-    activeAccount: { network, account, wallet },
+    activeAccount: { network, account, wallet, indexedAccount },
   } = useActiveAccount({ num });
-  const { result: chainSelectorNetworks, run: refreshLocalData } =
-    usePromiseResult(
-      async () =>
+  const {
+    result: {
+      chainSelectorNetworks,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
+    },
+    run: refreshLocalData,
+  } = usePromiseResult(
+    async () => {
+      const [_accountsValue, _chainSelectorNetworks] = await Promise.all([
+        backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue({
+          accounts: [{ accountId: indexedAccount?.id ?? account?.id ?? '' }],
+        }),
         backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
           {
             accountId: account?.id,
             walletId: wallet?.id,
             networkIds,
+            useDefaultPinnedNetworks: true,
           },
         ),
-      [account?.id, networkIds, wallet?.id],
-      { initResult: defaultChainSelectorNetworks },
-    );
+      ]);
+
+      if (_accountsValue[0]) {
+        const {
+          chainSelectorNetworks: sortedChainSelectorNetworks,
+          formattedAccountNetworkValues,
+        } =
+          await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
+            {
+              walletId: accountUtils.getWalletIdFromAccountId({
+                accountId: _accountsValue[0].accountId,
+              }),
+              chainSelectorNetworks: _chainSelectorNetworks,
+              accountNetworkValues: _accountsValue[0].value ?? {},
+            },
+          );
+
+        return {
+          chainSelectorNetworks: sortedChainSelectorNetworks,
+          accountNetworkValues: formattedAccountNetworkValues,
+          accountNetworkValueCurrency: _accountsValue[0].currency,
+        };
+      }
+
+      return {
+        chainSelectorNetworks: _chainSelectorNetworks,
+        accountNetworkValues: {},
+      };
+    },
+
+    [account?.id, networkIds, wallet?.id, indexedAccount?.id],
+    {
+      initResult: {
+        chainSelectorNetworks: defaultChainSelectorNetworks,
+        accountNetworkValues: {},
+      },
+    },
+  );
+
+  useEffect(() => {
+    const fn = async () => {
+      await refreshLocalData();
+    };
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, fn);
+    };
+  }, [refreshLocalData]);
 
   return (
     <EditableChainSelector
+      walletId={wallet?.id}
       networkId={network?.id}
+      accountId={account?.id}
+      indexedAccountId={indexedAccount?.id}
       mainnetItems={chainSelectorNetworks.mainnetItems}
       testnetItems={chainSelectorNetworks.testnetItems}
       unavailableItems={chainSelectorNetworks.unavailableItems}
       frequentlyUsedItems={chainSelectorNetworks.frequentlyUsedItems}
       allNetworkItem={chainSelectorNetworks.allNetworkItem}
+      accountNetworkValues={accountNetworkValues}
+      accountNetworkValueCurrency={accountNetworkValueCurrency}
       onPressItem={onPressItem}
       onAddCustomNetwork={onAddCustomNetwork}
       onEditCustomNetwork={(item: IServerNetwork) =>
@@ -180,7 +252,7 @@ const NotEditableAccountChainSelector = ({
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
-  const { result } = usePromiseResult(async () => {
+  const { result, run: refreshLocalData } = usePromiseResult(async () => {
     let networks: IServerNetwork[] = [];
     if (networkIds && networkIds.length > 0) {
       const resp = await backgroundApiProxy.serviceNetwork.getNetworksByIds({
@@ -193,6 +265,17 @@ const NotEditableAccountChainSelector = ({
     }
     return networks;
   }, [networkIds]);
+
+  useEffect(() => {
+    const fn = async () => {
+      await refreshLocalData();
+    };
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, fn);
+    };
+  }, [refreshLocalData]);
+
   return (
     <PureChainSelector
       networkId={network?.id}
@@ -203,21 +286,52 @@ const NotEditableAccountChainSelector = ({
 };
 
 function AccountChainSelector({
+  sceneName,
   num,
   networkIds,
   editable,
+  recordNetworkHistoryEnabled,
 }: IChainSelectorBaseProps) {
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
+  const {
+    activeAccount: { network: activeNetwork },
+  } = useActiveAccount({ num });
   const handleListItemPress = useCallback(
     (item: IServerNetwork) => {
+      if (
+        sceneName === EAccountSelectorSceneName.home ||
+        sceneName === EAccountSelectorSceneName.homeUrlAccount
+      ) {
+        defaultLogger.wallet.walletActions.switchNetwork({
+          networkName: item.name,
+          details: {
+            isCustomNetwork: !!item.isCustomNetwork,
+          },
+        });
+      }
+
+      if (recordNetworkHistoryEnabled && activeNetwork) {
+        void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
+          networkId: activeNetwork.id,
+        });
+      }
+
       void actions.current.updateSelectedAccountNetwork({
         num,
         networkId: item.id,
       });
+
       navigation.popStack();
     },
-    [actions, num, navigation],
+    [
+      actions,
+      num,
+      navigation,
+      recordNetworkHistoryEnabled,
+      activeNetwork,
+      sceneName,
+    ],
   );
   const onAddCustomNetwork = useCallback(() => {
     navigation.push(EChainSelectorPages.AddCustomNetwork, {
@@ -262,12 +376,14 @@ function AccountChainSelector({
       onEditCustomNetwork={onEditCustomNetwork}
       num={num}
       networkIds={networkIds}
+      sceneName={sceneName}
     />
   ) : (
     <NotEditableAccountChainSelector
       onPressItem={handleListItemPress}
       num={num}
       networkIds={networkIds}
+      sceneName={sceneName}
     />
   );
 }
@@ -278,7 +394,15 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.AccountChainSelector
 >) {
-  const { num, sceneName, sceneUrl, networkIds, editable } = route.params;
+  const {
+    num,
+    sceneName,
+    sceneUrl,
+    networkIds,
+    editable,
+    recordNetworkHistoryEnabled,
+    recentNetworksEnabled,
+  } = route.params;
 
   return (
     <AccountSelectorProviderMirror
@@ -292,6 +416,9 @@ export default function ChainSelectorPage({
         num={num}
         networkIds={networkIds}
         editable={editable}
+        recordNetworkHistoryEnabled={recordNetworkHistoryEnabled}
+        recentNetworksEnabled={recentNetworksEnabled}
+        sceneName={sceneName}
       />
     </AccountSelectorProviderMirror>
   );

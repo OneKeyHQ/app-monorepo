@@ -7,7 +7,7 @@ import type { IQRCodeHandler, IUrlValue } from '../type';
 // onekey-wallet://search/list?q=onekey
 const deeplink: IQRCodeHandler<IUrlValue> = async (value, options) => {
   const urlValue = options?.urlResult;
-  if (urlValue) {
+  if (urlValue && urlValue.data && urlValue.data.urlSchema) {
     if (
       [ONEKEY_APP_DEEP_LINK_NAME].findIndex(
         (item) => item === urlValue.data.urlSchema,

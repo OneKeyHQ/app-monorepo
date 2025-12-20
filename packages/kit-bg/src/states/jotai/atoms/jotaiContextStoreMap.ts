@@ -10,14 +10,17 @@ export enum EJotaiContextStoreNames {
   accountSelector = 'accountSelector',
   urlAccountHomeTokenList = 'urlAccountHomeTokenList',
   homeTokenList = 'homeTokenList',
+  homeApprovalList = 'homeApprovalList',
   discoveryBrowser = 'discoveryBrowser',
   swap = 'swap',
   swapModal = 'swapModal',
   marketWatchList = 'marketWatchList',
+  marketWatchListV2 = 'marketWatchListV2',
   universalSearch = 'universalSearch',
   earn = 'earn',
   sendConfirm = 'sendConfirm',
   signatureConfirm = 'signatureConfirm',
+  perps = 'perps',
 }
 export type IJotaiContextStoreData = {
   storeName: EJotaiContextStoreNames;

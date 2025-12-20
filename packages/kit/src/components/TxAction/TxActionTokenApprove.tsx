@@ -9,10 +9,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
-import {
-  useSendConfirmActions,
-  useTokenApproveInfoAtom,
-} from '../../states/jotai/contexts/sendConfirm';
+import { useSendConfirmActions } from '../../states/jotai/contexts/sendConfirm';
 import { showApproveEditor } from '../../views/ApproveEditor';
 import { AddressInfo } from '../AddressInfo';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
@@ -64,6 +61,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     showIcon,
     replaceType,
     hideValue,
+    compact,
   } = props;
   const intl = useIntl();
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
@@ -89,6 +87,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     children: accountUtils.shortenAddress({
       address: approveSpender,
     }),
+    originalAddress: approveSpender,
   };
 
   if (!title) {
@@ -146,6 +145,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       networkId={decodedTx.networkId}
       networkLogoURI={decodedTx.networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}
+      compact={compact}
       {...componentProps}
     />
   );

@@ -1,5 +1,7 @@
 import punycode from 'punycode';
 
+import validator from 'validator';
+
 import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
@@ -12,10 +14,31 @@ import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
 } from '../consts/deeplinkConsts';
-import type { Web3WalletTypes } from '@walletconnect/web3wallet';
+import type { WalletKitTypes } from '@reown/walletkit';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
+
+// Match patterns like: onekey.so/invite/ABC123, www.example.com, etc.
+const URL_WITHOUT_PROTOCOL_REGEXP =
+  /^(?:www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z]{2,})+(?:\/[^\s]*)?$/;
+
+export function isUrlWithoutProtocol(text: string): boolean {
+  return URL_WITHOUT_PROTOCOL_REGEXP.test(text);
+}
+
+export function ensureHttpsPrefix(url: string): string {
+  if (!url) return url;
+  // Already has protocol
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  // Looks like a URL without protocol, add https://
+  if (isUrlWithoutProtocol(url)) {
+    return `https://${url}`;
+  }
+  return url;
+}
 
 function getHostNameFromUrl({ url }: { url: string }): string {
   try {
@@ -29,6 +52,9 @@ function getHostNameFromUrl({ url }: { url: string }): string {
 }
 
 function getOriginFromUrl({ url }: { url: string }): string {
+  if (url === 'null') {
+    return url;
+  }
   try {
     const urlInfo = new URL(url);
     const { origin } = urlInfo;
@@ -97,6 +123,11 @@ export function checkOneKeyCardGoogleOauthUrl({
   ].includes(origin);
 }
 
+export function needEraseElectronFeatureUrl({ url }: { url: string }): boolean {
+  const origin = getOriginFromUrl({ url });
+  return ['https://remix.ethereum.org'].includes(origin);
+}
+
 export function parseUrl(url: string): IUrlValue | null {
   try {
     let formatUrl = url;
@@ -141,6 +172,7 @@ export function parseUrl(url: string): IUrlValue | null {
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
+// eslint-disable-next-line spellcheck/spell-checker
 // check the ens format 元宇宙.bnb / diamondgs198.x
 export const addressIsEnsFormat = (address: string) => {
   const parts = address.split('.');
@@ -153,23 +185,28 @@ export function isValidDeepLink(url: string) {
   );
 }
 
-export const isValidWebUrl = (url: string) =>
-  /^[^/\s]+\.(?:ai|app|art|ag|co|com|club|dev|ee|fi|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)(?:\/[^/\s]*)*$/.test(
-    url,
-  );
-
 export const validateUrl = (url: string): string => {
-  let validatedUrl;
-  try {
-    validatedUrl = new URL(url);
-  } catch (e) {
-    if (isValidWebUrl(url)) {
-      return `https://${url}`;
+  // Extract host/path part from URL if it has a protocol
+  let urlWithoutProtocol = url;
+  if (url.includes('://')) {
+    try {
+      const parsedUrl = new URL(url);
+      const pathname = parsedUrl.pathname === '/' ? '' : parsedUrl.pathname;
+      urlWithoutProtocol =
+        parsedUrl.host + pathname + parsedUrl.search + parsedUrl.hash;
+    } catch {
+      // If URL parsing fails, use the original URL
     }
-    return `https://www.google.com/search?q=${url}`;
   }
 
-  return validatedUrl?.href ?? url;
+  // Try to validate with HTTPS protocol
+  const httpsUrl = `https://${urlWithoutProtocol}`;
+  if (validator.isURL(httpsUrl, { protocols: ['https'] })) {
+    return httpsUrl;
+  }
+
+  // If still not valid, return Google search URL
+  return `https://www.google.com/search?q=${encodeURIComponent(url)}`;
 };
 
 export const containsPunycode = (url: string) => {
@@ -243,7 +280,7 @@ const NameToUrlMapForInvalidDapp: Record<string, string> = {
   'Algorand Governance--Governance platform for Algorand':
     'https://governance.algorand.foundation',
 };
-function safeGetWalletConnectOrigin(proposal: Web3WalletTypes.SessionProposal) {
+function safeGetWalletConnectOrigin(proposal: WalletKitTypes.SessionProposal) {
   try {
     const { origin } = new URL(proposal.params.proposer.metadata.url);
     return origin;
@@ -275,4 +312,6 @@ export default {
   safeGetWalletConnectOrigin,
   parseUrl,
   safeParseURL,
+  isUrlWithoutProtocol,
+  ensureHttpsPrefix,
 };

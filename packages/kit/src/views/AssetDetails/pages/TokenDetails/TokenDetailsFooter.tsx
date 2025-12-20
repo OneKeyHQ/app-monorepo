@@ -2,27 +2,30 @@ import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
-  Divider,
   Icon,
   NumberSizeableText,
   Page,
   SizableText,
   Skeleton,
   XStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-
-import { marketNavigation } from '../../../Market/marketUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
 
-function TokenDetailsFooter() {
+function TokenDetailsFooter(props: { networkId: string }) {
+  const { networkId } = props;
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const { tokenMetadata } = useTokenDetailsContext();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
@@ -38,25 +41,38 @@ function TokenDetailsFooter() {
     return '$textSubdued';
   }, [tokenMetadata?.priceChange24h]);
 
+  if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+    return null;
+  }
+
+  if (
+    new BigNumber(tokenMetadata?.priceChange24h ?? 0).isZero() &&
+    new BigNumber(tokenMetadata?.price ?? 0).isZero()
+  ) {
+    return null;
+  }
+
   return (
     <Page.Footer>
-      <Divider />
       <XStack
-        px="$5"
-        py="$3"
-        justifyContent="space-between"
         alignItems="center"
-        {...(tokenMetadata?.coingeckoId ? listItemPressStyle : null)}
+        px="$5"
+        pt="$3"
+        pb={bottom || '$3'}
         backgroundColor="$bgSubdued"
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderTopColor="$borderSubdued"
+        userSelect="none"
         onPress={() => {
           if (tokenMetadata?.coingeckoId) {
-            void marketNavigation.pushDetailPageFromDeeplink(navigation, {
-              coinGeckoId: tokenMetadata.coingeckoId,
+            navigation.push(EModalAssetDetailRoutes.MarketDetail, {
+              token: tokenMetadata.coingeckoId,
             });
           }
         }}
+        {...(tokenMetadata?.coingeckoId ? listItemPressStyle : null)}
       >
-        <SizableText size="$bodyMd">
+        <SizableText flex={1} size="$bodyMd">
           {intl.formatMessage({ id: ETranslations.global_market })}
         </SizableText>
         {tokenMetadata ? (

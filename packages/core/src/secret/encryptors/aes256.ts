@@ -1,21 +1,29 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import crypto from 'crypto';
 
-import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import {
+  IncorrectPassword,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import {
-  AES256_IV_LENGTH,
-  ENCRYPTED_DATA_OFFSET,
-  PBKDF2_SALT_LENGTH,
-  aesCbcDecrypt,
-  aesCbcEncrypt,
-  keyFromPasswordAndSalt,
-} from '../crypto-functions';
-
 import { xorDecrypt, xorEncrypt } from './xor';
+
+const {
+  AES256_IV_LENGTH,
+  PBKDF2_KEY_LENGTH,
+  PBKDF2_SALT_LENGTH,
+  ENCRYPTED_DATA_OFFSET,
+} = appCrypto.consts;
+
+const { aesCbcDecryptSync, aesCbcDecrypt, aesCbcEncrypt, aesCbcEncryptSync } =
+  appCrypto.aesCbc;
+
+const { keyFromPasswordAndSalt } = appCrypto.keyGen;
 
 export const encodeKeyPrefix =
   'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
@@ -31,7 +39,7 @@ const SENSITIVE_ENCODE_TYPE: 'xor' | 'aes' = 'aes';
 
 function ensureEncodeKeyExists(key: string) {
   if (!key) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'encodeKey is not set, please call setBgSensitiveTextEncodeKey() from webembed',
     );
   }
@@ -62,7 +70,7 @@ async function decodePasswordAsync({
   // decode password if it is encoded
   if (isEncodedSensitiveText(password)) {
     if (platformEnv.isExtensionUi) {
-      throw new Error('decodePassword can NOT be called from UI');
+      throw new OneKeyLocalError('decodePassword can NOT be called from UI');
     }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return decodeSensitiveTextAsync({
@@ -80,7 +88,9 @@ async function decodePasswordAsync({
     console.error(
       'Passing raw password is not allowed and not safe, please encode it at the beginning of debugger breakpoint call stack.',
     );
-    throw new Error('Passing raw password is not allowed and not safe.');
+    throw new OneKeyLocalError(
+      'Passing raw password is not allowed and not safe.',
+    );
   }
   return password;
 }
@@ -106,6 +116,7 @@ export type IEncryptStringParams = {
   data: string;
   dataEncoding?: BufferEncoding;
   allowRawPassword?: boolean;
+  iterations?: number;
 };
 
 // ------------------------------------------------------------
@@ -113,17 +124,32 @@ export type IEncryptAsyncParams = {
   password: string;
   data: Buffer | string;
   allowRawPassword?: boolean;
+  useWebembedApi?: boolean;
+  customSalt?: Buffer | string;
+  customIv?: Buffer | string;
+  customDecodePasswordKey?: string;
+  iterations?: number;
 };
 async function encryptAsync({
   password,
   data,
   allowRawPassword,
+  useWebembedApi,
+  customSalt,
+  customIv,
+  customDecodePasswordKey,
+  iterations,
 }: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
   }
 
-  if (platformEnv.isNative && !platformEnv.isJest) {
+  if (
+    useWebembedApi &&
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     const webembedApiProxy = (
       await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
     ).default;
@@ -132,6 +158,9 @@ async function encryptAsync({
       // data,
       data: bufferUtils.bytesToHex(data),
       allowRawPassword,
+      customIv: customIv ? bufferUtils.bytesToHex(customIv) : undefined,
+      customSalt: customSalt ? bufferUtils.bytesToHex(customSalt) : undefined,
+      iterations,
     });
     return bufferUtils.toBuffer(str, 'hex');
   }
@@ -139,6 +168,7 @@ async function encryptAsync({
   const passwordDecoded = await decodePasswordAsync({
     password,
     allowRawPassword,
+    key: customDecodePasswordKey,
   });
 
   if (!passwordDecoded) {
@@ -147,19 +177,53 @@ async function encryptAsync({
 
   const dataBuffer = bufferUtils.toBuffer(data);
 
-  const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
-  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
-  const iv: Buffer = crypto.randomBytes(AES256_IV_LENGTH);
-  return Buffer.concat([
+  const salt: Buffer = bufferUtils.toBuffer(
+    customSalt || crypto.randomBytes(PBKDF2_SALT_LENGTH),
+  );
+  const iv: Buffer = bufferUtils.toBuffer(
+    customIv || crypto.randomBytes(AES256_IV_LENGTH),
+  );
+
+  // in web environment, if async function is executed in indexedDB.transaction, it will cause the transaction to be committed prematurely, so here use synchronous function
+  // ------------------------------------------------------------
+
+  // const key: Buffer = platformEnv.isNative
+  //   ? await keyFromPasswordAndSalt(passwordDecoded, salt)
+  //   : keyFromPasswordAndSaltSync(passwordDecoded, salt);
+  // const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
+  const key: Buffer = await keyFromPasswordAndSalt({
+    password: passwordDecoded,
     salt,
+    iterations,
+  });
+
+  // const dataEncrypted = platformEnv.isNative
+  //   ? await aesCbcEncrypt({
+  //       data: dataBuffer,
+  //       key,
+  //       iv,
+  //       //
+  //     })
+  //   : aesCbcEncryptSync({
+  //       data: dataBuffer,
+  //       key,
+  //       iv,
+  //     });
+  // const dataEncrypted = await aesCbcEncrypt({
+  //   data: dataBuffer,
+  //   key,
+  //   iv,
+  //   //
+  // });
+
+  const dataEncrypted = await aesCbcEncrypt({
+    data: dataBuffer,
+    key,
     iv,
-    aesCbcEncrypt({
-      data: dataBuffer,
-      key,
-      iv,
-      //
-    }),
-  ]);
+    //
+  });
+
+  return Buffer.concat([salt, iv, dataEncrypted]);
 }
 
 export type IDecryptAsyncParams = {
@@ -167,6 +231,8 @@ export type IDecryptAsyncParams = {
   data: Buffer | string;
   allowRawPassword?: boolean;
   ignoreLogger?: boolean;
+  useWebembedApi?: boolean;
+  iterations?: number;
 };
 /**
  * The recommended asynchronous decryption method
@@ -180,11 +246,19 @@ async function decryptAsync({
   data,
   allowRawPassword,
   ignoreLogger,
+  useWebembedApi,
+  iterations,
 }: IDecryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
   }
-  if (platformEnv.isNative && !platformEnv.isJest) {
+
+  if (
+    useWebembedApi &&
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     const webembedApiProxy = (
       await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
     ).default;
@@ -194,6 +268,7 @@ async function decryptAsync({
       data: bufferUtils.bytesToHex(data),
       allowRawPassword,
       ignoreLogger,
+      iterations,
     });
     return bufferUtils.toBuffer(str, 'hex');
   }
@@ -220,7 +295,16 @@ async function decryptAsync({
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.keyFromPasswordAndSalt();
   }
-  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
+
+  // const key: Buffer = platformEnv.isNative
+  //   ? await keyFromPasswordAndSalt(passwordDecoded, salt)
+  //   : keyFromPasswordAndSaltSync(passwordDecoded, salt);
+  const key: Buffer = await keyFromPasswordAndSalt({
+    password: passwordDecoded,
+    salt,
+    iterations,
+  });
+
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.keyFromPasswordAndSaltDone();
   }
@@ -234,18 +318,26 @@ async function decryptAsync({
     if (!ignoreLogger) {
       defaultLogger.account.secretPerf.decryptAES();
     }
-    // TODO make to async call RN_AES(@metamask/react-native-aes-crypto)
-    // const aesDecryptData = await RN_AES.decrypt(
-    //   dataBuffer.slice(ENCRYPTED_DATA_OFFSET).toString('base64'),
-    //   key.toString('base64'),
-    //   iv.toString('base64'),
-    // );
 
-    const aesDecryptData = aesCbcDecrypt({
-      data: dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
+    // const aesDecryptData = platformEnv.isNative
+    //   ? await aesCbcDecrypt({
+    //       data: dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
+    //       key,
+    //       iv,
+    //     })
+    //   : aesCbcDecryptSync({
+    //       data: dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
+    //       key,
+    //       iv,
+    //     });
+
+    const encryptedData = dataBuffer.slice(ENCRYPTED_DATA_OFFSET);
+    const aesDecryptData = await aesCbcDecrypt({
+      data: encryptedData,
       key,
       iv,
     });
+
     if (!ignoreLogger) {
       defaultLogger.account.secretPerf.decryptAESDone();
     }
@@ -265,6 +357,7 @@ export type IDecryptStringParams = {
   resultEncoding?: BufferEncoding;
   dataEncoding?: BufferEncoding;
   allowRawPassword?: boolean;
+  iterations?: number;
 };
 
 async function decryptStringAsync({
@@ -273,12 +366,14 @@ async function decryptStringAsync({
   resultEncoding = 'hex',
   dataEncoding = 'hex',
   allowRawPassword,
+  iterations,
 }: IDecryptStringParams): Promise<string> {
   const bytes = await decryptAsync({
     password,
     data: bufferUtils.toBuffer(data, dataEncoding),
     ignoreLogger: undefined,
     allowRawPassword,
+    iterations,
   });
   if (resultEncoding === 'hex') {
     return bufferUtils.bytesToHex(bytes);
@@ -291,19 +386,21 @@ async function encryptStringAsync({
   data,
   dataEncoding = 'hex',
   allowRawPassword,
+  iterations,
 }: IEncryptStringParams): Promise<string> {
   const bufferData = bufferUtils.toBuffer(data, dataEncoding);
   const bytes = await encryptAsync({
     password,
     data: bufferData,
     allowRawPassword,
+    iterations,
   });
   return bufferUtils.bytesToHex(bytes);
 }
 
 function checkKeyPassedOnExtUi(key?: string) {
   if (platformEnv.isExtensionUi && !key) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'Please get and pass key by:  await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey()',
     );
   }
@@ -311,7 +408,7 @@ function checkKeyPassedOnExtUi(key?: string) {
 
 function ensureSensitiveTextEncoded(text: string) {
   if (!isEncodedSensitiveText(text)) {
-    throw new Error('Not encoded sensitive text');
+    throw new OneKeyLocalError('Not encoded sensitive text');
   }
 }
 
@@ -351,15 +448,20 @@ async function decodeSensitiveTextAsync({
       return text;
     }
   }
-  throw new Error('Not correct encoded text');
+  // if not encoded, return the original text
+  return encodedText;
 }
 
 async function encodeSensitiveTextAsync({
   text,
   key,
+  customIv,
+  customSalt,
 }: {
   text: string;
   key?: string;
+  customSalt?: Buffer;
+  customIv?: Buffer;
 }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -387,6 +489,8 @@ async function encodeSensitiveTextAsync({
         password: theKey,
         data: Buffer.from(text, 'utf-8'),
         allowRawPassword: true,
+        customSalt,
+        customIv,
       })
     ).toString('hex');
     return `${ENCODE_TEXT_PREFIX.aes}${encoded}`;
@@ -401,12 +505,12 @@ async function encodeSensitiveTextAsync({
     return `${ENCODE_TEXT_PREFIX.xor}${encoded}`;
   }
 
-  throw new Error('Unknown SENSITIVE_ENCODE_TYPE type');
+  throw new OneKeyLocalError('Unknown SENSITIVE_ENCODE_TYPE type');
 }
 
 function getBgSensitiveTextEncodeKey() {
   if (platformEnv.isExtensionUi) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'Not allow to call ()getBgSensitiveTextEncodeKey from extension ui',
     );
   }
@@ -415,12 +519,12 @@ function getBgSensitiveTextEncodeKey() {
 
 function setBgSensitiveTextEncodeKey(key: string) {
   if (platformEnv.isExtensionUi) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'Not allow to call setBgSensitiveTextEncodeKey() from extension ui',
     );
   }
   if (!platformEnv.isWebEmbed) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'Only allow to call setBgSensitiveTextEncodeKey() from webembed',
     );
   }

@@ -59,6 +59,18 @@ const setErrorTracker = (tracker: (error: Error) => void) => {
     require('promise/setimmediate/done');
     require('promise/setimmediate/finally');
     const Promise = require('promise/setimmediate/es6-extensions');
+    if (typeof Promise.withResolvers !== 'function') {
+      Promise.withResolvers = function withResolvers() {
+        let resolve;
+        let reject;
+        // @ts-expect-error
+        const promise = new Promise((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+        return { promise, resolve, reject };
+      };
+    }
     const tracking = require('promise/setimmediate/rejection-tracking');
 
     tracking.enable({

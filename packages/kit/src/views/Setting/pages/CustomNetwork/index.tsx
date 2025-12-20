@@ -282,6 +282,9 @@ function AddCustomNetwork() {
         await backgroundApiProxy.serviceCustomRpc.deleteCustomNetwork({
           networkId: routeNetworkId,
         });
+        await backgroundApiProxy.serviceNetwork.deleteRecentNetwork({
+          networkId: routeNetworkId,
+        });
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.explore_removed_success,

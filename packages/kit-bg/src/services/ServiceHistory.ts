@@ -1,6 +1,7 @@
 import { isNil, unionBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
 import {
   backgroundClass,
@@ -11,12 +12,13 @@ import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
+  filterHistoryTxs,
   getOnChainHistoryTxStatus,
   isAccountCompatibleWithTx,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -50,6 +52,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { IDBAccount } from '../dbs/local/types';
+import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
@@ -59,7 +62,18 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId, tokenIdOnNetwork, filterScam } = params;
+    const {
+      accountId,
+      networkId,
+      tokenIdOnNetwork,
+      filterScam,
+      filterLowValue,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+      excludeTestNetwork,
+      limit,
+    } = params;
     let dbAccount;
     try {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
@@ -95,6 +109,7 @@ class ServiceHistory extends ServiceBase {
           {
             accountId,
             networkId,
+            excludeTestNetwork,
           },
         );
       accounts = resp.accountsInfo;
@@ -220,12 +235,17 @@ class ServiceHistory extends ServiceBase {
     }
 
     // 4. Fetch the on-chain history
-    onChainHistoryTxs = await this.fetchAccountOnChainHistory({
+    const {
+      txs,
+      addressMap,
+      hasMore: hasMoreOnChainHistory,
+    } = await this.fetchAccountOnChainHistory({
       ...params,
       isAllNetworks,
       accountAddress,
       xpub,
     });
+    onChainHistoryTxs = txs;
 
     // 5. Merge the just-confirmed transactions, locally confirmed transactions, and on-chain history
 
@@ -356,23 +376,26 @@ class ServiceHistory extends ServiceBase {
 
     if (changedPendingTxInfos.length > 0) {
       // Check if staking transaction status has changed, if so request backend to update order status
-      void this.backgroundApi.serviceStaking.updateEarnOrder({
+      await this.backgroundApi.serviceStaking.updateEarnOrder({
         txs: changedPendingTxInfos,
       });
     }
 
-    if (filterScam) {
-      result = result.filter(
-        (tx) =>
-          !tx.decodedTx.riskyLevel ||
-          tx.decodedTx.riskyLevel <= TX_RISKY_LEVEL_SPAM,
-      );
-    }
+    result = filterHistoryTxs({
+      txs: result,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+      filterScam,
+      filterLowValue,
+    });
 
     return {
+      hasMoreOnChainHistory,
       accounts,
       allAccounts,
       txs: result,
+      addressMap,
       accountsWithChangedPendingTxs: Array.from(
         accountsWithChangedPendingTxs,
       ).map((item) => {
@@ -390,10 +413,20 @@ class ServiceHistory extends ServiceBase {
     accountId,
     networkId,
     filterScam,
+    filterLowValue,
+    sourceCurrency,
+    targetCurrency,
+    currencyMap,
+    excludeTestNetwork,
   }: {
     accountId: string;
     networkId: string;
     filterScam?: boolean;
+    filterLowValue?: boolean;
+    excludeTestNetwork?: boolean;
+    sourceCurrency?: string;
+    targetCurrency?: string;
+    currencyMap?: Record<string, ICurrencyItem>;
   }) {
     if (networkUtils.isAllNetwork({ networkId })) {
       const accounts = (
@@ -401,6 +434,7 @@ class ServiceHistory extends ServiceBase {
           {
             accountId,
             networkId,
+            excludeTestNetwork,
           },
         )
       ).accountsInfo;
@@ -415,7 +449,7 @@ class ServiceHistory extends ServiceBase {
       const localHistoryPendingTxs =
         await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
 
-      let result = unionBy(
+      const result = unionBy(
         [
           ...localHistoryPendingTxs,
           ...localHistoryConfirmedTxs.sort(
@@ -435,15 +469,14 @@ class ServiceHistory extends ServiceBase {
         tx.decodedTx.networkLogoURI = network.logoURI;
       }
 
-      if (filterScam) {
-        result = result.filter(
-          (tx) =>
-            !tx.decodedTx.riskyLevel ||
-            tx.decodedTx.riskyLevel <= TX_RISKY_LEVEL_SPAM,
-        );
-      }
-
-      return result;
+      return filterHistoryTxs({
+        txs: result,
+        sourceCurrency,
+        targetCurrency,
+        currencyMap,
+        filterScam,
+        filterLowValue,
+      });
     }
     const [accountAddress, xpub] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -469,20 +502,19 @@ class ServiceHistory extends ServiceBase {
         xpub,
       });
 
-    let result = unionBy(
+    const result = unionBy(
       [...localHistoryPendingTxs, ...localHistoryConfirmedTxs],
       (tx) => tx.id,
     );
 
-    if (filterScam) {
-      result = result.filter(
-        (tx) =>
-          !tx.decodedTx.riskyLevel ||
-          tx.decodedTx.riskyLevel <= TX_RISKY_LEVEL_SPAM,
-      );
-    }
-
-    return result;
+    return filterHistoryTxs({
+      txs: result,
+      filterScam,
+      filterLowValue,
+      sourceCurrency,
+      targetCurrency,
+      currencyMap,
+    });
   }
 
   @backgroundMethod()
@@ -684,6 +716,8 @@ class ServiceHistory extends ServiceBase {
       isManualRefresh,
       isAllNetworks,
       filterScam,
+      filterLowValue,
+      limit,
     } = params;
     const vault = await vaultFactory.getVault({
       accountId,
@@ -695,7 +729,10 @@ class ServiceHistory extends ServiceBase {
         networkId,
       });
     if (isCustomNetwork) {
-      return [];
+      return {
+        txs: [],
+        addressMap: {},
+      };
     }
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -728,6 +765,8 @@ class ServiceHistory extends ServiceBase {
           isForceRefresh: isManualRefresh,
           isAllNetwork: isAllNetworks,
           onlySafe: filterScam,
+          withoutDust: filterLowValue,
+          limit,
         },
         {
           headers:
@@ -753,7 +792,13 @@ class ServiceHistory extends ServiceBase {
       }
     }
 
-    const { data: onChainHistoryTxs, tokens, nfts } = resp.data.data;
+    const {
+      data: onChainHistoryTxs,
+      tokens,
+      nfts,
+      addressMap,
+      hasMore,
+    } = resp.data.data;
 
     const dbAccountCache: {
       [accountId: string]: IDBAccount;
@@ -779,7 +824,11 @@ class ServiceHistory extends ServiceBase {
       )
     ).filter(Boolean);
 
-    return txs;
+    return {
+      txs,
+      addressMap,
+      hasMore,
+    };
   }
 
   @backgroundMethod()
@@ -839,7 +888,6 @@ class ServiceHistory extends ServiceBase {
           status: getOnChainHistoryTxStatus(resp.data.data.data.status),
         });
       }
-
       return resp.data.data;
     } catch (e) {
       console.log(e);
@@ -1195,6 +1243,12 @@ class ServiceHistory extends ServiceBase {
       xpub,
       pendingTxs: [newHistoryTx],
     });
+
+    // refresh BTC fresh address for HD or HW accounts if needed
+    void this.backgroundApi.serviceFreshAddress.syncBTCFreshAddressByAccountId({
+      accountId,
+      networkId,
+    });
   }
 
   @backgroundMethod()
@@ -1317,6 +1371,48 @@ class ServiceHistory extends ServiceBase {
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
     },
   );
+
+  @backgroundMethod()
+  public async updateLocalAddressesInfo({
+    data,
+    merge = true,
+  }: {
+    data: Record<string, IAddressInfo>;
+    merge?: boolean;
+  }) {
+    return this.backgroundApi.simpleDb.addressInfo.updateAddressesInfo({
+      data,
+      merge,
+    });
+  }
+
+  @backgroundMethod()
+  public async clearLocalAddressesInfo() {
+    return this.backgroundApi.simpleDb.addressInfo.clearAddressesInfo();
+  }
+
+  @backgroundMethod()
+  public async getLocalAddressesInfo() {
+    return this.backgroundApi.simpleDb.addressInfo.getAddressesInfo();
+  }
+
+  @backgroundMethod()
+  async migrateFilterScamHistorySetting() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.filterScamHistorySettingMigrated) {
+      console.log('migrateFilterScamHistorySetting: already migrated');
+      return;
+    }
+
+    await this.backgroundApi.serviceSetting.setFilterScamHistoryEnabled(true);
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        filterScamHistorySettingMigrated: true,
+      }),
+    );
+  }
 }
 
 export default ServiceHistory;

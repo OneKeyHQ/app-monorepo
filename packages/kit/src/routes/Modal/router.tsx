@@ -2,13 +2,15 @@ import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
+import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
+import { BulkCopyAddressesModalRouter } from '../../views/BulkCopyAddresses/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { CloudBackupPages } from '../../views/CloudBackup/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
@@ -18,13 +20,20 @@ import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
 import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
+import { ManualBackupRouter } from '../../views/ManualBackup/router';
+import { ModalMarketStack } from '../../views/Market/router';
+import { NetworkDoctorModalRouter } from '../../views/NetworkDoctor/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
+import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
+import { ModalPerpStack } from '../../views/Perp/router';
 import { PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
+import { ReferFriendsRouter } from '../../views/ReferFriends/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
 import { ShortcutsModalRouter } from '../../views/Shortcuts/router';
+import { ModalSignAndVerifyRouter } from '../../views/SignAndVerifyMessage/router';
 import { ModalSignatureConfirmStack } from '../../views/SignatureConfirm/router';
 import { StakingModalRouter } from '../../views/Staking/router';
 import { ModalSwapStack } from '../../views/Swap/router';
@@ -72,17 +81,35 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: ModalSwapStack,
   },
   {
+    name: EModalRoutes.PerpModal,
+    children: ModalPerpStack,
+  },
+  {
+    name: EModalRoutes.MarketModal,
+    children: ModalMarketStack,
+  },
+  {
     name: EModalRoutes.AccountManagerStacks,
     children: AccountManagerStacks,
     async onUnmounted() {
       void backgroundApiProxy.serviceBatchCreateAccount.clearNetworkAccountCache();
       // void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
     },
+    async onMounted() {
+      void backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlowSilentlyThrottled(
+        {
+          callerName: 'AccountManagerStacks onMounted',
+        },
+      );
+    },
   },
   onboardingRouterConfig,
   {
     name: EModalRoutes.PrimeModal,
     children: PrimeRouter,
+    onUnmounted() {
+      void backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
+    },
   },
   {
     name: EModalRoutes.FirmwareUpdateModal,
@@ -121,6 +148,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: LiteCardPages,
   },
   {
+    name: EModalRoutes.ManualBackupModal,
+    children: ManualBackupRouter,
+  },
+  {
     name: EModalRoutes.CloudBackupModal,
     children: CloudBackupPages,
   },
@@ -134,6 +165,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.AppUpdateModal,
+    rewrite: '/update',
     children: AppUpdateRouter,
   },
   {
@@ -168,6 +200,26 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     name: EModalRoutes.DeviceManagementModal,
     children: DeviceManagementStacks,
   },
+  {
+    name: EModalRoutes.ReferFriendsModal,
+    children: ReferFriendsRouter,
+  },
+  {
+    name: EModalRoutes.BulkCopyAddressesModal,
+    children: BulkCopyAddressesModalRouter,
+  },
+  {
+    name: EModalRoutes.ApprovalManagementModal,
+    children: ModalApprovalManagementStack,
+  },
+  {
+    name: EModalRoutes.SignAndVerifyModal,
+    children: ModalSignAndVerifyRouter,
+  },
+  {
+    name: EModalRoutes.NetworkDoctorModal,
+    children: NetworkDoctorModalRouter,
+  },
 ];
 
 // Pages in Dev Mode
@@ -181,7 +233,6 @@ if (platformEnv.isDev) {
 export const modalRouter = router;
 
 export const fullModalRouter = [
-  onboardingRouterConfig,
   {
     name: EModalRoutes.AppUpdateModal,
     children: AppUpdateRouter,
@@ -203,3 +254,25 @@ export const fullModalRouter = [
     children: ModalSignatureConfirmStack,
   },
 ];
+
+export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Routes>[] =
+  [
+    {
+      onMounted: () => {
+        console.log('OnboardingModal onMounted');
+      },
+      onUnmounted: async () => {
+        await v4migrationAtom.set((v) => ({
+          ...v,
+          isProcessing: false,
+          isMigrationModalOpen: false,
+        }));
+        console.log('OnboardingModal onUnmounted');
+        await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
+      },
+      name: EOnboardingV2Routes.OnboardingV2,
+      rewrite: '/onboarding',
+      exact: true,
+      children: OnboardingRouterV2,
+    },
+  ];

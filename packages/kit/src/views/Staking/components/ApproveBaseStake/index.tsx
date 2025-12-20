@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -32,6 +32,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import {
   formatApy,
   formatStakingDistanceToNowStrict,
@@ -46,12 +47,15 @@ import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
   IEarnEstimateFeeResp,
-  IStakeProtocolDetails,
+  IEarnPermit2ApproveSignData,
+  IEarnTokenItem,
+  IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { validateAmountInput } from '../../../Swap/utils/utils';
+import { useEarnEventActive } from '../../hooks/useEarnEventActive';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
+import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
@@ -59,15 +63,13 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import { MorphoApy } from '../ProtocolDetails/MorphoApy';
+import { ProtocolApyRewards } from '../ProtocolDetails/ProtocolApyRewards';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 
 type IApproveBaseStakeProps = {
-  details: IStakeProtocolDetails;
-
   price: string;
   balance: string;
   token: IToken;
@@ -91,6 +93,12 @@ type IApproveBaseStakeProps = {
 
   providerName?: string;
   providerLogo?: string;
+  eventEndTime?: number;
+  approveType?: EApproveType;
+  apys?: IProtocolInfo['apys'];
+  activeBalance?: string;
+  rewardAssets?: Record<string, IEarnTokenItem>;
+  poolFee?: string;
   onConfirm?: (params: IApproveConfirmFnParams) => Promise<void>;
 };
 
@@ -98,11 +106,10 @@ type ITokenAnnualReward = {
   amount: string;
   fiatValue?: string;
   token: IToken;
+  suffix?: string;
 };
 
 export function ApproveBaseStake({
-  details,
-
   price,
   balance,
   token,
@@ -110,15 +117,19 @@ export function ApproveBaseStake({
   decimals,
   minAmount = '0',
   currentAllowance = '0',
-  providerName,
+  providerName = '',
   providerLogo,
   onConfirm,
   approveTarget,
-
-  providerLabel,
+  eventEndTime,
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
+  approveType,
+  activeBalance,
+  apys,
+  rewardAssets,
+  poolFee,
 }: PropsWithChildren<IApproveBaseStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
@@ -133,6 +144,7 @@ export function ApproveBaseStake({
       }),
     [approveTarget.networkId],
   ).result;
+  const { isEventActive } = useEarnEventActive(eventEndTime);
   const [approving, setApproving] = useState<boolean>(false);
   const {
     allowance,
@@ -145,7 +157,7 @@ export function ApproveBaseStake({
     tokenAddress: approveTarget.token.address,
     spenderAddress: approveTarget.spenderAddress,
     initialValue: currentAllowance,
-    approveType: details.provider.approveType ?? EApproveType.Legacy,
+    approveType: approveType ?? EApproveType.Legacy,
   });
   const [amountValue, setAmountValue] = useState('');
   const [
@@ -185,11 +197,19 @@ export function ApproveBaseStake({
     );
   }, [amountValue, isInsufficientBalance, isLessThanMinAmount]);
 
-  const usePermit2Approve =
-    details.provider?.approveType === EApproveType.Permit;
+  const usePermit2Approve = approveType === EApproveType.Permit;
   const permitSignatureRef = useRef<string | undefined>(undefined);
+  const permit2DataRef = useRef<IEarnPermit2ApproveSignData | undefined>(
+    undefined,
+  );
 
   const isFocus = useIsFocused();
+
+  const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
+    providerName,
+    eventEndTime,
+    weeklyNetApyWithoutFee: apys?.weeklyNetApyWithoutFee,
+  });
 
   const shouldApprove = useMemo(() => {
     if (!isFocus) {
@@ -208,6 +228,7 @@ export function ApproveBaseStake({
       });
       if (permitCache) {
         permitSignatureRef.current = permitCache.signature;
+        permit2DataRef.current = permitCache.permit2Data;
         return false;
       }
     }
@@ -224,54 +245,89 @@ export function ApproveBaseStake({
     approveTarget.networkId,
   ]);
 
-  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
-    if (!amount) {
-      setEstimateFeeResp(undefined);
-      return;
-    }
-    const amountNumber = BigNumber(amount);
-    if (amountNumber.isZero() || amountNumber.isNaN()) {
-      return;
-    }
-
-    const permitParams: {
-      approveType?: 'permit';
-      permitSignature?: string;
-    } = {};
-
-    if (usePermit2Approve) {
-      if (shouldApprove) {
-        setEstimateFeeResp(undefined);
+  const fetchEstimateFeeResp = useCallback(
+    async (amount?: string) => {
+      if (!amount) {
+        return undefined;
+      }
+      const amountNumber = BigNumber(amount);
+      if (amountNumber.isZero() || amountNumber.isNaN()) {
         return;
       }
 
-      permitParams.approveType = 'permit';
+      const permitParams: {
+        approveType?: 'permit';
+        permitSignature?: string;
+      } = {};
 
-      if (permitSignatureRef.current) {
-        const amountBN = BigNumber(amount);
-        const allowanceBN = BigNumber(allowance);
-        if (amountBN.gt(allowanceBN)) {
-          permitParams.permitSignature = permitSignatureRef.current;
+      if (usePermit2Approve) {
+        if (shouldApprove) {
+          return undefined;
+        }
+
+        permitParams.approveType = 'permit';
+
+        if (permitSignatureRef.current) {
+          const amountBN = BigNumber(amount);
+          const allowanceBN = BigNumber(allowance);
+          if (amountBN.gt(allowanceBN)) {
+            permitParams.permitSignature = permitSignatureRef.current;
+          }
         }
       }
-    }
 
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: approveTarget.accountId,
-      networkId: approveTarget.networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId: approveTarget.networkId,
-      provider: details.provider.name,
-      symbol: details.token.info.symbol,
-      action: 'stake',
-      amount: amountNumber.toFixed(),
-      morphoVault: details.provider.vault,
-      accountAddress: account?.address,
-      ...permitParams,
-    });
-    setEstimateFeeResp(resp);
-  }, 350);
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+      });
+      const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+        networkId: approveTarget.networkId,
+        provider: providerName,
+        symbol: token.symbol,
+        action: shouldApprove ? 'approve' : 'stake',
+        amount: amountNumber.toFixed(),
+        protocolVault: earnUtils.isVaultBasedProvider({ providerName })
+          ? approveTarget.spenderAddress
+          : undefined,
+        accountAddress: account?.address,
+        ...permitParams,
+      });
+      return resp;
+    },
+    [
+      allowance,
+      approveTarget.accountId,
+      approveTarget.networkId,
+      approveTarget.spenderAddress,
+      providerName,
+      shouldApprove,
+      token.symbol,
+      usePermit2Approve,
+    ],
+  );
+
+  const debouncedFetchEstimateFeeResp = useDebouncedCallback(
+    async (amount?: string) => {
+      const resp = await fetchEstimateFeeResp(amount);
+      setEstimateFeeResp(resp);
+    },
+    350,
+  );
+
+  const prevShouldApproveRef = useRef<boolean>(undefined);
+  useEffect(() => {
+    const amountValueBN = new BigNumber(amountValue);
+    // Check if shouldApprove transitioned from true to false and amount is valid
+    if (
+      prevShouldApproveRef.current === true &&
+      !shouldApprove &&
+      !amountValueBN.isNaN() &&
+      amountValueBN.gt(0)
+    ) {
+      void debouncedFetchEstimateFeeResp(amountValue);
+    }
+    prevShouldApproveRef.current = shouldApprove;
+  }, [shouldApprove, amountValue, debouncedFetchEstimateFeeResp]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -282,7 +338,7 @@ export function ApproveBaseStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
-          void fetchEstimateFeeResp();
+          void debouncedFetchEstimateFeeResp();
         }
         return;
       }
@@ -292,13 +348,13 @@ export function ApproveBaseStake({
           countDecimalPlaces(value) > decimals,
       );
       if (isOverflowDecimals) {
-        setAmountValue((oldValue) => oldValue);
+        // setAmountValue((oldValue) => oldValue);
       } else {
         setAmountValue(value);
-        void fetchEstimateFeeResp(value);
+        void debouncedFetchEstimateFeeResp(value);
       }
     },
-    [decimals, fetchEstimateFeeResp],
+    [decimals, debouncedFetchEstimateFeeResp],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -310,12 +366,16 @@ export function ApproveBaseStake({
   const onConfirmText = useMemo(() => {
     if (shouldApprove) {
       return intl.formatMessage(
-        { id: ETranslations.earn_approve_deposit },
+        {
+          id: usePermit2Approve
+            ? ETranslations.earn_approve_deposit
+            : ETranslations.global_approve,
+        },
         { amount: amountValue, symbol: token.symbol },
       );
     }
     return intl.formatMessage({ id: ETranslations.earn_deposit });
-  }, [shouldApprove, token, amountValue, intl]);
+  }, [shouldApprove, intl, usePermit2Approve, amountValue, token.symbol]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
@@ -340,26 +400,47 @@ export function ApproveBaseStake({
 
     const rewards: ITokenAnnualReward[] = [];
 
-    if (details.provider.apys) {
+    if (apys) {
       // handle base token reward
-      const baseRateBN = new BigNumber(details.provider.apys.rate);
+      const isFalconProvider = earnUtils.isFalconProvider({
+        providerName,
+      });
+      const baseRateBN = new BigNumber(
+        isFalconProvider ? apys?.weeklyNetApyWithoutFee ?? 0 : apys?.rate ?? 0,
+      );
       if (baseRateBN.gt(0)) {
-        const baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
+        let baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
+        if (isFalconProvider) {
+          baseAmount = baseAmount.dividedBy(365);
+        }
+
+        let suffix: string | undefined;
+        if (
+          earnUtils.isFalconProvider({
+            providerName,
+          }) &&
+          isEventActive
+        ) {
+          suffix = `+ ${intl.formatMessage({
+            id: ETranslations.explore_badge_airdrop,
+          })}`;
+        }
 
         rewards.push({
           amount: baseAmount.toFixed(),
           fiatValue: new BigNumber(price).gt(0)
             ? baseAmount.multipliedBy(price).toFixed()
             : undefined,
-          token: details.token.info,
+          token,
+          suffix,
         });
       }
 
       // handle extra token reward
-      const { rewards: extraRewards } = details.provider.apys;
-      if (extraRewards && details.rewardAssets) {
+      const { rewards: extraRewards } = apys;
+      if (extraRewards && rewardAssets) {
         Object.entries(extraRewards).forEach(([tokenAddress, apy]) => {
-          const rewardToken = details.rewardAssets?.[tokenAddress];
+          const rewardToken = rewardAssets?.[tokenAddress];
           const apyBN = new BigNumber(apy);
           if (rewardToken && apyBN.gt(0)) {
             const rewardAmount = amountBN
@@ -395,7 +476,17 @@ export function ApproveBaseStake({
     }
 
     return rewards;
-  }, [amountValue, apr, price, details, token]);
+  }, [
+    amountValue,
+    apys,
+    providerName,
+    rewardAssets,
+    isEventActive,
+    price,
+    token,
+    intl,
+    apr,
+  ]);
 
   const totalAnnualRewardsFiatValue = useMemo(() => {
     if (!estimatedAnnualRewards.length) return undefined;
@@ -418,35 +509,40 @@ export function ApproveBaseStake({
 
   const checkEstimateGasAlert = useCallback(
     async (onNext: () => Promise<void>) => {
-      if (!totalAnnualRewardsFiatValue || !estimateFeeResp) {
+      if (!totalAnnualRewardsFiatValue || usePermit2Approve) {
         return onNext();
       }
 
-      const daySpent =
-        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
+      setApproving(true);
 
-      if (usePermit2Approve || !daySpent || daySpent <= 5) {
+      const response = await fetchEstimateFeeResp(amountValue);
+
+      setApproving(false);
+      if (!response) {
+        return onNext();
+      }
+      const daySpent = Number(response?.coverFeeSeconds || 0) / 3600 / 24;
+
+      if (!daySpent || daySpent <= 5) {
         return onNext();
       }
 
       showEstimateGasAlert({
         daysConsumed: formatStakingDistanceToNowStrict(
-          estimateFeeResp.coverFeeSeconds,
+          response.coverFeeSeconds,
         ),
-        estFiatValue: estimateFeeResp.feeFiatValue,
+        estFiatValue: response.feeFiatValue,
         onConfirm: async (dialogInstance: IDialogInstance) => {
           await dialogInstance.close();
           await onNext();
-        },
-        onCancel: () => {
-          setApproving(false);
         },
       });
     },
     [
       totalAnnualRewardsFiatValue,
-      estimateFeeResp,
       usePermit2Approve,
+      fetchEstimateFeeResp,
+      amountValue,
       showEstimateGasAlert,
     ],
   );
@@ -456,13 +552,17 @@ export function ApproveBaseStake({
       try {
         await onConfirm?.({
           amount: amountValue,
-          approveType: details.provider.approveType,
+          approveType,
           permitSignature: permitSignatureRef.current,
+          unsignedMessage: permit2DataRef.current,
         });
       } catch (error) {
         console.error('Transaction error:', error);
       }
     };
+
+    // Wait for the dialog confirmation if it's shown
+    await showFalconEventEndedDialog();
 
     if (!usePermit2Approve || (usePermit2Approve && !shouldApprove)) {
       await checkEstimateGasAlert(handleConfirm);
@@ -471,12 +571,13 @@ export function ApproveBaseStake({
 
     void handleConfirm();
   }, [
-    shouldApprove,
+    showFalconEventEndedDialog,
     usePermit2Approve,
+    shouldApprove,
     onConfirm,
     amountValue,
+    approveType,
     checkEstimateGasAlert,
-    details.provider.approveType,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
@@ -557,17 +658,18 @@ export function ApproveBaseStake({
   ]);
 
   const showResetUSDTApproveValueDialog = useCallback(() => {
-    Dialog.confirm({
+    Dialog.show({
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_continue,
       }),
-      onClose: () => {
+      showExitButton: false,
+      dismissOnOverlayPress: false,
+      onCancel: () => {
         setApproving(false);
       },
       onConfirm: () => {
         void resetUSDTApproveValue();
       },
-      showCancelButton: true,
       title: intl.formatMessage({
         id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
       }),
@@ -580,10 +682,18 @@ export function ApproveBaseStake({
 
   const onApprove = useCallback(async () => {
     setApproving(true);
+    let approveAllowance = allowance;
+    try {
+      const allowanceInfo = await fetchAllowanceResponse();
+      approveAllowance = allowanceInfo.allowanceParsed;
+    } catch (e) {
+      console.error(e);
+    }
     permitSignatureRef.current = undefined;
+    permit2DataRef.current = undefined;
     showStakeProgressRef.current[amountValue] = true;
 
-    const allowanceBN = BigNumber(allowance);
+    const allowanceBN = BigNumber(approveAllowance);
     const amountBN = BigNumber(amountValue);
 
     if (earnUtils.isUSDTonETHNetwork(token)) {
@@ -606,19 +716,22 @@ export function ApproveBaseStake({
 
           if (permitCache) {
             permitSignatureRef.current = permitCache.signature;
+            permit2DataRef.current = permitCache.permit2Data;
             void onSubmit();
             setApproving(false);
             return;
           }
 
-          const permitBundlerAction = await getPermitSignature({
+          const { signature, unsignedMessage } = await getPermitSignature({
             networkId: approveTarget.networkId,
             accountId: approveTarget.accountId,
             token,
             amountValue,
-            details,
+            providerName,
+            vaultAddress: approveTarget.spenderAddress,
           });
-          permitSignatureRef.current = permitBundlerAction;
+          permitSignatureRef.current = signature;
+          permit2DataRef.current = unsignedMessage;
 
           // Update permit cache
           updatePermitCache({
@@ -626,12 +739,13 @@ export function ApproveBaseStake({
             networkId: approveTarget.networkId,
             tokenAddress: token.address,
             amount: amountValue,
-            signature: permitBundlerAction,
+            signature,
+            permit2Data: unsignedMessage,
             expiredAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
           });
 
           setTimeout(() => {
-            void fetchEstimateFeeResp(amountValue);
+            void debouncedFetchEstimateFeeResp(amountValue);
           }, 200);
 
           void onSubmit();
@@ -667,7 +781,7 @@ export function ApproveBaseStake({
         trackAllowance(data[0].decodedTx.txid);
         setApproving(false);
         setTimeout(() => {
-          void fetchEstimateFeeResp(amountValue);
+          void debouncedFetchEstimateFeeResp(amountValue);
         }, 200);
       },
       onFail() {
@@ -678,8 +792,8 @@ export function ApproveBaseStake({
       },
     });
   }, [
-    amountValue,
     allowance,
+    amountValue,
     token,
     usePermit2Approve,
     approveTarget.accountId,
@@ -687,52 +801,51 @@ export function ApproveBaseStake({
     approveTarget.spenderAddress,
     approveTarget.token,
     navigationToTxConfirm,
+    fetchAllowanceResponse,
     showResetUSDTApproveValueDialog,
     checkEstimateGasAlert,
     getPermitCache,
     getPermitSignature,
-    details,
+    providerName,
     updatePermitCache,
     onSubmit,
+    debouncedFetchEstimateFeeResp,
     trackAllowance,
-    fetchEstimateFeeResp,
   ]);
 
   const placeholderTokens = useMemo(
     () => (
       <>
-        {details.token.info ? (
+        {token ? (
           <NumberSizeableText
             color="$textPlaceholder"
             size="$bodyLgMedium"
             formatter="balance"
-            formatterOptions={{ tokenSymbol: details.token.info.symbol }}
+            formatterOptions={{ tokenSymbol: token.symbol }}
           >
             0
           </NumberSizeableText>
         ) : null}
-        {details.provider.apys?.rewards
-          ? Object.entries(details.provider.apys.rewards).map(
-              ([tokenAddress, apy]) =>
-                details.rewardAssets?.[tokenAddress] ? (
-                  <NumberSizeableText
-                    key={tokenAddress}
-                    color="$textPlaceholder"
-                    size="$bodyLgMedium"
-                    formatter="balance"
-                    formatterOptions={{
-                      tokenSymbol:
-                        details.rewardAssets?.[tokenAddress].info.symbol,
-                    }}
-                  >
-                    0
-                  </NumberSizeableText>
-                ) : null,
+        {apys?.rewards
+          ? Object.entries(apys.rewards).map(([tokenAddress, apy]) =>
+              rewardAssets?.[tokenAddress] ? (
+                <NumberSizeableText
+                  key={tokenAddress}
+                  color="$textPlaceholder"
+                  size="$bodyLgMedium"
+                  formatter="balance"
+                  formatterOptions={{
+                    tokenSymbol: rewardAssets?.[tokenAddress].info.symbol,
+                  }}
+                >
+                  0
+                </NumberSizeableText>
+              ) : null,
             )
           : null}
       </>
     ),
-    [details.provider.apys?.rewards, details.rewardAssets, details.token.info],
+    [apys?.rewards, rewardAssets, token],
   );
 
   const isShowStakeProgress =
@@ -757,17 +870,13 @@ export function ApproveBaseStake({
               id: ETranslations.earn_est_receive,
             })}
           </CalculationListItem.Label>
-          <CalculationListItem.Value>
-            <NumberSizeableText
-              formatter="balance"
-              size="$bodyMdMedium"
-              formatterOptions={{ tokenSymbol: estReceiveToken }}
-            >
-              {BigNumber(amountValue)
-                .multipliedBy(estReceiveTokenRate)
-                .toFixed()}
-            </NumberSizeableText>
-          </CalculationListItem.Value>
+          <NumberSizeableText
+            formatter="balance"
+            size="$bodyMdMedium"
+            formatterOptions={{ tokenSymbol: estReceiveToken }}
+          >
+            {BigNumber(amountValue).multipliedBy(estReceiveTokenRate).toFixed()}
+          </NumberSizeableText>
         </CalculationListItem>,
       );
     }
@@ -794,15 +903,15 @@ export function ApproveBaseStake({
     return items;
   }, [
     amountValue,
-    daysSpent,
-    estReceiveToken,
-    estReceiveTokenRate,
-    estimateFeeResp,
-    intl,
     showEstReceive,
-    showEstimateGasAlert,
-    totalAnnualRewardsFiatValue,
+    estReceiveToken,
+    estimateFeeResp,
     usePermit2Approve,
+    intl,
+    estReceiveTokenRate,
+    totalAnnualRewardsFiatValue,
+    showEstimateGasAlert,
+    daysSpent,
   ]);
   const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (
@@ -867,7 +976,7 @@ export function ApproveBaseStake({
             <SizableText color="$textSuccess" size="$headingLg">
               {`${formatApy(apr)}% APY`}
             </SizableText>
-            {details.provider.apys ? (
+            {apys ? (
               <Popover
                 floatingPanelProps={{
                   w: 320,
@@ -883,16 +992,12 @@ export function ApproveBaseStake({
                   />
                 }
                 renderContent={
-                  <MorphoApy
-                    apys={details.provider.apys}
-                    rewardAssets={details.rewardAssets}
-                    poolFee={
-                      earnUtils.isMorphoProvider({
-                        providerName: providerName || '',
-                      })
-                        ? details.provider.poolFee
-                        : undefined
-                    }
+                  <ProtocolApyRewards
+                    providerName={providerName}
+                    apys={apys}
+                    eventEndTime={eventEndTime}
+                    poolFee={poolFee}
+                    rewardAssets={rewardAssets}
                   />
                 }
                 placement="top"
@@ -903,7 +1008,11 @@ export function ApproveBaseStake({
         <YStack pt="$3.5" gap="$2">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.earn_est_annual_rewards,
+              id: earnUtils.isFalconProvider({
+                providerName,
+              })
+                ? ETranslations.earn_est_daily_rewards
+                : ETranslations.earn_est_annual_rewards,
             })}
           </SizableText>
           {estimatedAnnualRewards.length
@@ -928,6 +1037,11 @@ export function ApproveBaseStake({
                         {reward.fiatValue}
                       </NumberSizeableText>
                       <SizableText color="$textSubdued">)</SizableText>
+                    </SizableText>
+                  ) : null}
+                  {reward.suffix ? (
+                    <SizableText pl="$1" color="$textSubdued">
+                      {reward.suffix}
                     </SizableText>
                   ) : null}
                 </SizableText>
@@ -1017,7 +1131,7 @@ export function ApproveBaseStake({
           </Accordion.Item>
         </Accordion>
         <TradeOrBuy
-          token={details.token.info}
+          token={token}
           accountId={approveTarget.accountId}
           networkId={approveTarget.networkId}
         />
@@ -1035,9 +1149,7 @@ export function ApproveBaseStake({
           <Stack pl="$5" $md={{ pt: '$5' }}>
             {isShowStakeProgress ? (
               <StakeProgress
-                approveType={
-                  details.provider.approveType ?? EApproveType.Legacy
-                }
+                approveType={approveType ?? EApproveType.Legacy}
                 currentStep={
                   isDisable || shouldApprove
                     ? EStakeProgressStep.approve

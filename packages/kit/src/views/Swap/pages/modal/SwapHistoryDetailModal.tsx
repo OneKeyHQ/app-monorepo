@@ -27,7 +27,10 @@ import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -37,6 +40,7 @@ import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils
 import type { IExplorersInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EExplorerType,
+  ESwapCleanHistorySource,
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -260,6 +264,7 @@ const SwapHistoryDetailModal = () => {
     const { status } = txHistory ?? {};
     const { key, color } = getSwapHistoryStatusTextProps(
       status ?? ESwapTxHistoryStatus.PENDING,
+      txHistory?.extraStatus,
     );
     return (
       <XStack gap="$2" alignItems="center">
@@ -530,6 +535,26 @@ const SwapHistoryDetailModal = () => {
                 }
               />
             ) : null}
+            {txHistory?.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd ? (
+              <InfoItem
+                disabledCopy
+                label={intl.formatMessage({
+                  id: ETranslations.provider_ios_popover_onekey_fee,
+                })}
+                renderContent={
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    formatter="value"
+                    formatterOptions={{
+                      currency: '$',
+                    }}
+                  >
+                    {txHistory?.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd}
+                  </NumberSizeableText>
+                }
+              />
+            ) : null}
             {txHistory?.swapInfo?.surplus ? (
               <InfoItem
                 disabledCopy
@@ -572,6 +597,9 @@ const SwapHistoryDetailModal = () => {
             id: ETranslations.settings_clear_successful,
           }),
         });
+        defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
+          cleanFrom: ESwapCleanHistorySource.DETAIL,
+        });
         navigation.pop();
       },
       onConfirmText: intl.formatMessage({
@@ -609,7 +637,11 @@ const SwapHistoryDetailModal = () => {
             variant: 'secondary',
           }}
           onConfirm={() => {
-            onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
+            if (txHistory?.swapInfo.supportUrl?.includes(SUPPORT_URL)) {
+              void showIntercom();
+            } else {
+              onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
+            }
           }}
         />
       ) : null}

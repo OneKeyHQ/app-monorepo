@@ -9,7 +9,8 @@ export function KeyboardShortcutKey({ label }: IKeyboardShortcutKeyProps) {
     <Stack
       bg="$bgStrong"
       borderRadius="$1"
-      w="$4"
+      px="$0.5"
+      minWidth="$4"
       h="$4"
       alignItems="center"
       justifyContent="center"

@@ -1,43 +1,67 @@
 import { useCallback } from 'react';
 
 import { Page } from '@onekeyhq/components';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-import { HeaderLeft } from './HeaderLeft';
+import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
+import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
+export { DiscoveryHeaderSegment };
+
 export function TabPageHeader({
   sceneName,
-  showHeaderRight,
+  tabRoute,
+  selectedHeaderTab,
+  renderCustomHeaderRightItems,
+  customHeaderRightItems,
+  customHeaderLeftItems,
+  hideSearch = false,
+  hideHeaderLeft = false,
 }: ITabPageHeaderProp) {
-  useDebugComponentRemountLog({
-    name: `web TabPageHeader:${sceneName}:${String(showHeaderRight)}`,
-  });
-
   const renderHeaderLeft = useCallback(
-    () => <HeaderLeft sceneName={sceneName} />,
-    [sceneName],
+    () => (
+      <HeaderLeft
+        selectedHeaderTab={selectedHeaderTab}
+        sceneName={sceneName}
+        tabRoute={tabRoute}
+        customHeaderLeftItems={customHeaderLeftItems}
+      />
+    ),
+    [selectedHeaderTab, sceneName, tabRoute, customHeaderLeftItems],
   );
 
   const { config } = useAccountSelectorContextData();
 
   const renderHeaderRight = useCallback(
     () =>
-      showHeaderRight && config ? (
+      config ? (
         <HomeTokenListProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <HeaderRight sceneName={sceneName} />
+            <HeaderRight
+              selectedHeaderTab={selectedHeaderTab}
+              sceneName={sceneName}
+              tabRoute={tabRoute}
+              customHeaderRightItems={customHeaderRightItems}
+              renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+            />
           </AccountSelectorProviderMirror>
         </HomeTokenListProviderMirror>
       ) : null,
-    [config, sceneName, showHeaderRight],
+    [
+      config,
+      selectedHeaderTab,
+      sceneName,
+      tabRoute,
+      customHeaderRightItems,
+      renderCustomHeaderRightItems,
+    ],
   );
 
   const renderHeaderTitle = useCallback(
@@ -49,9 +73,13 @@ export function TabPageHeader({
     <>
       <Page.Header
         headerTitle={renderHeaderTitle}
-        headerLeft={renderHeaderLeft}
+        headerLeft={hideHeaderLeft ? undefined : renderHeaderLeft}
         headerRight={renderHeaderRight}
       />
+
+      {!hideSearch ? (
+        <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+      ) : null}
     </>
   );
 }

@@ -1,12 +1,31 @@
 import { useMemo } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
+import semver from 'semver';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+
+const VERSION_PLACEHOLDER = '--';
+
+function isValidVersion(version?: string) {
+  if (!version) return false;
+
+  if (version === '0.0.0') return false;
+
+  const cleanVersion = semver.clean(version);
+  return Boolean(cleanVersion && semver.valid(cleanVersion));
+}
+
+function getDisplayVersion(version?: string) {
+  return isValidVersion(version)
+    ? version ?? VERSION_PLACEHOLDER
+    : VERSION_PLACEHOLDER;
+}
 
 type ISpecItemProps = {
   title: string;
@@ -19,7 +38,13 @@ function SpecItem({ title, value }: ISpecItemProps) {
       <SizableText size="$headingSm" color="$text" textAlign="left">
         {title}
       </SizableText>
-      <SizableText size="$bodyMdMedium" color="$textSubdued" textAlign="right">
+      <SizableText
+        flexShrink={1}
+        numberOfLines={1}
+        size="$bodyMdMedium"
+        color="$textSubdued"
+        textAlign="right"
+      >
         {value}
       </SizableText>
     </XStack>
@@ -31,12 +56,13 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
   const { device } = data;
   const defaultDeviceInfo = useMemo(
     () => ({
-      model: '-',
-      bleName: '-',
-      bleVersion: '-',
-      bootloaderVersion: '-',
-      firmwareVersion: '-',
-      serialNumber: '-',
+      model: VERSION_PLACEHOLDER,
+      bleName: VERSION_PLACEHOLDER,
+      bleVersion: VERSION_PLACEHOLDER,
+      bootloaderVersion: VERSION_PLACEHOLDER,
+      firmwareVersion: VERSION_PLACEHOLDER,
+      serialNumber: VERSION_PLACEHOLDER,
+      certifications: null,
     }),
     [],
   );
@@ -56,16 +82,30 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
         buildModelName: true,
       });
 
+      const firmwareTypeLabel = await deviceUtils.getFirmwareTypeLabel({
+        features: device?.featuresInfo,
+        displayFormat: 'withSpace',
+      });
+      const firmwareVersion = `${firmwareTypeLabel}${getDisplayVersion(
+        versions?.firmwareVersion,
+      )}`;
+
       return {
-        model,
-        bleName: device.featuresInfo.ble_name ?? '-',
-        bleVersion: versions?.bleVersion ?? '-',
-        bootloaderVersion: versions?.bootloaderVersion ?? '-',
-        firmwareVersion: versions?.firmwareVersion ?? '-',
+        model: model ?? VERSION_PLACEHOLDER,
+        bleName: device.featuresInfo.ble_name ?? VERSION_PLACEHOLDER,
+        bleVersion: getDisplayVersion(versions?.bleVersion),
+        bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
+        firmwareVersion,
         serialNumber:
-          device.featuresInfo.onekey_serial ??
-          device.featuresInfo.serial_no ??
-          '-',
+          deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ??
+          VERSION_PLACEHOLDER,
+        certifications: [
+          EDeviceType.Pro,
+          EDeviceType.Classic1s,
+          EDeviceType.ClassicPure,
+        ].includes(device.deviceType)
+          ? 'EAL 6+'
+          : null,
       };
     },
     [device, defaultDeviceInfo],
@@ -98,6 +138,12 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
         />
         <SpecItem
           title={intl.formatMessage({
+            id: ETranslations.global_firmware,
+          })}
+          value={deviceInfo.firmwareVersion}
+        />
+        <SpecItem
+          title={intl.formatMessage({
             id: ETranslations.global_bluetooth,
           })}
           value={deviceInfo.bleName}
@@ -114,6 +160,14 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
           })}
           value={deviceInfo.bootloaderVersion}
         />
+        {deviceInfo.certifications ? (
+          <SpecItem
+            title={intl.formatMessage({
+              id: ETranslations.global_certifications,
+            })}
+            value={deviceInfo.certifications}
+          />
+        ) : null}
       </YStack>
     </YStack>
   );

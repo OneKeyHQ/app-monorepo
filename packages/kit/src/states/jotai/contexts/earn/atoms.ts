@@ -2,21 +2,32 @@ import memoizee from 'memoizee';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import type { IEarnPermitCache } from '@onekeyhq/shared/types/earn';
-import type { IEarnAtomData } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnAtomData,
+  IEarnPortfolioInvestment,
+} from '@onekeyhq/shared/types/staking';
 
 const {
   Provider: ProviderJotaiContextEarn,
   contextAtom,
   contextAtomMethod,
+  contextAtomComputed,
 } = createJotaiContext();
 export { ProviderJotaiContextEarn, contextAtomMethod };
 
 export const { atom: basicEarnAtom, useContextAtom } =
-  contextAtom<IEarnAtomData>({ earnAccount: {}, availableAssets: [] });
+  contextAtom<IEarnAtomData>({
+    earnAccount: {},
+    availableAssetsByType: {},
+    recommendedTokens: [],
+    banners: [],
+    refreshTrigger: 0,
+  });
 
 export const { atom: earnStorageReadyAtom, use: useEarnStorageReadyAtom } =
   contextAtom<boolean>(false);
@@ -28,12 +39,16 @@ export const earnAtom = memoizee(() =>
       ...get(basicEarnAtom()),
       isMounted: get(earnStorageReadyAtom()),
     }),
-    (get, set, arg: any) => {
+    (get, set, arg: typeof INIT | IEarnAtomData) => {
       if (arg === INIT) {
         void backgroundApiProxy.simpleDb.earn.getEarnData().then((data) => {
           set(basicEarnAtom(), {
             ...data,
-            earnAccount: {},
+            earnAccount: data.earnAccount || {},
+            availableAssetsByType: data.availableAssetsByType || {},
+            recommendedTokens: data.recommendedTokens || [],
+            banners: data.banners || [],
+            refreshTrigger: data.refreshTrigger || 0,
           });
           set(earnStorageReadyAtom(), true);
         });
@@ -50,5 +65,13 @@ earnAtom().onMount = (setAtom) => {
 
 export const { atom: earnPermitCacheAtom, use: useEarnPermitCacheAtom } =
   contextAtom<Record<string, IEarnPermitCache>>({});
+
+export const { atom: earnLoadingStatesAtom, use: useEarnLoadingStatesAtom } =
+  contextAtom<Record<string, boolean>>({});
+
+export const {
+  atom: earnPortfolioInvestmentsAtom,
+  use: useEarnPortfolioInvestmentsAtom,
+} = contextAtom<Record<string, IEarnPortfolioInvestment[]>>({});
 
 export const useEarnAtom = () => useContextAtom(earnAtom());

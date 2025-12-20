@@ -1,6 +1,3 @@
-// eslint-disable-next-line no-restricted-syntax
-// import React from 'react';
-
 import { useState } from 'react';
 
 import { Button } from '@onekeyhq/components';
@@ -18,6 +15,7 @@ function NotificationGallery() {
   const [icon, setIcon] = useState<string | undefined>(undefined);
   return (
     <Layout
+      getFilePath={() => __CURRENT_FILE_PATH__}
       componentName="Notification"
       elements={[
         {
@@ -128,7 +126,7 @@ function NotificationGallery() {
               </Button>
               <Button
                 onPress={() => {
-                  globalThis.desktopApi.callDevOnlyApi({
+                  void globalThis.desktopApiProxy.dev.callDevOnlyApi({
                     module: 'shell',
                     method: 'openExternal',
                     params: [

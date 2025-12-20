@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */
 import { flatten, uniqBy } from 'lodash';
 
 import { decryptVerifyString } from '@onekeyhq/core/src/secret';
@@ -6,6 +5,7 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
   backgroundMethod,
+  backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -15,7 +15,10 @@ import {
   COINTYPE_DOT,
   COINTYPE_NEXA,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectPassword,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -26,21 +29,34 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import simpleDb from '../../dbs/simple/simpleDb';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4PresetNetworkIds } from '../../migrations/v4ToV5Migration/v4data/networkIds';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import v4dbHubs from '../../migrations/v4ToV5Migration/v4dbHubs';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
   V4_INDEXED_DB_NAME,
   V4_REALM_DB_NAME,
 } from '../../migrations/v4ToV5Migration/v4local/v4localDBConsts';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import v4localDbExists from '../../migrations/v4ToV5Migration/v4local/v4localDbExists';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EV4LocalDBStoreNames } from '../../migrations/v4ToV5Migration/v4local/v4localDBStoreNames';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForAccount } from '../../migrations/v4ToV5Migration/V4MigrationForAccount';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4MigrationForAddressBook';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForCustomTokens } from '../../migrations/v4ToV5Migration/V4MigrationForCustomTokens';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForDiscover } from '../../migrations/v4ToV5Migration/V4MigrationForDiscover';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForHistory } from '../../migrations/v4ToV5Migration/V4MigrationForHistory';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForSecurePassword } from '../../migrations/v4ToV5Migration/V4MigrationForSecurePassword';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForSettings } from '../../migrations/v4ToV5Migration/V4MigrationForSettings';
 import {
   v4migrationAtom,
@@ -50,6 +66,7 @@ import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 
 import type { IDBIndexedAccount } from '../../dbs/local/types';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type {
   IV4MigrationBackupSectionData,
   IV4MigrationBackupSectionDataItem,
@@ -57,11 +74,14 @@ import type {
   IV4OnAccountMigrated,
   IV4OnWalletMigrated,
 } from '../../migrations/v4ToV5Migration/types';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type {
   IV4DBNetwork,
   IV4DBVariantAccount,
 } from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type { IV4Token } from '../../migrations/v4ToV5Migration/v4types';
 import type { IV4MigrationAtom } from '../../states/jotai/atoms/v4migration';
 import type { VaultBase } from '../../vaults/base/VaultBase';
@@ -105,7 +125,7 @@ class ServiceV4Migration extends ServiceBase {
   async getMigrationPasswordV5() {
     const pwd = this.migrationPayload?.v5password || '';
     if (!pwd) {
-      throw new Error('Migration v5 password not set');
+      throw new OneKeyLocalError('Migration v5 password not set');
     }
     return pwd;
   }
@@ -116,7 +136,7 @@ class ServiceV4Migration extends ServiceBase {
       this.migrationPayload?.v5password ||
       '';
     if (!pwd) {
-      throw new Error('Migration v4 password not set');
+      throw new OneKeyLocalError('Migration v4 password not set');
     }
     return pwd;
   }
@@ -125,8 +145,8 @@ class ServiceV4Migration extends ServiceBase {
     return this.migrationPayload;
   }
 
-  @backgroundMethod()
-  async testShowData() {
+  @backgroundMethodForDev()
+  async demoShowDataOfV4Migration() {
     const data = await v4dbHubs.v4reduxDb.reduxData;
     const simpleDbAccountHistory =
       await v4dbHubs.v4simpleDb.history.getAccountHistory({
@@ -255,6 +275,10 @@ class ServiceV4Migration extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async checkShouldMigrateV4OnMount() {
+    if (platformEnv.isWeb) {
+      return false;
+    }
+
     const v4migrationPersistData = await v4migrationPersistAtom.get();
     if (v4migrationPersistData?.v4migrationAutoStartDisabled) {
       return false;
@@ -467,7 +491,7 @@ class ServiceV4Migration extends ServiceBase {
             });
 
           if (!passwordRes?.password) {
-            throw new Error('password not set');
+            throw new OneKeyLocalError('password not set');
           }
           return passwordRes?.password || '';
         },
@@ -1088,6 +1112,10 @@ class ServiceV4Migration extends ServiceBase {
 
   @backgroundMethod()
   async getV4CustomRpcUrls() {
+    const isV4DbExists = await this.checkIfV4DbExist();
+    if (!isV4DbExists) {
+      return;
+    }
     const reduxData = await v4dbHubs.v4reduxDb.reduxData;
     const customNetworkRpcMap = reduxData?.settings?.customNetworkRpcMap;
     if (customNetworkRpcMap) {
@@ -1135,6 +1163,10 @@ class ServiceV4Migration extends ServiceBase {
 
   @backgroundMethod()
   async getV4CustomNetworkIncludeTokens() {
+    const isV4DbExists = await this.checkIfV4DbExist();
+    if (!isV4DbExists) {
+      return;
+    }
     const v4EvmNetworks = await this.getV4CustomEvmNetworks();
     const v4CustomTokenList = await this.getV4CustomTokenList();
     return v4EvmNetworks.map((network) => {

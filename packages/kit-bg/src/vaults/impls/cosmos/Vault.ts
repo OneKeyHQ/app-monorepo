@@ -28,7 +28,10 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -45,7 +48,10 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import type { IStakeTxCosmosAmino } from '@onekeyhq/shared/types/staking';
+import type {
+  IInternalDappTxParams,
+  IStakeTxCosmosAmino,
+} from '@onekeyhq/shared/types/staking';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -182,12 +188,24 @@ export default class VaultCosmos extends VaultBase {
           );
           msgs.protoMsgs.push(...msg.protoMsgs);
           msgs.aminoMsgs.push(...msg.aminoMsgs);
-        } else {
-          const msg = this.txMsgBuilder.makeSendCwTokenMsg(
+        }
+        // else { // else cw20 token
+        //   const msg = this.txMsgBuilder.makeSendCwTokenMsg(
+        //     from,
+        //     address,
+        //     to,
+        //     amountValue,
+        //   );
+        //   msgs.protoMsgs.push(...msg.protoMsgs);
+        //   msgs.aminoMsgs.push(...msg.aminoMsgs);
+        // }
+        else {
+          // native token
+          const msg = this.txMsgBuilder.makeSendNativeMsg(
             from,
-            address,
             to,
             amountValue,
+            address,
           );
           msgs.protoMsgs.push(...msg.protoMsgs);
           msgs.aminoMsgs.push(...msg.aminoMsgs);
@@ -213,7 +231,7 @@ export default class VaultCosmos extends VaultBase {
         withNonce: true,
       });
     if (!accountInfo) {
-      throw new Error('Invalid account');
+      throw new OneKeyLocalError('Invalid account');
     }
     const txBuilder = new TxAminoBuilder();
     const account = await this.getAccount();
@@ -249,20 +267,23 @@ export default class VaultCosmos extends VaultBase {
   ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
     if (!transfersInfo || transfersInfo.length === 0) {
-      throw new Error('transfersInfo is required');
+      throw new OneKeyLocalError('transfersInfo is required');
     }
     transfersInfo.forEach((transferInfo) => {
       if (!transferInfo.to) {
-        throw new Error('Invalid transferInfo.to params');
+        throw new OneKeyLocalError('Invalid transferInfo.to params');
       }
     });
     return this._buildEncodedTxWithFee({ transfersInfo });
   }
 
-  override async buildStakeEncodedTx(
-    params: IStakeTxCosmosAmino,
+  override async buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
   ): Promise<IEncodedTxCosmos> {
-    return TransactionWrapper.fromAminoSignDoc(params, undefined).toObject();
+    return TransactionWrapper.fromAminoSignDoc(
+      params.internalDappTx as IStakeTxCosmosAmino,
+      undefined,
+    ).toObject();
   }
 
   private _getTransactionTypeByMessage(
@@ -592,7 +613,7 @@ export default class VaultCosmos extends VaultBase {
       rawTx: signedTx.rawTx,
     });
 
-    if (!txId) throw new Error('broadcastTransaction failed');
+    if (!txId) throw new OneKeyLocalError('broadcastTransaction failed');
 
     return {
       ...signedTx,

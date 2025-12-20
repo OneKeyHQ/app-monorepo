@@ -3,6 +3,10 @@ import { InvalidAccount, InvalidAddress, TooManyHWPassphraseWallets } from '.';
 
 import { ETranslations } from '../locale';
 
+/*
+yarn jest packages/shared/src/errors/errors.test.ts
+*/
+
 describe('OneKey Error tests', () => {
   it('common tests', () => {
     const e1 = new TooManyHWPassphraseWallets(12);

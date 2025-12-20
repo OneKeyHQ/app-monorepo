@@ -13,18 +13,30 @@ import {
   Empty,
   SearchBar,
   SectionList,
+  Spinner,
   Stack,
+  YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import type { ISectionListProps } from '@onekeyhq/components';
+import type {
+  ISectionListProps,
+  ISortableSectionListRef,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useFuseSearch } from '../../hooks/useFuseSearch';
+import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
+import { CELL_HEIGHT } from '../../types';
+import RecentNetworks from '../RecentNetworks';
 
-import type { IServerNetworkMatch } from '../../types';
+import type {
+  IPureChainSelectorSectionListItem,
+  IServerNetworkMatch,
+} from '../../types';
 
 const ListEmptyComponent = () => {
   const intl = useIntl();
@@ -38,16 +50,13 @@ const ListEmptyComponent = () => {
   );
 };
 
-type ISectionListItem = {
-  title?: string;
-  data: IServerNetworkMatch[];
-  isUnavailable?: boolean;
-};
-
 type IChainSelectorSectionListContentProps = {
-  sections: ISectionListItem[];
+  sections: IPureChainSelectorSectionListItem[];
   networkId?: string;
   onPressItem?: (network: IServerNetworkMatch) => void;
+  recentNetworksEnabled?: boolean;
+  networks: IServerNetworkMatch[];
+  listRef: React.RefObject<ISortableSectionListRef<any>>;
 };
 
 const ChainSelectorSectionListContent = ({
@@ -55,6 +64,7 @@ const ChainSelectorSectionListContent = ({
   onPressItem,
   networkId,
   initialScrollIndex,
+  listRef,
 }: IChainSelectorSectionListContentProps & {
   initialScrollIndex: ISectionListProps<any>['initialScrollIndex'];
 }) => {
@@ -62,7 +72,7 @@ const ChainSelectorSectionListContent = ({
   const intl = useIntl();
 
   const renderSectionHeader = useCallback(
-    (item: { section: ISectionListItem }) => {
+    (item: { section: IPureChainSelectorSectionListItem }) => {
       if (item.section.title) {
         return <SectionList.SectionHeader title={item.section.title} />;
       }
@@ -73,6 +83,8 @@ const ChainSelectorSectionListContent = ({
 
   return (
     <SectionList
+      ref={listRef}
+      useFlashList
       contentContainerStyle={
         platformEnv.isNative
           ? undefined
@@ -91,7 +103,7 @@ const ChainSelectorSectionListContent = ({
         section,
       }: {
         item: IServerNetworkMatch;
-        section: ISectionListItem;
+        section: IPureChainSelectorSectionListItem;
       }) => (
         <ListItem
           h={48}
@@ -99,8 +111,12 @@ const ChainSelectorSectionListContent = ({
             <NetworkAvatarBase
               logoURI={item.logoURI}
               isCustomNetwork={item.isCustomNetwork}
+              isAllNetworks={item.isAllNetworks}
               networkName={item.name}
               size="$8"
+              allNetworksIconProps={{
+                color: '$iconActive',
+              }}
             />
           }
           title={
@@ -129,11 +145,12 @@ type IChainSelectorSectionListProps = {
   networkId?: string;
   onPressItem?: (network: IServerNetworkMatch) => void;
   unavailable?: IServerNetworkMatch[];
+  recentNetworksEnabled?: boolean;
 };
 
 const usePending = () => {
   const [isPending, setIsPending] = useState(false);
-  const timerIdRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerIdRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const clearPendingTimer = useCallback(() => {
     clearTimeout(timerIdRef.current);
     timerIdRef.current = setTimeout(() => {
@@ -163,79 +180,120 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   networkId,
   unavailable,
   onPressItem,
+  recentNetworksEnabled,
 }) => {
   const [text, setText] = useState('');
   const intl = useIntl();
   const [isPending, setIsPending] = usePending();
+  const listRef = useRef<ISortableSectionListRef<any> | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const onChangeText = useCallback(
-    (value: string) => {
-      setText(value.trim());
-      setIsPending(true);
+  const onChangeText = useCallback((value: string) => {
+    clearTimeout(typingTimerRef.current);
+    if (!platformEnv.isNative) {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      if (listRef?.current?._listRef?._scrollRef) {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        listRef?.current?._listRef?._scrollRef?.scrollTo?.({
+          y: 0,
+          animated: false,
+        });
+      }
+
+      if (listRef?.current && listRef.current.scrollToOffset) {
+        listRef.current.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      }
+    }
+    setIsTyping(true);
+    typingTimerRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 100);
+    setText(value.trim());
+  }, []);
+
+  const { result: frequentlyUsedNetworks, isLoading } = usePromiseResult(
+    async () => {
+      const _frequentlyUsed =
+        await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks(
+          {
+            useDefaultPinnedNetworks: true,
+          },
+        );
+      const availableNetworksMapFromNetworks = new Map(
+        networks.map((network) => [network.id, network]),
+      );
+      return _frequentlyUsed.filter((network) =>
+        availableNetworksMapFromNetworks.has(network.id),
+      );
     },
-    [setIsPending],
+    [networks],
+    {
+      initResult: [],
+      watchLoading: true,
+    },
   );
 
-  const networkFuseSearch = useFuseSearch(networks);
+  const { sections } = usePureChainSelectorSections({
+    networks,
+    searchKey: text,
+    unavailableNetworks: unavailable,
+    frequentlyUsedNetworks,
+  });
 
-  const sections = useMemo<ISectionListItem[]>(() => {
-    if (text) {
-      const data = networkFuseSearch(text);
-      return data.length === 0
-        ? []
-        : [
-            {
-              data,
-            },
-          ];
-    }
-    const testnetItems: IServerNetworkMatch[] = [];
-    const mainnetItems: IServerNetworkMatch[] = [];
-    for (let i = 0; i < networks.length; i += 1) {
-      const item = networks[i];
-      if (item.isTestnet) {
-        testnetItems.push(item);
-      } else {
-        mainnetItems.push(item);
+  const layoutList = useMemo(() => {
+    let offset = 16;
+    const layouts: {
+      offset: number;
+      length: number;
+      index: number;
+      sectionIndex?: number;
+    }[] = [];
+    sections.forEach((section, sectionIndex) => {
+      if (sectionIndex !== 0) {
+        layouts.push({
+          offset,
+          length: 20,
+          index: layouts.length,
+          sectionIndex,
+        });
+        offset += 20;
       }
-    }
-
-    const data = mainnetItems.reduce((acc, item) => {
-      const char = item.name[0].toUpperCase();
-      if (!acc[char]) {
-        acc[char] = [];
-      }
-      acc[char].push(item);
-      return acc;
-    }, {} as Record<string, IServerNetworkMatch[]>);
-
-    const mainnetSections = Object.entries(data)
-      .map(([key, value]) => ({ title: key, data: value }))
-      .sort((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
-
-    const _sections: ISectionListItem[] = [...mainnetSections];
-
-    if (testnetItems.length > 0) {
-      _sections.push({
-        title: intl.formatMessage({
-          id: ETranslations.global_testnet,
-        }),
-        data: testnetItems,
+      const headerHeight = section.title ? 36 : 0;
+      layouts.push({
+        offset,
+        length: headerHeight,
+        index: layouts.length,
+        sectionIndex,
       });
-    }
-
-    if (unavailable && unavailable.length > 0) {
-      _sections.push({
-        title: intl.formatMessage({
-          id: ETranslations.network_selector_unavailable_networks,
-        }),
-        data: unavailable,
-        isUnavailable: true,
+      offset += headerHeight;
+      section.data.forEach(() => {
+        layouts.push({
+          offset,
+          length: CELL_HEIGHT,
+          index: layouts.length,
+          sectionIndex,
+        });
+        offset += CELL_HEIGHT;
       });
-    }
+      const footerHeight = 0;
+      layouts.push({
+        offset,
+        length: footerHeight,
+        index: layouts.length,
+        sectionIndex,
+      });
+      offset += footerHeight;
+    });
+    layouts.push({ offset, length: 16, index: layouts.length });
+    return layouts;
+  }, [sections]);
 
-    return _sections;
-  }, [networkFuseSearch, text, networks, intl, unavailable]);
   const initialScrollIndex = useMemo(() => {
     if (text.trim()) {
       return undefined;
@@ -272,36 +330,111 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
         }
       });
     });
+
     const initialScrollIndexNumber =
       sections
         .slice(0, _initialScrollIndex?.sectionIndex ?? 0)
         .reduce((prev, section) => prev + section.data.length + 3, 0) +
       (_initialScrollIndex?.itemIndex ?? 0) +
       1;
+
     if (
       _initialScrollIndex?.sectionIndex !== undefined &&
-      initialScrollIndexNumber <= 7
+      sections
+        .slice(0, _initialScrollIndex.sectionIndex)
+        .reduce((prev, section) => prev + section.data.length, 0) +
+        (_initialScrollIndex?.itemIndex ?? 0) <=
+        7
     ) {
-      return undefined;
+      return {
+        sectionIndex: 0,
+        itemIndex: undefined,
+        initialScrollIndexNumber: 0,
+      };
     }
-    return initialScrollIndexNumber;
+
+    return {
+      sectionIndex: _initialScrollIndex?.sectionIndex ?? 0,
+      itemIndex: _initialScrollIndex?.itemIndex ?? 0,
+      initialScrollIndexNumber,
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, networkId, text]);
+
+  useEffect(() => {
+    // For non-native platforms, initialScrollIndex causes display bugs
+    // Handle it by manually scrolling to the target position
+    if (!platformEnv.isNative) {
+      if (!initialScrollIndex || layoutList.length === 0) return;
+
+      let offset = 0;
+
+      if (initialScrollIndex.sectionIndex === 0) {
+        offset = CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      } else {
+        const index = layoutList.findIndex(
+          (item) => item.sectionIndex === initialScrollIndex.sectionIndex,
+        );
+
+        if (index === -1) return;
+
+        offset =
+          layoutList[index].offset +
+          CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      }
+
+      setTimeout(() => {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        listRef.current?.scrollTo?.({
+          y: offset,
+          animated: false,
+        });
+      }, 100);
+    }
+  }, [initialScrollIndex, layoutList]);
 
   const renderSections = useCallback(
     () =>
       sections.length ? (
         <ChainSelectorSectionListContent
+          networks={networks}
           sections={sections}
           networkId={networkId}
           onPressItem={onPressItem}
-          initialScrollIndex={initialScrollIndex}
+          initialScrollIndex={initialScrollIndex?.initialScrollIndexNumber ?? 0}
+          recentNetworksEnabled={recentNetworksEnabled}
+          listRef={listRef as any}
         />
       ) : (
         <ListEmptyComponent />
       ),
-    [initialScrollIndex, networkId, onPressItem, sections],
+    [
+      initialScrollIndex,
+      networkId,
+      onPressItem,
+      sections,
+      recentNetworksEnabled,
+      networks,
+    ],
   );
+
+  const loading = useMemo(() => {
+    return platformEnv.isNative
+      ? isPending || isLoading || isTyping
+      : isPending || isLoading;
+  }, [isLoading, isPending, isTyping]);
+
+  const loadingElement = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <YStack flex={1} justifyContent="center" alignItems="center">
+          <Spinner size="large" />
+        </YStack>
+      ) : null,
+    [],
+  );
+
   return (
     <Stack flex={1}>
       <Stack px="$5" pb="$4">
@@ -312,8 +445,14 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           onChangeText={onChangeText}
         />
       </Stack>
+      {recentNetworksEnabled ? (
+        <RecentNetworks
+          onPressItem={onPressItem}
+          availableNetworks={networks}
+        />
+      ) : null}
       {/* Re-render the entire list after each text update */}
-      {isPending ? null : renderSections()}
+      {loading ? loadingElement : renderSections()}
     </Stack>
   );
 };

@@ -1,6 +1,7 @@
 import { isNil } from 'lodash';
 
 import { BLANK_ICON_BASE64 } from '@onekeyhq/shared/src/consts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -20,11 +21,11 @@ import {
 
 import NotificationProviderBase from './NotificationProviderBase';
 
-import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
+import type { INotificationProviderBaseParams } from './NotificationProviderBase';
 
 export default class NotificationProvider extends NotificationProviderBase {
-  constructor(options: INotificationProviderBaseOptions) {
-    super(options);
+  constructor(params: INotificationProviderBaseParams) {
+    super(params);
     this.initWebSocketProvider();
     this.addNotificationListeners();
   }
@@ -104,7 +105,9 @@ export default class NotificationProvider extends NotificationProviderBase {
         permissions: ['notifications'],
       });
     if (!isNotificationsPermissionDefined) {
-      throw new Error('notifications permissions not defined in manifest.json');
+      throw new OneKeyLocalError(
+        'notifications permissions not defined in manifest.json',
+      );
     }
   }
 

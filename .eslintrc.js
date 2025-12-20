@@ -1,7 +1,9 @@
 // require('./development/lint/eslint-rule-force-async-bg-api'); // TODO not working
+// require('./development/lint/eslint-rule-enforce-return-type');
 
 const isDev = process.env.NODE_ENV !== 'production';
 const jsRules = {
+  // '@typescript-eslint/explicit-function-return-type': ['error'],
   // eslint-disable-next-line global-require
   'prettier/prettier': ['error', require('./.prettierrc.js')],
   'no-unused-vars': 'off',
@@ -9,6 +11,7 @@ const jsRules = {
   'no-shadow': 'off',
   'import/no-extraneous-dependencies': 'off',
   // 'force-async-bg-api': 'error', // TODO not working
+  // 'enforce-return-type': 'error',
   'no-restricted-exports': 'off',
   'func-names': 'off',
   'import/no-named-as-default-member': 'off',
@@ -18,15 +21,18 @@ const jsRules = {
   'react/jsx-props-no-spreading': 'off',
   'react/jsx-no-leaked-render': ['error', { 'validStrategies': ['ternary'] }],
   'react/no-unused-prop-types': 'off',
+  'arrow-body-style': 'off',
   'prefer-destructuring': 'off',
   'react/no-unstable-nested-components': 'warn',
   'react/jsx-key': 'error',
   'react/jsx-no-useless-fragment': 'off',
   'use-effect-no-deps/use-effect-no-deps': 'error',
+  'react-hooks/rules-of-hooks': 'error',
   'react-hooks/exhaustive-deps': [
     'error',
     {
-      'additionalHooks': '(usePromiseResult|useAsyncCall)',
+      'additionalHooks':
+        '(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)',
     },
   ],
   'global-require': 'off',
@@ -46,6 +52,11 @@ const jsRules = {
       'name': ['*', 'toLocaleLowerCase'],
       'message': 'Prefer use toLowerCase',
     },
+    {
+      'name': ['InteractionManager', 'runAfterInteractions'],
+      'message':
+        'Use timerUtils.setTimeoutPromised instead of InteractionManager.runAfterInteractions',
+    },
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
   'radix': 'error',
@@ -64,6 +75,10 @@ const restrictedImportsPatterns = [
       'import localDbInstance directly is not allowd, use localDb instead',
   },
   {
+    group: ['@onekeyhq/desktop/app/i18n'],
+    message: 'import ETranslations from "@onekeyhq/shared/src/locale" instead',
+  },
+  {
     group: ['**/v4localDbInstance.native'],
     message:
       'import v4localDbInstance.native directly is not allowd, use v4localDbInstance instead',
@@ -80,6 +95,12 @@ const restrictedImportsPatterns = [
     group: ['**/v4localDBStoreNames.native'],
     message: 'import v4localDBStoreNames instead ',
   },
+  {
+    group: ['jotai'],
+    importNames: ['useAtom', 'useSetAtom', 'atom'],
+    message:
+      'Direct import of useAtom/useSetAtom from jotai is not allowed. Use contextAtom or globalAtom instead.',
+  },
   //
 ];
 const tsRules = {
@@ -95,7 +116,15 @@ const tsRules = {
     { disallowTypeAnnotations: false },
   ],
   '@typescript-eslint/no-var-requires': 'off',
-  '@typescript-eslint/no-unused-vars': [isDev ? 'warn' : 'error'],
+  '@typescript-eslint/no-unused-vars': [
+    isDev ? 'warn' : 'error',
+    {
+      'argsIgnorePattern': '^_',
+      'varsIgnorePattern': '^_',
+      'caughtErrorsIgnorePattern': '^_',
+      'ignoreRestSiblings': true,
+    },
+  ],
   '@typescript-eslint/no-use-before-define': ['error'],
   '@typescript-eslint/no-shadow': ['error'],
   '@typescript-eslint/explicit-module-boundary-types': 'off',
@@ -166,6 +195,11 @@ const tsRules = {
         "ImportDeclaration[source.value='react'][specifiers.0.type='ImportDefaultSpecifier']",
       message: 'Default React import not allowed',
     },
+    {
+      selector: 'ThrowStatement > NewExpression[callee.name="Error"]',
+      message:
+        'Direct use of "throw new Error" is not allowed. Use OneKeyLocalError or OneKeyError instead',
+    },
   ],
 };
 
@@ -202,7 +236,13 @@ module.exports = {
   ignorePatterns: [
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
+    'packages/components/src/primitives/Icon/Icons.tsx',
     'packages/components/src/primitives/Icon/react/*',
+    'packages/shared/src/modules3rdParty/stripe-v3/*',
+    'packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js',
+    'packages/shared/src/locale/enum/translations.ts',
+    'packages/shared/src/locale/localeJsonMap.ts',
+    'packages/shared/src/locale/json/*',
   ],
   env: {
     browser: true,
@@ -222,39 +262,42 @@ module.exports = {
         },
       ],
     ],
-    'spellcheck/spell-checker': [
-      1,
-      {
-        'comments': true,
-        'strings': false,
-        'identifiers': true,
-        'lang': 'en_US',
-        'skipWords': require('./development/spellCheckerSkipWords.js'),
-        'skipWordIfMatch': [
-          /(\w|\d){50,}/i, // length>50
-          /bip32/i,
-          /pbkdf2/i,
-          /Secp256k1/i,
-          /googleapis/i,
-          /Erc20/i,
-          /Erc721/i,
-          /Erc1155/i,
-          /protobufjs/i,
-          /boc/i,
-          /seqno/i,
-          /jetton/i,
-          /Nano/i,
-          /Bounceable/i,
-          /scdo/i,
-          /faq/i,
-          /atto/i,
-          /alephium/i,
-          /Preauthorized/i,
-        ],
-        'skipIfMatch': ['http://[^s]*'],
-        'minLength': 3,
-      },
-    ],
+    'spellcheck/spell-checker':
+      typeof process.env.CI !== 'undefined'
+        ? 'off'
+        : [
+            1,
+            {
+              'comments': true,
+              'strings': false,
+              'identifiers': true,
+              'lang': 'en_US',
+              'skipWords': require('./development/spellCheckerSkipWords.js'),
+              'skipWordIfMatch': [
+                /(\w|\d){50,}/i, // length>50
+                /bip32/i,
+                /pbkdf2/i,
+                /Secp256k1/i,
+                /googleapis/i,
+                /Erc20/i,
+                /Erc721/i,
+                /Erc1155/i,
+                /protobufjs/i,
+                /boc/i,
+                /seqno/i,
+                /jetton/i,
+                /Nano/i,
+                /Bounceable/i,
+                /scdo/i,
+                /faq/i,
+                /atto/i,
+                /alephium/i,
+                /Preauthorized/i,
+              ],
+              'skipIfMatch': ['http://[^s]*'],
+              'minLength': 4,
+            },
+          ],
     'props-checker/validator': [
       'error',
       {
@@ -410,7 +453,7 @@ module.exports = {
                   'tamagui',
                   '@onekeyhq/kit',
                   '@onekeyhq/kit-bg',
-                  '@onekeyhq/components'
+                  '@onekeyhq/components',
                 ],
                 message: 'Please avoid using tamagui in this folder',
               },

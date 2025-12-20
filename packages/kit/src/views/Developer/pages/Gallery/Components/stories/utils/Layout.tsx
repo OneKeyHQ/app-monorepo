@@ -1,24 +1,29 @@
 import type { ComponentType, ReactElement } from 'react';
+import { useState } from 'react';
 
 import { StackActions } from '@react-navigation/native';
 
 import {
-  Button,
+  Icon,
   IconButton,
   Page,
   ScrollView,
   SizableText,
   Stack,
+  Switch,
   XStack,
 } from '@onekeyhq/components';
 import { useKeyboardHeight } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabDeveloperRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
@@ -55,8 +60,10 @@ export function Layout({
   elements = [],
   scrollEnabled = true,
   contentInsetAdjustmentBehavior = 'never',
-  skipLoading = false,
+  lazyLoad = false,
+  wideScreen: initialWideScreen = false,
   children,
+  getFilePath,
 }: React.PropsWithChildren<{
   componentName?: string;
   description?: string;
@@ -69,17 +76,28 @@ export function Layout({
     | 'automatic'
     | 'scrollableAxes'
     | undefined;
-  skipLoading?: boolean;
+  lazyLoad?: boolean;
+  wideScreen?: boolean;
+  getFilePath?: () => string | undefined;
   elements?: {
-    title: string;
+    title?: string;
     description?: string;
     element: ComponentType | ReactElement;
   }[];
 }>) {
   const keyboardHeight = useKeyboardHeight();
   const navigation = useAppNavigation();
+  const [wideScreen, setWideScreen] = useState(initialWideScreen);
+  const contentWidth = wideScreen ? 1440 : 576;
+  const [settings] = useSettingsPersistAtom();
+  const isDarkTheme = settings.theme === 'dark';
+
+  const toggleTheme = async (isDark: boolean) => {
+    await backgroundApiProxy.serviceSetting.setTheme(isDark ? 'dark' : 'light');
+  };
+
   return (
-    <Page skipLoading={skipLoading}>
+    <Page lazyLoad={lazyLoad}>
       <ScrollView
         maxWidth="100%"
         scrollEnabled={scrollEnabled}
@@ -93,42 +111,92 @@ export function Layout({
         keyboardDismissMode="on-drag"
         contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior}
       >
-        <Stack marginHorizontal="auto" maxWidth="100%" width={576} gap="$6">
-          <XStack>
-            <IconButton
-              icon="HomeLineOutline"
-              onPress={() => {
-                // refresh page lost navigation back button, so add it here
-                navigation.dispatch(
-                  StackActions.replace(ERootRoutes.Main, {
-                    screen: ETabRoutes.Developer,
-                    params: {
-                      screen: ETabDeveloperRoutes.TabDeveloper,
-                    },
-                  }),
-                );
-                // navigation.navigate();
-                // navigation.navigate('Home');
-                // urlAccountNavigation.replaceHomePage(navigation);
-              }}
-            />
-            <Button
-              ml="$4"
-              onPress={async () => {
-                await backgroundApiProxy.serviceSetting.setTheme('light');
-              }}
-            >
-              Light Theme
-            </Button>
-            <Button
-              ml="$4"
-              variant="primary"
-              onPress={async () => {
-                await backgroundApiProxy.serviceSetting.setTheme('dark');
-              }}
-            >
-              Dark Theme
-            </Button>
+        <Stack
+          marginHorizontal="auto"
+          maxWidth="100%"
+          width={contentWidth}
+          gap="$6"
+        >
+          <XStack justifyContent="space-between">
+            <XStack>
+              <IconButton
+                icon="HomeLineOutline"
+                onPress={() => {
+                  // refresh page lost navigation back button, so add it here
+                  navigation.dispatch(
+                    StackActions.replace(ERootRoutes.Main, {
+                      screen: ETabRoutes.Developer,
+                      params: {
+                        screen: ETabDeveloperRoutes.TabDeveloper,
+                      },
+                    }),
+                  );
+                  // navigation.navigate();
+                  // navigation.navigate('Home');
+                  // urlAccountNavigation.replaceHomePage(navigation);
+                }}
+              />
+            </XStack>
+
+            <XStack ml="$4" alignItems="center" gap="$2">
+              <Switch
+                thumbProps={{
+                  children: (
+                    <Stack
+                      alignItems="center"
+                      justifyContent="center"
+                      width="$7"
+                      height="$7"
+                    >
+                      <Icon
+                        color="$text"
+                        size="$5"
+                        name={isDarkTheme ? 'MoonOutline' : 'SunOutline'}
+                      />
+                    </Stack>
+                  ),
+                }}
+                value={isDarkTheme}
+                onChange={toggleTheme}
+              />
+
+              {platformEnv.isWeb || platformEnv.isDesktop ? (
+                <Switch
+                  thumbProps={{
+                    children: (
+                      <Stack
+                        alignItems="center"
+                        justifyContent="center"
+                        width="$7"
+                        height="$7"
+                      >
+                        <Icon
+                          color="$text"
+                          size="$5"
+                          name={
+                            wideScreen ? 'MinimizeOutline' : 'MinimizeOutline'
+                          }
+                        />
+                      </Stack>
+                    ),
+                  }}
+                  value={wideScreen}
+                  onChange={() => setWideScreen(!wideScreen)}
+                />
+              ) : null}
+
+              {(platformEnv.isWeb || platformEnv.isDesktop) &&
+              getFilePath &&
+              getFilePath() ? (
+                <IconButton
+                  onPress={() => {
+                    openUrlExternal(`cursor://file/${getFilePath() || ''}`);
+                  }}
+                  size="medium"
+                  icon="CodeOutline"
+                />
+              ) : null}
+            </XStack>
           </XStack>
           {componentName ? (
             <Stack gap="$2">
@@ -174,11 +242,13 @@ export function Layout({
                   key={`elements-${index}`}
                   pb="$8"
                   mb="$8"
-                  borderBottomWidth="$px"
-                  borderBottomColor="$borderSubdued"
+                  // borderBottomWidth="$px"
+                  // borderBottomColor="$borderSubdued"
                 >
                   <Stack flexDirection="column">
-                    <SizableText size="$headingLg">{item.title}</SizableText>
+                    {item.title ? (
+                      <SizableText size="$headingLg">{item.title}</SizableText>
+                    ) : null}
                     {item.description ? (
                       <Stack paddingTop={1}>
                         <SizableText>{item.description}。</SizableText>

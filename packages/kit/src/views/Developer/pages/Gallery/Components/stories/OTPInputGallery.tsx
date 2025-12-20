@@ -10,6 +10,7 @@ function OTPInputGallery() {
 
   return (
     <Layout
+      getFilePath={() => __CURRENT_FILE_PATH__}
       componentName="OTPInput"
       description="OTP (One-Time Password) on iOS, Android, and Web."
       elements={[
@@ -31,7 +32,6 @@ function OTPInputGallery() {
 
               <Button
                 onPress={() => {
-                  setText('');
                   setIsCompleted(false);
                 }}
               >

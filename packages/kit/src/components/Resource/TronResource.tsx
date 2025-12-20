@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -20,8 +21,7 @@ import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
-const TRON_RESOURCE_DOC_URL =
-  'https://help.onekey.so/hc/articles/11039593254799';
+const TRON_RESOURCE_DOC_URL = 'https://help.onekey.so/articles/11461319';
 
 function ResourceDetails({
   name,
@@ -63,6 +63,7 @@ function ResourceDetailsContent({
   networkId: string;
 }) {
   const intl = useIntl();
+  const dialogInstance = useDialogInstance();
   const { result, isLoading } = usePromiseResult(
     async () => {
       const accountAddress =
@@ -137,7 +138,10 @@ function ResourceDetailsContent({
           size="small"
           variant="tertiary"
           icon="QuestionmarkOutline"
-          onPress={() => openUrlInApp(TRON_RESOURCE_DOC_URL)}
+          onPress={() => {
+            openUrlInApp(TRON_RESOURCE_DOC_URL);
+            void dialogInstance.close();
+          }}
         >
           {intl.formatMessage({
             id: ETranslations.global_energy_bandwidth_learn,

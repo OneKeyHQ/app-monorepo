@@ -1,9 +1,10 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgDebug = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
       fill="currentColor"
-      d="M17.5 6a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm5 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM20 4.75a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm0 2.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm2.5-3.75a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm0 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"
+      d="M17.5 6a1 1 0 1 1-2 0 1 1 0 0 1 2 0m5 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M20 4.75a1 1 0 1 1-2 0 1 1 0 0 1 2 0m0 2.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m2.5-3.75a1 1 0 1 1-2 0 1 1 0 0 1 2 0m0 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"
     />
     <Path
       stroke="currentColor"

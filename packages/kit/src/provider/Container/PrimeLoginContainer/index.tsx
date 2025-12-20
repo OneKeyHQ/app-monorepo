@@ -1,6 +1,6 @@
 import { Suspense, lazy } from 'react';
 
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePrimeAvailable } from '../../../views/Prime/hooks/usePrimeAvailable';
 
 const PrimeLoginContainer = lazy(() =>
   import('./PrimeLoginContainer').then((m) => ({
@@ -9,8 +9,8 @@ const PrimeLoginContainer = lazy(() =>
 );
 
 export function PrimeLoginContainerLazy() {
-  const [devSettings] = useDevSettingsPersistAtom();
-  if (devSettings.enabled && devSettings.settings?.showPrimeTest) {
+  const { isPrimeAvailable } = usePrimeAvailable();
+  if (isPrimeAvailable) {
     return (
       <Suspense fallback={null}>
         <PrimeLoginContainer />

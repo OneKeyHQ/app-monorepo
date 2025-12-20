@@ -2,6 +2,9 @@ export enum ETabHomeRoutes {
   TabHome = 'TabHome',
   TabHomeUrlAccountPage = 'TabHomeUrlAccountPage',
   TabHomeUrlAccountLanding = 'TabHomeUrlAccountLanding',
+  TabHomeReferralLanding = 'TabHomeReferralLanding',
+  TabHomeReferralLandingWithoutPage = 'TabHomeReferralLandingWithoutPage',
+  TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
 }
 
 export type ITabHomeUrlAccountParamList = {
@@ -16,5 +19,16 @@ export type ITabHomeParamList = {
   [ETabHomeRoutes.TabHomeUrlAccountLanding]: {
     networkId: string;
     address: string;
+  };
+  [ETabHomeRoutes.TabHomeReferralLanding]: {
+    code: string;
+    page: string;
+  };
+  [ETabHomeRoutes.TabHomeReferralLandingWithoutPage]: {
+    code: string;
+    page?: string;
+  };
+  [ETabHomeRoutes.TabHomeReferralLandingCodeOnly]: {
+    code: string;
   };
 } & ITabHomeUrlAccountParamList;

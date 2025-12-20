@@ -68,6 +68,7 @@ const ScanQRCodeGallery = () => {
   );
   return (
     <Layout
+      getFilePath={() => __CURRENT_FILE_PATH__}
       componentName="ScanQrCode"
       elements={[
         {

@@ -18,6 +18,7 @@ const solana: IQRCodeHandler<ISolanaValue> = async (value, options) => {
       type: EQRCodeHandlerType.SOLANA,
       data: {
         ...solanaValue,
+        tokenAddress: solanaValue.splToken,
         network: await options?.backgroundApi?.serviceNetwork?.getNetwork?.({
           networkId: getNetworkIdsMap().sol,
         }),

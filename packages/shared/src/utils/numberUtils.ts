@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { appLocale, fallbackAppLocaleIntl } from '../locale/appLocale';
 import platformEnv from '../platformEnv';
@@ -53,7 +54,7 @@ function hexToDecimal(hex: string): string {
   return new BigNumber(hexUtils.addHexPrefix(hex)).toFixed();
 }
 
-export default { numberToHex, hexToDecimal };
+export default { numberToHex, hexToDecimal, fromBigIntHex, toBigIntHex };
 
 export { fromBigIntHex, toBigIntHex };
 
@@ -62,6 +63,8 @@ export type IFormatterOptions = {
   tokenSymbol?: string;
   showPlusMinusSigns?: boolean;
   disableThousandSeparator?: boolean;
+  capAtMaxT?: boolean;
+  keepLeadingZero?: boolean;
 };
 
 export interface IDisplayNumber {
@@ -75,6 +78,7 @@ export interface IDisplayNumber {
     symbol?: string;
     roundValue?: string;
     isZero?: boolean;
+    isCapped?: boolean;
   } & IFormatterOptions;
 }
 
@@ -127,7 +131,9 @@ const formatLocalNumber = (
   const integer = `${integerPart === '-0' ? '-' : ''}${
     disableThousandSeparator
       ? integerPart
-      : formatNumber(new BigNumber(integerPart).toFixed() as any)
+      : formatNumber(new BigNumber(integerPart).toFixed() as any, {
+          useGrouping: true,
+        })
   }`;
   const decimalSymbol = lazyDecimalSymbol(digits);
   const formatDecimal = `${decimalSymbol}${decimalPart}`;
@@ -315,6 +321,18 @@ export const formatPrice: IFormatNumberFunc = (value, options) => {
   };
 };
 
+/** Clamp percentage value between -999.99 and 999.99 */
+export const clampPercentage = (value: string | number): number => {
+  const bigValue = new BigNumber(value);
+  if (bigValue.isNaN()) {
+    return 0;
+  }
+  const min = new BigNumber(-999.99);
+  const max = new BigNumber(999.99);
+  const clampedValue = BigNumber.max(min, BigNumber.min(max, bigValue));
+  return clampedValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP).toNumber();
+};
+
 /** PriceChange */
 export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
@@ -343,6 +361,64 @@ export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   return {
     formattedValue,
     meta: { value, symbol: '%', decimalSymbol, ...options },
+  };
+};
+
+/** PriceChange with capping and > symbol support */
+export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
+  const val = new BigNumber(value);
+  if (val.isNaN()) {
+    return { formattedValue: value, meta: { value, invalid: true } };
+  }
+
+  // Check if value exceeds the clamp range
+  const isOverMax = val.gt(999.99);
+  const isUnderMin = val.lt(-999.99);
+  const isCapped = isOverMax || isUnderMin;
+
+  // Apply clamping (same logic as clampPercentage)
+  const min = new BigNumber(-999.99);
+  const max = new BigNumber(999.99);
+  const clampedValue = BigNumber.max(min, BigNumber.min(max, val));
+  const finalValue = clampedValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+
+  if (finalValue.eq(0)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
+    return {
+      formattedValue,
+      meta: {
+        value,
+        isZero: true,
+        symbol: '%',
+        decimalSymbol,
+        isCapped,
+        ...options,
+      },
+    };
+  }
+
+  const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+    finalValue.toFixed(2),
+    {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    },
+  );
+
+  return {
+    formattedValue,
+    meta: {
+      value,
+      symbol: '%',
+      decimalSymbol,
+      isCapped,
+      ...options,
+    },
   };
 };
 
@@ -408,17 +484,33 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
   }
 
   if (val.gte(ENumberUnitValue.T)) {
+    const dividedValue = val.div(ENumberUnitValue.T);
+
+    // Cap at 999T max only if capAtMaxT option is enabled
+    const isOverMax = options?.capAtMaxT && dividedValue.gt(999);
+    const cappedValue = isOverMax ? new BigNumber(999) : dividedValue;
+
     const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      val.div(ENumberUnitValue.T),
+      cappedValue,
       {
         digits: 2,
         removeTrailingZeros: true,
         disableThousandSeparator: options?.disableThousandSeparator,
       },
     );
+
+    // Use formatted value directly (999 when capped)
+    const finalFormattedValue = formattedValue;
+
     return {
-      formattedValue,
-      meta: { value, unit: ENumberUnit.T, decimalSymbol, ...options },
+      formattedValue: finalFormattedValue,
+      meta: {
+        value,
+        unit: ENumberUnit.T,
+        decimalSymbol,
+        isCapped: isOverMax,
+        ...options,
+      },
     };
   }
   if (val.gte(ENumberUnitValue.B)) {
@@ -523,11 +615,14 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
       showPlusMinusSigns,
       tokenSymbol,
       isZero,
+      keepLeadingZero,
     },
   } = value;
   const isNegativeNumber =
     formattedValue[0] === '-' || (isZero && rawValue[0] === '-');
-  const startsNumberIndex = isNegativeNumber ? 1 : 0;
+  const valueWithoutSign =
+    isNegativeNumber && !isZero ? formattedValue.slice(1) : formattedValue;
+  const startsNumberIndex = 0;
 
   if (invalid) {
     if (platformEnv.isDev && !platformEnv.isJest) {
@@ -541,18 +636,24 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   if (leading) {
     strings.push(leading);
   }
-  if (showPlusMinusSigns && !isNegativeNumber) {
-    strings.push('+');
+
+  // Add ">" prefix for capped values
+  if (value.meta.isCapped) {
+    strings.push('>');
+  }
+
+  if (isNegativeNumber && !isZero) {
+    strings.push('-');
+  } else if (showPlusMinusSigns) {
+    // -0/+0
+    strings.push(isNegativeNumber ? '-' : '+');
   }
 
   if (currency) {
     strings.push(currency);
   }
 
-  if (leadingZeros && leadingZeros > 4) {
-    if (isNegativeNumber) {
-      strings.push('-');
-    }
+  if (leadingZeros && leadingZeros > 4 && !keepLeadingZero) {
     const { value: formattedZero } = formatLocalNumber('0', {
       digits: 1,
       removeTrailingZeros: false,
@@ -560,12 +661,9 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     });
     strings.push(formattedZero);
     strings.push({ value: leadingZeros, type: 'sub' });
-    strings.push(formattedValue.slice(leadingZeros + 2 + startsNumberIndex));
+    strings.push(valueWithoutSign.slice(leadingZeros + 2 + startsNumberIndex));
   } else {
-    if (showPlusMinusSigns && isZero && isNegativeNumber) {
-      strings.push('-');
-    }
-    strings.push(formattedValue);
+    strings.push(valueWithoutSign);
   }
   if (unit) {
     strings.push(unit);
@@ -587,6 +685,8 @@ export const NUMBER_FORMATTER = {
   price: formatPrice,
   /** PriceChange */
   priceChange: formatPriceChange,
+  /** PriceChange with capping and > symbol support */
+  priceChangeCapped: formatPriceChangeCapped,
   /** DeFi */
   value: formatValue,
   /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
@@ -601,34 +701,45 @@ export interface INumberFormatProps {
   formatterOptions?: IFormatterOptions;
 }
 
-export const numberFormat = (
+export const numberFormatAsRaw = (
   value: string,
   { formatter, formatterOptions }: INumberFormatProps,
-  isRaw = false,
 ) => {
-  const result =
-    formatter && value
-      ? formatDisplayNumber(
-          NUMBER_FORMATTER[formatter](String(value), formatterOptions),
-        )
-      : '';
-  if (isRaw) {
-    return result;
-  }
+  return formatter && value
+    ? formatDisplayNumber(
+        NUMBER_FORMATTER[formatter](String(value), formatterOptions),
+      )
+    : '';
+};
 
-  if (typeof result === 'string') {
-    return result;
-  }
+export const numberFormat = memoizee(
+  (value: string, { formatter, formatterOptions }: INumberFormatProps) => {
+    const result = numberFormatAsRaw(value, { formatter, formatterOptions });
+    if (typeof result === 'string') {
+      return result;
+    }
+    return result
+      .map((r) => {
+        if (typeof r === 'string') {
+          return r;
+        }
+        if (r.type === 'sub') {
+          return new Array(r.value - 1).fill(0).join('');
+        }
+        return '';
+      })
+      .join('');
+  },
+  {
+    max: 200,
+    maxAge: 1000 * 60 * 5, // 5 minutes
+  },
+);
 
-  return result
-    .map((r) => {
-      if (typeof r === 'string') {
-        return r;
-      }
-      if (r.type === 'sub') {
-        return new Array(r.value - 1).fill(0).join('');
-      }
-      return '';
-    })
-    .join('');
+export const numberFormatAsRenderText = (
+  value: string,
+  { formatter, formatterOptions }: INumberFormatProps,
+) => {
+  const result = numberFormatAsRaw(value, { formatter, formatterOptions });
+  return result;
 };

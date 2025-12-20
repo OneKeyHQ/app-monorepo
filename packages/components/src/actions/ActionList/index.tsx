@@ -4,26 +4,34 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
-import { useMedia, withStaticProperties } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EShortcutEvents,
   shortcutsMap,
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import { Divider } from '../../content';
+import { Divider } from '../../content/Divider';
 import { Portal } from '../../hocs';
+import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
+import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import {
   ButtonFrame,
   Heading,
   Icon,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
 } from '../../primitives';
+import { useSharedPress } from '../../primitives/Button/useEvent';
 import { Popover } from '../Popover';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
@@ -35,29 +43,58 @@ export interface IActionListItemProps {
   icon?: IKeyOfIcons;
   iconProps?: IIconProps;
   label: string;
+  extra?: ReactNode;
+  description?: string;
+  descriptionNumberOfLines?: number;
   destructive?: boolean;
   onPress?: (close: () => void) => void | Promise<boolean | void>;
+  onClose?: () => void;
   disabled?: boolean;
   testID?: string;
+  trackID?: string;
   shortcutKeys?: string[] | EShortcutEvents;
+  isLoading?: boolean;
 }
 
 // Duration to prevent rapid re-triggering of the action list
 const PROCESSING_RESET_DELAY = 350;
 
-export function ActionListItem({
-  icon,
-  iconProps,
-  label,
-  onPress,
-  destructive,
-  disabled,
-  onClose,
-  testID,
-  shortcutKeys,
-}: IActionListItemProps & {
-  onClose: () => void;
-}) {
+export function ActionListSkeletonItem() {
+  return (
+    <XStack
+      flex={1}
+      mx="$2"
+      height="$8"
+      position="relative"
+      borderRadius="$2"
+      overflow="hidden"
+    >
+      <Skeleton height="100%" width="100%" />
+    </XStack>
+  );
+}
+
+export function ActionListItem(
+  props: IActionListItemProps & {
+    onClose: () => void;
+  },
+) {
+  const {
+    icon,
+    iconProps,
+    label,
+    extra,
+    description,
+    descriptionNumberOfLines,
+    onPress,
+    destructive,
+    disabled,
+    onClose,
+    testID,
+    shortcutKeys,
+    isLoading,
+  } = props;
+
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
       event.stopPropagation();
@@ -78,6 +115,12 @@ export function ActionListItem({
     }
     return undefined;
   }, [shortcutKeys]);
+
+  const { onPress: sharedOnPress } = useSharedPress({
+    ...props,
+    onPress: handlePress,
+  });
+
   return (
     <ButtonFrame
       justifyContent="flex-start"
@@ -104,42 +147,55 @@ export function ActionListItem({
         //   outlineWidth: 2,
         // },
       })}
-      onPress={handlePress}
+      onPress={isLoading ? undefined : sharedOnPress}
       testID={testID}
     >
-      <XStack jc="space-between" flex={1}>
-        <XStack flex={1}>
-          {icon ? (
-            <Icon
-              name={icon}
-              size="$5"
-              mr="$3"
-              $md={{ size: '$6' }}
-              color={destructive ? '$iconCritical' : '$icon'}
-              {...iconProps}
-            />
-          ) : null}
-          <SizableText
-            textAlign="left"
-            size="$bodyMd"
-            width="100%"
-            flexShrink={1}
-            $md={{ size: '$bodyLg' }}
-            color={destructive ? '$textCritical' : '$text'}
-          >
-            {label}
-          </SizableText>
-        </XStack>
-        {(platformEnv.isDesktop || platformEnv.isNativeIOSPad) &&
-        keys?.length ? (
-          <XStack>
-            <Shortcut>
-              {keys.map((key) => (
-                <Shortcut.Key key={key}>{key}</Shortcut.Key>
-              ))}
-            </Shortcut>
-          </XStack>
+      <XStack jc="space-between" flex={1} alignItems="center">
+        {icon ? (
+          <Icon
+            name={icon}
+            size="$5"
+            mr="$3"
+            $md={{ size: '$6' }}
+            color={destructive ? '$iconCritical' : '$icon'}
+            {...iconProps}
+          />
         ) : null}
+        <YStack gap="$0.5" flex={1}>
+          <XStack>
+            <SizableText
+              flex={1}
+              textAlign="left"
+              size="$bodyMd"
+              width="100%"
+              flexShrink={1}
+              $md={{ size: '$bodyLg' }}
+              color={destructive ? '$textCritical' : '$text'}
+            >
+              {label}
+            </SizableText>
+
+            {platformEnv.isDesktop && keys?.length ? (
+              <Shortcut>
+                {keys.map((key) => (
+                  <Shortcut.Key key={key}>{key}</Shortcut.Key>
+                ))}
+              </Shortcut>
+            ) : null}
+          </XStack>
+          {description ? (
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              textAlign="left"
+              numberOfLines={descriptionNumberOfLines}
+              ellipsizeMode={descriptionNumberOfLines ? 'tail' : undefined}
+            >
+              {description}
+            </SizableText>
+          ) : null}
+        </YStack>
+        {isLoading ? <Spinner size="small" /> : extra}
       </XStack>
     </ButtonFrame>
   );
@@ -162,13 +218,15 @@ export interface IActionListProps
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
   }) => React.ReactNode;
-  // estimatedContentHeight required if use renderItemsAsync
-  estimatedContentHeight?: number;
   renderItemsAsync?: (params: {
     // TODO use cloneElement to override onClose props
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
   }) => Promise<React.ReactNode>;
+  /**
+   * Unique identifier for tracking/analytics purposes.
+   */
+  trackID?: string;
 }
 
 const useDefaultOpen = (defaultOpen: boolean) => {
@@ -201,19 +259,33 @@ function BasicActionList({
   defaultOpen = false,
   renderItems,
   renderItemsAsync,
-  estimatedContentHeight,
   title,
+  trackID,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
   const [asyncItems, setAsyncItems] = useState<ReactNode>(null);
+  const trackActionListToggle = useDebouncedCallback((openStatus: boolean) => {
+    if (trackID) {
+      if (openStatus) {
+        defaultLogger.ui.actionList.actionListOpen({
+          trackId: trackID,
+        });
+      } else {
+        defaultLogger.ui.actionList.actionListClose({
+          trackId: trackID,
+        });
+      }
+    }
+  }, 500);
 
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
+      trackActionListToggle(openStatus);
     },
-    [onOpenChange, setOpenStatus],
+    [onOpenChange, setOpenStatus, trackActionListToggle],
   );
   const handleActionListOpen = useCallback(() => {
     handleOpenStatusChange(true);
@@ -226,11 +298,6 @@ function BasicActionList({
   const intl = useIntl();
   useEffect(() => {
     if (renderItemsAsync && isOpen) {
-      if (platformEnv.isDev && md && !estimatedContentHeight) {
-        throw new Error(
-          'estimatedContentHeight is required on Async rendering items',
-        );
-      }
       void (async () => {
         const asyncItemsToRender = await renderItemsAsync({
           handleActionListClose,
@@ -240,7 +307,6 @@ function BasicActionList({
       })();
     }
   }, [
-    estimatedContentHeight,
     handleActionListClose,
     handleActionListOpen,
     isOpen,
@@ -254,23 +320,32 @@ function BasicActionList({
       key={item.label}
       disabled={item.disabled}
       {...item}
-      onClose={handleActionListClose}
+      onClose={() => {
+        handleActionListClose();
+        item.onClose?.();
+      }}
     />
   );
+
+  const trigger = useMemo(() => {
+    return (
+      <Trigger onPress={handleActionListOpen} disabled={disabled}>
+        {renderTrigger}
+      </Trigger>
+    );
+  }, [disabled, renderTrigger, handleActionListOpen]);
+
+  if (renderItemsAsync && !asyncItems) {
+    return trigger;
+  }
   return (
     <Popover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
       renderContent={
-        <YStack
-          p="$1"
-          $md={{ p: '$3', pt: '$0' }}
-          height={estimatedContentHeight}
-          onLayout={(e) => console.log(e.nativeEvent.layout.height)}
-        >
+        <YStack p="$1" $md={{ p: '$3', pt: '$0' }}>
           {items?.map(renderActionListItem)}
-
           {sections?.map((section, sectionIdx) => (
             <YStack key={sectionIdx}>
               {sectionIdx > 0 && section.items.length > 0 ? (
@@ -297,7 +372,7 @@ function BasicActionList({
             handleActionListOpen,
           })}
 
-          {/* custom async render items (estimatedContentHeight required) */}
+          {/* custom async render items */}
           {asyncItems}
         </YStack>
       }
@@ -305,40 +380,55 @@ function BasicActionList({
         width: '$56',
       }}
       {...props}
-      renderTrigger={
-        <Trigger onPress={handleActionListOpen} disabled={disabled}>
-          {renderTrigger}
-        </Trigger>
-      }
+      renderTrigger={trigger}
     />
   );
 }
 
+type IShowActionListParams = Omit<
+  IActionListProps,
+  'renderTrigger' | 'defaultOpen'
+> & {
+  onClose?: () => void;
+};
 const showActionList = (
-  props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'> & {
-    onClose?: () => void;
-  },
+  props: IShowActionListParams,
+  contexts:
+    | {
+        modalNavigatorContext: ReturnType<typeof useModalNavigatorContext>;
+        pageContextValue?: ReturnType<typeof usePageContext>;
+      }
+    | undefined,
 ) => {
+  const { modalNavigatorContext, pageContextValue } = contexts || {};
   dismissKeyboard();
   const ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-    <BasicActionList
-      {...props}
-      defaultOpen
-      renderTrigger={null}
-      onOpenChange={(isOpen) => {
-        props.onOpenChange?.(isOpen);
-        if (!isOpen) {
-          setTimeout(() => {
-            props.onClose?.();
-          });
-          // delay the destruction of the reference to allow for the completion of the animation transition.
-          setTimeout(() => {
-            ref.destroy();
-          }, 500);
-        }
-      }}
-    />,
+    <ModalNavigatorContext.Provider
+      value={modalNavigatorContext || { portalId: '' }}
+    >
+      <PageContext.Provider
+        value={pageContextValue || { footerRef: { current: null } as any }}
+      >
+        <BasicActionList
+          {...props}
+          defaultOpen
+          renderTrigger={null}
+          onOpenChange={(isOpen) => {
+            props.onOpenChange?.(isOpen);
+            if (!isOpen) {
+              setTimeout(() => {
+                props.onClose?.();
+              });
+              // delay the destruction of the reference to allow for the completion of the animation transition.
+              setTimeout(() => {
+                ref.destroy();
+              }, 500);
+            }
+          }}
+        />
+      </PageContext.Provider>
+    </ModalNavigatorContext.Provider>,
   );
 };
 const debouncedShowActionList = debounce(
@@ -346,31 +436,23 @@ const debouncedShowActionList = debounce(
   PROCESSING_RESET_DELAY,
 );
 
-function ActionListFrame({
-  estimatedContentHeight,
-  ...props
-}: Omit<IActionListProps, 'estimatedContentHeight'> & {
-  estimatedContentHeight?: () => Promise<number>;
-}) {
+function ActionListFrame(props: IActionListProps) {
   const isProcessing = useRef(false);
 
   const { gtMd } = useMedia();
   const { disabled, renderTrigger, ...popoverProps } = props;
+
+  const modalNavigatorContext = useModalNavigatorContext();
+  const pageContextValue = usePageContext();
+  const contexts = {
+    modalNavigatorContext,
+    pageContextValue,
+  };
   const handleActionListOpen = () => {
     if (isProcessing.current) return;
 
     isProcessing.current = true;
-    if (estimatedContentHeight) {
-      void estimatedContentHeight().then((height) => {
-        showActionList({
-          ...popoverProps,
-          estimatedContentHeight: height,
-        });
-      });
-    } else {
-      showActionList(popoverProps);
-    }
-
+    showActionList(popoverProps, contexts);
     setTimeout(() => {
       isProcessing.current = false;
     }, PROCESSING_RESET_DELAY);
@@ -386,7 +468,11 @@ function ActionListFrame({
   );
 }
 
+const show = (props: IShowActionListParams) =>
+  debouncedShowActionList(props, undefined);
+
 export const ActionList = withStaticProperties(ActionListFrame, {
-  show: debouncedShowActionList,
+  show,
   Item: ActionListItem,
+  SkeletonItem: ActionListSkeletonItem,
 });

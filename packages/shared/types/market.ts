@@ -1,6 +1,7 @@
 export interface IMarketCategory {
   categoryId: string;
   coingeckoIds: string[];
+  watchList?: IMarketWatchListItem[];
   name: string;
   type: string;
   recommendedTokens?: IMarketToken[];
@@ -23,6 +24,7 @@ export interface IMarketCustomToken {
 
 export interface IMarketToken {
   coingeckoId: string;
+  sortIndex?: number;
   name: string;
   serialNumber: number;
   price: number;
@@ -224,8 +226,40 @@ export interface IMarketDetailPool {
 
 export interface IMarketWatchListItem {
   coingeckoId: string;
+  sortIndex: number | undefined;
 }
 
 export interface IMarketWatchListData {
   data: IMarketWatchListItem[];
+}
+
+export enum ESpeedSwapSwitchType {
+  BUY = 'buy',
+  SELL = 'sell',
+}
+
+// Market Watch List V2 Types (using chainId + contractAddress)
+export interface IMarketWatchListItemV2 {
+  chainId: string;
+  contractAddress: string;
+  sortIndex?: number;
+  isNative?: boolean;
+}
+
+export interface IMarketWatchListDataV2 {
+  data: IMarketWatchListItemV2[];
+}
+
+export interface IMarketSearchV2Token {
+  name: string;
+  price: string;
+  symbol: string;
+  address: string;
+  network: string;
+  logoUrl: string;
+  isNative: boolean;
+  decimals: number;
+  liquidity: string;
+  volume_24h: string;
+  communityRecognized?: boolean;
 }

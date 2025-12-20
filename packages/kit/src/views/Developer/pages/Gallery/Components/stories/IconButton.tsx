@@ -11,6 +11,7 @@ import { Layout } from './utils/Layout';
 
 const IconButtonGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="IconButton"
     elements={[
       {

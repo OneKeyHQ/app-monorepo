@@ -12,6 +12,7 @@ import {
   SectionList,
   SizableText,
   Stack,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -359,9 +360,11 @@ export const Transactions = () => {
   );
 
   return (
-    <SectionList
+    <Tabs.SectionList
+      stickySectionHeadersEnabled={false}
+      contentContainerStyle={{ paddingBottom: 40 }}
       sections={sections}
-      estimatedItemSize={158}
+      // estimatedItemSize={158}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (

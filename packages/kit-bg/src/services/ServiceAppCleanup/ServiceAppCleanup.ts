@@ -1,5 +1,3 @@
-import { InteractionManager } from 'react-native';
-
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -72,6 +70,9 @@ class ServiceAppCleanup extends ServiceBase {
     // The number of private key and mnemonic wallets will not be many, so we don't clean up here
     // await this.cleanupCredentials();
 
+    // **** cleanup HyperLiquid agent credentials
+    // await this.cleanupHyperLiquidAgentCredentials();
+
     // **** cleanup address/tokens/tx history
     // getAccountNameFromAddress()
 
@@ -131,8 +132,17 @@ class ServiceAppCleanup extends ServiceBase {
     });
   }
 
+  async cleanupHyperLiquidAgentCredentials() {
+    await this.runCleanupTask(async () => {
+      // Scan all orphaned HyperLiquid agent credentials and cleanup
+      await this.backgroundApi.serviceAccount.cleanupOrphanedHyperLiquidAgentCredentials(
+        {},
+      );
+    });
+  }
+
   async runCleanupTask(fn: () => Promise<void>) {
-    await InteractionManager.runAfterInteractions(async () => {
+    await timerUtils.setTimeoutPromised(async () => {
       try {
         await fn();
       } catch (error) {

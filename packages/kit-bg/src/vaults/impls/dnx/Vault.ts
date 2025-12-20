@@ -14,6 +14,7 @@ import {
   InsufficientBalance,
   NotImplemented,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -121,11 +122,13 @@ export default class Vault extends VaultBase {
     const { tokenInfo } = transferInfo;
 
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
 
     if (!tokenInfo) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }

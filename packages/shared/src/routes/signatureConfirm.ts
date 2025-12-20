@@ -3,18 +3,19 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
   ITransferInfo,
   ITransferPayload,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import type {
-  EAccountSelectorSceneName,
-  IDappSourceInfo,
-} from '@onekeyhq/shared/types';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
-import type { ITokenSelectorParamList } from './assetSelector';
+import type {
+  IAggregateTokenSelectorParams,
+  ITokenSelectorParamList,
+} from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 import type { IAccountHistoryTx } from '../../types/history';
@@ -24,6 +25,7 @@ import type {
   ILNURLWithdrawServiceResponse,
 } from '../../types/lightning';
 import type { IAccountNFT } from '../../types/nft';
+import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 
@@ -37,6 +39,7 @@ export enum EModalSignatureConfirmRoutes {
 
   TxReplace = 'TxReplace',
   TxSelectToken = 'TxSelectToken',
+  TxSelectAggregateToken = 'TxSelectAggregateToken',
   TxSelectDeriveAddress = 'TxSelectDeriveAddress',
 
   // Lightning Network
@@ -48,9 +51,12 @@ export enum EModalSignatureConfirmRoutes {
 
 export type IModalSignatureConfirmParamList = {
   [EModalSignatureConfirmRoutes.TxSelectToken]: ITokenSelectorParamList;
+  [EModalSignatureConfirmRoutes.TxSelectAggregateToken]: IAggregateTokenSelectorParams;
   [EModalSignatureConfirmRoutes.TxDataInput]: {
     networkId: string;
     accountId: string;
+    activeAccountId?: string;
+    activeNetworkId?: string;
     isNFT: boolean;
     nfts?: IAccountNFT[];
     token?: IToken | null;
@@ -60,10 +66,13 @@ export type IModalSignatureConfirmParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     isAllNetworks?: boolean;
+    disableAddressTypeSelector?: boolean;
+    showAddressTypeSelectorWhenDisabled?: boolean;
   };
   [EModalSignatureConfirmRoutes.TxConfirm]: {
     networkId: string;
     accountId: string;
+    indexedAccountId?: string;
     unsignedTxs: IUnsignedTxPro[];
     sourceInfo?: IDappSourceInfo;
     signOnly?: boolean;
@@ -74,13 +83,17 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
+    isQueueMode?: boolean;
+    unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   };
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
     accountId: string;
     networkId: string;
     unsignedMessage: IUnsignedMessage;
     walletInternalSign?: boolean;
+    skipBackupCheck?: boolean; // used for bind referral code
     sourceInfo?: IDappSourceInfo;
+    swapInfo?: ISwapTxInfo | undefined;
     onSuccess?: (result: string) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
@@ -139,7 +152,6 @@ export type IModalSignatureConfirmParamList = {
     networkId: string;
     indexedAccountId: string;
     walletId: string;
-    accountId: string;
     actionType?: EDeriveAddressActionType;
     onSelected?: ({
       account,

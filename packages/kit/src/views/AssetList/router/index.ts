@@ -13,6 +13,10 @@ const AddCustomTokenModal = LazyLoadPage(
   () => import('../pages/AddCustomTokenModal'),
 );
 
+const RiskTokenManager = LazyLoadPage(
+  () => import('../pages/RiskTokenManager'),
+);
+
 export const ModalAssetListStack: IModalFlowNavigatorConfig<
   EModalAssetListRoutes,
   IModalAssetListParamList
@@ -28,5 +32,9 @@ export const ModalAssetListStack: IModalFlowNavigatorConfig<
   {
     name: EModalAssetListRoutes.AddCustomTokenModal,
     component: AddCustomTokenModal,
+  },
+  {
+    name: EModalAssetListRoutes.RiskTokenManager,
+    component: RiskTokenManager,
   },
 ];

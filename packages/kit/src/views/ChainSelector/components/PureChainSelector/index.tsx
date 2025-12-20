@@ -14,9 +14,9 @@ type IPureChainSelectorProps = {
   title?: string;
   networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
-
   unavailable?: IServerNetwork[];
   grouped?: boolean;
+  recentNetworksEnabled?: boolean;
 };
 
 export const PureChainSelector: FC<IPureChainSelectorProps> = ({
@@ -26,11 +26,12 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
   onPressItem,
   unavailable,
   grouped = true,
+  recentNetworksEnabled = true,
 }) => {
   const intl = useIntl();
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header
         title={
           title || intl.formatMessage({ id: ETranslations.global_networks })
@@ -43,6 +44,7 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
             networks={networks}
             onPressItem={onPressItem}
             unavailable={unavailable}
+            recentNetworksEnabled={recentNetworksEnabled}
           />
         ) : (
           <ChainSelectorListView

@@ -9,29 +9,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 
-// https://www.tradingview.com/charting-library-docs/latest/core_concepts/Localization/
-const localeMap: Record<ILocaleJSONSymbol, string> = {
-  bn: 'en',
-  de: 'de',
-  en: 'en',
-  'en-US': 'en',
-  es: 'es',
-  'fr-FR': 'fr',
-  'hi-IN': 'en',
-  id: 'id',
-  'it-IT': 'it',
-  'ja-JP': 'ja',
-  'ko-KR': 'ko',
-  pt: 'pt',
-  'pt-BR': 'pt',
-  ru: 'ru',
-  'th-TH': 'th',
-  'uk-UA': 'ru',
-  vi: 'vi',
-  'zh-CN': 'zh_CN',
-  'zh-HK': 'zh_HK',
-  'zh-TW': 'zh_TW',
-};
+import { tradingViewLocaleMap } from './utils/tradingViewLocaleMap';
+import { getTradingViewTimezone } from './utils/tradingViewTimezone';
 
 export const useTradingViewProps = ({
   identifier,
@@ -68,8 +47,11 @@ export const useTradingViewProps = ({
   const systemLocale = useLocaleVariant();
   const calendars = useCalendars();
   return useMemo(() => {
-    const locale = localeMap[systemLocale as ILocaleJSONSymbol] || 'en';
-    const timezone = calendars[0].timeZone || 'Etc/UTC';
+    const locale =
+      tradingViewLocaleMap[systemLocale as ILocaleJSONSymbol] || 'en-US';
+    // https://onekey-bb.sentry.io/issues/45978027
+    // Cannot read property 'timeZone' of undefined
+    const timezone = getTradingViewTimezone(calendars);
     const params: Record<string, string> = {
       'show_popup_button': 'false',
       'autosize': 'true',
@@ -151,7 +133,7 @@ export const useTradingViewProps = ({
     `;
     return {
       uri,
-      injectedJavaScript: ` const styleNode = document.createElement('style'); 
+      injectedJavaScript: `const styleNode = document.createElement('style'); 
       styleNode.type = 'text/css'; 
       styleNode.textContent = \`${style}\`;
       document.documentElement.appendChild(styleNode);`,

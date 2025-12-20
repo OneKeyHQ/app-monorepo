@@ -1,6 +1,7 @@
 import coinselectUtils from '@onekeyfe/coinselect/utils';
 
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { IEncodedTxBtc } from '../chains/btc/types';
@@ -22,7 +23,18 @@ export function getUtxoAccountPrefixPath({ fullPath }: { fullPath: string }) {
   return prefixPath;
 }
 
-export function getBIP44Path(account: IDBUtxoAccount, address: string) {
+export function checkIfValidPath(path: string) {
+  if (path.split('/').length !== 6) {
+    throw new OneKeyLocalError(`Invalid BIP44 path: ${path}`);
+  }
+  return path;
+}
+
+export function getBIP44Path(
+  account: IDBUtxoAccount,
+  address: string,
+  checkPath?: boolean,
+) {
   let realPath = '';
   for (const [key, value] of Object.entries(account.addresses)) {
     if (value === address) {
@@ -30,7 +42,11 @@ export function getBIP44Path(account: IDBUtxoAccount, address: string) {
       break;
     }
   }
-  return `${account.path}/${realPath}`;
+  const path = `${account.path}/${realPath}`;
+  if (!checkPath) {
+    return path;
+  }
+  return checkIfValidPath(path);
 }
 
 export function estimateTxSize(

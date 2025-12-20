@@ -11,27 +11,55 @@ import type { IMatchDAppItemType } from '../../types';
 export function TrendingSectionItems({
   dataSource,
   handleOpenWebSite,
+  isLoading,
   ...restProps
 }: IYStackProps & {
   dataSource: IDApp[];
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
+  isLoading?: boolean;
 }) {
   const [numberOfItems, setNumberOfItems] = useState(0);
   const media = useMedia();
 
+  const innerDataSource =
+    dataSource.length > 0
+      ? dataSource
+      : Array<IDApp>(14)
+          .fill({
+            dappId: '',
+            logo: '',
+            name: '',
+            url: '',
+            description: '',
+            networkIds: [],
+            tags: [],
+          })
+          .map((item, index) => {
+            return {
+              ...item,
+              dappId: `dapp-${index}`,
+            };
+          });
+
   useEffect(() => {
     const calculateNumberOfItems = () => {
-      if (media.gtXl) return 7;
-      if (media.gt2Md) return 6;
-      if (media.gtSm) return 10;
-      return 8;
+      if (media.sm) return 8;
+      if (media['2md']) return 10;
+      if (media.xl) return 12;
+      return 14;
     };
     setNumberOfItems(calculateNumberOfItems());
-  }, [media.gtXl, media.gt2Md, media.gtSm]);
+  }, [media.gtXl, media.gt2Md, media.gtSm, media]);
 
   return (
-    <YStack flexDirection="row" flexWrap="wrap" {...restProps}>
-      {dataSource.slice(0, numberOfItems).map((dApp, index) => (
+    <YStack
+      flexDirection="row"
+      flexWrap="wrap"
+      rowGap="$2"
+      py="$2"
+      {...restProps}
+    >
+      {innerDataSource.slice(0, numberOfItems).map((dApp, index) => (
         <YStack
           key={dApp.dappId || index}
           width="25%"
@@ -44,6 +72,7 @@ export function TrendingSectionItems({
             title={dApp.name}
             url={dApp.url}
             dApp={dApp}
+            isLoading={isLoading}
             handleOpenWebSite={handleOpenWebSite}
           />
         </YStack>

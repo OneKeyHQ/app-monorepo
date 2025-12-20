@@ -28,14 +28,15 @@ export class V4MigrationForDiscover extends V4MigrationManagerBase {
     let v5items: IBrowserBookmark[] = v4items.map((v4item) => ({
       title: v4item.title ?? uriUtils.getHostNameFromUrl({ url: v4item.url }),
       url: v4item.url,
+      logo: v4item.icon,
+      sortIndex: undefined,
     }));
     const currentV5Items =
       await this.backgroundApi.serviceDiscovery.getBrowserBookmarks();
     const urlSet = new Set(currentV5Items.map((x) => x.url));
     v5items = v5items.filter((x) => !urlSet.has(x.url));
-    await this.backgroundApi.serviceDiscovery.setBrowserBookmarks([
-      ...currentV5Items,
-      ...v5items,
-    ]);
+    await this.backgroundApi.serviceDiscovery.setBrowserBookmarks({
+      bookmarks: [...currentV5Items, ...v5items],
+    });
   }
 }

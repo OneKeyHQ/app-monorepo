@@ -1,25 +1,40 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
-import { CommonActions } from '@react-navigation/native';
 import { Animated, StyleSheet } from 'react-native';
+import { useThrottledCallback } from 'use-debounce';
 
-import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
+import {
+  useIsNativeTablet,
+  useSafeAreaInsets,
+} from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+
+import { switchTab } from '../../Navigator/NavigationContainer';
 
 import { MobileTabItem } from './MobileTabItem';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
+import type {
+  BottomTabBarProps,
+  BottomTabNavigationOptions,
+} from '@react-navigation/bottom-tabs';
+import type { RouteProp } from '@react-navigation/native';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export type IMobileBottomTabBarProps = BottomTabBarProps & {
   backgroundColor?: string;
   style?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
+  trackId?: string;
 };
 
 export default function MobileBottomTabBar({
@@ -53,28 +68,75 @@ export default function MobileBottomTabBar({
     });
   }, [heightAnim, opacityAnim]);
 
+  const isTablet = useIsNativeTablet();
+  const onTabPress = useCallback(
+    (
+      route: RouteProp<Record<string, object | undefined>, string>,
+      isActive: boolean,
+      options: BottomTabNavigationOptions,
+    ) => {
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
+      if (isTablet) {
+        appEventBus.emit(EAppEventBusNames.SwitchTabBar, {
+          route: route.name as ETabRoutes,
+        });
+      }
+      if (route.name === 'Swap') {
+        defaultLogger.swap.enterSwap.enterSwap({
+          enterFrom: ESwapSource.TAB,
+        });
+      }
+
+      if (!isActive && !event.defaultPrevented) {
+        switchTab(route.name as ETabRoutes);
+        if (route.name === ETabRoutes.Market) {
+          appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+            from: EEnterWay.HomeTab,
+          });
+        }
+      }
+      const trackId = (options as { trackId?: string })?.trackId;
+      if (trackId) {
+        defaultLogger.app.page.tabBarClick(trackId);
+      }
+    },
+    [isTablet, navigation],
+  );
+  const onDebouncedTabPress = useThrottledCallback(onTabPress, 250);
+  const handleRoutePress = platformEnv.isNativeAndroid
+    ? onDebouncedTabPress
+    : onTabPress;
+
   const tabs = useMemo(
     () =>
       routes.map((route, index) => {
         const isActive = index === state.index;
         const { options } = descriptors[route.key];
 
-        if (route.name === extraConfig?.name) {
+        if (
+          route.name === extraConfig?.name ||
+          (options as { hideOnTabBar?: boolean })?.hideOnTabBar
+        ) {
+          return null;
+        }
+
+        // Hide tab icon if hiddenIcon property is set to true
+        if ((options as { hiddenIcon?: boolean })?.hiddenIcon) {
           return null;
         }
 
         const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-
-          if (!isActive && !event.defaultPrevented) {
-            navigation.dispatch({
-              ...CommonActions.navigate({ name: route.name, merge: true }),
-              target: state.key,
-            });
+          // Check if custom tabbarOnPress exists, use it instead of default navigation
+          const customPress = (options as { tabbarOnPress?: () => void })
+            ?.tabbarOnPress;
+          if (customPress) {
+            customPress();
+          } else {
+            handleRoutePress(route, isActive, options);
           }
         };
 
@@ -104,14 +166,7 @@ export default function MobileBottomTabBar({
           </Stack>
         );
       }),
-    [
-      descriptors,
-      extraConfig?.name,
-      navigation,
-      routes,
-      state.index,
-      state.key,
-    ],
+    [descriptors, extraConfig?.name, handleRoutePress, routes, state.index],
   );
   return (
     <Stack

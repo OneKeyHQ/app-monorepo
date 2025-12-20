@@ -7,6 +7,9 @@ module.exports = async () => {
   const { stdout } = await exec('yarn config get cacheFolder');
   const cacheDirectory = stdout.trim().replace('\n', '');
   return {
+    // https://jestjs.io/docs/configuration#maxconcurrency-number
+    maxConcurrency: 1,
+    maxWorkers: 1,
     // ts-jest, react-native, jest-expo, jest-expo/web,
     preset: 'jest-expo/web', // require *.web.ts, do not require *.native.ts
     coverageProvider: 'v8',
@@ -41,11 +44,15 @@ module.exports = async () => {
       '\\./adaWebSdk$':
         '<rootDir>/packages/core/src/chains/ada/sdkAda/sdk/adaWebSdk.jest.ts',
       '^lodash-es$': 'lodash',
+      // 'react-native-aes-crypto': '<rootDir>/__mocks__/emptyMock.js',
+      // 'react-native-reanimated': '<rootDir>/__mocks__/emptyMock.js',
     },
     // TODO unify with transpile modules
-    transformIgnorePatterns: ['nodo_modules/react-native-reanimated'],
+    transformIgnorePatterns: [
+      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth)/)',
+    ],
     transform: {
-      '^.+\\.(ts|tsx)$': [
+      '^.+\\.[jt]sx?$': [
         'ts-jest',
         {
           'diagnostics': {
@@ -76,7 +83,6 @@ module.exports = async () => {
       'packages/core/src/chains/ltc',
       'packages/core/src/chains/near',
       'packages/core/src/chains/nexa',
-      'packages/core/src/chains/sol',
       'packages/core/src/chains/stc',
       'packages/core/src/chains/tron',
       'packages/core/src/chains/xmr',

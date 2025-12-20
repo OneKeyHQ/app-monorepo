@@ -8,9 +8,11 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { EMessageTypesTron } from '@onekeyhq/shared/types/message';
 import type {
   IAccountToken,
   ITronWatchAssetParameter,
@@ -30,7 +32,7 @@ const TRON_SCAN_REQUESTED_URL = {
   shasta: 'https://api.shasta.trongrid.io',
 };
 
-const TRON_SCAN_HOST_WHITE_LIST = [
+export const TRON_SCAN_HOST_WHITE_LIST = [
   'tronscan.org',
   'tronscan.io',
   'shasta.tronscan.org',
@@ -210,6 +212,40 @@ class ProviderApiTron extends ProviderApiBase {
     return JSON.parse(result.rawTx) as Types.SignedTransaction;
   }
 
+  @permissionRequired()
+  @providerApiMethod()
+  async signMessageV1(
+    request: IJsBridgeMessagePayload,
+    message: string,
+  ): Promise<string> {
+    throw new NotImplemented();
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  async signMessageV2(
+    request: IJsBridgeMessagePayload,
+    message: string,
+  ): Promise<string> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+
+    const { accountInfo: { networkId, accountId } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      unsignedMessage: {
+        type: EMessageTypesTron.SIGN_MESSAGE_V2,
+        message,
+      },
+      accountId: accountId ?? '',
+      networkId: networkId ?? '',
+    })) as string;
+
+    return result;
+  }
+
   @providerApiMethod()
   async wallet_watchAsset(
     request: IJsBridgeMessagePayload,
@@ -248,6 +284,79 @@ class ProviderApiTron extends ProviderApiBase {
     } catch {
       return false;
     }
+  }
+
+  // TIP6963 Api
+  @providerApiMethod()
+  async eth_chainId(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    return this.tron_chainId(request);
+  }
+
+  @providerApiMethod()
+  async eth_requestAccounts(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    return this.tron_requestAccounts(request);
+  }
+
+  @providerApiMethod()
+  async wallet_accounts(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    return this.tron_accounts(request);
+  }
+
+  @providerApiMethod()
+  async wallet_switchEthereumChain(
+    request: IJsBridgeMessagePayload,
+    { chainId }: { chainId: string },
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    throw new NotImplemented();
+  }
+
+  @providerApiMethod()
+  async personal_sign(request: IJsBridgeMessagePayload, message: string) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const messageBuffer = hexUtils.stringToUtf8Bytes(message);
+    const messageStr = Buffer.from(messageBuffer).toString('hex');
+    return this.signMessageV2(request, messageStr);
+  }
+
+  @providerApiMethod()
+  async eth_signTransaction(
+    request: IJsBridgeMessagePayload,
+    transaction: any,
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    return this.tron_signTransaction(request, transaction);
+  }
+
+  // https://tronweb.network/docu/docs/API%20List/trx/multiSign
+  @providerApiMethod()
+  async eth_multiSign(request: IJsBridgeMessagePayload, transaction: any) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    throw new NotImplemented();
+  }
+
+  // https://tronweb.network/docu/docs/API%20List/trx/signTypedData/
+  @providerApiMethod()
+  async eth_signTypedData(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    throw new NotImplemented();
+  }
+
+  @providerApiMethod()
+  async wallet_disconnect(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+
+    const { origin } = request;
+    if (!origin) {
+      return;
+    }
+    await this.backgroundApi.serviceDApp.disconnectWebsite({
+      origin,
+      storageType: 'injectedProvider',
+    });
   }
 }
 

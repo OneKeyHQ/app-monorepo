@@ -1,24 +1,18 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useIntl } from 'react-intl';
+import pRetry from 'p-retry';
 
-import {
-  RefreshControl,
-  ScrollView,
-  Stack,
-  useMedia,
-} from '@onekeyhq/components';
+import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useBannerData } from '../../hooks/useBannerData';
+import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
 import { DashboardBanner } from './Banner';
 import { BookmarksSection } from './BookmarksSection';
@@ -33,10 +27,7 @@ function DashboardContent({
 }: {
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
-  const navigation = useAppNavigation();
   const isFocused = useIsFocused();
-  const { gtMd } = useMedia();
-  const { handleOpenWebSite } = useBrowserAction().current;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -46,10 +37,20 @@ function DashboardContent({
     run,
   } = usePromiseResult(
     async () => {
-      const homePageResponse =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      setIsRefreshing(false);
-      return homePageResponse;
+      try {
+        const result = await pRetry(
+          () =>
+            backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData(),
+          {
+            retries: 3,
+          },
+        );
+        return result;
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsRefreshing(false);
+      }
     },
     [],
     {
@@ -65,11 +66,10 @@ function DashboardContent({
   }, [run]);
 
   // Use the useBannerData hook to get processed banner data
-  const { data: bannerData } = useBannerData(homePageData?.banners || []);
-  const hasBannerData = bannerData && bannerData.length > 0;
+  const { hasActiveBanners } = useBannerData(homePageData?.banners || []);
 
   // Add usePromiseResult hooks to get bookmark and trending data
-  const { result: bookmarksData } = usePromiseResult(
+  const { result: bookmarksData, run: refreshBookmarks } = usePromiseResult(
     async () => {
       const bookmarks =
         await backgroundApiProxy.serviceDiscovery.getBookmarkData({
@@ -85,21 +85,26 @@ function DashboardContent({
     },
   );
 
-  const { result: trendingData } = usePromiseResult<any[]>(
-    async () => {
-      const data =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      return data.trending || [];
-    },
-    [],
-    {
-      watchLoading: true,
-    },
-  );
+  useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
+    if (isFocus) {
+      // Execute the `usePromiseResult` in the nextTick because the focus state may not have been updated.
+      setTimeout(() => {
+        void refreshBookmarks();
+      });
+    }
+  });
+
+  const { displayHomePage } = useDisplayHomePageFlag();
+  useEffect(() => {
+    if (displayHomePage && platformEnv.isNative) {
+      void refreshBookmarks();
+    }
+  }, [displayHomePage, refreshBookmarks]);
 
   // Check if both bookmarks and trending have no data
-  const hasBookmarks = (bookmarksData && bookmarksData.length > 0) || false;
-  const hasTrending = (trendingData && trendingData.length > 0) || false;
+  const hasBookmarks = bookmarksData && bookmarksData.length > 0;
+  const hasTrending =
+    homePageData?.trending && homePageData.trending.length > 0;
   const showDiveInDescription = !hasBookmarks && !hasTrending;
 
   const content = useMemo(
@@ -107,96 +112,55 @@ function DashboardContent({
       <>
         <Welcome
           banner={
-            hasBannerData ? (
+            hasActiveBanners ? (
               <DashboardBanner
                 key="Banner"
                 banners={homePageData?.banners || []}
-                handleOpenWebSite={({ webSite, useSystemBrowser }) => {
-                  if (useSystemBrowser && webSite?.url) {
-                    openUrlExternal(webSite.url);
-                  } else if (webSite?.url) {
-                    handleOpenWebSite({
-                      switchToMultiTabBrowser: gtMd,
-                      webSite,
-                      navigation,
-                      shouldPopNavigation: false,
-                    });
-                  }
-                  defaultLogger.discovery.dapp.enterDapp({
-                    dappDomain: webSite?.url || '',
-                    dappName: webSite?.title || '',
-                    enterMethod: EEnterMethod.banner,
-                  });
-                }}
                 isLoading={isLoading}
               />
             ) : null
           }
+          discoveryData={homePageData}
         />
 
-        {platformEnv.isExtension || platformEnv.isWeb ? null : (
-          <Stack alignItems="center">
-            {showDiveInDescription ? (
-              <DiveInContent />
-            ) : (
-              <>
+        <Stack alignItems="center">
+          {!isLoading && showDiveInDescription ? (
+            <DiveInContent onReload={refresh} />
+          ) : (
+            <>
+              {hasBookmarks ? (
                 <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
-                  <BookmarksSection
-                    key="BookmarksSection"
-                    handleOpenWebSite={({ webSite }) => {
-                      handleOpenWebSite({
-                        switchToMultiTabBrowser: gtMd,
-                        webSite,
-                        navigation,
-                        shouldPopNavigation: false,
-                      });
-                      defaultLogger.discovery.dapp.enterDapp({
-                        dappDomain: webSite?.url || '',
-                        dappName: webSite?.title || '',
-                        enterMethod: EEnterMethod.dashboard,
-                      });
-                    }}
-                  />
+                  <BookmarksSection key="BookmarksSection" />
                 </Stack>
+              ) : null}
 
-                {/* here is trending */}
-                <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
+              <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$4">
+                <ReviewControl>
                   <TrendingSection
-                    handleOpenWebSite={({ webSite }) => {
-                      handleOpenWebSite({
-                        switchToMultiTabBrowser: gtMd,
-                        webSite,
-                        navigation,
-                        shouldPopNavigation: false,
-                      });
-                      defaultLogger.discovery.dapp.enterDapp({
-                        dappDomain: webSite?.url || '',
-                        dappName: webSite?.title || '',
-                        enterMethod: EEnterMethod.dashboard,
-                      });
-                    }}
+                    data={homePageData?.trending || []}
+                    isLoading={!!isLoading}
                   />
-                </Stack>
-              </>
-            )}
-          </Stack>
-        )}
+                </ReviewControl>
+              </Stack>
+            </>
+          )}
+        </Stack>
       </>
     ),
     [
-      homePageData?.banners,
-      hasBannerData,
+      hasActiveBanners,
+      homePageData,
       isLoading,
-      handleOpenWebSite,
-      gtMd,
-      navigation,
       showDiveInDescription,
+      refresh,
+      hasBookmarks,
     ],
   );
 
   if (platformEnv.isNative) {
     return (
       <ScrollView
+        height="100%"
         onScroll={isFocused ? (onScroll as any) : undefined}
         scrollEventThrottle={16}
         refreshControl={

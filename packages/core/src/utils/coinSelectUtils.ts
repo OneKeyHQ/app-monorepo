@@ -7,6 +7,7 @@ import coinSelectUtils from '@onekeyfe/coinselect/utils';
 import coinSelectWitness from '@onekeyfe/coinselect/witness';
 import { isNil } from 'lodash';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { EAddressEncodings } from '../types';
@@ -50,6 +51,7 @@ export type ICoinSelectWithWitnessOptions = {
     path: string;
   };
   txType: ICoinSelectPaymentType;
+  skipUtxoSelection?: boolean;
 };
 
 function utxoScore(x: ICoinSelectInput, feeRate: number) {
@@ -104,7 +106,7 @@ export const coinSelect = ({
     return typeof o.value === 'number' && !Number.isNaN(o.value);
   });
   if (!validAmount) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'coinSelect ERROR: Invalid amount in outputs, you should specify valid value or isMax',
     );
   }
@@ -138,7 +140,7 @@ export const coinSelect = ({
   );
 
   if (isNil(fee)) {
-    throw new Error('coinSelect ERROR: No fee found');
+    throw new OneKeyLocalError('coinSelect ERROR: No fee found');
   }
   return { inputs, outputs, fee };
 };
@@ -165,7 +167,7 @@ export const getCoinSelectTxType = (
     case EAddressEncodings.P2WSH:
       return 'p2wsh';
     default:
-      throw new Error('coinSelect ERROR: Invalid encoding');
+      throw new OneKeyLocalError('coinSelect ERROR: Invalid encoding');
   }
 };
 

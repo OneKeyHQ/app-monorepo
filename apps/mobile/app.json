@@ -1,7 +1,7 @@
 {
   "expo": {
     "scheme": "onekey-wallet",
-    "name": "OneKey Wallet",
+    "name": "OneKey",
     "slug": "OneKey-Wallet",
     "owner": "onekeyhq",
     "version": "1.0.0",
@@ -22,7 +22,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "so.onekey.wallet",
       "associatedDomains": [
-        "applinks:1key.so"
+        "applinks:app.onekey.so"
       ]
     },
     "android": {
@@ -49,7 +49,13 @@
         }
       ],
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "react-native-capture-protection",
+        {
+          "captureType": "fullMediaCapture"
+        }
+      ]
     ]
   }
 }

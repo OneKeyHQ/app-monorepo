@@ -1,4 +1,4 @@
-import type { ComponentType, PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 import type { IListViewProps } from '../ListView/list';
 import type { ListRenderItem } from 'react-native';
@@ -26,9 +26,7 @@ export type ISwiperProps<T> = Omit<
     height: IListViewProps<T>['height'];
     data: ArrayLike<T> | null | undefined;
     renderItem: ListRenderItem<T> | null | undefined;
-    renderPagination?: (
-      params: IRenderPaginationParams,
-    ) => ReactElement | ComponentType;
+    renderPagination?: (params: IRenderPaginationParams) => ReactNode;
     onChangeIndex?: (item: { index: number; prevIndex: number }) => void;
     disableGesture?: boolean;
     autoplayDelayMs?: number;

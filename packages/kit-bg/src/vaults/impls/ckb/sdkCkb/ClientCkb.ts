@@ -3,7 +3,7 @@ import { ParamsFormatter, ResultFormatter } from '@ckb-lumos/rpc';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
 import type { ECellStatus } from '../types';
-import type { LiveCell, OutPoint } from '@ckb-lumos/base';
+import type { OutPoint } from '@ckb-lumos/base';
 import type {
   GetCellsSearchKey,
   GetLiveCellsResult,

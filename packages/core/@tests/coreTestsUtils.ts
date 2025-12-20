@@ -30,11 +30,13 @@ function expectAccountEqual(
     address: a.address,
     path: a.path,
     publicKey: a.publicKey,
+    __hwExtraInfo__: a.__hwExtraInfo__,
   };
   const b1: ICoreApiGetAddressItem = {
     address: b.address,
     path: b.path,
     publicKey: b.publicKey,
+    __hwExtraInfo__: b.__hwExtraInfo__,
   };
   expect(a1).toEqual(b1);
 }
@@ -136,7 +138,10 @@ async function expectGetAddressFromHdOk({
     addressEncoding,
   });
   for (let i = 0; i < hdAccounts.length; i += 1) {
-    expectAccountEqual(addresses.addresses[i], hdAccounts[i]);
+    expectAccountEqual(addresses.addresses[i], {
+      ...hdAccounts[i],
+      __hwExtraInfo__: undefined,
+    });
   }
 }
 

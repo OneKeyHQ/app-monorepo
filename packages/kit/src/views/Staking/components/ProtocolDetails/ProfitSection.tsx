@@ -15,21 +15,20 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
   IEarnRewardUnit,
-  IEarnTokenItem,
-  IRewardApys,
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 
+import { useEarnEventActive } from '../../hooks/useEarnEventActive';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
 import { GridItem } from './GridItem';
-import { MorphoApy } from './MorphoApy';
+import { ProtocolApyRewards } from './ProtocolApyRewards';
 
 type IProfitInfoProps = {
+  details: IStakeProtocolDetails;
   apr?: string;
-  apys?: IRewardApys;
   rewardUnit: IEarnRewardUnit;
-  rewardAssets?: Record<string, IEarnTokenItem>;
+  totalRewardAmount?: string;
   earningsIn24h?: string;
   rewardToken?: string;
   rewardTokens?: string;
@@ -40,13 +39,13 @@ type IProfitInfoProps = {
   stakingTime?: number;
   nextLaunchLeft?: string;
   providerName?: string;
-  poolFee?: string;
+  token: IStakeProtocolDetails['token'];
+  joinRequirement?: string;
 };
 
 function ProfitInfo({
+  details,
   apr,
-  apys,
-  rewardAssets,
   earningsIn24h,
   rewardToken,
   rewardTokens,
@@ -54,10 +53,12 @@ function ProfitInfo({
   updateFrequency,
   unstakingPeriod,
   stakingTime,
+  totalRewardAmount,
   earnPoints,
   rewardUnit,
   providerName,
-  poolFee,
+  joinRequirement,
+  token,
 }: IProfitInfoProps) {
   const intl = useIntl();
 
@@ -66,6 +67,13 @@ function ProfitInfo({
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
+  const apys = details.provider.apys;
+  const aprWithoutFee = details.provider.aprWithoutFee;
+  const isFalconProvider = earnUtils.isFalconProvider({
+    providerName: providerName || '',
+  });
+  const { isEventActive } = useEarnEventActive(details.provider.eventEndTime);
+
   return (
     <YStack gap="$6">
       <SizableText size="$headingLg">
@@ -93,7 +101,8 @@ function ProfitInfo({
               </XStack>
             </GridItem>
           ) : null}
-          {apys?.dailyNetApy && Number(apys.dailyNetApy) > 0 ? (
+          {(apys?.dailyNetApy && Number(apys.dailyNetApy) > 0) ||
+          (apys?.weeklyNetApy && Number(apys.weeklyNetApy) > 0) ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_rewards_percentage,
@@ -101,9 +110,11 @@ function ProfitInfo({
             >
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyLgMedium" color="$textSuccess">
-                  {`${formatApy(apys?.dailyNetApy)}% ${rewardUnit}`}
+                  {`${formatApy(
+                    isFalconProvider ? aprWithoutFee : apys?.dailyNetApy,
+                  )}% ${rewardUnit}`}
                 </SizableText>
-                {apys ? (
+                {/* {apys ? (
                   <Popover
                     floatingPanelProps={{
                       w: 320,
@@ -118,22 +129,10 @@ function ProfitInfo({
                         variant="tertiary"
                       />
                     }
-                    renderContent={
-                      <MorphoApy
-                        apys={apys}
-                        rewardAssets={rewardAssets}
-                        poolFee={
-                          earnUtils.isMorphoProvider({
-                            providerName: providerName || '',
-                          })
-                            ? poolFee
-                            : undefined
-                        }
-                      />
-                    }
+                    renderContent={<ProtocolApyRewards details={details} />}
                     placement="top"
                   />
-                ) : null}
+                ) : null} */}
               </XStack>
             </GridItem>
           ) : null}
@@ -150,9 +149,31 @@ function ProfitInfo({
                 formatter="value"
                 color="$textSuccess"
                 size="$bodyLgMedium"
-                formatterOptions={{ currency: symbol }}
+                formatterOptions={{
+                  currency: symbol,
+                  showPlusMinusSigns: Number(earningsIn24h) >= 0.01,
+                }}
               >
                 {earningsIn24h}
+              </NumberSizeableText>
+            </GridItem>
+          ) : null}
+          {totalRewardAmount && Number(totalRewardAmount) > 0 ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_referral_total_earned,
+              })}
+            >
+              <NumberSizeableText
+                formatter="balance"
+                color="$textSuccess"
+                size="$bodyLgMedium"
+                formatterOptions={{
+                  tokenSymbol: token.info.symbol,
+                  showPlusMinusSigns: Number(totalRewardAmount) > 0,
+                }}
+              >
+                {totalRewardAmount}
               </NumberSizeableText>
             </GridItem>
           ) : null}
@@ -162,7 +183,36 @@ function ProfitInfo({
                 id: ETranslations.earn_reward_tokens,
               })}
             >
-              {receiptToken || rewardTokens}
+              <XStack gap="$1" alignItems="center">
+                <SizableText size="$bodyLgMedium">
+                  {receiptToken || rewardTokens}
+                </SizableText>
+                {isFalconProvider && isEventActive ? (
+                  <Popover
+                    placement="top"
+                    title={intl.formatMessage({
+                      id: ETranslations.earn_reward_tokens,
+                    })}
+                    renderTrigger={
+                      <IconButton
+                        iconColor="$iconSubdued"
+                        size="small"
+                        icon="InfoCircleOutline"
+                        variant="tertiary"
+                      />
+                    }
+                    renderContent={
+                      <XStack p="$5">
+                        <SizableText>
+                          {intl.formatMessage({
+                            id: ETranslations.earn_fixed_yield_info,
+                          })}
+                        </SizableText>
+                      </XStack>
+                    }
+                  />
+                ) : null}
+              </XStack>
             </GridItem>
           ) : null}
           {updateFrequency ? (
@@ -174,7 +224,10 @@ function ProfitInfo({
               {updateFrequency}
             </GridItem>
           ) : null}
-          {stakingTime ? (
+          {stakingTime &&
+          !earnUtils.isValidatorProvider({
+            providerName: providerName || '',
+          }) ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_earnings_start,
@@ -206,6 +259,24 @@ function ProfitInfo({
               )}
             </GridItem>
           ) : null}
+          {joinRequirement && Number(joinRequirement) > 0 ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_join_requirement,
+              })}
+            >
+              <NumberSizeableText
+                formatter="balance"
+                color="$text"
+                size="$bodyLgMedium"
+                formatterOptions={{
+                  tokenSymbol: rewardToken,
+                }}
+              >
+                {joinRequirement}
+              </NumberSizeableText>
+            </GridItem>
+          ) : null}
         </XStack>
       )}
     </YStack>
@@ -221,24 +292,24 @@ export const ProfitSection = ({
     return null;
   }
   const props: IProfitInfoProps = {
+    details,
     apr:
       Number(details.provider?.aprWithoutFee) > 0
         ? details.provider.aprWithoutFee
         : undefined,
-    apys: details.provider.apys,
-    rewardAssets: details.rewardAssets,
     earningsIn24h: details.earnings24h,
+    totalRewardAmount: details.totalRewardAmount,
     rewardToken: details.rewardToken,
     rewardTokens: details.rewardToken,
     receiptToken: details.provider.receiptToken,
-    // updateFrequency: details.updateFrequency,
     earnPoints: details.provider.earnPoints,
     unstakingPeriod: details.unstakingPeriod,
     stakingTime: details.provider.stakingTime,
     nextLaunchLeft: details.provider.nextLaunchLeft,
     rewardUnit: details.provider.rewardUnit,
     providerName: details.provider.name,
-    poolFee: details.provider.poolFee,
+    token: details.token,
+    joinRequirement: details.provider.joinRequirement,
   };
   return <ProfitInfo {...props} />;
 };

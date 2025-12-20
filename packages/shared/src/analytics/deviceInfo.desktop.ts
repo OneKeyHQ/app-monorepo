@@ -5,9 +5,9 @@ import type { IDeviceInfo, IGetDeviceInfo } from './type';
 
 const deviceInfo = {
   deviceId: generateUUID(),
-  arch: globalThis.desktopApi.arch || 'unknown',
-  os: globalThis.desktopApi.platform,
-  osVersion: globalThis.desktopApi.systemVersion,
+  arch: globalThis.desktopApi?.arch || 'unknown',
+  os: globalThis.desktopApi?.platform,
+  osVersion: globalThis.desktopApi?.systemVersion,
   screenHeight: typeof window !== 'undefined' ? window.innerHeight : undefined,
   screenWidth: typeof window !== 'undefined' ? window.innerWidth : undefined,
 } as IDeviceInfo;

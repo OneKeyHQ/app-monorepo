@@ -1,16 +1,16 @@
-/* eslint-disable no-plusplus */
 const path = require('path');
-const { exec, execSync, spawnSync } = require('child_process');
+const { execSync } = require('child_process');
 
-const launchElectron = process.env.LAUNCH_ELECTRON === 'true';
 const projectRoot = path.join(__dirname, '..');
 
 const id = setInterval(checkPort, 1000);
 
 function checkPort() {
   try {
-    const status = execSync('lsof -i:3001', {});
-    if (!status) return;
+    if (process.platform !== 'win32') {
+      const status = execSync('lsof -i:3001', {});
+      if (!status) return;
+    }
   } catch (e) {
     return;
   }

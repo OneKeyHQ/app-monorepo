@@ -1,25 +1,31 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, noop } from 'lodash';
 import TronWeb from 'tronweb';
 
+import {
+  TRON_SOURCE_FLAG_MAINNET,
+  TRON_SOURCE_FLAG_TESTNET,
+} from '@onekeyhq/core/src/chains/tron/constants';
 import type {
   IDecodedTxExtraTron,
   IEncodedTxTron,
 } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InsufficientBalance,
-  InvalidAddress,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
+import contractUtils from '@onekeyhq/shared/src/utils/contractUtils';
+import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -32,7 +38,13 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
-import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import {
+  ETronResourceRentalPayType,
+  type IFeeInfoUnit,
+  type ITronResourceRentalInfo,
+} from '@onekeyhq/shared/types/fee';
+import { type IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -52,13 +64,13 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { KeyringQr } from './KeytringQr';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IApproveInfo,
   IBroadcastTransactionByCustomRpcParams,
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -82,7 +94,7 @@ export default class Vault extends VaultBase {
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: undefined,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -131,7 +143,9 @@ export default class Vault extends VaultBase {
       approveInfo as IApproveInfo;
 
     if (!tokenInfo) {
-      throw new Error('buildEncodedTx ERROR: approveInfo.tokenInfo is missing');
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: approveInfo.tokenInfo is missing',
+      );
     }
 
     const amountHex = toBigIntHex(
@@ -189,11 +203,13 @@ export default class Vault extends VaultBase {
       const { from, to, amount, tokenInfo } = transferInfo;
 
       if (!transferInfo.to) {
-        throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+        throw new OneKeyLocalError(
+          'buildEncodedTx ERROR: transferInfo.to is missing',
+        );
       }
 
       if (!tokenInfo) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
         );
       }
@@ -275,7 +291,7 @@ export default class Vault extends VaultBase {
             },
           });
         } else if (typeof e === 'string') {
-          throw new Error(e);
+          throw new OneKeyLocalError(e);
         } else {
           throw e;
         }
@@ -493,26 +509,41 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxTron);
+      return this._buildUnsignedTxFromEncodedTx({
+        encodedTx: encodedTx as IEncodedTxTron,
+        transfersInfo: params.transfersInfo ?? [],
+      });
     }
     throw new OneKeyInternalError();
   }
 
-  async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxTron) {
-    return Promise.resolve({ encodedTx });
+  async _buildUnsignedTxFromEncodedTx({
+    encodedTx,
+    transfersInfo,
+  }: {
+    encodedTx: IEncodedTxTron;
+    transfersInfo: ITransferInfo[];
+  }) {
+    return Promise.resolve({ encodedTx, transfersInfo });
   }
 
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, nativeAmountInfo, tokenApproveInfo } = params;
+    const {
+      unsignedTx,
+      nativeAmountInfo,
+      tokenApproveInfo,
+      tronResourceRentalInfo,
+    } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxTron;
-
+    let updated = false;
     if (tokenApproveInfo) {
       encodedTxNew = await this._updateTokenApproveInfo({
         encodedTx: encodedTxNew,
         tokenApproveInfo,
       });
+      updated = true;
     }
 
     if (nativeAmountInfo) {
@@ -520,8 +551,22 @@ export default class Vault extends VaultBase {
         encodedTx: encodedTxNew,
         nativeAmountInfo,
       });
+      updated = true;
     }
 
+    if (
+      unsignedTx.transfersInfo &&
+      unsignedTx.transfersInfo.length > 0 &&
+      tronResourceRentalInfo &&
+      !updated
+    ) {
+      encodedTxNew = await this._updateTxAfterResourceRental({
+        encodedTx: encodedTxNew,
+        tronResourceRentalInfo,
+        transfersInfo: unsignedTx.transfersInfo,
+      });
+      updated = true;
+    }
     unsignedTx.encodedTx = encodedTxNew;
     return unsignedTx;
   }
@@ -638,6 +683,25 @@ export default class Vault extends VaultBase {
     }
 
     return Promise.resolve(encodedTx);
+  }
+
+  async _updateTxAfterResourceRental(params: {
+    encodedTx: IEncodedTxTron;
+    tronResourceRentalInfo: ITronResourceRentalInfo;
+    transfersInfo: ITransferInfo[];
+  }) {
+    const { encodedTx, tronResourceRentalInfo, transfersInfo } = params;
+
+    if (
+      !tronResourceRentalInfo.isResourceRentalEnabled ||
+      !tronResourceRentalInfo.isResourceRentalNeeded
+    ) {
+      return encodedTx;
+    }
+
+    return this._buildEncodedTxFromTransfer({
+      transfersInfo,
+    });
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
@@ -774,38 +838,15 @@ export default class Vault extends VaultBase {
     }
 
     let buildTxParams = [];
-    if (isSwapBridge) {
-      const functionParams = defaultAbiCoder.decode(
-        [
-          'tuple(address,address,address,uint256,uint256,uint256,uint256,uint256,bytes,bytes,bytes)',
-        ],
-        `0x${data.slice(10)}`,
-      );
-      buildTxParams = [
-        {
-          type: 'tuple(address,address,address,uint256,uint256,uint256,uint256,uint256,bytes,bytes,bytes)',
-          value: functionParams[0],
-        },
-      ];
-    } else {
-      const functionParams = defaultAbiCoder.decode(
-        ['uint256', 'uint256', 'uint256', 'bytes32[]'],
-        `0x${data.slice(10)}`,
-      ) as [{ _hex: string }, { _hex: string }, { _hex: string }, string[]];
-
-      buildTxParams = [
-        { type: 'uint256', value: functionParams[0]._hex },
-        {
-          type: 'uint256',
-          value: functionParams[1]._hex,
-        },
-        { type: 'uint256', value: functionParams[2]._hex },
-        {
-          type: 'bytes32[]',
-          value: functionParams[3],
-        },
-      ];
-    }
+    const functionParams =
+      contractUtils.parseSignatureParameters(signatureDataHex);
+    const functionParamValues = contractUtils.flattenBigNumbers(
+      defaultAbiCoder.decode(functionParams, `0x${data.slice(10)}`),
+    ) as unknown[];
+    buildTxParams = functionParams.map((param, index) => ({
+      type: param,
+      value: functionParamValues[index],
+    }));
 
     const [{ result, transaction }] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
@@ -855,5 +896,269 @@ export default class Vault extends VaultBase {
     }
 
     return transaction;
+  }
+
+  async _createResourceRentalOrder(params: {
+    tronResourceRentalInfo: ITronResourceRentalInfo;
+  }) {
+    const { tronResourceRentalInfo } = params;
+
+    const createOrderParams = tronResourceRentalInfo.createOrderParams;
+
+    if (
+      createOrderParams &&
+      tronResourceRentalInfo.payType === ETronResourceRentalPayType.Token &&
+      !tronResourceRentalInfo.isSwapTrxEnabled
+    ) {
+      createOrderParams.extraTrxNum = 0;
+    }
+
+    const resp =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequestWithTrxRes<{
+        transaction: Types.Transaction;
+        orderId: string;
+        success: boolean;
+        error?: string;
+      }>({
+        networkId: this.networkId,
+        body: {
+          method: 'post',
+          url: '/api/v1/order/create',
+          data: {
+            ...createOrderParams,
+            sourceFlag: (
+              await this.getNetwork()
+            ).isTestnet
+              ? TRON_SOURCE_FLAG_TESTNET
+              : TRON_SOURCE_FLAG_MAINNET,
+          },
+          params: {},
+        },
+      });
+    return resp;
+  }
+
+  async _uploadResourceRentalOrder(params: {
+    orderId: string;
+    signedTx: ISignedTxPro;
+  }) {
+    const { orderId, signedTx } = params;
+    const resp =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequestWithTrxRes<{
+        tx_ids: string[];
+        success: boolean;
+        error?: string;
+      }>({
+        networkId: this.networkId,
+        body: {
+          method: 'post',
+          url: '/api/tronRent/uploadHash',
+          data: {
+            orderId,
+            fromHash: signedTx.txid,
+            signedData: JSON.parse(signedTx.rawTx),
+            sourceFlag: (
+              await this.getNetwork()
+            ).isTestnet
+              ? TRON_SOURCE_FLAG_TESTNET
+              : TRON_SOURCE_FLAG_MAINNET,
+          },
+          params: {},
+        },
+      });
+    return resp;
+  }
+
+  async _signRentalTx(params: { unsignedTx: IUnsignedTxPro }) {
+    const { unsignedTx } = params;
+    const { password, deviceParams } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId: this.accountId,
+        reason: EReasonForNeedPassword.CreateTransaction,
+      });
+    const tx =
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          const signedTx = await this.signTransaction({
+            unsignedTx,
+            password,
+            deviceParams,
+            signOnly: true,
+          });
+          console.log('signTx@vault.signTransaction', signedTx);
+          return signedTx;
+        },
+        { deviceParams, debugMethodName: 'serviceSend.signTransaction' },
+      );
+    return tx;
+  }
+
+  override async preActionsBeforeSending(params: {
+    unsignedTxs: IUnsignedTxPro[];
+    tronResourceRentalInfo?: ITronResourceRentalInfo;
+    feeInfo?: IFeeInfoUnit;
+  }) {
+    const { tronResourceRentalInfo } = params;
+
+    if (!tronResourceRentalInfo) {
+      return;
+    }
+
+    const { isResourceRentalNeeded, isResourceRentalEnabled } =
+      tronResourceRentalInfo;
+
+    if (!isResourceRentalNeeded || !isResourceRentalEnabled) {
+      return;
+    }
+
+    const rentalOrder = await this._createResourceRentalOrder({
+      tronResourceRentalInfo,
+    });
+
+    const signedRentalTx = await this._signRentalTx({
+      unsignedTx: {
+        encodedTx: rentalOrder.transaction,
+      },
+    });
+
+    const uploadResult = await this._uploadResourceRentalOrder({
+      orderId: rentalOrder.orderId,
+      signedTx: signedRentalTx,
+    });
+
+    return {
+      preSendTx: {
+        txid: uploadResult?.tx_ids?.[0] ?? '',
+      },
+    };
+  }
+
+  override async preActionsBeforeConfirm({
+    unsignedTxs,
+  }: {
+    unsignedTxs: IUnsignedTxPro[];
+  }) {
+    // disable auto claim energy for watching account
+    if (accountUtils.isWatchingAccount({ accountId: this.accountId })) {
+      return;
+    }
+
+    const unsignedTx = unsignedTxs[0];
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
+
+    const accountAddress = await this.getAccountAddress();
+
+    // 1. Check if the transaction requires consuming additional energy
+    if (encodedTx.raw_data.contract[0].type === 'TransferContract') {
+      return;
+    }
+
+    const feeResp = await this.backgroundApi.serviceGas.estimateFee({
+      networkId: this.networkId,
+      accountId: this.accountId,
+      accountAddress,
+      encodedTx,
+    });
+
+    const feeInfo: IFeeInfoUnit = {
+      common: feeResp.common,
+      feeTron: feeResp.feeTron?.[1] ?? feeResp.feeTron?.[0],
+    };
+
+    if (!feeInfo.feeTron) {
+      return;
+    }
+
+    const availableEnergy = new BigNumber(
+      feeInfo.feeTron.accountInfo?.energyTotal ?? 0,
+    ).minus(feeInfo.feeTron.accountInfo?.energyUsed ?? 0);
+
+    if (availableEnergy.gt(feeInfo.feeTron.requiredEnergy)) {
+      return;
+    }
+
+    const feeResult = calculateFeeForSend({
+      feeInfo,
+      nativeTokenPrice: feeResp.common.nativeTokenPrice ?? 0,
+    });
+
+    // 2. Check if the address has attempted to claim the subsidy within the last 24 hours
+    const tronClaimResourceInfo =
+      await this.backgroundApi.simpleDb.chainResource.getTronClaimResourceInfo({
+        accountAddress,
+      });
+
+    if (
+      tronClaimResourceInfo &&
+      tronClaimResourceInfo.lastClaimTime &&
+      Date.now() - tronClaimResourceInfo.lastClaimTime <
+        timerUtils.getTimeDurationMs({ hour: 24 })
+    ) {
+      return;
+    }
+
+    // 3. If more than 24 hours have passed since the last attempt, try to claim the subsidy again
+    const { timestamp, signed, claimSource } =
+      chainResourceUtils.buildTronClaimResourceParams({
+        accountAddress,
+        isTestnet: (await this.getNetwork()).isTestnet,
+      });
+
+    try {
+      const resp =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequestWithTrxRes<{
+          code: number;
+          message: string;
+          success: boolean;
+          error?: string;
+        }>({
+          networkId: this.networkId,
+          body: {
+            method: 'post',
+            url: '/api/tronRent/addFreeTronRentRecord',
+            data: {
+              fromAddress: accountAddress,
+              sourceFlag: claimSource,
+              timestamp,
+              signed,
+            },
+            params: {},
+          },
+          returnRawData: true,
+        });
+
+      // 4. Update the local tron claim resource state
+      await this.backgroundApi.simpleDb.chainResource.updateTronClaimResourceInfo(
+        {
+          accountAddress,
+          lastClaimTime: timestamp,
+        },
+      );
+
+      defaultLogger.reward.tronReward.claimResource({
+        networkId: this.networkId,
+        address: accountAddress,
+        sourceFlag: claimSource ?? '',
+        isSuccess: true,
+        resourceType: 'energy',
+        isAutoClaimed: true,
+      });
+
+      if (resp.code === 0) {
+        await timerUtils.wait(1000);
+      }
+
+      // 5. Return the claim flag, which will be used for special status display at the transaction confirm page
+      return {
+        isTronResourceAutoClaimed: resp.code === 0,
+        txOriginalFee: {
+          totalNative: feeResult.totalNative,
+          totalFiat: feeResult.totalFiat,
+        },
+      };
+    } catch (error) {
+      console.log(JSON.stringify(error));
+      noop();
+    }
   }
 }

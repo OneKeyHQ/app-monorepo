@@ -1,11 +1,7 @@
-import { useState } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
   Icon,
-  Input,
-  Popover,
   SizableText,
   Stack,
   Tooltip,
@@ -17,11 +13,12 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
-import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
-import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
+
+import HeaderLeftToolBarInput from './HeaderLeftToolBarInput';
 
 function HeaderLeftToolBar({
   url,
@@ -53,11 +50,8 @@ function HeaderLeftToolBar({
   onPinnedPress?: (pinned: boolean) => void;
 }) {
   const { hostSecurity, iconConfig } = useUrlRiskConfig(url);
-  const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
   const intl = useIntl();
   const media = useMedia();
-
-  const { isHttpsUrl, hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
 
   if (media.md) {
     return (
@@ -86,11 +80,6 @@ function HeaderLeftToolBar({
       </Stack>
     );
   }
-  const inputProps = {
-    onPress: () => {
-      onSearch?.(url);
-    },
-  };
 
   return (
     <XStack alignItems="center" justifyContent="center" pl="$2">
@@ -131,77 +120,19 @@ function HeaderLeftToolBar({
           testID={`action-header-item-${loading ? 'stop-loading' : 'reload'}`}
         />
       </HeaderButtonGroup>
-      <Stack flex={1}>
-        <Input
-          containerProps={{ mx: '$6', flex: 1 } as any}
-          size="small"
-          leftAddOnProps={{
-            ...iconConfig,
-            iconSize: '$4',
-            mr: '$-2',
-            onPress: () => {
-              setDappInfoIsOpen(true);
-            },
-          }}
-          pb="$1.5"
-          value={hiddenHttpsUrl}
-          selectTextOnFocus
-          testID="explore-index-search-input"
-          addOns={[
-            {
-              iconName: isBookmark ? 'StarSolid' : 'StarOutline',
-              onPress: () => onBookmarkPress?.(!isBookmark),
-              tooltipProps: {
-                shortcutKey: EShortcutEvents.AddOrRemoveBookmark,
-                renderContent: intl.formatMessage({
-                  id: isBookmark
-                    ? ETranslations.explore_remove_bookmark
-                    : ETranslations.explore_add_bookmark,
-                }),
-              },
-              testID: `action-header-item-${
-                !isBookmark ? 'bookmark' : 'remove-bookmark'
-              }`,
-              ...(isBookmark && {
-                iconColor: '$icon',
-              }),
-            },
-            {
-              iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
-              onPress: () => onPinnedPress?.(!isPinned),
-              tooltipProps: {
-                shortcutKey: EShortcutEvents.PinOrUnpinTab,
-                renderContent: intl.formatMessage({
-                  id: isPinned
-                    ? ETranslations.explore_unpin
-                    : ETranslations.explore_pin,
-                }),
-              },
-              testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
-              ...(isPinned && {
-                iconColor: '$icon',
-              }),
-            },
-          ]}
-          {...(inputProps as any)}
-        />
-        <Stack ml={24}>
-          <Popover
-            placement="bottom-start"
-            title="dApp info"
-            open={dappInfoIsOpen}
-            onOpenChange={setDappInfoIsOpen}
-            renderTrigger={<Stack />}
-            renderContent={({ closePopover }) => (
-              <DappInfoPopoverContent
-                iconConfig={iconConfig}
-                hostSecurity={hostSecurity}
-                closePopover={closePopover}
-              />
-            )}
-          />
-        </Stack>
-      </Stack>
+      <HeaderLeftToolBarInput
+        url={url}
+        hostSecurity={hostSecurity}
+        iconConfig={iconConfig}
+        inputProps={{
+          onPress: !platformEnv.isDesktop ? () => onSearch?.(url) : undefined,
+        }}
+        isBookmark={isBookmark}
+        isPinned={isPinned}
+        isLoading={loading}
+        onBookmarkPress={onBookmarkPress}
+        onPinnedPress={onPinnedPress}
+      />
     </XStack>
   );
 }

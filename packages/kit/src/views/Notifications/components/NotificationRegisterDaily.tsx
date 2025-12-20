@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 
-import { noop } from 'lodash';
+import { debounce, noop } from 'lodash';
 
+import { useDeepCompareEffect } from '@onekeyhq/components';
 import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
@@ -10,6 +11,18 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 
+const fn = debounce(
+  async () => {
+    void backgroundApiProxy.serviceNotification.registerClientDaily();
+    void backgroundApiProxy.serviceDBBackup.backupDatabaseDaily();
+    void backgroundApiProxy.serviceAccount.generateAllQrWalletsMissingXfp();
+  },
+  5000,
+  {
+    leading: false,
+    trailing: true,
+  },
+);
 export function NotificationRegisterDaily() {
   const isFocused = useRouteIsFocused();
   const [{ locale, currencyInfo }] = useSettingsPersistAtom();
@@ -22,16 +35,17 @@ export function NotificationRegisterDaily() {
       return;
     }
     if (isFocused) {
-      void backgroundApiProxy.serviceNotification.registerClientDaily();
+      void fn();
     }
   }, [isFocused]);
 
-  useEffect(() => {
+  useDeepCompareEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
     noop(locale, currencyInfo, hideValue);
+    console.log('NotificationRegisterDaily:', locale, currencyInfo, hideValue);
     void backgroundApiProxy.serviceNotification.updateClientBasicAppInfo();
   }, [locale, currencyInfo, hideValue]);
 

@@ -1,7 +1,6 @@
 import type { ComponentProps } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -24,6 +23,7 @@ export type ITxActionProps = {
   replaceType?: EReplaceTxType;
   swapInfo?: ISwapTxInfo;
   hideValue?: boolean;
+  compact?: boolean;
 };
 
 export type ITxActionComponents = {
@@ -50,6 +50,7 @@ export type ITxActionCommonListViewProps = {
     prefix?: string;
     icon?: IKeyOfIcons;
     children?: string;
+    originalAddress?: string;
   };
   change?: React.ReactNode;
   changeDescription?: React.ReactNode;
@@ -61,6 +62,7 @@ export type ITxActionCommonListViewProps = {
   networkId: string;
   networkLogoURI?: string;
   riskyLevel?: number;
+  compact?: boolean;
 };
 
 export type ITxActionCommonDetailViewProps = {

@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IYStackProps } from '@onekeyhq/components';
+import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
 import {
   Icon,
   SizableText,
@@ -20,6 +20,7 @@ import {
   useSignatureConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
@@ -35,6 +36,8 @@ import {
 import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
 
+import type { FontSizeTokens } from 'tamagui';
+
 type IAssetsCommonProps = {
   networkId: string;
   showNetwork?: boolean;
@@ -45,6 +48,7 @@ type IAssetsCommonProps = {
     isMaxSend: boolean;
     amountToUpdate: string;
   };
+  inSimulation?: boolean;
 } & ISignatureConfirmItemType;
 
 type IAssetsTokenProps = IAssetsCommonProps & {
@@ -77,8 +81,10 @@ function SignatureAssetDetailItem({
   showNetwork,
   amount,
   symbol,
+  name,
   editable,
   tokenProps,
+  textProps,
   isLoading,
   handleEdit,
   hideLabel,
@@ -86,16 +92,20 @@ function SignatureAssetDetailItem({
   NFTType,
   nativeTokenTransferAmountToUpdate,
   isSendNativeTokenOnly,
+  inSimulation,
+  isSmallSize,
   ...rest
 }: {
   type?: 'token' | 'nft';
   label: string;
   amount: string;
   symbol: string;
+  name?: string;
   editable?: boolean;
   showNetwork?: boolean;
   isLoading?: boolean;
   tokenProps?: Omit<ITokenProps, 'size' | 'showNetworkIcon'>;
+  textProps?: ISizableTextProps;
   handleEdit?: () => void;
   hideLabel?: boolean;
   transferDirection?: ETransferDirection;
@@ -105,6 +115,8 @@ function SignatureAssetDetailItem({
     amountToUpdate: string;
   };
   isSendNativeTokenOnly?: boolean;
+  inSimulation?: boolean;
+  isSmallSize?: boolean;
 } & ISignatureConfirmItemType) {
   const { network } = useAccountData({
     networkId: tokenProps?.networkId,
@@ -112,31 +124,93 @@ function SignatureAssetDetailItem({
 
   const renderDetails = useCallback(() => {
     if (isLoading) {
+      if (isSmallSize) {
+        return <Skeleton.HeadingSm />;
+      }
+
       return <Skeleton.HeadingMd />;
     }
+
+    const amountTextProps: {
+      size: FontSizeTokens;
+    } = isSmallSize
+      ? {
+          size: '$headingSm',
+        }
+      : {
+          size: '$headingMd',
+        };
+
+    const symbolTextProps: {
+      size: FontSizeTokens;
+    } = isSmallSize
+      ? {
+          size: inSimulation ? '$bodyMdMedium' : '$bodyMd',
+        }
+      : {
+          size: inSimulation ? '$bodyLgMedium' : '$bodyLg',
+        };
+
     return (
       <>
-        {transferDirection === ETransferDirection.Out ? (
-          <SizableText size="$headingMd" mr="$-1">
-            -
-          </SizableText>
-        ) : null}
-        {transferDirection === ETransferDirection.In ? (
-          <SizableText size="$headingMd" mr="$-1">
-            +
-          </SizableText>
-        ) : null}
-        {type !== 'nft' || (type === 'nft' && NFTType === ENFTType.ERC1155) ? (
-          <SizableText size="$headingMd" maxWidth={240} overflow="hidden">
-            {isSendNativeTokenOnly &&
-            nativeTokenTransferAmountToUpdate?.isMaxSend &&
-            !isNil(nativeTokenTransferAmountToUpdate.amountToUpdate) &&
-            transferDirection === ETransferDirection.Out
-              ? nativeTokenTransferAmountToUpdate.amountToUpdate
-              : amount}
-          </SizableText>
-        ) : null}
-        {symbol ? <SizableText size="$bodyLg">{symbol}</SizableText> : null}
+        <SizableText
+          maxWidth={editable ? '80%' : '100%'}
+          alignItems="center"
+          style={{
+            wordBreak: 'break-all',
+            overflowWrap: 'break-word',
+          }}
+        >
+          {transferDirection === ETransferDirection.Out ? (
+            <SizableText size={amountTextProps.size}>-</SizableText>
+          ) : null}
+          {transferDirection === ETransferDirection.In ? (
+            <SizableText size={amountTextProps.size} color="$textSuccess">
+              +
+            </SizableText>
+          ) : null}
+          {type !== 'nft' ||
+          (type === 'nft' && NFTType === ENFTType.ERC1155) ? (
+            <SizableText
+              size={amountTextProps.size}
+              color={
+                transferDirection === ETransferDirection.In
+                  ? '$textSuccess'
+                  : '$textText'
+              }
+              {...textProps}
+            >
+              {isSendNativeTokenOnly &&
+              nativeTokenTransferAmountToUpdate?.isMaxSend &&
+              !isNil(nativeTokenTransferAmountToUpdate.amountToUpdate) &&
+              transferDirection === ETransferDirection.Out
+                ? nativeTokenTransferAmountToUpdate.amountToUpdate
+                : amount}
+            </SizableText>
+          ) : null}
+          {type !== 'nft' && symbol ? (
+            <SizableText
+              size={symbolTextProps.size}
+              color={
+                transferDirection === ETransferDirection.In
+                  ? '$textSuccess'
+                  : '$textText'
+              }
+              {...textProps}
+            >{`  ${symbol}`}</SizableText>
+          ) : null}
+          {type === 'nft' && name ? (
+            <SizableText
+              size={symbolTextProps.size}
+              color={
+                transferDirection === ETransferDirection.In
+                  ? '$textSuccess'
+                  : '$textText'
+              }
+              {...textProps}
+            >{`  ${name}`}</SizableText>
+          ) : null}
+        </SizableText>
         {editable ? (
           <Icon name="PencilOutline" size="$4.5" color="$iconSubdued" />
         ) : null}
@@ -144,15 +218,27 @@ function SignatureAssetDetailItem({
     );
   }, [
     isLoading,
+    isSmallSize,
+    inSimulation,
+    editable,
     transferDirection,
-    amount,
     type,
     NFTType,
-    symbol,
-    editable,
+    textProps,
     isSendNativeTokenOnly,
-    nativeTokenTransferAmountToUpdate,
+    nativeTokenTransferAmountToUpdate?.isMaxSend,
+    nativeTokenTransferAmountToUpdate?.amountToUpdate,
+    amount,
+    symbol,
+    name,
   ]);
+
+  const tokenSize = useMemo(() => {
+    if (inSimulation) {
+      return 'md';
+    }
+    return isSmallSize ? 'xs' : 'lg';
+  }, [inSimulation, isSmallSize]);
 
   return (
     <SignatureConfirmItem {...rest}>
@@ -161,17 +247,18 @@ function SignatureAssetDetailItem({
       ) : null}
       <XStack gap="$3" alignItems="center">
         <Token
-          size="lg"
+          size={tokenSize}
           showNetworkIcon={showNetwork}
           {...(type === 'nft' && {
             borderRadius: '$2',
           })}
           {...tokenProps}
         />
-        <YStack>
+        <YStack flex={1}>
           <XStack
             gap="$1"
             alignItems="center"
+            flex={1}
             {...(editable && {
               onPress: () => {
                 handleEdit?.();
@@ -198,9 +285,7 @@ function SignatureAssetDetailItem({
             {renderDetails()}
           </XStack>
           {showNetwork ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {network?.name}
-            </SizableText>
+            <SizableText size="$bodyMd">{network?.name}</SizableText>
           ) : null}
         </YStack>
       </XStack>
@@ -223,6 +308,7 @@ function AssetsToken(props: IAssetsTokenProps) {
       type="token"
       showNetwork={component.showNetwork ?? showNetwork}
       transferDirection={component.transferDirection}
+      isSmallSize={component.isSmallSize}
       {...rest}
     />
   );
@@ -280,7 +366,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
       type="token"
       handleEdit={() => {
         if (isNil(token.info.decimals)) {
-          throw new Error('token decimals is required.');
+          throw new OneKeyLocalError('token decimals is required.');
         }
         if (isBuildingDecodedTxs) return;
         showApproveEditor({
@@ -308,9 +394,8 @@ function AssetsNFT(props: IAssetsNFTProps) {
     <SignatureAssetDetailItem
       label={component.label}
       amount={component.amount}
-      symbol={
-        component.nft.metadata?.name || component.nft.collectionName || ''
-      }
+      name={component.nft.metadata?.name || component.nft.collectionName || ''}
+      symbol={component.nft.collectionSymbol || ''}
       type="nft"
       tokenProps={{
         isNFT: true,
@@ -319,6 +404,7 @@ function AssetsNFT(props: IAssetsNFTProps) {
       }}
       transferDirection={component.transferDirection}
       NFTType={component.nft.collectionType}
+      isSmallSize={component.isSmallSize}
       {...rest}
     />
   );
@@ -330,6 +416,7 @@ function AssetsInternalAssets(props: IInternalAssetsProps) {
     <SignatureAssetDetailItem
       label={component.label}
       amount={component.amountParsed}
+      name={component.name}
       symbol={component.symbol}
       tokenProps={{
         tokenImageUri: component.icon,

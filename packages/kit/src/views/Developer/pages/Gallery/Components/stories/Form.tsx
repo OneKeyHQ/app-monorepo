@@ -129,6 +129,7 @@ const Form1 = () => {
 
 const FormGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Form"
     description="通过表单完成内容提交"
     suggestions={[

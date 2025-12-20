@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -13,24 +12,24 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
+
 import { BookmarksSectionItems } from './BookmarksSectionItems';
 import { DashboardSectionHeader } from './DashboardSectionHeader';
 
 import type { IBrowserBookmark, IMatchDAppItemType } from '../../types';
 
-export function BookmarksSection({
-  handleOpenWebSite,
-}: {
-  handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
-}) {
+export function BookmarksSection() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const handleWebSite = useWebSiteHandler();
 
   const { result: bookmarksData, run: refreshLocalData } = usePromiseResult(
     async () => {
@@ -45,6 +44,8 @@ export function BookmarksSection({
     [],
     {
       watchLoading: true,
+      checkIsMounted: false,
+      checkIsFocused: false,
     },
   );
 
@@ -84,9 +85,23 @@ export function BookmarksSection({
     () => bookmarksData ?? [],
     [bookmarksData],
   );
-
-  const isLoadingBookmarks = isNil(bookmarksData);
   const hasBookmarks = dataSource.length > 0;
+
+  const handleOpenWebSite = useCallback(
+    ({ dApp, webSite }: IMatchDAppItemType) => {
+      handleWebSite({
+        webSite,
+        dApp,
+        shouldPopNavigation: false,
+        enterMethod: EEnterMethod.bookmark,
+      });
+    },
+    [handleWebSite],
+  );
+
+  if (!hasBookmarks) {
+    return null;
+  }
 
   return (
     <Stack minHeight="$40">
@@ -102,35 +117,10 @@ export function BookmarksSection({
         ) : null}
       </DashboardSectionHeader>
 
-      {hasBookmarks ? (
-        <BookmarksSectionItems
-          dataSource={dataSource}
-          handleOpenWebSite={handleOpenWebSite}
-        />
-      ) : (
-        <Stack
-          bg="$bgSubdued"
-          py="$6"
-          flex={1}
-          borderRadius="$3"
-          borderCurve="continuous"
-          justifyContent="center"
-        >
-          {isLoadingBookmarks ? (
-            <Skeleton w="100%" />
-          ) : (
-            <SizableText
-              size="$bodyLg"
-              color="$textDisabled"
-              textAlign="center"
-            >
-              {intl.formatMessage({
-                id: ETranslations.explore_no_boomark,
-              })}
-            </SizableText>
-          )}
-        </Stack>
-      )}
+      <BookmarksSectionItems
+        dataSource={dataSource}
+        handleOpenWebSite={handleOpenWebSite}
+      />
     </Stack>
   );
 }

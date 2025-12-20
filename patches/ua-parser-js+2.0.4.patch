@@ -1,0 +1,13 @@
+diff --git a/node_modules/ua-parser-js/src/main/ua-parser.mjs b/node_modules/ua-parser-js/src/main/ua-parser.mjs
+index 13d7caa..1b4008c 100644
+--- a/node_modules/ua-parser-js/src/main/ua-parser.mjs
++++ b/node_modules/ua-parser-js/src/main/ua-parser.mjs
+@@ -119,7 +119,7 @@
+     var isWindow            = typeof window !== UNDEF_TYPE,
+         NAVIGATOR           = (isWindow && window.navigator) ? 
+                                 window.navigator : 
+-                                undefined,
++                                (typeof globalThis !== UNDEF_TYPE && globalThis && globalThis.navigator ? globalThis.navigator : undefined),
+         NAVIGATOR_UADATA    = (NAVIGATOR && NAVIGATOR.userAgentData) ? 
+                                 NAVIGATOR.userAgentData : 
+                                 undefined;

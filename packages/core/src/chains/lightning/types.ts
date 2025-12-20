@@ -46,6 +46,7 @@ export type IDecodedTxExtraLightning = {
 //   isTestnet: boolean;
 // };
 
+// eslint-disable-next-line spellcheck/spell-checker
 // export type ILightningHWSIgnatureParams = {
 //   msgPayload: UnionMsgType;
 //   path: string;

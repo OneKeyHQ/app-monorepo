@@ -19,9 +19,14 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { COINTYPE_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_COSMOS,
+  IMPL_COSMOS,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -75,10 +80,13 @@ class ProviderApiCosmos extends ProviderApiBase {
       (item) => item.accountInfo?.networkId === networkId,
     );
     if (!isSameNetwork) {
+      const oldNetworkId = accounts[0].accountInfo?.networkId;
+
       await this.backgroundApi.serviceDApp.switchConnectedNetwork({
         origin: request.origin ?? '',
         scope: request.scope ?? this.providerName,
         newNetworkId: networkId,
+        oldNetworkId,
       });
     }
   }
@@ -144,13 +152,13 @@ class ProviderApiCosmos extends ProviderApiBase {
     const chainId = typeof params === 'string' ? params : params[0];
 
     const networkId = this.convertCosmosChainId(chainId);
-    if (!networkId) throw new Error('Invalid chainId');
+    if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
     const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
       networkId,
     });
     if (!network) {
-      throw new Error('Invalid chainId');
+      throw new OneKeyLocalError('Invalid chainId');
     }
 
     try {
@@ -170,10 +178,16 @@ class ProviderApiCosmos extends ProviderApiBase {
 
   @providerApiMethod()
   public async babylonConnectWallet(request: IJsBridgeMessagePayload) {
-    const chainId = 'bbn-test-5';
+    let chainId;
+
+    if (request.origin?.indexOf('btcstaking.testnet.babylonlabs.io') !== -1) {
+      chainId = 'bbn-test-5';
+    } else {
+      chainId = 'bbn-1';
+    }
     const result = await this.enable(request, [chainId]);
     if (!result) {
-      throw new Error('Failed to connect Babylon wallet');
+      throw new OneKeyLocalError('Failed to connect Babylon wallet');
     }
     return chainId;
   }
@@ -205,7 +219,7 @@ class ProviderApiCosmos extends ProviderApiBase {
           this._enableFailureCache[origin] = now;
         } else {
           const chainId = params?.[0] ?? '';
-          throw new Error(`OneKey does not support ${chainId}.`);
+          throw new OneKeyLocalError(`OneKey does not support ${chainId}.`);
         }
         return false;
       }
@@ -253,11 +267,11 @@ class ProviderApiCosmos extends ProviderApiBase {
   public async getKey(request: IJsBridgeMessagePayload, params: string) {
     return this._getKeyQueue.runExclusive(async () => {
       const networkId = this.convertCosmosChainId(params);
-      if (!networkId) throw new Error('Invalid chainId');
+      if (!networkId) throw new OneKeyLocalError('Invalid chainId');
       const network = await this.backgroundApi.serviceNetwork.getNetwork({
         networkId,
       });
-      if (!network) throw new Error('Invalid chainId');
+      if (!network) throw new OneKeyLocalError('Invalid chainId');
 
       let account: {
         account: INetworkAccount;
@@ -280,7 +294,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         account = await this._getAccount(request, networkId);
       }
       if (!account) {
-        throw new Error('No account found');
+        throw new OneKeyLocalError('No account found');
       }
 
       return this._getKeyFromAccount(account.account);
@@ -312,7 +326,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     );
 
     const networkId = this.convertCosmosChainId(params.signDoc.chain_id);
-    if (!networkId) throw new Error('Invalid chainId');
+    if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
 
@@ -372,10 +386,10 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
       signOptions?: any;
     },
-  ): Promise<any> {
+  ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.signDoc.chainId);
-    if (!networkId) throw new Error('Invalid chainId');
+    if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
 
@@ -394,7 +408,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         });
 
       if (!accountInfo) {
-        throw new Error('Invalid account');
+        throw new OneKeyLocalError('Invalid account');
       }
 
       encodedTx.accountNumber = `${accountInfo.accountNumber ?? 0}`;
@@ -424,9 +438,18 @@ class ProviderApiCosmos extends ProviderApiBase {
     const [signerInfo] = txInfo.authInfo.signerInfos;
     const [signature] = txInfo.signatures;
 
-    const pubKey = PubKey.decode(
-      signerInfo?.publicKey?.value ?? new Uint8Array(),
-    );
+    let pubKey;
+    try {
+      const decodedPubKey = PubKey.decode(
+        signerInfo?.publicKey?.value ?? new Uint8Array(),
+      );
+      pubKey = encodeSecp256k1Pubkey(decodedPubKey.key);
+    } catch (error) {
+      pubKey = {
+        type: '',
+        value: '',
+      };
+    }
 
     return {
       signed: {
@@ -449,7 +472,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       },
       signature: {
         signature: Buffer.from(bytesToHex(signature), 'hex').toString('base64'),
-        pub_key: encodeSecp256k1Pubkey(pubKey.key),
+        pub_key: pubKey,
       },
     };
   }
@@ -466,7 +489,7 @@ class ProviderApiCosmos extends ProviderApiBase {
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.chainId);
-    if (!networkId) throw new Error('Invalid chainId');
+    if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
 
@@ -500,7 +523,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
 
       const networkId = this.convertCosmosChainId(params.chainId);
-      if (!networkId) throw new Error('Invalid chainId');
+      if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
       const account = await this._getAccount(request, networkId);
 
@@ -626,7 +649,8 @@ class ProviderApiCosmos extends ProviderApiBase {
       });
 
     const network = networks.find((n) => n.chainId === params);
-    if (!network) throw new Error(`OneKey does not support ${params}`);
+    if (!network)
+      throw new OneKeyLocalError(`OneKey does not support ${params}`);
 
     return {
       chainId: network.chainId,
@@ -635,6 +659,101 @@ class ProviderApiCosmos extends ProviderApiBase {
       currencies: [],
       feeCurrencies: [],
     };
+  }
+
+  // Wallet connect
+  @providerApiMethod()
+  public async cosmos_getAccounts(
+    request: IJsBridgeMessagePayload,
+    params: any,
+  ) {
+    // @ts-ignore
+    const wcChain = request.data.wcChainName as string;
+
+    if (!wcChain) {
+      throw new OneKeyLocalError('Invalid wcChain');
+    }
+    const [namespace, chainId] = wcChain.split(':');
+
+    if (namespace !== IMPL_COSMOS) {
+      throw new OneKeyLocalError('Invalid wcChain');
+    }
+
+    const account = await this._getAccount(
+      request,
+      this.convertCosmosChainId(chainId) ?? '',
+    );
+
+    return [
+      {
+        algo: 'secp251k1',
+        pubkey: account.account.pub
+          ? Buffer.from(
+              hexUtils.stripHexPrefix(account.account.pub),
+              'hex',
+            ).toString('base64')
+          : '',
+        address: account.account.addressDetail.displayAddress,
+      },
+    ];
+  }
+
+  @providerApiMethod()
+  public async cosmos_signAmino(
+    request: IJsBridgeMessagePayload,
+    params: {
+      signerAddress: string;
+      signDoc: ICosmosStdSignDoc;
+    },
+  ) {
+    return this.signAmino(request, {
+      signer: params.signerAddress,
+      signDoc: params.signDoc,
+    });
+  }
+
+  @providerApiMethod()
+  public async cosmos_signDirect(
+    request: IJsBridgeMessagePayload,
+    params: {
+      signerAddress: string;
+      signDoc: {
+        chainId: string;
+        accountNumber: string;
+        authInfoBytes: string;
+        bodyBytes: string;
+      };
+    },
+  ) {
+    const bodyBytesHex = hexUtils.stripHexPrefix(params.signDoc.bodyBytes);
+    const authInfoBytesHex = hexUtils.stripHexPrefix(
+      params.signDoc.authInfoBytes,
+    );
+    return this.signDirect(request, {
+      signer: params.signerAddress,
+      signDoc: {
+        chainId: params.signDoc.chainId,
+        accountNumber: params.signDoc.accountNumber,
+        authInfoBytes: authInfoBytesHex,
+        bodyBytes: bodyBytesHex,
+      },
+    }).then((res) => {
+      return {
+        signed: {
+          chainId: res.signed.chainId,
+          accountNumber: res.signed.accountNumber,
+          authInfoBytes: Buffer.from(
+            hexUtils.stripHexPrefix(res.signed.authInfoBytes),
+            'hex',
+          ).toString('base64'),
+          bodyBytes: Buffer.from(
+            hexUtils.stripHexPrefix(res.signed.bodyBytes),
+            'hex',
+          ).toString('base64'),
+        },
+        signature: res.signature,
+      };
+    });
   }
 }
 

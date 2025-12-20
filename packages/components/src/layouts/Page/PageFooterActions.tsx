@@ -10,7 +10,7 @@ import { Button, Stack, XStack } from '../../primitives';
 
 import { PageContext } from './PageContext';
 
-import type { IButtonProps, IStackProps } from '../../primitives';
+import type { IButtonProps, IStackProps, IXStackProps } from '../../primitives';
 import type { IPageNavigationProp } from '../Navigation';
 
 type IActionButtonProps = Omit<IButtonProps, 'children'>;
@@ -187,10 +187,12 @@ export function FooterActions({
       {children}
       <XStack
         gap="$2.5"
-        $gtMd={{
-          ml: 'auto',
-        }}
-        {...buttonContainerProps}
+        $gtMd={
+          {
+            ml: 'auto',
+          } as any
+        }
+        {...(buttonContainerProps as IXStackProps)}
       >
         {renderCancelButton()}
         {renderConfirmButton()}

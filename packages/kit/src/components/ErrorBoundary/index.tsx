@@ -4,6 +4,8 @@ import { PureComponent } from 'react';
 
 import { SafeAreaView, Text } from 'react-native';
 
+import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+
 type IErrorBoundaryProps = {
   children: React.ReactNode;
   onError?: (error: Error, componentStack: string | null) => void;
@@ -26,6 +28,7 @@ class ErrorBoundaryBase extends PureComponent<
     this.props?.onError?.(error, errorInfo?.componentStack || null);
     // eslint-disable-next-line react/no-unused-state
     this.setState({ error });
+    captureException(error);
   }
 
   override render() {
@@ -49,9 +52,6 @@ class ErrorBoundarySimple extends ErrorBoundaryBase {
 
 function SentryErrorBoundaryFallback({
   error,
-  componentStack,
-  eventId,
-  resetError,
 }: {
   error: unknown;
   componentStack: string;

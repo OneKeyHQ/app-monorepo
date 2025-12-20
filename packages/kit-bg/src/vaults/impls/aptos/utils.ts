@@ -2,11 +2,9 @@
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
-  Deserializer,
   Ed25519PublicKey,
   Ed25519Signature,
   SignedTransaction,
-  SimpleTransaction,
   TransactionAuthenticatorEd25519,
   TransactionResponseType,
   findFirstNonSignerArg,
@@ -15,6 +13,7 @@ import {
 } from '@aptos-labs/ts-sdk';
 import { get, isEmpty } from 'lodash';
 
+import { deserializeTransaction } from '@onekeyhq/core/src/chains/aptos/helper/transactionUtils';
 import type {
   IEncodedTxAptos,
   ISignMessagePayload,
@@ -26,6 +25,7 @@ import {
   OneKeyError,
   OneKeyHardwareError,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -36,6 +36,7 @@ import type { IBuildUnsignedTxParams } from '../../types';
 import type {
   AccountAddressInput,
   AnyNumber,
+  AnyRawTransaction,
   EntryFunctionABI,
   EntryFunctionPayloadResponse,
   InputGenerateTransactionPayloadData,
@@ -112,6 +113,9 @@ export function getTransactionTypeByPayload({
 
     return EDecodedTxActionType.FUNCTION_CALL;
   }
+  if (type === 'script_payload') {
+    return EDecodedTxActionType.FUNCTION_CALL;
+  }
 
   return EDecodedTxActionType.UNKNOWN;
 }
@@ -144,7 +148,7 @@ export function getTransactionType(
 }
 
 export async function buildSignedTx(
-  rawTxn: SimpleTransaction,
+  rawTxn: AnyRawTransaction,
   senderPublicKey: string,
   signature: string,
 ) {
@@ -161,6 +165,7 @@ export async function buildSignedTx(
     rawTxn.rawTransaction,
     authenticator,
   ).bcsToHex();
+
   return Promise.resolve({
     txid: '',
     rawTx: signRawTx.toStringWithoutPrefix(),
@@ -302,14 +307,14 @@ export async function fetchEntryFunctionAbi(
 
   // If there's no ABI, then the function is invalid
   if (!functionAbi) {
-    throw new Error(
+    throw new OneKeyLocalError(
       `Could not find entry function ABI for '${moduleAddress}::${moduleName}::${functionName}'`,
     );
   }
 
   // Non-entry functions also can't be used
   if (!functionAbi.is_entry) {
-    throw new Error(
+    throw new OneKeyLocalError(
       `'${moduleAddress}::${moduleName}::${functionName}' is not an entry function`,
     );
   }
@@ -476,7 +481,7 @@ export function generateTransferCreateNft(
 export async function generateUnsignedTransaction(
   client: AptosClient,
   unsignedTx: IBuildUnsignedTxParams,
-): Promise<SimpleTransaction> {
+): Promise<AnyRawTransaction> {
   const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
 
   const { sender } = encodedTx;
@@ -484,39 +489,48 @@ export async function generateUnsignedTransaction(
     throw new OneKeyHardwareError(Error('sender is required'));
   }
 
-  let rawTxn: SimpleTransaction;
+  let rawTxn: AnyRawTransaction | undefined;
   if (encodedTx.bcsTxn && !isEmpty(encodedTx.bcsTxn)) {
-    const deserializer = new Deserializer(
-      bufferUtils.hexToBytes(encodedTx.bcsTxn),
-    );
-    rawTxn = SimpleTransaction.deserialize(deserializer);
-  } else {
-    const {
-      max_gas_amount,
-      expiration_timestamp_secs,
-      function: func,
-      arguments: args,
-      type_arguments,
-    } = encodedTx;
+    return deserializeTransaction(encodedTx.bcsTxn);
+  }
+  if (encodedTx.payload || (!!encodedTx.type && !!encodedTx.function)) {
+    let txData: InputGenerateTransactionPayloadData | undefined;
 
+    const { max_gas_amount, expiration_timestamp_secs, payload } = encodedTx;
     let sequenceNumber: string | undefined = encodedTx.sequence_number;
     let gasUnitPrice: string | undefined = encodedTx.gas_unit_price;
     let expireTimestamp: string | undefined = expiration_timestamp_secs;
 
-    if (!func) {
-      throw new OneKeyError('generate transaction error: function is empty');
+    const type = payload?.type ?? encodedTx.type;
+
+    if (type === 'entry_function_payload') {
+      const func = payload?.function ?? encodedTx.function;
+      const args = payload?.arguments ?? encodedTx.arguments;
+      const typeArguments = payload?.type_arguments ?? encodedTx.type_arguments;
+
+      if (!func) {
+        throw new OneKeyError('generate transaction error: function is empty');
+      }
+
+      const { moduleAddress, moduleName, functionName } = getFunctionParts(
+        func as `${string}::${string}::${string}`,
+      );
+
+      const abi: EntryFunctionABI = await fetchEntryFunctionAbi(
+        client,
+        moduleAddress,
+        moduleName,
+        functionName,
+      );
+      txData = {
+        function: func as `${string}::${string}::${string}`,
+        functionArguments: args || [],
+        typeArguments: typeArguments || [],
+        abi,
+      };
+    } else {
+      throw new OneKeyError('Not support transaction type');
     }
-
-    const { moduleAddress, moduleName, functionName } = getFunctionParts(
-      func as `${string}::${string}::${string}`,
-    );
-
-    const abi: EntryFunctionABI = await fetchEntryFunctionAbi(
-      client,
-      moduleAddress,
-      moduleName,
-      functionName,
-    );
 
     if (!sequenceNumber) {
       const { sequence_number } = await client.getAccount(sender);
@@ -534,12 +548,7 @@ export async function generateUnsignedTransaction(
 
     rawTxn = await client.aptos.transaction.build.simple({
       sender,
-      data: {
-        function: func as `${string}::${string}::${string}`,
-        functionArguments: args || [],
-        typeArguments: type_arguments || [],
-        abi,
-      },
+      data: txData,
       options: {
         accountSequenceNumber: sequenceNumber
           ? BigInt(sequenceNumber)
@@ -550,6 +559,11 @@ export async function generateUnsignedTransaction(
       },
     });
   }
+
+  if (!rawTxn) {
+    throw new OneKeyError('Not support transaction type');
+  }
+
   return rawTxn;
 }
 
@@ -558,10 +572,11 @@ export async function buildSimpleTransaction(
   sender: string,
   input: AptosSignAndSubmitTransactionInput,
 ) {
-  const payload = input.payload;
+  const payload: InputGenerateTransactionPayloadData = input.payload;
 
-  if (!('function' in payload)) {
-    throw new Error('Not support transaction type');
+  // support function or script
+  if (!('function' in payload) && !('bytecode' in payload)) {
+    throw new OneKeyLocalError('Not support transaction type');
   }
 
   let gasUnitPrice: number | undefined = input.gasUnitPrice;
@@ -570,18 +585,23 @@ export async function buildSimpleTransaction(
     sender,
   );
 
-  let abi: EntryFunctionABI | undefined = get(payload, 'abi', undefined);
-  if (!abi) {
-    const { moduleAddress, moduleName, functionName } = getFunctionParts(
-      payload.function,
-    );
+  if ('function' in payload) {
+    // function
+    let abi: EntryFunctionABI | undefined = get(payload, 'abi', undefined);
+    if (!abi) {
+      const { moduleAddress, moduleName, functionName } = getFunctionParts(
+        payload.function,
+      );
 
-    abi = await fetchEntryFunctionAbi(
-      aptosClient,
-      moduleAddress,
-      moduleName,
-      functionName,
-    );
+      abi = await fetchEntryFunctionAbi(
+        aptosClient,
+        moduleAddress,
+        moduleName,
+        functionName,
+      );
+    }
+
+    payload.abi = abi;
   }
 
   if (!gasUnitPrice) {
@@ -593,10 +613,7 @@ export async function buildSimpleTransaction(
 
   return aptosClient.aptos.transaction.build.simple({
     sender,
-    data: {
-      ...input.payload,
-      abi,
-    },
+    data: payload,
     options: {
       maxGasAmount: input?.maxGasAmount
         ? Number(input.maxGasAmount)

@@ -1,33 +1,46 @@
 import {
-  AccountAddress,
+  type AptosSignInBoundFields,
+  type AptosSignInInput,
+  createSignInMessage,
+} from '@aptos-labs/siwa';
+import {
   Deserializer,
+  MultiAgentTransaction,
   Network,
   NetworkToNodeAPI,
-  RawTransaction,
   Serializer,
   SignedTransaction,
   SimpleTransaction,
 } from '@aptos-labs/ts-sdk';
+import { hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { get, isArray } from 'lodash';
 
-import {
-  type IEncodedTxAptos,
-  type ISignMessagePayload,
-  type ISignMessageResponse,
+import { deserializeTransaction } from '@onekeyhq/core/src/chains/aptos/helper/transactionUtils';
+import type {
+  IAptosSignInOutput,
+  IEncodedTxAptos,
+  ISignMessagePayload,
+  ISignMessageResponse,
 } from '@onekeyhq/core/src/chains/aptos/types';
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EMessageTypesAptos } from '@onekeyhq/shared/types/message';
 
 import { vaultFactory } from '../vaults/factory';
+import {
+  ETransactionPayloadType,
+  deserializeTransactionPayload,
+  deserializeTransactionType,
+} from '../vaults/impls/aptos/sdkAptos/serializer';
 import {
   APTOS_SIGN_MESSAGE_PREFIX,
   buildSimpleTransaction,
@@ -40,6 +53,7 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type VaultAptos from '../vaults/impls/aptos/Vault';
+import type { AccountAddress } from '@aptos-labs/ts-sdk';
 import type {
   AptosSignAndSubmitTransactionInput,
   AptosSignAndSubmitTransactionOutput,
@@ -66,7 +80,7 @@ export function decodeBytesTransaction(txn: any) {
       bcsTxn = bufferUtils.hexToBytes(txn);
     }
   } else {
-    throw new Error('invalidParams');
+    throw new OneKeyLocalError('invalidParams');
   }
 
   return bcsTxn;
@@ -191,23 +205,35 @@ class ProviderApiAptos extends ProviderApiBase {
   @providerApiMethod()
   public async signAndSubmitTransaction(
     request: IJsBridgeMessagePayload,
-    params: IEncodedTxAptos,
+    params: string,
   ): Promise<string> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const encodeTx = params;
 
     const accounts = await this.getAccountsInfo(request);
     if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts');
+      throw new OneKeyLocalError('No accounts');
+    }
+    const { account, accountInfo } = accounts[0];
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const payload = deserializeTransactionPayload(params);
+    const vault = await this.getAptosVault(request);
+
+    if (get(payload, 'type', null) === 'script_payload') {
+      throw web3Errors.rpc.invalidParams();
     }
 
-    const { account, accountInfo } = accounts[0];
+    const rawTx = await buildSimpleTransaction(vault.client, account.address, {
+      payload,
+    });
+
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: {
-          ...encodeTx,
-          ...encodeTx.payload,
+          bcsTxn: rawTx.bcsToHex().toStringWithoutPrefix(),
+          max_gas_amount: rawTx.rawTransaction.max_gas_amount.toString(),
+          gas_unit_price: rawTx.rawTransaction.gas_unit_price.toString(),
         },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
@@ -226,46 +252,17 @@ class ProviderApiAptos extends ProviderApiBase {
       bcsTxn = bufferUtils.hexToBytes(txn);
     }
 
-    const deserializer = new Deserializer(bcsTxn);
-    const rawTxn = RawTransaction.deserialize(deserializer);
-
-    let feePayerAddress;
-    try {
-      const feePayerPresent = deserializer.deserializeBool();
-      if (feePayerPresent) {
-        feePayerAddress = AccountAddress.deserialize(deserializer);
-      }
-    } catch {
-      // ignore
-    }
-
-    const simpleTxn = new SimpleTransaction(rawTxn, feePayerAddress);
+    const rawTxn = deserializeTransaction(bcsTxn);
     return {
-      rawTxn: simpleTxn,
-      hexBcsTxn: simpleTxn.bcsToHex().toStringWithoutPrefix(),
+      rawTxn,
+      hexBcsTxn: rawTxn.bcsToHex().toStringWithoutPrefix(),
     };
-  }
-
-  private _convertRawTransactionToEncodeTx(
-    transaction: SimpleTransaction,
-    hexBcsTxn: string,
-  ): IEncodedTxAptos {
-    const payload = transaction.rawTransaction.payload;
-
-    if (get(payload, 'entryFunction', null)) {
-      return {
-        type: 'entry_function_payload',
-        bcsTxn: hexBcsTxn,
-      };
-    }
-
-    throw new Error(`not support transaction type`);
   }
 
   private async _getAccount(request: IJsBridgeMessagePayload) {
     const accounts = await this.getAccountsInfo(request);
     if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts');
+      throw new OneKeyLocalError('No accounts');
     }
 
     return accounts[0];
@@ -281,7 +278,7 @@ class ProviderApiAptos extends ProviderApiBase {
         hexUtils.stripHexPrefix(address).toLowerCase(),
     );
     if (!accounts || accounts.length === 0) {
-      throw new Error('No accounts');
+      throw new OneKeyLocalError('No accounts');
     }
 
     return accounts[0];
@@ -296,8 +293,10 @@ class ProviderApiAptos extends ProviderApiBase {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
 
-    const { rawTxn, hexBcsTxn } = this._decodeTxToRawTransaction(params);
-    const encodeTx = this._convertRawTransactionToEncodeTx(rawTxn, hexBcsTxn);
+    const { hexBcsTxn } = this._decodeTxToRawTransaction(params);
+    const encodeTx = {
+      bcsTxn: hexBcsTxn,
+    };
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -319,8 +318,10 @@ class ProviderApiAptos extends ProviderApiBase {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
 
-    const { rawTxn, hexBcsTxn } = this._decodeTxToRawTransaction(params);
-    const encodeTx = this._convertRawTransactionToEncodeTx(rawTxn, hexBcsTxn);
+    const { hexBcsTxn } = this._decodeTxToRawTransaction(params);
+    const encodeTx = {
+      bcsTxn: hexBcsTxn,
+    };
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -348,14 +349,27 @@ class ProviderApiAptos extends ProviderApiBase {
   @providerApiMethod()
   public async signTransaction(
     request: IJsBridgeMessagePayload,
-    params: IEncodedTxAptos,
+    params: string,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const payload = deserializeTransactionPayload(params);
+    const vault = await this.getAptosVault(request);
+
+    const rawTx = await buildSimpleTransaction(vault.client, account.address, {
+      payload,
+    });
+
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: params,
+        encodedTx: {
+          bcsTxn: rawTx.bcsToHex().toStringWithoutPrefix(),
+          max_gas_amount: rawTx.rawTransaction.max_gas_amount.toString(),
+          gas_unit_price: rawTx.rawTransaction.gas_unit_price.toString(),
+        },
         signOnly: true,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
@@ -376,18 +390,20 @@ class ProviderApiAptos extends ProviderApiBase {
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
-    if (params.transactionType === 'multi_agent') {
-      throw new Error('Not implemented MultiAgentTransaction');
-    }
     const txnBsc = params.transaction;
 
     const { rawTxn, hexBcsTxn } = this._decodeTxToRawTransaction(txnBsc);
 
     const { account, accountInfo } = await this._getAccountByAddress(
       request,
-      rawTxn.rawTransaction.sender.bcsToHex().toStringWithoutPrefix(),
+      params.asFeePayer
+        ? rawTxn.feePayerAddress?.bcsToHex().toStringWithoutPrefix() ?? ''
+        : rawTxn.rawTransaction.sender.bcsToHex().toStringWithoutPrefix(),
     );
-    const encodeTx = this._convertRawTransactionToEncodeTx(rawTxn, hexBcsTxn);
+    const encodeTx = {
+      bcsTxn: hexBcsTxn,
+    };
+
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
@@ -432,20 +448,31 @@ class ProviderApiAptos extends ProviderApiBase {
   ): Promise<AptosSignAndSubmitTransactionOutput> {
     const { account, accountInfo } = await this._getAccount(request);
 
-    const input = JSON.parse(params) as AptosSignAndSubmitTransactionInput;
+    const input = JSON.parse(params) as {
+      payload: string;
+      maxGasAmount: AptosSignAndSubmitTransactionInput['maxGasAmount'];
+      gasUnitPrice: AptosSignAndSubmitTransactionInput['gasUnitPrice'];
+    };
+
+    const type = deserializeTransactionType(input.payload);
+    if (type === ETransactionPayloadType.MULTISIG) {
+      throw new OneKeyLocalError('Multi-agent transactions are not supported');
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const payload = deserializeTransactionPayload(input.payload);
     const vault = await this.getAptosVault(request);
 
-    const rawTx = await buildSimpleTransaction(
-      vault.client,
-      account.address,
-      input,
-    );
+    const rawTx = await buildSimpleTransaction(vault.client, account.address, {
+      payload,
+      maxGasAmount: input.maxGasAmount,
+      gasUnitPrice: input.gasUnitPrice,
+    });
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: {
-          type: 'entry_function_payload',
           bcsTxn: rawTx.bcsToHex().toStringWithoutPrefix(),
           max_gas_amount: rawTx.rawTransaction.max_gas_amount.toString(),
           gas_unit_price: rawTx.rawTransaction.gas_unit_price.toString(),
@@ -458,6 +485,38 @@ class ProviderApiAptos extends ProviderApiBase {
     return {
       hash: result.txid,
     };
+  }
+
+  @providerApiMethod()
+  public async signAndSubmitTransactionStandardV1(
+    request: IJsBridgeMessagePayload,
+    params: string,
+  ) {
+    const accounts = await this.getAccountsInfo(request);
+    if (!accounts || accounts.length === 0) {
+      throw new OneKeyLocalError('No accounts');
+    }
+    const { account, accountInfo } = accounts[0];
+
+    const rawTx = SimpleTransaction.deserialize(
+      new Deserializer(hexToBytes(params)),
+    );
+
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx: {
+          bcsTxn: rawTx.bcsToHex().toStringWithoutPrefix(),
+          max_gas_amount: rawTx.rawTransaction.max_gas_amount.toString(),
+          gas_unit_price: rawTx.rawTransaction.gas_unit_price.toString(),
+        },
+        accountId: account.id,
+        networkId: accountInfo?.networkId ?? '',
+      });
+
+    const tx = await this.getTransaction(request, result.txid);
+
+    return JSON.stringify(tx);
   }
 
   @permissionRequired()
@@ -500,6 +559,57 @@ class ProviderApiAptos extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  public async signIn(
+    request: IJsBridgeMessagePayload,
+    params: AptosSignInInput,
+  ): Promise<IAptosSignInOutput> {
+    const { account, accountInfo } = await this._getAccount(request);
+
+    const signInBoundFields: AptosSignInBoundFields = {
+      address: params.address ?? account.address,
+      domain: params.domain ?? request.origin ?? '',
+      uri: params.uri ?? request.origin ?? '',
+      version: params.version ?? '1.0.0',
+      chainId: params.chainId ?? accountInfo?.networkId ?? '',
+    };
+    const signInMessage = createSignInMessage({
+      ...params,
+      ...signInBoundFields,
+    });
+
+    const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      unsignedMessage: {
+        type: EMessageTypesAptos.SIGN_IN,
+        message: signInMessage,
+      },
+      accountId: account.id ?? '',
+      networkId: accountInfo?.networkId ?? '',
+    })) as string;
+
+    return {
+      account: {
+        address: account.address,
+        publicKey: account.pub ?? '',
+      },
+      input: {
+        ...params,
+        ...signInBoundFields,
+      },
+      signature: hexUtils.stripHexPrefix(result),
+      type: 'ed25519',
+    };
+  }
+
+  @providerApiMethod()
+  public async openInMobileApp(
+    request: IJsBridgeMessagePayload,
+    params: ISignMessagePayload,
+  ): Promise<void> {
+    throw new OneKeyLocalError('Not implemented');
+  }
+
+  @providerApiMethod()
   public async signGenericTransaction(
     request: IJsBridgeMessagePayload,
     params: {
@@ -510,10 +620,12 @@ class ProviderApiAptos extends ProviderApiBase {
   ): Promise<string> {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const encodeTx: IEncodedTxAptos = {
-      type: 'entry_function_payload',
-      function: params.func,
-      arguments: params.args,
-      type_arguments: params.type_args,
+      payload: {
+        type: 'entry_function_payload',
+        function: params.func,
+        arguments: params.args,
+        type_arguments: params.type_args,
+      },
     };
 
     const { account, accountInfo } = await this._getAccount(request);
@@ -540,7 +652,7 @@ class ProviderApiAptos extends ProviderApiBase {
   ) {
     const { account, accountInfo } = await this._getAccount(request);
 
-    const encodeTx = generateTransferCreateCollection(
+    const encodeTxPayload = generateTransferCreateCollection(
       params.name,
       params.description,
       params.uri,
@@ -549,7 +661,9 @@ class ProviderApiAptos extends ProviderApiBase {
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: encodeTx,
+        encodedTx: {
+          payload: encodeTxPayload,
+        },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
       });
@@ -577,7 +691,7 @@ class ProviderApiAptos extends ProviderApiBase {
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
-    const encodeTx = generateTransferCreateNft(
+    const encodeTxPayload = generateTransferCreateNft(
       account.address,
       params.collectionName,
       params.name,
@@ -596,7 +710,9 @@ class ProviderApiAptos extends ProviderApiBase {
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: encodeTx,
+        encodedTx: {
+          payload: encodeTxPayload,
+        },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
       });

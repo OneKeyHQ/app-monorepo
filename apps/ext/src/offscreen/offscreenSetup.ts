@@ -5,6 +5,7 @@ import type { IOffscreenApiMessagePayload } from '@onekeyhq/kit-bg/src/apis/IBac
 import offscreenApi from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApi';
 import { OFFSCREEN_API_MESSAGE_TYPE } from '@onekeyhq/kit-bg/src/offscreens/types';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
@@ -34,7 +35,7 @@ export function offscreenSetup() {
   //           const result = await sdk[method](...params);
   //           sendResponse(result);
   //         } else {
-  //           throw new Error(
+  //           throw new OneKeyLocalError(
   //             `offscreen module method not found: ${module}.${method}()`,
   //           );
   //         }

@@ -1,9 +1,8 @@
+import { createSignInSigningMessage } from '@aptos-labs/siwa';
 import {
-  Deserializer,
   Ed25519PublicKey,
   Ed25519Signature,
   SignedTransaction,
-  SimpleTransaction,
   TransactionAuthenticatorEd25519,
   generateSigningMessageForTransaction,
 } from '@aptos-labs/ts-sdk';
@@ -11,9 +10,13 @@ import {
 import { sha3_256 } from 'js-sha3';
 
 import { decryptAsync, ed25519 } from '@onekeyhq/core/src/secret';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { EMessageTypesAptos } from '@onekeyhq/shared/types/message';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
@@ -33,13 +36,22 @@ import {
   type IUnsignedMessageAptos,
 } from '../../types';
 
+import { normalizePrivateKey } from './helper/privateUtils';
+import { deserializeTransaction } from './helper/transactionUtils';
+
+import type { IEncodedTxAptos } from './types';
+import type {
+  MultiAgentTransaction,
+  SimpleTransaction,
+} from '@aptos-labs/ts-sdk';
+
 const curveName: ICurveName = 'ed25519';
 
 async function buildSignedTx(
-  rawTxn: SimpleTransaction,
+  rawTxn: SimpleTransaction | MultiAgentTransaction,
   senderPublicKey: string,
   signature: string,
-  encodedTx: any,
+  encodedTx: IEncodedTxAptos,
 ) {
   const txSignature = new Ed25519Signature(bufferUtils.hexToBytes(signature));
   const authenticator = new TransactionAuthenticatorEd25519(
@@ -48,10 +60,12 @@ async function buildSignedTx(
     ),
     txSignature,
   );
+
   const signRawTx = new SignedTransaction(
     rawTxn.rawTransaction,
     authenticator,
   ).bcsToHex();
+
   return Promise.resolve({
     txid: '',
     rawTx: signRawTx.toStringWithoutPrefix(),
@@ -79,14 +93,18 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      return `0x${(
-        await decryptAsync({ password, data: privateKeyRaw })
-      ).toString('hex')}`;
+      const privateKey = (
+        await decryptAsync({
+          password,
+          data: privateKeyRaw,
+        })
+      ).toString('hex');
+      return normalizePrivateKey(privateKey, 'aip80', curveName);
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -106,20 +124,20 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve: curveName,
     });
-    const { rawTxUnsigned, encodedTx } = unsignedTx;
+
+    const { rawTxUnsigned } = unsignedTx;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
     if (!rawTxUnsigned) {
-      throw new Error('rawTxUnsigned is undefined');
+      throw new OneKeyLocalError('rawTxUnsigned is undefined');
     }
     const senderPublicKey = account.pub;
     if (!senderPublicKey) {
       throw new OneKeyInternalError('Unable to get sender public key.');
     }
 
-    const rawTxn = SimpleTransaction.deserialize(
-      new Deserializer(Buffer.from(rawTxUnsigned, 'hex')),
-    );
-
+    const rawTxn = deserializeTransaction(rawTxUnsigned);
     const signingMessage = generateSigningMessageForTransaction(rawTxn);
+
     const [signature] = await signer.sign(bufferUtils.toBuffer(signingMessage));
     const signatureHex = hexUtils.hexlify(signature, {
       noPrefix: true,
@@ -133,8 +151,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve: curveName,
     });
-    const [signature] = await signer.sign(Buffer.from(unsignedMsg.message));
-    return hexUtils.addHexPrefix(signature.toString('hex'));
+    if (unsignedMsg.type === EMessageTypesAptos.SIGN_IN) {
+      const signInMessage = createSignInSigningMessage(unsignedMsg.message);
+      const [signature] = await signer.sign(Buffer.from(signInMessage));
+      return hexUtils.addHexPrefix(signature.toString('hex'));
+    }
+    if (unsignedMsg.type === EMessageTypesAptos.SIGN_MESSAGE) {
+      const [signature] = await signer.sign(Buffer.from(unsignedMsg.message));
+      return hexUtils.addHexPrefix(signature.toString('hex'));
+    }
+    throw new OneKeyLocalError(`Unsupported message type`);
   }
 
   override async getAddressFromPublic(
@@ -151,6 +177,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return Promise.resolve({
       address,
       publicKey,
+      __hwExtraInfo__: undefined,
     });
   }
 

@@ -2,7 +2,19 @@ import type { ComponentType } from 'react';
 
 import * as Sentry from '@sentry/react';
 
-import { basicOptions, buildIntegrations, buildOptions } from './basicOptions';
+import {
+  EWebEmbedPostMessageType,
+  postMessage,
+} from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import appGlobals from '../../appGlobals';
+
+import {
+  buildBasicOptions,
+  buildIntegrations,
+  buildSentryOptions,
+} from './basicOptions';
 
 import type { FallbackRender } from '@sentry/react';
 
@@ -15,10 +27,29 @@ export const initSentry = () => {
     return;
   }
   Sentry.init({
-    dsn: 'https://fc0d87f5a1ef85df3a6621206fec0357@o4508208799809536.ingest.de.sentry.io/4508320051036240',
-    ...basicOptions,
-    ...buildOptions(Sentry),
-    integrations: buildIntegrations(Sentry),
+    dsn: process.env.SENTRY_DSN_WEB || '',
+    ...buildBasicOptions({
+      onError: (errorMessage, stacktrace) => {
+        appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
+        if (platformEnv.isWebEmbed) {
+          postMessage({
+            type: EWebEmbedPostMessageType.CaptureException,
+            data: {
+              error: errorMessage,
+              stacktrace,
+            },
+          });
+        }
+      },
+    }),
+    ...buildSentryOptions(Sentry),
+    integrations: [
+      ...buildIntegrations(Sentry),
+      // https://github.com/getsentry/sentry-javascript/issues/3040
+      Sentry.browserApiErrorsIntegration({
+        eventTarget: false,
+      }),
+    ],
   });
 };
 

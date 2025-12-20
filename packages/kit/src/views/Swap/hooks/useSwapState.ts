@@ -6,11 +6,14 @@ import { useIntl } from 'react-intl';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
+  useInAppNotificationAtom,
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   swapQuoteIntervalMaxCount,
   swapSlippageAutoValue,
@@ -23,8 +26,10 @@ import {
   EProtocolOfExchange,
   ESwapAlertLevel,
   ESwapDirectionType,
+  ESwapProTradeType,
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
+  ESwapTabSwitchType,
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -35,6 +40,7 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
+  useSwapProTradeTypeAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -46,6 +52,8 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
+  useSwapSpeedQuoteResultAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -61,7 +69,6 @@ function useSwapWarningCheck() {
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const { checkSwapWarning } = useSwapActions().current;
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
-  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const refContainer = useRef<ISwapCheckWarningDef>({
     swapFromAddressInfo: {
       address: undefined,
@@ -124,29 +131,57 @@ export function useSwapQuoteLoading() {
 export function useSwapQuoteEventFetching() {
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteResult] = useSwapQuoteListAtom();
-  return (
-    quoteEventTotalCount.count > 0 &&
-    quoteResult.length < quoteEventTotalCount.count
-  );
+
+  if (quoteEventTotalCount.count > 0) {
+    if (
+      quoteResult?.every((q) => q.eventId === quoteEventTotalCount.eventId) &&
+      quoteResult.length === quoteEventTotalCount.count
+    ) {
+      return false;
+    }
+    return true;
+  }
+  return false;
 }
 
-export function useSwapBatchTransfer(
+export enum ESwapBatchTransferType {
+  CONTINUOUS_APPROVE_AND_SWAP = 'continuous_approve_and_swap',
+  BATCH_APPROVE_AND_SWAP = 'batch_approve_and_swap',
+  NORMAL = 'normal',
+}
+
+export function useSwapBatchTransferType(
   networkId?: string,
   accountId?: string,
   providerDisableBatchTransfer?: boolean,
+  swapShouldSignedData?: boolean,
+  needApprove?: boolean,
 ) {
+  let type = ESwapBatchTransferType.NORMAL;
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  if (settingsPersistAtom.swapBatchApproveAndSwap && needApprove) {
+    type = ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP;
+  }
   const isExternalAccount = accountUtils.isExternalAccount({
     accountId: accountId ?? '',
   });
+  const isHDAccount = accountUtils.isHwOrQrAccount({
+    accountId: accountId ?? '',
+  });
+  if ((isExternalAccount || isHDAccount) && needApprove) {
+    type = ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP;
+  }
   const isUnSupportBatchTransferNet =
     SwapBuildUseMultiplePopoversNetworkIds.includes(networkId ?? '');
-  return (
-    settingsPersistAtom.swapBatchApproveAndSwap &&
-    !isUnSupportBatchTransferNet &&
-    !isExternalAccount &&
-    !providerDisableBatchTransfer
-  );
+  if (
+    providerDisableBatchTransfer ||
+    isUnSupportBatchTransferNet ||
+    !settingsPersistAtom.swapBatchApproveAndSwap ||
+    swapShouldSignedData
+  ) {
+    type = ESwapBatchTransferType.NORMAL;
+  }
+  return type;
 }
 
 export function useSwapActionState() {
@@ -158,6 +193,7 @@ export function useSwapActionState() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
@@ -168,11 +204,37 @@ export function useSwapActionState() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
-  const isBatchTransfer = useSwapBatchTransfer(
-    swapFromAddressInfo.networkId,
-    swapFromAddressInfo.accountInfo?.account?.id,
-    quoteCurrentSelect?.providerDisableBatchTransfer,
-  );
+  const [swapUseLimitPrice] = useSwapLimitPriceUseRateAtom();
+  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
+  const [{ swapApprovingLoading, swapApprovingTransaction }] =
+    useInAppNotificationAtom();
+
+  const swapApprovingMatchLoading = useMemo(() => {
+    return (
+      swapApprovingLoading &&
+      (fromTokenAmount.value === swapApprovingTransaction?.amount ||
+        fromTokenAmount.value ===
+          swapApprovingTransaction?.resetApproveValue) &&
+      equalTokenNoCaseSensitive({
+        token1: swapApprovingTransaction?.fromToken,
+        token2: fromToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: swapApprovingTransaction?.toToken,
+        token2: toToken,
+      })
+    );
+  }, [
+    swapApprovingLoading,
+    fromTokenAmount.value,
+    swapApprovingTransaction?.amount,
+    swapApprovingTransaction?.resetApproveValue,
+    swapApprovingTransaction?.fromToken,
+    swapApprovingTransaction?.toToken,
+    fromToken,
+    toToken,
+  ]);
+
   const isRefreshQuote = useMemo(
     () => quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote,
     [quoteIntervalCount, shouldRefreshQuote],
@@ -207,7 +269,8 @@ export function useSwapActionState() {
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
-      label: intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
+      noConnectWallet: alerts.states.some((item) => item.noConnectWallet),
+      label: intl.formatMessage({ id: ETranslations.global_review }),
     };
     if (
       !swapFromAddressInfo.address ||
@@ -217,28 +280,35 @@ export function useSwapActionState() {
     ) {
       infoRes.disable = true;
     }
-    if (quoteLoading || quoteEventFetching) {
-      infoRes.label = intl.formatMessage({
-        id: ETranslations.swap_page_button_fetching_quotes,
-      });
+    if (
+      quoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.LIMIT &&
+      !isRefreshQuote
+    ) {
+      infoRes.disable = true;
+    }
+    if (
+      quoteCurrentSelect?.protocol === EProtocolOfExchange.SWAP &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.SWAP &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.BRIDGE &&
+      !isRefreshQuote
+    ) {
+      infoRes.disable = true;
+    }
+    if (
+      new BigNumber(toTokenAmount.value ?? 0).isZero() ||
+      new BigNumber(toTokenAmount.value ?? 0).isNaN()
+    ) {
+      infoRes.disable = true;
+    }
+    if (
+      quoteLoading ||
+      quoteEventFetching ||
+      swapApprovingMatchLoading ||
+      buildTxFetching
+    ) {
+      infoRes.disable = true;
     } else {
-      if (isCrossChain && fromToken && toToken) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_cross_chain,
-        });
-      }
-      if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_wrap,
-        });
-      }
-      if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
-        infoRes.label = intl.formatMessage({
-          id: isBatchTransfer
-            ? ETranslations.swap_page_approve_and_swap
-            : ETranslations.global_approve,
-        });
-      }
       if (
         quoteCurrentSelect &&
         !quoteCurrentSelect.toAmount &&
@@ -249,7 +319,22 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
-
+      if (
+        quoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
+        !quoteCurrentSelect.isWrapped &&
+        !quoteCurrentSelect.allowanceResult
+      ) {
+        if (
+          !swapUseLimitPrice.rate ||
+          new BigNumber(swapUseLimitPrice.rate ?? 0).isZero() ||
+          new BigNumber(swapUseLimitPrice.rate ?? 0).isNaN()
+        ) {
+          infoRes.disable = true;
+          infoRes.label = intl.formatMessage({
+            id: ETranslations.limit_enter_price,
+          });
+        }
+      }
       if (
         quoteCurrentSelect &&
         quoteCurrentSelect.toAmount &&
@@ -268,9 +353,12 @@ export function useSwapActionState() {
         swapFromAddressInfo.address &&
         balanceBN.lt(fromTokenAmountBN)
       ) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_insufficient_balance,
-        });
+        infoRes.label = intl.formatMessage(
+          {
+            id: ETranslations.swap_page_toast_insufficient_balance_title,
+          },
+          { token: fromToken.symbol },
+        );
         infoRes.disable = true;
       }
 
@@ -280,42 +368,58 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
-      if (!fromTokenAmount) {
+      if (fromTokenAmountBN.isNaN() || fromTokenAmountBN.isZero()) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_enter_amount,
         });
         infoRes.disable = true;
       }
+
       if (isRefreshQuote || quoteResultNoMatchDebounce) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_refresh_quotes,
         });
         infoRes.disable = false;
       }
+      if (alerts.states.some((item) => item.noConnectWallet)) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.global_connect_wallet,
+        });
+        infoRes.disable = false;
+      }
     }
     return infoRes;
   }, [
-    fromToken,
-    fromTokenAmount,
     hasError,
-    intl,
-    isCrossChain,
-    isRefreshQuote,
     quoteCurrentSelect,
-    quoteEventFetching,
-    quoteLoading,
-    quoteResultNoMatchDebounce,
-    selectedFromTokenBalance,
-    isBatchTransfer,
+    alerts.states,
+    intl,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
+    fromTokenAmount.value,
+    swapTypeSwitchValue,
+    isRefreshQuote,
+    toTokenAmount.value,
+    quoteLoading,
+    quoteEventFetching,
+    swapApprovingMatchLoading,
+    buildTxFetching,
+    selectedFromTokenBalance,
+    fromToken,
     toToken,
+    quoteResultNoMatchDebounce,
+    swapUseLimitPrice.rate,
   ]);
-
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
-    disabled: actionInfo.disable || quoteLoading || quoteEventFetching,
+    approving: swapApprovingMatchLoading,
+    noConnectWallet: actionInfo.noConnectWallet,
+    disabled:
+      actionInfo.disable ||
+      quoteLoading ||
+      quoteEventFetching ||
+      swapApprovingMatchLoading,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,
@@ -333,7 +437,19 @@ export function useSwapActionState() {
 export function useSwapSlippagePercentageModeInfo() {
   const [{ swapSlippagePercentageCustomValue, swapSlippagePercentageMode }] =
     useSettingsAtom();
-  const [quoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [swapCurrentQuote] = useSwapQuoteCurrentSelectAtom();
+  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const focusSwapPro = useMemo(() => {
+    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  }, [swapTypeSwitch]);
+  const quoteResult = useMemo(() => {
+    if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
+      return swapProQuoteResult;
+    }
+    return swapCurrentQuote;
+  }, [focusSwapPro, swapProTradeType, swapCurrentQuote, swapProQuoteResult]);
   const res = useMemo(() => {
     let autoValue = swapSlippageAutoValue;
     let value = swapSlippageAutoValue;

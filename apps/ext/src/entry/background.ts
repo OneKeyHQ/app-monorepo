@@ -1,3 +1,4 @@
+/* eslint-disable import/order */
 // fix missing setimmediate
 // eslint-disable-next-line import/order
 import 'setimmediate';
@@ -6,13 +7,8 @@ import 'setimmediate';
 import '@onekeyhq/shared/src/polyfills';
 
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
-// @ts-ignore
-// import axiosAdapter from '@vespaiach/axios-fetch-adapter';
-// import axios from 'axios';
 import urlParse from 'url-parse';
 
-// import offscreenApiProxy from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApiProxy';
-// import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import offscreenApiProxy from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';

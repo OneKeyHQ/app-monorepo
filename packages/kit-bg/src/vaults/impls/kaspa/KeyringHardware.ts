@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Script, Transaction } from '@onekeyfe/kaspa-core-lib';
+import { Transaction } from '@onekeyfe/kaspa-core-lib';
 
 import {
   EKaspaSignType,
@@ -13,14 +13,16 @@ import {
 import sdkWasm from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  ICoreApiGetAddressItem,
-  ISignedMessagePro,
-  ISignedTxPro,
+import {
+  EAddressEncodings,
+  type ICoreApiGetAddressItem,
+  type ISignedMessagePro,
+  type ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -56,6 +58,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       path: params.path,
       showOnOneKey: false,
       prefix: chainId,
+      useTweak: params.addressEncoding !== EAddressEncodings.KASPA_ORG,
     };
   }
 
@@ -87,14 +90,18 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
+              useTweak:
+                params.deriveInfo.addressEncoding !==
+                EAddressEncodings.KASPA_ORG,
             });
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
             // const chainId = await this.getNetworkChainId();
@@ -112,11 +119,12 @@ export class KeyringHardware extends KeyringHardwareBase {
         });
         const ret: ICoreApiGetAddressItem[] = [];
         for (const addressInfo of addressesInfo) {
-          const { address, path } = addressInfo;
+          const { address, path, __hwExtraInfo__ } = addressInfo;
           const item: ICoreApiGetAddressItem = {
             address,
             path,
             publicKey: '',
+            __hwExtraInfo__,
           };
           ret.push(item);
         }
@@ -129,16 +137,19 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();
     const chainId = await this.getNetworkChainId();
+    const addressEncoding = await this.vault.getAddressEncoding();
 
     if (unsignedTx.isKRC20RevealTx) {
       if (!encodedTx.commitScriptHex) {
-        throw new Error('commitScriptHex is required');
+        throw new OneKeyLocalError('commitScriptHex is required');
       }
       const api = await sdkWasm.getKaspaApi();
       const network = await this.getNetwork();
@@ -153,6 +164,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       const response = await sdk.kaspaSignTransaction(connectId, deviceId, {
         ...params.deviceParams?.deviceCommonParams,
         ...unSignTx,
+        useTweak: addressEncoding !== EAddressEncodings.KASPA_ORG,
       });
 
       if (response.success) {
@@ -171,6 +183,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           encodedTx,
         };
       }
+      throw convertDeviceError(response.payload);
     }
 
     const txn = toTransaction(encodedTx);
@@ -184,7 +197,6 @@ export class KeyringHardware extends KeyringHardwareBase {
         `Transaction size is too large, please try to reduce the amount of the transaction. UTXO Count: ${txn?.inputs?.length}`,
       );
     }
-
     const unSignTx: KaspaSignTransactionParams = {
       version: txn.version,
       inputs: txn.inputs.map((input) => ({
@@ -210,6 +222,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       sigOpCount: 1,
       scheme: EKaspaSignType.Schnorr,
       prefix: chainId,
+      useTweak: addressEncoding !== EAddressEncodings.KASPA_ORG,
     };
 
     const response = await sdk.kaspaSignTransaction(connectId, deviceId, {

@@ -1,28 +1,48 @@
 import { useMemo } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { isNil, map } from 'lodash';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 function AccountValue(accountValue: {
+  walletId: string;
   accountId: string;
   currency: string;
   value: Record<string, string> | string;
   linkedAccountId?: string;
   linkedNetworkId?: string;
+  indexedAccountId?: string;
+  mergeDeriveAssetsEnabled?: boolean;
+  isSingleAddress?: boolean;
+  enabledNetworksCompatibleWithWalletId: IServerNetwork[];
+  networkInfoMap: Record<
+    string,
+    {
+      deriveType: IAccountDeriveTypes;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const isActiveAccount =
     activeAccountValue?.accountId === accountValue?.accountId;
+
+  const {
+    linkedAccountId,
+    linkedNetworkId,
+    mergeDeriveAssetsEnabled,
+    isSingleAddress,
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
+  } = accountValue;
 
   const { currency, value } = useMemo(() => {
     if (activeAccountValue && isActiveAccount) {
@@ -36,7 +56,32 @@ function AccountValue(accountValue: {
       return value;
     }
 
-    const { linkedAccountId, linkedNetworkId } = accountValue;
+    if (linkedNetworkId && mergeDeriveAssetsEnabled && !isSingleAddress) {
+      let mergedValue = new BigNumber(0);
+      let accountValueExist = false;
+
+      const matchedAccountValues = map(value, (v, k) => {
+        const keyArray = k.split('_');
+        const networkId = keyArray[keyArray.length - 1];
+        if (networkId === linkedNetworkId) {
+          return v;
+        }
+      }).filter((v) => !isNil(v));
+
+      if (matchedAccountValues.length > 0) {
+        accountValueExist = true;
+        mergedValue = matchedAccountValues.reduce(
+          (acc: BigNumber, v: string) => {
+            return acc.plus(v);
+          },
+          mergedValue,
+        );
+      } else {
+        accountValueExist = false;
+      }
+
+      return accountValueExist ? mergedValue.toFixed() : undefined;
+    }
 
     if (
       linkedAccountId &&
@@ -51,11 +96,37 @@ function AccountValue(accountValue: {
       ];
     }
 
-    return Object.values(value).reduce(
-      (acc, v) => new BigNumber(acc ?? '0').plus(v ?? '0').toFixed(),
-      '0',
-    );
-  }, [value, accountValue]);
+    return Object.entries(value).reduce((acc, [k, v]) => {
+      const keyArray = k.split('_');
+      const networkId = keyArray.pop() as string;
+      const accountId = keyArray.join('_');
+      const [_walletId, _path, _deriveType] = accountId.split(SEPERATOR) as [
+        string,
+        string,
+        string,
+      ];
+      const deriveType: IAccountDeriveTypes =
+        (_deriveType as IAccountDeriveTypes) || 'default';
+      if (
+        enabledNetworksCompatibleWithWalletId.some((n) => n.id === networkId) &&
+        networkInfoMap[networkId] &&
+        (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
+          networkInfoMap[networkId].deriveType.toLowerCase() ===
+            deriveType.toLowerCase())
+      ) {
+        return new BigNumber(acc ?? '0').plus(v ?? '0').toFixed();
+      }
+      return acc;
+    }, '0');
+  }, [
+    value,
+    linkedNetworkId,
+    mergeDeriveAssetsEnabled,
+    isSingleAddress,
+    linkedAccountId,
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
+  ]);
 
   return accountValueString ? (
     <Currency
@@ -81,11 +152,15 @@ function AccountValue(accountValue: {
 }
 
 function AccountValueWithSpotlight({
+  walletId,
   accountValue,
-  isOthersUniversal,
-  index,
   linkedAccountId,
   linkedNetworkId,
+  indexedAccountId,
+  mergeDeriveAssetsEnabled,
+  isSingleAddress,
+  enabledNetworksCompatibleWithWalletId,
+  networkInfoMap,
 }: {
   accountValue:
     | {
@@ -98,39 +173,44 @@ function AccountValueWithSpotlight({
   index: number;
   linkedAccountId?: string;
   linkedNetworkId?: string;
+  indexedAccountId?: string;
+  mergeDeriveAssetsEnabled?: boolean;
+  isSingleAddress?: boolean;
+  walletId: string;
+  enabledNetworksCompatibleWithWalletId: IServerNetwork[];
+  networkInfoMap: Record<
+    string,
+    {
+      deriveType: IAccountDeriveTypes;
+      mergeDeriveAssetsEnabled: boolean;
+    }
+  >;
 }) {
-  const isFocused = useIsFocused();
-  const shouldShowSpotlight = isFocused && !isOthersUniversal && index === 0;
-  const intl = useIntl();
-  return (
-    <Spotlight
-      delayMs={300}
-      containerProps={{ flexShrink: 1 }}
-      isVisible={shouldShowSpotlight}
-      message={intl.formatMessage({
-        id: ETranslations.spotlight_enable_account_asset_message,
-      })}
-      tourName={ESpotlightTour.allNetworkAccountValue}
+  return accountValue && accountValue.currency ? (
+    <AccountValue
+      walletId={walletId}
+      accountId={accountValue.accountId}
+      currency={accountValue.currency}
+      value={accountValue.value ?? ''}
+      linkedAccountId={linkedAccountId}
+      linkedNetworkId={linkedNetworkId}
+      indexedAccountId={indexedAccountId}
+      mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
+      isSingleAddress={isSingleAddress}
+      enabledNetworksCompatibleWithWalletId={
+        enabledNetworksCompatibleWithWalletId
+      }
+      networkInfoMap={networkInfoMap}
+    />
+  ) : (
+    <NumberSizeableTextWrapper
+      formatter="value"
+      hideValue
+      size="$bodyMd"
+      color="$textDisabled"
     >
-      {accountValue && accountValue.currency ? (
-        <AccountValue
-          accountId={accountValue.accountId}
-          currency={accountValue.currency}
-          value={accountValue.value ?? ''}
-          linkedAccountId={linkedAccountId}
-          linkedNetworkId={linkedNetworkId}
-        />
-      ) : (
-        <NumberSizeableTextWrapper
-          formatter="value"
-          hideValue
-          size="$bodyMd"
-          color="$textDisabled"
-        >
-          --
-        </NumberSizeableTextWrapper>
-      )}
-    </Spotlight>
+      --
+    </NumberSizeableTextWrapper>
   );
 }
 

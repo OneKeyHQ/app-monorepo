@@ -26,7 +26,7 @@ function useTxTrack({
   const [txDetails, setTxDetails] = useState<IFetchHistoryTxDetailsResp | null>(
     null,
   );
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
     if (!trackTxId) {
       return;
@@ -73,8 +73,10 @@ export function useTrackTokenAllowance({
   initialValue: string;
   tokenAddress: string;
   spenderAddress: string;
-  approveType: EApproveType;
+  approveType?: EApproveType;
 }) {
+  const isLegacyApprove = approveType === EApproveType.Legacy;
+  const isExistApproveTarget = !!spenderAddress;
   const [allowance, setAllowance] = useState<string>(initialValue);
   const [trackTxId, setTrackTxId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>();
@@ -83,6 +85,9 @@ export function useTrackTokenAllowance({
     networkId,
     trackTxId,
   });
+  useEffect(() => {
+    setAllowance(initialValue);
+  }, [initialValue]);
   const fetchAllowanceResponse = useCallback(
     async () =>
       backgroundApiProxy.serviceStaking.fetchTokenAllowance({
@@ -97,21 +102,23 @@ export function useTrackTokenAllowance({
     [accountId, approveType, networkId, spenderAddress, tokenAddress],
   );
   useEffect(() => {
-    async function fetchAllowance() {
-      if (!txDetails) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const allowanceInfo = await fetchAllowanceResponse();
-        if (allowanceInfo) {
-          setAllowance(allowanceInfo.allowanceParsed);
+    if (isExistApproveTarget) {
+      const fetchAllowance = async () => {
+        if (!txDetails) {
+          setLoading(false);
+          return;
         }
-      } finally {
-        setLoading(false);
-      }
+        try {
+          const allowanceInfo = await fetchAllowanceResponse();
+          if (allowanceInfo) {
+            setAllowance(allowanceInfo.allowanceParsed);
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+      void fetchAllowance();
     }
-    void fetchAllowance();
   }, [
     txDetails,
     networkId,
@@ -120,13 +127,12 @@ export function useTrackTokenAllowance({
     tokenAddress,
     approveType,
     fetchAllowanceResponse,
+    isLegacyApprove,
+    isExistApproveTarget,
   ]);
-  const trackAllowance = useCallback(
-    (txid: string) => {
-      setTrackTxId(txid);
-      setLoading(true);
-    },
-    [setTrackTxId],
-  );
+  const trackAllowance = useCallback((txid: string) => {
+    setTrackTxId(txid);
+    setLoading(true);
+  }, []);
   return { allowance, trackAllowance, loading, fetchAllowanceResponse };
 }

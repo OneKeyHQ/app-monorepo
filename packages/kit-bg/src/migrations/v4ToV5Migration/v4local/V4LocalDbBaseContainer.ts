@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import type { IV4LocalDBAgent } from './IV4LocalDBAgent';
 import type { EV4LocalDBStoreNames } from './v4localDBStoreNames';
 import type {
@@ -24,7 +26,7 @@ export abstract class V4LocalDbBaseContainer implements IV4LocalDBAgent {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async withTransaction<T>(task: IV4LocalDBWithTransactionTask<T>): Promise<T> {
-    throw new Error(
+    throw new OneKeyLocalError(
       'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
     );
     // const db = await this.readyDb;

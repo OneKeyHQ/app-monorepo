@@ -28,6 +28,7 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+  qrAccountEnabled: true,
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
@@ -63,7 +64,10 @@ const settings: IVaultSettings = {
   cannotSendToSelf: true,
 
   hasResource: true,
+  hasRewardCenter: true,
   resourceKey: ETranslations.global_energy_bandwidth,
+
+  payWithTokenEnabled: true,
 };
 
 export default Object.freeze(settings);

@@ -40,8 +40,8 @@ export const getDefaultLocale = memoizee(getDefaultLocaleFunc);
 
 export const getLocaleMessages = async (locale: ILocaleSymbol) => {
   const messagesBuilder = LOCALES[locale as ILocaleJSONSymbol];
-  const messages: Record<ETranslations, string> = isFunction(messagesBuilder)
+  const messages = isFunction(messagesBuilder)
     ? await messagesBuilder()
     : messagesBuilder;
-  return messages;
+  return messages as Record<ETranslations, string>;
 };

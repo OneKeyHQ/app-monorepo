@@ -19,6 +19,7 @@ import { SwapServiceFeeOverview } from './SwapServiceFeeOverview';
 interface ISwapProviderInfoItemProps {
   fromToken?: ISwapToken;
   isBest?: boolean;
+  isFreeOneKeyFee?: boolean;
   toToken?: ISwapToken;
   onekeyFee?: number;
   providerIcon: string;
@@ -36,7 +37,7 @@ const SwapProviderInfoItemTitleContent = ({
   const intl = useIntl();
 
   return (
-    <XStack>
+    <XStack alignItems="center">
       <SizableText
         size="$bodyMd"
         color="$textSubdued"
@@ -60,6 +61,7 @@ const SwapProviderInfoItem = ({
   fromToken,
   isBest,
   onekeyFee,
+  isFreeOneKeyFee,
   toToken,
   providerIcon,
   providerName,
@@ -94,6 +96,13 @@ const SwapProviderInfoItem = ({
                   })}
                 </Badge>
               ) : null}
+              {isFreeOneKeyFee ? (
+                <Badge badgeSize="sm" marginRight="$2" badgeType="info">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_stablecoin_0_fee,
+                  })}
+                </Badge>
+              ) : null}
               <Image
                 source={{ uri: providerIcon }}
                 w="$5"
@@ -105,9 +114,6 @@ const SwapProviderInfoItem = ({
               </SizableText>
             </>
           )}
-          {showLock ? (
-            <Icon name="LockOutline" color="$iconSubdued" ml="$1" size="$5" />
-          ) : null}
           {onPress ? (
             <Icon
               name="ChevronRightSmallOutline"

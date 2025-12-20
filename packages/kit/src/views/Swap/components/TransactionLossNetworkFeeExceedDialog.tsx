@@ -5,7 +5,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 const TransactionLossNetworkFeeExceedDialog = ({
-  networkCostExceedInfo,
   protocol,
 }: {
   protocol: EProtocolOfExchange;
@@ -21,17 +20,6 @@ const TransactionLossNetworkFeeExceedDialog = ({
   const intl = useIntl();
   return (
     <YStack gap="$4">
-      <SizableText size="$bodyLg">
-        {intl.formatMessage(
-          {
-            id: ETranslations.swap_network_cost_dialog_description,
-          },
-          {
-            number: ` ${networkCostExceedInfo.exceedPercent}%`,
-            token: networkCostExceedInfo.tokenInfo.symbol,
-          },
-        )}
-      </SizableText>
       <SizableText size="$bodyLg" color="$textSubdued">
         {intl.formatMessage({
           id:

@@ -2,8 +2,15 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  ONEKEY_BLOCK_EXPLORER_TEST_URL,
+  ONEKEY_BLOCK_EXPLORER_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IBuildExplorerUrlParams } from '@onekeyhq/shared/types/explorer';
+
+import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -30,13 +37,26 @@ class ServiceExplorer extends ServiceBase {
     if (isCustomNetwork) {
       return this.buildCustomEvmExplorerUrl(params);
     }
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const { networkId, ...rest } = params;
+    const { networkId } = params;
     void this.check(params);
-    return client.getUri({
-      url: `/wallet/v1/network/explorer/${networkId}`,
-      params: rest,
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
     });
+    if (!network) {
+      return '';
+    }
+    const type = params.type === 'transaction' ? 'tx' : params.type;
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const oldUrl = client.getUri({
+      url: `/v1/${network.code}/${type}/${params.param}`,
+    });
+    const devSettings = await devSettingsPersistAtom.get();
+    const exploreBaseUrl = devSettings.enabled
+      ? ONEKEY_BLOCK_EXPLORER_TEST_URL
+      : ONEKEY_BLOCK_EXPLORER_URL;
+    const newUrl = `${exploreBaseUrl}/${network.code}/${type}/${params.param}`;
+    return newUrl;
   }
 
   @backgroundMethod()
@@ -47,7 +67,7 @@ class ServiceExplorer extends ServiceBase {
         networkId,
       });
     if (!isCustomNetwork) {
-      throw new Error('Only custom network is supported');
+      throw new OneKeyLocalError('Only custom network is supported');
     }
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,

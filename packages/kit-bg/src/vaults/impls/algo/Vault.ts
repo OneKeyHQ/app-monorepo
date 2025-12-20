@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
-import { isArray, isEmpty, isNil, trim } from 'lodash';
+import { isArray, isEmpty, isNil } from 'lodash';
 
 import type {
   IEncodedTxAlgo,
@@ -11,13 +10,16 @@ import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   ManageTokenInsufficientBalanceError,
-  OneKeyError,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -57,10 +59,7 @@ import sdkAlgo from './sdkAlgo';
 import ClientAlgo from './sdkAlgo/ClientAlog';
 import { encodeTransaction } from './utils';
 
-import type {
-  ISdkAlgoAccountInformation,
-  ISdkAlgoEncodedTransaction,
-} from './sdkAlgo';
+import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -171,12 +170,12 @@ export default class Vault extends VaultBase {
   }) {
     const { transferInfo, specifiedFeeRate } = params;
     if (!transferInfo.to) {
-      throw new Error('Invalid transferInfo.to params');
+      throw new OneKeyLocalError('Invalid transferInfo.to params');
     }
     const { from, to, amount, tokenInfo, note } = transferInfo;
 
     if (!tokenInfo) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }
@@ -259,7 +258,7 @@ export default class Vault extends VaultBase {
       }
     }
 
-    actions.sort((a, b) => {
+    actions.sort((a, _b) => {
       if (a.type === EDecodedTxActionType.ASSET_TRANSFER) {
         return -1;
       }
@@ -479,6 +478,17 @@ export default class Vault extends VaultBase {
     return unsignedTx;
   }
 
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    const unSignedEncodedTx = params.encodedTx as IEncodedTxAlgo;
+    if (isArray(unSignedEncodedTx)) {
+      return Promise.resolve('');
+    }
+    return unSignedEncodedTx;
+  }
+
   async _attachFeeInfoToEncodedTx({
     encodedTx,
     feeInfo,
@@ -517,7 +527,7 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
+  override validateXpub(_xpub: string): Promise<IXpubValidation> {
     return Promise.resolve({
       isValid: false,
     });
@@ -538,7 +548,7 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+  override validateXprvt(_xprvt: string): Promise<IXprvtValidation> {
     return Promise.resolve({
       isValid: false,
     });

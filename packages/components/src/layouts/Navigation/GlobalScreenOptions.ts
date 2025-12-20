@@ -2,7 +2,10 @@
 
 import { TransitionPresets } from '@react-navigation/stack';
 
+import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { EPageType } from '../../hocs';
 
 import { extAnimConfig } from './ExtAnimConfig';
 import { makeHeaderScreenOptions } from './Header';
@@ -14,8 +17,6 @@ import type {
   StackNavigationOptions,
   TransitionPreset,
 } from '@react-navigation/stack';
-import type { StackCardInterpolationProps } from '@react-navigation/stack/lib/typescript/src/types';
-import type { VariableVal } from '@tamagui/core';
 
 const NULL_ANIMATION_DURATION_PRESET: TransitionPreset = {
   gestureDirection: 'vertical',
@@ -48,7 +49,7 @@ export function clearStackNavigatorOptions(options?: {
     */
     detachPreviousScreen: false,
     headerShown: false,
-    animationEnabled: false,
+    // animationEnabled: false,
     // fix https://onekeyhq.atlassian.net/browse/OK-28686, you can use 100vh instead
     headerMode: 'float',
   };
@@ -71,7 +72,7 @@ export function makeModalOpenAnimationOptions(info: {
   optionsInfo: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {
   return {
-    animationEnabled: true,
+    // animationEnabled: true,
     ...NULL_ANIMATION_DURATION_PRESET,
   };
 }
@@ -80,30 +81,38 @@ export function makeModalStackNavigatorOptions({
   optionsInfo,
   bgColor,
   titleColor,
+  pageType,
 }: {
   bgColor: VariableVal;
   titleColor: VariableVal;
   isVerticalLayout?: boolean;
   optionsInfo?: IScreenOptionsInfo<any>;
+  pageType?: EPageType;
 }): StackNavigationOptions {
   const options: StackNavigationOptions = {
     detachPreviousScreen: false,
 
     headerShown: platformEnv.isRuntimeBrowser,
     animationEnabled: true,
+    // Keep this field to preserve animation timing when removing pages in react-navigation v7
+    // The stack navigator checks for the presence of the animation field to reserve time for page removal animations
+    // https://github.com/react-navigation/react-navigation/blob/858a8746a5c007a623206c920f70d55935ed39b4/packages/stack/src/views/Stack/StackView.tsx#L145
+    animation: 'custom-animation-on-web',
     ...NULL_ANIMATION_DURATION_PRESET,
     ...makeHeaderScreenOptions({
       navigation: optionsInfo?.navigation,
       bgColor,
       titleColor,
-      isModelScreen: true,
+      isModelScreen:
+        pageType === EPageType.modal || pageType === EPageType.fullScreen,
+      isOnboardingScreen: pageType === EPageType.onboarding,
     }),
   } as any;
 
   // Disable modal first screen navigation.replace() animation
-  if (optionsInfo?.route?.params?._disabledAnimationOfNavigate) {
-    options.animationEnabled = false;
-  }
+  // if (optionsInfo?.route?.params?._disabledAnimationOfNavigate) {
+  //   options.animationEnabled = false;
+  // }
   return options;
 }
 
@@ -116,6 +125,29 @@ export function makeModalScreenOptions(info: {
     headerShown: false,
     presentation: 'transparentModal',
     cardStyle: { backgroundColor: 'transparent' },
+    // Keep this field to preserve animation timing when removing pages in react-navigation v7
+    // The stack navigator checks for the presence of the animation field to reserve time for page removal animations
+    // https://github.com/react-navigation/react-navigation/blob/858a8746a5c007a623206c920f70d55935ed39b4/packages/stack/src/views/Stack/StackView.tsx#L145
+    // @ts-expect-error
+    animation: 'custom-animation-on-web',
+    ...makeModalOpenAnimationOptions(info),
+  };
+}
+
+export function makeOnboardingScreenOptions(info: {
+  isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
+}): StackNavigationOptions {
+  return {
+    detachPreviousScreen: false,
+    headerShown: false,
+    presentation: 'transparentModal',
+    cardStyle: { backgroundColor: 'transparent' },
+    // Keep this field to preserve animation timing when removing pages in react-navigation v7
+    // The stack navigator checks for the presence of the animation field to reserve time for page removal animations
+    // https://github.com/react-navigation/react-navigation/blob/858a8746a5c007a623206c920f70d55935ed39b4/packages/stack/src/views/Stack/StackView.tsx#L145
+    // @ts-expect-error
+    animation: 'custom-animation-on-web',
     ...makeModalOpenAnimationOptions(info),
   };
 }
@@ -156,7 +188,7 @@ export function makeFullScreenOptions(): StackNavigationOptions {
   return {
     detachPreviousScreen: false,
     headerShown: false,
-    animationEnabled: true,
+    // animationEnabled: true,
     presentation: 'modal', // containedModal card fullScreenModal
     ...TransitionPresets.FadeFromBottomAndroid,
   };

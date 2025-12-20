@@ -1,26 +1,28 @@
 import { ResourceType, type Success } from '@onekeyfe/hd-transport';
 import { isNil } from 'lodash';
 
-import type { IHardwareHomeScreenName } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/HardwareHomeScreen/hardwareHomeScreenData';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { FirmwareVersionTooLow } from '@onekeyhq/shared/src/errors';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
-  CoreSDKLoader,
-  generateConnectSrc,
-} from '@onekeyhq/shared/src/hardware/instance';
+  FirmwareVersionTooLow,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import type { EOnekeyDomain } from '@onekeyhq/shared/types';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 
-import type { IDBDeviceSettings as IDBDeviceDbSettings } from '../../dbs/local/types';
+import type {
+  IDBDevice,
+  IDBDeviceSettings as IDBDeviceDbSettings,
+} from '../../dbs/local/types';
 import type {
   DeviceSettingsParams,
   DeviceUploadResourceParams,
+  DeviceUploadResourceResponse,
 } from '@onekeyfe/hd-core';
 
 export type ISetInputPinOnSoftwareParams = {
@@ -30,19 +32,37 @@ export type ISetInputPinOnSoftwareParams = {
 
 export type ISetPassphraseEnabledParams = {
   walletId: string;
+  connectId?: string;
+  featuresDeviceId?: string;
   passphraseEnabled: boolean;
 };
 
 export type IGetDeviceAdvanceSettingsParams = { walletId: string };
 export type IGetDeviceLabelParams = { walletId: string };
 export type ISetDeviceLabelParams = { walletId: string; label: string };
-export type ISetDeviceHomeScreenParams = {
-  // TODO use IHardwareHomeScreenData
-  dbDeviceId: string;
-  imgName: IHardwareHomeScreenName;
-  imgHex: string;
-  thumbnailHex: string;
+
+export type IHardwareHomeScreenData = {
+  id: string;
+  wallpaperType?: 'default' | 'cobranding';
+  resType: 'system' | 'prebuilt' | 'custom'; // system: system image, prebuilt: prebuilt image, custom: user upload image
+
+  // Service image config
+  url?: string; // preview image url
+  nameHex?: string; // Pro、Touch: image name hex, only system res type
+  screenHex?: string; // Classic、mini、1s、pure: image hex, only prebuilt res type
+
+  // software generated image
+  thumbnailHex?: string; // Pro、Touch：thumb image hex by resize
+  blurScreenHex?: string; // Pro、Touch：blur image hex by blur effect
+
+  // User upload config
+  uri?: string; // image base64 by upload & crop
   isUserUpload?: boolean;
+};
+
+export type ISetDeviceHomeScreenParams = {
+  dbDeviceId: string;
+  screenItem: IHardwareHomeScreenData;
 };
 export type IDeviceHomeScreenSizeInfo = {
   width: number;
@@ -58,10 +78,17 @@ export type IDeviceHomeScreenConfig = {
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async changePin(connectId: string, remove = false): Promise<Success> {
-    const hardwareSDK = await this.getSDKInstance();
+    const compatibleConnectId =
+      await this.serviceHardware.getCompatibleConnectId({
+        connectId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
 
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceChangePin(connectId, {
+      hardwareSDK?.deviceChangePin(compatibleConnectId, {
         remove,
       }),
     );
@@ -72,10 +99,17 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     connectId: string,
     settings: DeviceSettingsParams,
   ) {
-    const hardwareSDK = await this.getSDKInstance();
+    const compatibleConnectId =
+      await this.serviceHardware.getCompatibleConnectId({
+        connectId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
 
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceSettings(connectId, settings),
+      hardwareSDK?.deviceSettings(compatibleConnectId, settings),
     );
   }
 
@@ -129,14 +163,35 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async getDeviceLabel({ walletId }: IGetDeviceLabelParams) {
     const device = await localDb.getWalletDevice({ walletId });
-    const features =
-      await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
-        connectId: device.connectId,
-      });
-    const label = await deviceUtils.buildDeviceLabel({
-      features,
-    });
-    return label || 'Unknown';
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      async () => {
+        const compatibleConnectId =
+          await this.serviceHardware.getCompatibleConnectId({
+            connectId: device.connectId,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
+        const features =
+          await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+            connectId: compatibleConnectId,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
+        await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId: compatibleConnectId,
+          skipDeviceCancel: true,
+          deviceResetToHome: false,
+        });
+        const label = await deviceUtils.buildDeviceLabel({
+          features,
+        });
+        return label || 'Unknown';
+      },
+      {
+        deviceParams: {
+          dbDevice: device,
+        },
+        debugMethodName: 'deviceSettings.applySettingsToDevice',
+      },
+    );
   }
 
   @backgroundMethod()
@@ -159,50 +214,78 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async setDeviceHomeScreen({
     dbDeviceId,
-    imgHex,
-    thumbnailHex,
-    isUserUpload,
-    imgName,
-  }: ISetDeviceHomeScreenParams) {
+    screenItem,
+  }: ISetDeviceHomeScreenParams): Promise<DeviceUploadResourceResponse> {
     const device = await localDb.getDevice(dbDeviceId);
+
+    const {
+      nameHex,
+      screenHex,
+      thumbnailHex,
+      blurScreenHex,
+      resType,
+      isUserUpload,
+    } = screenItem;
+
+    const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
+      device.deviceType,
+    );
+    const isCustomScreen = resType === 'custom' || isUserUpload;
+
+    // Pro、Touch: custom upload wallpaper
+    const needUploadResource = isCustomScreen && !isMonochrome;
+
+    const finallyScreenHex = screenHex || nameHex || '';
+    const finallyThumbnailHex: string | undefined = thumbnailHex;
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
-          device.deviceType,
-        );
-        // pro touch upload image
-        if (isUserUpload && !isMonochrome) {
-          const hardwareSDK = await this.getSDKInstance();
+        // pro touch custom upload wallpaper
+        if (needUploadResource) {
+          if (!finallyThumbnailHex) {
+            throw new OneKeyLocalError(
+              'Upload screen item error: thumbnailHex not defined',
+            );
+          }
+
+          const compatibleConnectId =
+            await this.serviceHardware.getCompatibleConnectId({
+              connectId: device.connectId,
+              featuresDeviceId: device.deviceId,
+              hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            });
+          const hardwareSDK = await this.getSDKInstance({
+            connectId: compatibleConnectId,
+          });
           const uploadResParams: DeviceUploadResourceParams = {
             resType: ResourceType.WallPaper,
             suffix: 'jpeg',
-            dataHex: imgHex,
-            thumbnailDataHex: thumbnailHex,
+            dataHex: finallyScreenHex,
+            thumbnailDataHex: finallyThumbnailHex,
+            blurDataHex: blurScreenHex ?? '',
             nftMetaData: '',
           };
           // upload wallpaper resource will automatically set the home screen
-          await convertDeviceResponse(() =>
-            hardwareSDK.deviceUploadResource(device.connectId, uploadResParams),
+          return convertDeviceResponse(() =>
+            hardwareSDK.deviceUploadResource(
+              compatibleConnectId,
+              uploadResParams,
+            ),
           );
-        } else {
-          const { getHomeScreenHex } = await CoreSDKLoader();
-          const deviceType = device.deviceType;
-          const internalHex = getHomeScreenHex(deviceType, imgName);
-          // eslint-disable-next-line no-param-reassign
-          imgHex = imgHex || internalHex;
-          if (imgName === 'blank') {
-            // eslint-disable-next-line no-param-reassign
-            imgHex = '';
-          }
-          if (!imgHex) {
-            // empty string will clear the home screen(classic,mini)
-            // throw new Error('Invalid home screen hex');
-          }
-          await this.applySettingsToDevice(device.connectId, {
-            homescreen: imgHex,
-          });
         }
+        // Pro、Touch: built-in wallpaper
+        // Classic、mini、1s、pure: custom upload and built-in wallpaper
+        if (!finallyScreenHex && !isMonochrome) {
+          // empty string will clear the home screen(classic,mini)
+          throw new OneKeyLocalError('Invalid home screen hex');
+        }
+        const response = await this.applySettingsToDevice(device.connectId, {
+          homescreen: finallyScreenHex,
+        });
+        return {
+          ...response,
+          applyScreen: true,
+        };
       },
       {
         deviceParams: {
@@ -216,9 +299,25 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async setPassphraseEnabled({
     walletId,
+    connectId,
+    featuresDeviceId,
     passphraseEnabled,
   }: ISetPassphraseEnabledParams) {
-    const device = await localDb.getWalletDevice({ walletId });
+    let device: IDBDevice | undefined;
+    if (walletId) {
+      device = await localDb.getWalletDevice({ walletId });
+    }
+    if (!device) {
+      if (connectId || featuresDeviceId) {
+        device = await localDb.getDeviceByQuery({
+          connectId,
+          featuresDeviceId,
+        });
+      }
+    }
+    if (!device) {
+      throw new OneKeyLocalError('Device not found');
+    }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.applySettingsToDevice(device.connectId, {
@@ -283,24 +382,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       });
       // error.payload?.code
       throw error;
-    }
-  }
-
-  @backgroundMethod()
-  async updateSDKSettings({
-    hardwareConnectSrc,
-  }: {
-    hardwareConnectSrc?: EOnekeyDomain;
-  }) {
-    try {
-      const hardwareSDK = await this.getSDKInstance();
-      const connectSrc = generateConnectSrc(hardwareConnectSrc);
-      if (hardwareSDK && hardwareSDK.updateSettings) {
-        const res = await hardwareSDK?.updateSettings({ connectSrc });
-        console.log('Switch hardware connect src success', res);
-      }
-    } catch (e) {
-      console.log('Switch hardware connect src setting failed', e);
     }
   }
 }

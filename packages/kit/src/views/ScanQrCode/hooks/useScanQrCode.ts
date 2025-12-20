@@ -1,8 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-import { Vibration } from 'react-native';
-
+import { Haptics, ImpactFeedbackStyle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   IAnimationValue,
@@ -27,75 +25,58 @@ import useParseQRCode from './useParseQRCode';
 export default function useScanQrCode() {
   const navigation = useAppNavigation();
   const parseQRCode = useParseQRCode();
-  const intl = useIntl();
   const start = useCallback(
-    ({
+    async ({
       autoHandleResult = false,
       handlers,
       account,
+      network,
       tokens,
       qrWalletScene = false,
       showProTutorial = false,
-    }: IQRCodeHandlerParseOutsideOptions) =>
-      new Promise<IQRCodeHandlerParseResult<IBaseValue>>((resolve, reject) => {
-        void backgroundApiProxy.serviceScanQRCode.resetAnimationData();
+    }: IQRCodeHandlerParseOutsideOptions) => {
+      const result = await new Promise<IQRCodeHandlerParseResult<IBaseValue>>(
+        (resolve, reject) => {
+          void backgroundApiProxy.serviceScanQRCode.resetAnimationData();
 
-        navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
-          screen: EScanQrCodeModalPages.ScanQrCodeStack,
-          params: {
-            qrWalletScene,
-            showProTutorial,
-            callback: async ({ value, popNavigation }) => {
-              if (value?.length > 0) {
-                const parseValue = await parseQRCode.parse(value, {
-                  autoHandleResult,
-                  handlers,
-                  account,
-                  tokens,
-                });
-                if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
-                  const animationValue = parseValue.data as IAnimationValue;
-                  if (animationValue.fullData) {
-                    parseValue.raw = animationValue.fullData;
-                    resolve(parseValue);
-                    popNavigation();
+          navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
+            screen: EScanQrCodeModalPages.ScanQrCodeStack,
+            params: {
+              qrWalletScene,
+              showProTutorial,
+              callback: async ({ value, popNavigation }) => {
+                if (value?.length > 0) {
+                  const parseValue = await parseQRCode.parse(value, {
+                    autoHandleResult,
+                    handlers,
+                    account,
+                    network,
+                    tokens,
+                    popNavigation,
+                  });
+                  if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
+                    const animationValue = parseValue.data as IAnimationValue;
+                    if (animationValue.fullData) {
+                      parseValue.raw = animationValue.fullData;
+                      resolve(parseValue);
+                    }
+                    Haptics.impact(ImpactFeedbackStyle.Light);
+                    return {
+                      progress: animationValue.progress,
+                    };
                   }
-                  Vibration.vibrate(1);
-                  return {
-                    progress: animationValue.progress,
-                  };
+                  resolve(parseValue);
+                  return {};
                 }
-                resolve(parseValue);
-                if (
-                  [
-                    EQRCodeHandlerType.ANIMATION_CODE,
-                    EQRCodeHandlerType.WALLET_CONNECT,
-                  ].includes(parseValue.type)
-                ) {
-                  popNavigation();
-                  if (parseValue.type === EQRCodeHandlerType.WALLET_CONNECT) {
-                    // TODO: use global singleton loading
-                    // Dialog.loading({
-                    //   title: intl.formatMessage({
-                    //     id: ETranslations.global_processing,
-                    //   }),
-                    //   showExitButton: true,
-                    // });
-                  }
-                }
-
-                if (parseValue.type === EQRCodeHandlerType.UNKNOWN) {
-                  popNavigation();
-                }
-
+                reject(new OneKeyErrorScanQrCodeCancel());
                 return {};
-              }
-              reject(new OneKeyErrorScanQrCodeCancel());
-              return {};
+              },
             },
-          },
-        });
-      }),
+          });
+        },
+      );
+      return result;
+    },
     [navigation, parseQRCode],
   );
   return useMemo(() => ({ start, PARSE_HANDLER_NAMES }), [start]);

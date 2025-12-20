@@ -9,10 +9,12 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { EMessageTypesTron } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -21,6 +23,7 @@ import type {
   IBuildHwAllNetworkPrepareAccountsParams,
   IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
+  ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 import type {
@@ -76,6 +79,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -83,7 +87,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
 
@@ -107,7 +111,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, address } = item;
+          const { path, address, __hwExtraInfo__ } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address ?? '',
           );
@@ -115,6 +119,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address: normalizedAddress || address || '',
             path,
             publicKey: '',
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }
@@ -197,6 +202,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           resource = 'BANDWIDTH',
           balance,
           lock,
+          lock_period: lockPeriod,
         } = encodedTx.raw_data.contract[0].parameter
           .value as Types.DelegateResourceContract;
         contractCall = {
@@ -205,6 +211,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             receiverAddress: utils.address.fromHex(receiverAddress),
             ...(lock ? { lock } : null),
             ...(resource === 'BANDWIDTH' ? null : { resource: 1 }),
+            lockPeriod: lockPeriod != null ? lockPeriod : undefined,
           },
         };
 
@@ -243,6 +250,26 @@ export class KeyringHardware extends KeyringHardwareBase {
         };
         break;
       }
+      case 'VoteWitnessContract': {
+        const { votes } = encodedTx.raw_data.contract[0].parameter
+          .value as Types.VoteWitnessContract;
+        contractCall = {
+          voteWitnessContract: {
+            votes: votes.map((vote) => ({
+              voteAddress: utils.address.fromHex(vote.vote_address),
+              voteCount: vote.vote_count,
+            })),
+          },
+        };
+        break;
+      }
+      case 'CancelAllUnfreezeV2Contract': {
+        contractCall = {
+          // @ts-expect-error
+          cancelAllUnfreezeV2Contract: {},
+        };
+        break;
+      }
       default:
     }
 
@@ -250,7 +277,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new NotImplemented();
     }
 
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;
@@ -264,7 +293,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           expiration,
           timestamp,
           feeLimit: feeLimit as number,
-          contract: contractCall as TronTransactionContract,
+          contract: contractCall,
         },
         ...deviceCommonParams,
       }),
@@ -282,7 +311,43 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  override signMessage(): Promise<ISignedMessagePro> {
-    throw new NotImplemented('Signing tron message is not supported yet.');
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    const { messages, deviceParams } = params;
+    const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
+    const { connectId, deviceId } = checkIsDefined(dbDevice);
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
+    const account = await this.vault.getAccount();
+    return Promise.all(
+      messages.map(async (e) => {
+        if (e.type === EMessageTypesTron.SIGN_MESSAGE) {
+          const res = await convertDeviceResponse(() =>
+            sdk.tronSignMessage(connectId, deviceId, {
+              ...deviceCommonParams,
+              path: account.path,
+              messageHex: e.message,
+              messageType: 'V1',
+            }),
+          );
+          return res.signature;
+        }
+
+        if (e.type === EMessageTypesTron.SIGN_MESSAGE_V2) {
+          const res = await convertDeviceResponse(() =>
+            sdk.tronSignMessage(connectId, deviceId, {
+              ...deviceCommonParams,
+              path: account.path,
+              messageHex: e.message,
+              messageType: 'V2',
+            }),
+          );
+          return hexUtils.addHexPrefix(res.signature);
+        }
+        throw new OneKeyLocalError('Unsupported message type');
+      }),
+    );
   }
 }

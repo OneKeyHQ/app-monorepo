@@ -1,4 +1,4 @@
-import { type FC, useCallback, useEffect, useRef } from 'react';
+import { type FC, useCallback, useContext, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,8 +8,11 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { useAddressBookPick } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
+
+import { AddressInputContext } from '../AddressInputContext';
 
 import type { IAddressPluginProps } from '../types';
 
@@ -25,8 +28,10 @@ type ISelectorPluginProps = IAddressPluginProps & {
 const AddressBookPlugin: FC<ISelectorPluginProps> = ({
   onChange,
   onInputTypeChange,
+  onExtraDataChange,
   networkId,
   testID,
+  disabled,
 }) => {
   const pick = useAddressBookPick();
   const onPickContacts = useCallback(() => {
@@ -35,13 +40,18 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
       onPick: (item: IAddressItem) => {
         onChange?.(item.address);
         onInputTypeChange?.(EInputAddressChangeType.AddressBook);
+        onExtraDataChange?.({
+          memo: item.memo,
+          note: item.note,
+        });
       },
     });
-  }, [pick, networkId, onChange, onInputTypeChange]);
+  }, [pick, networkId, onChange, onInputTypeChange, onExtraDataChange]);
   const intl = useIntl();
 
   return (
     <ActionList
+      disabled={disabled}
       title={intl.formatMessage({
         id: ETranslations.address_book_select_title,
       })}
@@ -54,6 +64,7 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
       ]}
       renderTrigger={
         <IconButton
+          disabled={disabled}
           title={intl.formatMessage({
             id: ETranslations.send_to_contacts_tooltip,
           })}
@@ -69,6 +80,7 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
 const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   onChange,
   onInputTypeChange,
+  onExtraDataChange,
   networkId,
   accountId,
   testID,
@@ -76,23 +88,39 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   onBeforeAccountSelectorOpen,
   currentAddress,
   clearNotMatch,
+  disabled,
+  onActiveAccountChange,
 }) => {
   const intl = useIntl();
   const accountSelectorNum = num ?? 0;
   const accountSelectorOpen = useRef<boolean>(false);
   const showAddressBook = useAddressBookPick();
   const actions = useAccountSelectorActions();
-  const {
-    activeAccount: { account },
-    showAccountSelector,
-  } = useAccountSelectorTrigger({ num: accountSelectorNum, linkNetwork: true });
+  const { hideNonBackedUpWallet } = useContext(AddressInputContext);
+  const { activeAccount: activeAccountFromSelector, showAccountSelector } =
+    useAccountSelectorTrigger({
+      num: accountSelectorNum,
+      linkNetwork: true,
+      hideNonBackedUpWallet,
+    });
 
   useEffect(() => {
-    if (account?.address && accountSelectorOpen.current) {
-      onChange?.(account?.address);
+    if (
+      activeAccountFromSelector?.account?.address &&
+      accountSelectorOpen.current
+    ) {
+      onChange?.(activeAccountFromSelector?.account?.address);
+      onActiveAccountChange?.(activeAccountFromSelector);
       onInputTypeChange?.(EInputAddressChangeType.AccountSelector);
+      accountSelectorOpen.current = false;
     }
-  }, [account, onChange, onInputTypeChange]);
+  }, [
+    activeAccountFromSelector,
+    onChange,
+    onInputTypeChange,
+    onExtraDataChange,
+    onActiveAccountChange,
+  ]);
 
   const onContacts = useCallback(() => {
     void showAddressBook({
@@ -100,9 +128,19 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       onPick: (item: IAddressItem) => {
         onChange?.(item.address);
         onInputTypeChange?.(EInputAddressChangeType.AddressBook);
+        onExtraDataChange?.({
+          memo: item.memo,
+          note: item.note,
+        });
       },
     });
-  }, [showAddressBook, networkId, onChange, onInputTypeChange]);
+  }, [
+    showAddressBook,
+    networkId,
+    onChange,
+    onInputTypeChange,
+    onExtraDataChange,
+  ]);
 
   const onShowAccountSelector = useCallback(async () => {
     accountSelectorOpen.current = true;
@@ -160,30 +198,36 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
 
   return (
     <ActionList
+      disabled={disabled}
       title={intl.formatMessage({
-        id: ETranslations.send_to_contacts_selecor_account_title,
+        id: ETranslations.send_to_contacts_selector_account_title,
       })}
       items={[
         {
           icon: 'WalletCryptoOutline' as const,
           label: intl.formatMessage({
-            id: ETranslations.send_to_contacts_selecor_account,
+            id: ETranslations.send_to_contacts_selector_account,
           }),
           onPress: onShowAccountSelector,
         },
-        {
-          icon: 'ContactsOutline' as const,
-          label: intl.formatMessage({
-            id: ETranslations.send_to_contacts_selecor_address_book,
-          }),
-          onPress: onContacts,
-        },
+        ...(platformEnv.isWebDappMode
+          ? []
+          : [
+              {
+                icon: 'ContactsOutline' as const,
+                label: intl.formatMessage({
+                  id: ETranslations.send_to_contacts_selector_address_book,
+                }),
+                onPress: onContacts,
+              },
+            ]),
       ]}
       renderTrigger={
         <IconButton
           title={intl.formatMessage({
             id: ETranslations.send_to_contacts_tooltip,
           })}
+          disabled={disabled}
           variant="tertiary"
           icon="PeopleCircleOutline"
           testID={testID}
@@ -195,7 +239,9 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
 
 export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   onChange,
+  onActiveAccountChange,
   onInputTypeChange,
+  onExtraDataChange,
   networkId,
   accountId,
   testID,
@@ -203,11 +249,13 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   onBeforeAccountSelectorOpen,
   currentAddress,
   clearNotMatch,
+  disabled,
 }) => {
   if (num !== undefined) {
     return (
       <AccountSelectorAddressBookPlugin
         onChange={onChange}
+        onActiveAccountChange={onActiveAccountChange}
         num={num}
         networkId={networkId}
         accountId={accountId}
@@ -216,6 +264,8 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
         currentAddress={currentAddress}
         clearNotMatch={clearNotMatch}
         onInputTypeChange={onInputTypeChange}
+        onExtraDataChange={onExtraDataChange}
+        disabled={disabled}
       />
     );
   }
@@ -225,6 +275,8 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
       onChange={onChange}
       networkId={networkId}
       testID={testID}
+      disabled={disabled}
+      onExtraDataChange={onExtraDataChange}
     />
   );
 };

@@ -1,26 +1,24 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard } from 'react-native';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
-  Dialog,
-  EPageType,
   Icon,
+  LottieView,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
-  useIsKeyboardShown,
+  rootNavigationRef,
+  useIsModalPage,
   useMedia,
-  usePageType,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
-  useSwapFromTokenAmountAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
@@ -28,173 +26,113 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EProtocolOfExchange,
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
+import {
   ESwapDirectionType,
   ESwapQuoteKind,
-  SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
-import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
-import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
 import {
   useSwapActionState,
-  useSwapBatchTransfer,
+  useSwapQuoteEventFetching,
+  useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 
+import { PercentageStageOnKeyboard } from './SwapInputContainer';
+
 interface ISwapActionsStateProps {
-  onBuildTx: () => void;
-  onWrapped: () => void;
-  onApprove: (
-    amount: string,
-    isMax?: boolean,
-    shoutResetApprove?: boolean,
-  ) => void;
+  onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
 }
 
-function PercentageStageOnKeyboard({
-  onSelectPercentageStage,
-}: {
-  onSelectPercentageStage?: (stage: number) => void;
-}) {
-  const isShow = useIsKeyboardShown();
-  return isShow ? (
-    <XStack
-      alignItems="center"
-      gap="$1"
-      justifyContent="space-around"
-      bg="$bgSubdued"
-      h="$10"
-    >
-      <>
-        {SwapPercentageInputStageForNative.map((stage) => (
-          <SwapPercentageStageBadge
-            badgeSize="lg"
-            key={`swap-percentage-input-stage-${stage}`}
-            stage={stage}
-            borderRadius={0}
-            onSelectStage={onSelectPercentageStage}
-            flex={1}
-            justifyContent="center"
-            alignItems="center"
-            h="$10"
-          />
-        ))}
-        <Button
-          icon="CheckLargeOutline"
-          flex={1}
-          h="$10"
-          size="small"
-          justifyContent="center"
-          borderRadius={0}
-          alignItems="center"
-          variant="tertiary"
-          onPress={() => {
-            Keyboard.dismiss();
-          }}
-        />
-      </>
-    </XStack>
-  ) : null;
-}
-
 function PageFooter({
   actionComponent,
-  pageType,
+  isModalPage,
   md,
   onSelectPercentageStage,
 }: {
   onSelectPercentageStage?: (stage: number) => void;
-  pageType: EPageType;
+  isModalPage: boolean;
   md: boolean;
   actionComponent: React.JSX.Element;
 }) {
   return (
     <Page.Footer>
       <Page.FooterActions
-        {...(pageType === EPageType.modal && !md
-          ? { buttonContainerProps: { flex: 1 } }
-          : {})}
+        {...(isModalPage && !md ? { buttonContainerProps: { flex: 1 } } : {})}
         confirmButton={actionComponent}
       />
-      <PercentageStageOnKeyboard
-        onSelectPercentageStage={onSelectPercentageStage}
-      />
+      {!platformEnv.isNativeIOS ? (
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
+      ) : null}
     </Page.Footer>
   );
 }
 
 const SwapActionsState = ({
-  onBuildTx,
-  onApprove,
-  onWrapped,
+  onPreSwap,
   onOpenRecipientAddress,
   onSelectPercentageStage,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [fromAmount] = useSwapFromTokenAmountAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const { quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const [{ swapEnableRecipientAddress }] = useSettingsAtom();
-  const isBatchTransfer = useSwapBatchTransfer(
-    swapFromAddressInfo.networkId,
-    swapFromAddressInfo.accountInfo?.account?.id,
-    currentQuoteRes?.providerDisableBatchTransfer,
-  );
+  const quoteLoading = useSwapQuoteLoading();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
-  const handleApprove = useCallback(() => {
-    if (swapActionState.shoutResetApprove) {
-      Dialog.confirm({
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onConfirm: () => {
-          onApprove(fromAmount.value, swapActionState.approveUnLimit, true);
-        },
-        showCancelButton: true,
-        title: intl.formatMessage({
-          id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
-        }),
-        icon: 'ErrorOutline',
-      });
-    } else {
-      onApprove(fromAmount.value, swapActionState.approveUnLimit);
-    }
-  }, [
-    fromAmount,
-    intl,
-    onApprove,
-    swapActionState.approveUnLimit,
-    swapActionState.shoutResetApprove,
-  ]);
-  const pageType = usePageType();
+  const themeVariant = useThemeVariant();
+  const quoting = useSwapQuoteEventFetching();
+
+  const isModalPage = useIsModalPage();
   const { md } = useMedia();
 
-  const onActionHandler = useCallback(() => {
+  const onActionHandlerBefore = useCallback(async () => {
+    if (swapActionState.noConnectWallet) {
+      if (platformEnv.isWebDappMode) {
+        navigation.pushModal(EModalRoutes.OnboardingModal, {
+          screen: EOnboardingPages.ConnectWalletOptions,
+        });
+      } else {
+        await closeModalPages();
+        rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.GetStarted,
+          },
+        });
+      }
+      return;
+    }
     if (swapActionState.isRefreshQuote) {
       void quoteAction(
         swapSlippageRef.current,
@@ -203,101 +141,22 @@ const SwapActionsState = ({
         undefined,
         undefined,
         currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
+        true,
+        swapToAddressInfo?.address,
       );
-    } else {
-      cleanQuoteInterval();
-      if (swapActionState.isApprove) {
-        handleApprove();
-        return;
-      }
-
-      if (swapActionState.isWrapped) {
-        onWrapped();
-        return;
-      }
-      onBuildTx();
-    }
-  }, [
-    cleanQuoteInterval,
-    currentQuoteRes?.kind,
-    handleApprove,
-    onBuildTx,
-    onWrapped,
-    quoteAction,
-    swapActionState.isApprove,
-    swapActionState.isRefreshQuote,
-    swapActionState.isWrapped,
-    swapFromAddressInfo?.accountInfo?.account?.id,
-    swapFromAddressInfo?.address,
-  ]);
-
-  const onActionHandlerBefore = useCallback(() => {
-    if (swapActionState.isRefreshQuote) {
-      onActionHandler();
       return;
     }
-    if (currentQuoteRes?.quoteShowTip) {
-      Dialog.confirm({
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onConfirm: () => {
-          onActionHandler();
-        },
-        title: currentQuoteRes?.quoteShowTip.title ?? '',
-        description: currentQuoteRes.quoteShowTip.detail ?? '',
-        icon:
-          (currentQuoteRes?.quoteShowTip.icon as IKeyOfIcons) ??
-          'ChecklistBoxOutline',
-        renderContent: currentQuoteRes.quoteShowTip?.link ? (
-          <Button
-            variant="tertiary"
-            size="small"
-            alignSelf="flex-start"
-            icon="QuestionmarkOutline"
-            onPress={() => {
-              if (currentQuoteRes.quoteShowTip?.link) {
-                openUrlExternal(currentQuoteRes.quoteShowTip?.link);
-              }
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_learn_more })}
-          </Button>
-        ) : undefined,
-      });
-    } else if (
-      currentQuoteRes?.networkCostExceedInfo &&
-      !currentQuoteRes.allowanceResult
-    ) {
-      Dialog.confirm({
-        title: intl.formatMessage({
-          id: ETranslations.swap_network_cost_dialog_title,
-        }),
-        icon: 'ErrorSolid',
-        renderContent: (
-          <TransactionLossNetworkFeeExceedDialog
-            protocol={currentQuoteRes.protocol ?? EProtocolOfExchange.SWAP}
-            networkCostExceedInfo={currentQuoteRes.networkCostExceedInfo}
-          />
-        ),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onConfirm: () => {
-          onActionHandler();
-        },
-      });
-    } else {
-      onActionHandler();
-    }
+    onPreSwap();
   }, [
-    currentQuoteRes?.allowanceResult,
-    currentQuoteRes?.networkCostExceedInfo,
-    currentQuoteRes?.protocol,
-    currentQuoteRes?.quoteShowTip,
-    intl,
-    onActionHandler,
+    currentQuoteRes?.kind,
+    navigation,
+    onPreSwap,
+    quoteAction,
     swapActionState.isRefreshQuote,
+    swapActionState.noConnectWallet,
+    swapFromAddressInfo?.accountInfo?.account?.id,
+    swapFromAddressInfo?.address,
+    swapToAddressInfo?.address,
   ]);
 
   const shouldShowRecipient = useMemo(
@@ -316,83 +175,10 @@ const SwapActionsState = ({
     ],
   );
 
-  const approveStepComponent = useMemo(() => {
-    if (swapActionState.isApprove && !isBatchTransfer) {
-      return (
-        <XStack
-          gap="$1"
-          {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
-        >
-          <Popover
-            title={intl.formatMessage({ id: ETranslations.global_approve })}
-            placement="top-start"
-            renderContent={
-              <SizableText
-                size="$bodyLg"
-                $gtMd={{
-                  size: '$bodyMd',
-                  pt: '$5',
-                }}
-                pb="$5"
-                px="$5"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.swap_page_swap_steps_1_approve_dialog,
-                })}
-              </SizableText>
-            }
-            renderTrigger={
-              <XStack
-                userSelect="none"
-                hoverStyle={{
-                  opacity: 0.5,
-                }}
-              >
-                <SizableText size="$bodyMdMedium" pr="$1">
-                  {intl.formatMessage(
-                    { id: ETranslations.swap_page_swap_steps_1 },
-                    { tokenSymbol: fromToken?.symbol ?? '' },
-                  )}
-                </SizableText>
-                <Icon
-                  size="$5"
-                  color="$iconSubdued"
-                  name="QuestionmarkOutline"
-                />
-              </XStack>
-            }
-          />
-          <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.swap_page_swap_steps_2,
-            })}
-          </SizableText>
-        </XStack>
-      );
-    }
-    return null;
-  }, [
-    fromToken?.symbol,
-    intl,
-    md,
-    pageType,
-    swapActionState.isApprove,
-    isBatchTransfer,
-  ]);
-
   const recipientComponent = useMemo(() => {
-    if (swapActionState.isApprove && !isBatchTransfer) {
-      return null;
-    }
     if (shouldShowRecipient) {
       return (
-        <XStack
-          gap="$1"
-          {...(pageType === EPageType.modal && !md
-            ? { flex: 1 }
-            : { pb: '$4' })}
-        >
+        <XStack gap="$1" {...(isModalPage && !md ? { flex: 1 } : { pb: '$4' })}>
           <Stack>
             <Icon name="AddedPeopleOutline" w="$5" h="$5" />
           </Stack>
@@ -443,57 +229,67 @@ const SwapActionsState = ({
     intl,
     md,
     onOpenRecipientAddress,
-    pageType,
+    isModalPage,
     shouldShowRecipient,
-    swapActionState.isApprove,
-    isBatchTransfer,
     swapRecipientAddressInfo?.accountInfo?.accountName,
     swapRecipientAddressInfo?.accountInfo?.walletName,
     swapRecipientAddressInfo?.isExtAccount,
     swapRecipientAddressInfo?.showAddress,
   ]);
 
-  const haveTips = useMemo(
-    () =>
-      shouldShowRecipient || (swapActionState.isApprove && !isBatchTransfer),
-    [shouldShowRecipient, swapActionState.isApprove, isBatchTransfer],
-  );
-
   const actionComponent = useMemo(
     () => (
       <Stack
         flex={1}
-        {...(pageType === EPageType.modal && !md
+        {...(isModalPage && !md
           ? {
               flexDirection: 'row',
-              justifyContent: haveTips ? 'space-between' : 'flex-end',
+              justifyContent: shouldShowRecipient
+                ? 'space-between'
+                : 'flex-end',
               alignItems: 'center',
             }
           : {})}
       >
-        {approveStepComponent}
         {recipientComponent}
         <Button
           onPress={onActionHandlerBefore}
-          size={pageType === EPageType.modal && !md ? 'medium' : 'large'}
+          size={isModalPage && !md ? 'medium' : 'large'}
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
-          loading={swapActionState.isLoading}
         >
-          {swapActionState.label}
+          {quoting || quoteLoading ? (
+            <LottieView
+              source={
+                themeVariant === 'light'
+                  ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
+                  : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+              }
+              autoPlay
+              loop
+              style={{
+                width: 40,
+                height: 24,
+              }}
+            />
+          ) : (
+            swapActionState.label
+          )}
         </Button>
       </Stack>
     ),
     [
-      approveStepComponent,
-      haveTips,
       md,
       onActionHandlerBefore,
-      pageType,
+      isModalPage,
+      quoteLoading,
+      quoting,
       recipientComponent,
+      shouldShowRecipient,
       swapActionState.disabled,
       swapActionState.isLoading,
       swapActionState.label,
+      themeVariant,
     ],
   );
 
@@ -501,11 +297,13 @@ const SwapActionsState = ({
     () => (
       <>
         {actionComponent}
-        <Page.Footer>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
-        </Page.Footer>
+        {!platformEnv.isNativeIOS ? (
+          <Page.Footer>
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+          </Page.Footer>
+        ) : null}
       </>
     ),
     [actionComponent, onSelectPercentageStage],
@@ -513,11 +311,11 @@ const SwapActionsState = ({
 
   return (
     <>
-      {pageType === EPageType.modal && !md ? (
+      {isModalPage && !md ? (
         <PageFooter
           onSelectPercentageStage={onSelectPercentageStage}
           actionComponent={actionComponent}
-          pageType={pageType}
+          isModalPage={isModalPage}
           md={md}
         />
       ) : (

@@ -26,6 +26,7 @@ const IconGallery = () => {
 
   return (
     <Layout
+      getFilePath={() => __CURRENT_FILE_PATH__}
       componentName="Icon"
       description="图标是一种视觉符号，用于表示对象或概念"
       suggestions={['图标的设计应该简洁、易于理解、易于识别']}
@@ -57,7 +58,7 @@ const IconGallery = () => {
         {
           title: 'icons',
           element: (
-            <Stack space="$4" width="100%">
+            <Stack gap="$4" width="100%">
               <Input
                 placeholder="Search icons..."
                 value={searchQuery}

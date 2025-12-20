@@ -8,22 +8,26 @@ import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useTokenListActions } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import {
+  useAggregateTokensListMapAtom,
+  useAllTokenListMapAtom,
+  useTokenListActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EAssetSelectorRoutes,
-  IAssetSelectorParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
+import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -33,7 +37,12 @@ const num = 0;
 
 function TokenSelector() {
   const intl = useIntl();
-  const { updateCreateAccountState } = useTokenListActions().current;
+  const {
+    updateCreateAccountState,
+    refreshActiveAccountTokenList,
+    refreshTokenListMap,
+    updateActiveAccountTokenListState,
+  } = useTokenListActions().current;
 
   const route =
     useRoute<
@@ -44,21 +53,32 @@ function TokenSelector() {
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
+  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+
   const {
     title,
     networkId,
     accountId,
+    indexedAccountId,
     closeAfterSelect = true,
     onSelect,
     searchAll,
     isAllNetworks,
     searchPlaceholder,
     footerTipText,
+    activeAccountId,
+    activeNetworkId,
+    aggregateTokenSelectorScreen,
+    allAggregateTokenMap,
+    hideZeroBalanceTokens,
+    keepDefaultZeroBalanceTokens,
+    enableNetworkAfterSelect,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
 
   const [searchKey, setSearchKey] = useState('');
+  const [allTokenListMap] = useAllTokenListMapAtom();
   const [searchTokenState, setSearchTokenState] = useState({
     isSearching: false,
   });
@@ -68,6 +88,49 @@ function TokenSelector() {
 
   const handleTokenOnPress = useCallback(
     async (token: IAccountToken) => {
+      if (token.isAggregateToken) {
+        const allAggregateTokenList =
+          allAggregateTokenMap?.[token.$key]?.tokens ?? [];
+        const aggregateTokenList =
+          aggregateTokensListMap[token.$key]?.tokens ?? [];
+        if (
+          aggregateTokenList.length === 1 &&
+          allAggregateTokenList.length === 0
+        ) {
+          void onSelect?.(aggregateTokenList[0]);
+          return;
+        }
+
+        const { tokenHasBalance, tokenHasBalanceCount } =
+          checkIsOnlyOneTokenHasBalance({
+            tokenMap: allTokenListMap,
+            aggregateTokenList,
+            allAggregateTokenList,
+          });
+
+        if (tokenHasBalance && tokenHasBalanceCount === 1) {
+          void onSelect?.(tokenHasBalance);
+          return;
+        }
+
+        if (aggregateTokenList.length > 1 || allAggregateTokenList.length > 1) {
+          navigation.push(
+            aggregateTokenSelectorScreen ??
+              EAssetSelectorRoutes.AggregateTokenSelector,
+            {
+              accountId,
+              indexedAccountId,
+              aggregateToken: token,
+              onSelect,
+              allAggregateTokenList,
+              enableNetworkAfterSelect,
+              hideZeroBalanceTokens,
+            },
+          );
+          return;
+        }
+      }
+
       if (network?.isAllNetworks) {
         let vaultSettings: IVaultSettings | undefined;
         if (token.networkId) {
@@ -105,6 +168,7 @@ function TokenSelector() {
               deriveType = (
                 await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate(
                   {
+                    accountId: tokenAccount.id,
                     networkId: token.networkId,
                     template: tokenAccount.template,
                   },
@@ -189,14 +253,22 @@ function TokenSelector() {
       }
     },
     [
-      account,
-      closeAfterSelect,
-      createAddress,
-      navigation,
-      network?.id,
       network?.isAllNetworks,
+      network?.id,
+      closeAfterSelect,
+      allAggregateTokenMap,
+      aggregateTokensListMap,
+      allTokenListMap,
       onSelect,
+      navigation,
+      aggregateTokenSelectorScreen,
+      accountId,
+      indexedAccountId,
+      enableNetworkAfterSelect,
+      hideZeroBalanceTokens,
+      account,
       updateCreateAccountState,
+      createAddress,
     ],
   );
 
@@ -242,6 +314,56 @@ function TokenSelector() {
     [accountId, networkId],
   );
 
+  const showActiveAccountTokenList = useMemo(() => {
+    return !!(
+      activeAccountId &&
+      activeNetworkId &&
+      activeAccountId !== accountId &&
+      activeNetworkId !== networkId
+    );
+  }, [activeAccountId, activeNetworkId, accountId, networkId]);
+
+  usePromiseResult(async () => {
+    if (activeAccountId && activeNetworkId && showActiveAccountTokenList) {
+      updateActiveAccountTokenListState({
+        initialized: false,
+        isRefreshing: true,
+      });
+      const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+        accountId,
+        networkId,
+        indexedAccountId,
+        flag: 'token-selector',
+      });
+
+      refreshActiveAccountTokenList({
+        tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
+        keys: `${r.tokens.keys}_${r.smallBalanceTokens.keys}`,
+      });
+      refreshTokenListMap({
+        tokens: {
+          ...r.tokens.map,
+          ...r.smallBalanceTokens.map,
+        },
+        merge: true,
+      });
+      updateActiveAccountTokenListState({
+        isRefreshing: false,
+        initialized: true,
+      });
+    }
+  }, [
+    accountId,
+    activeAccountId,
+    activeNetworkId,
+    indexedAccountId,
+    networkId,
+    refreshActiveAccountTokenList,
+    refreshTokenListMap,
+    showActiveAccountTokenList,
+    updateActiveAccountTokenListState,
+  ]);
+
   useEffect(() => {
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       void searchTokensBySearchKey(searchKey);
@@ -254,6 +376,7 @@ function TokenSelector() {
 
   return (
     <Page
+      lazyLoad
       safeAreaEnabled={false}
       onClose={() => setSearchKey('')}
       onUnmounted={() => setSearchKey('')}
@@ -269,7 +392,10 @@ function TokenSelector() {
       />
       <Page.Body>
         <TokenListView
-          withPresetVerticalPadding={false}
+          accountId={accountId}
+          networkId={networkId}
+          indexedAccountId={indexedAccountId}
+          showActiveAccountTokenList={showActiveAccountTokenList}
           onPressToken={handleTokenOnPress}
           isAllNetworks={isAllNetworks ?? network?.isAllNetworks}
           withNetwork={isAllNetworks ?? network?.isAllNetworks}
@@ -279,6 +405,13 @@ function TokenSelector() {
           tokenSelectorSearchKey={searchKey}
           tokenSelectorSearchTokenState={searchTokenState}
           tokenSelectorSearchTokenList={searchTokenList}
+          allAggregateTokenMap={allAggregateTokenMap}
+          hideZeroBalanceTokens={hideZeroBalanceTokens}
+          keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
+          showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
+          emptyProps={{
+            mt: '24%',
+          }}
         />
       </Page.Body>
     </Page>

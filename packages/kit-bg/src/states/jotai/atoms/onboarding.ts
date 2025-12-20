@@ -8,3 +8,12 @@ export const {
   name: EAtomNames.onboardingConnectWalletLoadingAtom,
   initialValue: false,
 });
+
+// onboardingCloudBackupListRefreshAtom
+export const {
+  target: onboardingCloudBackupListRefreshAtom,
+  use: useOnboardingCloudBackupListRefreshAtom,
+} = globalAtom<number>({
+  name: EAtomNames.onboardingCloudBackupListRefreshAtom,
+  initialValue: 0,
+});

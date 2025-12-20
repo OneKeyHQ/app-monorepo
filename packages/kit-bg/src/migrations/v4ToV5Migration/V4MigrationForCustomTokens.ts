@@ -1,5 +1,8 @@
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { ICustomTokenItem } from '@onekeyhq/shared/types/token';
+import {
+  ECustomTokenStatus,
+  type ICloudSyncCustomToken,
+} from '@onekeyhq/shared/types/token';
 
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
@@ -42,7 +45,7 @@ export class V4MigrationForCustomTokens extends V4MigrationManagerBase {
 
         const matchedTokens: {
           networkId: string;
-          tokens: ICustomTokenItem[];
+          tokens: ICloudSyncCustomToken[];
         }[] = [];
         for (const [networkId, accountData] of Object.entries(
           v4AccountTokens ?? {},
@@ -57,6 +60,11 @@ export class V4MigrationForCustomTokens extends V4MigrationManagerBase {
           }
           if (accountData[v4Account.id]) {
             const tokens = accountData[v4Account.id];
+            const accountXpubOrAddress =
+              await this.backgroundApi.serviceAccount.getAccountXpubOrAddress({
+                networkId,
+                accountId: v5Account.id,
+              });
             matchedTokens.push({
               networkId,
               tokens: tokens.map((t) => ({
@@ -69,6 +77,8 @@ export class V4MigrationForCustomTokens extends V4MigrationManagerBase {
                 networkId,
                 accountId: v5Account.id,
                 $key: `${networkId}_${t.tokenIdOnNetwork}`,
+                accountXpubOrAddress: accountXpubOrAddress ?? '',
+                tokenStatus: ECustomTokenStatus.Custom,
               })),
             });
           }

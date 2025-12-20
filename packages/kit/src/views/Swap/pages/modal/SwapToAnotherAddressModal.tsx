@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -51,7 +52,7 @@ const SwapToAnotherAddressPage = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
     >();
   const paramAddress = route.params?.address;
-  const { accountInfo, address, activeAccount } = useSwapAddressInfo(
+  const { accountInfo, address, activeAccount, networkId } = useSwapAddressInfo(
     ESwapDirectionType.TO,
   );
 
@@ -72,10 +73,14 @@ const SwapToAnotherAddressPage = () => {
   useEffect(() => {
     if (address && accountInfo?.account?.address === address) {
       form.setValue('address', { raw: address });
-    } else if (paramAddress) {
+    }
+  }, [accountInfo?.account?.address, address, form]);
+
+  useEffect(() => {
+    if (paramAddress) {
       form.setValue('address', { raw: paramAddress });
     }
-  }, [accountInfo?.account?.address, address, form, paramAddress]);
+  }, [paramAddress, form]);
 
   const handleOnOpenAccountSelector = useCallback(() => {
     setSettings((v) => ({
@@ -95,13 +100,14 @@ const SwapToAnotherAddressPage = () => {
       setSwapToAddress((v) => ({
         ...v,
         address: finallyAddress,
-        networkId: activeAccount?.network?.id,
+        networkId,
         accountInfo: activeAccount,
       }));
       setSwapManualSelectQuote(selectedQuote);
       navigation.pop();
     },
     [
+      networkId,
       activeAccount,
       navigation,
       selectedQuote,
@@ -127,7 +133,7 @@ const SwapToAnotherAddressPage = () => {
     [handleOnOpenAccountSelector],
   );
 
-  return accountInfo && accountInfo?.network?.id ? (
+  return accountInfo && networkId ? (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
@@ -139,16 +145,15 @@ const SwapToAnotherAddressPage = () => {
         <Form form={form}>
           <AddressInputField
             name="address"
-            networkId={accountInfo?.network?.id}
+            networkId={networkId}
             enableAddressBook
             enableWalletName
-            enableVerifySendFundToSelf
+            // enableVerifySendFundToSelf
             enableAddressInteractionStatus
             enableAddressContract
             enableAllowListValidation
             accountId={accountInfo?.account?.id}
-            contacts
-            accountSelector={accountSelector}
+            {...(!platformEnv.isWeb ? { contacts: true, accountSelector } : {})}
           />
         </Form>
         <Stack gap="$4">

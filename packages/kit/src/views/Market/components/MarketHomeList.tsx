@@ -2,14 +2,10 @@ import type { MutableRefObject } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import {
-  InteractionManager,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 
 import type {
-  IDragEndParams,
+  IDragEndParamsWithItem,
   IElement,
   IStackStyle,
   ITableColumn,
@@ -28,14 +24,12 @@ import {
   View,
   XStack,
   YStack,
+  useIsFocusedTab,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
@@ -50,22 +44,21 @@ import type {
 
 import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePrevious } from '../../../hooks/usePrevious';
+import { useDebounce } from '../../../hooks/useDebounce';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 import { MarketListTradeButton } from './MarketListTradeButton';
 import { MarketMore } from './MarketMore';
-import { MarketStar, useStarChecked } from './MarketStar';
+import { MarketStar } from './MarketStar';
 import { MarketTokenIcon } from './MarketTokenIcon';
 import { MarketTokenPrice } from './MarketTokenPrice';
-import { MarketTokenStarIcon } from './MarketTokenStarIcon';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
-import { ToggleButton } from './ToggleButton';
 import { useLazyMarketTradeActions } from './tradeHook';
 import { useSortType } from './useSortType';
-import { useWatchListAction } from './wachListHooks';
+import { useWatchListAction } from './watchListHooks';
 
 const lineColorMap = {
   light: ['rgba(0, 113, 63)', 'rgba(196, 0, 6)'],
@@ -153,8 +146,7 @@ function MarketMdColumn({
   mdColumnKeys,
   showMoreAction,
   onLongPressRefs,
-  tabIndex,
-  isWatchList,
+  wallet,
 }: {
   item: IMarketToken;
   currency: string;
@@ -163,6 +155,7 @@ function MarketMdColumn({
   onLongPressRefs: MutableRefObject<Record<string, () => void>>;
   showMoreAction: boolean;
   tabIndex?: number;
+  wallet: IDBWallet | undefined;
 }) {
   const actions = useWatchListAction();
   const isShowActionSheet = useRef(false);
@@ -210,8 +203,8 @@ function MarketMdColumn({
                   label: intl.formatMessage({
                     id: ETranslations.market_add_to_watchlist,
                   }),
-                  onPress: () => {
-                    actions.addIntoWatchList(coingeckoId);
+                  onPress: async () => {
+                    await actions.addIntoWatchList(coingeckoId);
                     defaultLogger.market.token.addToWatchList({
                       tokenSymbol: coingeckoId,
                       addWatchlistFrom: EWatchlistFrom.catalog,
@@ -223,8 +216,8 @@ function MarketMdColumn({
               label: intl.formatMessage({
                 id: ETranslations.market_move_to_top,
               }),
-              onPress: () => {
-                actions.MoveToTop(coingeckoId);
+              onPress: async () => {
+                await actions.MoveToTop(coingeckoId);
               },
             },
           ].filter(Boolean),
@@ -258,7 +251,16 @@ function MarketMdColumn({
             showBuyOrSellButton && {
               icon: 'PlusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_buy }),
-              onPress: () => {
+              onPress: async () => {
+                if (
+                  await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(
+                    {
+                      walletId: wallet?.id ?? '',
+                    },
+                  )
+                ) {
+                  return;
+                }
                 defaultLogger.market.token.marketTokenAction({
                   tokenName: coingeckoId,
                   action: 'buy',
@@ -291,6 +293,7 @@ function MarketMdColumn({
     showBuyOrSellButton,
     showMoreAction,
     tradeActions,
+    wallet?.id,
   ]);
 
   useEffect(() => {
@@ -365,14 +368,13 @@ function MarketMdColumn({
             borderRadius="$2"
           >
             <NumberSizeableText
-              adjustsFontSizeToFit
-              numberOfLines={platformEnv.isNative ? 1 : 2}
-              px="$1"
               userSelect="none"
               size="$bodyMdMedium"
               color="white"
               formatter="priceChange"
-              formatterOptions={{ showPlusMinusSigns: true }}
+              formatterOptions={{
+                showPlusMinusSigns: true,
+              }}
             >
               {item[mdColumnKeys[1]] as string}
             </NumberSizeableText>
@@ -391,57 +393,80 @@ function BasicMarketHomeList({
   showMoreAction = false,
   ordered,
   draggable,
+  extraData,
 }: {
   tabIndex?: number;
   category: IMarketCategory;
   showMoreAction?: boolean;
   ordered?: boolean;
   draggable?: boolean;
+  extraData?: any;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const watchListAction = useWatchListAction();
 
+  const isFocusedTab = useIsFocusedTab();
+  const isFocused = useDebounce(isFocusedTab, platformEnv.isNative ? 120 : 50);
+  const prevExtraData = useRef(extraData);
+
+  const {
+    activeAccount: { wallet },
+  } = useActiveAccount({
+    num: 0,
+  });
+
+  const FETCH_COOLDOWN_DURATION = timerUtils.getTimeDurationMs({ seconds: 45 });
+
   const updateAtRef = useRef(0);
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
-  const prevCoingeckoIdsLength = usePrevious(category.coingeckoIds.length);
 
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
-    if (
-      now - updateAtRef.current >
-        timerUtils.getTimeDurationMs({ seconds: 45 }) ||
-      prevCoingeckoIdsLength !== category.coingeckoIds.length ||
-      (prevCoingeckoIdsLength === 0 && category.coingeckoIds.length === 0)
-    ) {
-      updateAtRef.current = now;
-      const response = await backgroundApiProxy.serviceMarket.fetchCategory(
-        category.categoryId,
-        category.coingeckoIds,
-        true,
-      );
-      void InteractionManager.runAfterInteractions(() => {
-        setListData(response);
-      });
+    if (now - updateAtRef.current < FETCH_COOLDOWN_DURATION) {
+      return;
     }
-  }, [category.categoryId, category.coingeckoIds, prevCoingeckoIdsLength]);
+
+    updateAtRef.current = now;
+    const response = await backgroundApiProxy.serviceMarket.fetchCategory(
+      category.categoryId,
+      category.coingeckoIds,
+      true,
+    );
+    void timerUtils.setTimeoutPromised(() => {
+      setListData(response);
+    });
+  }, [FETCH_COOLDOWN_DURATION, category.categoryId, category.coingeckoIds]);
+
+  useEffect(() => {
+    if (prevExtraData.current !== extraData) {
+      updateAtRef.current = 0;
+      void fetchCategory();
+    }
+    prevExtraData.current = extraData;
+  }, [extraData, fetchCategory]);
 
   usePromiseResult(
     async () => {
-      await fetchCategory();
+      if (isFocused) {
+        await fetchCategory();
+      }
     },
-    [fetchCategory],
+    [fetchCategory, isFocused],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
     },
   );
 
   useEffect(() => {
-    void fetchCategory();
-  }, [fetchCategory]);
+    if (isFocused && listData.length === 0) {
+      void fetchCategory();
+    }
+  }, [fetchCategory, isFocused, listData.length]);
 
-  const { md, gtMd, gt2Md, gtLg, gtXl, gt2xl } = useMedia();
+  const { gtMd, gt2Md, gtLg, gtXl, gt2xl } = useMedia();
 
   const filterCoingeckoIdsListData = useMemo(() => {
     const filterListData = category.coingeckoIds?.length
@@ -449,23 +474,34 @@ function BasicMarketHomeList({
           category.coingeckoIds.includes(item.coingeckoId),
         )
       : listData;
+    if (category && category.watchList && category.watchList?.length) {
+      listData.forEach((item) => {
+        item.sortIndex = category?.watchList?.find(
+          (w) => w.coingeckoId === item.coingeckoId,
+        )?.sortIndex;
+      });
+    }
     if (ordered) {
-      return category.coingeckoIds.reduce((prev, coingeckoId) => {
-        const item = filterListData?.find(
-          (i) => i?.coingeckoId === coingeckoId,
-        );
-        if (item) {
-          prev.push(item);
-        }
-        return prev;
-      }, [] as IMarketToken[]);
+      const orderedListData = category.coingeckoIds.reduce(
+        (prev, coingeckoId) => {
+          const item = filterListData?.find(
+            (i) => i?.coingeckoId === coingeckoId,
+          );
+          if (item) {
+            prev.push(item);
+          }
+          return prev;
+        },
+        [] as IMarketToken[],
+      );
+      return orderedListData;
     }
     return filterListData;
-  }, [category.coingeckoIds, listData, ordered]);
+  }, [category, listData, ordered]);
   const { sortedListData, handleSortTypeChange, sortByType, setSortByType } =
     useSortType(filterCoingeckoIdsListData as Record<string, any>[]);
 
-  const [mdColumnKeys, setMdColumnKeys] = useState<IKeyOfMarketToken[]>([
+  const [mdColumnKeys] = useState<IKeyOfMarketToken[]>([
     'price',
     'priceChangePercentage24H',
   ]);
@@ -495,9 +531,10 @@ function BasicMarketHomeList({
         currency={currency}
         mdColumnKeys={mdColumnKeys}
         showMoreAction={showMoreAction}
+        wallet={wallet}
       />
     ),
-    [currency, draggable, mdColumnKeys, showMoreAction, tabIndex],
+    [currency, draggable, mdColumnKeys, showMoreAction, tabIndex, wallet],
   );
 
   const renderSelectTrigger = useCallback(
@@ -514,19 +551,6 @@ function BasicMarketHomeList({
     ),
     [],
   );
-
-  // const handleSettingsContentChange = useCallback(
-  //   ({
-  //     dataDisplay,
-  //     priceChange,
-  //   }: {
-  //     dataDisplay: IKeyOfMarketToken;
-  //     priceChange: IKeyOfMarketToken;
-  //   }) => {
-  //     setMdColumnKeys([dataDisplay, priceChange]);
-  //   },
-  //   [],
-  // );
 
   const [mdSortByType, setMdSortByType] = useState<string | undefined>(
     'Default',
@@ -578,40 +602,6 @@ function BasicMarketHomeList({
   );
 
   const containerRef = useRef<IElement>(null);
-  const onSwitchMarketHomeTabCallback = useCallback(
-    ({ tabIndex: index }: { tabIndex: number }) => {
-      setTimeout(
-        () => {
-          if (!platformEnv.isNative && containerRef.current) {
-            (containerRef.current as HTMLElement).style.contentVisibility =
-              index === tabIndex ? 'visible' : 'hidden';
-          }
-          if (index !== tabIndex) {
-            if (md) {
-              handleMdSortByTypeChange('Default');
-            }
-          } else {
-            void fetchCategory();
-          }
-        },
-        platformEnv.isNative ? 10 : 0,
-      );
-    },
-    [fetchCategory, handleMdSortByTypeChange, md, tabIndex],
-  );
-
-  useEffect(() => {
-    appEventBus.on(
-      EAppEventBusNames.SwitchMarketHomeTab,
-      onSwitchMarketHomeTabCallback,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.SwitchMarketHomeTab,
-        onSwitchMarketHomeTabCallback,
-      );
-    };
-  }, [md, onSwitchMarketHomeTabCallback, tabIndex]);
 
   const theme = useThemeVariant();
   const lineColors = lineColorMap[theme];
@@ -716,6 +706,7 @@ function BasicMarketHomeList({
               renderSkeleton: () => <Skeleton w="100%" h="$3" />,
               render: (_, record: IMarketToken) => (
                 <MarketListTradeButton
+                  wallet={wallet}
                   isSupportBuy={record.isSupportBuy}
                   coinGeckoId={record.coingeckoId}
                   symbol={record.symbol}
@@ -942,6 +933,7 @@ function BasicMarketHomeList({
       renderMdItem,
       showMoreAction,
       tabIndex,
+      wallet,
     ],
   );
 
@@ -982,26 +974,69 @@ function BasicMarketHomeList({
   }, [gtMd, screenWidth]);
 
   const handleDragEnd = useCallback(
-    ({ data }: IDragEndParams<IMarketToken>) => {
+    ({
+      data,
+      from,
+      to,
+      dragItem,
+      prevItem,
+      nextItem,
+    }: IDragEndParamsWithItem<IMarketToken>) => {
       if (data?.length) {
-        watchListAction.saveWatchList(
-          data.map(({ coingeckoId }) => ({ coingeckoId })),
-        );
+        console.log('MarketHomeList handleDragEnd', {
+          data,
+          from,
+          to,
+          dragItem,
+          prevItem,
+          nextItem,
+        });
+        void watchListAction.sortWatchListItems({
+          target: {
+            coingeckoId: dragItem.coingeckoId,
+            sortIndex: dragItem.sortIndex,
+          },
+          prev: prevItem
+            ? {
+                coingeckoId: prevItem.coingeckoId,
+                sortIndex: prevItem.sortIndex,
+              }
+            : undefined,
+          next: nextItem
+            ? {
+                coingeckoId: nextItem.coingeckoId,
+                sortIndex: nextItem.sortIndex,
+              }
+            : undefined,
+        });
       }
     },
     [watchListAction],
   );
 
-  if (platformEnv.isNativeAndroid && !sortedListData?.length) {
+  const spinner = useMemo(() => {
     return (
       <YStack flex={1} ai="center" jc="center">
         <Spinner size="large" />
       </YStack>
     );
+  }, []);
+
+  if (!isFocused) {
+    return platformEnv.isNative ? spinner : null;
+  }
+
+  if (platformEnv.isNative && listData.length === 0) {
+    return spinner;
   }
 
   return (
-    <>
+    <YStack
+      flex={1}
+      ref={containerRef}
+      pt={platformEnv.isNative ? 44 : undefined}
+      $gtMd={{ pt: '$3' }}
+    >
       {gtMd ? undefined : (
         <YStack
           px="$5"
@@ -1038,31 +1073,29 @@ function BasicMarketHomeList({
           </XStack>
         </YStack>
       )}
-
-      <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
-        <Table
-          draggable={draggable}
-          headerRowProps={HEADER_ROW_PROPS}
-          showBackToTopButton
-          stickyHeaderHiddenOnScroll
-          onRow={onRow}
-          onHeaderRow={onHeaderRow}
-          keyExtractor={(item) => item.coingeckoId}
-          rowProps={rowProps}
-          showHeader={gtMd}
-          columns={columns}
-          onDragEnd={handleDragEnd}
-          dataSource={sortedListData as unknown as IMarketToken[]}
-          TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
-          extraData={gtMd ? undefined : mdColumnKeys}
-          TableEmptyComponent={
-            platformEnv.isNativeAndroid ? null : (
-              <ListEmptyComponent columns={columns} />
-            )
-          }
-        />
-      </YStack>
-    </>
+      <Table
+        draggable={draggable}
+        headerRowProps={HEADER_ROW_PROPS}
+        showBackToTopButton
+        stickyHeaderHiddenOnScroll
+        onRow={onRow}
+        onHeaderRow={onHeaderRow}
+        keyExtractor={(item) => item.coingeckoId}
+        rowProps={rowProps}
+        showHeader={gtMd}
+        scrollEnabled={platformEnv.isNative}
+        columns={columns}
+        onDragEnd={handleDragEnd}
+        dataSource={sortedListData as unknown as IMarketToken[]}
+        TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
+        extraData={gtMd ? undefined : mdColumnKeys}
+        TableEmptyComponent={
+          platformEnv.isNativeAndroid ? null : (
+            <ListEmptyComponent columns={columns} />
+          )
+        }
+      />
+    </YStack>
   );
 }
 

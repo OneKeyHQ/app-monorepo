@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
 
+import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
+import { useIntl } from 'react-intl';
+
 import type {
   IDBDevice,
   IDBWallet,
@@ -8,12 +11,22 @@ import type {
   IAnimationValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
-import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import type { AirGapUR, IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyErrorAirGapWalletMismatch } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorAirGapDeviceMismatch,
+  OneKeyErrorAirGapWalletMismatch,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPages,
+  EOnboardingPagesV2,
+} from '@onekeyhq/shared/src/routes';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -23,11 +36,13 @@ import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
 
 type ICreateQrWalletByScanParams = {
   isOnboarding?: boolean;
+  isOnboardingV2?: boolean;
   byWallet?: IDBWallet;
   byDevice?: IDBDevice;
   onFinalizeWalletSetupError?: () => void;
 };
 export function useCreateQrWallet() {
+  const intl = useIntl();
   const {
     start: startScan,
     // close,
@@ -39,9 +54,17 @@ export function useCreateQrWallet() {
     async (
       params: ICreateQrWalletByScanParams & {
         urJson: IAirGapUrJson;
+        isCreateAccountAction?: boolean;
       },
     ) => {
-      const { urJson, byDevice, byWallet, isOnboarding } = params;
+      const {
+        urJson,
+        byWallet,
+        isOnboarding,
+        isOnboardingV2,
+        byDevice,
+        isCreateAccountAction,
+      } = params;
       const { qrDevice, airGapAccounts, airGapMultiAccounts } =
         await backgroundApiProxy.serviceQrWallet.buildAirGapMultiAccounts({
           urJson,
@@ -52,14 +75,27 @@ export function useCreateQrWallet() {
         airGapAccounts,
         airGapMultiAccounts,
       );
-      if (byWallet?.xfp && qrDevice?.xfp !== byWallet?.xfp) {
+
+      if (isCreateAccountAction && byDevice?.deviceId && qrDevice?.deviceId) {
+        if (byDevice?.deviceId !== qrDevice?.deviceId) {
+          throw new OneKeyErrorAirGapDeviceMismatch();
+        }
+      }
+
+      if (
+        qrDevice?.xfp &&
+        byWallet?.xfp &&
+        accountUtils.getShortXfp({ xfp: qrDevice?.xfp }) !==
+          accountUtils.getShortXfp({ xfp: byWallet?.xfp })
+      ) {
         throw new OneKeyErrorAirGapWalletMismatch();
       }
-      if (byDevice?.deviceId && qrDevice?.deviceId !== byDevice?.deviceId) {
-        throw new OneKeyErrorAirGapWalletMismatch();
-      }
-      if (isOnboarding) {
-        navigation.push(EOnboardingPages.FinalizeWalletSetup);
+      if (isOnboardingV2 || isOnboarding) {
+        if (isOnboardingV2) {
+          navigation.push(EOnboardingPagesV2.FinalizeWalletSetup);
+        } else {
+          navigation.push(EOnboardingPages.FinalizeWalletSetup);
+        }
       }
       try {
         const result = await actions.current.createQrWallet({
@@ -83,19 +119,37 @@ export function useCreateQrWallet() {
         qrWalletScene: true,
         autoHandleResult: false,
       });
-      console.log('startScan:', scanResult.raw?.trim());
+      const fullURText = scanResult.raw?.trim();
+      console.log('startScan:', fullURText);
+      if (process.env.NODE_ENV !== 'production') {
+        if (fullURText) {
+          appStorage.syncStorage.set(
+            EAppSyncStorageKeys.last_scan_qr_code_text,
+            fullURText,
+          );
+        }
+      }
 
       const urScanResult =
         scanResult as IQRCodeHandlerParseResult<IAnimationValue>;
       const qrcode = urScanResult?.data?.fullData || urScanResult?.raw || '';
-      const ur = await airGapUrUtils.qrcodeToUr(qrcode);
+      let ur: AirGapUR | undefined;
+      try {
+        ur = await airGapUrUtils.qrcodeToUr(qrcode);
+      } catch (error: unknown) {
+        if (error instanceof InvalidSchemeError) {
+          throw new OneKeyLocalError(
+            intl.formatMessage({ id: ETranslations.feedback_invalid_qr_code }),
+          );
+        }
+      }
       const urJson = airGapUrUtils.urToJson({ ur });
       return createQrWalletByUr({
         ...params,
         urJson,
       });
     },
-    [createQrWalletByUr, startScan],
+    [createQrWalletByUr, intl, startScan],
   );
 
   // const createQrWalletByTwoWayScan = useCallback(
@@ -105,7 +159,7 @@ export function useCreateQrWallet() {
   //   [],
   // );
 
-  const createQrWalletByAccount = useCallback(
+  const createQrWalletAccount = useCallback(
     async ({
       walletId,
       networkId,
@@ -138,7 +192,7 @@ export function useCreateQrWallet() {
             indexedAccountId,
             appQrCodeModalTitle: appLocale.intl.formatMessage({
               // eslint-disable-next-line spellcheck/spell-checker
-              id: ETranslations.scan_to_create_an_adderss,
+              id: ETranslations.scan_to_create_an_address,
             }),
           },
         );
@@ -146,6 +200,7 @@ export function useCreateQrWallet() {
         urJson,
         byDevice,
         byWallet,
+        isCreateAccountAction: true,
       });
       return result;
     },
@@ -155,6 +210,6 @@ export function useCreateQrWallet() {
   return {
     createQrWallet,
     createQrWalletByUr,
-    createQrWalletByAccount,
+    createQrWalletAccount,
   };
 }

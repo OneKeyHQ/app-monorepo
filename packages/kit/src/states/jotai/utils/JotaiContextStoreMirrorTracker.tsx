@@ -13,15 +13,18 @@ import {
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
 import { EarnProvider } from '../../../views/Earn/EarnProvider';
+import { HomeApprovalListRootProvider } from '../../../views/Home/components/HomeApprovalListProvider/HomeApprovalListRootProvider';
 import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
 import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
 import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
+import { MarketWatchListProviderV2 } from '../../../views/Market/MarketWatchListProviderV2';
+import { PerpsRootProvider } from '../../../views/Perp/PerpsProvider';
 import { SendConfirmRootProvider } from '../../../views/Send/components/SendConfirmProvider/SendConfirmRootProvider';
 import { SignatureConfirmRootProvider } from '../../../views/SignatureConfirm/components/SignatureConfirmProvider/SignatureConfirmRootProvider';
 import {
@@ -117,7 +120,7 @@ function JotaiContextRootProvidersAutoMountCmp() {
         switch (storeName) {
           case EJotaiContextStoreNames.accountSelector: {
             if (!accountSelectorInfo) {
-              throw new Error(
+              throw new OneKeyLocalError(
                 'JotaiContextRootProvidersAutoMount ERROR: accountSelectorInfo is required',
               );
             }
@@ -134,6 +137,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           case EJotaiContextStoreNames.homeTokenList: {
             return <HomeTokenListRootProvider key={key} />;
           }
+          case EJotaiContextStoreNames.homeApprovalList: {
+            return <HomeApprovalListRootProvider key={key} />;
+          }
           case EJotaiContextStoreNames.urlAccountHomeTokenList: {
             return <UrlAccountHomeTokenListProvider key={key} />;
           }
@@ -145,6 +151,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.marketWatchList: {
             return <MarketWatchListProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.marketWatchListV2: {
+            return <MarketWatchListProviderV2 key={key} />;
           }
           case EJotaiContextStoreNames.swap: {
             return <SwapRootProvider key={key} />;
@@ -161,9 +170,12 @@ function JotaiContextRootProvidersAutoMountCmp() {
           case EJotaiContextStoreNames.signatureConfirm: {
             return <SignatureConfirmRootProvider key={key} />;
           }
+          case EJotaiContextStoreNames.perps: {
+            return <PerpsRootProvider key={key} />;
+          }
           default: {
             const exhaustiveCheck: never = storeName;
-            throw new Error(
+            throw new OneKeyLocalError(
               `Unhandled storeName case: ${exhaustiveCheck as string}`,
             );
           }

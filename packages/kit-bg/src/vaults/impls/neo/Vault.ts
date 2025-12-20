@@ -14,6 +14,7 @@ import {
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import type {
   IAddressValidation,
@@ -176,7 +177,9 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
 
     const inputs = await this.buildTransferInputs({
@@ -249,14 +252,12 @@ export default class Vault extends VaultBase {
       actions.push({
         type: EDecodedTxActionType.FUNCTION_CALL,
         functionCall: {
-          functionName: '',
+          functionName: tx.Transaction.fromJson(encodedTx).serialize(false),
           from: account.address,
           to: '',
-          functionHash: encodedTx.script,
           icon: network.logoURI ?? '',
-          args: [encodedTx.script],
+          args: [],
         },
-        data: encodedTx.script,
       });
     }
 
@@ -522,7 +523,7 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Invalid rpc url');
     }
     if (!rawTx) {
-      throw new Error('rawTx is empty');
+      throw new OneKeyLocalError('rawTx is empty');
     }
 
     const rpcClient = new rpc.RPCClient(rpcUrl);

@@ -1,6 +1,15 @@
 const path = require('path');
 const babelTools = require('../../development/babelTools');
 
+console.log('process.env.TAMAGUI_TARGET: ', process.env.TAMAGUI_TARGET);
+if (process.env.TAMAGUI_TARGET !== 'native') {
+  process.env.TAMAGUI_TARGET = 'native';
+  console.log(
+    'fixed: process.env.TAMAGUI_TARGET: ',
+    process.env.TAMAGUI_TARGET,
+  );
+}
+
 module.exports = function (api) {
   api.cache(true);
   return babelTools.normalizeConfig({
@@ -13,6 +22,7 @@ module.exports = function (api) {
             native: {
               unstable_transformProfile: 'hermes-stable',
             },
+            unstable_transformImportMeta: true,
           },
         ],
       ],

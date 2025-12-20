@@ -18,14 +18,13 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { REALM_DB_NAME, REALM_DB_VERSION } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
+import { EIndexedDBBucketNames, type IDBWalletIdSingleton } from '../types';
 
 import { RealmDBAgent } from './RealmDBAgent';
 import { realmDBSchemas } from './schemas';
 
-import type { IDBWalletIdSingleton } from '../types';
-
 export abstract class LocalDbRealmBase extends LocalDbBase {
-  protected override readyDb: Promise<RealmDBAgent>;
+  override readyDb: Promise<RealmDBAgent>;
 
   constructor() {
     super();
@@ -69,7 +68,7 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
   }
 
   private async _initDBRecords(db: RealmDBAgent) {
-    await db.withTransaction(async () => {
+    await db.withTransaction(EIndexedDBBucketNames.account, async () => {
       await Promise.all([
         db._getOrAddObjectRecord(ELocalDBStoreNames.Context, {
           id: DB_MAIN_CONTEXT_ID,
@@ -110,10 +109,11 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
     );
   }
 
-  deleteDb() {
+  async deleteDb() {
     try {
+      const db = await this.readyDb;
+      db.realm.close();
       Realm.deleteFile({ path: REALM_DB_NAME });
-      return Promise.resolve();
     } catch (error: any) {
       console.error(error);
       return Promise.reject(error);

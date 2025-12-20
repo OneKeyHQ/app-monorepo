@@ -1,5 +1,16 @@
-import type { AnchorProps } from 'tamagui';
+import { forwardRef } from 'react';
 
-export { Anchor } from 'tamagui';
+import { Anchor as TamaguiAnchor } from './Anchor';
 
-export type IAnchorProps = AnchorProps;
+import type { IAnchorProps as ITamaguiAnchorProps } from './Anchor';
+
+export type IAnchorProps = ITamaguiAnchorProps;
+
+export const Anchor = forwardRef<
+  React.ElementRef<typeof TamaguiAnchor>,
+  IAnchorProps
+>(({ target = '_blank', ...props }, ref) => {
+  return <TamaguiAnchor {...props} target={target} ref={ref} />;
+});
+
+Anchor.displayName = 'Anchor';

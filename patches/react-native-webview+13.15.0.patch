@@ -1,0 +1,136 @@
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
+index 07f73fd..5a18160 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
+@@ -152,9 +152,11 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+             String androidPermission = null;
+ 
+             if (requestedResource.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+-                androidPermission = Manifest.permission.RECORD_AUDIO;
++                // androidPermission = Manifest.permission.RECORD_AUDIO;
++                continue;
+             } else if (requestedResource.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+-                androidPermission = Manifest.permission.CAMERA;
++                // androidPermission = Manifest.permission.CAMERA;
++                continue;
+             } else if(requestedResource.equals(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) {
+                 if (mAllowsProtectedMedia) {
+                   grantedPermissions.add(requestedResource);
+diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
+index 7f5c24d..5623f4a 100644
+--- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
++++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
+@@ -874,7 +874,7 @@ - (void)visitSource
+       [webView loadHTMLString:@"" baseURL:nil];
+       return;
+     }
+-    if (request.URL.host) {
++    if (request.URL.host || [request.URL.absoluteString isEqualToString:@"about:blank"]) {
+       [webView loadRequest:request];
+     }
+     else {
+diff --git a/node_modules/react-native-webview/apple/RNCWebViewManager.mm b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
+index f8f375f..e7ec106 100644
+--- a/node_modules/react-native-webview/apple/RNCWebViewManager.mm
++++ b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
+@@ -206,6 +206,19 @@ - (RNCView *)view
+   }];                                                                                                                                   \
+ }
+ 
++RCT_EXPORT_METHOD(loadUrl:(nonnull NSNumber *)reactTag url:(NSString *)url)
++{
++  [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, BASE_VIEW_PER_OS() *> *viewRegistry) {
++    RNCWebViewImpl *view = (RNCWebViewImpl *)viewRegistry[reactTag];
++    if (![view isKindOfClass:[RNCWebViewImpl class]]) {
++      RCTLogError(@"Invalid view returned from registry, expecting RNCWebViewImpl, got: %@", view);
++    } else {
++      NSDictionary *source = [NSDictionary dictionaryWithObjectsAndKeys:url,@"uri",nil];
++      [view setSource:source];
++    }
++  }];
++}
++
+ QUICK_RCT_EXPORT_COMMAND_METHOD(reload)
+ QUICK_RCT_EXPORT_COMMAND_METHOD(goBack)
+ QUICK_RCT_EXPORT_COMMAND_METHOD(goForward)
+diff --git a/node_modules/react-native-webview/index.d.ts b/node_modules/react-native-webview/index.d.ts
+index a85ac85..f0ca9a9 100644
+--- a/node_modules/react-native-webview/index.d.ts
++++ b/node_modules/react-native-webview/index.d.ts
+@@ -27,6 +27,11 @@ declare class WebView<P = {}> extends Component<WebViewProps & P> {
+      */
+     stopLoading(): void;
+ 
++    /**
++     * Loads the url.
++     */
++    loadUrl: (url: string) => void;
++
+     /**
+      * Executes the JavaScript string.
+      */
+diff --git a/node_modules/react-native-webview/src/WebView.android.tsx b/node_modules/react-native-webview/src/WebView.android.tsx
+index edf06fa..e6b08b0 100644
+--- a/node_modules/react-native-webview/src/WebView.android.tsx
++++ b/node_modules/react-native-webview/src/WebView.android.tsx
+@@ -165,6 +165,7 @@ const WebViewComponent = forwardRef<{}, AndroidWebViewProps>(
+         },
+         stopLoading: () =>
+           webViewRef.current && Commands.stopLoading(webViewRef.current),
++        loadUrl: (url: string) => Commands.loadUrl(webViewRef.current, url),
+         postMessage: (data: string) =>
+           webViewRef.current && Commands.postMessage(webViewRef.current, data),
+         injectJavaScript: (data: string) =>
+diff --git a/node_modules/react-native-webview/src/WebView.ios.tsx b/node_modules/react-native-webview/src/WebView.ios.tsx
+index deb179b..961fe20 100644
+--- a/node_modules/react-native-webview/src/WebView.ios.tsx
++++ b/node_modules/react-native-webview/src/WebView.ios.tsx
+@@ -149,6 +149,7 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
+         },
+         stopLoading: () =>
+           webViewRef.current && Commands.stopLoading(webViewRef.current),
++        loadUrl: (url: string) => Commands.loadUrl(webViewRef.current, url),
+         postMessage: (data: string) =>
+           webViewRef.current && Commands.postMessage(webViewRef.current, data),
+         injectJavaScript: (data: string) =>
+diff --git a/node_modules/react-native-webview/src/WebViewShared.tsx b/node_modules/react-native-webview/src/WebViewShared.tsx
+index 08905ea..4889a1f 100644
+--- a/node_modules/react-native-webview/src/WebViewShared.tsx
++++ b/node_modules/react-native-webview/src/WebViewShared.tsx
+@@ -19,6 +19,10 @@ import styles from './WebView.styles';
+ 
+ const defaultOriginWhitelist = ['http://*', 'https://*'] as const;
+ 
++export const ERROR_CODE = {
++  CONNECTION_FAILED: -1001000,
++};
++
+ const extractOrigin = (url: string): string => {
+   const result = /^[A-Za-z][A-Za-z0-9+\-.]+:(\/\/)?[^/]*/.exec(url);
+   return result === null ? '' : result[0];
+@@ -234,9 +238,22 @@ export const useWebViewLogic = ({
+       } = event;
+       // patch for Android only
+       if (Platform.OS === 'android' && progress === 1) {
+-        setViewState((prevViewState) =>
+-          prevViewState === 'LOADING' ? 'IDLE' : prevViewState
+-        );
++         // redirection between different domains may cause failure on Android
++        if (event.nativeEvent.url === null) {
++          setViewState('ERROR');
++          setLastErrorEvent({
++            url: event.nativeEvent.url,
++            loading: event.nativeEvent.loading,
++            title: event.nativeEvent.title,
++            canGoBack: event.nativeEvent.canGoBack,
++            canGoForward: event.nativeEvent.canGoForward,
++            lockIdentifier: event.nativeEvent.lockIdentifier,
++            code: ERROR_CODE.CONNECTION_FAILED,
++            description: 'connection failed',
++          });
++        } else {
++          setViewState(prevViewState => prevViewState === 'LOADING' ? 'IDLE' : prevViewState);
++        }
+       }
+       // !patch for Android only
+       onLoadProgress?.(event);

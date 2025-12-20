@@ -12,7 +12,6 @@ import {
   useSendConfirmActions,
   useSendFeeStatusAtom,
   useSendTxStatusAtom,
-  withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -86,6 +85,7 @@ function SendConfirmContainer() {
         isLoading: true,
         balance: '0',
         logoURI: '',
+        info: undefined,
       });
       const [n, nativeTokenAddress] = await Promise.all([
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
@@ -112,6 +112,7 @@ function SendConfirmContainer() {
         isLoading: false,
         balance,
         logoURI: r[0].info.logoURI ?? '',
+        info: r[0].info,
       });
       return { network: n };
     }, [

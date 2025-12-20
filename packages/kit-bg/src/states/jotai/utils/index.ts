@@ -1,9 +1,10 @@
 /* eslint-disable camelcase */
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { atom, useAtom } from 'jotai';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-// import { jotaiBgSync } from './jotaiBgSync';
 import {
   atomWithStorage,
   globalJotaiStorageReadyHandler,
@@ -14,6 +15,8 @@ import { wrapAtomPro } from './wrapAtomPro';
 
 import type { EAtomNames, IAtomNameKeys } from '../atomNames';
 import type {
+  IJotaiAtomProProps,
+  IJotaiGetter,
   IJotaiRead,
   IJotaiSetAtom,
   IJotaiSetter,
@@ -163,6 +166,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   proAtom.storageReady = globalJotaiStorageReadyHandler.ready;
   proAtom.initialValue = initialVal;
   proAtom.persist = persist;
+  proAtom.$$isGlobalAtom = true;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return proAtom as unknown as any;
 }
@@ -233,7 +237,7 @@ export function globalAtomComputedAll<Value, Args extends unknown[], Result>({
       }),
     );
   }
-  throw new Error('write or read is missing');
+  throw new OneKeyLocalError('write or read is missing');
 }
 
 export function globalAtomComputedRW<Value, Args extends unknown[], Result>({
@@ -328,6 +332,43 @@ export function contextAtomComputedBase<Value>({
   };
 }
 
+function globalAtomInContextError<Value>(
+  atomInstance: IJotaiAtomProProps<Value>,
+) {
+  throw new OneKeyLocalError(
+    `${atomInstance.name}:::globalAtom cannot be used in context method by get(globalAtom()) or set(globalAtom()), you should use like await globalAtom.get() or await globalAtom.set(...args) instead.`,
+  );
+}
+
+function contextAtomCustomFn<Value, Args extends unknown[], Result>(
+  fn: IJotaiWrite<Args, Result>,
+) {
+  return (get: IJotaiGetter, set: IJotaiSetter, ...args: Args) => {
+    const getNew: IJotaiGetter = ((atomInstance: Atom<Value>) => {
+      if (
+        (atomInstance as unknown as IJotaiAtomProProps<Value>)
+          ?.$$isGlobalAtom === true
+      ) {
+        globalAtomInContextError(atomInstance as any);
+      }
+      return get(atomInstance);
+    }) as IJotaiGetter;
+    const setNew: IJotaiSetter = ((
+      atomInstance: WritableAtom<Value, Args, Result>,
+      ...args2: Args
+    ) => {
+      if (
+        (atomInstance as unknown as IJotaiAtomProProps<Value>)
+          ?.$$isGlobalAtom === true
+      ) {
+        globalAtomInContextError(atomInstance as any);
+      }
+      return set(atomInstance, ...args2);
+    }) as IJotaiSetter;
+    return fn(getNew, setNew, ...args);
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function contextAtomMethodBase<Value, Args extends unknown[], Result>({
   fn,
@@ -338,7 +379,7 @@ export function contextAtomMethodBase<Value, Args extends unknown[], Result>({
     atomInstance: WritableAtom<Value2, Args2, Result2>,
   ) => [Awaited<Value2>, IJotaiSetAtom<Args2, Result2>];
 }) {
-  const atomBuilder = memoizee(() => atom(null, fn));
+  const atomBuilder = memoizee(() => atom(null, contextAtomCustomFn(fn)));
   const useFn = () => {
     const [, setter] = useContextAtom(atomBuilder());
     return setter;

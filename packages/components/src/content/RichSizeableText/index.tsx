@@ -19,6 +19,10 @@ type ILinkItemType = ISizableTextProps & {
   url: string | undefined;
 };
 
+/**
+ * @deprecated This component is deprecated. Please use HyperlinkText instead.
+ * @see HyperlinkText in @onekeyhq/kit/src/components/HyperlinkText
+ */
 export function RichSizeableText({
   children,
   linkList,
@@ -58,7 +62,7 @@ export function RichSizeableText({
                   }, {} as Record<string, string | ((value: any) => React.JSX.Element)>)
                 : {}),
               ...i18NValues,
-            } as Record<string, React.ReactNode>
+            } as Record<string, any>
           }
         />
       ) : (

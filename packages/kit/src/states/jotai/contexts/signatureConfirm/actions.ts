@@ -1,33 +1,46 @@
 import { useRef } from 'react';
 
+import { isUndefined, omitBy } from 'lodash';
+
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 import type {
   EFeeType,
   ESendFeeStatus,
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
+  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  type ICustomRpcStatusAtomValue,
   contextAtomMethod,
   customFeeAtom,
+  customRpcStatusAtom,
   decodedTxsAtom,
+  decodedTxsInitAtom,
   extraFeeInfoAtom,
   isSinglePresetAtom,
+  megafuelEligibleAtom,
   nativeTokenInfoAtom,
   nativeTokenTransferAmountAtom,
   nativeTokenTransferAmountToUpdateAtom,
+  payWithTokenInfoAtom,
   preCheckTxStatusAtom,
   sendFeeStatusAtom,
   sendSelectedFeeAtom,
   sendSelectedFeeInfoAtom,
   sendTxStatusAtom,
   tokenApproveInfoAtom,
+  tokenTransferAmountAtom,
+  tronResourceRentalInfoAtom,
   txAdvancedSettingsAtom,
+  txFeeInfoInitAtom,
   unsignedTxsAtom,
 } from './atoms';
 
@@ -64,11 +77,16 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     (
       get,
       set,
-      sendSelectedFee: { feeType?: EFeeType; presetIndex?: number },
+      sendSelectedFee: {
+        feeType?: EFeeType;
+        presetIndex?: number;
+        source?: 'dapp' | 'wallet';
+      },
     ) => {
       set(sendSelectedFeeAtom(), {
         ...get(sendSelectedFeeAtom()),
         ...sendSelectedFee,
+        source: sendSelectedFee.source ?? 'wallet',
       });
     },
   );
@@ -88,6 +106,8 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         totalFiat: string;
         totalNativeForDisplay: string;
         totalFiatForDisplay: string;
+        originalTotalNative?: string;
+        originalTotalFiat?: string;
       },
     ) => {
       set(sendSelectedFeeInfoAtom(), payload);
@@ -99,8 +119,9 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
-        status: ESendFeeStatus;
+        status?: ESendFeeStatus;
         errMessage?: string;
+        discountPercent?: number;
       },
     ) => {
       set(sendFeeStatusAtom(), {
@@ -130,6 +151,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         logoURI: string;
         balance: string;
         isLoading: boolean;
+        info: IToken | undefined;
       },
     ) => {
       set(nativeTokenInfoAtom(), payload);
@@ -142,6 +164,8 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
       set,
       status: {
         isInsufficientNativeBalance?: boolean;
+        isInsufficientTokenBalance?: boolean;
+        fillUpTokenBalance?: string;
         isSubmitting?: boolean;
         isSendNativeTokenOnly?: boolean;
         fillUpNativeBalance?: string;
@@ -192,6 +216,100 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
       set(extraFeeInfoAtom(), payload);
     },
   );
+
+  updateTronResourceRentalInfo = contextAtomMethod(
+    (get, set, payload: Partial<ITronResourceRentalInfo>) => {
+      set(tronResourceRentalInfoAtom(), {
+        ...get(tronResourceRentalInfoAtom()),
+        ...omitBy(payload, isUndefined),
+      });
+
+      const updatedTronResourceRentalInfo = get(tronResourceRentalInfoAtom());
+
+      if (
+        updatedTronResourceRentalInfo.isResourceRentalNeeded === false ||
+        updatedTronResourceRentalInfo.isResourceRentalEnabled === false ||
+        updatedTronResourceRentalInfo.payType ===
+          ETronResourceRentalPayType.Native
+      ) {
+        set(payWithTokenInfoAtom(), {
+          ...get(payWithTokenInfoAtom()),
+          enabled: false,
+        });
+      } else if (
+        updatedTronResourceRentalInfo.isResourceRentalNeeded === true &&
+        updatedTronResourceRentalInfo.isResourceRentalEnabled === true &&
+        updatedTronResourceRentalInfo.payType ===
+          ETronResourceRentalPayType.Token
+      ) {
+        set(payWithTokenInfoAtom(), {
+          ...get(payWithTokenInfoAtom()),
+          enabled: true,
+        });
+      }
+    },
+  );
+
+  updatePayWithTokenInfo = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        enabled?: boolean;
+        address?: string;
+        balance?: string;
+        symbol?: string;
+        logoURI?: string;
+        isLoading?: boolean;
+      },
+    ) => {
+      set(payWithTokenInfoAtom(), {
+        ...get(payWithTokenInfoAtom()),
+        ...payload,
+      });
+    },
+  );
+
+  updateTokenTransferAmount = contextAtomMethod((get, set, amount: string) => {
+    set(tokenTransferAmountAtom(), amount);
+  });
+
+  updateMegafuelEligible = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        sponsorable?: boolean;
+        sponsorName?: string;
+      },
+    ) => {
+      const megafuelEligible = get(megafuelEligibleAtom());
+      set(megafuelEligibleAtom(), {
+        ...megafuelEligible,
+        ...payload,
+      });
+    },
+  );
+
+  updateDecodedTxsInit = contextAtomMethod(
+    (_, set, decodedTxsInit: boolean) => {
+      set(decodedTxsInitAtom(), decodedTxsInit);
+    },
+  );
+
+  updateTxFeeInfoInit = contextAtomMethod((_, set, txFeeInfoInit: boolean) => {
+    set(txFeeInfoInitAtom(), txFeeInfoInit);
+  });
+
+  updateCustomRpcStatus = contextAtomMethod(
+    (get, set, value: ICustomRpcStatusAtomValue | null) => {
+      set(customRpcStatusAtom(), value);
+    },
+  );
+
+  clearCustomRpcStatus = contextAtomMethod((get, set) => {
+    set(customRpcStatusAtom(), null);
+  });
 }
 
 const createActions = memoFn(() => {
@@ -218,6 +336,15 @@ export function useSignatureConfirmActions() {
   const updateTxAdvancedSettings = actions.updateTxAdvancedSettings.use();
   const updateDecodedTxs = actions.updateDecodedTxs.use();
   const updateExtraFeeInfo = actions.updateExtraFeeInfo.use();
+  const updateTronResourceRentalInfo =
+    actions.updateTronResourceRentalInfo.use();
+  const updatePayWithTokenInfo = actions.updatePayWithTokenInfo.use();
+  const updateTokenTransferAmount = actions.updateTokenTransferAmount.use();
+  const updateMegafuelEligible = actions.updateMegafuelEligible.use();
+  const updateDecodedTxsInit = actions.updateDecodedTxsInit.use();
+  const updateTxFeeInfoInit = actions.updateTxFeeInfoInit.use();
+  const updateCustomRpcStatus = actions.updateCustomRpcStatus.use();
+  const clearCustomRpcStatus = actions.clearCustomRpcStatus.use();
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,
@@ -234,5 +361,13 @@ export function useSignatureConfirmActions() {
     updateTxAdvancedSettings,
     updateDecodedTxs,
     updateExtraFeeInfo,
+    updateTronResourceRentalInfo,
+    updatePayWithTokenInfo,
+    updateTokenTransferAmount,
+    updateMegafuelEligible,
+    updateDecodedTxsInit,
+    updateTxFeeInfoInit,
+    updateCustomRpcStatus,
+    clearCustomRpcStatus,
   });
 }

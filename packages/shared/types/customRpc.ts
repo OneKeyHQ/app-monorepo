@@ -4,8 +4,8 @@ export interface IDBCustomRpc {
   rpc: string;
   networkId: string;
   enabled: boolean;
-  updatedAt?: number;
-  isCustomNetwork?: boolean;
+  updatedAt: number | undefined;
+  isCustomNetwork: boolean | undefined;
 }
 
 export interface IMeasureRpcStatusParams {

@@ -3,6 +3,7 @@ export enum EQRCodeHandlerType {
   BITCOIN = 'BITCOIN',
   ETHEREUM = 'ETHEREUM',
   SOLANA = 'SOLANA',
+  SUI = 'SUI',
   LIGHTNING_NETWORK = 'LIGHTNING_NETWORK',
   URL = 'URL',
   WALLET_CONNECT = 'WALLET_CONNECT',
@@ -12,6 +13,10 @@ export enum EQRCodeHandlerType {
   URL_ACCOUNT = 'URL_ACCOUNT',
   MARKET_DETAIL = 'MARKET_DETAIL',
   SEND_PROTECTION = 'SEND_PROTECTION',
+  UPDATE_PREVIEW = 'UPDATE_PREVIEW',
+  REWARD_CENTER = 'REWARD_CENTER',
+  PRIME_TRANSFER = 'PRIME_TRANSFER',
+  TOKEN_URI = 'TOKEN_URI',
 }
 
 export enum EQRCodeHandlerNames {
@@ -19,11 +24,16 @@ export enum EQRCodeHandlerNames {
   ethereum = 'ethereum',
   solana = 'solana',
   walletconnect = 'walletconnect',
+  lightningNetwork = 'lightningNetwork',
   migrate = 'migrate',
   animation = 'animation',
   urlAccount = 'urlAccount',
   marketDetail = 'marketDetail',
+  rewardCenter = 'rewardCenter',
   sendProtection = 'sendProtection',
+  updatePreview = 'updatePreview',
+  primeTransfer = 'primeTransfer',
+  sui = 'sui',
 }
 
 export const PARSE_HANDLER_NAMES = {
@@ -36,7 +46,12 @@ export const PARSE_HANDLER_NAMES = {
     EQRCodeHandlerNames.animation,
     EQRCodeHandlerNames.urlAccount,
     EQRCodeHandlerNames.marketDetail,
+    EQRCodeHandlerNames.rewardCenter,
     EQRCodeHandlerNames.sendProtection,
+    EQRCodeHandlerNames.updatePreview,
+    EQRCodeHandlerNames.primeTransfer,
+    EQRCodeHandlerNames.sui,
+    EQRCodeHandlerNames.lightningNetwork,
   ],
   animation: [EQRCodeHandlerNames.animation],
   none: [],

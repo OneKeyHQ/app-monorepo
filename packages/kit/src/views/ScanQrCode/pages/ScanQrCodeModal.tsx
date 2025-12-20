@@ -6,15 +6,16 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Button,
   Icon,
+  IconButton,
   Page,
   SizableText,
   Stack,
-  TextArea,
+  TextAreaInput,
   Toast,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
@@ -26,7 +27,10 @@ import type {
   EScanQrCodeModalPages,
   IScanQrCodeModalParamList,
 } from '@onekeyhq/shared/src/routes';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 
+import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ScanQrCode } from '../components';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
@@ -36,41 +40,56 @@ import type { RouteProp } from '@react-navigation/core';
 appGlobals.$$scanNavigation = undefined;
 function DebugInput({ onText }: { onText: (text: string) => void }) {
   const navigation = useAppNavigation();
+  const { bottom } = useSafeAreaInsets();
   appGlobals.$$scanNavigation = navigation;
 
-  const [inputText, setInputText] = useState<string>('');
+  const [inputText, setInputText] = useState<string>(
+    appStorage.syncStorage.getString(
+      EAppSyncStorageKeys.last_scan_qr_code_text,
+    ) || '',
+  );
   const [visible, setVisible] = useState(false);
 
-  if (process.env.NODE_ENV === 'production') {
-    return null;
-  }
   if (visible) {
     return (
-      <XStack>
-        <Stack flex={1}>
-          <TextArea
-            value={inputText}
-            onChangeText={setInputText}
-            flex={1}
-            placeholder="demo qrcode scan text"
+      <YStack pb={bottom}>
+        <XStack>
+          <IconButton
+            onPress={() => navigation.popStack()}
+            icon="CrossedLargeOutline"
+            variant="destructive"
           />
-        </Stack>
-        <Button onPress={() => onText(inputText)} size="small">
-          Confirm
-        </Button>
-        <Button onPress={() => navigation.popStack()} size="small">
-          Close
-        </Button>
-      </XStack>
+          <Stack flex={1} />
+          <IconButton
+            onPress={() => onText(inputText)}
+            icon="CheckLargeOutline"
+          />
+        </XStack>
+        <XStack>
+          <Stack flex={1}>
+            <TextAreaInput
+              value={inputText}
+              onChangeText={setInputText}
+              flex={1}
+              placeholder="demo qrcode scan text"
+              allowClear
+              allowPaste
+            />
+          </Stack>
+        </XStack>
+      </YStack>
     );
   }
   return (
-    <XStack
-      onPress={() => setVisible(true)}
-      w="$8"
-      h="$8"
-      backgroundColor="transparent"
-    />
+    <YStack pb={bottom}>
+      <MultipleClickStack
+        triggerAt={process.env.NODE_ENV === 'production' ? 10 : 1}
+        showDevBgColor
+        w="$8"
+        h="$8"
+        onPress={() => setVisible(true)}
+      />
+    </YStack>
   );
 }
 
@@ -183,9 +202,35 @@ export default function ScanQrCodeModal() {
         EScanQrCodeModalPages.ScanQrCodeStack
       >
     >();
-  const { callback, qrWalletScene, showProTutorial } = route.params;
+  const {
+    callback: routeCallback,
+    qrWalletScene,
+    showProTutorial,
+  } = route.params;
 
   const navigation = useAppNavigation();
+
+  const callback = useCallback(
+    async ({
+      value,
+      popNavigation,
+    }: {
+      value: string;
+      popNavigation: () => void;
+    }) => {
+      if (process.env.NODE_ENV !== 'production') {
+        if (value) {
+          appStorage.syncStorage.set(
+            EAppSyncStorageKeys.last_scan_qr_code_text,
+            value,
+          );
+        }
+      }
+
+      return routeCallback({ value, popNavigation });
+    },
+    [routeCallback],
+  );
 
   const popNavigation = useCallback(() => {
     navigation.pop();
@@ -230,7 +275,8 @@ export default function ScanQrCodeModal() {
         return {};
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      return callback({ value, popNavigation });
+      const result = await callback({ value, popNavigation });
+      return result;
     },
     [callback, popNavigation],
   );
@@ -293,11 +339,9 @@ export default function ScanQrCodeModal() {
           showProTutorial={showProTutorial}
         />
       </Page.Body>
-      {platformEnv.isDev ? (
-        <Page.Footer>
-          <DebugInput onText={(value) => callback({ value, popNavigation })} />
-        </Page.Footer>
-      ) : null}
+      <Page.Footer>
+        <DebugInput onText={(value) => callback({ value, popNavigation })} />
+      </Page.Footer>
     </Page>
   );
 }

@@ -13,6 +13,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
+import type { ApiPromise } from '@polkadot/api';
 
 export const getTransactionTypeV2 = (module: string) => {
   if (module === 'balances') {
@@ -56,7 +57,16 @@ export const getTransactionTypeFromTxInfo = (tx: DecodedSignedTx) => {
 };
 
 export const getMetadataRpc = memoizee(
-  async (networkId: string, backgroundApi: IBackgroundApi) => {
+  async (
+    networkId: string,
+    backgroundApi: IBackgroundApi,
+    apiPromise?: ApiPromise,
+  ) => {
+    if (apiPromise) {
+      const res = apiPromise.runtimeMetadata;
+      return res.toHex();
+    }
+
     const [res] =
       await backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
         {
@@ -72,6 +82,7 @@ export const getMetadataRpc = memoizee(
           ],
         },
       );
+
     return res;
   },
   {
@@ -84,7 +95,20 @@ export const getMetadataRpc = memoizee(
 );
 
 export const getRuntimeVersion = memoizee(
-  async (networkId: string, backgroundApi: IBackgroundApi) => {
+  async (
+    networkId: string,
+    backgroundApi: IBackgroundApi,
+    apiPromise?: ApiPromise,
+  ) => {
+    if (apiPromise) {
+      const res = apiPromise.runtimeVersion;
+      return {
+        specName: res.specName.toString(),
+        specVersion: res.specVersion.toNumber(),
+        transactionVersion: res.transactionVersion.toNumber(),
+      };
+    }
+
     const [res] = await backgroundApi.serviceAccountProfile.sendProxyRequest<{
       specName: string;
       specVersion: number;
@@ -113,7 +137,17 @@ export const getRuntimeVersion = memoizee(
 );
 
 export const getGenesisHash = memoizee(
-  async (networkId: string, backgroundApi: IBackgroundApi) => {
+  async (
+    networkId: string,
+    backgroundApi: IBackgroundApi,
+    apiPromise?: ApiPromise,
+  ) => {
+    if (apiPromise) {
+      // const res = await apiPromise.rpc.chain.getBlockHash(0);
+      const res = apiPromise.genesisHash;
+      return res.toHex();
+    }
+
     const [res] =
       await backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
         {
@@ -149,6 +183,7 @@ export const getRegistry = memoizee(
       specName?: string;
     },
     backgroundApi: IBackgroundApi,
+    apiPromise?: ApiPromise,
   ): Promise<TypeRegistry> => {
     const networkId = params.networkId;
     const network = await backgroundApi.serviceNetwork.getNetwork({
@@ -157,7 +192,11 @@ export const getRegistry = memoizee(
 
     let metadataRpcHex: `0x${string}`;
     if (isNil(params.metadataRpc) || isEmpty(params.metadataRpc)) {
-      metadataRpcHex = await getMetadataRpc(networkId, backgroundApi);
+      metadataRpcHex = await getMetadataRpc(
+        networkId,
+        backgroundApi,
+        apiPromise,
+      );
     } else {
       metadataRpcHex = params.metadataRpc;
     }
@@ -170,7 +209,7 @@ export const getRegistry = memoizee(
       !params.specName ||
       isEmpty(params.specName)
     ) {
-      const res = await getRuntimeVersion(networkId, backgroundApi);
+      const res = await getRuntimeVersion(networkId, backgroundApi, apiPromise);
       specVersion = res.specVersion;
       specName = res.specName;
     } else {
@@ -197,7 +236,57 @@ export const getRegistry = memoizee(
 );
 
 export const getMinAmount = memoizee(
-  async (networkId: string, backgroundApi: IBackgroundApi) => {
+  async (
+    networkId: string,
+    backgroundApi: IBackgroundApi,
+    tokenContract?: string,
+    apiPromise?: ApiPromise,
+  ) => {
+    if (tokenContract) {
+      if (apiPromise) {
+        const res = await apiPromise?.query.assets.asset(tokenContract);
+        return new BigNumber(res?.value?.minBalance?.toString() ?? '0');
+      }
+
+      try {
+        const [tokenInfo] =
+          await backgroundApi.serviceAccountProfile.sendProxyRequest<{
+            'owner': string;
+            'issuer': string;
+            'admin': string;
+            'freezer': string;
+            'supply': string;
+            'deposit': string;
+            'minBalance': string;
+            'isSufficient': boolean;
+            'accounts': string;
+            'sufficients': string;
+            'approvals': string;
+            'status': string;
+          }>({
+            networkId,
+            body: [
+              {
+                route: 'clientQuery',
+                params: {
+                  method: 'assets.asset',
+                  params: [tokenContract],
+                },
+              },
+            ],
+          });
+        return new BigNumber(tokenInfo.minBalance);
+      } catch (e) {
+        console.error('Dot Vault getMinAmount error', e);
+        return new BigNumber('0');
+      }
+    }
+
+    if (apiPromise) {
+      const res = apiPromise.consts.balances.existentialDeposit;
+      return new BigNumber(res.toString());
+    }
+
     const [minAmountStr] =
       await backgroundApi.serviceAccountProfile.sendProxyRequest<string>({
         networkId,
@@ -226,10 +315,20 @@ export const getBlockInfo = memoizee(
   async (
     networkId: string,
     backgroundApi: IBackgroundApi,
+    apiPromise?: ApiPromise,
   ): Promise<{
     blockHash: `0x${string}`;
     blockNumber: number;
   }> => {
+    if (apiPromise) {
+      const res = await apiPromise.rpc.chain.getBlockHash();
+      const block = await apiPromise.rpc.chain.getBlock(res.toHex());
+      return {
+        blockHash: res.toHex(),
+        blockNumber: block.block.header.number.toNumber(),
+      };
+    }
+
     const [blockHash] =
       await backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
         {

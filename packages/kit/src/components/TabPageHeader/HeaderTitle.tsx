@@ -1,20 +1,29 @@
 import { useMemo } from 'react';
 
+import { useMedia } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+
+import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function HeaderTitle({
   sceneName,
 }: {
   sceneName: EAccountSelectorSceneName;
 }) {
+  const { md } = useMedia();
   const item = useMemo(() => {
-    if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return <UrlAccountNavHeader.Address key="urlAccountNavHeaderAddress" />;
+    if (
+      !platformEnv.isNativeIOS &&
+      (!platformEnv.isWebDappMode || (platformEnv.isWebDappMode && md)) &&
+      sceneName === EAccountSelectorSceneName.homeUrlAccount
+    ) {
+      return <UrlAccountPageHeader />;
     }
-  }, [sceneName]);
+  }, [md, sceneName]);
+
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

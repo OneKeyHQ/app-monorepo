@@ -8,6 +8,10 @@ const UniversalSearchPage = LazyLoadPage(
   () => import('../pages/UniversalSearch'),
 );
 
+const MarketDetail = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Market/MarketDetail'),
+);
+
 export const UniversalSearchRouter: IModalFlowNavigatorConfig<
   EUniversalSearchPages,
   ITestModalPagesParam
@@ -15,5 +19,9 @@ export const UniversalSearchRouter: IModalFlowNavigatorConfig<
   {
     name: EUniversalSearchPages.UniversalSearch,
     component: UniversalSearchPage,
+  },
+  {
+    name: EUniversalSearchPages.MarketDetail,
+    component: MarketDetail,
   },
 ];

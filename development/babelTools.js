@@ -15,8 +15,8 @@ const moduleResolverAliasForAllWebPlatform = {
   'react-native-fast-image': fullPath(
     './module-resolver/react-native-fast-image-mock',
   ),
-  'react-native-keyboard-manager': fullPath(
-    './module-resolver/react-native-keyboard-manager-mock',
+  'react-native-keyboard-controller': fullPath(
+    './module-resolver/react-native-keyboard-controller-mock',
   ),
 };
 
@@ -151,13 +151,16 @@ function normalizeConfig({ platform, config }) {
     ['@babel/plugin-proposal-class-properties', { 'loose': true }],
     ['@babel/plugin-proposal-private-methods', { 'loose': true }],
     ['@babel/plugin-proposal-private-property-in-object', { 'loose': true }],
-    ['@babel/plugin-proposal-export-namespace-from'],
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-class-static-block'],
     [
       developmentConsts.platforms.web,
       developmentConsts.platforms.webEmbed,
     ].includes(platform) && ['@babel/plugin-transform-optional-chaining'],
+    [
+      developmentConsts.platforms.web,
+      developmentConsts.platforms.webEmbed,
+    ].includes(platform) && ['@babel/plugin-transform-numeric-separator'],
     isDev && !isJest && !isNative && ['react-refresh/babel'],
     // Need to adapt to the new version of the metro build system.
     isDev &&

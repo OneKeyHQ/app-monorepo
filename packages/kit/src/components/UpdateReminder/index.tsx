@@ -1,28 +1,30 @@
 import { useCallback, useMemo } from 'react';
-import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type {
-  IButtonProps,
   IIconProps,
   IStackProps,
+  IXStackProps,
 } from '@onekeyhq/components';
 import {
   Button,
   Icon,
   SizableText,
   XStack,
-  useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
-import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppUpdateStatus,
+  displayAppUpdateVersion,
+} from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DownloadProgress } from './DownloadProgress';
-import { useAppUpdateInfo } from './hooks';
+import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from './hooks';
 
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const intl = useIntl();
@@ -40,22 +42,92 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             return intl.formatMessage(
               { id: ETranslations.update_update_app_available },
               {
-                version: appUpdateInfo.latestVersion || '',
+                version: displayAppUpdateVersion(appUpdateInfo),
               },
             );
           },
         },
-        [EAppUpdateStatus.downloading]: {
+        [EAppUpdateStatus.downloadPackage]: {
           iconName: 'RefreshCcwSolid',
           iconColor: '$iconInfo',
           renderText: DownloadProgress,
         },
-        [EAppUpdateStatus.verifying]: {
+        [EAppUpdateStatus.downloadASC]: {
+          iconName: 'RefreshCcwSolid',
+          iconColor: '$iconInfo',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_download_asc_label,
+            });
+          },
+        },
+        [EAppUpdateStatus.verifyASC]: {
+          iconName: 'RefreshCcwSolid',
+          iconColor: '$iconInfo',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_verify_asc_label,
+            });
+          },
+        },
+        [EAppUpdateStatus.verifyPackage]: {
           iconName: 'RefreshCcwSolid',
           iconColor: '$iconInfo',
           renderText() {
             return intl.formatMessage({
               id: ETranslations.update_verify_file_signature,
+            });
+          },
+        },
+        [EAppUpdateStatus.downloadPackageFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
+          },
+        },
+        [EAppUpdateStatus.verifyASCFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
+          },
+        },
+        [EAppUpdateStatus.verifyPackageFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
+          },
+        },
+        [EAppUpdateStatus.downloadASCFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
             });
           },
         },
@@ -70,9 +142,27 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             return intl.formatMessage(
               { id: ETranslations.update_app_version_ready_for_update },
               {
-                version: appUpdateInfo.latestVersion || '',
+                version: displayAppUpdateVersion(appUpdateInfo),
               },
             );
+          },
+        },
+        [EAppUpdateStatus.updateIncomplete]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCaution',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_update_incomplete_text,
+            });
+          },
+        },
+        [EAppUpdateStatus.manualInstall]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCaution',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_update_incomplete_text,
+            });
           },
         },
         [EAppUpdateStatus.failed]: {
@@ -83,7 +173,9 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           }: {
             updateInfo: IAppUpdateInfo;
           }) {
-            return intl.formatMessage({ id: appUpdateInfo.errorText });
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
           },
         },
         [EAppUpdateStatus.done]: undefined,
@@ -108,107 +200,31 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const { iconName, iconColor, renderText } = data || {};
   const Component = renderText;
   return Component ? (
-    <XStack alignItems="center" gap="$2" flexShrink={1}>
-      <Icon name={iconName} color={iconColor} size="$4" flexShrink={0} />
-      <SizableText size="$bodyMdMedium" color="$text" flexShrink={1}>
+    <XStack alignItems="center" gap="$2" flex={1}>
+      <Icon name={iconName} color={iconColor} size="$5" flexShrink={0} />
+      <SizableText
+        size="$bodyMdMedium"
+        color="$text"
+        flex={1}
+        numberOfLines={1}
+      >
         <Component updateInfo={updateInfo} />
       </SizableText>
     </XStack>
   ) : null;
 }
 
-function OpenOnGithub() {
+function UpdateAction({ onUpdateAction }: { onUpdateAction: () => void }) {
   const intl = useIntl();
-  const handlePress = useCallback(() => {
-    openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
-  }, []);
-  const { gtMd } = useMedia();
   return (
-    <XStack
-      gap="$2"
-      justifyContent="space-between"
-      alignItems="center"
-      cursor="pointer"
-      onPress={handlePress}
+    <Button
+      size="small"
+      variant="secondary"
+      onPress={onUpdateAction}
+      borderRadius="$1"
     >
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {intl.formatMessage({
-          id: gtMd
-            ? ETranslations.update_download_on_github
-            : ETranslations.global_github,
-        })}
-      </SizableText>
-      <Icon name="ArrowTopRightOutline" size="$4.5" />
-    </XStack>
-  );
-}
-
-function UpdateAction({
-  updateInfo,
-  onUpdateAction,
-}: {
-  updateInfo: IAppUpdateInfo;
-  onUpdateAction: () => void;
-}) {
-  const intl = useIntl();
-  const styles = useMemo(
-    () =>
-      ({
-        [EAppUpdateStatus.notify]: {
-          label: intl.formatMessage({ id: ETranslations.global_view }),
-        },
-        [EAppUpdateStatus.downloading]: {
-          label: intl.formatMessage({ id: ETranslations.global_view }),
-        },
-        [EAppUpdateStatus.verifying]: {
-          label: intl.formatMessage({ id: ETranslations.global_view }),
-        },
-        [EAppUpdateStatus.ready]: {
-          label: intl.formatMessage({
-            id: platformEnv.isNativeAndroid
-              ? ETranslations.global_install
-              : ETranslations.update_restart_to_update,
-          }),
-          icon: platformEnv.isNativeAndroid
-            ? undefined
-            : 'RestartToUpdateCustom',
-          variant: 'primary',
-        },
-        [EAppUpdateStatus.failed]: {
-          prefixElement: <OpenOnGithub />,
-          label: intl.formatMessage({ id: ETranslations.global_retry }),
-          variant: 'primary',
-        },
-        [EAppUpdateStatus.done]: undefined,
-      } as Record<
-        EAppUpdateStatus,
-        | {
-            label: string;
-            icon?: IIconProps['name'];
-            prefixElement?: ReactElement;
-            variant?: IButtonProps['variant'];
-          }
-        | undefined
-      >),
-    [intl],
-  );
-  const data = styles[updateInfo.status];
-  if (!data) {
-    return null;
-  }
-  const { icon, label, variant, prefixElement } = data;
-  return (
-    <XStack gap="$4" justifyContent="space-between" alignItems="center">
-      {prefixElement}
-      <Button
-        size="small"
-        icon={icon}
-        variant={variant}
-        onPress={onUpdateAction}
-      >
-        {label}
-      </Button>
-    </XStack>
+      {intl.formatMessage({ id: ETranslations.global_view })}
+    </Button>
   );
 }
 
@@ -220,11 +236,19 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },
-  [EAppUpdateStatus.downloading]: {
+  [EAppUpdateStatus.downloadPackage]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },
-  [EAppUpdateStatus.verifying]: {
+  [EAppUpdateStatus.downloadASC]: {
+    bg: '$bgInfoSubdued',
+    borderColor: '$borderInfoSubdued',
+  },
+  [EAppUpdateStatus.verifyASC]: {
+    bg: '$bgInfoSubdued',
+    borderColor: '$borderInfoSubdued',
+  },
+  [EAppUpdateStatus.verifyPackage]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },
@@ -232,36 +256,76 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
     bg: '$bgSuccessSubdued',
     borderColor: '$borderSuccessSubdued',
   },
+  [EAppUpdateStatus.downloadPackageFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
+  [EAppUpdateStatus.downloadASCFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
+  [EAppUpdateStatus.verifyASCFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
+  [EAppUpdateStatus.verifyPackageFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
   [EAppUpdateStatus.failed]: {
     bg: '$bgCriticalSubdued',
     borderColor: '$borderCriticalSubdued',
   },
   [EAppUpdateStatus.done]: undefined,
+  [EAppUpdateStatus.updateIncomplete]: {
+    bg: '$bgCautionSubdued',
+    borderColor: '$borderCautionSubdued',
+  },
+  [EAppUpdateStatus.manualInstall]: {
+    bg: '$bgCautionSubdued',
+    borderColor: '$borderCautionSubdued',
+  },
 };
 
 function BasicUpdateReminder() {
   const appUpdateInfo = useAppUpdateInfo(true);
   const { data, onUpdateAction } = appUpdateInfo;
-  const style = UPDATE_REMINDER_BAR_STYLE[data.status];
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    onUpdateAction?.();
+  }, [closePopover, onUpdateAction]);
 
+  const showUpdateUI = useMemo(() => {
+    return isShowAppUpdateUIWhenUpdating({
+      updateStrategy: appUpdateInfo.data.updateStrategy,
+      updateStatus: data.status,
+    });
+  }, [appUpdateInfo.data.updateStrategy, data.status]);
+  const style = UPDATE_REMINDER_BAR_STYLE[data.status];
   if (!appUpdateInfo.isNeedUpdate || !style) {
     return null;
   }
+
+  if (!showUpdateUI) {
+    return null;
+  }
+
   return (
     <XStack
-      px="$5"
-      py="$2"
+      pl="$3"
+      pr="$2"
+      py="$1.5"
+      gap="$3"
       justifyContent="space-between"
       alignItems="center"
-      borderTopWidth="$px"
-      borderBottomWidth="$px"
-      $md={{
-        mt: '$2',
-      }}
-      {...style}
+      borderRadius="$2"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderCurve="continuous"
+      {...(style as IXStackProps)}
     >
       <UpdateStatusText updateInfo={data} />
-      <UpdateAction updateInfo={data} onUpdateAction={onUpdateAction} />
+      <UpdateAction onUpdateAction={handlePress} />
     </XStack>
   );
 }

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, {
@@ -27,10 +28,7 @@ const checkExtWebAuth = async (type: EPassKeyWindowType) => {
   // Bug:
   // In macOS's Chrome, the passkey window from Chrome password manager cannot be opened in a popup or sidebar window,
   //  so a separate pop-up window needs to be opened.
-  if (
-    (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) &&
-    platformEnv.isRuntimeMacOSBrowser
-  ) {
+  if (platformEnv.isExtensionUiSidePanel && platformEnv.isRuntimeMacOSBrowser) {
     await extUtils.openPassKeyWindow(type);
     return new Promise(() => {});
   }
@@ -49,7 +47,7 @@ export const useWebAuthActions = () => {
         webAuthCredentialId = await registerWebAuth(credId);
         if (!webAuthCredentialId) {
           Toast.error({
-            title: intl.formatMessage({ id: ETranslations.Toast_web_auth }),
+            title: intl.formatMessage({ id: ETranslations.toast_web_auth }),
           });
         } else {
           setPasswordPersist((v) => ({
@@ -63,11 +61,18 @@ export const useWebAuthActions = () => {
     [credId, intl, setPasswordPersist],
   );
 
+  const clearWebAuthCredentialId = useCallback(async () => {
+    setPasswordPersist((v) => ({
+      ...v,
+      webAuthCredentialId: '',
+    }));
+  }, [setPasswordPersist]);
+
   const verifiedPasswordWebAuth = useCallback(async () => {
     const checkCachePassword =
       await backgroundApiProxy.servicePassword.getCachedPassword();
     if (!checkCachePassword) {
-      throw new Error('No password cached not support web auth');
+      throw new OneKeyLocalError('No password cached not support web auth');
     }
     await checkExtWebAuth(EPassKeyWindowType.unlock);
     // web auth must be called in ui context for extension
@@ -83,5 +88,10 @@ export const useWebAuthActions = () => {
     return cred?.id === credId;
   }, [credId]);
 
-  return { setWebAuthEnable, verifiedPasswordWebAuth, checkWebAuth };
+  return {
+    setWebAuthEnable,
+    verifiedPasswordWebAuth,
+    checkWebAuth,
+    clearWebAuthCredentialId,
+  };
 };

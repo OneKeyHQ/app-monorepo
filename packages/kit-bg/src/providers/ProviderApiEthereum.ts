@@ -7,13 +7,16 @@ import stringify from 'fast-json-stable-stringify';
 import { get, isNil } from 'lodash';
 
 import { hashMessage } from '@onekeyhq/core/src/chains/evm/message';
+import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -28,6 +31,7 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { IHyperLiquidTypedDataApproveAgent } from '@onekeyhq/shared/types/hyperliquid';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IAccountToken,
@@ -98,9 +102,12 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   private semaphore = new Semaphore(1);
 
-  private rpcSemaphore = new Semaphore(1);
+  private rpcSemaphore = new Semaphore(10);
 
   private _rpcCache?: RpcCache;
+
+  // Map to duplicate concurrent requests with same parameters
+  private _duplicateRequestsMap: Map<string, Promise<any>> = new Map();
 
   // return a mocked chainId in non-evm, as empty string may cause dapp error
   private _getNetworkMockInfo() {
@@ -118,6 +125,26 @@ class ProviderApiEthereum extends ProviderApiBase {
       });
     }
     return this._rpcCache;
+  }
+
+  public async notifyHyperliquidPerpConfigChanged(
+    info: IProviderBaseBackgroundNotifyInfo,
+    params: {
+      hyperliquidBuilderAddress: string | undefined;
+      hyperliquidMaxBuilderFee: number | undefined;
+    },
+  ) {
+    info.send(
+      {
+        method: 'onekeyWalletEvents_builtInPerpConfigChanged',
+        params: {
+          hyperliquidBuilderAddress: params.hyperliquidBuilderAddress,
+          hyperliquidMaxBuilderFee: params.hyperliquidMaxBuilderFee,
+        },
+      },
+      // only notify to hyperliquid official dapp
+      HYPER_LIQUID_ORIGIN,
+    );
   }
 
   public override notifyDappAccountsChanged(
@@ -156,50 +183,79 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
-    return this.rpcSemaphore.runExclusive(async () => {
-      const { data } = request;
-      const { accountInfo: { networkId, address } = {} } = (
-        await this.getAccountsInfo(request)
-      )[0];
-      const rpcRequest = data as IJsonRpcRequest;
+    const { data } = request;
+    const rpcRequest = data as IJsonRpcRequest;
+    const { method } = rpcRequest;
 
-      const { method, params } = rpcRequest;
+    const { accountInfo: { networkId, address } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
 
-      if (!EVM_SAFE_RPC_METHODS.includes(method)) {
-        defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
-        throw web3Errors.rpc.methodNotSupported();
-      }
+    const { params } = rpcRequest;
 
-      if (!address || !networkId) {
-        throw web3Errors.rpc.invalidParams('unauthorized');
-      }
+    if (!EVM_SAFE_RPC_METHODS.includes(method)) {
+      defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
+      throw web3Errors.rpc.methodNotSupported();
+    }
 
-      const cache = this.rpcCache.get({
-        address,
-        networkId,
-        data: { method, params },
-      });
+    if (!address || !networkId) {
+      throw web3Errors.rpc.invalidParams('unauthorized');
+    }
 
-      if (cache) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return cache;
-      }
-
-      const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
-        networkId: networkId ?? '',
-        request: rpcRequest,
-        origin: request.origin ?? '',
-      });
-
-      this.rpcCache.set({
-        address,
-        networkId,
-        data: { method, params },
-        value: result,
-      });
-
-      return result;
+    // Check cache first
+    const cache = this.rpcCache.get({
+      address,
+      networkId,
+      data: { method, params },
     });
+
+    if (cache) {
+      console.log('ethRpc cache hit: ===> ', method);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return cache;
+    }
+
+    const requestKey = this.rpcCache.generateKey({
+      address,
+      networkId,
+      data: { method, params },
+    });
+
+    // Check if there's a duplicate request in progress
+    const duplicateRequest = this._duplicateRequestsMap.get(requestKey);
+    if (duplicateRequest) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return duplicateRequest;
+    }
+
+    // Create a new promise for this request
+    const promise = this.rpcSemaphore.runExclusive(async () => {
+      try {
+        const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
+          networkId: networkId ?? '',
+          request: rpcRequest,
+          origin: request.origin ?? '',
+        });
+
+        this.rpcCache.set({
+          address,
+          networkId,
+          data: { method, params },
+          value: result,
+        });
+
+        return result;
+      } finally {
+        // Remove from duplication map after completion
+        this._duplicateRequestsMap.delete(requestKey);
+      }
+    });
+
+    // Store the promise for duplication
+    this._duplicateRequestsMap.set(requestKey, promise);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return promise;
   }
 
   @providerApiMethod()
@@ -223,6 +279,11 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_accounts(request: IJsBridgeMessagePayload): Promise<string[]> {
+    console.log('eth_accounts', request.origin, request.data);
+    if (!request.data) {
+      // TODO maybe called by notifyDAppAccountsChanged
+      // debugger;
+    }
     const accountsInfo =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
         request,
@@ -238,35 +299,43 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async wallet_requestPermissions(
     request: IJsBridgeMessagePayload,
-    permissions: Record<string, unknown>,
+    _permissions: Record<string, unknown>,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     await this.backgroundApi.serviceDApp.openConnectionModal(request);
     const accounts = await this.eth_accounts(request);
-    const result = Object.keys(permissions).map((permissionName) => {
-      if (permissionName === 'eth_accounts') {
-        return {
-          caveats: [
-            {
-              type: 'restrictReturnedAccounts',
-              value: [accounts[0]],
-            },
-          ],
-          date: Date.now(),
-          id: request.id?.toString() ?? generateUUID(),
-          invoker: request.origin,
-          parentCapability: permissionName,
-        };
-      }
+    const chainId = await this.eth_chainId(request);
 
-      return {
-        caveats: [],
-        date: Date.now(),
-        id: request.id?.toString() ?? generateUUID(),
-        invoker: request.origin,
-        parentCapability: permissionName,
-      };
-    });
+    const id = request.id?.toString() ?? generateUUID();
+    const date = Date.now();
+    const invoker = request.origin;
+
+    const result = [
+      {
+        caveats: [
+          {
+            type: 'restrictReturnedAccounts',
+            value: [accounts[0]],
+          },
+        ],
+        date,
+        id,
+        invoker,
+        parentCapability: 'eth_accounts',
+      },
+      {
+        caveats: [
+          {
+            type: 'restrictNetworkSwitching',
+            value: [chainId],
+          },
+        ],
+        date,
+        id,
+        invoker,
+        parentCapability: 'endowment:permitted-chains',
+      },
+    ];
 
     void this._getConnectedNetworkName(request);
     return result;
@@ -458,7 +527,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (message?.toLowerCase() === accountAddress?.toLowerCase() && address) {
       [address, message] = messages;
     }
-    message = this.autoFixPersonalSignMessage({ message });
+    message = autoFixPersonalSignMessage({ message });
 
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
@@ -542,22 +611,6 @@ class ProviderApiEthereum extends ProviderApiBase {
   async wallet_getSnaps(request: IJsBridgeMessagePayload) {
     defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
-  }
-
-  autoFixPersonalSignMessage({ message }: { message: string }) {
-    let messageFixed = message;
-    try {
-      ethUtils.toBuffer(message);
-    } catch (error) {
-      const tmpMsg = `0x${message}`;
-      try {
-        ethUtils.toBuffer(tmpMsg);
-        messageFixed = tmpMsg;
-      } catch (err) {
-        // message not including valid hex character
-      }
-    }
-    return messageFixed;
   }
 
   @providerApiMethod()
@@ -650,12 +703,38 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     ...messages: any[]
   ) {
+    const isHyperLiquid = request.origin === HYPER_LIQUID_ORIGIN;
+    let isHyperLiquidApproveAgentMessage = false;
+    let hyperLiquidApproveAgentTypedData:
+      | IHyperLiquidTypedDataApproveAgent
+      | undefined;
+    try {
+      if (isHyperLiquid) {
+        hyperLiquidApproveAgentTypedData = JSON.parse(
+          messages?.[1],
+        ) as IHyperLiquidTypedDataApproveAgent;
+        isHyperLiquidApproveAgentMessage =
+          hyperLiquidApproveAgentTypedData?.message?.type === 'approveAgent' &&
+          hyperLiquidApproveAgentTypedData?.primaryType ===
+            'HyperliquidTransaction:ApproveAgent';
+
+        console.log(
+          'hyperliquid——eth_signTypedData_v4',
+          messages?.[0],
+          hyperLiquidApproveAgentTypedData,
+          isHyperLiquidApproveAgentMessage,
+        );
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-empty
+    }
+
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
     console.log('eth_signTypedData_v4', messages, request);
-    return this.backgroundApi.serviceDApp.openSignMessageModal({
+    const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
         type: EMessageTypesEth.TYPED_DATA_V4,
@@ -665,8 +744,138 @@ class ProviderApiEthereum extends ProviderApiBase {
       networkId: networkId ?? '',
       accountId: accountId ?? '',
     });
+
+    return result;
   }
 
+  ensureHyperLiquidOrigin(request: IJsBridgeMessagePayload) {
+    if (request.origin !== HYPER_LIQUID_ORIGIN) {
+      throw web3Errors.rpc.invalidRequest(
+        `Unsupported origin: ${request.origin ?? 'unknown origin'}.`,
+      );
+    }
+    if (
+      !(request?.data as { '$$isOneKeyBuiltInPerpRequest': boolean })
+        ?.$$isOneKeyBuiltInPerpRequest
+    ) {
+      throw web3Errors.rpc.invalidRequest(
+        `Should be called by OneKey built in hyperliquid`,
+      );
+    }
+  }
+
+  @providerApiMethod()
+  async hl_clearUserBuilderFeeCache(request: IJsBridgeMessagePayload) {
+    this.ensureHyperLiquidOrigin(request);
+    this.backgroundApi.serviceWebviewPerp.clearUserApprovedMaxBuilderCache();
+  }
+
+  @providerApiMethod()
+  async hl_getBuilderFeeConfig(request: IJsBridgeMessagePayload) {
+    this.ensureHyperLiquidOrigin(request);
+    return this.backgroundApi.serviceWebviewPerp.getBuilderFeeConfig();
+  }
+
+  @providerApiMethod()
+  async hl_checkUserStatus(
+    request: IJsBridgeMessagePayload,
+    {
+      userAddress,
+      chainId,
+      shouldApproveBuilderFee,
+    }: {
+      userAddress: string;
+      chainId: string;
+      shouldApproveBuilderFee: boolean;
+    },
+  ) {
+    this.ensureHyperLiquidOrigin(request);
+
+    try {
+      const status =
+        await this.backgroundApi.serviceWebviewPerp.approveBuilderFeeIfRequired(
+          {
+            request,
+            userAddress,
+            chainId,
+            skipApproveAction: !shouldApproveBuilderFee,
+          },
+        );
+      return status;
+    } catch (e) {
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: (e as OneKeyError)?.message || 'Unknown error (1937542)',
+      });
+      throw e;
+    }
+  }
+
+  @providerApiMethod()
+  async hl_logApiEvent(
+    request: IJsBridgeMessagePayload,
+    {
+      apiPayload,
+      userAddress,
+      chainId,
+      errorMessage,
+    }: {
+      apiPayload: {
+        action: { type: string };
+        nonce: number;
+      };
+      userAddress: string;
+      chainId: string;
+      errorMessage?: string;
+    },
+  ) {
+    this.ensureHyperLiquidOrigin(request);
+
+    if (apiPayload?.action?.type === 'order') {
+      const orderAction = apiPayload.action as {
+        type: 'order';
+        builder?: {
+          b: string;
+          f: number;
+        };
+        grouping?: string;
+        orders?: object[];
+      };
+      defaultLogger.perp.common.placeOrder({
+        userAddress,
+        chainId,
+        builderAddress: orderAction?.builder?.b ?? '',
+        builderFee: orderAction?.builder?.f ?? 0,
+        grouping: orderAction?.grouping ?? '',
+        orders: orderAction?.orders ?? [],
+        nonce: apiPayload?.nonce,
+        errorMessage: errorMessage ?? '',
+      });
+    }
+  }
+
+  /*
+    {
+      'method': 'wallet_addEthereumChain',
+      'params': [
+        {
+          'chainId': '0x64',
+          'chainName': 'Gnosis',
+          'nativeCurrency': {
+            'name': 'xDAI',
+            'symbol': 'XDAI',
+            'decimals': 18,
+          },
+          'rpcUrls': [
+            'https://rpc.gnosischain.com',
+            'wss://gnosis-rpc.publicnode.com',
+          ],
+          'blockExplorerUrls': ['https://gnosisscan.io'],
+        },
+        '0xca11fb665aba190ea0410c26b2729c2f4e116a6b',
+      ],
+    }
+  */
   @providerApiMethod()
   async wallet_addEthereumChain(
     request: IJsBridgeMessagePayload,
@@ -701,8 +910,8 @@ class ProviderApiEthereum extends ProviderApiBase {
     async (
       request: IJsBridgeMessagePayload,
       params: IAddEthereumChainParameter,
-      address?: string,
-      ...others: any[]
+      _address?: string,
+      ..._others: any[]
     ) => {
       const networkId = `evm--${new BigNumber(params.chainId).toFixed()}`;
       const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
@@ -833,10 +1042,13 @@ class ProviderApiEthereum extends ProviderApiBase {
         await this.eth_requestAccounts(request);
       }
 
+      const oldNetworkId = accountsInfo?.[0].accountInfo?.networkId;
+
       await this.backgroundApi.serviceDApp.switchConnectedNetwork({
         origin: request.origin ?? '',
         scope: request.scope ?? this.providerName,
         newNetworkId,
+        oldNetworkId,
       });
     },
     {

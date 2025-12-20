@@ -26,7 +26,6 @@ import {
   isLoadingState,
 } from '../../components/PageFrame';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
-import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 const ClaimOptions = () => {
   const appRoute = useAppRoute<
@@ -34,17 +33,27 @@ const ClaimOptions = () => {
     EModalStakingRoutes.ClaimOptions
   >();
   const appNavigation = useAppNavigation();
-  const { accountId, networkId, symbol, provider, details } = appRoute.params;
+  const {
+    accountId,
+    networkId,
+    protocolInfo,
+    tokenInfo,
+    symbol,
+    provider,
+    onSuccess: externalOnSuccess,
+  } = appRoute.params;
 
+  const finalProvider = provider || protocolInfo?.provider || '';
+  const finalSymbol = symbol || tokenInfo?.token.symbol || '';
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getClaimableList({
         networkId,
         accountId,
-        symbol,
-        provider,
+        symbol: finalSymbol,
+        provider: finalProvider,
       }),
-    [accountId, networkId, symbol, provider],
+    [accountId, networkId, finalSymbol, finalProvider],
     { watchLoading: true },
   );
 
@@ -52,21 +61,25 @@ const ClaimOptions = () => {
 
   const onPress = useCallback<IOnSelectOption>(
     async ({ item }) => {
+      const receiveToken = earnUtils.convertEarnTokenToIToken(tokenInfo?.token);
+
       await handleClaim({
         identity: item.id,
         amount: item.amount,
-        symbol: details.token.info.symbol,
-        provider,
-        morphoVault: details.provider.vault,
-        vault: details.provider.vault || '',
+        symbol: finalSymbol,
+        provider: finalProvider,
+        protocolVault: protocolInfo?.vault || '',
+        vault: protocolInfo?.vault || '',
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
-            providerName: provider,
+            providerName: finalProvider,
           }),
-          protocolLogoURI: details.provider.logoURI,
-          receive: { token: details.token.info, amount: item.amount },
-          tags: [buildLocalTxStatusSyncId(details)],
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          receive: receiveToken
+            ? { token: receiveToken, amount: item.amount }
+            : undefined,
+          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
         onSuccess: async (txs) => {
           const tx = txs[0];
@@ -82,29 +95,36 @@ const ClaimOptions = () => {
           }
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
-            token: details.token.info,
-            stakingProtocol: provider,
+            token: tokenInfo?.token,
+            stakingProtocol: finalProvider,
           });
-          if (provider === 'babylon') {
+          if (finalProvider === 'babylon') {
             void backgroundApiProxy.serviceStaking.babylonClaimRecord({
               accountId,
               networkId,
-              provider,
-              symbol,
+              provider: finalProvider,
+              symbol: finalSymbol,
               identity: item.id,
             });
           }
+          // Trigger external onSuccess callback (from ManagePositionContent)
+          // This ensures the entire modal stack is closed when in modal context
+          externalOnSuccess?.();
         },
       });
     },
     [
-      appNavigation,
-      details,
       handleClaim,
-      provider,
+      finalSymbol,
+      finalProvider,
+      protocolInfo?.vault,
+      protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.stakeTag,
+      tokenInfo?.token,
+      appNavigation,
       accountId,
       networkId,
-      symbol,
+      externalOnSuccess,
     ],
   );
 

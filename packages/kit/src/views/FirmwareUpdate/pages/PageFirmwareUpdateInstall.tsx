@@ -28,8 +28,8 @@ function PageFirmwareUpdateInstall() {
     EModalFirmwareUpdateRoutes.Install
   >();
   const { result } = route.params;
-
   const navigation = useAppNavigation();
+
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
 
   /*
@@ -44,11 +44,12 @@ function PageFirmwareUpdateInstall() {
             )
 
             */
-
   const content = useMemo(() => {
     if (
       stepInfo.step === EFirmwareUpdateSteps.updateStart ||
       stepInfo.step === EFirmwareUpdateSteps.installing ||
+      stepInfo.step ===
+        EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice ||
       stepInfo.step === EFirmwareUpdateSteps.updateDone
     ) {
       const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
@@ -60,7 +61,7 @@ function PageFirmwareUpdateInstall() {
               <FirmwareUpdateExitPrevent />
             </>
           ) : null}
-          <FirmwareInstallingView result={result} isDone={isDone} />
+          <FirmwareInstallingView result={result} />
         </>
       );
     }
@@ -77,7 +78,7 @@ function PageFirmwareUpdateInstall() {
         <FirmwareLatestVersionInstalled />
       </>
     );
-  }, [stepInfo.step, result, navigation]);
+  }, [stepInfo.step, navigation, result]);
 
   return (
     <Page

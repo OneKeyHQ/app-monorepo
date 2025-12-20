@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -156,7 +156,7 @@ export function EnterBootModeGuide({
   deviceType: IDeviceType | undefined;
 }) {
   const intl = useIntl();
-  if (deviceType === 'mini') {
+  if (deviceType === EDeviceType.Mini) {
     return (
       <Stack mb="$6">
         <Image w={353} h={224} source={ImgEnterBootGuideMini} />
@@ -215,6 +215,7 @@ export function useFirmwareUpdateErrors({
         code: [
           HardwareErrorCode.PinCancelled,
           HardwareErrorCode.ActionCancelled,
+          HardwareErrorCode.CallQueueActionCancelled,
           HardwareErrorCode.DeviceInterruptedFromOutside,
         ],
       })
@@ -282,6 +283,26 @@ export function useFirmwareUpdateErrors({
     if (
       isHardwareErrorByCode({
         error,
+        code: HardwareErrorCode.SelectDevice,
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            message={intl.formatMessage({
+              id: ETranslations.update_only_one_usb_device_supported_for_upgrade,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
         code: HardwareErrorCode.FirmwareUpdateManuallyEnterBoot,
       }) ||
       isHardwareErrorByCode({
@@ -304,7 +325,7 @@ export function useFirmwareUpdateErrors({
         detail: <EnterBootModeGuide deviceType={result?.deviceType} />,
         onRetryHandler: onRetry,
         retryText:
-          result?.deviceType === 'mini'
+          result?.deviceType === EDeviceType.Mini
             ? intl.formatMessage({
                 id: ETranslations.update_verify_status_and_continue,
               })
@@ -407,6 +428,25 @@ export function useFirmwareUpdateErrors({
     ) {
       return {
         content: <ShouldUpdateByWeb />,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: [HardwareErrorCode.FirmwareDowngradeNotAllowed],
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            title={intl.formatMessage({
+              id: ETranslations.device_firmware_upgrade_disallow_downgrade,
+            })}
+          />
+        ),
         retryText: defaultRetryText,
       };
     }

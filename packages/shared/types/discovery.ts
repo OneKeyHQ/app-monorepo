@@ -2,6 +2,7 @@ export interface IDiscoveryHomePageData {
   banners: IDiscoveryBanner[];
   categories: ICategory[];
   trending: IDApp[];
+  hot?: IDApp[];
 }
 
 export interface IDiscoveryBanner {
@@ -63,6 +64,7 @@ export interface IDApp {
   order?: number;
   origins?: string[];
   _id?: string;
+  isExactUrl?: boolean;
 }
 
 export interface IDAppTag {
@@ -108,7 +110,7 @@ export interface IHostSecurity {
   projectName: string;
   createdAt: string;
   updatedAt?: string;
-  dapp: {
+  dapp?: {
     name: string;
     logo: string;
     description: {
@@ -123,7 +125,7 @@ export interface IHostSecurity {
       tagId: string;
       type: 'success' | 'info' | 'critical' | 'warning' | 'default' | undefined;
     }[];
-    origins: {
+    origins?: {
       name: string;
       logo: string;
     }[];

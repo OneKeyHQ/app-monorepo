@@ -7,14 +7,19 @@ import {
   EthersJsonRpcProvider,
   ethers,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
+import { verifyPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyError,
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -42,6 +47,7 @@ import type {
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type {
   IFetchServerTokenDetailParams,
@@ -110,7 +116,7 @@ import type {
 } from '../../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
-const enabledNFTNetworkIds = getEnabledNFTNetworkIds();
+const enabledNFTNetworkIds = networkUtils.getEnabledNFTNetworkIds();
 
 // evm vault
 export default class Vault extends VaultBase {
@@ -272,10 +278,19 @@ export default class Vault extends VaultBase {
         }
       }
 
-      if (
-        isToContract === false ||
-        checkIsEvmNativeTransfer({ tx: nativeTx })
-      ) {
+      if (isToContract || !checkIsEvmNativeTransfer({ tx: nativeTx })) {
+        const actionFromContract = await this._buildTxActionFromContract({
+          encodedTx,
+          transferPayload,
+        });
+        if (actionFromContract) {
+          action = actionFromContract;
+        }
+
+        if (isToContract) {
+          extraNativeTransferAction = undefined;
+        }
+      } else {
         const actionFromNativeTransfer =
           await this._buildTxTransferNativeTokenAction({
             encodedTx,
@@ -284,14 +299,6 @@ export default class Vault extends VaultBase {
           action = actionFromNativeTransfer;
         }
         extraNativeTransferAction = undefined;
-      } else {
-        const actionFromContract = await this._buildTxActionFromContract({
-          encodedTx,
-          transferPayload,
-        });
-        if (actionFromContract) {
-          action = actionFromContract;
-        }
       }
     }
 
@@ -448,6 +455,19 @@ export default class Vault extends VaultBase {
     return validateEvmAddress(address);
   }
 
+  override verifyMessage(
+    params: IVerifyMessageParams,
+  ): Promise<{ valid: boolean }> {
+    const valid = verifyPersonalSignMessage({
+      message: params.message,
+      address: params.address,
+      signature: params.signature,
+    });
+    return Promise.resolve({
+      valid,
+    });
+  }
+
   async _buildDecodedTx(params: {
     unsignedTx: IUnsignedTxPro;
     action: IDecodedTxAction | undefined;
@@ -500,11 +520,13 @@ export default class Vault extends VaultBase {
       const { from, to, amount, tokenInfo, nftInfo, hexData } = transferInfo;
 
       if (!transferInfo.to) {
-        throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+        throw new OneKeyLocalError(
+          'buildEncodedTx ERROR: transferInfo.to is missing',
+        );
       }
 
       if (!tokenInfo && !nftInfo) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'buildEncodedTx ERROR: transferInfo.tokenInfo and transferInfo.nftInfo are both missing',
         );
       }
@@ -528,7 +550,7 @@ export default class Vault extends VaultBase {
 
       if (tokenInfo) {
         if (isNil(tokenInfo.decimals)) {
-          throw new Error(
+          throw new OneKeyLocalError(
             'buildEncodedTx ERROR: transferInfo.tokenInfo.decimals missing',
           );
         }
@@ -551,7 +573,7 @@ export default class Vault extends VaultBase {
 
         // token address is required when building erc20 token transfer
         if (!tokenInfo.address) {
-          throw new Error(
+          throw new OneKeyLocalError(
             'buildEncodedTx ERROR: transferInfo.tokenInfo.address missing',
           );
         }
@@ -582,7 +604,7 @@ export default class Vault extends VaultBase {
       approveInfo as IApproveInfo;
 
     if (!tokenInfo) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }
@@ -725,10 +747,12 @@ export default class Vault extends VaultBase {
     let newValue = encodedTx.value;
 
     if (!isNil(nativeAmountInfo.maxSendAmount)) {
-      newValue = chainValueUtils.fixNativeTokenMaxSendAmount({
-        amount: nativeAmountInfo.maxSendAmount,
-        network,
-      });
+      newValue = numberUtils.numberToHex(
+        chainValueUtils.convertAmountToChainValue({
+          value: nativeAmountInfo.maxSendAmount,
+          network,
+        }),
+      );
     } else if (!isNil(nativeAmountInfo.amount)) {
       newValue = numberUtils.numberToHex(
         chainValueUtils.convertAmountToChainValue({

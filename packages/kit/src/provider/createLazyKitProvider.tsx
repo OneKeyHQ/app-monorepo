@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 
 import { updateInterceptorRequestHelper } from '@onekeyhq/kit-bg/src/init/updateInterceptorRequestHelper';
 
-// import '../background/instance/backgroundApiProxy';
-
 // TODO why not use lazy feature?
 export function createLazyKitProviderLegacy({
   displayName,

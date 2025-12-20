@@ -1,9 +1,14 @@
 /* eslint-disable max-classes-per-file */
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EFirmwareType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { get, uniq } from 'lodash';
 
-import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
+  appEventBus,
+} from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
+import platformEnv from '../../platformEnv';
 import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
@@ -15,13 +20,16 @@ import { OneKeyError } from './baseErrors';
 import type {
   IOneKeyError,
   IOneKeyErrorI18nInfo,
+  IOneKeyHardwareDeviceNotFoundPayload,
   IOneKeyHardwareErrorPayload,
   IOneKeyJsError,
 } from '../types/errorTypes';
 
 export type IOneKeyErrorHardwareProps = Omit<IOneKeyError, 'payload'> & {
   payload: IOneKeyHardwareErrorPayload; // raw payload from hardware sdk error response
+  silentMode?: boolean;
 };
+
 export class OneKeyHardwareError<
   I18nInfoT = IOneKeyErrorI18nInfo | any,
   DataT = IOneKeyJsError | any,
@@ -64,18 +72,33 @@ export class InvalidPassphrase extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceCheckPassphraseStateError;
 }
 
+export class InvalidAttachPin extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'InvalidAttachPin',
+        defaultKey: ETranslations.hardware_device_pin_state_error,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DeviceCheckUnlockTypeError;
+}
+
 export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotOpenedPassphrase',
         defaultKey: ETranslations.hardware_not_opened_passphrase,
-        defaultAutoToast: true,
+        defaultAutoToast: false,
       }),
     );
   }
 
   override code = HardwareErrorCode.DeviceNotOpenedPassphrase;
+
+  override className = EOneKeyErrorClassNames.DeviceNotOpenedPassphrase;
 }
 
 export class DeviceOpenedPassphrase extends OneKeyHardwareError {
@@ -137,10 +160,19 @@ export class UserCancelFromOutside extends OneKeyHardwareError {
 
 export class UnknownMethod extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
+    const firmwareType = get<string | undefined>(
+      props?.payload?.params,
+      'firmwareType',
+      undefined,
+    );
+    let key = ETranslations.hardware_unknown_message_error;
+    if (firmwareType === EFirmwareType.BitcoinOnly) {
+      key = ETranslations.hardware_unknown_message_error_bitcoin_only;
+    }
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UnknownMethod',
-        defaultKey: ETranslations.hardware_unknown_message_error,
+        defaultKey: key,
       }),
     );
   }
@@ -153,7 +185,9 @@ export class NeedOneKeyBridge extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedOneKeyBridge',
-        defaultKey: ETranslations.onboarding_install_onekey_bridge_help_text,
+        defaultKey: platformEnv.isSupportWebUSB
+          ? ETranslations.device_communication_failed
+          : ETranslations.device_communication_failed_with_no_web_usb_supported,
       }),
     );
   }
@@ -284,7 +318,21 @@ export class DeviceNotBonded extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotBonded',
-        defaultKey: ETranslations.feedback_bluetooth_unparied,
+        defaultKey: ETranslations.feedback_bluetooth_unpaired,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.BleDeviceNotBonded;
+}
+
+// 设备没有配对成功
+export class BleDeviceBondedCanceled extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BleDeviceBondedCanceled',
+        defaultKey: ETranslations.feedback_bluetooth_pairing_failed,
       }),
     );
   }
@@ -425,6 +473,19 @@ export class ForbiddenKeyPathError extends OneKeyHardwareError {
   override code = HardwareErrorCode.RuntimeError;
 }
 
+export class FirmwareDowngradeNotAllowedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareDowngradeNotAllowed',
+        defaultKey: ETranslations.device_firmware_upgrade_disallow_downgrade,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.FirmwareDowngradeNotAllowed;
+}
+
 export class BTCPsbtTooManyUtxos extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -449,7 +510,7 @@ export class ResponseUnexpectTypeError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'ResponseUnexpectTypeError',
-        defaultKey: ETranslations.hardware_default_error,
+        defaultKey: ETranslations.hardware_communication_error,
       }),
     );
   }
@@ -643,13 +704,27 @@ export class NewFirmwareForceUpdate extends OneKeyHardwareError {
   override code = HardwareErrorCode.NewFirmwareForceUpdate;
 }
 
+export class DefectiveFirmware extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DefectiveFirmware',
+        defaultKey: ETranslations.hardware_defective_firmware_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DefectiveFirmware;
+}
+
 export class DeviceNotSame extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotSame',
         defaultKey:
-          ETranslations.hardware_device_information_is_inconsistent_it_may_caused_by_device_reset,
+          ETranslations.hardware_device_information_is_inconsistent_it_may_be_caused_by_device_reset,
       }),
     );
   }
@@ -657,8 +732,12 @@ export class DeviceNotSame extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceCheckDeviceIdError;
 }
 
+export type IOneKeyErrorHardwareDeviceNotFoundProps =
+  IOneKeyErrorHardwareProps & {
+    payload: IOneKeyHardwareDeviceNotFoundPayload;
+  };
 export class DeviceNotFound extends OneKeyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps) {
+  constructor(props?: IOneKeyErrorHardwareDeviceNotFoundProps) {
     // props?.message
     super(
       normalizeErrorProps(props, {
@@ -667,9 +746,24 @@ export class DeviceNotFound extends OneKeyHardwareError {
         defaultAutoToast: false, // do not auto toast for DeviceNotFound, it's very common for silence call getFeatures
       }),
     );
+
+    // Only trigger UI event if not in silent mode
+    if (!props?.silentMode) {
+      // Trigger global event to show hardware error dialog
+      // This is a generic event that can be reused by other hardware errors
+      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+        errorCode: props?.payload?.code || HardwareErrorCode.DeviceNotFound,
+        errorMessage:
+          props?.payload?.message || props?.message || 'DeviceNotFound',
+        payload: props?.payload,
+      });
+    }
   }
 
   override code = HardwareErrorCode.DeviceNotFound;
+
+  override className = EOneKeyErrorClassNames.DeviceNotFound;
 
   // TODO remove? convertDeviceError should update data by payload
   override reconnect = true;
@@ -837,6 +931,62 @@ export class HardwareCommunicationError extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.BridgeNetworkError;
+}
+
+export class HardwareWebDeviceCommunicationError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CommunicationError',
+        defaultKey: ETranslations.hardware_device_not_find_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.WebDevicePromptAccessError;
+
+  override className =
+    EOneKeyErrorClassNames.WebDeviceNotFoundOrNeedsPermission;
+
+  override autoToast = false;
+}
+
+export class FirmwareUpdateTransferInterruptedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateTransferInterruptedError',
+        defaultKey: ETranslations.firmware_update_error_transfer_interrupted,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.EmmcFileWriteFirmwareError;
+}
+
+export class FirmwareUpdateVersionMismatchError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateVersionMismatch',
+        defaultKey: ETranslations.global_version_mismatch,
+      }),
+    );
+  }
+}
+
+export class SelectDeviceError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'SelectDeviceError',
+        defaultKey: ETranslations.update_ensure_one_usb_device_connected,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.SelectDevice;
 }
 
 // UnknownHardware

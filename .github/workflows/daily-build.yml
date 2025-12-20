@@ -50,12 +50,31 @@ jobs:
 
       - name: 'Setup ENV'
         run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
           DATE=`date "+%Y%m%d"`
           run_number=$(($GITHUB_RUN_NUMBER % 100))
           run_number=$(printf "%02d" $run_number)
           build_number="${DATE}${run_number}"
           echo '$build_number='$build_number
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+
+      - name: 'Save workflow parameters'
+        run: |
+          mkdir -p ./workflow-data
+
+          ### do not set WORKFLOW_GITHUB_SHA and WORKFLOW_GITHUB_REF_NAME, always use the main branch
+          # echo "WORKFLOW_GITHUB_SHA=${{ github.sha }}" >> ./workflow-data/params.env
+          # echo "WORKFLOW_GITHUB_REF_NAME=${{ github.ref_name }}" >> ./workflow-data/params.env
+
+          echo "WORKFLOW_BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> ./workflow-data/params.env
+      
+      - name: Upload workflow parameters
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-params
+          path: workflow-data/params.env
+          retention-days: 1
+
 
       # - name: Clone Build History Branch
       #   uses: actions/checkout@v3
@@ -70,3 +89,6 @@ jobs:
       #     git config --local user.name "GitHub Action"
       #     git commit -am "build ${{ needs.get-commit-id.outputs.upstream_id }} in $CURRENT_TIME"
       #     git push --set-upstream origin buildhistory
+
+
+

@@ -16,13 +16,17 @@ import { WebView } from 'react-native-webview';
 
 import { Stack } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import GeckoView from '@onekeyhq/shared/src/modules3rdParty/geckoview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import uriUtils, {
+  checkOneKeyCardGoogleOauthUrl,
+} from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
+import { createMessageInjectedScript } from './utils';
 
-import type { IInpageProviderWebViewProps } from './types';
+import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 
@@ -38,10 +42,8 @@ const styles = StyleSheet.create({
 const NativeWebView = forwardRef(
   (
     {
-      style,
       src,
       receiveHandler,
-      onSrcChange,
       onLoadProgress,
       injectedJavaScriptBeforeContentLoaded,
       onMessage,
@@ -51,11 +53,13 @@ const NativeWebView = forwardRef(
       onScroll,
       pullToRefreshEnabled = true,
       webviewDebuggingEnabled,
+      useGeckoView,
+      allowsBackForwardNavigationGestures = true,
       ...props
     }: INativeWebViewProps,
     ref,
   ) => {
-    const webviewRef = useRef<WebView>();
+    const webviewRef = useRef<WebView>(undefined);
     const refreshControlRef = useMemo(() => createRef<RefreshControl>(), []);
     const [isRefresh] = useState(false);
     const onRefresh = useCallback(() => {
@@ -73,22 +77,18 @@ const NativeWebView = forwardRef(
 
     const webviewOnMessage = useCallback(
       (event: WebViewMessageEvent) => {
-        const { data } = event.nativeEvent;
+        const { data, url } = event.nativeEvent;
         try {
-          const uri = new URL(event.nativeEvent.url);
-          const origin = uri?.origin || '';
-          // debugLogger.webview.info('onMessage', origin, data);
-          // console.log('onMessage: ', origin, data);
-          // - receive
+          const origin = uriUtils.getOriginFromUrl({ url: url || src });
           if (origin) {
             jsBridge.receive(data, { origin });
           }
-        } catch {
+        } catch (error) {
           // noop
         }
         onMessage?.(event);
       },
-      [jsBridge, onMessage],
+      [jsBridge, onMessage, src],
     );
 
     useImperativeHandle(ref, (): IWebViewWrapperRef => {
@@ -97,11 +97,15 @@ const NativeWebView = forwardRef(
         jsBridge,
         reload: () => webviewRef.current?.reload(),
         loadURL: (url: string) => webviewRef.current?.loadUrl(url),
+        sendMessageViaInjectedScript: (message: unknown) => {
+          const script = createMessageInjectedScript(message);
+          webviewRef.current?.injectJavaScript(script);
+        },
       };
 
       jsBridge.webviewWrapper = wrapper;
 
-      return wrapper;
+      return wrapper as IWebViewRef;
     });
 
     const webViewOnLoadStart = useCallback(
@@ -166,57 +170,97 @@ const NativeWebView = forwardRef(
       webviewDebuggingEnabled,
     ]);
 
-    const renderWebView = (
-      <WebView
-        style={styles.container}
-        originWhitelist={['*']}
-        allowsBackForwardNavigationGestures
-        fraudulentWebsiteWarningEnabled={false}
-        onLoadProgress={onLoadProgress}
-        ref={webviewRef}
-        injectedJavaScriptBeforeContentLoaded={
-          injectedJavaScriptBeforeContentLoaded || ''
-        }
-        // the video element must also include the `playsinline` attribute
-        allowsInlineMediaPlayback
-        // disable video autoplay
-        mediaPlaybackRequiresUserAction
-        source={{ uri: src }}
-        onMessage={webviewOnMessage}
-        onLoadStart={webViewOnLoadStart}
-        onLoad={onLoad}
-        onLoadEnd={onLoadEnd}
-        renderError={renderError}
-        renderLoading={renderLoading}
-        pullToRefreshEnabled={pullToRefreshEnabled}
-        onScroll={(e) => {
-          if (platformEnv.isNativeAndroid && pullToRefreshEnabled) {
-            const {
-              contentOffset,
-              contentSize,
-              contentInset,
-              layoutMeasurement,
-            } = e.nativeEvent;
-            // @ts-expect-error
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-            refreshControlRef?.current?._nativeRef?.setNativeProps?.({
-              enabled:
-                contentOffset?.y === 0 &&
-                Math.round(contentSize.height) >
-                  Math.round(
-                    layoutMeasurement.height +
-                      contentInset.top +
-                      contentInset.bottom,
-                  ),
-            });
+    const renderWebView = useMemo(() => {
+      if (useGeckoView) {
+        return (
+          <GeckoView
+            style={styles.container}
+            ref={webviewRef as any}
+            injectedJavaScriptBeforeContentLoaded={
+              injectedJavaScriptBeforeContentLoaded || ''
+            }
+            source={{ uri: src }}
+            onMessage={webviewOnMessage as any}
+            onLoadingProgress={onLoadProgress as any}
+            onLoadingStart={webViewOnLoadStart}
+            onLoadingFinish={onLoadEnd as any}
+            remoteDebugging={debuggingEnabled}
+            {...props}
+          />
+        );
+      }
+      return (
+        <WebView
+          cacheEnabled={false}
+          style={styles.container}
+          originWhitelist={['*']}
+          allowsBackForwardNavigationGestures={
+            allowsBackForwardNavigationGestures
           }
-          void onScroll?.(e);
-        }}
-        scrollEventThrottle={16}
-        webviewDebuggingEnabled={debuggingEnabled}
-        {...props}
-      />
-    );
+          fraudulentWebsiteWarningEnabled={false}
+          onLoadProgress={onLoadProgress}
+          ref={webviewRef}
+          injectedJavaScriptBeforeContentLoaded={
+            injectedJavaScriptBeforeContentLoaded || ''
+          }
+          // the video element must also include the `playsinline` attribute
+          allowsInlineMediaPlayback
+          // disable video autoplay
+          mediaPlaybackRequiresUserAction
+          source={{ uri: src }}
+          onMessage={webviewOnMessage}
+          onLoadStart={webViewOnLoadStart}
+          onLoad={onLoad}
+          onLoadEnd={onLoadEnd}
+          renderError={renderError}
+          renderLoading={renderLoading}
+          pullToRefreshEnabled={pullToRefreshEnabled}
+          onScroll={(e) => {
+            if (platformEnv.isNativeAndroid && pullToRefreshEnabled) {
+              const {
+                contentOffset,
+                contentSize,
+                contentInset,
+                layoutMeasurement,
+              } = e.nativeEvent;
+              // @ts-expect-error
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+              refreshControlRef?.current?._nativeRef?.setNativeProps?.({
+                enabled:
+                  contentOffset?.y === 0 &&
+                  Math.round(contentSize.height) >
+                    Math.round(
+                      layoutMeasurement.height +
+                        contentInset.top +
+                        contentInset.bottom,
+                    ),
+              });
+            }
+            void onScroll?.(e);
+          }}
+          scrollEventThrottle={16}
+          webviewDebuggingEnabled={debuggingEnabled}
+          {...props}
+        />
+      );
+    }, [
+      debuggingEnabled,
+      injectedJavaScriptBeforeContentLoaded,
+      onLoad,
+      onLoadEnd,
+      onLoadProgress,
+      onScroll,
+      props,
+      pullToRefreshEnabled,
+      refreshControlRef,
+      renderError,
+      renderLoading,
+      src,
+      useGeckoView,
+      webViewOnLoadStart,
+      webviewOnMessage,
+      allowsBackForwardNavigationGestures,
+    ]);
 
     return platformEnv.isNativeAndroid && pullToRefreshEnabled ? (
       <RefreshControl

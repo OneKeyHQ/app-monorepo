@@ -16,10 +16,10 @@ import type {
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { UniversalClaim } from '../../components/UniversalClaim';
 import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
-import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 const ClaimPage = () => {
   const intl = useIntl();
@@ -30,39 +30,44 @@ const ClaimPage = () => {
   const {
     accountId,
     networkId,
-    details,
     amount: initialAmount,
     identity,
     onSuccess,
   } = route.params;
-  const { token, provider } = details;
-  const { price, info: tokenInfo } = token;
-  const actionTag = buildLocalTxStatusSyncId(details);
+  const { protocolInfo, tokenInfo } = route.params;
+  const provider = protocolInfo?.provider || '';
+  const info = tokenInfo?.token;
+  const symbol = info?.symbol || '';
+  const price = tokenInfo?.price ? String(tokenInfo.price) : '0';
+  const actionTag = protocolInfo?.stakeTag || '';
+  const vault = protocolInfo?.vault || '';
   const appNavigation = useAppNavigation();
   const handleClaim = useUniversalClaim({ accountId, networkId });
   const onConfirm = useCallback(
     async (amount: string) => {
+      const receiveToken = earnUtils.convertEarnTokenToIToken(info);
+
       await handleClaim({
         amount,
         identity,
-        vault: provider.vault || '',
-        symbol: tokenInfo.symbol,
-        provider: provider.name,
-        morphoVault: provider.vault,
+        vault,
+        symbol,
+        provider,
+        protocolVault: vault,
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
-            providerName: provider.name,
+            providerName: provider,
           }),
-          protocolLogoURI: provider.logoURI,
-          receive: { token: tokenInfo, amount },
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          receive: receiveToken ? { token: receiveToken, amount } : undefined,
           tags: [actionTag],
         },
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
-            token: tokenInfo,
-            stakingProtocol: provider.name,
+            token: info,
+            stakingProtocol: provider,
           });
           onSuccess?.();
         },
@@ -70,16 +75,19 @@ const ClaimPage = () => {
     },
     [
       handleClaim,
-      tokenInfo,
-      appNavigation,
-      provider,
-      actionTag,
       identity,
+      vault,
+      symbol,
+      provider,
+      protocolInfo?.providerDetail.logoURI,
+      info,
+      actionTag,
+      appNavigation,
       onSuccess,
     ],
   );
 
-  const providerLabel = useProviderLabel(provider.name);
+  const providerLabel = useProviderLabel(provider);
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -88,43 +96,37 @@ const ClaimPage = () => {
     });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
-      provider: provider.name,
-      symbol: tokenInfo.symbol,
+      provider,
+      symbol,
       action: 'claim',
       amount: '1',
-      morphoVault: provider.vault,
+      protocolVault: vault,
       accountAddress: account.address,
       identity,
     });
     return resp;
-  }, [
-    accountId,
-    networkId,
-    provider.name,
-    provider.vault,
-    tokenInfo.symbol,
-    identity,
-  ]);
+  }, [accountId, networkId, provider, symbol, vault, identity]);
 
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_claim_token },
-          { token: token.info.symbol },
+          { token: symbol },
         )}
       />
       <Page.Body>
         <UniversalClaim
+          accountId={accountId}
           networkId={networkId}
           price={price}
-          decimals={details.token.info.decimals}
+          decimals={protocolInfo?.protocolInputDecimals ?? info?.decimals}
           initialAmount={initialAmount}
-          balance={details.claimable ?? '0'}
-          tokenSymbol={tokenInfo.symbol}
-          tokenImageUri={tokenInfo.logoURI}
-          providerLogo={provider.logoURI}
-          providerName={provider.name}
+          balance={protocolInfo?.claimable ?? '0'}
+          tokenSymbol={symbol}
+          tokenImageUri={info?.logoURI}
+          providerLogo={protocolInfo?.providerDetail.logoURI}
+          providerName={provider}
           providerLabel={providerLabel}
           onConfirm={onConfirm}
           estimateFeeResp={estimateFeeResp}
@@ -134,4 +136,10 @@ const ClaimPage = () => {
   );
 };
 
-export default ClaimPage;
+export default function ClaimPageWithProvider() {
+  return (
+    <DiscoveryBrowserProviderMirror>
+      <ClaimPage />
+    </DiscoveryBrowserProviderMirror>
+  );
+}

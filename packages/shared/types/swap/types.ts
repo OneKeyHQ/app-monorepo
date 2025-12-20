@@ -1,7 +1,13 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
+import type { IEncodedTxXrp } from '@onekeyhq/core/src/chains/xrp/types';
+import type { EAddressEncodings, IEncodedTx } from '@onekeyhq/core/src/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveTypes,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IEventSourceCloseEvent,
   IEventSourceDoneEvent,
@@ -12,9 +18,22 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type {
+  IFeeAlgo,
+  IFeeCkb,
+  IFeeDot,
+  IFeeSol,
+  IFeeSui,
+  IFeeTron,
+  IFeeUTXO,
+  IGasEIP1559,
+  IGasLegacy,
+} from '../fee';
 import type { EMessageTypesEth } from '../message';
+import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export enum EWrappedType {
   DEPOSIT = 'deposit',
@@ -55,6 +74,35 @@ export enum ESwapQuoteKind {
   BUY = 'buy',
 }
 
+export enum ESwapSource {
+  WALLET_TAB = 'wallet_tab',
+  WALLET_HOME = 'wallet_home',
+  TOKEN_DETAIL = 'token_detail',
+  WALLET_HOME_TOKEN_LIST = 'wallet_home_token_list',
+  WALLET_HOME_POPULAR_TRADING = 'wallet_home_popular_trading',
+  EARN = 'earn',
+  MARKET = 'market',
+  TAB = 'tab',
+  APPROVING_SUCCESS = 'approving_success',
+  PERP = 'perp',
+}
+
+export enum ESwapSelectTokenSource {
+  NORMAL_SELECT = 'normal_select',
+  POPULAR_SELECT = 'popular_select',
+  RECENT_SELECT = 'recent_select',
+}
+
+export enum ESwapCleanHistorySource {
+  LIST = 'list',
+  DETAIL = 'detail',
+}
+
+export enum ESwapCancelLimitOrderSource {
+  LIST = 'list',
+  DETAIL = 'detail',
+}
+
 export enum ETokenRiskLevel {
   UNKNOWN = 0,
   BENIGN = 1,
@@ -90,6 +138,9 @@ export interface ISwapNetwork extends ISwapNetworkBase {
 }
 
 export interface ISwapTokenBase {
+  fiatValue?: string;
+  balanceParsed?: string;
+  price?: string;
   networkId: string;
   contractAddress: string;
   isNative?: boolean;
@@ -97,6 +148,7 @@ export interface ISwapTokenBase {
   decimals: number;
   name?: string;
   logoURI?: string;
+  speedSwapDefaultAmount?: number[];
 }
 
 export interface ISwapToken extends ISwapTokenBase {
@@ -214,14 +266,20 @@ export interface ISwapOrderHash {
 export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  protocol: EProtocolOfExchange;
+  swapType: ESwapTabSwitchType;
+  unSupportReceiveAddressDifferent?: boolean;
   provider: string;
-  quoteId: string;
+  providerName: string;
+  quoteId?: string;
   useAddress: string;
   spenderAddress: string;
   amount: string;
+  toAmount?: string;
   status: ESwapApproveTransactionStatus;
   resetApproveValue?: string;
   resetApproveIsMax?: boolean;
+  kind?: ESwapQuoteKind;
   txId?: string;
   blockNumber?: number;
 }
@@ -235,6 +293,10 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   limitPartiallyFillable?: boolean;
   kind?: ESwapQuoteKind;
   toTokenAmount?: string;
+  userMarketPriceRate?: string;
+  denyCrossChainProvider?: string;
+  denySingleSwapProvider?: string;
+  walletDeviceType?: IDeviceType;
 }
 interface ISocketAsset {
   address: string;
@@ -288,16 +350,180 @@ export interface IQuoteTip {
   link?: string;
 }
 
+export interface IFetchLimitMarketPrice {
+  price: string;
+}
+
+export interface IEIP712TypedData {
+  types: IEIP712Types;
+  domain: IEIP712Object;
+  message: IEIP712Object;
+  primaryType: string;
+}
+export interface IEIP712Types {
+  [key: string]: IEIP712Parameter[];
+}
+export interface IEIP712Parameter {
+  name: string;
+  type: string;
+}
+export declare type IEIP712ObjectValue =
+  | string
+  | bigint
+  | number
+  | IEIP712Object;
+export interface IEIP712Object {
+  [key: string]: IEIP712ObjectValue;
+}
+export type IEIP712DomainType = {
+  name: string;
+  version: string;
+  chainId: number;
+  verifyingContract: string;
+};
+
+export type IOneInchOrderStruct = {
+  salt: string;
+  maker: string;
+  receiver: string;
+  makerAsset: string;
+  takerAsset: string;
+  makingAmount: string;
+  takingAmount: string;
+  makerTraits: string;
+};
+
+export interface IOneKeyFeeInfo {
+  oneKeyFeeAmount?: string;
+  oneKeyFeeSymbol?: string;
+  oneKeyFeeUsd?: string;
+}
+
+export enum ESwapStepStatus {
+  PENDING = 'pending',
+  SUCCESS = 'success',
+  FAILED = 'failed',
+  LOADING = 'loading',
+  READY = 'ready',
+}
+
+export enum ESwapStepType {
+  BATCH_APPROVE_SWAP = 'batch_approve_swap',
+  APPROVE_TX = 'approve_tx',
+  SIGN_MESSAGE = 'sign_message',
+  SEND_TX = 'send_tx',
+  WRAP_TX = 'wrap_tx',
+}
+
+export enum ESwapBatchTransferType {
+  CONTINUOUS_APPROVE_AND_SWAP = 'continuous_approve_and_swap',
+  BATCH_APPROVE_AND_SWAP = 'batch_approve_and_swap',
+  NORMAL = 'normal',
+}
+
+export interface ISwapStep {
+  type: ESwapStepType;
+  status: ESwapStepStatus;
+  stepTitle?: string;
+  stepSubTitle?: string;
+  stepActionsLabel?: string;
+  txHash?: string;
+  orderId?: string;
+  errorMessage?: string;
+  canRetry?: boolean;
+  shouldWaitApproved?: boolean;
+  isResetApprove?: boolean;
+  skipSendTransAction?: boolean;
+}
+
+export enum ESwapNetworkFeeLevel {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+}
+
+export interface ISwapGasInfo {
+  common?: {
+    baseFee?: string;
+    feeDecimals: number;
+    feeSymbol: string;
+    nativeDecimals: number;
+    nativeSymbol: string;
+    nativeTokenPrice?: number;
+  };
+  gas?: IGasLegacy;
+  gasEIP1559?: IGasEIP1559;
+  feeUTXO?: IFeeUTXO;
+  feeTron?: IFeeTron;
+  feeSol?: IFeeSol;
+  feeCkb?: IFeeCkb;
+  feeAlgo?: IFeeAlgo;
+  feeDot?: IFeeDot;
+  feeBudget?: IFeeSui;
+}
+export interface ISwapPreSwapData {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  fromTokenAmount?: string;
+  shouldFallback?: boolean;
+  toTokenAmount?: string;
+  minToAmount?: string;
+  needFetchGas?: boolean;
+  swapBuildLoading?: boolean;
+  estimateNetworkFeeLoading?: boolean;
+  stepBeforeActionsLoading?: boolean;
+  providerInfo?: IFetchQuoteInfo;
+  isHWAndExBatchTransfer?: boolean;
+  slippage?: number;
+  swapType?: ESwapTabSwitchType;
+  unSupportSlippage?: boolean;
+  swapBuildResultData?: {
+    swapInfo?: ISwapTxInfo;
+    orderId?: string;
+    skipSendTransAction?: boolean;
+    encodedTx?: IEncodedTx;
+    transferInfo?: ITransferInfo;
+  };
+  fee?: IFetchQuoteFee;
+  supportNetworkFeeLevel?: boolean;
+  supportPreBuild?: boolean;
+  allowanceResult?: IAllowanceResult;
+  netWorkFee?: {
+    gasInfos?: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[];
+    gasFeeFiatValue?: string;
+  };
+}
+
+export interface IFetchSwapQuoteParams {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  fromTokenAmount?: string;
+  receivingAddress?: string;
+  userAddress?: string;
+  slippagePercentage: number;
+  autoSlippage?: boolean;
+  blockNumber?: number;
+  accountId?: string;
+  protocol: ESwapTabSwitchType;
+  expirationTime?: number;
+  limitPartiallyFillable?: boolean;
+  kind?: ESwapQuoteKind;
+  toTokenAmount?: string;
+  userMarketPriceRate?: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
   protocol?: EProtocolOfExchange;
   info: IFetchQuoteInfo;
+  isFloating?: boolean;
   expirationTime?: number; // limit order expiration time
   errorMessage?: string;
   shouldWrappedToken?: ISwapTokenBase;
   fromAmount?: string;
   toAmount?: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
+  minToAmount?: string;
   fee?: IFetchQuoteFee;
   instantRate?: string;
   allowanceResult?: IAllowanceResult;
@@ -318,6 +544,9 @@ export interface IFetchQuoteResult {
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
   kind?: ESwapQuoteKind;
+  networkCostBuyAmount?: string;
+  oneKeyFeeExtraInfo?: IOneKeyFeeInfo;
+  toAmountSlippage?: number;
   networkCostExceedInfo?: {
     tokenInfo: {
       symbol: string;
@@ -325,10 +554,6 @@ export interface IFetchQuoteResult {
     };
     cost: string;
     exceedPercent: string;
-  };
-  limitPriceOrderMarketPrice?: {
-    fromTokenPrice?: number;
-    toTokenPrice?: number;
   };
   swapShouldSignedData?: {
     unSignedData?: {
@@ -341,6 +566,10 @@ export interface IFetchQuoteResult {
       origin: string;
       scope: string;
       signedType: EMessageTypesEth;
+    };
+    oneInchFusionOrder?: {
+      makerAddress: string;
+      typedData: IEIP712TypedData;
     };
   };
   protocolNoRouterInfo?: string;
@@ -393,6 +622,7 @@ export interface IFetchQuoteFee {
   protocolFees?: number;
   estimatedFeeFiatValue?: number;
   otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
+  isFreeNetworkFee?: boolean;
 }
 
 export enum ESwapApproveAllowanceType {
@@ -403,19 +633,37 @@ export enum ESwapApproveAllowanceType {
 export enum ESwapFetchCancelCause {
   SWAP_TOKENS_CANCEL = 'SWAP_TOKENS_CANCEL',
   SWAP_QUOTE_CANCEL = 'SWAP_QUOTE_CANCEL',
+  SWAP_APPROVE_ALLOWANCE_CANCEL = 'SWAP_APPROVE_ALLOWANCE_CANCEL',
+  SWAP_PERP_DEPOSIT_QUOTE_CANCEL = 'SWAP_PERP_DEPOSIT_QUOTE_CANCEL',
+  SWAP_SPEED_QUOTE_CANCEL = 'SWAP_SPEED_QUOTE_CANCEL',
 }
 
 // swap action&alert state
 export interface ISwapState {
   label: string;
   isLoading: boolean;
+  approving: boolean;
   isWrapped?: boolean;
   isApprove?: boolean;
   disabled: boolean;
   isCrossChain: boolean;
   shoutResetApprove?: boolean;
+  noConnectWallet?: boolean;
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
+}
+
+export interface ISwapApproveAllowanceResponse {
+  isApproved: boolean;
+  allowanceTarget: string;
+  shouldApproveAmount: string;
+  approvedAmount: string;
+  shouldResetApprove?: boolean;
+}
+
+export interface ISwapNativeTokenConfig {
+  networkId: string;
+  reserveGas: number;
 }
 
 export interface ISwapCheckWarningDef {
@@ -452,10 +700,12 @@ export interface ISwapAlertState {
   message?: string;
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
+  noConnectWallet?: boolean;
   action?: {
     actionType: ESwapAlertActionType;
     actionLabel?: string;
     actionData?: ISwapAlertActionData;
+    directionType?: ESwapDirectionType;
   };
 }
 
@@ -487,9 +737,11 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   userAddress: string;
   receivingAddress: string;
   slippagePercentage: number;
-  toTokenAmount: string;
+  toTokenAmount?: string;
   provider: string;
   quoteResultCtx?: any;
+  kind: ESwapQuoteKind;
+  walletType?: string;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
@@ -529,8 +781,40 @@ export interface IFetchBuildTxResponse {
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
   OKXTxObject?: IOKXTransactionObject;
   ctx?: any;
+  tronTxData?: IEncodedTxTron;
+  xrpTxData?: IEncodedTxXrp;
   socketBridgeScanUrl?: string;
   orderId?: string;
+  btcData?: {
+    hexStr: string;
+    addressType: (EAddressEncodings | string)[];
+  };
+  suiBase64Data?: string;
+}
+
+export interface IPerpDepositQuoteResponse {
+  result: IPerpDepositQuoteRes;
+  tx?: ITransaction;
+}
+
+export interface IPerpDepositQuoteRes {
+  protocol?: EProtocolOfExchange;
+  info: IFetchQuoteInfo;
+  fromTokenInfo: ISwapTokenBase;
+  toTokenInfo: ISwapTokenBase;
+  fromAmount: string;
+  toAmount: string;
+  result: IFetchBuildTxResult;
+  allowanceResult?: IAllowanceResult;
+}
+
+export interface ISwapTips {
+  tipsId: string;
+  title: string;
+  detailLink?: string;
+  userCanClose?: boolean;
+  iconImage?: string;
+  description?: string;
 }
 
 export interface ISwapInfoSide {
@@ -587,10 +871,19 @@ export enum ESwapTxHistoryStatus {
   PENDING = 'pending',
   CANCELED = 'canceled',
   CANCELING = 'canceling',
+  PARTIALLY_FILLED = 'partiallyFilled',
 }
 
+export enum ESwapExtraStatus {
+  WAITING = 'WAITING',
+  CONFIRMING = 'CONFIRMING',
+  HOLD = 'HOLD',
+  REFUNDED = 'REFUNDED',
+  EXPIRED = 'EXPIRED',
+}
 export interface IFetchSwapTxHistoryStatusResponse {
   state: ESwapTxHistoryStatus;
+  extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
   crossChainReceiveTxHash?: string;
   gasFee?: string;
@@ -613,6 +906,7 @@ export interface ISwapCheckSupportResponse {
 
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
+  extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
@@ -652,6 +946,7 @@ export interface ISwapTxHistory {
     instantRate: string;
     protocolFee?: number;
     oneKeyFee?: number;
+    oneKeyFeeExtraInfo?: IOneKeyFeeInfo;
     otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
     orderId?: string;
     supportUrl?: string;
@@ -668,11 +963,20 @@ export interface ISwapTxHistory {
 
 export const LIMIT_PRICE_DEFAULT_DECIMALS = 6;
 
+export interface ISwapCowSwapOrderFee {
+  fullFeeAmount?: string;
+  networkFee?: string;
+  partnerFee?: string;
+  kind: ESwapQuoteKind;
+}
+
 export interface IFetchLimitOrderRes {
   orderId: string;
   provider: string;
   status: ESwapLimitOrderStatus;
   fromTokenInfo: ISwapToken;
+  kind: ESwapQuoteKind;
+  totalFee?: ISwapCowSwapOrderFee;
   toTokenInfo: ISwapToken;
   payAddress: string;
   receiveAddress: string;
@@ -698,12 +1002,27 @@ export interface IFetchLimitOrderRes {
   };
 }
 
+export interface ISwapProSpeedConfig {
+  slippage: number;
+  spenderAddress: string;
+  defaultTokens: ISwapTokenBase[];
+  defaultLimitTokens: ISwapTokenBase[];
+  swapMevNetConfig: string[];
+}
+export interface ISpeedSwapConfig {
+  provider: string;
+  speedConfig: ISwapProSpeedConfig;
+  speedDefaultSelectToken?: ISwapTokenBase;
+  supportSpeedSwap: boolean;
+}
+
 export enum ESwapLimitOrderStatus {
   PRESIGNATURE_PENDING = 'presignaturePending',
   OPEN = 'open',
   FULFILLED = 'fulfilled',
   CANCELLED = 'cancelled',
   EXPIRED = 'expired',
+  PARTIALLY_FILLED = 'partially_filled',
 }
 
 export enum ESwapLimitOrderExpiryStep {
@@ -716,7 +1035,7 @@ export enum ESwapLimitOrderExpiryStep {
   ONE_MONTH = 30 * 24 * 60 * 60,
 }
 
-export const LimitMarketUpPercentages = [0, 20, 50, 100];
+export const LimitMarketUpPercentages = [0];
 
 export const defaultLimitExpirationTime = ESwapLimitOrderExpiryStep.ONE_WEEK;
 
@@ -727,12 +1046,19 @@ export interface ISwapLimitPriceInfo {
   toTokenMarketPrice?: number;
   rate?: string;
   reverseRate?: string;
-  provider?: string;
   inputRate?: string;
 }
 
 export const ESwapLimitOrderUpdateInterval = 10_000;
 
+export const ESwapLimitOrderMarketPriceUpdateInterval = 15_000;
+
+// swap pro
+
+export enum ESwapProTradeType {
+  MARKET = 'market',
+  LIMIT = 'limit',
+}
 // component -----------------
 
 export interface IExplorersInfo {
@@ -759,10 +1085,17 @@ export enum ESwapSlippageCustomStatus {
   WRONG = 'wrong',
 }
 
+export interface ISwapNativeTokenReserveGas {
+  networkId: string;
+  reserveGas: number;
+}
+
 export const SwapPercentageInputStage = [25, 50, 100];
 export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
 
 export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
+
+export const SwapBuildShouldFallBackNetworkIds = ['tron--0x2b6653dc'];
 
 export const SwapAmountInputAccessoryViewID =
   'swap-amount-input-accessory-view';
@@ -770,3 +1103,15 @@ export const SwapAmountInputAccessoryViewID =
 export const ChainFlipLogo =
   'https://uni.onekey-asset.com/static/logo/chainFlip_logo.png';
 export const ChainFlipName = 'ChainFlip';
+
+export type IPopularTrading = {
+  networkId: string;
+  symbol: string;
+  address: string;
+  marketCap: number;
+  tokenDetail?: {
+    info: IToken;
+    price: number;
+    price24h: number;
+  };
+};

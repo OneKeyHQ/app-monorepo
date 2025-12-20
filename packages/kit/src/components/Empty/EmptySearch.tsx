@@ -1,18 +1,21 @@
 import { useIntl } from 'react-intl';
 
+import type { IStackProps } from '@onekeyhq/components';
 import { Button, Empty } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function EmptySearch({
   onManageToken,
   manageTokenEnabled,
+  ...props
 }: {
   onManageToken?: () => void;
   manageTokenEnabled?: boolean;
-}) {
+} & IStackProps) {
   const intl = useIntl();
   return (
     <Empty
+      {...(props as any)}
       testID="Wallet-No-Search-Empty"
       icon="SearchOutline"
       title={intl.formatMessage({

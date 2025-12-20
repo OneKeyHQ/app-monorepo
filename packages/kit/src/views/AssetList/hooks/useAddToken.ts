@@ -133,54 +133,65 @@ export function useAddToken({
     };
   }, [networkId, token?.networkId]);
 
-  const searchedTokenRef = useRef<IToken>();
+  const [isSearching, setIsSearching] = useState(false);
+  const searchedTokenRef = useRef<IToken>(undefined);
   const fetchContractList = useDebouncedCallback(
     async (params: { value: string; networkId: string }) => {
-      if (!token && !params.value.trim()) {
-        form.setValue('symbol', '');
-        form.setValue('decimals', '');
-        setIsEmptyContractState(true);
-        return;
-      }
-      const searchResult =
-        await backgroundApiProxy.serviceCustomToken.searchTokenByContractAddress(
-          {
-            walletId,
-            networkId: params.networkId,
-            contractAddress: params.value.trim(),
-            isNative: token?.isNative ?? false,
-          },
-        );
-      if (
-        Array.isArray(searchResult) &&
-        searchResult.length > 0 &&
-        searchResult[0]?.info
-      ) {
-        const [firstToken] = searchResult;
-        const symbol = firstToken.info.symbol?.trim();
-        if (symbol) {
-          form.setValue('symbol', symbol);
-          setIsSymbolEditable(false);
-        } else {
-          setIsSymbolEditable(true);
+      try {
+        setIsSearching(true);
+        if (!token && !params.value.trim()) {
+          form.setValue('symbol', '');
+          form.setValue('decimals', '');
+          setIsEmptyContractState(true);
+          return;
         }
-        form.setValue(
-          'decimals',
-          new BigNumber(firstToken.info.decimals).toFixed(),
-        );
-        searchedTokenRef.current = firstToken.info;
-        setIsEmptyContractState(false);
-      } else {
-        form.setValue('symbol', '');
-        setIsSymbolEditable(false);
-        form.setValue('decimals', '');
-        setIsEmptyContractState(true);
+        const searchResult =
+          await backgroundApiProxy.serviceCustomToken.searchTokenByContractAddress(
+            {
+              walletId,
+              networkId: params.networkId,
+              contractAddress: params.value.trim(),
+              isNative: token?.isNative ?? false,
+            },
+          );
+        if (
+          Array.isArray(searchResult) &&
+          searchResult.length > 0 &&
+          searchResult[0]?.info &&
+          searchResult[0]?.info?.address?.trim()?.toLowerCase() ===
+            params.value.trim().toLowerCase() &&
+          searchResult[0]?.info?.networkId?.toLowerCase() ===
+            params.networkId.toLowerCase()
+        ) {
+          const [firstToken] = searchResult;
+          const symbol = firstToken.info.symbol?.trim();
+          if (symbol) {
+            form.setValue('symbol', symbol);
+            setIsSymbolEditable(false);
+          } else {
+            setIsSymbolEditable(true);
+          }
+          form.setValue(
+            'decimals',
+            new BigNumber(firstToken.info.decimals).toFixed(),
+          );
+          searchedTokenRef.current = firstToken.info;
+          setIsEmptyContractState(false);
+        } else {
+          form.setValue('symbol', '');
+          setIsSymbolEditable(false);
+          form.setValue('decimals', '');
+          setIsEmptyContractState(true);
+        }
+      } finally {
+        setIsSearching(false);
       }
     },
     300,
   );
 
   useEffect(() => {
+    setIsSearching(true);
     void fetchContractList({
       value: contractAddressValue,
       networkId: selectedNetworkIdValue,
@@ -190,6 +201,7 @@ export function useAddToken({
   return {
     availableNetworks,
     searchedTokenRef,
+    isSearching,
   };
 }
 

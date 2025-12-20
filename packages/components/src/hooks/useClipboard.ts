@@ -2,8 +2,11 @@ import { useCallback, useMemo } from 'react';
 
 import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ensureHttpsPrefix } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { Toast } from '../actions/Toast';
 
@@ -16,28 +19,48 @@ const getClipboard = async () => {
 
 export function useClipboard() {
   const intl = useIntl();
+  const supportPaste = useMemo(() => {
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      return false;
+    }
+    return true;
+  }, []);
 
   const copyText = useCallback(
-    (text: string, successMessageId?: ETranslations) => {
+    (text: string, successMessageId?: ETranslations, showToast = true) => {
       if (!text) return;
       setTimeout(() => setStringAsync(text), 200);
-      Toast.success({
-        title: intl.formatMessage({
-          id: successMessageId || ETranslations.global_copied,
-        }),
-      });
+      if (showToast) {
+        Toast.success({
+          title: intl.formatMessage({
+            id: successMessageId || ETranslations.global_copied,
+          }),
+        });
+      }
     },
     [intl],
   );
 
-  const clearText = useCallback(() => {
-    void setStringAsync('');
+  const copyUrl = useCallback(
+    (url: string, successMessageId?: ETranslations, showToast = true) => {
+      const processedUrl = ensureHttpsPrefix(url);
+      copyText(processedUrl, successMessageId, showToast);
+    },
+    [copyText],
+  );
+
+  const debounceToastClearSuccess = useDebouncedCallback(() => {
     Toast.success({
       title: intl.formatMessage({
         id: ETranslations.feedback_pasted_and_cleared,
       }),
     });
-  }, [intl]);
+  }, 250);
+
+  const clearText = useCallback(() => {
+    void setStringAsync('');
+    debounceToastClearSuccess();
+  }, [debounceToastClearSuccess]);
 
   const onPasteClearText = useCallback(
     (event: IPasteEventParams) => {
@@ -61,7 +84,14 @@ export function useClipboard() {
   );
 
   return useMemo(
-    () => ({ copyText, clearText, onPasteClearText, getClipboard }),
-    [clearText, onPasteClearText, copyText],
+    () => ({
+      copyText,
+      copyUrl,
+      clearText,
+      onPasteClearText,
+      getClipboard,
+      supportPaste,
+    }),
+    [clearText, onPasteClearText, copyText, copyUrl, supportPaste],
   );
 }

@@ -48,7 +48,7 @@ function DAppRiskyAlert({
     if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
       return {
         type: 'success',
-        alertIcon: 'InfoCircleSolid',
+        alertIcon: 'BadgeVerifiedSolid',
       };
     }
     return defaultStyle;

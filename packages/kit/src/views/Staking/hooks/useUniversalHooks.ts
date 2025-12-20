@@ -1,17 +1,25 @@
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import type {
-  EApproveType,
-  IStakeTxResponse,
-  IStakingInfo,
+import {
+  type EApproveType,
+  EInternalDappEnum,
+  EInternalStakingAction,
+  type IEarnPermit2ApproveSignData,
+  type IStakeTxResponse,
+  type IStakeTxStakefishExitBroadcast,
+  type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -72,25 +80,35 @@ export function useUniversalStake({
       symbol,
       term,
       feeRate,
-      morphoVault,
+      protocolVault,
       approveType,
       permitSignature,
+      unsignedMessage,
+      message,
       provider,
       stakingInfo,
       onSuccess,
       onFail,
+      // Stakefish specific param
+      validatorPublicKey,
     }: {
       amount: string;
       symbol: string;
       term?: number;
       feeRate?: number;
-      morphoVault?: string;
+      protocolVault?: string;
       approveType?: EApproveType;
       permitSignature?: string;
+      // Permit2 sign data for Morpho
+      unsignedMessage?: IEarnPermit2ApproveSignData;
+      // Stakefish: original message for permit signature
+      message?: string;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      // Stakefish specific param
+      validatorPublicKey?: string;
     }) => {
       const stakeTx =
         await backgroundApiProxy.serviceStaking.buildStakeTransaction({
@@ -101,16 +119,23 @@ export function useUniversalStake({
           term,
           provider,
           feeRate,
-          morphoVault,
+          protocolVault,
           approveType,
           permitSignature,
+          unsignedMessage,
+          message,
+          // Stakefish specific param
+          validatorPublicKey,
         });
 
-      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
-        networkId,
-        accountId,
-        tx: stakeTx.tx,
-      });
+      const encodedTx =
+        await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+          networkId,
+          accountId,
+          tx: stakeTx.tx,
+          internalDappType: EInternalDappEnum.Staking,
+          stakingAction: EInternalStakingAction.Stake,
+        });
 
       let useFeeInTx;
       let feeInfoEditable;
@@ -143,7 +168,7 @@ export function useUniversalStake({
         feeInfoEditable,
       });
     },
-    [navigationToTxConfirm, accountId, networkId],
+    [accountId, networkId, navigationToTxConfirm],
   );
 }
 
@@ -154,6 +179,7 @@ export function useUniversalWithdraw({
   networkId: string;
   accountId: string;
 }) {
+  const intl = useIntl();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
@@ -164,21 +190,27 @@ export function useUniversalWithdraw({
       symbol,
       provider,
       identity,
-      morphoVault,
+      protocolVault,
       withdrawAll,
       stakingInfo,
       onSuccess,
       onFail,
+      // Signature and message for withdraw all
+      withdrawSignature,
+      withdrawMessage,
     }: {
       amount: string;
       symbol: string;
       provider: string;
       identity?: string;
-      morphoVault?: string;
+      protocolVault?: string;
       withdrawAll: boolean;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      // Signature and message for withdraw all
+      withdrawSignature?: string;
+      withdrawMessage?: string;
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
       const stakingConfig =
@@ -188,7 +220,7 @@ export function useUniversalWithdraw({
           provider,
         });
       if (!stakingConfig) {
-        throw new Error('Staking config not found');
+        throw new OneKeyLocalError('Staking config not found');
       }
 
       if (stakingConfig?.unstakeWithSignMessage) {
@@ -237,15 +269,35 @@ export function useUniversalWithdraw({
             accountId,
             symbol,
             provider,
-            morphoVault,
+            protocolVault,
             withdrawAll,
+            // Pass signature and message for withdraw all
+            signature: withdrawSignature,
+            message: withdrawMessage,
           });
       }
-      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
-        networkId,
-        accountId,
-        tx: stakeTx.tx,
-      });
+
+      // Handle Stakefish validator exit broadcast (no on-chain tx needed)
+      const txAsExitBroadcast =
+        stakeTx.tx as unknown as IStakeTxStakefishExitBroadcast;
+      if (txAsExitBroadcast?.exitBroadcasted === true) {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.feedback_transaction_submitted,
+          }),
+        });
+        onSuccess?.([]);
+        return;
+      }
+
+      const encodedTx =
+        await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+          networkId,
+          accountId,
+          tx: stakeTx.tx,
+          internalDappType: EInternalDappEnum.Staking,
+          stakingAction: EInternalStakingAction.Withdraw,
+        });
       let useFeeInTx;
       let feeInfoEditable;
       if (
@@ -293,7 +345,7 @@ export function useUniversalWithdraw({
         onFail,
       });
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, networkId, navigationToTxConfirm, intl],
   );
 }
 
@@ -315,7 +367,7 @@ export function useUniversalClaim({
       amount,
       provider,
       claimTokenAddress,
-      morphoVault,
+      protocolVault,
       vault,
       symbol,
       stakingInfo,
@@ -327,11 +379,13 @@ export function useUniversalClaim({
       symbol: string;
       provider: string;
       claimTokenAddress?: string;
-      morphoVault?: string;
+      protocolVault?: string;
       stakingInfo?: IStakingInfo;
       vault: string;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      portfolioSymbol?: string;
+      portfolioRewardSymbol?: string;
     }) => {
       const continueClaim = async () => {
         const stakeTx =
@@ -345,11 +399,14 @@ export function useUniversalClaim({
             claimTokenAddress,
             vault,
           });
-        const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
-          networkId,
-          accountId,
-          tx: stakeTx.tx,
-        });
+        const encodedTx =
+          await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+            networkId,
+            accountId,
+            tx: stakeTx.tx,
+            internalDappType: EInternalDappEnum.Staking,
+            stakingAction: EInternalStakingAction.Claim,
+          });
         let useFeeInTx;
         let feeInfoEditable;
         if (
@@ -393,20 +450,23 @@ export function useUniversalClaim({
             symbol,
             action: 'claim',
             amount,
-            morphoVault,
+            protocolVault,
             identity,
             accountAddress: account.address,
           });
-        const tokenFiatValueBN = BigNumber(
-          estimateFeeResp.token.price,
-        ).multipliedBy(amount);
-        if (tokenFiatValueBN.lt(estimateFeeResp.feeFiatValue)) {
-          showClaimEstimateGasAlert({
-            claimTokenFiatValue: tokenFiatValueBN.toFixed(),
-            estFiatValue: estimateFeeResp.feeFiatValue,
-            onConfirm: continueClaim,
-          });
-          return;
+        // Only check gas fee vs claim value if token price is available
+        if (estimateFeeResp.token?.price) {
+          const tokenFiatValueBN = BigNumber(
+            estimateFeeResp.token.price,
+          ).multipliedBy(amount);
+          if (tokenFiatValueBN.lt(estimateFeeResp.feeFiatValue)) {
+            showClaimEstimateGasAlert({
+              claimTokenFiatValue: tokenFiatValueBN.toFixed(),
+              estFiatValue: estimateFeeResp.feeFiatValue,
+              onConfirm: continueClaim,
+            });
+            return;
+          }
         }
       }
       await continueClaim();

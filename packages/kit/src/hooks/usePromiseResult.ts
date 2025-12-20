@@ -127,6 +127,8 @@ export function usePromiseResult<T>(
   const isDepsChangedOnBlur = useRef(false);
   const nonceRef = useRef(0);
 
+  const isEffectValid = useRef(true);
+
   const run = useMemo(
     () => {
       const {
@@ -170,6 +172,9 @@ export function usePromiseResult<T>(
       };
 
       const runner = async (config?: IRunnerConfig) => {
+        if (!isEffectValid.current) {
+          return;
+        }
         const { pollingInterval } = optionsRef.current;
         if (config?.triggerByDeps && !isFocusedRef.current) {
           isDepsChangedOnBlur.current = true;
@@ -193,7 +198,6 @@ export function usePromiseResult<T>(
             }
           }
         } catch (err) {
-          console.error(err);
           if (shouldSetState(config) && undefinedResultIfError) {
             setResult(undefined);
           } else {
@@ -331,6 +335,12 @@ export function usePromiseResult<T>(
       prevFocusedRef.current = isFocusedRefValue;
     }
   }, [isFocusedRefValue, resetDefer, resolveDefer, runWithPollingNonce]);
+
+  useEffect(() => {
+    return () => {
+      isEffectValid.current = false;
+    };
+  }, []);
 
   return { result, isLoading, run, setResult };
 }

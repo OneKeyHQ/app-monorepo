@@ -33,6 +33,7 @@ const ActiveDemo = () => {
 
 const PortalGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Portal"
     elements={[
       {

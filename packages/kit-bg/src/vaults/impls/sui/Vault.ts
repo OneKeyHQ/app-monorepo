@@ -11,7 +11,10 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -27,6 +30,11 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type {
+  IInternalDappTxParams,
+  IStakeTxSui,
+} from '@onekeyhq/shared/types/staking';
+import { IStakeTx } from '@onekeyhq/shared/types/staking';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -127,7 +135,9 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
     const { to, amount, tokenInfo } = transferInfo;
     const account = await this.getAccount();
@@ -387,10 +397,10 @@ export default class Vault extends VaultBase {
       const { signature, publicKey, rawTx, encodedTx } = params.signedTx;
 
       if (!signature) {
-        throw new Error('signature is empty');
+        throw new OneKeyLocalError('signature is empty');
       }
       if (!publicKey) {
-        throw new Error('publicKey is empty');
+        throw new OneKeyLocalError('publicKey is empty');
       }
 
       const txid = await this.backgroundApi.serviceSend.broadcastTransaction({
@@ -506,10 +516,10 @@ export default class Vault extends VaultBase {
       }
 
       if (!signature) {
-        throw new Error('signature is empty');
+        throw new OneKeyLocalError('signature is empty');
       }
       if (!publicKey) {
-        throw new Error('publicKey is empty');
+        throw new OneKeyLocalError('publicKey is empty');
       }
 
       const client = new OneKeySuiClient({ url: rpcUrl });
@@ -558,5 +568,29 @@ export default class Vault extends VaultBase {
       sender: params.okxTx.from,
     };
     return Promise.resolve(encodedTx);
+  }
+
+  override async buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
+  ): Promise<IEncodedTxSui> {
+    const { internalDappTx, internalDappType } = params;
+    const account = await this.getAccount();
+    let transaction: Transaction | undefined;
+    const tx = internalDappTx as IStakeTxSui;
+
+    if (internalDappType === 'swap') {
+      transaction = Transaction.from(internalDappTx as IStakeTxSui);
+    } else {
+      const transactionBytes = Buffer.from(tx, 'base64');
+      transaction = Transaction.fromKind(transactionBytes);
+    }
+    if (!transaction) {
+      throw new OneKeyInternalError('Invalid internal dapp transaction');
+    }
+    transaction.setSender(account.address);
+    return Promise.resolve({
+      rawTx: transaction.serialize(),
+      sender: account.address,
+    });
   }
 }

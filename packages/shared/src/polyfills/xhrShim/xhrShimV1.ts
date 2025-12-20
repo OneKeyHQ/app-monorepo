@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable spellcheck/spell-checker */
 // eslint-disable-next-line max-classes-per-file
 const sErrored = Symbol('errored');
@@ -254,5 +255,5 @@ const XMLHttpRequestShim = class XMLHttpRequest extends Dispatch {
   }
 };
 
-globalThis.XMLHttpRequest = globalThis.XMLHttpRequest || XMLHttpRequestShim;
-export default globalThis.XMLHttpRequest;
+global.XMLHttpRequest = global.XMLHttpRequest || XMLHttpRequestShim;
+export default global.XMLHttpRequest;

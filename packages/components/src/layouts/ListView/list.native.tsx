@@ -1,17 +1,23 @@
 import type { ForwardedRef, MutableRefObject } from 'react';
-import { forwardRef, useMemo } from 'react';
+import { forwardRef } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
-import { usePropsAndStyle, useStyle } from '@tamagui/core';
-import { I18nManager, type StyleProp, type ViewStyle } from 'react-native';
-import { getTokenValue } from 'tamagui';
+
+import {
+  usePropsAndStyle,
+  useStyle,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  StackStyle,
+  Tokens,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { OptimizationView } from '../../optimization';
 
 import type { FlashListProps, ListRenderItem } from '@shopify/flash-list';
-import type { StackStyle, Tokens } from '@tamagui/web/types/types';
+import type { StyleProp, ViewStyle } from 'react-native';
 
-type IListViewRef<T> = FlashList<T>;
+type IListViewRef<T> = typeof FlashList<T>;
 
 type IListViewProps<T> = Omit<
   FlashListProps<T>,
@@ -45,7 +51,6 @@ function BaseListView<T>(
     data,
     renderItem,
     contentContainerStyle = {},
-    columnWrapperStyle,
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
     estimatedItemSize,
@@ -76,14 +81,7 @@ function BaseListView<T>(
       resolveValues: 'auto',
     },
   );
-  const itemSize = useMemo<number | undefined>(() => {
-    if (typeof estimatedItemSize === 'undefined') {
-      return undefined;
-    }
-    return typeof estimatedItemSize === 'number'
-      ? estimatedItemSize
-      : (getTokenValue(estimatedItemSize, 'size') as number);
-  }, [estimatedItemSize]);
+
   return (
     // FlashList doesn't support the style, so we have to wrap it,
     // and we set default flex = 1 just like FlatList
@@ -91,14 +89,14 @@ function BaseListView<T>(
       style={[{ flex: 1, minHeight: 2 }, style as StyleProp<ViewStyle>]}
     >
       <FlashList<T>
-        ref={ref}
+        ref={ref as any}
         ListHeaderComponentStyle={listHeaderStyle}
         ListFooterComponentStyle={listFooterStyle}
         contentContainerStyle={contentStyle}
         data={data}
         renderItem={renderItem}
-        estimatedItemSize={itemSize}
-        disableAutoLayout={I18nManager.isRTL}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         {...restProps}
       />
     </OptimizationView>

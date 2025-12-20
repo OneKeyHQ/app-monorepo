@@ -4,14 +4,19 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
+  ESectionLayoutType,
   Icon,
+  MIN_SIDEBAR_WIDTH,
   SizableText,
   SortableSectionList,
   Stack,
   XStack,
   useShortcuts,
 } from '@onekeyhq/components';
-import type { ISortableSectionListRef } from '@onekeyhq/components';
+import type {
+  ISectionLayoutItem,
+  ISortableSectionListRef,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -25,6 +30,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -46,11 +52,11 @@ import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
-const ITEM_HEIGHT = 32;
 const TIMESTAMP_DIFF_MULTIPLIER = 2;
 
 function DesktopCustomTabBar() {
   const intl = useIntl();
+  const [{ isCollapsed }] = useAppSideBarStatusAtom();
   // register desktop shortcuts for browser tab
   useDiscoveryShortcuts();
   // register desktop new window event
@@ -66,9 +72,10 @@ function DesktopCustomTabBar() {
     setPinnedTab,
     closeAllWebTabs,
     setTabsByIds,
+    addBrowserHomeTab,
     reOpenLastClosedTab,
   } = useBrowserTabActions().current;
-  const { addBrowserBookmark, removeBrowserBookmark } =
+  const { addOrUpdateBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
 
   const { result, setResult, run } = usePromiseResult(async () => {
@@ -101,19 +108,28 @@ function DesktopCustomTabBar() {
   );
   const handleCloseTab = useCallback(
     (id: string) => {
-      void closeWebTab({ tabId: id, entry: 'Menu' });
+      void closeWebTab({
+        tabId: id,
+        entry: 'Menu',
+        navigation,
+      });
     },
-    [closeWebTab],
+    [closeWebTab, navigation],
   );
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
       if (bookmark) {
-        void addBrowserBookmark({ url, title });
+        void addOrUpdateBrowserBookmark({
+          url,
+          title,
+          logo: undefined,
+          sortIndex: undefined,
+        });
       } else {
         void removeBrowserBookmark(url);
       }
     },
-    [addBrowserBookmark, removeBrowserBookmark],
+    [addOrUpdateBrowserBookmark, removeBrowserBookmark],
   );
 
   const handleDisconnect = useCallback(
@@ -175,10 +191,7 @@ function DesktopCustomTabBar() {
   const handleShortcuts = useCallback(
     (eventName: EShortcutEvents) => {
       switch (eventName) {
-        case EShortcutEvents.TabPin6:
-        case EShortcutEvents.TabPin7:
         case EShortcutEvents.TabPin8:
-        case EShortcutEvents.TabPin9:
           if (result?.pinnedTabs?.length) {
             const id =
               result?.pinnedTabs?.[Number(eventName.match(/\d+/)?.[0]) - 6]?.id;
@@ -202,6 +215,8 @@ function DesktopCustomTabBar() {
 
   useShortcuts(undefined, handleShortcuts);
 
+  const ITEM_HEIGHT = useMemo(() => (isCollapsed ? 36 : 32), [isCollapsed]);
+
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
@@ -221,7 +236,7 @@ function DesktopCustomTabBar() {
     layouts.push({ offset, length: 0, index: layouts.length });
     offset += 0;
     return layouts;
-  }, [sections]);
+  }, [ITEM_HEIGHT, sections]);
   const onDragEnd = useCallback(
     (dragResult: {
       sections: {
@@ -296,7 +311,11 @@ function DesktopCustomTabBar() {
   );
 
   return (
-    <Stack testID="sideabr-browser-section" flex={1}>
+    <Stack
+      testID="sideabr-browser-section"
+      flex={1}
+      width={isCollapsed ? MIN_SIDEBAR_WIDTH / 2 : undefined}
+    >
       <HandleRebuildBrowserData />
       <SortableSectionList
         mx="$-3"
@@ -306,7 +325,6 @@ function DesktopCustomTabBar() {
         renderItem={({
           item: t,
           dragProps,
-          index,
         }: {
           item: IWebTab;
           dragProps?: Record<string, any>;
@@ -317,6 +335,7 @@ function DesktopCustomTabBar() {
               id={t.id}
               key={t.id}
               onPress={onTabPress}
+              isCollapse={isCollapsed}
               onBookmarkPress={handleBookmarkPress}
               onPinnedPress={handlePinnedPress}
               onClose={handleCloseTab}
@@ -331,10 +350,22 @@ function DesktopCustomTabBar() {
         SectionSeparatorComponent={null}
         onDragEnd={onDragEnd}
         allowCrossSection
+        getItemDragDisabled={(layoutItem) => {
+          // Disable dragging for section headers (which includes the new tab button)
+          return (
+            (layoutItem as ISectionLayoutItem).type ===
+            ESectionLayoutType.Header
+          );
+        }}
         renderSectionHeader={({ index }) =>
           index === 1 ? (
             <>
-              <XStack group="sidebarBrowserDivider" alignItems="center" p="$2">
+              <XStack
+                group="sidebarBrowserDivider"
+                alignItems="center"
+                p="$2"
+                px={isCollapsed ? '$0' : '$2'}
+              >
                 <Divider testID="pin-tab-divider" />
                 {tabs.filter((x) => !x.isPinned).length > 0 ? (
                   <XStack
@@ -354,7 +385,9 @@ function DesktopCustomTabBar() {
                       containerType: 'normal',
                       transform: platformEnv.isNative ? '' : 'translateY(-50%)',
                     }}
-                    onPress={closeAllWebTabs}
+                    onPress={() => {
+                      void closeAllWebTabs({ navigation });
+                    }}
                   >
                     <Icon
                       flexShrink={0}
@@ -366,6 +399,7 @@ function DesktopCustomTabBar() {
                       pl="$1"
                       color="$textSubdued"
                       size="$bodySmMedium"
+                      numberOfLines={1}
                       $group-sidebarClearButton-hover={{
                         color: '$text',
                       }}
@@ -376,18 +410,29 @@ function DesktopCustomTabBar() {
                 ) : null}
               </XStack>
               <DesktopTabItem
+                size="small"
                 key="AddTabButton"
-                label={intl.formatMessage({
-                  id: ETranslations.explore_new_tab,
-                })}
-                shortcutKey={EShortcutEvents.NewTab}
+                label={
+                  isCollapsed
+                    ? ''
+                    : intl.formatMessage({
+                        id: ETranslations.explore_new_tab,
+                      })
+                }
+                shortcutKey={EShortcutEvents.NewTab2}
                 icon="PlusSmallOutline"
                 testID="browser-bar-add"
                 onPress={(e) => {
                   e.stopPropagation();
-                  navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                    screen: EDiscoveryModalRoutes.SearchModal,
-                  });
+
+                  if (platformEnv.isDesktop) {
+                    addBrowserHomeTab();
+                    navigation.switchTab(ETabRoutes.MultiTabBrowser);
+                  } else {
+                    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                      screen: EDiscoveryModalRoutes.SearchModal,
+                    });
+                  }
                 }}
               />
             </>

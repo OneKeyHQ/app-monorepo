@@ -1,0 +1,173 @@
+{
+  "color-space-for-untagged-svg-colors" : "display-p3",
+  "fill-specializations" : [
+    {
+      "value" : {
+        "automatic-gradient" : "srgb:0.26667,0.83922,0.17255,1.00000"
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : "automatic"
+    }
+  ],
+  "groups" : [
+    {
+      "blend-mode-specializations" : [
+        {
+          "appearance" : "dark",
+          "value" : "normal"
+        },
+        {
+          "appearance" : "tinted",
+          "value" : "normal"
+        }
+      ],
+      "blur-material-specializations" : [
+        {
+          "value" : null
+        },
+        {
+          "appearance" : "dark",
+          "value" : null
+        }
+      ],
+      "hidden" : false,
+      "layers" : [
+        {
+          "blend-mode-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : "plus-lighter"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "linear-gradient" : [
+                  "display-p3:0.13268,0.53880,1.00000,1.00000",
+                  "srgb:0.75106,0.00000,0.00000,1.00000"
+                ]
+              }
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : true
+            }
+          ],
+          "hidden" : false,
+          "image-name" : "KEY-only2.svg",
+          "name" : "KEY-only2",
+          "opacity-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : 0
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 10,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "blend-mode-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : "normal"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : "none"
+            }
+          ],
+          "hidden" : false,
+          "image-name" : "KEY-only-Green.svg",
+          "name" : "KEY-only-Green",
+          "opacity-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : 0.8
+            }
+          ],
+          "position" : {
+            "scale" : 10,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "lighting-specializations" : [
+        {
+          "appearance" : "dark",
+          "value" : "individual"
+        }
+      ],
+      "name" : "Group",
+      "opacity-specializations" : [
+        {
+          "appearance" : "dark",
+          "value" : 1
+        }
+      ],
+      "shadow-specializations" : [
+        {
+          "value" : {
+            "kind" : "neutral",
+            "opacity" : 0.5
+          }
+        },
+        {
+          "appearance" : "dark",
+          "value" : {
+            "kind" : "neutral",
+            "opacity" : 0.5
+          }
+        }
+      ],
+      "specular-specializations" : [
+        {
+          "value" : true
+        },
+        {
+          "appearance" : "dark",
+          "value" : true
+        }
+      ],
+      "translucency-specializations" : [
+        {
+          "value" : {
+            "enabled" : true,
+            "value" : 0.4
+          }
+        },
+        {
+          "appearance" : "dark",
+          "value" : {
+            "enabled" : true,
+            "value" : 0.3
+          }
+        }
+      ]
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

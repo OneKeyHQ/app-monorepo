@@ -29,6 +29,7 @@ import type {
 import {
   OneKeyErrorAirGapAccountNotFound,
   OneKeyErrorAirGapInvalidQrCode,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -44,6 +45,7 @@ import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IGetChildPathTemplatesParams,
   IGetChildPathTemplatesResult,
+  INormalizeGetMultiAccountsPathParams,
   IPrepareQrAccountsParams,
   IQrWalletGetVerifyAddressChainParamsQuery,
   IQrWalletGetVerifyAddressChainParamsResult,
@@ -88,7 +90,7 @@ export class KeyringQr extends KeyringQrBase {
   override getChildPathTemplates(
     params: IGetChildPathTemplatesParams,
   ): IGetChildPathTemplatesResult {
-    const { airGapAccount, index } = params;
+    const { airGapAccount } = params;
     // TODO get deriveType by path
     if (
       airGapAccount.note &&
@@ -106,11 +108,18 @@ export class KeyringQr extends KeyringQrBase {
     };
   }
 
+  override async normalizeGetMultiAccountsPath(
+    params: INormalizeGetMultiAccountsPathParams,
+  ): Promise<string> {
+    const sdk = getAirGapSdk();
+    return sdk.eth.normalizeGetMultiAccountsPath(params.path);
+  }
+
   generateSignRequest(
     params: IAirGapGenerateSignRequestParamsEvm,
   ): Promise<AirGapUR> {
     if (!params.xfp) {
-      throw new Error('xfp not found');
+      throw new OneKeyLocalError('xfp not found');
     }
     const sdk = getAirGapSdk();
     const signRequestUr = sdk.eth.generateSignRequest({
@@ -128,7 +137,7 @@ export class KeyringQr extends KeyringQrBase {
     } catch (error) {
       // eslint-disable-next-line spellcheck/spell-checker
       // ERROR throw from node_modules/@keystonehq/keystone-sdk/dist/chains/ethereum.js
-      //        throw new Error('type not match');
+      //        throw new OneKeyLocalError('type not match');
       throw new OneKeyErrorAirGapInvalidQrCode();
     }
   }
@@ -154,7 +163,7 @@ export class KeyringQr extends KeyringQrBase {
         }
 
         if (!dataType) {
-          throw new Error(
+          throw new OneKeyLocalError(
             `Unsupported message type: ${dataType || 'undefined'}`,
           );
         }
@@ -200,7 +209,7 @@ export class KeyringQr extends KeyringQrBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxEvm;
-    const { tx, serializedTxWithout0x, digest } = packUnsignedTxForSignEvm({
+    const { tx, serializedTxWithout0x } = packUnsignedTxForSignEvm({
       encodedTx,
     });
     let dataType = EAirGapDataTypeEvm.transaction;
@@ -232,7 +241,6 @@ export class KeyringQr extends KeyringQrBase {
           checkIsDefined(signatureUr),
         );
         const signatureHex = signature.signature;
-        const origin = signature.origin || '';
 
         // const verifyMessageFn = verifyMessage;
         // // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -278,7 +286,7 @@ export class KeyringQr extends KeyringQrBase {
   }
 
   override async getVerifyAddressChainParams(
-    query: IQrWalletGetVerifyAddressChainParamsQuery,
+    _query: IQrWalletGetVerifyAddressChainParamsQuery,
   ): Promise<IQrWalletGetVerifyAddressChainParamsResult> {
     const chainId = await this.getNetworkChainId();
     return {
@@ -317,7 +325,7 @@ export class KeyringQr extends KeyringQrBase {
           if (childPathTemplate) {
             const xpub = airGapAccount?.extendedPublicKey;
             if (!xpub) {
-              throw new Error('xpub not found');
+              throw new OneKeyLocalError('xpub not found');
             }
             let hdk = HDKey.fromExtendedKey(xpub);
             const childPath = accountUtils.buildPathFromTemplate({
@@ -329,7 +337,7 @@ export class KeyringQr extends KeyringQrBase {
           }
 
           if (!publicKey) {
-            throw new Error('publicKey not found');
+            throw new OneKeyLocalError('publicKey not found');
           }
 
           const networkInfo = await this.getCoreApiNetworkInfo();
@@ -338,7 +346,7 @@ export class KeyringQr extends KeyringQrBase {
             networkInfo,
           });
           if (!addressInfo) {
-            throw new Error('addressInfo not found');
+            throw new OneKeyLocalError('addressInfo not found');
           }
           const { normalizedAddress } = await this.vault.validateAddress(
             addressInfo.address,

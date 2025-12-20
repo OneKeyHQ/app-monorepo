@@ -1,17 +1,19 @@
 import type { FC } from 'react';
 
+import type { StackProps } from '@onekeyhq/components/src/shared/tamagui';
+
 import { Stack } from '../../primitives';
 
-import type { StackProps } from 'tamagui';
+import type { IDesktopDragZoneBoxProps } from './index.type';
 
 export type IDesktopDragZoneAbsoluteBarProps = StackProps;
 export const DesktopDragZoneAbsoluteBar: FC<
   IDesktopDragZoneAbsoluteBarProps
 > = () => <Stack />;
 
-export type IDesktopDragZoneBoxProps = StackProps;
-
 export const DesktopDragZoneBox: FC<IDesktopDragZoneBoxProps> = ({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  renderAs,
   ...rest
 }) => <Stack {...rest} />;
 

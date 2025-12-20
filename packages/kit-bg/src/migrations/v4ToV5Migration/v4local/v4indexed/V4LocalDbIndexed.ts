@@ -8,6 +8,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { V4LocalDbBase } from '../V4LocalDbBase';
@@ -65,6 +66,7 @@ export class V4LocalDbIndexed extends V4LocalDbBase {
 
     // delete removed stores
     const storeNamesToRemove = difference(currentStoreNames, storeNamesToAdd);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const name of storeNamesToRemove) {
       // removeObjectStore / removeTable
       // db.deleteObjectStore(name);
@@ -125,7 +127,7 @@ export class V4LocalDbIndexed extends V4LocalDbBase {
       alwaysCreate: true,
     });
     if (!tx.stores) {
-      throw new Error('tx.stores is undefined');
+      throw new OneKeyLocalError('tx.stores is undefined');
     }
     const { context: contextStore, wallets: walletStore } = tx.stores;
     await Promise.all([

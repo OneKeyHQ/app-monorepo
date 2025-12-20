@@ -29,8 +29,10 @@ export async function listFiles(target: string): Promise<Array<string>> {
     return Promise.resolve([]);
   }
 
-  const { files }: { files: Array<{ isFile: boolean; name: string }> } =
-    await RNCloudFs.listFiles({ scope: 'hidden', targetPath: target });
+  const { files } = await RNCloudFs.listFiles({
+    scope: 'hidden',
+    targetPath: target, // TODO iOS use targetPath?
+  });
   return files.filter(({ isFile }) => isFile).map(({ name }) => name);
 }
 
@@ -40,7 +42,7 @@ export async function deleteFile(target: string): Promise<boolean> {
   }
   const {
     files: [file],
-  }: { files: Array<{ isFile: boolean }> } = await RNCloudFs.listFiles({
+  } = await RNCloudFs.listFiles({
     scope: 'hidden',
     targetPath: target,
   });
@@ -63,7 +65,6 @@ export async function uploadToCloud(
     return Promise.resolve();
   }
   await RNCloudFs.copyToCloud({
-    mimeType: null,
     scope: 'hidden',
     sourcePath: { path: source },
     targetPath: target,

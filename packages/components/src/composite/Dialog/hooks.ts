@@ -12,6 +12,7 @@ export const useDialogInstance: () => IDialogInstance = () => {
     () => ({
       close: () => dialogInstance?.close(),
       getForm,
+      isExist: () => dialogInstance?.isExist(),
     }),
     [dialogInstance, getForm],
   );

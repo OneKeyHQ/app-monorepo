@@ -6,7 +6,10 @@ import {
 } from 'expo-notifications';
 
 import type { IDemoNotificationSdk } from './types';
-import type { NotificationContentInput } from 'expo-notifications';
+import type {
+  NotificationBehavior,
+  NotificationContentInput,
+} from 'expo-notifications';
 
 addNotificationResponseReceivedListener(async (event, ...others) => {
   console.log(
@@ -17,12 +20,13 @@ addNotificationResponseReceivedListener(async (event, ...others) => {
 });
 
 setNotificationHandler({
-  handleNotification: async ({ request }) => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    priority: AndroidNotificationPriority.DEFAULT,
-  }),
+  handleNotification: async ({ request }) =>
+    ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      priority: AndroidNotificationPriority.DEFAULT,
+    } as NotificationBehavior),
 });
 
 const sdk: IDemoNotificationSdk = {

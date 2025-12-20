@@ -70,7 +70,6 @@ type IListItemAvatarCornerImageProps = IImageProps & {
 
 const ListItemAvatarCornerImage = ({
   src,
-  fallback,
   fallbackProps,
   ...rest
 }: IListItemAvatarCornerImageProps) => (
@@ -83,16 +82,20 @@ const ListItemAvatarCornerImage = ({
     borderRadius="$full"
     zIndex="$1"
   >
-    <Image size="$4" circular {...(rest as any)}>
-      <Image.Source src={src} />
-      <Image.Fallback {...fallbackProps} />
-    </Image>
+    <Image
+      src={src}
+      size="$4"
+      borderRadius="$full"
+      fallback={<Image.Fallback {...fallbackProps} />}
+      {...(rest as any)}
+    />
   </Stack>
 );
 
 /* Avatar */
 export type IListItemAvatarProps = PropsWithChildren<
   {
+    circular?: boolean;
     account?: IDBIndexedAccount | IDBAccount;
     avatar?: ReactElement;
     loading?: ReactElement;
@@ -244,25 +247,32 @@ const ListItemDrillIn = (props: IIconProps) => (
 const ListItemSeparator = () => <Divider mx="$5" />;
 
 /* ListItem */
-export type IListItemProps = PropsWithChildren<{
-  title?: string;
-  titleMatch?: IFuseResultMatch;
-  titleProps?: IListItemTextProps['primaryTextProps'];
-  subtitle?: string;
-  subTitleMatch?: IFuseResultMatch;
-  subtitleProps?: IListItemTextProps['secondaryTextProps'];
-  avatarProps?: IListItemAvatarProps;
-  renderAvatar?: ComponentType | ReactNode;
-  renderIcon?: ComponentType | ReactNode;
-  renderItemText?: ComponentType | ReactNode;
-  icon?: IIconProps['name'];
-  iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
-  drillIn?: boolean;
-  isLoading?: boolean;
-  checkMark?: boolean;
-  onPress?: () => void | Promise<void>;
-  childrenBefore?: ComponentType | ReactNode;
-}>;
+export type IListItemProps = PropsWithChildren<
+  {
+    title?: string;
+    titleMatch?: IFuseResultMatch;
+    titleProps?: IListItemTextProps['primaryTextProps'];
+    subtitle?: string | ReactNode;
+    subTitleMatch?: IFuseResultMatch;
+    subtitleProps?: IListItemTextProps['secondaryTextProps'];
+    avatarProps?: IListItemAvatarProps;
+    renderAvatar?: ComponentType | ReactNode;
+    renderIcon?: ComponentType | ReactNode;
+    renderItemText?:
+      | ComponentType<IListItemTextProps>
+      | ReactNode
+      | ((props: IListItemTextProps) => ReactNode);
+    icon?: IIconProps['name'];
+    iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
+    drillIn?: boolean;
+    isLoading?: boolean;
+    checkMark?: boolean;
+    onPress?: () => void | Promise<void>;
+    childrenBefore?: ComponentType | ReactNode;
+    disabled?: boolean;
+    testID?: string;
+  } & IStackProps
+>;
 
 const renderWithFallback = (
   Component: ComponentType,
@@ -283,107 +293,112 @@ const renderWithFallback = (
   return <Component {...props} />;
 };
 
-const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
-  const {
-    avatarProps,
-    icon,
-    title,
-    titleProps,
-    subtitle,
-    subtitleProps,
-    drillIn,
-    isLoading,
-    iconProps,
-    checkMark,
-    onPress,
-    childrenBefore,
-    children,
-    renderAvatar,
-    renderIcon,
-    renderItemText,
-    titleMatch,
-    subTitleMatch,
-    ...rest
-  } = props;
+const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
+  (props: IListItemProps, ref: any) => {
+    const {
+      avatarProps,
+      icon,
+      title,
+      titleProps,
+      subtitle,
+      subtitleProps,
+      drillIn,
+      isLoading,
+      iconProps,
+      checkMark,
+      onPress,
+      childrenBefore,
+      children,
+      renderAvatar,
+      renderIcon,
+      renderItemText,
+      titleMatch,
+      subTitleMatch,
+      ...rest
+    } = props;
 
-  return (
-    <Stack
-      ref={ref}
-      flexDirection="row"
-      alignItems="center"
-      minHeight="$11"
-      gap="$3"
-      py="$2"
-      px="$3"
-      mx="$2"
-      borderRadius="$3"
-      borderCurve="continuous"
-      onPress={onPress}
-      {...(props.disabled && {
-        opacity: 0.5,
-      })}
-      {...(onPress && !props.disabled && listItemPressStyle)}
-      {...rest}
-    >
-      {childrenBefore}
-      {renderWithFallback(
-        ListItemAvatar,
-        avatarProps && {
-          ...(!avatarProps.circular && { borderRadius: '$2' }),
-          ...avatarProps,
-        },
-        renderAvatar,
-      )}
-      {renderWithFallback(
-        Icon,
-        icon && {
-          name: icon,
-          color: '$iconSubdued',
-          flexShrink: 0,
-          ...iconProps,
-        },
-        renderIcon,
-      )}
-
-      {renderWithFallback(
-        ListItemText,
-        (title || subtitle) && {
-          flex: 1,
-          primary: title,
-          primaryMatch: titleMatch,
-          primaryTextProps: {
-            ...(props.onPress && { userSelect: 'none' }),
-            ...titleProps,
-            testID: `select-item-${rest.testID || ''}`,
+    return (
+      <Stack
+        ref={ref}
+        flexDirection="row"
+        alignItems="center"
+        minHeight="$11"
+        gap="$3"
+        py="$2"
+        px="$3"
+        mx="$2"
+        borderRadius="$3"
+        borderCurve="continuous"
+        onPress={onPress}
+        {...(props.disabled && {
+          opacity: 0.5,
+        })}
+        {...(onPress && !props.disabled && listItemPressStyle)}
+        {...rest}
+      >
+        {childrenBefore}
+        {renderWithFallback(
+          ListItemAvatar,
+          avatarProps && {
+            ...(!avatarProps.circular && { borderRadius: '$2' }),
+            ...avatarProps,
           },
-          secondary: subtitle,
-          secondaryMatch: subTitleMatch,
-          secondaryTextProps: {
-            ...(props.onPress && { userSelect: 'none' }),
-            ...subtitleProps,
-            testID: `select-item-subtitle-${rest.testID || ''}`,
+          renderAvatar,
+        )}
+        {renderWithFallback(
+          Icon,
+          icon && {
+            name: icon,
+            color: '$iconSubdued',
+            flexShrink: 0,
+            ...iconProps,
           },
-        },
-        renderItemText,
-      )}
-      {children}
-      {drillIn && !isLoading ? <ListItemDrillIn /> : null}
-      {isLoading ? <Spinner /> : null}
-      <Unspaced>
-        {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
-      </Unspaced>
-    </Stack>
-  );
-});
+          renderIcon,
+        )}
 
-export const ListItem = withStaticProperties(ListItemComponent, {
-  Text: ListItemText,
-  Avatar: withStaticProperties(ListItemAvatar, {
-    CornerIcon: ListItemAvatarCornerIcon,
-    CornerImage: ListItemAvatarCornerImage,
-  }),
-  IconButton: ListItemIconButton,
-  CheckMark: ListItemCheckMark,
-  Separator: ListItemSeparator,
-  DrillIn: ListItemDrillIn,
-});
+        {renderWithFallback(
+          ListItemText,
+          (title || subtitle) && {
+            flex: 1,
+            primary: title,
+            primaryMatch: titleMatch,
+            primaryTextProps: {
+              ...(props.onPress && { userSelect: 'none' }),
+              ...titleProps,
+              testID: `select-item-${rest.testID || ''}`,
+            },
+            secondary: subtitle,
+            secondaryMatch: subTitleMatch,
+            secondaryTextProps: {
+              ...(props.onPress && { userSelect: 'none' }),
+              ...subtitleProps,
+              testID: `select-item-subtitle-${rest.testID || ''}`,
+            },
+          },
+          renderItemText,
+        )}
+        {children}
+        {drillIn && !isLoading ? <ListItemDrillIn /> : null}
+        {isLoading ? <Spinner /> : null}
+        <Unspaced>
+          {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
+        </Unspaced>
+      </Stack>
+    );
+  },
+);
+
+export const ListItem = withStaticProperties(
+  ListItemComponent as ComponentType<IListItemProps>,
+  {
+    Text: ListItemText,
+    Avatar: withStaticProperties(ListItemAvatar, {
+      CornerIcon: ListItemAvatarCornerIcon,
+      CornerImage: ListItemAvatarCornerImage,
+    }),
+    IconButton: ListItemIconButton,
+    CheckMark: ListItemCheckMark,
+    Separator: ListItemSeparator,
+    DrillIn: ListItemDrillIn,
+  },
+);

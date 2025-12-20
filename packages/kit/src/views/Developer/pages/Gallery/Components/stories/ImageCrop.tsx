@@ -4,6 +4,7 @@ import { Layout } from './utils/Layout';
 
 const ImageCropGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="ImageCrop"
     elements={[
       {

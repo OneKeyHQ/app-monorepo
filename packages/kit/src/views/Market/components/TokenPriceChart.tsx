@@ -10,6 +10,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useIsModalPage,
   useMedia,
   useSafeAreaInsets,
   useTabBarHeight,
@@ -50,6 +51,13 @@ function Loading() {
   );
 }
 
+/**
+ * Displays a price chart for a native token using CoinGecko data, with selectable time ranges and adaptive UI for different screen sizes and modal states.
+ *
+ * Fetches and renders historical price data for the specified token, allowing users to switch between multiple time intervals. The component adapts its layout and controls based on whether it is displayed in a modal or on larger screens. Resolves a deferred promise when loading is complete and invokes a callback upon chart load.
+ *
+ * @param onLoadEnd - Callback invoked when the chart finishes loading
+ */
 function NativeTokenPriceChart({
   coinGeckoId,
   height,
@@ -59,7 +67,10 @@ function NativeTokenPriceChart({
   const intl = useIntl();
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { md } = useMedia();
+  const { md: mdMedia } = useMedia();
+  const isModalPage = useIsModalPage();
+  const md = isModalPage ? true : mdMedia;
+
   const options = useMemo(
     () => [
       {
@@ -108,30 +119,32 @@ function NativeTokenPriceChart({
   useEffect(() => {
     void init();
   }, [init]);
-  const { gtLg } = useMedia();
+  const { gtMd: gtMdMedia } = useMedia();
+  const gtMd = isModalPage ? false : gtMdMedia;
+
   return (
     <>
-      <YStack px="$5" $gtMd={{ pr: platformEnv.isNative ? '$5' : 0 }}>
-        <YStack>
-          <PriceChart height={height} isFetching={isLoading} data={points}>
-            {gtLg && !isLoading ? (
-              <SegmentControl
-                value={days}
-                onChange={setDays as ISegmentControlProps['onChange']}
-                options={options}
-              />
-            ) : null}
-          </PriceChart>
-        </YStack>
-      </YStack>
-      {gtLg ? null : (
+      <Stack px="$5" $gtMd={{ pr: '$5' }}>
+        <PriceChart height={height} isFetching={isLoading} data={points}>
+          {gtMd && !isLoading ? (
+            <SegmentControl
+              value={days}
+              onChange={setDays as ISegmentControlProps['onChange']}
+              options={options}
+            />
+          ) : null}
+        </PriceChart>
+      </Stack>
+      {gtMd ? null : (
         <XStack
           gap="$3"
           ai="center"
           px="$5"
           $platform-web={{ zIndex: 30 }}
           position="absolute"
-          top={height - 48}
+          top={10}
+          left={0}
+          right={0}
           width="100%"
         >
           <SegmentControl
@@ -149,14 +162,23 @@ function NativeTokenPriceChart({
 }
 
 const useHeight = () => {
-  const { height } = useWindowDimensions();
+  const isModalPage = useIsModalPage();
+  const { height: windowHeight } = useWindowDimensions();
   const { top } = useSafeAreaInsets();
-  const { gtMd } = useMedia();
+  const { gtMd: gtMdMedia } = useMedia();
+  const gtMd = isModalPage ? false : gtMdMedia;
+
+  const height = useMemo(() => {
+    if (isModalPage && gtMdMedia) {
+      return 640;
+    }
+    return windowHeight;
+  }, [isModalPage, gtMdMedia, windowHeight]);
 
   const tabHeight = useTabBarHeight();
   const fixedHeight = useMemo(() => {
     if (platformEnv.isNativeIOS) {
-      return 268;
+      return 268 + (isModalPage ? 68 : 0);
     }
 
     if (platformEnv.isNativeAndroid) {
@@ -164,12 +186,17 @@ const useHeight = () => {
     }
 
     return 300;
-  }, []);
+  }, [isModalPage]);
   return useMemo(
     () => (gtMd ? 450 : height - top - tabHeight - fixedHeight),
     [fixedHeight, gtMd, height, tabHeight, top],
   );
 };
+/**
+ * Renders a TradingView chart in overview mode for the specified token pair and market identifier.
+ *
+ * Resolves the provided deferred promise on mount and calls `onLoadEnd` when the chart finishes loading. The chart layout adapts based on whether the page is a modal.
+ */
 function TradingViewChart({
   targetToken,
   identifier,
@@ -177,7 +204,7 @@ function TradingViewChart({
   defer,
   height,
   onLoadEnd,
-}: Omit<ITradingViewProps, 'mode'> & {
+}: ITradingViewProps & {
   defer: IDeferredPromise<unknown>;
   onLoadEnd: () => void;
 }) {
@@ -185,11 +212,12 @@ function TradingViewChart({
     defer.resolve(null);
   }, [defer]);
 
+  const isModalPage = useIsModalPage();
+
   return (
     <TradingView
-      mode="overview"
       h={height}
-      $gtMd={{ pl: '$5' }}
+      $gtMd={{ pl: isModalPage ? 0 : '$5' }}
       $md={{ pt: '$3' }}
       targetToken={targetToken}
       baseToken={baseToken}
@@ -290,19 +318,22 @@ function BasicTokenPriceChart({
   }, [coinGeckoId, tickers, tvPlatform]);
 
   const viewHeight = useHeight();
+
   const chart = useMemo(() => {
     if (isFetching) {
       return null;
     }
     if (fallbackToChart || !ticker) {
       return (
-        <NativeTokenPriceChart
-          height={viewHeight}
-          isFetching={isFetching}
-          coinGeckoId={coinGeckoId}
-          defer={defer}
-          onLoadEnd={onLoadEnd}
-        />
+        <Stack flex={1}>
+          <NativeTokenPriceChart
+            height={viewHeight}
+            isFetching={isFetching}
+            coinGeckoId={coinGeckoId}
+            defer={defer}
+            onLoadEnd={onLoadEnd}
+          />
+        </Stack>
       );
     }
 

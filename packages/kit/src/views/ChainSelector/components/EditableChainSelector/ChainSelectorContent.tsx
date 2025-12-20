@@ -24,15 +24,15 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-// import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
+import RecentNetworks from '../RecentNetworks';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import { CELL_HEIGHT } from './type';
+import { ALL_NETWORK_HEADER_HEIGHT, CELL_HEIGHT } from './type';
 
 import type {
   IEditableChainSelectorContext,
@@ -55,8 +55,9 @@ const ListHeaderComponent = () => {
   const { allNetworkItem, searchText } = useContext(
     EditableChainSelectorContext,
   );
+
   return (
-    <Stack mt="$2">
+    <Stack>
       {!allNetworkItem || searchText?.trim() ? null : (
         <EditableListItem item={allNetworkItem} isEditable={false} />
       )}
@@ -66,19 +67,31 @@ const ListHeaderComponent = () => {
 
 type IEditableChainSelectorContentProps = {
   isEditMode?: boolean;
+  recentNetworksEnabled?: boolean;
+  accountNetworkValues: Record<string, string>;
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   unavailableItems: IServerNetwork[];
   frequentlyUsedItems: IServerNetwork[];
   allNetworkItem?: IServerNetwork;
   networkId?: string;
+  walletId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
   onPressItem?: (network: IServerNetwork) => void;
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
+  setAllNetworksChanged?: (value: boolean) => void;
+  accountNetworkValueCurrency?: string;
 };
 
 export const EditableChainSelectorContent = ({
+  recentNetworksEnabled,
+  walletId,
+  indexedAccountId,
+  accountNetworkValues,
+  accountNetworkValueCurrency,
   mainnetItems,
   testnetItems,
   frequentlyUsedItems,
@@ -104,6 +117,8 @@ export const EditableChainSelectorContent = ({
     () => (allNetworkItem && !searchText?.trim?.()) ?? true,
     [allNetworkItem, searchText],
   );
+
+  const [recentNetworksHeight, setRecentNetworksHeight] = useState(0);
 
   useEffect(() => {
     if (!isEditMode && lastIsEditMode) {
@@ -198,36 +213,68 @@ export const EditableChainSelectorContent = ({
     networkFuseSearch,
   ]);
 
+  const listHeaderHeight = useMemo(() => {
+    return (
+      recentNetworksHeight +
+      (showAllNetworkHeader ? ALL_NETWORK_HEADER_HEIGHT : 0)
+    );
+  }, [showAllNetworkHeader, recentNetworksHeight]);
+
   const dragItemOverflowHitSlop = useMemo(() => {
     const dragCount = tempFrequentlyUsedItems.length;
     if (dragCount <= 0) {
       return undefined;
     }
-    return { bottom: (dragCount + 1) * CELL_HEIGHT + 8 };
-  }, [tempFrequentlyUsedItems]);
+    return { bottom: (dragCount + 1) * listHeaderHeight + 16 };
+  }, [tempFrequentlyUsedItems, listHeaderHeight]);
 
   const layoutList = useMemo(() => {
-    let offset = 8 + (showAllNetworkHeader ? CELL_HEIGHT : 0);
-    const layouts: { offset: number; length: number; index: number }[] = [];
+    let offset = 16 + listHeaderHeight;
+    const layouts: {
+      offset: number;
+      length: number;
+      index: number;
+      sectionIndex?: number;
+    }[] = [];
     sections.forEach((section, sectionIndex) => {
       if (sectionIndex !== 0) {
-        layouts.push({ offset, length: 20, index: layouts.length });
+        layouts.push({
+          offset,
+          length: 20,
+          index: layouts.length,
+          sectionIndex,
+        });
         offset += 20;
       }
       const headerHeight = section.title ? 36 : 0;
-      layouts.push({ offset, length: headerHeight, index: layouts.length });
+      layouts.push({
+        offset,
+        length: headerHeight,
+        index: layouts.length,
+        sectionIndex,
+      });
       offset += headerHeight;
       section.data.forEach(() => {
-        layouts.push({ offset, length: CELL_HEIGHT, index: layouts.length });
+        layouts.push({
+          offset,
+          length: CELL_HEIGHT,
+          index: layouts.length,
+          sectionIndex,
+        });
         offset += CELL_HEIGHT;
       });
       const footerHeight = 0;
-      layouts.push({ offset, length: footerHeight, index: layouts.length });
+      layouts.push({
+        offset,
+        length: footerHeight,
+        index: layouts.length,
+        sectionIndex,
+      });
       offset += footerHeight;
     });
-    layouts.push({ offset, length: 8, index: layouts.length });
+    layouts.push({ offset, length: 16, index: layouts.length });
     return layouts;
-  }, [sections, showAllNetworkHeader]);
+  }, [sections, listHeaderHeight]);
 
   const initialScrollIndex = useMemo(() => {
     if (searchText.trim() || tempFrequentlyUsedItems !== frequentlyUsedItems) {
@@ -281,6 +328,8 @@ export const EditableChainSelectorContent = ({
 
   const context = useMemo<IEditableChainSelectorContext>(
     () => ({
+      walletId: walletId ?? '',
+      indexedAccountId,
       frequentlyUsedItems: tempFrequentlyUsedItems,
       setFrequentlyUsedItems: setTempFrequentlyUsedItems,
       frequentlyUsedItemsIds: new Set(
@@ -297,18 +346,24 @@ export const EditableChainSelectorContent = ({
       isEditMode,
       searchText: searchTextTrim,
       allNetworkItem,
+      setRecentNetworksHeight,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
     }),
     [
+      walletId,
+      indexedAccountId,
       tempFrequentlyUsedItems,
-      setTempFrequentlyUsedItems,
       networkId,
       onPressItem,
       onAddCustomNetwork,
-      onEditCustomNetwork,
-      onFrequentlyUsedItemsChange,
       isEditMode,
       searchTextTrim,
       allNetworkItem,
+      accountNetworkValues,
+      accountNetworkValueCurrency,
+      onFrequentlyUsedItemsChange,
+      onEditCustomNetwork,
     ],
   );
   const renderItem = useCallback(
@@ -346,6 +401,39 @@ export const EditableChainSelectorContent = ({
     [],
   );
 
+  useEffect(() => {
+    // For non-native platforms, initialScrollIndex causes display bugs
+    // Handle it by manually scrolling to the target position
+    if (!platformEnv.isNative) {
+      if (!initialScrollIndex || layoutList.length === 0) return;
+
+      let offset = 0;
+
+      if (initialScrollIndex.sectionIndex === 0) {
+        offset = CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      } else {
+        const index = layoutList.findIndex(
+          (item) => item.sectionIndex === initialScrollIndex.sectionIndex,
+        );
+
+        if (index === -1) return;
+
+        offset =
+          layoutList[index].offset +
+          CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      }
+
+      setTimeout(() => {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        listRef.current?._listRef?._scrollRef?.scrollTo?.({
+          y: offset,
+          animated: false,
+        });
+      }, 100);
+    }
+  }, [initialScrollIndex, layoutList]);
+
   return (
     <EditableChainSelectorContext.Provider value={context}>
       <Stack flex={1} position="relative">
@@ -377,11 +465,20 @@ export const EditableChainSelectorContent = ({
             })}
           />
         </Stack>
+        {recentNetworksEnabled ? (
+          <RecentNetworks
+            containerProps={{
+              mt: '$4',
+            }}
+            onPressItem={onPressItem}
+            availableNetworks={[...mainnetItems, ...testnetItems]}
+          />
+        ) : null}
         <Stack flex={1}>
           {sections.length > 0 ? (
             <SortableSectionList
               ref={listRef}
-              enabled={isEditMode}
+              enabled={false}
               stickySectionHeadersEnabled
               sections={sections}
               renderItem={renderItem}
@@ -391,19 +488,21 @@ export const EditableChainSelectorContent = ({
                   ?.data as IServerNetwork[];
                 setTempFrequentlyUsedItems(itemList);
               }}
-              initialScrollIndex={initialScrollIndex}
+              initialScrollIndex={
+                platformEnv.isNative ? initialScrollIndex : undefined
+              }
               dragItemOverflowHitSlop={dragItemOverflowHitSlop}
               getItemLayout={(_, index) => {
                 if (index === -1) {
                   return {
                     index,
-                    offset: showAllNetworkHeader ? 56 : 0,
+                    offset: showAllNetworkHeader ? listHeaderHeight : 0,
                     length: 0,
                   };
                 }
                 return layoutList[index];
               }}
-              ListHeaderComponent={ListHeaderComponent}
+              ListHeaderComponent={<ListHeaderComponent />}
               renderSectionHeader={renderSectionHeader}
               ListFooterComponent={
                 <>

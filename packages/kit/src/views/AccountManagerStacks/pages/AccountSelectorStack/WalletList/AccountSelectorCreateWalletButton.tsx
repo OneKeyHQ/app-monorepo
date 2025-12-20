@@ -17,40 +17,19 @@ export function AccountSelectorCreateWalletButton() {
   if (!isEditableRouteParams) {
     return null;
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const onboardingButton = (
-    <IconButton
-      onPress={() => {
-        void toOnBoardingPage({
-          params: {
-            showCloseButton: true,
-          },
-        });
-      }}
-      icon="PlusSmallOutline"
-      testID="account-add-wallet"
-    />
-  );
   return (
     <Stack p="$1" alignItems="center">
       <IconButton
         onPress={() => {
-          void toOnBoardingPage({
-            params: {
-              showCloseButton: true,
-            },
-          });
+          void toOnBoardingPage();
         }}
-        icon="PlusSmallOutline"
+        icon="PlusLargeOutline"
+        p="$2"
         testID="add-wallet"
+        variant="primary"
       />
-      <SizableText
-        textAlign="center"
-        size="$bodySm"
-        color="$textSubdued"
-        mt="$1"
-      >
-        {intl.formatMessage({ id: ETranslations.global_add_wallet })}
+      <SizableText textAlign="center" size="$bodySm" mt="$1">
+        {intl.formatMessage({ id: ETranslations.global_wallet })}
       </SizableText>
     </Stack>
   );

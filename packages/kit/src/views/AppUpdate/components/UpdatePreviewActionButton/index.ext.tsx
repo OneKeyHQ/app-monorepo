@@ -10,7 +10,7 @@ import type { IUpdatePreviewActionButton } from './type';
 export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
   const intl = useIntl();
   const helpLink = useHelpLink({
-    path: 'articles/9131347902223-Update-your-OneKey-App',
+    path: 'articles/11461166',
   });
   return (
     <Page.Footer

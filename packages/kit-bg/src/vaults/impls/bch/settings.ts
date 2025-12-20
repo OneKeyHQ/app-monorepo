@@ -35,6 +35,9 @@ const settings: IVaultSettings = {
   mergeDeriveAssetsEnabled: false,
   qrAccountEnabled: false,
   replaceTxEnabled: false,
+
+  createAllDeriveTypeAccountsByDefault: false,
+  enabledInternalSignAndVerify: false,
 };
 
 export default Object.freeze(settings);

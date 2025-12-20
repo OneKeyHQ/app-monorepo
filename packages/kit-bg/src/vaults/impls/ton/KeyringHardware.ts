@@ -1,6 +1,7 @@
+/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { TonWalletVersion } from '@onekeyfe/hd-transport';
-import TonWeb from 'tonweb';
+import { Cell } from '@ton/core';
 
 import {
   ETonSendMode,
@@ -14,7 +15,10 @@ import type {
   ISignedTxPro,
   IUnsignedMessageTon,
 } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -24,6 +28,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
+import { createNormalizedWalletTransfer } from './sdkTon/BodyNormalizer';
 import {
   createSignedExternalMessage,
   decodePayload,
@@ -93,6 +98,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 address: account.payload?.address || '',
                 publicKey: account.payload?.publicKey || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -100,7 +106,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
 
@@ -124,7 +130,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, publicKey } = item;
+          const { path, publicKey, __hwExtraInfo__ } = item;
           const addr = await genAddressFromPublicKey(
             publicKey,
             deriveInfo.addressEncoding as 'v4R2',
@@ -134,6 +140,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             addresses: {},
             path,
             publicKey: publicKey || '',
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }
@@ -145,7 +152,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const account = await this.vault.getAccount();
     const { unsignedTx, deviceParams } = params;
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
@@ -212,6 +221,9 @@ export class KeyringHardware extends KeyringHardwareBase {
         hwParams.isRawData = true;
       }
     }
+
+    let useBlindSignature = false;
+
     if (encodedTx.messages.length > 1) {
       hwParams.extDestination = [];
       hwParams.extTonAmount = [];
@@ -219,9 +231,54 @@ export class KeyringHardware extends KeyringHardwareBase {
       encodedTx.messages.slice(1).forEach((extMsg) => {
         hwParams.extDestination?.push(extMsg.address);
         hwParams.extTonAmount?.push(extMsg.amount.toString());
-        hwParams.extPayload?.push(extMsg.payload ?? '');
+
+        let payloadHex: string | undefined;
+        if (extMsg.payload) {
+          let bytes: Buffer | undefined;
+          try {
+            bytes = Buffer.from(extMsg.payload, 'base64');
+          } catch (e) {
+            try {
+              bytes = Buffer.from(extMsg.payload, 'hex');
+            } catch (ee) {
+              useBlindSignature = true;
+            }
+          }
+
+          payloadHex = bytes?.toString('hex');
+          // exists payload and exotic cell
+          if (payloadHex && Cell.fromHex(payloadHex).isExotic) {
+            useBlindSignature = true;
+          }
+        }
+        hwParams.extPayload?.push(payloadHex ?? '');
       });
     }
+
+    let signingMessage = serializeUnsignedTx.signingMessage;
+    try {
+      if (msg.stateInit) {
+        hwParams.initState = Buffer.from(msg.stateInit, 'base64').toString(
+          'hex',
+        );
+        useBlindSignature = true;
+      } else if (hwParams.comment && Cell.fromHex(hwParams.comment).isExotic) {
+        useBlindSignature = true;
+      }
+    } catch {
+      // ignore
+    }
+
+    // Blind signature
+    if (useBlindSignature) {
+      hwParams.signingMessageRepr = bufferUtils.bytesToHex(
+        // await TonWeb.boc.Cell.oneFromBoc(Buffer.from(signingMessage.toBoc())).getRepr(),
+        // only for hardware, only serialize for stateInit
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        Buffer.from(signingMessage.repr()).toString('hex'),
+      );
+    }
+
     const result = await convertDeviceResponse(async () => {
       const res = await sdk.tonSignMessage(
         dbDevice.connectId,
@@ -234,36 +291,48 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyInternalError('Failed to sign message');
     }
     const signature = bufferUtils.hexToBytes(result.signature);
-    let signingMessage = serializeUnsignedTx.signingMessage;
-    const signingMessageHexFromHw = result.signning_message as string;
-    const signingMessageHex = Buffer.from(
-      await signingMessage.toBoc(),
-    ).toString('hex');
-    const signingMessageHash = Buffer.from(
-      await signingMessage.hash(),
-    ).toString('hex');
-    // For Pro, check the boc
-    if (
-      !result.skip_validate &&
-      signingMessageHexFromHw !== signingMessageHex
-    ) {
-      console.warn(
-        'signingMessage mismatch',
-        signingMessageHexFromHw,
-        signingMessageHex,
-      );
-      signingMessage = TonWeb.boc.Cell.oneFromBoc(signingMessageHexFromHw);
-    }
-    // For 1S, check the hash
-    if (
-      result.skip_validate &&
-      signingMessageHexFromHw !== signingMessageHash
-    ) {
-      throw new Error(
-        appLocale.intl.formatMessage({
-          id: ETranslations.feedback_failed_to_sign_transaction,
-        }),
-      );
+    // classic1s return signning_message is message hash
+    // pro return signning_message is message boc
+    // pro blind sign return signning_message is null
+    const signingMessageHexFromHw = result.signning_message as string | null;
+    const signingMessageHex = Buffer.from(signingMessage.toBoc()).toString(
+      'hex',
+    );
+    const signingMessageHash = Buffer.from(signingMessage.hash()).toString(
+      'hex',
+    );
+
+    if (signingMessageHexFromHw) {
+      // For Pro, check the boc
+      if (
+        !result.skip_validate &&
+        signingMessageHexFromHw !== signingMessageHex
+      ) {
+        console.warn(
+          'signingMessage mismatch',
+          signingMessageHexFromHw,
+          signingMessageHex,
+        );
+        signingMessage = Cell.fromHex(signingMessageHexFromHw);
+      }
+      // For 1S, check the hash
+      if (
+        result.skip_validate &&
+        signingMessageHexFromHw !== signingMessageHash
+      ) {
+        if (!useBlindSignature) {
+          // fullback to serialization compatible with classic1s
+          const mockHWNormalizedSerializeUnsignedTx =
+            await createNormalizedWalletTransfer(contract, encodedTx);
+          signingMessage = mockHWNormalizedSerializeUnsignedTx.signingMessage;
+        } else {
+          throw new OneKeyLocalError(
+            appLocale.intl.formatMessage({
+              id: ETranslations.feedback_failed_to_sign_transaction,
+            }),
+          );
+        }
+      }
     }
 
     const externalMessage = await createSignedExternalMessage({
@@ -275,9 +344,9 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     return {
       txid: '',
-      rawTx: Buffer.from(await externalMessage.message.toBoc(false)).toString(
-        'base64',
-      ),
+      rawTx: Buffer.from(
+        externalMessage.message.toBoc({ idx: false }),
+      ).toString('base64'),
       encodedTx,
     };
   }
@@ -285,7 +354,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const account = await this.vault.getAccount();
     const { messages, deviceParams } = params;
     if (messages.length !== 1) {

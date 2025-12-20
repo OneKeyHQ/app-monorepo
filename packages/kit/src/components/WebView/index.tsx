@@ -1,5 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -8,10 +8,14 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
 
-import type { IElectronWebViewEvents, IWebViewOnScroll } from './types';
+import type {
+  IElectronWebViewEvents,
+  IWebViewOnScroll,
+  IWebViewRef,
+} from './types';
 import type { ESiteMode } from '../../views/Discovery/types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
-import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import type { WebViewProps as RNWebViewProps } from 'react-native-webview';
 import type {
   WebViewErrorEvent,
   WebViewNavigation,
@@ -20,20 +24,24 @@ import type {
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
-interface IWebViewProps extends IElectronWebViewEvents {
+export interface IWebViewProps
+  extends IElectronWebViewEvents,
+    Partial<RNWebViewProps> {
   id?: string;
   src?: string;
   onSrcChange?: (src: string) => void;
   openUrlInExt?: boolean;
-  onWebViewRef?: (ref: IWebViewWrapperRef | null) => void;
+  onWebViewRef?: (ref: IWebViewRef | null) => void;
   onNavigationStateChange?: (event: WebViewNavigation) => void;
   onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
   allowpopups?: boolean;
+  allowsBackForwardNavigationGestures?: boolean;
   containerProps?: ComponentProps<typeof Stack>;
   customReceiveHandler?: IJsBridgeReceiveHandler;
   nativeWebviewSource?: WebViewSource | undefined;
   nativeInjectedJavaScriptBeforeContentLoaded?: string;
   isSpinnerLoading?: boolean;
+  pullToRefreshEnabled?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: WebViewOpenWindowEvent) => void;
   androidLayerType?: 'none' | 'software' | 'hardware';
@@ -48,6 +56,25 @@ interface IWebViewProps extends IElectronWebViewEvents {
    * @description Open website in desktop mode or mobile mode
    */
   siteMode?: ESiteMode;
+  /** @platform native
+   * @description List of origin strings to allow being navigated to.
+   * The strings allow wildcards and follow the same rules as the navigator.
+   * For example, ['https://*.onekey.so', 'https://*.onekey.com'] will allow any URL from these domains.
+   */
+  originWhitelist?: string[];
+  /** @platform native
+   * @description A function that is invoked when the webview calls `window.ReactNativeWebView.postMessage`. Setting this property will inject this global into your webview.
+   */
+  onMessage?: RNWebViewProps['onMessage'];
+  /** @platform android
+   * @description Use GeckoView instead of the default WebView on Android. GeckoView is Mozilla's alternative to Android's WebView with better privacy and security features.
+   */
+  useGeckoView?: boolean;
+  /** @platform native
+   * @description Whether to use the injected native code from cross-inpage-provider-injected/dist/injected/injectedNative.js
+   * @default true
+   */
+  useInjectedNativeCode?: boolean;
 }
 
 const WebView: FC<IWebViewProps> = ({
@@ -58,19 +85,27 @@ const WebView: FC<IWebViewProps> = ({
   customReceiveHandler,
   containerProps,
   webviewDebuggingEnabled,
+  pullToRefreshEnabled,
   ...rest
 }) => {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
-      const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
-
-      // return customReceiveHandler() response not supported yet
       await customReceiveHandler?.(payload, hostBridge);
+
+      const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
     },
     [customReceiveHandler],
+  );
+  const webviewRef = useRef<IWebViewRef | null>(null);
+  const handleWebViewRef = useCallback(
+    (ref: IWebViewRef | null) => {
+      webviewRef.current = ref;
+      onWebViewRef(ref);
+    },
+    [onWebViewRef],
   );
 
   if (
@@ -87,11 +122,12 @@ const WebView: FC<IWebViewProps> = ({
   return (
     <Stack flex={1} bg="background-default" {...containerProps}>
       <InpageProviderWebView
-        ref={onWebViewRef}
+        ref={handleWebViewRef}
         webviewDebuggingEnabled={webviewDebuggingEnabled}
         src={src}
         allowpopups={allowpopups}
         receiveHandler={receiveHandler}
+        pullToRefreshEnabled={pullToRefreshEnabled}
         {...rest}
       />
     </Stack>

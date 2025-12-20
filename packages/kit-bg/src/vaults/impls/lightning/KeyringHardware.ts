@@ -14,7 +14,10 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -112,12 +115,13 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 xpub: account.payload?.xpub || '',
                 xpubSegwit: account.payload?.xpubSegwit || '',
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.btcGetPublicKey(connectId, deviceId, {
@@ -142,7 +146,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const network = getBtcForkNetwork(btcImpl);
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, xpub, xpubSegwit } = item;
+          const { path, xpub, xpubSegwit, __hwExtraInfo__ } = item;
           const addressRelPath = `0/0`;
           const addressFromXpub = await this.coreApi.getAddressFromXpub({
             network,
@@ -160,7 +164,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               'register',
             );
             if (signTemplate.type !== 'register') {
-              throw new Error('Wrong signature type');
+              throw new OneKeyLocalError('Wrong signature type');
             }
             const sign = await this.signApiMessage({
               connectId,
@@ -189,6 +193,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             relPath: addressRelPath,
             xpub,
             xpubSegwit,
+            __hwExtraInfo__,
             addresses: {
               [addressRelPath]: address,
             },
@@ -217,13 +222,15 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId, deviceCommonParams, path, msgPayload } =
       params;
     if (!connectId || !deviceId) {
-      throw new Error('connectId and deviceId is required');
+      throw new OneKeyLocalError('connectId and deviceId is required');
     }
 
     const { isTestnet } = await this.getNetwork();
     const coinName = this.getBtcCoinName(isTestnet);
     const message = stringify(msgPayload);
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const response = await convertDeviceResponse(async () =>
       sdk.btcSignMessage(connectId, deviceId, {
         ...deviceCommonParams,
@@ -256,7 +263,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       'transfer',
     );
     if (signTemplate.type !== 'transfer') {
-      throw new Error('Wrong transfer signature type');
+      throw new OneKeyLocalError('Wrong transfer signature type');
     }
     const network = await this.getNetwork();
     const signature = await this.signApiMessage({
@@ -317,7 +324,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const dbAccount = await this.vault.getAccount();
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const result = await Promise.all(
       params.messages.map(async ({ message }) => {
         const response = await sdk.btcSignMessage(connectId, deviceId, {
@@ -341,14 +350,16 @@ export class KeyringHardware extends KeyringHardwareBase {
   async lnurlAuth(params: ILnurlAuthParams) {
     const { lnurlDetail } = params;
     if (lnurlDetail.tag !== 'login') {
-      throw new Error('lnurl-auth: invalid tag');
+      throw new OneKeyLocalError('lnurl-auth: invalid tag');
     }
 
     const url = new URL(lnurlDetail.url);
 
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const response = await sdk.lnurlAuth(connectId, deviceId, {
       ...params.deviceParams?.deviceCommonParams,
       domain: url.hostname,

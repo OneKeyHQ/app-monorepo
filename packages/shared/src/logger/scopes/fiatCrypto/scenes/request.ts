@@ -2,7 +2,6 @@ import type {
   IFiatCryptoToken,
   IGetTokensListParams,
 } from '@onekeyhq/shared/types/fiatCrypto';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';

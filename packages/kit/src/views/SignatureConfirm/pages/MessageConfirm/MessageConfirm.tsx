@@ -16,6 +16,8 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   convertAddressToSignatureConfirmAddress,
@@ -42,6 +44,7 @@ import { MessageDataViewer } from '../../components/SignatureConfirmDataViewer';
 import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
+import SwapInfo from '../../components/SwapInfo';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -78,6 +81,8 @@ function MessageConfirm() {
     sourceInfo,
     unsignedMessage,
     walletInternalSign,
+    skipBackupCheck,
+    swapInfo,
     onSuccess,
     onFail,
     onCancel,
@@ -119,6 +124,7 @@ function MessageConfirm() {
               accountId,
               accountAddress,
               message: unsignedMessage.message,
+              swapInfo,
             }),
             backgroundApiProxy.serviceDiscovery.postSignTypedDataMessage({
               networkId,
@@ -133,6 +139,7 @@ function MessageConfirm() {
               accountId,
               accountAddress,
               message: unsignedMessage.message,
+              swapInfo,
             }),
           ];
 
@@ -159,7 +166,8 @@ function MessageConfirm() {
             }),
             convertAddressToSignatureConfirmAddress({
               address: accountAddress,
-              networkId,
+              showAccountName:
+                networkUtils.isLightningNetworkByNetworkId(networkId),
             }),
             {
               type: EParseTxComponentType.Divider,
@@ -188,6 +196,7 @@ function MessageConfirm() {
       accountId,
       isSignTypedDataV3orV4Method,
       unsignedMessage.message,
+      swapInfo,
       sourceInfo?.origin,
       typedData,
     ],
@@ -249,6 +258,10 @@ function MessageConfirm() {
                 messageDisplay={parsedMessage}
                 unsignedMessage={unsignedMessage}
                 isRiskSignMethod={isRiskSignMethod}
+                showContinueOperateLocal={showContinueOperate}
+                urlSecurityInfo={urlSecurityInfo}
+                isConfirmationRequired={isConfirmationRequired}
+                walletInternalSign={walletInternalSign}
               />
             ) : null}
             {showDAppSiteMark ? (
@@ -266,6 +279,7 @@ function MessageConfirm() {
           displayComponents={parsedMessage.components}
         />
         <MessageDataViewer unsignedMessage={unsignedMessage} />
+        {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         <MessageAdvancedSettings unsignedMessage={unsignedMessage} />
       </YStack>
     );
@@ -274,14 +288,18 @@ function MessageConfirm() {
     parsedMessage,
     showMessageHeaderInfo,
     showDAppRiskyAlert,
-    showMessageAlerts,
-    showDAppSiteMark,
     sourceInfo?.origin,
     urlSecurityInfo,
+    showMessageAlerts,
     unsignedMessage,
     isRiskSignMethod,
+    showDAppSiteMark,
     accountId,
     networkId,
+    swapInfo,
+    showContinueOperate,
+    isConfirmationRequired,
+    walletInternalSign,
   ]);
 
   const handleOnClose = useCallback(
@@ -300,12 +318,25 @@ function MessageConfirm() {
     );
   }, []);
 
+  useEffect(() => {
+    if (sourceInfo) {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId,
+      });
+      if (!skipBackupCheck) {
+        void backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+          walletId,
+        });
+      }
+    }
+  }, [sourceInfo, accountId, skipBackupCheck]);
+
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header
         title={
           parsedMessage?.title ||
-          intl.formatMessage({ id: ETranslations.sig_sigature_request_label })
+          intl.formatMessage({ id: ETranslations.sig_signature_request_label })
         }
       />
       <Page.Body px="$5">{renderMessageConfirmContent()}</Page.Body>
@@ -321,6 +352,7 @@ function MessageConfirm() {
         isConfirmationRequired={isConfirmationRequired}
         sourceInfo={sourceInfo}
         walletInternalSign={walletInternalSign}
+        skipBackupCheck={skipBackupCheck}
         onSuccess={onSuccess}
         onFail={onFail}
         onCancel={onCancel}

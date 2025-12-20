@@ -13,6 +13,7 @@ export enum ESigningScheme {
 
 export enum EMessageTypesAptos {
   SIGN_MESSAGE = 'aptosSignMessage',
+  SIGN_IN = 'aptosSignIn',
 }
 
 export enum EMessageTypesCommon {
@@ -36,6 +37,7 @@ export enum EMessageTypesBtc {
 
 export enum EMessageTypesTon {
   SIGN_DATA = 'tonSignData',
+  SIGN_DATA_V1 = 'tonSignDataV1',
   SIGN_PROOF = 'tonSignProof',
 }
 
@@ -44,4 +46,16 @@ export enum EMessageTypesAlph {
   SHA256 = 'sha256',
   BLAKE2B = 'blake2b',
   IDENTITY = 'identity',
+}
+
+export enum EMessageTypesTron {
+  SIGN_MESSAGE = 'tronSignMessage',
+  SIGN_MESSAGE_V2 = 'tronSignMessageV2',
+}
+
+export interface IVerifyMessageParams {
+  message: string;
+  address: string;
+  signature: string;
+  format?: string;
 }

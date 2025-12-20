@@ -1,8 +1,13 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
+
 import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
@@ -14,10 +19,12 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceVerifyVersionCompareResult,
   IFetchFirmwareVerifyHashParams,
   IFirmwareVerifyInfo,
+  IFirmwareVerifyResult,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -55,9 +62,16 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     connectId: string;
     dataHex: string;
   }): Promise<DeviceVerifySignature> {
-    const hardwareSDK = await this.getSDKInstance();
+    const compatibleConnectId =
+      await this.serviceHardware.getCompatibleConnectId({
+        connectId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceVerify(connectId, { dataHex }),
+      hardwareSDK?.deviceVerify(compatibleConnectId, { dataHex }),
     );
   }
 
@@ -86,26 +100,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async firmwareAuthenticate({
     device,
     skipDeviceCancel,
-  }: IFirmwareAuthenticateParams): Promise<{
-    verified: boolean;
-    device: SearchDevice | IDBDevice;
-    payload: {
-      deviceType: IDeviceType;
-      data: string;
-      cert: string;
-      signature: string;
-    };
-    result:
-      | {
-          message?: string;
-          data?: string;
-          code?: number;
-        }
-      | undefined;
-  }> {
+  }: IFirmwareAuthenticateParams): Promise<IFirmwareVerifyResult> {
     const { connectId, deviceType } = device;
     if (!connectId) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'firmwareAuthenticate ERROR: device connectId is undefined',
       );
     }
@@ -281,6 +279,11 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       const client = await this.serviceHardware.getClient(
         EServiceEndpointEnum.Utility,
       );
+
+      let firmwareType: 'universal' | 'btconly' = 'universal';
+      if (params.firmwareType === EFirmwareType.BitcoinOnly) {
+        firmwareType = 'btconly';
+      }
       const resp = await client.get<{
         data: {
           firmwares: IFirmwareVerifyInfo[];
@@ -291,6 +294,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
           system: params.firmwareVersion,
           bluetooth: params.bluetoothVersion,
           bootloader: params.bootloaderVersion,
+          firmwareType,
         },
       });
       return resp.data.data.firmwares;

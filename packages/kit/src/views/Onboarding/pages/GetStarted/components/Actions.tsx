@@ -1,17 +1,21 @@
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
+import type {
+  IActionListItemProps,
+  IActionListSection,
+} from '@onekeyhq/components';
 import { ActionList, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { Action } from './Action';
 
-export function Actions() {
+export function Actions({ showTransfer }: { showTransfer: boolean }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
@@ -43,30 +47,35 @@ export function Actions() {
     navigation.push(EOnboardingPages.ImportAddress);
   };
 
-  const items: IActionListItemProps[] = platformEnv.isWebDappMode
-    ? [
-        {
-          icon: 'Link2Outline',
-          label: intl.formatMessage({
-            id: ETranslations.global_connect_wallet,
-          }),
-          onPress: handleConnectWalletPress,
-          testID: '3rd-party-wallet',
-        },
-        {
-          icon: 'EyeOutline',
-          label: intl.formatMessage({
-            id: ETranslations.global_track_any_address,
-          }),
-          onPress: handleTrackAnyAddressPress,
-          testID: 'track-any-address',
-        },
-      ]
-    : [
+  const items: IActionListItemProps[] = [
+    {
+      icon: 'Link2Outline',
+      label: intl.formatMessage({
+        id: ETranslations.global_connect_wallet,
+      }),
+      onPress: handleConnectWalletPress,
+      testID: '3rd-party-wallet',
+    },
+    {
+      icon: 'EyeOutline',
+      label: intl.formatMessage({
+        id: ETranslations.global_track_any_address,
+      }),
+      onPress: handleTrackAnyAddressPress,
+      testID: 'track-any-address',
+    },
+  ];
+
+  const sections: IActionListSection[] = [
+    {
+      items: [
         {
           icon: 'PlusCircleOutline',
           label: intl.formatMessage({
             id: ETranslations.onboarding_create_new_wallet,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.global_recovery_phrase,
           }),
           onPress: handleCreateWalletPress,
           testID: 'create-wallet',
@@ -76,9 +85,16 @@ export function Actions() {
           label: intl.formatMessage({
             id: ETranslations.global_import_wallet,
           }),
+          description: intl.formatMessage({
+            id: ETranslations.onboarding_import_wallet_desc,
+          }),
           onPress: handleImportWalletPress,
           testID: 'import-wallet',
         },
+      ],
+    },
+    {
+      items: [
         {
           icon: 'Link2Outline',
           label: intl.formatMessage({
@@ -87,7 +103,9 @@ export function Actions() {
           onPress: handleConnectWalletPress,
           testID: '3rd-party-wallet',
         },
-      ];
+      ],
+    },
+  ];
 
   return (
     <Stack
@@ -111,7 +129,10 @@ export function Actions() {
       />
 
       <ActionList
-        placement="bottom"
+        placement="top"
+        floatingPanelProps={{
+          width: 344,
+        }}
         title={intl.formatMessage({
           id: ETranslations.onboarding_create_or_import_wallet,
         })}
@@ -123,8 +144,23 @@ export function Actions() {
             testID="onboarding-create-or-import-wallet"
           />
         }
-        items={items}
+        {...(platformEnv.isWebDappMode ? { items } : { sections })}
       />
+
+      {showTransfer ? (
+        <Action
+          iconName="MultipleDevicesOutline"
+          label={intl.formatMessage({
+            id: ETranslations.transfer_transfer,
+          })}
+          onPress={() => {
+            navigation.pushModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeTransfer,
+            });
+          }}
+          testID="transfer"
+        />
+      ) : null}
     </Stack>
   );
 }

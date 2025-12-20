@@ -1,34 +1,52 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
-import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
-export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
-  const { onComplete } = props;
-  const { getAccessToken, useLoginWithEmail } = usePrivyUniversalV2();
-  const { sendCode, loginWithCode } = useLoginWithEmail({
-    onComplete: async () => {
-      const token = await getAccessToken();
-      await backgroundApiProxy.servicePrime.apiLogin({
-        accessToken: token || '',
-      });
-    },
-    onError: (error) => {
-      console.log(error);
-    },
-  });
+function PrimeLoginEmailDialogV2(props: {
+  onComplete: () => void;
+  onLoginSuccess?: () => void | Promise<void>;
+  title?: string;
+  description?: string;
+  onConfirm?: (code: string) => void;
+  onCancel?: () => void | Promise<void>;
+}) {
+  const {
+    onComplete,
+    onLoginSuccess,
+    title,
+    description,
+    onConfirm,
+    onCancel,
+  } = props;
+
+  const lastOneKeyIdLoginEmail = appStorage.syncStorage.getString(
+    EAppSyncStorageKeys.last_onekey_id_login_email,
+  );
+
+  // const isReady = false;
+  const {
+    isReady,
+    getAccessToken,
+    useLoginWithEmail,
+    // user
+  } = useOneKeyAuth();
+  const { sendCode, loginWithCode } = useLoginWithEmail();
+
   const intl = useIntl();
 
   const form = useForm<{ email: string }>({
-    defaultValues: { email: '' },
+    defaultValues: { email: lastOneKeyIdLoginEmail || '' },
   });
 
   const submit = useCallback(
@@ -41,53 +59,72 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
       }
       const data = form.getValues();
 
+      appStorage.syncStorage.set(
+        EAppSyncStorageKeys.last_onekey_id_login_email,
+        data.email,
+      );
+
       try {
+        onComplete?.();
+        await timerUtils.wait(550);
         const dialog = Dialog.show({
+          onCancel,
+          onClose: onCancel,
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
               sendCode={sendCode}
               loginWithCode={loginWithCode}
               email={data.email}
-              onLoginSuccess={() => {
-                void dialog.close();
+              onConfirm={onConfirm}
+              onLoginSuccess={async () => {
+                try {
+                  const token = await getAccessToken();
+                  await backgroundApiProxy.servicePrime.apiLogin({
+                    accessToken: token || '',
+                  });
+                  await onLoginSuccess?.();
+                } finally {
+                  await dialog.close();
+                }
               }}
             />
           ),
         });
-
-        await pRetry(
-          async () => {
-            await sendCode({ email: data.email });
-          },
-          {
-            retries: 2,
-            maxTimeout: 10_000,
-          },
-        );
-
-        onComplete?.();
       } catch (error) {
         preventClose?.();
         throw error;
       }
     },
-    [form, loginWithCode, onComplete, sendCode],
+    [
+      form,
+      getAccessToken,
+      loginWithCode,
+      onComplete,
+      onConfirm,
+      onLoginSuccess,
+      sendCode,
+      onCancel,
+    ],
   );
 
   return (
     <Stack>
-      <Dialog.Icon icon="EmailOutline" />
-      <Dialog.Title>
-        {intl.formatMessage({
-          id: ETranslations.prime_signup_login,
-        })}
-      </Dialog.Title>
-      <Dialog.Description>
-        {intl.formatMessage({
-          id: ETranslations.prime_onekeyid_continue_description,
-        })}
-      </Dialog.Description>
-      <Stack pt="$4">
+      <Dialog.Header>
+        <Dialog.Icon icon="EmailOutline" />
+        <Dialog.Title>
+          {title ||
+            intl.formatMessage({
+              id: ETranslations.prime_signup_login,
+            })}
+        </Dialog.Title>
+        <Dialog.Description>
+          {description ||
+            intl.formatMessage({
+              id: ETranslations.prime_onekeyid_continue_description,
+            })}
+        </Dialog.Description>
+      </Dialog.Header>
+      <Stack>
         <Form form={form}>
           <Form.Field
             name="email"
@@ -113,7 +150,6 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
             }}
           >
             <Input
-              keyboardType="email-address"
               autoFocus
               autoCapitalize="none"
               size="large"
@@ -131,7 +167,7 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
           id: ETranslations.global_continue,
         })}
         confirmButtonProps={{
-          disabled: !form.formState.isValid,
+          disabled: !form.formState.isValid || !isReady,
         }}
         onConfirm={async ({ preventClose }) => {
           await submit({ preventClose });

@@ -38,6 +38,22 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>metamask</string>
+		<string>rainbow</string>
+		<string>safe</string>
+		<string>zerion</string>
+		<string>trust</string>
+		<string>tpoutside</string>
+		<string>imtokenv2</string>
+		<string>phantom</string>
+		<string>coinbase</string>
+		<string>fireblocks-wc</string>
+		<string>bitkeep</string>
+		<string>oneinch</string>
+		<string>itms-apps</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NFCReaderUsageDescription</key>
@@ -63,8 +79,18 @@
 	<string>Use bluetooth peripheral to connect OneKey hardware devices.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Use Camera to scan QR Code.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use biometrics to authenticate and unlock your wallet.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Use photo library to read QR images.</string>
+	<key>RCTNewArchEnabled</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>UIDesignRequiresCompatibility</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -82,10 +108,10 @@
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
@@ -95,22 +121,6 @@
 		<string>A000000151000000</string>
 		<string>D156000132834001</string>
 		<string>D1560001328300424C4400006E666301</string>
-	</array>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>metamask</string>
-		<string>rainbow</string>
-		<string>safe</string>
-		<string>zerion</string>
-		<string>trust</string>
-		<string>tpoutside</string>
-		<string>imtokenv2</string>
-		<string>phantom</string>
-		<string>coinbase</string>
-		<string>fireblocks-wc</string>
-		<string>bitkeep</string>
-		<string>oneinch</string>
-		<string>itms-apps</string>
 	</array>
 </dict>
 </plist>

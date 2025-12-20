@@ -5,6 +5,7 @@ import { XRPL } from '@onekeyhq/core/src/chains/xrp/sdkXrp';
 import type {
   IDecodedTxExtraXrp,
   IEncodedTxXrp,
+  IXrpMemoField,
 } from '@onekeyhq/core/src/chains/xrp/types';
 import {
   decodeSensitiveTextAsync,
@@ -16,6 +17,7 @@ import {
   InvalidTransferValue,
   NotImplemented,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -100,7 +102,9 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
     const { to, amount } = transferInfo;
     const dbAccount = await this.getAccount();
@@ -108,6 +112,7 @@ export default class Vault extends VaultBase {
     let destinationTag: number | undefined = transferInfo.memo
       ? Number(transferInfo.memo)
       : undefined;
+    const memoFields: IXrpMemoField[] | undefined = transferInfo.xrpMemoFields;
     // Slice destination tag from swap address
     if (!XRPL.isValidAddress(to) && to.indexOf('#') > -1) {
       const [address, tag] = to.split('#');
@@ -150,6 +155,7 @@ export default class Vault extends VaultBase {
                   Destination: destination,
                   DestinationTag: destinationTag,
                   LastLedgerSequence: currentLedgerIndex + 50,
+                  Memos: memoFields,
                 },
               ],
             },
@@ -242,6 +248,11 @@ export default class Vault extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
+    if (params?.encodedTx) {
+      return {
+        encodedTx: params.encodedTx as IEncodedTxXrp,
+      };
+    }
     const encodedTx = await this.buildEncodedTx(params);
     if (encodedTx) {
       return {
@@ -357,9 +368,10 @@ export default class Vault extends VaultBase {
           returnRawData: true,
         });
       if (accountInfo.success === false) {
-        throw new Error(accountInfo.error);
+        throw new OneKeyLocalError(accountInfo.error);
       }
       if (accountInfo.result?.error || accountInfo.result?.error_message) {
+        // eslint-disable-next-line no-restricted-syntax
         throw new Error(
           accountInfo.result.error_message || accountInfo.result.error,
         );

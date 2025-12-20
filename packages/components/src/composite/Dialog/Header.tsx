@@ -1,8 +1,11 @@
-import type { ReactElement } from 'react';
+import type { ComponentProps } from 'react';
 import { createContext, memo, useContext, useEffect, useMemo } from 'react';
+
+import type { IHyperlinkTextProps } from '@onekeyhq/kit/src/components/HyperlinkText';
 
 import { IconButton } from '../../actions/IconButton';
 import { RichSizeableText } from '../../content/RichSizeableText';
+import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { Heading, Icon, SizableText, Stack } from '../../primitives';
 
 import type { IDialogHeaderContextType, IDialogHeaderProps } from './type';
@@ -17,11 +20,12 @@ export function DialogIcon({
   icon,
   tone,
   renderIcon,
+  ...stackProps
 }: {
   icon: IDialogHeaderProps['icon'];
   tone?: IDialogHeaderProps['tone'];
   renderIcon?: IDialogHeaderProps['renderIcon'];
-}) {
+} & ComponentProps<typeof Stack>) {
   const colors: {
     iconWrapperBg: ColorTokens;
     iconColor: ColorTokens;
@@ -45,6 +49,12 @@ export function DialogIcon({
           iconColor: '$iconSuccess',
         };
       }
+      case 'info': {
+        return {
+          iconWrapperBg: '$bgInfoSubdued',
+          iconColor: '$iconInfo',
+        };
+      }
       default: {
         return {
           iconWrapperBg: '$bgStrong',
@@ -55,7 +65,7 @@ export function DialogIcon({
   }, [tone]);
   if (renderIcon) {
     return (
-      <Stack alignSelf="flex-start" mb="$5">
+      <Stack alignSelf="flex-start" mb="$5" {...stackProps}>
         {renderIcon}
       </Stack>
     );
@@ -67,6 +77,7 @@ export function DialogIcon({
       mb="$5"
       borderRadius="$full"
       bg={colors.iconWrapperBg}
+      {...stackProps}
     >
       <Icon name={icon} size="$8" color={colors.iconColor} />
     </Stack>
@@ -85,11 +96,27 @@ export function DialogDescription(props: ISizableTextProps) {
   return <SizableText size="$bodyLg" mt="$1.5" {...props} />;
 }
 
+/**
+ * @deprecated Use DialogHyperlinkTextDescription instead
+ */
 export function DialogRichDescription(props: IRichSizeableTextProps) {
   return <RichSizeableText size="$bodyLg" mt="$1.5" {...props} />;
 }
 
-function BasicDialogHeader({ onClose }: { onClose: () => void }) {
+export function DialogHyperlinkTextDescription(props: IHyperlinkTextProps) {
+  const { HyperlinkText } = useSettingConfig();
+  return HyperlinkText ? (
+    <HyperlinkText size="$bodyLg" mt="$1.5" {...props} />
+  ) : null;
+}
+
+function BasicDialogHeader({
+  onClose,
+  trackID,
+}: {
+  onClose: () => void;
+  trackID?: string;
+}) {
   const { headerProps } = useContext(DialogHeaderContext);
   const {
     icon,
@@ -121,6 +148,7 @@ function BasicDialogHeader({ onClose }: { onClose: () => void }) {
       {/* close button */}
       {showExitButton ? (
         <IconButton
+          trackID={trackID}
           position="absolute"
           zIndex={1}
           right="$5"

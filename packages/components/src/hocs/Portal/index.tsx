@@ -5,8 +5,8 @@ import { memo, useEffect, useMemo, useState } from 'react';
 
 import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
-import { withStaticProperties } from 'tamagui';
 
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -28,14 +28,18 @@ function isPortalExisted(name: string): boolean {
 }
 
 export enum EPortalContainerConstantName {
-  WEB_TAB_BAR = 'ONEKEY_WEB_TAB_BAR',
   SIDEBAR_BANNER = 'SIDEBAR_BANNER',
+  WEB_TAB_BAR = 'ONEKEY_WEB_TAB_BAR',
   APP_STATE_LOCK_CONTAINER_OVERLAY = 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+  PASSWORD_VERIFY_CONTAINER_PORTAL = 'PASSWORD_VERIFY_CONTAINER_PORTAL',
   SPOTLIGHT_OVERLAY_PORTAL = 'ONEKEY-Root-SPOTLIGHT_OVERLAY_PORTAL',
   FULL_WINDOW_OVERLAY_PORTAL = 'ONEKEY-Root-FullWindowOverlay',
   TOASTER_OVERLAY_PORTAL = 'ONEKEY_TOASTER_OVERLAY_PORTAL',
   ACCOUNT_SELECTOR = 'ONEKEY_ACCOUNT_SELECTOR',
   WALLET_ACTIONS = 'ONEKEY_WALLET_ACTIONS',
+  HARDWARE_UI_STATE_DIALOG = 'HARDWARE_UI_STATE_DIALOG',
+  IN_PAGE_TAB_CONTAINER = 'IN_PAGE_TAB_CONTAINER',
+  SUGGESTION_LIST = 'SUGGESTION_LIST',
 }
 
 export interface IPortalManager {

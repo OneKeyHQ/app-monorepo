@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   Button,
   Dialog,
@@ -10,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { FirmwareChangeLogView } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareChangeLogView';
 import { FirmwareCheckingLoading } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareCheckingLoading';
@@ -30,7 +33,9 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
 import {
+  EFirmwareUpdateSteps,
   useFirmwareUpdateRetryAtom,
+  useFirmwareUpdateStepInfoAtom,
   useFirmwareUpdatesDetectStatusPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import * as AllErrors from '@onekeyhq/shared/src/errors';
@@ -39,6 +44,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EModalFirmwareUpdateRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
@@ -290,12 +299,12 @@ function FirmwareUpdateGalleryStaticUI() {
         <SizableText size="$heading2xl">
           ** 手动进入 boot 模式(mini)
         </SizableText>
-        <EnterBootModeGuide deviceType="mini" />
+        <EnterBootModeGuide deviceType={EDeviceType.Mini} />
 
         <SizableText size="$heading2xl">
           ** 手动进入 boot 模式(classic)
         </SizableText>
-        <EnterBootModeGuide deviceType="classic" />
+        <EnterBootModeGuide deviceType={EDeviceType.Classic} />
 
         <SizableText size="$heading2xl">
           ** 需要安装或检查 bridge 状态
@@ -396,14 +405,55 @@ function FirmwareUpdateGalleryStaticUI() {
   );
 }
 
+function FirmwareUpdateGalleryV2() {
+  const navigation = useAppNavigation();
+  const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  return (
+    <>
+      <Button
+        onPress={() => {
+          setStepInfo({
+            step: EFirmwareUpdateSteps.updateStart,
+            payload: {
+              startAtTime: Date.now(),
+            },
+          });
+        }}
+      >
+        To Next Step
+      </Button>
+      <Button
+        onPress={() => {
+          setStepInfo({
+            step: EFirmwareUpdateSteps.updateStart,
+            payload: {
+              startAtTime: Date.now(),
+            },
+          });
+          navigation.pushModal(EModalRoutes.FirmwareUpdateModal, {
+            screen: EModalFirmwareUpdateRoutes.InstallV2,
+            params: {
+              result: FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE as any,
+            },
+          });
+        }}
+      >
+        To V2 Install Page
+      </Button>
+    </>
+  );
+}
+
 const FirmwareUpdateGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="FirmwareUpdate"
     elements={[
       {
         title: 'FirmwareUpdate',
         element: (
           <Stack gap="$1">
+            <FirmwareUpdateGalleryV2 />
             <FirmwareUpdateGalleryDemo />
             <FirmwareUpdateGalleryStaticUI />
           </Stack>

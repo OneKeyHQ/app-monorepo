@@ -3,12 +3,12 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
-import type { EMnemonicType } from '@onekeyhq/core/src/secret';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { PhaseInputArea } from '@onekeyhq/kit/src/views/Onboarding/components/PhaseInputArea';
 import { Tutorials } from '@onekeyhq/kit/src/views/Onboarding/components/Tutorials';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
+import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 export function ImportRecoveryPhrase() {
   const intl = useIntl();

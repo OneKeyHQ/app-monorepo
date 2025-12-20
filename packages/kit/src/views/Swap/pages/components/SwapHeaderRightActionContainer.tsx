@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -24,8 +24,12 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSwapTypeSwitchAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapProTradeTypeAtom,
+  useSwapTypeSwitchAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -33,6 +37,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
@@ -46,6 +51,7 @@ import {
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapProTradeType,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
@@ -55,7 +61,7 @@ import {
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
-import { SlippageInput } from './SwapSlippageContentContainer';
+import ProviderManageContainer from './ProviderManageContainer';
 
 const SwapSettingsCommonItem = ({
   value,
@@ -85,6 +91,24 @@ const SwapSettingsCommonItem = ({
       </SizableText>
     </YStack>
     <Switch value={value} onChange={onChange} />
+  </XStack>
+);
+
+const SwapProviderSettingItem = ({
+  title,
+  onPress,
+}: {
+  title: string;
+  onPress: () => void;
+}) => (
+  <XStack
+    justifyContent="space-between"
+    alignItems="center"
+    onPress={onPress}
+    cursor="pointer"
+  >
+    <SizableText size="$bodyLgMedium">{title}</SizableText>
+    <Icon name="ChevronRightSmallOutline" size="$6" color="$iconSubdued" />
   </XStack>
 );
 
@@ -233,6 +257,9 @@ const SwapSettingsDialogContent = () => {
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const focusSwapPro = useMemo(() => {
+    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  }, [swapTypeSwitch]);
   const rightTrigger = useMemo(
     () => (
       <SegmentControl
@@ -271,9 +298,10 @@ const SwapSettingsDialogContent = () => {
     ),
     [intl, setNoPersistSettings, slippageItem.key],
   );
+  const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   return (
     <YStack gap="$5">
-      {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
+      {swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro ? (
         <>
           <HeightTransition>
             <YStack gap="$5">
@@ -307,29 +335,79 @@ const SwapSettingsDialogContent = () => {
           />
         </>
       ) : null}
-      <SwapSettingsCommonItem
-        title={intl.formatMessage({
-          id: ETranslations.swap_page_settings_recipient_title,
-        })}
-        content={intl.formatMessage({
-          id: ETranslations.swap_page_settings_recipient_content,
-        })}
-        value={swapEnableRecipientAddress}
-        onChange={(v) => {
-          if (v) {
-            setNoPersistSettings((s) => ({
-              ...s,
-              swapEnableRecipientAddress: v,
-            }));
-          } else {
-            setNoPersistSettings((s) => ({
-              ...s,
-              swapEnableRecipientAddress: v,
-              swapToAnotherAccountSwitchOn: v,
-            }));
-          }
-        }}
-      />
+      {focusSwapPro ? null : (
+        <SwapSettingsCommonItem
+          title={intl.formatMessage({
+            id: ETranslations.swap_page_settings_recipient_title,
+          })}
+          content={intl.formatMessage({
+            id: ETranslations.swap_page_settings_recipient_content,
+          })}
+          value={swapEnableRecipientAddress}
+          onChange={(v) => {
+            if (v) {
+              setNoPersistSettings((s) => ({
+                ...s,
+                swapEnableRecipientAddress: v,
+              }));
+            } else {
+              setNoPersistSettings((s) => ({
+                ...s,
+                swapEnableRecipientAddress: v,
+                swapToAnotherAccountSwitchOn: v,
+              }));
+            }
+          }}
+        />
+      )}
+      {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
+        <>
+          <SwapProviderSettingItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_settings_manage_swap,
+            })}
+            onPress={() => {
+              dialogRef.current = Dialog.show({
+                title: intl.formatMessage({
+                  id: ETranslations.swap_settings_manage_swap,
+                }),
+                renderContent: (
+                  <ProviderManageContainer
+                    onSaved={() => {
+                      void dialogRef.current?.close();
+                    }}
+                    isBridge={false}
+                  />
+                ),
+                showConfirmButton: false,
+                showCancelButton: false,
+              });
+            }}
+          />
+          <SwapProviderSettingItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_settings_manage_bridge,
+            })}
+            onPress={() => {
+              dialogRef.current = Dialog.show({
+                title: intl.formatMessage({
+                  id: ETranslations.swap_settings_manage_bridge,
+                }),
+                renderContent: (
+                  <ProviderManageContainer
+                    onSaved={() => {
+                      void dialogRef.current?.close();
+                    }}
+                    isBridge
+                  />
+                ),
+                showConfirmButton: false,
+                showCancelButton: false,
+              });
+            }}
+          />
+        </>
+      ) : null}
     </YStack>
   );
 };
@@ -345,6 +423,7 @@ const SwapHeaderRightActionContainer = ({
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
   const swapPendingStatusList = useMemo(
     () =>
       swapHistoryPendingList.filter(
@@ -355,10 +434,7 @@ const SwapHeaderRightActionContainer = ({
     [swapHistoryPendingList],
   );
   const slippageTitle = useMemo(() => {
-    if (
-      slippageItem.key === ESwapSlippageSegmentKey.CUSTOM &&
-      swapTypeSwitch !== ESwapTabSwitchType.LIMIT
-    ) {
+    if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
       return (
         <SizableText
           color={
@@ -371,22 +447,23 @@ const SwapHeaderRightActionContainer = ({
       );
     }
     return null;
-  }, [slippageItem.key, slippageItem.value, swapTypeSwitch]);
+  }, [slippageItem.key, slippageItem.value]);
   const onOpenHistoryListModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
       params: {
         type:
-          swapTypeSwitch === ESwapTabSwitchType.LIMIT
-            ? EProtocolOfExchange.LIMIT
-            : EProtocolOfExchange.SWAP,
+          swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
+          swapProTradeType === ESwapProTradeType.MARKET
+            ? EProtocolOfExchange.SWAP
+            : EProtocolOfExchange.LIMIT,
         storeName:
           pageType === EPageType.modal
             ? EJotaiContextStoreNames.swapModal
             : EJotaiContextStoreNames.swap,
       },
     });
-  }, [navigation, pageType, swapTypeSwitch]);
+  }, [navigation, pageType, swapProTradeType, swapTypeSwitch]);
 
   const onOpenSwapSettings = useCallback(() => {
     Dialog.show({

@@ -1,5 +1,3 @@
-import bs58 from 'bs58';
-
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 

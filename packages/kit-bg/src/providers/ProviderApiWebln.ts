@@ -6,12 +6,11 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EDAppConnectionModal,
   EModalRoutes,
-  EModalSendRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { ILNURLDetails } from '@onekeyhq/shared/types/lightning';
@@ -227,7 +226,7 @@ class ProviderApiWebln extends ProviderApiBase {
       });
       console.log('webln.verifyMessage: ', message, signature);
       if (!result.isValid) {
-        throw new Error('Invalid signature');
+        throw new OneKeyLocalError('Invalid signature');
       }
       return result.isValid;
     } catch (e) {

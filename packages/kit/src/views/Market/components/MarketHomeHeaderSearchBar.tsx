@@ -8,36 +8,28 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
-import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
-import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
-
-const SEARCH_IN_PAGE_KEY = EShortcutEvents.SearchInPage;
 export function MarketHomeHeaderSearchBar() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
-      params: {
-        filterType: EUniversalSearchType.MarketToken,
-      },
     });
   }, [navigation]);
 
-  useShortcutsOnRouteFocused(SEARCH_IN_PAGE_KEY, toUniversalSearchPage);
   return (
-    <XStack $gtSm={{ width: 280 }}>
+    <XStack $gtSm={{ width: 184 }}>
       <SearchBar
         placeholder={intl.formatMessage({
-          id: ETranslations.global_search_tokens,
+          id: ETranslations.global_search,
         })}
         containerProps={{ w: '100%' }}
         $gtMd={{ size: 'small' }}
         key="MarketHomeSearchInput"
         addOns={[
           {
-            label: <Shortcut shortcutKey={SEARCH_IN_PAGE_KEY} />,
+            label: <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />,
           },
         ]}
       />

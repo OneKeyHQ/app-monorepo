@@ -18,7 +18,6 @@ import {
   SizableText,
   Stack,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -63,6 +62,9 @@ function ActionItem({
         color="$textSubdued"
         minWidth="$20"
         numberOfLines={1}
+        {...(rest.disabled && {
+          color: '$textDisabled',
+        })}
       >
         {label}
       </SizableText>
@@ -72,84 +74,113 @@ function ActionItem({
 
 function ActionBuy(props: IActionItemsProps) {
   const intl = useIntl();
+  const { icon, label, ...rest } = props;
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.global_buy })}
-      icon="PlusLargeOutline"
-      {...props}
+      label={label ?? intl.formatMessage({ id: ETranslations.global_buy })}
+      icon={icon ?? 'PlusLargeOutline'}
+      {...rest}
     />
   );
 }
 
 function ActionSell(props: IActionItemsProps) {
   const intl = useIntl();
+  const { icon, label, ...rest } = props;
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.global_cash_out })}
-      icon="MinusLargeOutline"
-      {...props}
+      label={label ?? intl.formatMessage({ id: ETranslations.global_cash_out })}
+      icon={icon ?? 'MinusLargeOutline'}
+      {...rest}
     />
   );
 }
 
 function ActionSend(props: IActionItemsProps) {
   const intl = useIntl();
+  const { icon, label, ...rest } = props;
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.global_send })}
-      icon="ArrowTopOutline"
-      {...props}
+      label={label ?? intl.formatMessage({ id: ETranslations.global_send })}
+      icon={icon ?? 'ArrowTopOutline'}
+      {...rest}
     />
   );
 }
 
 function ActionReceive(props: IActionItemsProps) {
   const intl = useIntl();
+  const { icon, label, ...rest } = props;
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.global_receive })}
-      icon="ArrowBottomOutline"
-      {...props}
+      label={label ?? intl.formatMessage({ id: ETranslations.global_receive })}
+      icon={icon ?? 'ArrowBottomOutline'}
+      {...rest}
     />
   );
 }
 
 function ActionSwap(props: IActionItemsProps) {
   const intl = useIntl();
+  const { icon, label, ...rest } = props;
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.global_swap })}
-      icon="SwitchHorOutline"
-      {...props}
+      label={label ?? intl.formatMessage({ id: ETranslations.global_swap })}
+      icon={icon ?? 'SwapHorOutline'}
+      {...rest}
     />
   );
 }
 
 function ActionBridge(props: IActionItemsProps) {
   const intl = useIntl();
+  const { icon, label, ...rest } = props;
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.swap_page_bridge })}
-      icon="BridgeOutline"
-      {...props}
+      label={
+        label ?? intl.formatMessage({ id: ETranslations.swap_page_bridge })
+      }
+      icon={icon ?? 'BridgeOutline'}
+      {...rest}
+    />
+  );
+}
+
+function ActionPerp(props: IActionItemsProps) {
+  const intl = useIntl();
+  const { icon, label, ...rest } = props;
+  return (
+    <ActionItem
+      label={label ?? intl.formatMessage({ id: ETranslations.global_perp })}
+      icon={icon ?? 'TradingViewCandlesOutline'}
+      {...rest}
     />
   );
 }
 
 function ActionEarn(props: IActionItemsProps) {
   const intl = useIntl();
+  const { icon, label, ...rest } = props;
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.global_earn })}
-      icon="CoinsOutline"
-      {...props}
+      label={label ?? intl.formatMessage({ id: ETranslations.global_earn })}
+      icon={icon ?? 'CoinsOutline'}
+      {...rest}
     />
   );
 }
 
-function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
+function ActionStaking(props: IActionItemsProps) {
+  const { icon, ...rest } = props;
+  return <ActionItem icon={icon ?? 'Layers3Solid'} {...rest} />;
+}
+
+function ActionMore({
+  renderItemsAsync,
+}: {
+  renderItemsAsync: IActionListProps['renderItemsAsync'];
+}) {
   const intl = useIntl();
-  const media = useMedia();
   return (
     <ActionList
       title={intl.formatMessage({
@@ -161,14 +192,12 @@ function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
       renderTrigger={
         <ActionItem
           icon="DotHorOutline"
-          {...(media.sm && {
-            label: intl.formatMessage({
-              id: ETranslations.global_more,
-            }),
+          label={intl.formatMessage({
+            id: ETranslations.global_more,
           })}
         />
       }
-      sections={sections}
+      renderItemsAsync={renderItemsAsync}
     />
   );
 }
@@ -180,7 +209,7 @@ function RawActions({ children, ...rest }: IXStackProps) {
       $gtSm={{
         flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
         justifyContent: 'flex-start',
-        gap: '$8',
+        gap: '$6',
       }}
       {...rest}
     >
@@ -196,6 +225,8 @@ RawActions.Send = ActionSend;
 RawActions.Receive = ActionReceive;
 RawActions.Swap = ActionSwap;
 RawActions.Bridge = ActionBridge;
+RawActions.Perp = ActionPerp;
 RawActions.Earn = ActionEarn;
+RawActions.Staking = ActionStaking;
 
 export { RawActions, ActionItem };

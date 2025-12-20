@@ -5,16 +5,13 @@ import {
   IconButton,
   SizableText,
   XStack,
-  useMedia,
   useShare,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { OpenInAppButton } from '@onekeyhq/kit/src/components/OpenInAppButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -42,7 +39,6 @@ function Address() {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
 
-  const media = useMedia();
   return (
     <XStack alignItems="center">
       {/* use navigation built-in back button */}
@@ -50,18 +46,6 @@ function Address() {
       <SizableText size="$headingLg">
         {accountUtils.shortenAddress({ address: account?.address })}
       </SizableText>
-      {platformEnv.isDev && media.gtLg ? (
-        <SizableText
-          ml="$4"
-          onPress={() => {
-            void backgroundApiProxy.serviceAccount.removeAccount({
-              account,
-            });
-          }}
-        >
-          {account?.id || ''} {account?.name || ''}
-        </SizableText>
-      ) : null}
     </XStack>
   );
 }

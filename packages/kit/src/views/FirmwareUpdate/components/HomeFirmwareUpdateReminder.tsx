@@ -1,10 +1,19 @@
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
+import type { IStackProps, IXStackProps } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  XStack,
+  usePopoverContext,
+} from '@onekeyhq/components';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -20,9 +29,11 @@ import { HomeFirmwareUpdateDetect } from './HomeFirmwareUpdateDetect';
 export function FirmwareUpdateReminderAlert({
   message,
   onPress,
+  containerProps,
 }: {
   message: string;
   onPress?: () => any;
+  containerProps?: IStackProps;
 }) {
   const intl = useIntl();
   return (
@@ -36,8 +47,9 @@ export function FirmwareUpdateReminderAlert({
       alignItems="center"
       gap="$2"
       flex={1}
+      {...(containerProps as IXStackProps)}
     >
-      <Icon size="$4" name="DownloadOutline" color="$iconInfo" />
+      <Icon size="$5" name="OnekeyDeviceCustom" color="$iconInfo" />
       <SizableText
         flex={1}
         size="$bodyMdMedium"
@@ -46,7 +58,7 @@ export function FirmwareUpdateReminderAlert({
       >
         {message}
       </SizableText>
-      <Button size="small" onPress={onPress}>
+      <Button size="small" onPress={onPress} borderRadius="$1">
         {intl.formatMessage({ id: ETranslations.global_view })}
       </Button>
     </XStack>
@@ -58,6 +70,7 @@ function HomeFirmwareUpdateReminderCmp() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const connectId = activeAccount.device?.connectId;
   const actions = useFirmwareUpdateActions();
+  const { closePopover } = usePopoverContext();
 
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
 
@@ -86,10 +99,16 @@ function HomeFirmwareUpdateReminderCmp() {
     if (result?.shouldUpdate) {
       let message = 'New firmware is available';
       if (result?.detectResult?.toVersion) {
+        const firmwareTypeLabel =
+          deviceUtils.getFirmwareTypeLabelByFirmwareType({
+            firmwareType: result?.detectResult?.toFirmwareType,
+            displayFormat: 'withSpace',
+          });
+        const version = `${firmwareTypeLabel}${result?.detectResult?.toVersion}`;
         message = intl.formatMessage(
           { id: ETranslations.update_firmware_version_available },
           {
-            version: result?.detectResult?.toVersion,
+            version,
           },
         );
       } else if (result?.detectResult?.toVersionBle) {
@@ -102,15 +121,33 @@ function HomeFirmwareUpdateReminderCmp() {
       }
       return (
         <FirmwareUpdateReminderAlert
+          containerProps={{
+            pl: '$3',
+            pr: '$2',
+            py: '$1.5',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderRadius: '$2',
+            borderCurve: 'continuous',
+          }}
           message={message}
           onPress={async () => {
+            await closePopover?.();
             actions.openChangeLogModal({ connectId });
           }}
         />
       );
     }
     return null;
-  }, [intl, actions, connectId, result]);
+  }, [
+    result?.shouldUpdate,
+    result?.detectResult?.toVersion,
+    result?.detectResult?.toFirmwareType,
+    result?.detectResult?.toVersionBle,
+    intl,
+    closePopover,
+    actions,
+    connectId,
+  ]);
 
   return (
     <XStack>

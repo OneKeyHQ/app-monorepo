@@ -5,7 +5,10 @@ import { TransactionBlock } from '@benfen/bfc.js/transactions';
 import { BFC_TYPE_ARG } from '@benfen/bfc.js/utils';
 import BigNumber from 'bignumber.js';
 
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -57,7 +60,7 @@ async function getAllCoinsByCoinType({
       retries += 1;
       console.error(`Failed to fetch coins, retry attempt: ${retries}`, error);
       if (retries >= maxRetries) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'Failed to fetch coins, maximum retry attempts reached',
         );
       }

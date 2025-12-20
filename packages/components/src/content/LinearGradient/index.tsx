@@ -1,5 +1,6 @@
 import { LinearGradient as NativeLinearGradient } from 'expo-linear-gradient';
-import { usePropsAndStyle } from 'tamagui';
+
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
 import { type IThemeColorKeys, useThemeValue } from '../../hooks';
 

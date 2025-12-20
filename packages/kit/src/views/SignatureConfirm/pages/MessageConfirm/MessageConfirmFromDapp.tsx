@@ -21,19 +21,21 @@ import type {
 
 function MessageConfirmFromDapp() {
   const navigation = useNavigation();
-  const pendingAction = useRef<StackActionType>();
+  const pendingAction = useRef<StackActionType>(undefined);
   const {
     $sourceInfo,
     unsignedMessage,
     accountId,
     networkId,
     walletInternalSign,
+    skipBackupCheck,
     _$t = undefined,
   } = useDappQuery<{
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
     walletInternalSign?: boolean;
+    skipBackupCheck?: boolean;
     _$t: number | undefined;
   }>();
 
@@ -55,7 +57,7 @@ function MessageConfirmFromDapp() {
       isNavigateNewPageRef.current = true;
       const timerId = setTimeout(() => {
         dappApprove.reject();
-      }, 1200);
+      }, 5000);
       appEventBus.once(
         EAppEventBusNames.SignatureConfirmContainerMounted,
         () => {
@@ -95,6 +97,7 @@ function MessageConfirmFromDapp() {
             unsignedMessage,
             sourceInfo: $sourceInfo,
             walletInternalSign,
+            skipBackupCheck,
             // @ts-ignore
             _disabledAnimationOfNavigate: true,
             _$t,
@@ -126,13 +129,19 @@ function MessageConfirmFromDapp() {
     signatureConfirmRoute,
     unsignedMessage,
     walletInternalSign,
+    skipBackupCheck,
     _$t,
   ]);
 
   return (
     <Page onClose={handlePageClose}>
-      <Page.Body>
-        <Stack h="100%" justifyContent="center" alignContent="center">
+      <Page.Body bg="$bgApp">
+        <Stack
+          h="100%"
+          justifyContent="center"
+          alignContent="center"
+          bg="$bgApp"
+        >
           <Spinner size="large" />
         </Stack>
       </Page.Body>

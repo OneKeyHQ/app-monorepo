@@ -1,8 +1,5 @@
-import type {
-  IAccountToken,
-  IToken,
-  ITokenFiat,
-} from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -36,9 +33,13 @@ export const { atom: allTokenListAtom, use: useAllTokenListAtom } =
   contextAtom<{
     tokens: IAccountToken[];
     keys: string;
+    accountId?: string;
+    networkId?: string;
   }>({
     tokens: [],
     keys: '',
+    accountId: undefined,
+    networkId: undefined,
   });
 
 export const { atom: allTokenListMapAtom, use: useAllTokenListMapAtom } =
@@ -68,6 +69,14 @@ export const {
   use: useSmallBalanceTokenListAtom,
 } = contextAtom<{ smallBalanceTokens: IAccountToken[]; keys: string }>({
   smallBalanceTokens: [],
+  keys: '',
+});
+
+export const {
+  atom: activeAccountTokenListAtom,
+  use: useActiveAccountTokenListAtom,
+} = contextAtom<{ tokens: IAccountToken[]; keys: string }>({
+  tokens: [],
   keys: '',
 });
 
@@ -107,6 +116,34 @@ export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
     initialized: false,
   });
 
+export const {
+  atom: aggregateTokensListMapAtom,
+  use: useAggregateTokensListMapAtom,
+} = contextAtom<
+  Record<
+    string,
+    {
+      tokens: IAccountToken[];
+    }
+  >
+>({});
+
+export const { atom: aggregateTokensMapAtom, use: useAggregateTokensMapAtom } =
+  contextAtom<{
+    [key: string]: ITokenFiat;
+  }>({});
+
+export const {
+  atom: activeAccountTokenListStateAtom,
+  use: useActiveAccountTokenListStateAtom,
+} = contextAtom<{
+  isRefreshing: boolean;
+  initialized: boolean;
+}>({
+  isRefreshing: false,
+  initialized: false,
+});
+
 export const { atom: createAccountStateAtom, use: useCreateAccountStateAtom } =
   contextAtom<{
     token: IAccountToken | null;
@@ -114,4 +151,13 @@ export const { atom: createAccountStateAtom, use: useCreateAccountStateAtom } =
   }>({
     token: null,
     isCreating: false,
+  });
+
+export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
+  contextAtom<{
+    sortType: ETokenListSortType;
+    sortDirection: 'desc' | 'asc';
+  }>({
+    sortType: ETokenListSortType.Value,
+    sortDirection: 'desc',
   });

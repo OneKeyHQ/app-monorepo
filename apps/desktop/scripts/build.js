@@ -1,8 +1,21 @@
+require('../../../development/env');
+
 const path = require('path');
 const childProcess = require('child_process');
 const { build } = require('esbuild');
 const glob = require('glob');
+const fs = require('fs');
 const pkg = require('../app/package.json');
+
+// Add passport-desktop-win32-x64-msvc dependency for Windows
+if (process.platform === 'win32') {
+  pkg.dependencies = pkg.dependencies || {};
+  pkg.dependencies['passport-desktop-win32-x64-msvc'] = '0.1.2';
+
+  // Write back to package.json file
+  const packageJsonPath = path.join(__dirname, '..', 'app', 'package.json');
+  fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
+}
 
 const electronSource = path.join(__dirname, '..', 'app');
 
@@ -20,6 +33,14 @@ const serviceFiles = glob
   .sync(path.join(electronSource, 'service', '*.ts'))
   .map((name) => name.split('app/').pop());
 
+console.log('process.env.NODE_ENV', process.env.NODE_ENV);
+console.log('process.env.DESK_CHANNEL', process.env.DESK_CHANNEL);
+console.log('process.env.SNAP', process.env.SNAP);
+console.log('process.env.BUILD_NUMBER', process.env.BUILD_NUMBER);
+console.log('process.env.BUILD_TIME', process.env.BUILD_TIME);
+console.log('process.env.VERSION', process.env.VERSION);
+console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
+console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
 build({
   entryPoints: ['app.ts', 'preload.ts', ...serviceFiles].map((f) =>
     path.join(electronSource, f),
@@ -35,6 +56,14 @@ build({
       __dirname,
       '../../desktop/app/libs/react-native-mock',
     ),
+    '@react-native-async-storage/async-storage': path.join(
+      __dirname,
+      '../../desktop/app/libs/react-native-async-storage-mock',
+    ),
+    'react-native-mmkv': path.join(
+      __dirname,
+      '../../desktop/app/libs/react-native-mmkv-mock',
+    ),
     '@sentry/react-native': path.join(
       __dirname,
       '../../desktop/app/libs/sentry-react-native-mock',
@@ -48,15 +77,52 @@ build({
       '../../../node_modules/axios/dist/esm/axios.js',
     ),
   },
-  external: ['electron', ...Object.keys(pkg.dependencies)],
+  external: [
+    'electron',
+    '@stoprocent/noble',
+    '@stoprocent/bluetooth-hci-socket',
+    'bufferutil',
+    'utf-8-validate',
+    ...Object.keys(pkg.dependencies),
+  ],
   tsconfig: path.join(electronSource, 'tsconfig.json'),
   outdir: path.join(__dirname, '..', 'app/dist'),
   define: {
+    'process.env.VERSION': JSON.stringify(process.env.VERSION || '1.0.0'),
+    'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER || '1'),
+    'process.env.BUNDLE_VERSION': JSON.stringify(
+      process.env.BUNDLE_VERSION || '1',
+    ),
     'process.env.NODE_ENV': JSON.stringify(
       process.env.NODE_ENV || 'development',
     ),
+    'process.env.GITHUB_SHA': JSON.stringify(process.env.GITHUB_SHA || ''),
     'process.env.DESK_CHANNEL': JSON.stringify(process.env.DESK_CHANNEL || ''),
     'process.env.COMMITHASH': JSON.stringify(gitRevision),
+    'process.env.SENTRY_DSN_EXT': JSON.stringify(
+      process.env.SENTRY_DSN_EXT || '',
+    ),
+    'process.env.SENTRY_DSN_DESKTOP': JSON.stringify(
+      process.env.SENTRY_DSN_DESKTOP || '',
+    ),
+    'process.env.APPIMAGE': JSON.stringify(process.env.APPIMAGE || ''),
+    'process.env.SNAP': JSON.stringify(process.env.SNAP || ''),
+    'process.env.SENTRY_DSN_MAS': JSON.stringify(
+      process.env.SENTRY_DSN_MAS || '',
+    ),
+    'process.env.SENTRY_DSN_SNAP': JSON.stringify(
+      process.env.SENTRY_DSN_SNAP || '',
+    ),
+    'process.env.SENTRY_DSN_WINMS': JSON.stringify(
+      process.env.SENTRY_DSN_WINMS || '',
+    ),
+    'process.env.SENTRY_DSN_REACT_NATIVE': JSON.stringify(
+      process.env.SENTRY_DSN_REACT_NATIVE || '',
+    ),
+    'process.env.ONEKEY_PLATFORM': JSON.stringify('desktop'),
+    'process.env.SENTRY_DSN_WEB': JSON.stringify(
+      process.env.SENTRY_DSN_WEB || '',
+    ),
   },
 })
   .then(() => {

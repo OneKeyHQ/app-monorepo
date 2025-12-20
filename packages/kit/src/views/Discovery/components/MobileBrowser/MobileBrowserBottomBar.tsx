@@ -1,6 +1,6 @@
 import type { IMobileBrowserBottomBarProps } from './MobileBrowserBottomBar.native';
 
-function MobileBrowserBottomBar(props: IMobileBrowserBottomBarProps) {
+function MobileBrowserBottomBar(_props: IMobileBrowserBottomBarProps) {
   return null;
 }
 

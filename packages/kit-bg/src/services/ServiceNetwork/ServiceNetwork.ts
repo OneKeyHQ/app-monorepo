@@ -1,5 +1,9 @@
-import { uniq, uniqBy } from 'lodash';
+import { EFirmwareType } from '@onekeyfe/hd-shared';
+import BigNumber from 'bignumber.js';
+import { isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
+import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
+import { getCoreChainApiScopeByImpl } from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   type EAddressEncodings,
   ECoreApiExportedSecretKeyType,
@@ -7,9 +11,20 @@ import {
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import {
+  dangerAggregateTokenNetworkRepresent,
+  getPresetNetworks,
+  presetNetworksMap,
+} from '@onekeyhq/shared/src/config/presetNetworks';
+import {
+  AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+  NETWORK_SHOW_VALUE_THRESHOLD_USD,
+} from '@onekeyhq/shared/src/consts/networkConsts';
+import { IMPL_BTC, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -17,7 +32,14 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import type {
+  IDetectedNetwork,
+  IDetectedNetworkGroupItem,
+} from '@onekeyhq/shared/src/utils/networkDetectUtils';
+import networkDetectUtils from '@onekeyhq/shared/src/utils/networkDetectUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -28,6 +50,7 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import type { IDBAccount } from '../../dbs/local/types';
+import type { IAccountSelectorPersistInfo } from '../../dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
@@ -177,8 +200,14 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getAllNetworkIds({
     clearCache,
-  }: { clearCache?: boolean } = {}): Promise<{ networkIds: string[] }> {
-    const { networks } = await this.getAllNetworks({ clearCache });
+    excludeTestNetwork,
+  }: { clearCache?: boolean; excludeTestNetwork?: boolean } = {}): Promise<{
+    networkIds: string[];
+  }> {
+    const { networks } = await this.getAllNetworks({
+      clearCache,
+      excludeTestNetwork,
+    });
     const networkIds = networks.map((n) => n.id);
     return {
       networkIds,
@@ -202,6 +231,10 @@ class ServiceNetwork extends ServiceBase {
     networkId?: string;
     code?: string;
   }): Promise<IServerNetwork> {
+    if (networkId === AGGREGATE_TOKEN_MOCK_NETWORK_ID) {
+      return dangerAggregateTokenNetworkRepresent;
+    }
+
     const { networks } = await this.getAllNetworks();
     let network: IServerNetwork | undefined;
     if (!network && networkId) {
@@ -217,7 +250,7 @@ class ServiceNetwork extends ServiceBase {
       );
     }
     if (!network) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `getNetwork ERROR: Network not found: ${networkId || ''} ${code || ''}`,
       );
     }
@@ -338,9 +371,11 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async getDeriveTypeByTemplate({
+    accountId,
     networkId,
     template,
   }: {
+    accountId: string;
     networkId: string;
     template: string | undefined;
   }): Promise<{
@@ -353,9 +388,24 @@ class ServiceNetwork extends ServiceBase {
     const deriveInfoItems = await this.getDeriveInfoItemsOfNetwork({
       networkId,
     });
-    const deriveInfo = deriveInfoItems.find(
-      (item) => item.item.template === template,
-    );
+    let deriveInfo: IAccountDeriveInfoItems | undefined;
+    if (
+      deriveInfoItems.length > 1 &&
+      deriveInfoItems[0].item.useAddressEncodingDerive &&
+      accountId.split('--').length > 2
+    ) {
+      deriveInfo = deriveInfoItems.find(
+        (item) =>
+          item.item.template === template &&
+          item.item.addressEncoding &&
+          accountId.endsWith(item.item.addressEncoding),
+      );
+    }
+    if (!deriveInfo) {
+      deriveInfo = deriveInfoItems.find(
+        (item) => item.item.template === template,
+      );
+    }
     const deriveType = deriveInfo?.value as IAccountDeriveTypes | undefined;
     return {
       deriveType: deriveType || 'default',
@@ -369,13 +419,31 @@ class ServiceNetwork extends ServiceBase {
     account,
   }: {
     networkId: string;
-    account: IDBAccount;
-  }) {
+    account: {
+      id: string;
+      address: string;
+      template?: string | undefined;
+    };
+  }): Promise<{
+    deriveType: IAccountDeriveTypes;
+    deriveInfo: IAccountDeriveInfo | undefined;
+  }> {
     const { template } = account;
     const deriveTypeData = await this.getDeriveTypeByTemplate({
+      accountId: account.id,
       networkId,
       template,
     });
+    if (!deriveTypeData.deriveInfo && account.address) {
+      const deriveInfo = await this.getDeriveInfoByAddress({
+        networkId,
+        address: account.address,
+      });
+      if (deriveInfo?.item && deriveInfo?.value) {
+        deriveTypeData.deriveInfo = deriveInfo?.item;
+        deriveTypeData.deriveType = deriveInfo?.value as IAccountDeriveTypes;
+      }
+    }
     return deriveTypeData;
   }
 
@@ -503,16 +571,23 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getNetworkSelectorPinnedNetworkIds() {
-    const pinnedNetworkIds =
-      await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
-    const networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
-    return networkIds;
+  async getNetworkSelectorPinnedNetworkIds(useDefaultPinnedNetworks?: boolean) {
+    const pinnedNetworkIds = useDefaultPinnedNetworks
+      ? defaultPinnedNetworkIds
+      : await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
+    const networkIds = pinnedNetworkIds;
+    return networkIds ?? defaultPinnedNetworkIds;
   }
 
   @backgroundMethod()
-  async getNetworkSelectorPinnedNetworks(): Promise<IServerNetwork[]> {
-    let networkIds = await this.getNetworkSelectorPinnedNetworkIds();
+  async getNetworkSelectorPinnedNetworks({
+    useDefaultPinnedNetworks,
+  }: {
+    useDefaultPinnedNetworks?: boolean;
+  }): Promise<IServerNetwork[]> {
+    let networkIds = await this.getNetworkSelectorPinnedNetworkIds(
+      useDefaultPinnedNetworks,
+    );
     networkIds = networkIds.filter((id) => id !== getNetworkIdsMap().onekeyall);
     const networkIdsIndex = networkIds.reduce((result, item, index) => {
       result[item] = index;
@@ -528,14 +603,34 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getGlobalDeriveTypeOfNetwork({
     networkId,
+    rawData,
   }: {
     networkId: string;
+    rawData?: IAccountSelectorPersistInfo | null;
   }): Promise<IAccountDeriveTypes> {
     const currentGlobalDeriveType =
       await this.backgroundApi.simpleDb.accountSelector.getGlobalDeriveType({
         networkId,
+        rawData,
       });
     return currentGlobalDeriveType ?? 'default';
+  }
+
+  @backgroundMethod()
+  async getDeriveTypeOrFallbackToGlobal({
+    deriveType,
+    networkId,
+  }: {
+    deriveType: IAccountDeriveTypes | undefined;
+    networkId: string | undefined;
+  }): Promise<IAccountDeriveTypes | undefined> {
+    if (deriveType) {
+      return deriveType;
+    }
+    if (networkId) {
+      return this.getGlobalDeriveTypeOfNetwork({ networkId });
+    }
+    return undefined;
   }
 
   @backgroundMethod()
@@ -561,6 +656,63 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAddressEncodingByAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<EAddressEncodings | undefined> {
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId,
+    });
+    try {
+      // validateBtcAddress
+      const vaultSetting = await vault.validateAddress(address);
+      return vaultSetting?.encoding;
+    } catch (e) {
+      console.error('getAddressEncodingByAddress error', e);
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async getDeriveInfoByAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<IAccountDeriveInfoItems | undefined> {
+    const encoding = await this.getAddressEncodingByAddress({
+      networkId,
+      address,
+    });
+    if (!encoding) {
+      return undefined;
+    }
+    return this.getDeriveInfoByAddressEncoding({
+      networkId,
+      encoding,
+    });
+  }
+
+  @backgroundMethod()
+  async getDeriveTypeByAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<IAccountDeriveTypes | undefined> {
+    const deriveInfo = await this.getDeriveInfoByAddress({
+      networkId,
+      address,
+    });
+    return (deriveInfo?.value as IAccountDeriveTypes | undefined) || undefined;
+  }
+
+  @backgroundMethod()
   async getDeriveTypeByAddressEncoding({
     networkId,
     encoding,
@@ -568,10 +720,10 @@ class ServiceNetwork extends ServiceBase {
     networkId: string;
     encoding: EAddressEncodings;
   }): Promise<IAccountDeriveTypes | undefined> {
-    const items = await this.getDeriveInfoItemsOfNetwork({ networkId });
-    const deriveInfo = items.find(
-      (item) => item.item.addressEncoding === encoding,
-    );
+    const deriveInfo = await this.getDeriveInfoByAddressEncoding({
+      networkId,
+      encoding,
+    });
     return deriveInfo?.value as IAccountDeriveTypes | undefined;
   }
 
@@ -581,7 +733,7 @@ class ServiceNetwork extends ServiceBase {
   }: {
     networkId: string;
     encoding: EAddressEncodings;
-  }) {
+  }): Promise<IAccountDeriveInfoItems | undefined> {
     const items = await this.getDeriveInfoItemsOfNetwork({ networkId });
     const deriveInfo = items.find(
       (item) => item.item.addressEncoding === encoding,
@@ -591,6 +743,7 @@ class ServiceNetwork extends ServiceBase {
   }
 
   async getAccountImportingDeriveTypes({
+    accountId,
     networkId,
     input,
     validateAddress,
@@ -599,6 +752,7 @@ class ServiceNetwork extends ServiceBase {
     validateXprvt,
     template,
   }: {
+    accountId: string;
     networkId: string;
     input: string;
     validateAddress?: boolean;
@@ -612,6 +766,7 @@ class ServiceNetwork extends ServiceBase {
 
     const { deriveType: deriveTypeInTpl } =
       await serviceNetwork.getDeriveTypeByTemplate({
+        accountId,
         networkId,
         template,
       });
@@ -704,6 +859,181 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
+  async detectNetworksByAddress({ address }: { address: string }): Promise<{
+    detectedNetworks: IDetectedNetworkGroupItem[];
+  }> {
+    // eslint-disable-next-line no-param-reassign
+    address = address?.trim?.() || '';
+    if (!address) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+    const availableNetworks: IServerNetwork[] =
+      await this.getWatchingAccountEnabledNetworks();
+    const detectedNetworks: IDetectedNetworkGroupItem[] = [];
+    const detectedNetworksMap: Record<string, IDetectedNetwork[]> = {};
+
+    for (const network of availableNetworks) {
+      try {
+        const localValidateResult =
+          await this.backgroundApi.serviceValidator.localValidateAddress({
+            networkId: network.id,
+            address,
+          });
+        if (localValidateResult?.isValid) {
+          if (!detectedNetworksMap[network.impl]) {
+            detectedNetworksMap[network.impl] = [];
+          }
+          detectedNetworksMap[network.impl].push({
+            networkId: network.id,
+            name: network.name,
+            shortname: network.shortname,
+            impl: network.impl,
+          });
+        }
+      } catch (error) {
+        console.error('detectNetworksByAddress error', network.id, error);
+      }
+    }
+    Object.entries(detectedNetworksMap).forEach(([impl, networks]) => {
+      if (networks.length > 0) {
+        detectedNetworks.push({
+          uuid: stringUtils.generateUUID(),
+          impl,
+          networks,
+        });
+      }
+    });
+    return {
+      detectedNetworks,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async detectNetworksByPublicKey({
+    publicKey,
+  }: {
+    publicKey: string;
+  }): Promise<{
+    detectedNetworks: IDetectedNetworkGroupItem[];
+  }> {
+    // eslint-disable-next-line no-param-reassign
+    publicKey = publicKey?.trim?.() || '';
+    if (!publicKey) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+    const availableNetworks: IServerNetwork[] =
+      await this.getPublicKeyExportEnabledNetworks();
+    const detectedNetworks: IDetectedNetworkGroupItem[] = [];
+    const detectedNetworksMap: Record<string, IDetectedNetwork[]> = {};
+    for (const network of availableNetworks) {
+      try {
+        const result =
+          await this.backgroundApi.serviceAccount.validateGeneralInputOfImporting(
+            {
+              input: publicKey,
+              networkId: network.id,
+              validateXpub: true,
+            },
+          );
+        if (result?.isValid) {
+          if (!detectedNetworksMap[network.impl]) {
+            detectedNetworksMap[network.impl] = [];
+          }
+          detectedNetworksMap[network.impl].push({
+            networkId: network.id,
+            name: network.name,
+            shortname: network.shortname,
+            impl: network.impl,
+          });
+        }
+      } catch (error) {
+        console.error('detectNetworksByPublicKey error', network.id, error);
+      }
+    }
+    Object.entries(detectedNetworksMap).forEach(([impl, networks]) => {
+      if (networks.length > 0) {
+        detectedNetworks.push({
+          uuid: stringUtils.generateUUID(),
+          impl,
+          networks,
+        });
+      }
+    });
+    return {
+      detectedNetworks,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async detectNetworksByPrivateKey({
+    privateKey,
+  }: {
+    privateKey: string;
+  }): Promise<{
+    detectedNetworks: IDetectedNetworkGroupItem[];
+  }> {
+    // eslint-disable-next-line no-param-reassign
+    privateKey = privateKey?.trim?.() || '';
+    if (!privateKey) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+    // eslint-disable-next-line no-param-reassign
+    privateKey = await this.backgroundApi.servicePassword.decodeSensitiveText({
+      encodedText: privateKey || '',
+    });
+    if (!privateKey) {
+      return {
+        detectedNetworks: [],
+      };
+    }
+
+    const availableNetworkIds: string[] = (
+      await this.getImportedAccountEnabledNetworks()
+    ).map((network) => network.id);
+
+    const { groupedByImpl } =
+      await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+    let results = Object.values(groupedByImpl);
+    results = results
+      .map((item) => {
+        item.networks = item.networks
+          .filter((network) => availableNetworkIds.includes(network.networkId))
+          .sort((a, b) => {
+            if (
+              [
+                presetNetworksMap.eth.id,
+                presetNetworksMap.cosmoshub.id,
+                presetNetworksMap.assethubPolkadot.id,
+              ].includes(a.networkId)
+            ) {
+              return -1;
+            }
+            return 0;
+          });
+        if (item.networks?.length === 0) {
+          // return item;
+          return undefined;
+        }
+        return item;
+      })
+      .filter(Boolean);
+    return {
+      detectedNetworks: results,
+    };
+  }
+
+  @backgroundMethod()
   async getSupportExportAccountKeyNetworks({
     exportType,
   }: {
@@ -719,7 +1049,7 @@ class ServiceNetwork extends ServiceBase {
     if (exportType === 'publicKey') {
       return this.getSupportExportPublicKeyNetworks();
     }
-    throw new Error('Not implemented');
+    throw new OneKeyLocalError('Not implemented');
   }
 
   @backgroundMethod()
@@ -843,6 +1173,7 @@ class ServiceNetwork extends ServiceBase {
             walletId,
           });
         if (walletDevice) {
+          // Filter by device type
           const networksDeviceTypeDisabled = networkVaultSettings
             .filter((o) => {
               const deviceTypes = o.vaultSetting.supportedDeviceTypes;
@@ -855,6 +1186,20 @@ class ServiceNetwork extends ServiceBase {
           networkIdsIncompatible = networkIdsIncompatible.concat(
             networksDeviceTypeDisabled,
           );
+
+          // Filter by firmware type (Bitcoin Only, etc.)
+          const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+            walletId,
+            withoutRefill: true,
+          });
+          if (wallet?.firmwareTypeAtCreated === EFirmwareType.BitcoinOnly) {
+            // Bitcoin Only firmware: only allow BTC implementation networks
+            const nonBtcNetworks = networkVaultSettings
+              .filter((o) => o.network.impl !== IMPL_BTC)
+              .map((o) => o.network.id);
+            networkIdsIncompatible =
+              networkIdsIncompatible.concat(nonBtcNetworks);
+          }
         }
       } else if (isHdWallet) {
         // is software wallet
@@ -898,6 +1243,27 @@ class ServiceNetwork extends ServiceBase {
         networkIdsIncompatible = networkIdsIncompatible.concat(
           networksQrAccountDisabled,
         );
+
+        const walletDevice =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+
+        if (walletDevice) {
+          // Filter by firmware type (Bitcoin Only, etc.)
+          const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+            walletId,
+            withoutRefill: true,
+          });
+          if (wallet?.firmwareTypeAtCreated === EFirmwareType.BitcoinOnly) {
+            // Bitcoin Only firmware: only allow BTC implementation networks
+            const nonBtcNetworks = networkVaultSettings
+              .filter((o) => o.network.impl !== IMPL_BTC)
+              .map((o) => o.network.id);
+            networkIdsIncompatible =
+              networkIdsIncompatible.concat(nonBtcNetworks);
+          }
+        }
         // Qr account only support btc/evm network
       }
     }
@@ -911,22 +1277,48 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getImplContainsMultipleNetworks() {
+    const presetNetworks = getPresetNetworks();
+
+    const impls: {
+      [impl: string]: IServerNetwork[];
+    } = {};
+    presetNetworks.forEach((o) => {
+      impls[o.impl] = impls[o.impl] || [];
+      impls[o.impl].push(o);
+    });
+    const results: {
+      [impl: string]: IServerNetwork[];
+    } = {};
+    Object.entries(impls).forEach(([impl, networks]) => {
+      if (networks.length > 1) {
+        results[impl] = networks;
+      }
+    });
+    return results;
+  }
+
+  @backgroundMethod()
   async getChainSelectorNetworksCompatibleWithAccountId({
     accountId,
     networkIds,
     walletId: _walletId,
     clearCache,
+    excludeTestNetwork,
   }: {
     accountId?: string;
     walletId?: string;
     networkIds?: string[];
     clearCache?: boolean;
+    excludeTestNetwork?: boolean;
+    useDefaultPinnedNetworks?: boolean;
   }): Promise<{
     mainnetItems: IServerNetwork[];
     testnetItems: IServerNetwork[];
     unavailableItems: IServerNetwork[];
     frequentlyUsedItems: IServerNetwork[];
     allNetworkItem?: IServerNetwork;
+    useDefaultPinnedNetworks?: boolean;
   }> {
     if (clearCache) {
       await this._getNetworkVaultSettings.clear();
@@ -988,7 +1380,9 @@ class ServiceNetwork extends ServiceBase {
     const _networks = networkVaultSettings.map((o) => o.network);
 
     const _frequentlyUsed =
-      await this.backgroundApi.serviceNetwork.getNetworkSelectorPinnedNetworks();
+      await this.backgroundApi.serviceNetwork.getNetworkSelectorPinnedNetworks({
+        useDefaultPinnedNetworks: true,
+      });
 
     const allNetworkItem =
       await this.backgroundApi.serviceNetwork.getNetworkSafe({
@@ -1039,6 +1433,17 @@ class ServiceNetwork extends ServiceBase {
       }
       return !isDuplicate;
     });
+
+    if (excludeTestNetwork) {
+      return {
+        mainnetItems: networks.filter((o) => !o.isTestnet),
+        testnetItems: [],
+        frequentlyUsedItems: frequentlyUsedNetworks.filter((o) => !o.isTestnet),
+        unavailableItems: unavailableNetworks.filter((o) => !o.isTestnet),
+        allNetworkItem,
+      };
+    }
+
     return {
       mainnetItems: networks.filter((o) => !o.isTestnet),
       testnetItems: networks.filter((o) => o.isTestnet),
@@ -1064,6 +1469,197 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async clearAllNetworksCache() {
     void this.getAllNetworksWithCache.clear();
+  }
+
+  @backgroundMethod()
+  async getRecentNetworks({
+    limit,
+    availableNetworks,
+  }: {
+    limit?: number;
+    availableNetworks?: IServerNetwork[];
+  } = {}) {
+    return this.backgroundApi.simpleDb.recentNetworks.getRecentNetworks({
+      limit,
+      availableNetworks,
+    });
+  }
+
+  @backgroundMethod()
+  async updateRecentNetworks(data: Record<string, { updatedAt: number }>) {
+    if (!data) {
+      return;
+    }
+
+    // filter out all network
+    const filteredData = Object.fromEntries(
+      Object.entries(data).filter(
+        ([networkId]) => !networkUtils.isAllNetwork({ networkId }),
+      ),
+    );
+
+    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
+      filteredData,
+    );
+  }
+
+  @backgroundMethod()
+  async updateRecentNetwork({ networkId }: { networkId: string }) {
+    if (!networkId || networkUtils.isAllNetwork({ networkId })) {
+      return;
+    }
+    const timestamp = Date.now();
+    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
+      [networkId]: { updatedAt: timestamp },
+    });
+  }
+
+  @backgroundMethod()
+  async clearRecentNetworks() {
+    return this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
+  }
+
+  @backgroundMethod()
+  async deleteRecentNetwork({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.recentNetworks.deleteRecentNetwork({
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  async sortChainSelectorNetworksByValue({
+    walletId,
+    chainSelectorNetworks,
+    accountNetworkValues,
+  }: {
+    walletId: string;
+    chainSelectorNetworks: {
+      mainnetItems: IServerNetwork[];
+      testnetItems: IServerNetwork[];
+      frequentlyUsedItems: IServerNetwork[];
+      unavailableItems: IServerNetwork[];
+      allNetworkItem?: IServerNetwork;
+    };
+    accountNetworkValues: Record<string, string>;
+  }) {
+    if (isEmpty(accountNetworkValues)) {
+      return {
+        chainSelectorNetworks,
+        formattedAccountNetworkValues: {},
+      };
+    }
+
+    const networkInfoMap: Record<
+      string,
+      { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
+    > = {};
+
+    const formattedAccountNetworkValues: Record<string, string> = {};
+
+    const deriveTypeRawData =
+      await this.backgroundApi.simpleDb.accountSelector.getRawData();
+
+    for (const [key, value] of Object.entries(accountNetworkValues)) {
+      const keyArray = key.split('_');
+      const networkId = keyArray.pop() as string;
+      const accountId = keyArray.join('_');
+      const [_walletId, _path, _deriveType] = accountId.split(SEPERATOR) as [
+        string,
+        string,
+        string,
+      ];
+
+      const deriveType: IAccountDeriveTypes =
+        (_deriveType as IAccountDeriveTypes) || 'default';
+
+      if (!networkInfoMap[networkId]) {
+        const [globalDeriveType, vaultSettings] = await Promise.all([
+          this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId,
+            rawData: deriveTypeRawData,
+          }),
+          this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+        ]);
+        networkInfoMap[networkId] = {
+          deriveType: globalDeriveType,
+          mergeDeriveAssetsEnabled:
+            vaultSettings.mergeDeriveAssetsEnabled ?? false,
+        };
+      }
+      if (
+        walletId === _walletId &&
+        networkInfoMap[networkId] &&
+        (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
+          accountUtils.isOthersAccount({ accountId }) ||
+          networkInfoMap[networkId].deriveType.toLowerCase() ===
+            deriveType.toLowerCase())
+      ) {
+        if (isNil(formattedAccountNetworkValues[networkId])) {
+          formattedAccountNetworkValues[networkId] = value;
+        } else {
+          formattedAccountNetworkValues[networkId] = new BigNumber(
+            formattedAccountNetworkValues[networkId],
+          )
+            .plus(value)
+            .toFixed();
+        }
+      }
+    }
+
+    // if network in frequentlyUsedItems do not has value or value is less than 1 usd, remove it from frequentlyUsedItems
+    let frequentlyUsedItems = chainSelectorNetworks.frequentlyUsedItems.filter(
+      (item) => {
+        return new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(
+          NETWORK_SHOW_VALUE_THRESHOLD_USD,
+        );
+      },
+    );
+
+    // check if any network in mainnetItems has non-zero value, add it to frequentlyUsedItems
+    for (const item of chainSelectorNetworks.mainnetItems) {
+      if (
+        new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(
+          NETWORK_SHOW_VALUE_THRESHOLD_USD,
+        )
+      ) {
+        frequentlyUsedItems.push(item);
+      }
+    }
+
+    if (isEmpty(frequentlyUsedItems)) {
+      return {
+        chainSelectorNetworks,
+        formattedAccountNetworkValues,
+      };
+    }
+
+    // uniq frequentlyUsedItems and sort by value
+    frequentlyUsedItems = uniqBy(frequentlyUsedItems, 'id').sort((a, b) => {
+      return new BigNumber(
+        formattedAccountNetworkValues[b.id] ?? '0',
+      ).comparedTo(new BigNumber(formattedAccountNetworkValues[a.id] ?? '0'));
+    });
+
+    return {
+      chainSelectorNetworks: {
+        ...chainSelectorNetworks,
+        frequentlyUsedItems,
+      },
+      formattedAccountNetworkValues,
+    };
+  }
+
+  getCoreApiByNetwork({
+    networkId,
+  }: {
+    networkId: string;
+  }): CoreChainScopeBase {
+    const impl = networkUtils.getNetworkImpl({ networkId });
+    const coreApi = getCoreChainApiScopeByImpl({ impl });
+    if (!coreApi) {
+      throw new OneKeyLocalError(`No coreApi found for networkId ${networkId}`);
+    }
+    return coreApi;
   }
 }
 

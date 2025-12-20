@@ -37,15 +37,16 @@ import { PushProviderJPush } from '../PushProvider/PushProviderJPush';
 
 import NotificationProviderBase from './NotificationProviderBase';
 
-import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
+import type { INotificationProviderBaseParams } from './NotificationProviderBase';
 import type {
+  NotificationBehavior,
   NotificationContentInput,
   NotificationPermissionsStatus,
 } from 'expo-notifications';
 
 export default class NotificationProvider extends NotificationProviderBase {
-  constructor(options: INotificationProviderBaseOptions) {
-    super(options);
+  constructor(params: INotificationProviderBaseParams) {
+    super(params);
     void this.configureNotifications();
     this.initWebSocketProvider();
     this.initJPushProvider();
@@ -60,6 +61,7 @@ export default class NotificationProvider extends NotificationProviderBase {
     this.jpushProvider = new PushProviderJPush({
       eventEmitter: this.eventEmitter,
       instanceId: this.options.instanceId,
+      backgroundApi: this.backgroundApi,
     });
   }
 
@@ -72,7 +74,7 @@ export default class NotificationProvider extends NotificationProviderBase {
 
     // iOS: not working when jpush enabled, use JPush.addLocalNotificationListener instead
     // Android: working
-    const sub1 = addNotificationResponseReceivedListener(async (event) => {
+    addNotificationResponseReceivedListener(async (event) => {
       const data = event?.notification?.request?.content?.data as
         | IJPushNotificationLocalEvent
         | undefined;
@@ -106,13 +108,14 @@ export default class NotificationProvider extends NotificationProviderBase {
         });
       }
     });
-    const sub2 = setNotificationHandler({
-      handleNotification: async ({ request }) => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        priority: AndroidNotificationPriority.DEFAULT,
-      }),
+    setNotificationHandler({
+      handleNotification: async ({ request: _request }) =>
+        ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          priority: AndroidNotificationPriority.DEFAULT,
+        } as NotificationBehavior),
     });
 
     // Notifications.removeNotificationSubscription(sub1);
@@ -178,7 +181,7 @@ export default class NotificationProvider extends NotificationProviderBase {
     params: INotificationShowParams,
   ): Promise<INotificationShowResult> {
     this.fixShowParams(params);
-    const { icon, notificationId, title, description } = params;
+    const { notificationId, title, description } = params;
     const uuid = notificationId || generateUUID();
     const data: IJPushNotificationLocalEvent = {
       messageID: uuid,

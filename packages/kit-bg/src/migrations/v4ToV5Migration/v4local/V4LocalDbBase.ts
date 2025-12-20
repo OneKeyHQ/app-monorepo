@@ -8,11 +8,18 @@ import {
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
+  WALLET_NO_EXTERNAL,
+  WALLET_NO_IMPORTED,
+  WALLET_NO_WATCHING,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { PasswordNotSet, WrongPassword } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  PasswordNotSet,
+  WrongPassword,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { V4LocalDbBaseContainer } from './V4LocalDbBaseContainer';
@@ -44,15 +51,15 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     > = {
       [WALLET_TYPE_IMPORTED]: {
         avatar: {},
-        walletNo: 1_000_001,
+        walletNo: WALLET_NO_IMPORTED,
       },
       [WALLET_TYPE_WATCHING]: {
         avatar: {},
-        walletNo: 1_000_002,
+        walletNo: WALLET_NO_WATCHING,
       },
       [WALLET_TYPE_EXTERNAL]: {
         avatar: {},
-        walletNo: 1_000_003,
+        walletNo: WALLET_NO_EXTERNAL,
       },
     };
     const record: IV4DBWallet = {
@@ -112,7 +119,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       id: DB_MAIN_CONTEXT_ID,
     });
     if (!ctx) {
-      throw new Error('failed get local db context');
+      throw new OneKeyLocalError('failed get local db context');
     }
     return ctx;
   }
@@ -139,7 +146,9 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       await this.verifyPassword(oldPassword);
     }
     if (!oldPassword && !isCreateMode) {
-      throw new Error('changePassword ERROR: oldPassword is required');
+      throw new OneKeyLocalError(
+        'changePassword ERROR: oldPassword is required',
+      );
     }
     await db.withTransaction(async (tx) => {
       if (oldPassword) {
@@ -173,7 +182,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
   }) {
     const db = await this.readyDb;
     if (!oldPassword || !newPassword) {
-      throw new Error('password is required');
+      throw new OneKeyLocalError('password is required');
     }
 
     // update all credentials

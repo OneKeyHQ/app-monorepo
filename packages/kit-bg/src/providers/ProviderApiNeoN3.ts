@@ -10,10 +10,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -37,6 +34,7 @@ import type {
 import { NeoDApiErrors } from '@onekeyhq/shared/types/ProviderApis/ProviderApiNeo.type';
 
 import { vaultFactory } from '../vaults/factory';
+import { NEO_GAS_TOKEN_ADDRESS } from '../vaults/impls/neo/sdkNeo/constant';
 import { verify } from '../vaults/impls/neo/sdkNeo/signMessage';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -59,11 +57,15 @@ class ProviderApiNeoN3 extends ProviderApiBase {
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
-    const data = () => {
+    const data = async ({ origin }: { origin: string }) => {
+      const params = await this.neo_accounts({
+        origin,
+        scope: this.providerName,
+      });
       const result = {
         method: 'wallet_events_accountChanged',
         params: {
-          accounts: { address: '' },
+          accounts: { address: params?.address ?? '' },
         },
       };
       return result;
@@ -72,7 +74,7 @@ class ProviderApiNeoN3 extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new NotImplemented();
+    // throw new NotImplemented();
   }
 
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
@@ -133,7 +135,7 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     return Promise.resolve({
       name: 'OneKey',
       website: 'https://onekey.so/',
-      version: '5.7.0',
+      version: process.env.VERSION,
       compatibility: [],
     });
   }
@@ -431,7 +433,7 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     const concatenatedString = lengthHex + parameterHexString;
     const messageHex = `000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000${concatenatedString}`;
     const signHex = u.num2hexstring(0, 4, true) + u.sha256(messageHex);
-    const result = verify(signHex, params.data, params.publicKey);
+    const result = await verify(signHex, params.data, params.publicKey);
     return {
       result,
     };
@@ -577,7 +579,8 @@ class ProviderApiNeoN3 extends ProviderApiBase {
       scriptHash,
       fromAccountAddress: params.fromAddress,
       toAccountAddress: params.toAddress,
-      tokenScriptHash: params.asset,
+      tokenScriptHash:
+        params.asset === 'GAS' ? NEO_GAS_TOKEN_ADDRESS : params.asset,
       amountToTransfer: params.amount,
       systemFee: '0',
       networkFee: '0',
@@ -799,6 +802,16 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     }
 
     let finalTransaction: tx.Transaction;
+    if (
+      transaction.script &&
+      typeof transaction.script === 'string' &&
+      hexUtils.isHexString(transaction.script)
+    ) {
+      transaction.script = Buffer.from(transaction.script, 'hex').toString(
+        'base64',
+      );
+    }
+
     try {
       finalTransaction = tx.Transaction.fromJson(
         transaction as unknown as TransactionJson,

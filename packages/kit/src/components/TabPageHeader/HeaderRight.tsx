@@ -1,256 +1,275 @@
-import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { ActionList, SizableText, Stack, useMedia } from '@onekeyhq/components';
+import {
+  Button,
+  NavBackButton,
+  SizableText,
+  XStack,
+  YStack,
+  rootNavigationRef,
+  useIsWebHorizontalLayout,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import {
-  useDevSettingsPersistAtom,
-  useNotificationsAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../hooks/useAppNavigation';
-import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
-import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
-import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
+import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
+import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
+import {
+  DownloadButton,
+  GiftAction,
+  HeaderNotificationIconButton,
+  LanguageButton,
+  OneKeyIdButton,
+  ThemeButton,
+  WalletConnectionForWeb,
+} from './components';
 import { MoreActionButton } from './MoreActionButton';
-import { UniversalSearchInput } from './UniversalSearchInput';
+import { UrlAccountPageHeader } from './urlAccountPageHeader';
+
+export function MoreAction() {
+  return <MoreActionButton key="more-action" />;
+}
+
+export function SelectorTrigger() {
+  return (
+    <NetworkSelectorTriggerHome
+      num={0}
+      size="small"
+      recordNetworkHistoryEnabled
+    />
+  );
+}
+
+function DepositAction() {
+  const { gtMd } = useMedia();
+  const intl = useIntl();
+  return gtMd ? null : (
+    <Button
+      icon="WalletCryptoOutline"
+      size="small"
+      gap="$1.5"
+      onPress={() => {
+        alert('Deposit');
+      }}
+    >
+      <XStack alignItems="center" gap="$1.5">
+        <YStack
+          bg="rgba(0, 0, 0, 0.11)"
+          width={StyleSheet.hairlineWidth}
+          height="$4"
+        />
+        <SizableText
+          textBreakStrategy="simple"
+          size="$bodySmMedium"
+          color="$textSubdued"
+        >
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </SizableText>
+      </XStack>
+    </Button>
+  );
+}
+
+export function SearchInput({
+  isUrlWallet = false,
+}: { isUrlWallet?: boolean } = {}) {
+  const { gtXl, gtLg, gt2xl } = useMedia();
+
+  let size: boolean;
+  if (isUrlWallet) {
+    size = platformEnv.isWeb ? gt2xl : gtXl;
+  } else {
+    size = platformEnv.isWeb ? gtXl : gtLg;
+  }
+
+  return <UniversalSearchInput size={size ? 'large' : 'small'} />;
+}
 
 export function HeaderRight({
+  selectedHeaderTab,
   sceneName,
+  tabRoute,
+  customHeaderRightItems,
+  renderCustomHeaderRightItems,
 }: {
+  selectedHeaderTab?: ETranslations;
   sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
+  customHeaderRightItems?: ReactNode;
+  renderCustomHeaderRightItems?: ({
+    fixedItems,
+  }: {
+    fixedItems: ReactNode;
+  }) => ReactNode;
 }) {
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-  const scanQrCode = useScanQrCode();
-  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
-
-  const {
-    activeAccount: { account },
-  } = useActiveAccount({ num: 0 });
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
-  const onScanButtonPressed = useCallback(
-    () =>
-      scanQrCode.start({
-        handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-        autoHandleResult: true,
-        account,
-        tokens: {
-          data: allTokens.tokens,
-          keys: allTokens.keys,
-          map,
-        },
-      }),
-    [scanQrCode, account, allTokens, map],
-  );
-
-  const media = useMedia();
-  const openNotificationsModal = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.NotificationsModal, {
-      screen: EModalNotificationsRoutes.NotificationList,
-    });
-  }, [navigation]);
+  const isHorizontal = useIsWebHorizontalLayout();
+  const { gtXl, gtMd } = useMedia();
 
   const items = useMemo(() => {
-    const routeInfo = {
-      routes: '',
-    };
-    const layoutExtView = (
-      <ActionList
-        key="layoutExtView"
-        title={intl.formatMessage({
-          id: ETranslations.global_layout,
-        })}
-        items={[
-          platformEnv.isExtensionUiPopup
-            ? {
-                label: intl.formatMessage({
-                  id: ETranslations.open_as_sidebar,
-                }),
-                icon: 'LayoutRightOutline',
-                onPress: async () => {
-                  defaultLogger.account.wallet.openSidePanel();
-                  await extUtils.openPanelOnActionClick(true);
-                  await extUtils.openSidePanel(routeInfo);
-                  window.close();
-                },
-              }
-            : {
-                label: intl.formatMessage({
-                  id: ETranslations.open_as_popup,
-                }),
-                icon: 'LayoutTopOutline',
-                onPress: async () => {
-                  await extUtils.openPanelOnActionClick(false);
-                  window.close();
-                },
-              },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.global_expand_view,
-            }),
-            icon: 'ExpandOutline',
-            onPress: async () => {
-              defaultLogger.account.wallet.openExpandView();
-              window.close();
-              await backgroundApiProxy.serviceApp.openExtensionExpandTab(
-                routeInfo,
-              );
-            },
-          },
-        ]}
-        renderTrigger={
-          <HeaderIconButton
-            key="layoutRightView"
-            title={intl.formatMessage({ id: ETranslations.global_layout })}
-            icon="LayoutRightOutline"
-          />
-        }
-      />
-    );
+    if (customHeaderRightItems) {
+      return customHeaderRightItems;
+    }
 
-    const scanButton = media.gtMd ? (
-      <HeaderIconButton
-        key="scan"
-        title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
-        icon="ScanOutline"
-        onPress={onScanButtonPressed}
-      />
-    ) : null;
-
-    const primeButton =
-      devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
-        <PrimeHeaderIconButtonLazy key="prime" visible />
-      ) : null;
-
-    let notificationsButton: ReactNode | null = (
-      <Stack key="notifications" testID="headerRightNotificationsButton">
-        <HeaderIconButton
-          title={intl.formatMessage({
-            id: ETranslations.global_notifications,
-          })}
-          icon="BellOutline"
-          onPress={openNotificationsModal}
-          // TODO onLongPress also trigger onPress
-          // onLongPress={showNotificationPermissionsDialog}
-        />
-        {!firstTimeGuideOpened || badge ? (
-          <Stack
-            position="absolute"
-            right="$-2.5"
-            top="$-2"
-            alignItems="flex-end"
-            w="$10"
-            pointerEvents="none"
-          >
-            <Stack
-              bg="$bgApp"
-              borderRadius="$full"
-              borderWidth={2}
-              borderColor="$transparent"
-            >
-              <Stack
-                px="$1"
-                borderRadius="$full"
-                bg="$bgCriticalStrong"
-                minWidth="$4"
-                height="$4"
-                alignItems="center"
-                justifyContent="center"
-              >
-                {!firstTimeGuideOpened ? (
-                  <Stack
-                    width="$1"
-                    height="$1"
-                    backgroundColor="white"
-                    borderRadius="$full"
-                  />
-                ) : (
-                  <SizableText color="$textOnColor" size="$bodySm">
-                    {badge && badge > 99 ? '99+' : badge}
-                  </SizableText>
-                )}
-              </Stack>
-            </Stack>
-          </Stack>
+    const fixedItems = (
+      <>
+        {isHorizontal ? (
+          <HeaderNotificationIconButton testID="header-right-notification" />
         ) : null}
-      </Stack>
+        <MoreAction />
+        {isHorizontal ? (
+          <OneKeyIdButton testID="header-right-onekey-id" />
+        ) : null}
+        {isHorizontal && platformEnv.isWebDappMode ? <DownloadButton /> : null}
+        {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
+          <LanguageButton />
+        ) : null}
+        {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
+          <ThemeButton />
+        ) : null}
+      </>
     );
 
-    const moreActionButton = media.gtMd ? null : (
-      <MoreActionButton key="more-action" />
+    const earnItems = (
+      <>
+        <GiftAction copyAsUrl />
+        <WalletConnectionForWeb tabRoute={tabRoute} />
+        {fixedItems}
+      </>
     );
 
-    const searchInput = media.gtMd ? (
-      <UniversalSearchInput key="searchInput" />
-    ) : null;
-
-    if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return [
-        platformEnv.isNative ? null : (
-          <UrlAccountNavHeader.OpenInApp key="urlAccountOpenInApp" />
-        ),
-        <UrlAccountNavHeader.Share key="urlAccountShare" />,
-      ].filter(Boolean);
+    if (renderCustomHeaderRightItems) {
+      return renderCustomHeaderRightItems({ fixedItems });
     }
 
-    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [
-        layoutExtView,
-        primeButton,
-        notificationsButton,
-        moreActionButton,
-      ].filter(Boolean);
-    }
+    switch (tabRoute) {
+      case ETabRoutes.Home: {
+        const isUrlWallet =
+          platformEnv.isWebDappMode &&
+          sceneName === EAccountSelectorSceneName.homeUrlAccount;
 
-    // notifications is not supported on web currently
-    if (platformEnv.isWeb && !devSettings.enabled) {
-      notificationsButton = null;
-    }
+        const urlAccountBackButton =
+          isUrlWallet && gtMd && platformEnv.isWebDappMode ? (
+            <NavBackButton
+              onPress={() => {
+                rootNavigationRef.current?.navigate(ETabRoutes.Market, {
+                  screen: ETabMarketRoutes.TabMarket,
+                });
+              }}
+            />
+          ) : null;
 
-    return [
-      primeButton,
-      scanButton,
-      notificationsButton,
-      moreActionButton,
-      searchInput,
-    ].filter(Boolean);
+        return (
+          <>
+            {urlAccountBackButton}
+            {isHorizontal ? (
+              <SearchInput isUrlWallet={isUrlWallet} />
+            ) : undefined}
+            {isHorizontal ? undefined : <SelectorTrigger />}
+            {isUrlWallet && gtMd && platformEnv.isWebDappMode ? (
+              <UrlAccountPageHeader />
+            ) : (
+              <WalletConnectionForWeb tabRoute={tabRoute} />
+            )}
+            {fixedItems}
+          </>
+        );
+      }
+      case ETabRoutes.Swap:
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {fixedItems}
+          </>
+        );
+      case ETabRoutes.WebviewPerpTrade:
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {fixedItems}
+          </>
+        );
+      case ETabRoutes.Market:
+        return (
+          <>
+            {isHorizontal ? <SearchInput /> : undefined}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {fixedItems}
+          </>
+        );
+      case ETabRoutes.Discovery:
+        if (selectedHeaderTab === ETranslations.global_earn) {
+          return (
+            <>
+              <GiftAction copyAsUrl />
+              <WalletConnectionForWeb tabRoute={tabRoute} />
+            </>
+          );
+        }
+        if (selectedHeaderTab === ETranslations.global_market) {
+          return <WalletConnectionForWeb tabRoute={tabRoute} />;
+        }
+        return (
+          <>
+            <HistoryIconButton />
+            {isHorizontal || !platformEnv.isNative ? undefined : (
+              <TabCountButton testID="browser-header-tabs" />
+            )}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+          </>
+        );
+      case ETabRoutes.Earn:
+        return earnItems;
+      case ETabRoutes.Perp:
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            <DepositAction />
+          </>
+        );
+      case ETabRoutes.ReferFriends:
+        return fixedItems;
+      default:
+        break;
+    }
   }, [
-    badge,
-    devSettings.enabled,
-    devSettings?.settings?.showPrimeTest,
-    firstTimeGuideOpened,
-    intl,
-    media.gtMd,
-    onScanButtonPressed,
-    openNotificationsModal,
+    customHeaderRightItems,
+    isHorizontal,
+    gtXl,
+    tabRoute,
+    renderCustomHeaderRightItems,
+    selectedHeaderTab,
     sceneName,
+    gtMd,
   ]);
+  const width = useMemo(() => {
+    if (platformEnv.isNative) {
+      return undefined;
+    }
+    if (platformEnv.isDesktopMac) {
+      return 'unset';
+    }
+    return '100%';
+  }, []);
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"
       className="app-region-no-drag"
+      width={width}
+      jc={platformEnv.isNative ? undefined : 'flex-end'}
     >
       {items}
     </HeaderButtonGroup>

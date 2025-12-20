@@ -6,7 +6,6 @@ import { RawIntlProvider } from 'react-intl';
 import { appLocale } from './appLocale';
 import { LOCALES } from './localeJsonMap';
 
-import type { ETranslations } from './enum/translations';
 import type { ILocaleJSONSymbol, ILocaleSymbol } from './type';
 import type { ResolvedIntlConfig } from '@formatjs/intl';
 
@@ -45,6 +44,6 @@ export function AppIntlProvider({
     }
   }, [locale, onLocaleChange, updateAppLocaleMessage]);
   return localeUpdateTs ? (
-    <RawIntlProvider value={appLocale.intl}>{children}</RawIntlProvider>
+    <RawIntlProvider value={appLocale.intl}>{children as any}</RawIntlProvider>
   ) : null;
 }

@@ -52,7 +52,7 @@ type IPortfolioItemProps = {
 const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.ProtocolDetails
+    EModalStakingRoutes.ProtocolDetailsV2
   >();
   const statusMap = useBabylonStatusMap();
   const { networkId } = route.params;
@@ -161,7 +161,7 @@ const ItemSeparatorComponent = () => <Stack h="$4" />;
 const PortfolioDetails = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.ProtocolDetails
+    EModalStakingRoutes.ProtocolDetailsV2
   >();
   const intl = useIntl();
   const { accountId, networkId, symbol, provider } = route.params;

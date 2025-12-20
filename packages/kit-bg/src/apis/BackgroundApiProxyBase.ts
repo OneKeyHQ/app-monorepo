@@ -6,10 +6,9 @@ import {
   getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { OneKeyError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   EAppEventBusNames,
   IAppEventBusPayload,
@@ -23,6 +22,7 @@ import {
   ensurePromiseObject,
   ensureSerializable,
 } from '@onekeyhq/shared/src/utils/assertUtils';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
@@ -49,6 +49,91 @@ export class BackgroundApiProxyBase
   implements IBackgroundApiBridge
 {
   override serviceNameSpace = '';
+
+  private async _callBackgroundMethodAsync({
+    sync,
+    serviceName,
+    methodName,
+    backgroundMethodName,
+    params,
+  }: {
+    sync: boolean;
+    serviceName: string;
+    methodName: string;
+    backgroundMethodName: string;
+    params: Array<any>;
+  }): Promise<any> {
+    if (platformEnv.isExtension && platformEnv.isExtensionUi) {
+      const data: IBackgroundApiInternalCallMessage = {
+        service: serviceName,
+        method: backgroundMethodName,
+        params,
+      };
+      if (sync) {
+        // call without Promise result
+        appGlobals.extJsBridgeUiToBg.requestSync({
+          data,
+        });
+      } else {
+        return appGlobals.extJsBridgeUiToBg.request({
+          data,
+        });
+      }
+    }
+
+    // some third party modules call native object methods, so we should NOT rename method
+    //    react-native/node_modules/pretty-format
+    //    expo/node_modules/pretty-format
+    let backgroundMethodNameLocal = backgroundMethodName;
+    const IGNORE_METHODS = ['hasOwnProperty', 'toJSON'];
+    if (platformEnv.isNative && IGNORE_METHODS.includes(methodName)) {
+      backgroundMethodNameLocal = methodName;
+    }
+    if (!this.backgroundApi) {
+      throw new OneKeyLocalError('backgroundApi not found in non-ext env');
+    }
+
+    const serviceApi = getBackgroundServiceApi({
+      serviceName,
+      backgroundApi: this.backgroundApi,
+    });
+
+    if (serviceApi[backgroundMethodNameLocal] && serviceApi[methodName]) {
+      const resultPromise = serviceApi[methodName].call(serviceApi, ...params);
+      ensurePromiseObject(resultPromise, {
+        serviceName,
+        methodName,
+      });
+      let result = await resultPromise;
+      result = ensureSerializable(result, true);
+      return result;
+    }
+    if (!IGNORE_METHODS.includes(backgroundMethodNameLocal)) {
+      return throwMethodNotFound(serviceName, backgroundMethodNameLocal);
+    }
+  }
+
+  private _callBackgroundMethodCachedByKey = cacheUtils.memoizee(
+    async (
+      _cacheKey: string,
+      serviceName: string,
+      methodName: string,
+      backgroundMethodName: string,
+      params: Array<any>,
+    ): Promise<any> => {
+      return this._callBackgroundMethodAsync({
+        sync: false,
+        serviceName,
+        methodName,
+        backgroundMethodName,
+        params,
+      });
+    },
+    {
+      promise: true,
+      normalizer: (args) => args[0],
+    },
+  );
 
   constructor({
     backgroundApi,
@@ -125,58 +210,41 @@ export class BackgroundApiProxyBase
     if (serviceName === 'ROOT') {
       serviceName = '';
     }
-    let backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
+    const backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
 
-    if (platformEnv.isExtension && platformEnv.isExtensionUi) {
-      const data: IBackgroundApiInternalCallMessage = {
-        service: serviceName,
-        method: backgroundMethodName,
-        params,
-      };
-      if (sync) {
-        // call without Promise result
-        appGlobals.extJsBridgeUiToBg.requestSync({
-          data,
-        });
-      } else {
-        return appGlobals.extJsBridgeUiToBg.request({
-          data,
-        });
-      }
-    } else {
-      // some third party modules call native object methods, so we should NOT rename method
-      //    react-native/node_modules/pretty-format
-      //    expo/node_modules/pretty-format
-      const IGNORE_METHODS = ['hasOwnProperty', 'toJSON'];
-      if (platformEnv.isNative && IGNORE_METHODS.includes(methodName)) {
-        backgroundMethodName = methodName;
-      }
-      if (!this.backgroundApi) {
-        throw new Error('backgroundApi not found in non-ext env');
-      }
+    const buildCacheKey = () => {
+      // Reduce extremely hot-path calls from UI -> BG that return large static
+      // payloads; otherwise the bridge + dev serializable checks dominate time.
+      if (sync) return undefined;
+      // serviceName might be `nameSpace@serviceNetwork` in some envs.
+      const isServiceNetwork =
+        serviceName === 'serviceNetwork' ||
+        serviceName.endsWith('@serviceNetwork');
+      if (!isServiceNetwork) return undefined;
+      if (methodName !== 'getVaultSettings') return undefined;
+      const networkId = (params?.[0] as { networkId?: string } | undefined)
+        ?.networkId;
+      if (!networkId) return undefined;
+      return `${serviceName}.${methodName}:${networkId}`;
+    };
 
-      const serviceApi = getBackgroundServiceApi({
+    const cacheKey = buildCacheKey();
+    if (cacheKey) {
+      return this._callBackgroundMethodCachedByKey(
+        cacheKey,
         serviceName,
-        backgroundApi: this.backgroundApi,
-      });
-
-      if (serviceApi[backgroundMethodName]) {
-        const resultPromise = serviceApi[backgroundMethodName].call(
-          serviceApi,
-          ...params,
-        );
-        ensurePromiseObject(resultPromise, {
-          serviceName,
-          methodName,
-        });
-        let result = await resultPromise;
-        result = ensureSerializable(result, true);
-        return result;
-      }
-      if (!IGNORE_METHODS.includes(backgroundMethodName)) {
-        return throwMethodNotFound(serviceName, backgroundMethodName);
-      }
+        methodName,
+        backgroundMethodName,
+        params,
+      );
     }
+    return this._callBackgroundMethodAsync({
+      sync,
+      serviceName,
+      methodName,
+      backgroundMethodName,
+      params,
+    });
   }
 
   callBackgroundSync(method: string, ...params: Array<any>): any {
@@ -207,6 +275,6 @@ export class BackgroundApiProxyBase
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     payload: IJsBridgeMessagePayload,
   ): Promise<IJsonRpcResponse<any>> {
-    throw new Error('handleProviderMethods in Proxy is mocked');
+    throw new OneKeyLocalError('handleProviderMethods in Proxy is mocked');
   }
 }

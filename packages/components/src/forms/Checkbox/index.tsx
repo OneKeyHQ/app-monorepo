@@ -1,22 +1,20 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
-import { withStaticProperties } from 'tamagui';
-
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  CheckedState,
+  TMCheckboxProps,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
 import { ListView } from '../../layouts';
-import { Icon, Label, XStack, YStack } from '../../primitives';
-import { NATIVE_HIT_SLOP } from '../../utils';
+import { Icon, Label, SizableText, XStack, YStack } from '../../primitives';
+import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
-import type { ILabelProps } from '../../primitives';
+import type { ILabelProps, IXStackProps, IYStackProps } from '../../primitives';
 import type { IFormFieldProps } from '../types';
-import type { ViewStyle } from 'react-native';
-import type {
-  CheckedState,
-  StackProps,
-  CheckboxProps as TMCheckboxProps,
-} from 'tamagui';
+import type { GestureResponderEvent, ViewStyle } from 'react-native';
 
 export type ICheckedState = CheckedState;
 
@@ -24,43 +22,70 @@ export type ICheckboxProps = IFormFieldProps<
   ICheckedState,
   Omit<TMCheckboxProps, 'size' | 'onCheckedChange' | 'checked' | 'value'> & {
     label?: string;
+    description?: string;
     labelProps?: ILabelProps;
-    containerProps?: StackProps;
+    containerProps?: IXStackProps;
+    labelContainerProps?: IYStackProps;
   }
 > & {
   isUncontrolled?: boolean;
+  shouldStopPropagation?: boolean;
 };
 
 function RawCheckbox({
   label,
+  description,
   labelProps,
   onChange,
+  onChangeForDisabled,
   value,
   containerProps,
+  labelContainerProps,
   defaultChecked,
   isUncontrolled,
+  shouldStopPropagation,
   ...checkboxProps
 }: ICheckboxProps) {
   const [innerValue, setInnerValue] = useState(defaultChecked);
   const usedValue = isUncontrolled ? innerValue : value;
-  const onPress = useCallback(() => {
-    if (isUncontrolled) {
-      setInnerValue(!usedValue);
-    }
-    onChange?.(!usedValue);
-  }, [isUncontrolled, onChange, usedValue]);
+  const onPress = useCallback(
+    (event: GestureResponderEvent) => {
+      if (shouldStopPropagation) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+      if (checkboxProps.disabled) {
+        onChangeForDisabled?.(!usedValue);
+        return;
+      }
+      if (isUncontrolled) {
+        setInnerValue(!usedValue);
+      }
+      onChange?.(!usedValue);
+    },
+    [
+      shouldStopPropagation,
+      checkboxProps.disabled,
+      isUncontrolled,
+      onChange,
+      usedValue,
+      onChangeForDisabled,
+    ],
+  );
   return (
     <XStack
-      // alignItems="center"
       py="$2"
       opacity={checkboxProps.disabled ? 0.5 : 1}
       userSelect="none"
       onPress={onPress}
-      ai="center"
+      ai="flex-start"
+      flexShrink={1}
       {...containerProps}
     >
       <YStack
-        unstyled
+        // Warning: Received `true` for a non-boolean attribute `unstyled`.
+        // @ts-ignore
+        unstyled="true"
         p="$0"
         my="$0.5"
         bg={usedValue ? '$bgPrimary' : '$iconInverse'}
@@ -69,13 +94,15 @@ function RawCheckbox({
         borderRadius="$1"
         alignItems="center"
         justifyContent="center"
-        focusVisibleStyle={{
-          outlineOffset: 2,
-          outlineColor: '$focusRing',
-        }}
+        focusVisibleStyle={
+          {
+            outlineOffset: 2,
+            outlineColor: '$focusRing',
+          } as any
+        }
         hitSlop={NATIVE_HIT_SLOP}
         maxHeight="$5"
-        {...checkboxProps}
+        {...(checkboxProps as IYStackProps)}
       >
         <Icon
           name={
@@ -87,19 +114,37 @@ function RawCheckbox({
           size="$4"
         />
       </YStack>
-      {label ? (
-        <Label
-          pointerEvents="none"
-          variant="$bodyLgMedium"
+
+      {label || description ? (
+        <YStack
           pl="$2"
           py="$2"
           my="$-2"
-          onPress={platformEnv.isNativeAndroid ? onPress : undefined}
-          userSelect="none"
-          {...labelProps}
+          flex={platformEnv.isNative ? undefined : 1}
+          {...labelContainerProps}
         >
-          {label}
-        </Label>
+          {label ? (
+            <Label
+              pointerEvents="none"
+              variant="$bodyLgMedium"
+              onPress={platformEnv.isNativeAndroid ? onPress : undefined}
+              color={checkboxProps.disabled ? '$textDisabled' : '$text'}
+              userSelect="none"
+              {...labelProps}
+            >
+              {label}
+            </Label>
+          ) : null}
+          {description ? (
+            <SizableText
+              size="$bodyMd"
+              color={checkboxProps.disabled ? '$textDisabled' : '$textSubdued'}
+              pt="$0.5"
+            >
+              {description}
+            </SizableText>
+          ) : null}
+        </YStack>
       ) : null}
     </XStack>
   );

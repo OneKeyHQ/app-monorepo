@@ -28,6 +28,13 @@ const TxTokenSelector = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AssetSelector/pages/TokenSelector'),
 );
 
+const TxAggregateTokenSelector = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/AssetSelector/pages/AggregateTokenSelector'
+    ),
+);
+
 const TxDeriveTypesAddress = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
@@ -127,6 +134,10 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
   {
     name: EModalSignatureConfirmRoutes.TxSelectToken,
     component: TxTokenSelector,
+  },
+  {
+    name: EModalSignatureConfirmRoutes.TxSelectAggregateToken,
+    component: TxAggregateTokenSelector,
   },
 
   {

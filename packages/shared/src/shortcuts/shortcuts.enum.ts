@@ -11,6 +11,7 @@ export enum EShortcutEvents {
   CloseTab = 'CloseTab',
   SideBar = 'SideBar',
   SearchInPage = 'SearchInPage',
+  UniversalSearch = 'UniversalSearch',
   CopyAddressOrUrl = 'CopyAddressOrUrl',
   AccountSelector = 'AccountSelector',
   NetworkSelector = 'NetworkSelector',
@@ -18,6 +19,9 @@ export enum EShortcutEvents {
   TabEarn = 'TabEarn',
   TabSwap = 'TabSwap',
   TabMarket = 'TabMarket',
+  TabPerps = 'TabPerps',
+  TabReferAFriend = 'TabReferAFriend',
+  TabMyOneKey = 'TabMyOneKey',
   TabBrowser = 'TabBrowser',
   ViewHistory = 'ViewHistory',
   ViewBookmark = 'ViewBookmark',
@@ -25,10 +29,7 @@ export enum EShortcutEvents {
   PinOrUnpinTab = 'PinOrUnpinTab',
   ChangeCurrentTabUrl = 'ChangeCurrentTabUrl',
   ReOpenLastClosedTab = 'ReOpenLastClosedTab',
-  TabPin6 = 'TabPin6',
-  TabPin7 = 'TabPin7',
   TabPin8 = 'TabPin8',
-  TabPin9 = 'TabPin9',
 }
 
 export const shortcutsMap: Record<
@@ -36,6 +37,10 @@ export const shortcutsMap: Record<
   { keys: string[]; desc: string }
 > = {
   // Disable shortcuts in development environment to avoid conflicts with Chrome DevTools default shortcuts (Cmd/Ctrl+F and Cmd/Ctrl+P)
+  [EShortcutEvents.UniversalSearch]: {
+    keys: [shortcutsKeys.CmdOrCtrl, 'K'],
+    desc: 'Universal Search',
+  },
   [EShortcutEvents.SearchInPage]: {
     keys: platformEnv.isDev ? [] : [shortcutsKeys.CmdOrCtrl, 'F'],
     desc: 'Search in Page',
@@ -84,37 +89,37 @@ export const shortcutsMap: Record<
     keys: [shortcutsKeys.CmdOrCtrl, '1'],
     desc: 'Wallet Tab',
   },
-  [EShortcutEvents.TabEarn]: {
+  [EShortcutEvents.TabMarket]: {
     keys: [shortcutsKeys.CmdOrCtrl, '2'],
-    desc: 'Earn Tab',
+    desc: 'Market Tab',
   },
   [EShortcutEvents.TabSwap]: {
     keys: [shortcutsKeys.CmdOrCtrl, '3'],
     desc: 'Swap Tab',
   },
-  [EShortcutEvents.TabMarket]: {
+  [EShortcutEvents.TabPerps]: {
     keys: [shortcutsKeys.CmdOrCtrl, '4'],
-    desc: 'Market Tab',
+    desc: 'Perps Tab',
+  },
+  [EShortcutEvents.TabEarn]: {
+    keys: [shortcutsKeys.CmdOrCtrl, '5'],
+    desc: 'Earn Tab',
+  },
+  [EShortcutEvents.TabReferAFriend]: {
+    keys: [shortcutsKeys.CmdOrCtrl, '6'],
+    desc: 'Refer a Friend Tab',
+  },
+  [EShortcutEvents.TabMyOneKey]: {
+    keys: [shortcutsKeys.CmdOrCtrl, '7'],
+    desc: 'My OneKey Tab',
   },
   [EShortcutEvents.TabBrowser]: {
-    keys: [shortcutsKeys.CmdOrCtrl, '5'],
+    keys: [shortcutsKeys.CmdOrCtrl, '8'],
     desc: 'Browser Tab',
   },
-  [EShortcutEvents.TabPin6]: {
-    keys: [shortcutsKeys.CmdOrCtrl, '6'],
-    desc: 'Pin Tab 6',
-  },
-  [EShortcutEvents.TabPin7]: {
-    keys: [shortcutsKeys.CmdOrCtrl, '7'],
-    desc: 'Pin Tab 6',
-  },
   [EShortcutEvents.TabPin8]: {
-    keys: [shortcutsKeys.CmdOrCtrl, '8'],
-    desc: 'Pin Tab 6',
-  },
-  [EShortcutEvents.TabPin9]: {
     keys: [shortcutsKeys.CmdOrCtrl, '9'],
-    desc: 'Pin Tab 6',
+    desc: 'Pin Tab 8',
   },
   [EShortcutEvents.ViewHistory]: {
     keys: [shortcutsKeys.CmdOrCtrl, 'Y'],

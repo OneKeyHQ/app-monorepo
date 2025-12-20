@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { EHardwareUiStateAction } from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   EFirmwareUpdateTipMessages,
   EOneKeyDeviceMode,
@@ -16,33 +17,7 @@ import { globalAtom } from '../utils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-export enum EHardwareUiStateAction {
-  DeviceChecking = 'DeviceChecking',
-  EnterPinOnDevice = 'EnterPinOnDevice',
-  ProcessLoading = 'ProcessLoading',
-
-  // @onekeyfe/hd-core UI_REQUEST const map ----------------------------------------------
-
-  REQUEST_PIN = 'ui-request_pin',
-  INVALID_PIN = 'ui-invalid_pin',
-  REQUEST_BUTTON = 'ui-button',
-  REQUEST_PASSPHRASE = 'ui-request_passphrase',
-  REQUEST_PASSPHRASE_ON_DEVICE = 'ui-request_passphrase_on_device',
-
-  CLOSE_UI_WINDOW = 'ui-close_window',
-
-  BLUETOOTH_PERMISSION = 'ui-bluetooth_permission',
-  BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE = 'ui-bluetooth_characteristic_notify_change_failure',
-  LOCATION_PERMISSION = 'ui-location_permission',
-  LOCATION_SERVICE_PERMISSION = 'ui-location_service_permission',
-
-  FIRMWARE_PROCESSING = 'ui-firmware-processing',
-  FIRMWARE_PROGRESS = 'ui-firmware-progress',
-  FIRMWARE_TIP = 'ui-firmware-tip',
-
-  PREVIOUS_ADDRESS = 'ui-previous_address_result',
-}
-
+export { EHardwareUiStateAction } from '@onekeyhq/shared/src/utils/deviceUtils';
 export type IHardwareUiPayload = {
   uiRequestType: string; // EHardwareUiStateAction
   eventType: string;
@@ -52,12 +27,21 @@ export type IHardwareUiPayload = {
   connectId: string;
   deviceMode: EOneKeyDeviceMode;
   isBootloaderMode?: boolean;
+  // request passphrase
   passphraseState?: string; // use passphrase, REQUEST_PASSPHRASE_ON_DEVICE only
+  existsAttachPinUser?: boolean; // use attach pin, REQUEST_PASSPHRASE_ON_DEVICE only
+  // firmware update tip
   firmwareTipData?: {
     message: EFirmwareUpdateTipMessages | string;
   };
+  // firmware update progress
   firmwareProgress?: number;
+  firmwareProgressType?: 'transferData' | 'installingFirmware';
   rawPayload: any;
+  // request pin type
+  requestPinType?: 'PinEntry' | 'AttachPin';
+  // service promise for waiting user interaction
+  promiseId?: string;
 };
 export type IHardwareUiState = {
   action: EHardwareUiStateAction;
@@ -68,11 +52,13 @@ export type IHardwareUiState = {
 export enum EFirmwareUpdateSteps {
   init = 'init',
   error = 'error', // error occurred in whole update process, installing phase error will use retry
+  checkReleaseError = 'checkReleaseError', // check release error
   showChangeLog = 'showChangeLog',
   showCheckList = 'showCheckList',
   updateStart = 'updateStart', // updateStart
   installing = 'installing', // installingPhase: 1 boot, 2 fw res, 3 ble
   updateDone = 'updateDone', // updateDone
+  requestDeviceInBootloaderForWebDevice = 'requestDeviceInBootloaderForWebDevice', // web-usb should requestDevice for bootloader mode device, cause pid was changed
 }
 export type IFirmwareUpdateStepInfo =
   | {
@@ -81,6 +67,12 @@ export type IFirmwareUpdateStepInfo =
     }
   | {
       step: EFirmwareUpdateSteps.error;
+      payload: {
+        error: IOneKeyError;
+      };
+    }
+  | {
+      step: EFirmwareUpdateSteps.checkReleaseError;
       payload: {
         error: IOneKeyError;
       };
@@ -114,6 +106,12 @@ export type IFirmwareUpdateStepInfo =
     }
   | {
       step: EFirmwareUpdateSteps.updateDone;
+      payload?: {
+        needOnboarding?: boolean;
+      };
+    }
+  | {
+      step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice;
       payload: undefined;
     };
 
@@ -173,4 +171,33 @@ export const {
 } = globalAtom<boolean>({
   initialValue: false,
   name: EAtomNames.firmwareUpdateWorkflowRunningAtom,
+});
+
+export const {
+  target: firmwareUpdateResultVerifyAtom,
+  use: useFirmwareUpdateResultVerifyAtom,
+} = globalAtom<
+  | {
+      finalBleVersion: string;
+      finalFirmwareVersion: string;
+      finalBootloaderVersion: string;
+    }
+  | undefined
+>({
+  initialValue: undefined,
+  name: EAtomNames.firmwareUpdateResultVerifyAtom,
+});
+
+// hardware xfp generate ----------------------------------------------
+export type IHardwareWalletXfpStatus = {
+  [walletId: string]: {
+    xfpMissing: boolean;
+  };
+};
+export const {
+  target: hardwareWalletXfpStatusAtom,
+  use: useHardwareWalletXfpStatusAtom,
+} = globalAtom<IHardwareWalletXfpStatus>({
+  initialValue: {},
+  name: EAtomNames.hardwareWalletXfpStatusAtom,
 });

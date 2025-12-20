@@ -33,7 +33,9 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalWalletAddressRoutes,
   IModalWalletAddressParamList,
@@ -119,7 +121,7 @@ const DeriveTypesAddressItem = ({
 
   const onPress = useCallback(async () => {
     if (!network) {
-      throw new Error('network is empty');
+      throw new OneKeyLocalError('network is empty');
     }
     if (item.account) {
       if (actionType === EDeriveAddressActionType.Copy) {
@@ -134,6 +136,10 @@ const DeriveTypesAddressItem = ({
           deriveType: item.deriveType,
         });
       }
+      defaultLogger.wallet.addressType.addressTypeSelected({
+        networkId: network.id,
+        type: item.deriveType,
+      });
     } else {
       try {
         setLoading(true);
@@ -191,7 +197,7 @@ const DeriveTypesAddressItem = ({
         <YStack>
           <NumberSizeableText
             formatter="balance"
-            formatterOptions={{ tokenSymbol: token?.symbol }}
+            formatterOptions={{ tokenSymbol: '' }}
             numberOfLines={1}
             textAlign="right"
             size="$bodyLgMedium"
@@ -218,7 +224,6 @@ const DeriveTypesAddressItem = ({
     actionType,
     tokenFiat,
     settings.currencyInfo.symbol,
-    token?.symbol,
   ]);
 
   return (
@@ -229,6 +234,7 @@ const DeriveTypesAddressItem = ({
         <NetworkAvatarBase
           logoURI={network?.logoURI ?? ''}
           isCustomNetwork={network?.isCustomNetwork}
+          isAllNetworks={network?.isAllNetworks}
           networkName={network?.name}
           size="$8"
         />

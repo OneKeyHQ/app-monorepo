@@ -6,6 +6,7 @@ import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/us
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { useAccountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function LoadingSkeletonView() {
   return (
@@ -63,14 +64,12 @@ export function EmptyNoWalletView() {
       })}
       buttonProps={{
         children: intl.formatMessage({
-          id: ETranslations.global_create_wallet,
+          id: platformEnv.isWebDappMode
+            ? ETranslations.global_connect_wallet
+            : ETranslations.global_create_wallet,
         }),
         onPress: () => {
-          void toOnBoardingPage({
-            params: {
-              showCloseButton: true,
-            },
-          });
+          void toOnBoardingPage();
         },
       }}
     />

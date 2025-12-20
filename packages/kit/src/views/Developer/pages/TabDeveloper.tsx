@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
@@ -25,7 +26,6 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useCookie from '../../../hooks/useCookie';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { StartTimePanel } from '../../Setting/pages/List/DevSettingsSection/StartTimePanel';
 
 const useStorage = platformEnv.isNative
   ? (key: EAppSyncStorageKeys, initialValue?: boolean) => {
@@ -63,14 +63,6 @@ function PartContainer({
         {children}
       </YStack>
     </YStack>
-  );
-}
-
-function StartTimePanelContainer() {
-  return (
-    <PartContainer title="Startup Time(ms)">
-      <StartTimePanel />
-    </PartContainer>
   );
 }
 
@@ -198,19 +190,46 @@ const TabDeveloper = () => {
                   </>
                 )}
               </Button>
-            </PartContainer>
 
-            {platformEnv.isNative ? (
-              <PartContainer title="NetworkLogger">
+              {platformEnv.isSupportDesktopBle ? (
                 <Button
-                  onPress={() => {
-                    navigation.push(ETabDeveloperRoutes.NetworkLogger);
+                  onPress={async () => {
+                    await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom(
+                      {
+                        isRequestedPermission: false,
+                      },
+                    );
+                    console.log('Reset Bluetooth Permission');
                   }}
                 >
-                  NetworkLogger
+                  Reset Bluetooth Permission
                 </Button>
-              </PartContainer>
-            ) : null}
+              ) : null}
+
+              <Button
+                onPress={async () => {
+                  try {
+                    await backgroundApiProxy.serviceHardware.clearAllBleConnectIdsForTesting();
+                    console.log('Successfully cleared all bleConnectId fields');
+                  } catch (error) {
+                    console.error(
+                      'Failed to clear bleConnectId fields:',
+                      error,
+                    );
+                  }
+                }}
+              >
+                Clear All BLE ConnectIds (Test)
+              </Button>
+
+              <Button
+                onPress={async () => {
+                  void backgroundApiProxy.serviceIpTable.init();
+                }}
+              >
+                IP_TABLE_TEST
+              </Button>
+            </PartContainer>
 
             <PartContainer title="Async Import Test">
               <Button
@@ -222,7 +241,6 @@ const TabDeveloper = () => {
                 Async Import Test
               </Button>
             </PartContainer>
-            <StartTimePanelContainer />
             <ConnectWalletConnectDapp />
             <TestRefresh />
             {/* <WalletConnectModalNative2 /> */}
@@ -233,4 +251,11 @@ const TabDeveloper = () => {
   );
 };
 
-export default TabDeveloper;
+function TabDeveloperContainer() {
+  return (
+    <TabletHomeContainer>
+      <TabDeveloper />
+    </TabletHomeContainer>
+  );
+}
+export default TabDeveloperContainer;

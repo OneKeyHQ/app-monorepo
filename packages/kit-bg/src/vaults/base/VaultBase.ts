@@ -13,12 +13,17 @@ import {
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type {
+  EAddressEncodings,
   IEncodedTx,
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -56,6 +61,7 @@ import type {
   IEstimateGasResp,
   IFeeInfoUnit,
   IServerEstimateFeeResponse,
+  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
@@ -70,6 +76,7 @@ import type {
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
@@ -79,7 +86,11 @@ import type {
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
 import type { IAfterSendTxActionParams } from '@onekeyhq/shared/types/signatureConfirm';
-import type { IStakeTx, IStakingInfo } from '@onekeyhq/shared/types/staking';
+import type {
+  IInternalDappTxParams,
+  IStakeTx,
+  IStakingInfo,
+} from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -121,10 +132,12 @@ import type {
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
   ISignTransactionParams,
+  ITransferPayload,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { FailedAttemptError } from 'p-retry';
 import type { MessageDescriptor } from 'react-intl';
 
 export type IVaultInitConfig = {
@@ -134,7 +147,9 @@ export type IKeyringMapKey = IDBWalletType;
 
 if (platformEnv.isExtensionUi) {
   debugger;
-  throw new Error('engine/VaultBase is not allowed imported from ui');
+  throw new OneKeyLocalError(
+    'engine/VaultBase is not allowed imported from ui',
+  );
 }
 
 export abstract class VaultBaseChainOnly extends VaultContext {
@@ -180,7 +195,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
     if (!this.coreApi) {
-      throw new Error('coreApi not defined in Vault');
+      throw new OneKeyLocalError('coreApi not defined in Vault');
     }
     try {
       const networkInfo = await this.getCoreApiNetworkInfo();
@@ -350,6 +365,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   ): Promise<IFetchServerTokenDetailResponse> {
     throw new NotImplemented();
   }
+
+  async verifyMessage(params: IVerifyMessageParams) {
+    return Promise.resolve({
+      valid: false,
+    });
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -433,6 +454,30 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(true);
   }
 
+  /**
+   * Extension point for vault implementations to perform preparatory actions
+   * before sending transactions, such as resource rental for Tron.
+   */
+  async preActionsBeforeSending(params: {
+    unsignedTxs: IUnsignedTxPro[];
+    tronResourceRentalInfo?: ITronResourceRentalInfo;
+  }): Promise<
+    | {
+        preSendTx?: {
+          txid: string;
+        };
+      }
+    | undefined
+  > {
+    return Promise.resolve({});
+  }
+
+  async preActionsBeforeConfirm(params: {
+    unsignedTxs: IUnsignedTxPro[];
+  }): Promise<Partial<ITransferPayload> | undefined> {
+    return Promise.resolve(undefined);
+  }
+
   async buildEstimateFeeParams({
     encodedTx,
   }: {
@@ -492,7 +537,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     const txid: string = signedTx?.txid || decodedTx?.txid || '';
     if (!txid) {
-      throw new Error('buildHistoryTx txid not found');
+      throw new OneKeyLocalError('buildHistoryTx txid not found');
     }
 
     const { accountId, networkId } = decodedTx;
@@ -1106,7 +1151,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         networkId: this.networkId,
       })
     ) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `account impl not matched to network: ${
           this.networkId
         } ${account.id?.slice(0, 30)}`,
@@ -1171,7 +1216,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       (!address && !addressDetail.allowEmptyAddress) ||
       !addressDetail.isValid
     ) {
-      throw new Error('VaultBase.getAccount ERROR: address is invalid');
+      throw new OneKeyLocalError(
+        'VaultBase.getAccount ERROR: address is invalid',
+      );
     }
 
     return {
@@ -1195,6 +1242,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     dbAccount?: IDBAccount;
   } = {}): Promise<string | undefined> {
     const networkAccount = await this.getAccount({ dbAccount });
+
     return this.getXpubFromAccount(networkAccount);
   }
 
@@ -1252,9 +1300,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve({});
   }
 
-  // Staking
-  buildStakeEncodedTx(params: IStakeTx): Promise<IEncodedTx> {
-    return Promise.resolve(params as IEncodedTx);
+  // Staking / Swap
+  buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
+  ): Promise<IEncodedTx> {
+    return Promise.resolve(params.internalDappTx as IEncodedTx);
   }
 
   // Api Request
@@ -1456,5 +1506,15 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async afterSendTxAction(params: IAfterSendTxActionParams) {
     throw new NotImplemented();
+  }
+
+  async getAddressEncoding(): Promise<EAddressEncodings | undefined> {
+    return undefined;
+  }
+
+  async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }

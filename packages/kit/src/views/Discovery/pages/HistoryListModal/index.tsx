@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isNil } from 'lodash';
+import { isEqual, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Button,
@@ -13,22 +14,18 @@ import {
   SectionList,
   Toast,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useBrowserAction,
-  useBrowserHistoryAction,
-} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
+import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
@@ -57,23 +54,45 @@ function HistoryListModal() {
   const { removeBrowserHistory, removeAllBrowserHistory } =
     useBrowserHistoryAction().current;
 
-  const { gtMd } = useMedia();
-  const { handleOpenWebSite } = useBrowserAction().current;
+  const handleWebSite = useWebSiteHandler();
 
   const [page, setPage] = useState(1);
-  const { result: dataSource, run } = usePromiseResult(
-    async () => {
-      const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
-        page,
-      );
-      const ret = groupDataByDate(data);
-      return ret;
-    },
-    [page],
-    {
-      watchLoading: true,
-    },
+  const { result: dataSource = [], run } = usePromiseResult(async () => {
+    const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
+      page,
+    );
+
+    return data;
+  }, [page]);
+
+  const previousDataRef = useRef<IBrowserHistory[] | undefined>(undefined);
+  const cachedResultRef = useRef<{ title: string; data: IBrowserHistory[] }[]>(
+    [],
   );
+
+  const memoizedDataSource = useMemo(() => {
+    // Only recalculate if data actually changed
+    if (!dataSource || dataSource.length === 0) {
+      previousDataRef.current = dataSource;
+      cachedResultRef.current = [];
+      return [];
+    }
+
+    // Use deep comparison to check if data really changed
+    if (
+      previousDataRef.current &&
+      isEqual(dataSource, previousDataRef.current)
+    ) {
+      return cachedResultRef.current;
+    }
+
+    // Data changed, recalculate
+    const newResult = groupDataByDate(dataSource);
+    previousDataRef.current = dataSource;
+    cachedResultRef.current = newResult;
+
+    return newResult;
+  }, [dataSource]);
 
   const removeHistoryFlagRef = useRef(false);
   const handleDeleteAll = useCallback(async () => {
@@ -99,6 +118,7 @@ function HistoryListModal() {
             <IconButton
               variant="tertiary"
               icon="BroomOutline"
+              testID="history-clear-all-button"
               title={intl.formatMessage({
                 id: ETranslations.explore_remove_all,
               })}
@@ -139,8 +159,12 @@ function HistoryListModal() {
     [],
   );
 
+  const debouncedOnEndReached = useDebouncedCallback(() => {
+    setPage((prev) => prev + 1);
+  }, 500);
+
   return (
-    <Page scrollEnabled>
+    <Page lazyLoad>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.browser_recently_closed,
@@ -150,7 +174,7 @@ function HistoryListModal() {
       <Page.Body>
         <SectionList
           testID="History-SectionList"
-          height="100%"
+          flex={1}
           ListEmptyComponent={
             <Empty
               py="$32"
@@ -163,7 +187,7 @@ function HistoryListModal() {
           }
           estimatedItemSize="$16"
           extraData={isEditing}
-          sections={isNil(dataSource) ? [] : dataSource}
+          sections={isNil(memoizedDataSource) ? [] : memoizedDataSource}
           renderSectionHeader={({ section: { title } }) => (
             <SectionList.SectionHeader title={title} />
           )}
@@ -183,18 +207,14 @@ function HistoryListModal() {
               testID={`search-modal-${item.url.toLowerCase()}`}
               {...(!isEditing && {
                 onPress: () => {
-                  handleOpenWebSite({
-                    switchToMultiTabBrowser: gtMd,
-                    navigation,
+                  handleWebSite({
                     webSite: {
                       url: item.url,
                       title: item.title,
+                      logo: item.logo,
+                      sortIndex: undefined,
                     },
-                  });
-
-                  defaultLogger.discovery.dapp.enterDapp({
-                    dappDomain: item.url,
-                    dappName: item.title,
+                    shouldPopNavigation: true,
                     enterMethod: EEnterMethod.history,
                   });
                 },
@@ -219,9 +239,8 @@ function HistoryListModal() {
               ) : null}
             </ListItem>
           )}
-          onEndReached={() => {
-            setPage((prev) => prev + 1);
-          }}
+          onEndReached={debouncedOnEndReached}
+          onEndReachedThreshold={0.2}
         />
       </Page.Body>
     </Page>

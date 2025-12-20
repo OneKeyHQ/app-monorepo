@@ -60,7 +60,8 @@ export type IEncodedTx =
   | IEncodedTxGroupAlgo
   | IEncodedTxCkb
   | IEncodedTxNear
-  | IEncodedTxNeoN3;
+  | IEncodedTxNeoN3
+  | IEncodedTxScdo;
 //   | IEncodedTxBtc
 //   | IEncodedTxDot
 //   | IEncodedTxSTC
@@ -119,9 +120,14 @@ export type IUnsignedTxPro = IUnsignedTx & {
   uuid?: string;
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
+  disableMev?: boolean;
 
   isKRC20RevealTx?: boolean;
   commitTxScriptHex?: string;
+
+  accountId?: string;
+  networkId?: string;
+  indexedAccountId?: string;
 };
 export type ISignedTx = {
   txid: string;
@@ -141,6 +147,7 @@ export type ISignedTxResult = ISignedTx & {
   randomSeed?: number;
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
+  disableMev?: boolean;
   uuid?: string;
 
   // for kaspa

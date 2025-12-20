@@ -1,6 +1,8 @@
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { EOnekeyDomain } from '@onekeyhq/shared/types';
+import { EHardwareTransportType, EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
@@ -10,8 +12,24 @@ import { globalAtom } from '../utils';
 
 export type IEndpointType = 'prod' | 'test';
 
+// don't use deviceUtils.getDefaultHardwareTransportType(), it will cause resource export order conflict
+function getDefaultHardwareTransportType(): EHardwareTransportType {
+  if (platformEnv.isNative) {
+    return EHardwareTransportType.BLE;
+  }
+  // Linux 桌面端优先使用 Bridge（WebUSB 受 udev 等限制）
+  if (platformEnv.isDesktopLinux) {
+    return EHardwareTransportType.Bridge;
+  }
+  if (platformEnv.isSupportWebUSB) {
+    return EHardwareTransportType.WEBUSB;
+  }
+  return EHardwareTransportType.Bridge;
+}
+
 export type ISettingsPersistAtom = {
   theme: 'light' | 'dark' | 'system';
+  selectedBrowserTab: ETranslations;
   lastLocale: ILocaleSymbol;
   locale: ILocaleSymbol;
   version: string;
@@ -43,11 +61,19 @@ export type ISettingsPersistAtom = {
   isCustomTxMessageEnabled: boolean;
   isFloatingIconAlwaysDisplay: boolean;
   isFilterScamHistoryEnabled: boolean;
+  isFilterLowValueHistoryEnabled: boolean;
+  hardwareTransportType?: EHardwareTransportType;
+
+  hiddenWalletImmediately: boolean;
+  showAddHiddenInWalletSidebar?: boolean;
+  enableDesktopBluetooth?: boolean;
+  enableBTCFreshAddress?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
   theme: 'system',
   lastLocale: 'system',
+  selectedBrowserTab: ETranslations.global_browser,
   locale: 'system',
   version: process.env.VERSION ?? '1.0.0',
   buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
@@ -71,7 +97,13 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isCustomNonceEnabled: false,
   isCustomTxMessageEnabled: false,
   isFloatingIconAlwaysDisplay: false,
-  isFilterScamHistoryEnabled: false,
+  isFilterScamHistoryEnabled: true,
+  isFilterLowValueHistoryEnabled: true,
+  hardwareTransportType: getDefaultHardwareTransportType(),
+  hiddenWalletImmediately: true,
+  showAddHiddenInWalletSidebar: true,
+  enableDesktopBluetooth: true,
+  enableBTCFreshAddress: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -126,5 +158,32 @@ export const {
     hideValue: false,
   },
 });
+
+export type ISettingsTronRentalPersistAtom = {
+  preventDisableTronRental: boolean;
+};
+
+export const {
+  target: settingsTronRentalPersistAtom,
+  use: useSettingsTronRentalPersistAtom,
+} = globalAtom<ISettingsTronRentalPersistAtom>({
+  persist: true,
+  name: EAtomNames.settingsTronRentalPersistAtom,
+  initialValue: {
+    preventDisableTronRental: false,
+  },
+});
+
+export type IAppSideBarStatusAtom = {
+  isCollapsed: boolean;
+};
+export const { target: appSideBarStatusAtom, use: useAppSideBarStatusAtom } =
+  globalAtom<IAppSideBarStatusAtom>({
+    name: EAtomNames.appSideBarStatusAtom,
+    persist: true,
+    initialValue: {
+      isCollapsed: true,
+    },
+  });
 
 // extract high frequency refresh data to another atom

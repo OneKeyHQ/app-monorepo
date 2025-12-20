@@ -10,7 +10,9 @@ import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
+import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IRequestInvoiceArgs } from '@onekeyhq/shared/types/lightning/webln';
 
 import { DAppAccountListStandAloneItem } from '../../../DAppConnection/components/DAppAccountList';
@@ -37,6 +39,7 @@ function WeblnMakeInvoiceModal() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
   const makeInvoiceParams = $sourceInfo?.data.params as IRequestInvoiceArgs;
 
@@ -68,7 +71,10 @@ function WeblnMakeInvoiceModal() {
       if (!networkId || !accountId) return;
       setIsLoading(true);
       const values = useFormReturn.getValues();
-      const amount = values.amount || '0';
+      const amount =
+        lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertBtcToSats(values.amount ?? 0)
+          : values.amount ?? 0;
       try {
         const invoice = await backgroundApiProxy.serviceLightning.createInvoice(
           {
@@ -101,7 +107,7 @@ function WeblnMakeInvoiceModal() {
         setIsLoading(false);
       }
     },
-    [networkId, accountId, isLoading, dappApprove, useFormReturn],
+    [networkId, accountId, isLoading, dappApprove, useFormReturn, lnUnit],
   );
 
   return (
@@ -132,6 +138,8 @@ function WeblnMakeInvoiceModal() {
               ).toNumber()}
               amountReadOnly={Number(makeInvoiceParams.amount) > 0}
               memo={makeInvoiceParams.defaultMemo}
+              lnUnit={lnUnit}
+              setLnUnit={setLnUnit}
             />
           </DAppRequestLayout>
         </Page.Body>

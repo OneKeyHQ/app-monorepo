@@ -1,4 +1,5 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgAnonymousHidden2 = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
@@ -10,7 +11,7 @@ const SvgAnonymousHidden2 = (props: SvgProps) => (
     />
     <Path
       fill="currentColor"
-      d="M11 10.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm5 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"
+      d="M11 10.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m5 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"
     />
   </Svg>
 );

@@ -2,14 +2,14 @@ import {
   decodeSensitiveTextAsync,
   encodeKeyPrefix,
   encodeSensitiveTextAsync,
-} from '@onekeyhq/core/src/secret';
+} from '@onekeyhq/core/src/secret/encryptors/aes256';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
-import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
-const biologyAuthNativeError = 'biology_native_error';
 class BiologyAuthUtils implements IBiologyAuth {
   isSupportBiologyAuth() {
     return biologyAuth.isSupportBiologyAuth();
@@ -24,21 +24,21 @@ class BiologyAuthUtils implements IBiologyAuth {
   }
 
   savePassword = async (password: string) => {
-    if (!secureStorageInstance.supportSecureStorage()) return;
+    if (!(await appStorage.secureStorage.supportSecureStorage())) return;
     let text = await decodeSensitiveTextAsync({ encodedText: password });
     const settings = await settingsPersistAtom.get();
     text = await encodeSensitiveTextAsync({
       text,
       key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
     });
-    await secureStorageInstance.setSecureItem('password', text);
+    await appStorage.secureStorage.setSecureItem('password', text);
   };
 
   getPassword = async () => {
-    if (!secureStorageInstance.supportSecureStorage()) {
-      throw new Error('No password');
+    if (!(await appStorage.secureStorage.supportSecureStorage())) {
+      throw new OneKeyLocalError('No password');
     }
-    let text = await secureStorageInstance.getSecureItem('password');
+    let text = await appStorage.secureStorage.getSecureItem('password');
     if (text) {
       const settings = await settingsPersistAtom.get();
       text = await decodeSensitiveTextAsync({
@@ -48,13 +48,12 @@ class BiologyAuthUtils implements IBiologyAuth {
       text = await encodeSensitiveTextAsync({ text });
       return text;
     }
-    throw new Error('No password');
+    throw new OneKeyLocalError('No password');
   };
 
   deletePassword = async () => {
-    if (!secureStorageInstance.supportSecureStorage()) return;
-    await secureStorageInstance.removeSecureItem('password');
+    if (!(await appStorage.secureStorage.supportSecureStorage())) return;
+    await appStorage.secureStorage.removeSecureItem('password');
   };
 }
-const biologyAuthUtils = new BiologyAuthUtils();
-export { biologyAuthUtils, biologyAuthNativeError };
+export const biologyAuthUtils = new BiologyAuthUtils();

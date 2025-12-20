@@ -58,7 +58,7 @@ export function SuggestedView({
             {...(index !== 0 && {
               pt: '$5',
             })}
-            space="$1.5"
+            gap="$1.5"
           >
             <Heading size="$headingMd" userSelect="none">
               {i.name}
@@ -69,6 +69,7 @@ export function SuggestedView({
                 icon="InfoCircleOutline"
                 variant="tertiary"
                 size="small"
+                testID="suggested-category-info-button"
                 onPress={() => {
                   const dialog = Dialog.show({
                     icon: 'InfoCircleOutline',

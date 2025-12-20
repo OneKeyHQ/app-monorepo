@@ -1,3 +1,5 @@
+import type { ToastT } from 'sonner';
+
 export type IToastMessageOptions = {
   renderContent: (props?: { width?: number }) => JSX.Element;
   /**
@@ -8,7 +10,7 @@ export type IToastMessageOptions = {
    * Duration in seconds.
    */
   duration: number;
-  haptic?: 'success' | 'warning' | 'info' | 'error' | 'none';
+  haptic?: 'success' | 'warning' | 'info' | 'error' | 'loading' | 'none';
   /**
    * Defaults to `true`.
    */
@@ -18,4 +20,10 @@ export type IToastMessageOptions = {
    * @platform ios
    */
   from?: 'top' | 'bottom';
+  /**
+   * Change the position of the toast.
+   * Only works on web platform.
+   * @platform web
+   */
+  position?: ToastT['position'];
 };

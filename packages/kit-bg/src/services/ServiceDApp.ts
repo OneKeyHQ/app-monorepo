@@ -1,6 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { Semaphore } from 'async-mutex';
-import { debounce } from 'lodash';
+import { debounce, isEqual, pick } from 'lodash';
 
 import type {
   IEncodedTx,
@@ -13,11 +13,13 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import {
   IMPL_BTC,
   IMPL_EVM,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -41,11 +43,11 @@ import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDappSourceInfo, IServerNetwork } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import {
+  EAlignPrimaryAccountMode,
   type IConnectedAccountInfo,
   type IConnectionAccountInfo,
   type IConnectionItem,
@@ -65,6 +67,7 @@ import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IDBAccount } from '../dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '../dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type ProviderApiEthereum from '../providers/ProviderApiEthereum';
 import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
@@ -87,7 +90,7 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   }
 
   if (!networkImpls) {
-    throw new Error('networkImpl not found');
+    throw new OneKeyLocalError('networkImpl not found');
   }
   return {
     storageType,
@@ -131,10 +134,10 @@ class ServiceDApp extends ServiceBase {
       try {
         return await new Promise((resolve, reject) => {
           if (!request.origin) {
-            throw new Error('origin is required');
+            throw new OneKeyLocalError('origin is required');
           }
           if (!request.scope) {
-            throw new Error('scope is required');
+            throw new OneKeyLocalError('scope is required');
           }
           const id = this.backgroundApi.servicePromise.createCallback({
             resolve,
@@ -263,15 +266,17 @@ class ServiceDApp extends ServiceBase {
     accountId,
     networkId,
     walletInternalSign,
+    skipBackupCheck,
   }: {
     request: IJsBridgeMessagePayload;
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
     walletInternalSign?: boolean;
+    skipBackupCheck?: boolean;
   }) {
     if (!accountId || !networkId) {
-      throw new Error('accountId and networkId required');
+      throw new OneKeyLocalError('accountId and networkId required');
     }
     return this.openModal({
       request,
@@ -284,6 +289,7 @@ class ServiceDApp extends ServiceBase {
         accountId,
         networkId,
         walletInternalSign,
+        skipBackupCheck,
       },
       fullScreen: !platformEnv.isNativeIOS,
     });
@@ -423,7 +429,7 @@ class ServiceDApp extends ServiceBase {
     walletConnectTopic?: string;
   }) {
     if (storageType === 'walletConnect' && !walletConnectTopic) {
-      throw new Error('walletConnectTopic is required');
+      throw new OneKeyLocalError('walletConnectTopic is required');
     }
     const { simpleDb, serviceDiscovery } = this.backgroundApi;
     await this.deleteExistSessionBeforeConnect({ origin, storageType });
@@ -803,7 +809,7 @@ class ServiceDApp extends ServiceBase {
       isWalletConnectRequest: request.isWalletConnectRequest,
     });
     if (!accountsInfo) {
-      console.log('getConnectedNetworks: ===> Network not found');
+      // console.log('getConnectedNetworks: ===> Network not found');
       return [];
     }
     const networkIds = accountsInfo.map(
@@ -821,18 +827,24 @@ class ServiceDApp extends ServiceBase {
       newNetworkId: string;
     },
   ) {
-    const { newNetworkId } = params;
+    const { newNetworkId, oldNetworkId } = params;
     const containsNetwork =
       await this.backgroundApi.serviceNetwork.containsNetwork({
         networkId: newNetworkId,
       });
     if (!containsNetwork) {
-      throw new Error('Network not found');
+      throw new OneKeyLocalError('Network not found');
     }
     const { shouldSwitchNetwork, isDifferentNetworkImpl } =
       await this.getSwitchNetworkInfo(params);
     if (!shouldSwitchNetwork) {
       return;
+    }
+
+    if (oldNetworkId) {
+      await this.backgroundApi.serviceNetwork.updateRecentNetwork({
+        networkId: oldNetworkId,
+      });
     }
 
     const { storageType, networkImpls } = getQueryDAppAccountParams(params);
@@ -860,7 +872,7 @@ class ServiceDApp extends ServiceBase {
         );
 
       if (!activeAccount.account) {
-        throw new Error('Switch network failed, account not found');
+        throw new OneKeyLocalError('Switch network failed, account not found');
       }
 
       updatedAccountInfo = {
@@ -1042,6 +1054,25 @@ class ServiceDApp extends ServiceBase {
     );
   }
 
+  @backgroundMethod()
+  async notifyHyperliquidPerpConfigChanged(params: {
+    hyperliquidBuilderAddress: string | undefined;
+    hyperliquidMaxBuilderFee: number | undefined;
+  }) {
+    // use ethereum provider to send message to dapp
+    const ethereumProvider = this.backgroundApi.providers
+      .ethereum as ProviderApiEthereum;
+    await ethereumProvider.notifyHyperliquidPerpConfigChanged(
+      {
+        // use ethereum provider to send message to dapp
+        send: this.backgroundApi.sendForProvider('ethereum'),
+        // only notify to hyperliquid official dapp
+        targetOrigin: HYPER_LIQUID_ORIGIN,
+      },
+      params,
+    );
+  }
+
   // Follow home account changed to switch dApp connection account
   @backgroundMethod()
   async isSupportSwitchDAppConnectionAccount(params: {
@@ -1050,16 +1081,13 @@ class ServiceDApp extends ServiceBase {
     networkId?: string;
     indexedAccountId?: string;
     isOthersWallet?: boolean;
-    deriveType: IAccountDeriveTypes;
+    deriveType: IAccountDeriveTypes | undefined;
   }) {
-    const {
-      origin,
-      accountId,
-      indexedAccountId,
-      networkId,
-      isOthersWallet,
-      deriveType,
-    } = params;
+    const { origin, accountId, indexedAccountId, networkId, isOthersWallet } =
+      params;
+
+    const deriveType = params.deriveType;
+
     const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
       origin,
     );
@@ -1107,13 +1135,17 @@ class ServiceDApp extends ServiceBase {
       )
         ? connectedAccountInfo.deriveType
         : deriveType;
-      const networkAccount =
-        await this.backgroundApi.serviceAccount.getNetworkAccount({
-          accountId: undefined,
-          indexedAccountId,
-          networkId: connectedAccountInfo.networkId ?? '',
-          deriveType: usedDeriveType,
-        });
+      let networkAccount: INetworkAccount | undefined;
+
+      if (usedDeriveType) {
+        networkAccount =
+          await this.backgroundApi.serviceAccount.getNetworkAccount({
+            accountId: undefined,
+            indexedAccountId,
+            networkId: connectedAccountInfo.networkId ?? '',
+            deriveType: usedDeriveType,
+          });
+      }
 
       if (connectedAccount.id === networkAccount?.id) {
         return {
@@ -1138,7 +1170,7 @@ class ServiceDApp extends ServiceBase {
     indexedAccountId?: string;
     isOthersWallet?: boolean;
     deriveType: IAccountDeriveTypes;
-  }) {
+  }): Promise<INetworkAccount | null> {
     const {
       origin,
       accountId,
@@ -1183,13 +1215,16 @@ class ServiceDApp extends ServiceBase {
       )
         ? connectedAccountInfo.deriveType
         : deriveType;
-      const networkAccount =
-        await this.backgroundApi.serviceAccount.getNetworkAccount({
-          accountId: undefined,
-          indexedAccountId,
-          networkId: connectedAccountInfo.networkId ?? '',
-          deriveType: usedDeriveType,
-        });
+      let networkAccount: INetworkAccount | null = null;
+      if (usedDeriveType) {
+        networkAccount =
+          await this.backgroundApi.serviceAccount.getNetworkAccount({
+            accountId: undefined,
+            indexedAccountId,
+            networkId: connectedAccountInfo.networkId ?? '',
+            deriveType: usedDeriveType,
+          });
+      }
       return networkAccount;
     } catch {
       return null;
@@ -1251,6 +1286,10 @@ class ServiceDApp extends ServiceBase {
     const privateProvider = this.backgroundApi.providers.$private as
       | ProviderApiPrivate
       | undefined;
+    defaultLogger.app.webembed.privateProviderStatus({
+      init: Boolean(privateProvider),
+      isWebEmbedApiReady: privateProvider?.isWebEmbedApiReady,
+    });
     return Promise.resolve(privateProvider?.isWebEmbedApiReady);
   }
 
@@ -1289,7 +1328,10 @@ class ServiceDApp extends ServiceBase {
       : connectedAccountInfo.walletId === homeAccountSelectorInfo?.walletId &&
         connectedAccountInfo.indexedAccountId ===
           homeAccountSelectorInfo?.indexedAccountId &&
-        connectedAccountInfo.deriveType === homeAccountSelectorInfo?.deriveType;
+        // BTC account do not need to check deriveType
+        (networkUtils.isBTCNetwork(connectedAccountInfo.networkId) ||
+          connectedAccountInfo.deriveType ===
+            homeAccountSelectorInfo?.deriveType);
 
     return isSameAccount;
   }
@@ -1320,7 +1362,7 @@ class ServiceDApp extends ServiceBase {
       return connectedAccountInfo;
     }
 
-    const { simpleDb, serviceAccount } = this.backgroundApi;
+    const { simpleDb, serviceAccount, serviceNetwork } = this.backgroundApi;
     // 1. get home account
     const homeAccountSelectorInfo =
       await simpleDb.accountSelector.getSelectedAccount({
@@ -1343,6 +1385,13 @@ class ServiceDApp extends ServiceBase {
 
     // 3. build primary account
     let networkAccountWithHomeAccountSelectorInfo: INetworkAccount;
+    const globalDeriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId: connectedAccountInfo.networkId ?? '',
+    });
+    const deriveType =
+      (networkUtils.isBTCNetwork(connectedAccountInfo.networkId)
+        ? connectedAccountInfo.deriveType
+        : globalDeriveType ?? homeAccountSelectorInfo?.deriveType) ?? 'default';
     try {
       networkAccountWithHomeAccountSelectorInfo =
         await serviceAccount.getNetworkAccount({
@@ -1350,7 +1399,7 @@ class ServiceDApp extends ServiceBase {
             ? undefined
             : homeAccountSelectorInfo?.indexedAccountId,
           networkId: connectedAccountInfo.networkId ?? '',
-          deriveType: homeAccountSelectorInfo?.deriveType ?? 'default',
+          deriveType,
           accountId: isOtherWallet
             ? homeAccountSelectorInfo?.othersWalletAccountId
             : undefined,
@@ -1360,7 +1409,7 @@ class ServiceDApp extends ServiceBase {
       //   origin,
       //   storageType,
       // });
-      console.log(`Build dApp Account Error: `, e);
+      // console.log(`Build dApp Account Error: `, e);
       // If build account error, use the previous account
       return connectedAccountInfo;
     }
@@ -1372,7 +1421,7 @@ class ServiceDApp extends ServiceBase {
       address: networkAccountWithHomeAccountSelectorInfo?.address,
       networkId: connectedAccountInfo.networkId,
       networkImpl: connectedAccountInfo.networkImpl,
-      deriveType: homeAccountSelectorInfo?.deriveType ?? 'default',
+      deriveType,
       walletId: homeAccountSelectorInfo?.walletId ?? '',
       indexedAccountId: homeAccountSelectorInfo?.indexedAccountId ?? '',
       othersWalletAccountId:
@@ -1380,7 +1429,17 @@ class ServiceDApp extends ServiceBase {
       focusedWallet: homeAccountSelectorInfo?.focusedWallet ?? '',
     };
 
-    // 5. if different, update dapp connection account
+    // 5. if new account is the same as the original account, return the original account
+    if (
+      this.isConnectionAccountInfoEqual(
+        connectedAccountInfo,
+        newConnectedAccountInfo,
+      )
+    ) {
+      return connectedAccountInfo;
+    }
+
+    // 6. if different, update dapp connection account
     await this.updateConnectionSession({
       accountSelectorNum: connectedAccountInfo.num ?? 0,
       origin,
@@ -1391,6 +1450,25 @@ class ServiceDApp extends ServiceBase {
     void this.emitSwitchNetworkEvents();
 
     return newConnectedAccountInfo;
+  }
+
+  private isConnectionAccountInfoEqual(
+    a: Partial<IConnectionAccountInfo>,
+    b: Partial<IConnectionAccountInfo>,
+  ): boolean {
+    const keys = [
+      'num',
+      'accountId',
+      'address',
+      'networkId',
+      'networkImpl',
+      'deriveType',
+      'walletId',
+      'indexedAccountId',
+      'othersWalletAccountId',
+      'focusedWallet',
+    ] as const;
+    return isEqual(pick(a, keys), pick(b, keys));
   }
 
   private emitSwitchNetworkEvents() {

@@ -11,8 +11,6 @@ import java.util.Collections;
 import java.util.List;
 
 public class AutoUpdateModulePackage implements ReactPackage {
-    ReactNativeHost mReactNativeHost;
-
     AutoUpdateModulePackage(ReactNativeHost mReactNativeHost) {
         super();
     }

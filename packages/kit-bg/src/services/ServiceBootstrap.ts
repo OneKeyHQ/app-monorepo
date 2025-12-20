@@ -1,9 +1,8 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
-import { devSettingsPersistAtom } from '../states/jotai/atoms';
+import localDb from '../dbs/local/localDb';
 
 import ServiceBase from './ServiceBase';
 
@@ -14,30 +13,49 @@ class ServiceBootstrap extends ServiceBase {
   }
 
   public async init() {
-    await this.backgroundApi.serviceSetting.initSystemLocale();
-    await Promise.all([
-      this.backgroundApi.serviceSetting.refreshLocaleMessages(),
-      this.backgroundApi.walletConnect.initializeOnStart(),
-      this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
-      this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
-      this.backgroundApi.serviceSetting.fetchReviewControl(),
-      this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
-      this.backgroundApi.serviceNotification.init(),
-    ]);
+    await localDb.readyDb;
+    try {
+      await this.backgroundApi.serviceSetting.initSystemLocale();
+    } catch (error) {
+      console.error(error);
+    }
+    try {
+      await Promise.all([
+        this.backgroundApi.serviceSetting.refreshLocaleMessages(),
+        this.backgroundApi.walletConnect.initializeOnStart(),
+        this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
+        this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
+        this.backgroundApi.serviceSetting.fetchReviewControl(),
+        this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
+        this.backgroundApi.serviceNotification.init(),
+        this.backgroundApi.serviceReferralCode.getPostConfig(),
+        this.backgroundApi.serviceSetting.syncWalletConfig(),
+        this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
+        this.backgroundApi.serviceDeFi.syncDeFiEnabledNetworks(),
+      ]);
+    } catch (error) {
+      console.error(error);
+    }
+
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();
     if (platformEnv.isExtension) {
-      await this.backgroundApi.serviceDevSetting.initAnalytics();
+      try {
+        await this.backgroundApi.serviceDevSetting.initAnalytics();
+      } catch (error) {
+        console.error(error);
+      }
     }
-    void this.saveDevModeToSyncStorage();
-  }
-
-  async saveDevModeToSyncStorage() {
-    const devSettings = await devSettingsPersistAtom.get();
-    appStorage.syncStorage.set(
-      EAppSyncStorageKeys.onekey_developer_mode_enabled,
-      !!devSettings.enabled,
-    );
+    void this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage();
+    void this.backgroundApi.simpleDb.customTokens.migrateFromV1LegacyData();
+    void this.backgroundApi.serviceAccount.migrateHdWalletsBackedUpStatus();
+    void this.backgroundApi.serviceHistory.migrateFilterScamHistorySetting();
+    void this.backgroundApi.serviceAccount.migrateHardwareLtcXPub();
+    void this.backgroundApi.serviceSetting.migrateBTCFreshAddressSetting();
+    void this.backgroundApi.serviceHardware.removeDeviceHomeScreen();
+    void systemTimeUtils.startServerTimeInterval();
+    void this.backgroundApi.serviceIpTable.init();
+    void this.backgroundApi.serviceCloudBackupV2.init();
   }
 }
 

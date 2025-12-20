@@ -1,8 +1,6 @@
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import errorToastUtils from '../errors/utils/errorToastUtils';
-import errorUtils from '../errors/utils/errorUtils';
 import { formatDateFns } from '../utils/dateUtils';
 
 import {
@@ -147,7 +145,7 @@ function permissionRequired() {
     if (isFunction(fn)) {
       descriptor.value = function (...args: Array<any>): any {
         // if (this.chainId !== '0x1') {
-        //   throw new Error(this.chainId + ' chain not matched');
+        //   throw new OneKeyLocalError(this.chainId + ' chain not matched');
         // }
         const result = fn.apply(this, args);
         return result;

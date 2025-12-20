@@ -231,10 +231,11 @@ class ProviderApiSolana extends ProviderApiBase {
     params: {
       message: string;
       version?: number;
+      applicationDomain?: string;
     },
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { message, version } = params;
+    const { message, version, applicationDomain } = params;
 
     const { accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
@@ -250,6 +251,7 @@ class ProviderApiSolana extends ProviderApiBase {
           message: bs58.decode(message).toString(),
           payload: {
             version: version ?? 0,
+            applicationDomain,
           },
         },
         networkId: networkId ?? '',

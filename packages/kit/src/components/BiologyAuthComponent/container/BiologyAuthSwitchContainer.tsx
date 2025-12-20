@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, startViewTransition } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePasswordBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
@@ -27,10 +27,14 @@ const BiologyAuthSwitchContainer = ({
   const onChange = useCallback(
     async (checked: boolean) => {
       try {
-        await backgroundApiProxy.servicePassword.setBiologyAuthEnable(
-          checked,
-          skipAuth,
-        );
+        // https://github.com/facebook/react/issues/31819
+        // Page flicker caused by Suspense throttling behavior.
+        startViewTransition(async () => {
+          await backgroundApiProxy.servicePassword.setBiologyAuthEnable(
+            checked,
+            skipAuth,
+          );
+        });
       } catch (e) {
         const error = e as { message?: string; name?: string };
         if (error?.name === BIOLOGY_AUTH_CANCEL_ERROR) {

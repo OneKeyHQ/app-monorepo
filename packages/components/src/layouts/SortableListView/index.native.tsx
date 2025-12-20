@@ -1,19 +1,24 @@
 import { forwardRef, useCallback } from 'react';
 import type { ForwardedRef } from 'react';
 
-import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import DraggableFlatList, {
   OpacityDecorator,
   ScaleDecorator,
   ShadowDecorator,
 } from 'react-native-draggable-flatlist';
-import { withStaticProperties } from 'tamagui';
 
+import {
+  usePropsAndStyle,
+  useStyle,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import sortableListViewUtils from './sortableListViewUtils';
 
 import type { ISortableListViewProps, ISortableListViewRef } from './types';
 import type { StyleProp, ViewStyle } from 'react-native';
@@ -86,7 +91,8 @@ function BaseSortableListView<T>(
   );
   const reloadOnDragEnd = useCallback(
     (params: DragEndParams<any>) => {
-      onDragEnd?.(params);
+      const p = sortableListViewUtils.convertToDragEndParamsWithItem(params);
+      onDragEnd?.(p);
       appEventBus.emit(EAppEventBusNames.onDragEndInListView, undefined);
     },
     [onDragEnd],
@@ -107,6 +113,8 @@ function BaseSortableListView<T>(
       data={data}
       keyExtractor={keyExtractor}
       renderItem={renderItem as RenderItem<T>}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
       {...restProps}
     />
   );

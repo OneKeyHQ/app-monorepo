@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import appGlobals from '../../appGlobals';
 import platformEnv from '../../platformEnv';
 
@@ -13,7 +15,7 @@ const consoleFunc = (msg: string) => {
 };
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getLogFilePath = async (filename: string) => {
-  throw new Error('Not implemented');
+  throw new OneKeyLocalError('Not implemented');
 };
 
 const getDeviceInfo = () =>

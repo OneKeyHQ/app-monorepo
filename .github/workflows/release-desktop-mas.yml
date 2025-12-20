@@ -17,6 +17,10 @@ jobs:
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
@@ -29,6 +33,13 @@ jobs:
           sentry_project: 'desktop-mas'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
       - name: 'Setup ENV'
         run: |
@@ -38,9 +49,6 @@ jobs:
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
-        env:
-          github_ref: ${{ github.ref }}
-          workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
       - name: Setup Node
         uses: actions/setup-node@v3
@@ -68,12 +76,6 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn
-
-      - name: Install electron-builder v23
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cd ./apps/desktop && yarn add electron-builder@23.6.0
 
       # - name: Setup Code Signing file
       #   run: |
@@ -133,7 +135,7 @@ jobs:
       - name: Upload Artifacts mas
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-mas
+          name: onekey-desktop-mas-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
@@ -145,6 +147,7 @@ jobs:
           xcrun altool --validate-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
 
       - name: upload mas for Testflight
+        continue-on-error: true
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}

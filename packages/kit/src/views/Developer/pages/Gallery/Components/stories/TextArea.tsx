@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 
 const TextAreaGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="TextArea"
     elements={[
       {

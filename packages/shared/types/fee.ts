@@ -1,4 +1,5 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 export enum ESendFeeStatus {
   Loading = 'Loading',
@@ -7,10 +8,53 @@ export enum ESendFeeStatus {
   Error = 'Error',
 }
 
+export enum ESendFeeDiscountStatus {
+  None = 'None',
+  Discounted = 'Discounted',
+  Free = 'Free',
+}
+
 export enum EFeeType {
   Standard = 'Standard',
   Custom = 'Custom',
 }
+
+export enum ETronResourceRentalPayType {
+  Native = 'native',
+  Token = 'token',
+}
+
+export type ITronResourceRentalInfo = {
+  payType: ETronResourceRentalPayType;
+  payTokenInfo?: {
+    symbol: string;
+    price: string;
+    trxRatio: string;
+    exchangeFee: number;
+    payTxFeeAmount: string;
+    payPurchaseTrxAmount: string;
+    extraTrxNum: number;
+    totalAmount: string;
+  };
+  resourcePrice: {
+    price: number;
+    minutes: number;
+  };
+  saveTRX?: string;
+  isResourceRentalNeeded: boolean;
+  isResourceRentalEnabled: boolean;
+  isSwapTrxEnabled: boolean;
+  createOrderParams?: {
+    fromAddress: string;
+    pledgeAddress: string;
+    pledgeMinute: number;
+    pledgeNum: number;
+    pledgeBandwidthNum: number;
+    extraTrxNum?: number;
+  };
+  isResourceClaimed?: boolean;
+  isResourceRedeemed?: boolean;
+};
 
 export type IGasEIP1559 = {
   baseFeePerGas: string;
@@ -23,6 +67,7 @@ export type IGasEIP1559 = {
 };
 
 export type IGasLegacy = {
+  originalGasPrice?: string;
   gasPrice: string;
   gasLimit: string;
   gasLimitForDisplay?: string;
@@ -34,9 +79,38 @@ export type IFeeUTXO = {
 };
 
 export type IFeeTron = {
+  accountInfo: {
+    energyTotal: number;
+    energyUsed: number;
+    freeEnergyTotal: number;
+    freeEnergyUsed: number;
+  };
   requiredBandwidth: number;
   requiredEnergy: number;
   originalFee: number;
+  saveTRX?: string;
+  payWithUSDT?: boolean;
+  balances: Record<string, string>;
+  tokenPrices: Record<string, string>;
+  info: {
+    orderPrice: number;
+    prices: Record<string, string>;
+    ratio: string;
+    pledgeMinute: number;
+    payCoinAmt: number;
+    payCoinCode: string;
+    extraTrxNum: number;
+    purchaseTRXFee: number;
+    exchangeFee: number;
+  };
+  createOrderParams?: {
+    fromAddress: string;
+    pledgeAddress: string;
+    pledgeMinute: number;
+    pledgeNum: number;
+    pledgeBandwidthNum: number;
+    payToken: string;
+  };
 };
 
 export type IFeeSol = {
@@ -80,6 +154,19 @@ export type IFeeNeoN3 = {
   systemFee: string;
 };
 
+export type INetworkFeeInfo =
+  | IGasLegacy
+  | IGasEIP1559
+  | IFeeUTXO
+  | IFeeTron
+  | IFeeSol
+  | IFeeCkb
+  | IFeeAlgo
+  | IFeeDot
+  | IFeeSui
+  | IFeeFil
+  | IFeeNeoN3;
+
 export type IBatchEstimateFeeParams = {
   accountId: string;
   networkId: string;
@@ -91,6 +178,7 @@ export type IEstimateGasParams = {
   networkId: string;
   accountAddress: string;
   encodedTx?: IEncodedTx;
+  transfersInfo?: ITransferInfo[];
 };
 
 export type IFeesInfoUnit = {
@@ -178,6 +266,11 @@ export type IEstimateGasResp = {
   }[];
   feeBudget?: IFeeSui[];
   feeNeoN3?: IFeeNeoN3[];
+
+  megafuelEligible?: {
+    sponsorable: boolean;
+    sponsorName: string;
+  };
 };
 
 export type IServerBatchEstimateFeeResponse = {

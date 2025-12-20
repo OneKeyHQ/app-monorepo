@@ -23,12 +23,6 @@ import {
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  calculateCkbTotalFee,
-  calculateSolTotalFee,
-  calculateSuiTotalFee,
-  calculateTotalFeeNative,
-} from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -37,6 +31,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  calculateCkbTotalFee,
+  calculateSolTotalFee,
+  calculateSuiTotalFee,
+  calculateTotalFeeNative,
+} from '@onekeyhq/shared/src/utils/feeUtils';
 import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import type {
   IEstimateFeeParams,
@@ -651,7 +651,7 @@ function FeeEditor(props: IProps) {
         feeRate.isGreaterThan(DEFAULT_FEE_RATE_MAX)
       ) {
         return intl.formatMessage(
-          { id: ETranslations.form_ree_rate_error_out_of_range },
+          { id: ETranslations.form_fee_rate_error_out_of_range },
           { min: DEFAULT_FEER_ATE_MIN, max: DEFAULT_FEE_RATE_MAX },
         );
       }

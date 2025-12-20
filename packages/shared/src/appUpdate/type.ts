@@ -1,15 +1,44 @@
 import type { ETranslations } from '../locale';
 import type { IUpdateDownloadedEvent } from '../modules3rdParty/auto-update';
 
+export enum EUpdateStrategy {
+  silent = 0,
+  force = 1,
+  manual = 2,
+  seamless = 3,
+}
+
+export enum EUpdateFileType {
+  appShell = 1,
+  jsBundle = 2,
+}
+
 export interface IBasicAppUpdateInfo {
-  // app store url
+  /* app store url */
   storeUrl?: string;
-  // app download url
+  /* app download url */
   downloadUrl?: string;
-  // is force update required
-  isForceUpdate: boolean;
-  // change log text
+  /* change log text */
   changeLog?: string;
+
+  /**
+   *  update strategy
+   * @enum EUpdateStrategy
+   * 0: silent
+   * 1: force
+   * 2: manual
+   * @default 2
+   */
+  updateStrategy: EUpdateStrategy;
+  summary?: string;
+  jsBundleVersion?: string;
+  fileSize?: number;
+  jsBundle?: {
+    downloadUrl?: string;
+    fileSize?: number;
+    sha256?: string;
+    signature?: string;
+  };
 }
 
 export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
@@ -17,6 +46,8 @@ export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
+  // the previous app version before update
+  previousAppVersion?: string;
   // the latest version of remote server
   latestVersion?: string;
   // the last time the app update info was fetched
@@ -29,13 +60,22 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   status: EAppUpdateStatus;
   errorText?: ETranslations;
   downloadedEvent?: IUpdateDownloadedEvent;
+  summary?: string;
 }
 
 export enum EAppUpdateStatus {
   notify = 'notify',
-  downloading = 'downloading',
-  verifying = 'verifying',
+  downloadPackage = 'downloadPackage',
+  downloadPackageFailed = 'downloadPackageFailed',
+  downloadASC = 'downloadASC',
+  downloadASCFailed = 'downloadASCFailed',
+  verifyASC = 'verifyASC',
+  verifyASCFailed = 'verifyASCFailed',
+  verifyPackage = 'verifyPackage',
+  verifyPackageFailed = 'verifyPackageFailed',
   ready = 'ready',
   failed = 'failed',
   done = 'done',
+  manualInstall = 'manualInstall',
+  updateIncomplete = 'updateIncomplete',
 }

@@ -1,5 +1,6 @@
 import { StackActions } from '@react-navigation/native';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -94,7 +95,7 @@ async function buildUrlNetworkSegment({
 
 // http://localhost:3000/wallet/account/evm--1/0xF907eBC4348b02F4b808Ec84591AAfD281c4422D
 // export const urlAccountLandingRewrite = '/wallet/account/:address/:networkId?';
-export const urlAccountLandingRewrite = '/:networkId/:address?'; // visible url
+export const urlAccountLandingRewrite = '/url-account/:networkId/:address?'; // visible url
 // export const urlAccountPageRewrite = '/url-account/:networkId/:address'; // hidden url
 export async function buildUrlAccountLandingRoute({
   account,
@@ -109,7 +110,7 @@ export async function buildUrlAccountLandingRoute({
     realNetworkIdFallback: account?.createAtNetwork || '',
     contextNetworkId: networkId || '',
   });
-  const path = `/${networkSegment || '--'}/${address || '--'}`;
+  const path = `/url-account/${networkSegment || '--'}/${address || '--'}`;
   if (includingOrigin) {
     const origin =
       platformEnv.isWeb && !platformEnv.isDev
@@ -158,6 +159,38 @@ export async function replaceUrlAccountLandingRoute({
   }
 }
 
+// Check if currently in URL account page
+export function isCurrentlyInUrlAccountPage(): boolean {
+  try {
+    const state = rootNavigationRef.current?.getRootState();
+    if (!state?.routes) return false;
+
+    // Find the main tab route (first route should be Main)
+    const mainRoute = state.routes.find(
+      (route) => route.name === ERootRoutes.Main,
+    );
+    if (!mainRoute?.state?.routes) return false;
+
+    // Find the Home tab route
+    const homeTabIndex = mainRoute.state.routes.findIndex(
+      (route) => route.name === ETabRoutes.Home,
+    );
+    if (homeTabIndex === -1) return false;
+
+    const homeTabRoute = mainRoute.state.routes[homeTabIndex];
+    if (!homeTabRoute?.state?.routes || mainRoute.state.index !== homeTabIndex)
+      return false;
+
+    // Check if current route in Home tab is URL account page
+    const currentHomeRouteIndex = homeTabRoute.state.index || 0;
+    const currentHomeRoute = homeTabRoute.state.routes[currentHomeRouteIndex];
+
+    return currentHomeRoute?.name === ETabHomeRoutes.TabHomeUrlAccountPage;
+  } catch (error) {
+    return false;
+  }
+}
+
 export const urlAccountNavigation = {
   pushHomePage(navigation: IAppNavigation) {
     navigation.dispatch(
@@ -185,8 +218,34 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
-    navigation.dispatch(
+    rootNavigationRef.current?.dispatch(
       StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
+        address: params.address,
+        networkId: networkSegment,
+      }),
+    );
+  },
+  async pushOrReplaceUrlAccountPage(
+    navigation: IAppNavigation,
+    params: {
+      address: string | undefined;
+      networkId: string | undefined;
+      contextNetworkId?: string;
+    },
+  ) {
+    const networkSegment = await buildUrlNetworkSegment({
+      realNetworkId: params.networkId || '',
+      realNetworkIdFallback: params.networkId || '',
+      contextNetworkId: params.contextNetworkId || '',
+    });
+    // If not in URL account page, switch to Home tab and push
+    navigation.switchTab(ETabRoutes.Home);
+    rootNavigationRef.current?.navigate(ETabRoutes.Home, {
+      screen: ETabHomeRoutes.TabHome,
+    });
+    await timerUtils.wait(100);
+    rootNavigationRef.current?.dispatch(
+      StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, {
         address: params.address,
         networkId: networkSegment,
       }),

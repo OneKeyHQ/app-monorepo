@@ -1,5 +1,7 @@
 // TODO move to upper
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 // import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
 // import type { IChangeAddress } from '@onekeyhq/engine/src/vaults/impl/ada/types';
 
@@ -15,7 +17,7 @@
 //   },
 // });
 export function getChangeAddress() {
-  throw new Error(
+  throw new OneKeyLocalError(
     'ADA getChangeAddress not implemented in core, move it to upper layer',
   );
 }

@@ -7,7 +7,7 @@ import { EApproveType } from '@onekeyhq/shared/types/staking';
 interface IStakeProgressProps {
   /** Current step in the staking process (1 or 2) */
   currentStep: number;
-  approveType: EApproveType;
+  approveType?: EApproveType;
 }
 
 export enum EStakeProgressStep {
@@ -21,6 +21,9 @@ export function StakeProgress({
 }: IStakeProgressProps) {
   const intl = useIntl();
   const isDepositStep = currentStep === EStakeProgressStep.deposit;
+  if (!approveType) {
+    return null;
+  }
   return (
     <XStack gap="$1" ai="center">
       <XStack ai="center" gap="$1.5">

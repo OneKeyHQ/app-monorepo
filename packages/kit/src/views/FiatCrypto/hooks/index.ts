@@ -42,6 +42,7 @@ export const useSupportToken = (
   networkId: string,
   tokenAddress: string,
   type: IFiatCryptoType,
+  isFocused = true,
 ) =>
   usePromiseResult(
     async () =>
@@ -51,7 +52,11 @@ export const useSupportToken = (
         type,
       }),
     [networkId, tokenAddress, type],
-    { initResult: false, debounced: 100 },
+    {
+      initResult: false,
+      debounced: 100,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
+    },
   );
 
 export const useGetTokensList = ({
@@ -89,15 +94,28 @@ export function useFiatCrypto({
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
   const navigation = useAppNavigation();
-  const handleFiatCrypto = useCallback(() => {
-    navigation.pushModal(EModalRoutes.FiatCryptoModal, {
-      screen:
-        fiatCryptoType === 'buy'
-          ? EModalFiatCryptoRoutes.BuyModal
-          : EModalFiatCryptoRoutes.SellModal,
-      params: { networkId, accountId, tokens: allTokens.tokens, map },
-    });
-  }, [accountId, navigation, networkId, allTokens, map, fiatCryptoType]);
+  const handleFiatCrypto = useCallback(
+    (params: { sameModal?: boolean } | undefined) => {
+      const { sameModal } = params ?? {};
+      if (sameModal) {
+        navigation.push(
+          fiatCryptoType === 'buy'
+            ? EModalFiatCryptoRoutes.BuyModal
+            : EModalFiatCryptoRoutes.SellModal,
+          { networkId, accountId, tokens: allTokens.tokens, map },
+        );
+      } else {
+        navigation.pushModal(EModalRoutes.FiatCryptoModal, {
+          screen:
+            fiatCryptoType === 'buy'
+              ? EModalFiatCryptoRoutes.BuyModal
+              : EModalFiatCryptoRoutes.SellModal,
+          params: { networkId, accountId, tokens: allTokens.tokens, map },
+        });
+      }
+    },
+    [accountId, navigation, networkId, allTokens, map, fiatCryptoType],
+  );
 
   return {
     handleFiatCrypto,

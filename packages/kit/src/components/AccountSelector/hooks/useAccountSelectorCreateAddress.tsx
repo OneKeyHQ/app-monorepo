@@ -34,15 +34,11 @@ import { TutorialsList } from '../../TutorialsList';
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
-  const {
-    serviceAccount,
-    serviceQrWallet,
-    serviceBatchCreateAccount,
-    serviceHardwareUI,
-  } = backgroundApiProxy;
+  const { serviceAccount, serviceBatchCreateAccount, serviceHardwareUI } =
+    backgroundApiProxy;
   const intl = useIntl();
   const actions = useAccountSelectorActions();
-  const { createQrWalletByAccount } = useCreateQrWallet();
+  const { createQrWalletAccount } = useCreateQrWallet();
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const createAddress = useCallback(
@@ -50,6 +46,8 @@ export function useAccountSelectorCreateAddress() {
       num,
       selectAfterCreate,
       account,
+      createAllDeriveTypes,
+      customNetworks,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -59,6 +57,11 @@ export function useAccountSelectorCreateAddress() {
         indexedAccountId: string | undefined;
         deriveType: IAccountDeriveTypes;
       };
+      createAllDeriveTypes?: boolean;
+      customNetworks?: {
+        networkId: string;
+        deriveType: IAccountDeriveTypes;
+      }[];
     }) => {
       if (
         !account ||
@@ -131,6 +134,7 @@ export function useAccountSelectorCreateAddress() {
           await serviceBatchCreateAccount.addDefaultNetworkAccounts({
             walletId: account?.walletId,
             indexedAccountId: account?.indexedAccountId,
+            customNetworks,
             ...hwUiControlParams,
           });
         if (
@@ -158,6 +162,7 @@ export function useAccountSelectorCreateAddress() {
             indexedAccountId: account?.indexedAccountId,
             networkId: account?.networkId,
             deriveType: account?.deriveType,
+            createAllDeriveTypes,
             ...hwUiControlParams,
           });
           return await handleAddAccounts(result);
@@ -180,7 +185,7 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
-          const { wallet: walletCreated } = await createQrWalletByAccount({
+          await createQrWalletAccount({
             walletId: account.walletId,
             networkId: account.networkId,
             indexedAccountId: account.indexedAccountId,
@@ -190,6 +195,10 @@ export function useAccountSelectorCreateAddress() {
             return await addAccounts();
           } catch (error2) {
             if (isAirGapAccountNotFound(error2)) {
+              const isBtcOnlyWallet =
+                await serviceAccount.isBtcOnlyFirmwareByWalletId({
+                  walletId: account.walletId,
+                });
               Dialog.show({
                 title: intl.formatMessage({
                   id: ETranslations.qr_wallet_address_creation_failed_dialog_title,
@@ -204,7 +213,9 @@ export function useAccountSelectorCreateAddress() {
                       tutorials={[
                         {
                           title: intl.formatMessage({
-                            id: ETranslations.qr_wallet_address_creation_failed_supports_network_desc,
+                            id: isBtcOnlyWallet
+                              ? ETranslations.qr_wallet_btc_only_address_creation_failed_supports_network_desc
+                              : ETranslations.qr_wallet_address_creation_failed_supports_network_desc,
                           }),
                         },
                         {
@@ -232,7 +243,7 @@ export function useAccountSelectorCreateAddress() {
                       ]}
                     />
 
-                    <XStack mt="$2" gap="$1.5">
+                    <XStack mt="$2" gap="$1.5" alignItems="center">
                       <SizableText color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.contact_us_instruction,
@@ -261,7 +272,7 @@ export function useAccountSelectorCreateAddress() {
     },
     [
       actions,
-      createQrWalletByAccount,
+      createQrWalletAccount,
       intl,
       requestsUrl,
       serviceAccount,

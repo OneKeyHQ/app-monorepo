@@ -168,7 +168,7 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
       };
     }
 
-    // throw new Error('test');
+    // throw new OneKeyLocalError('test');
     items = items
       .sort(
         (b, a) =>

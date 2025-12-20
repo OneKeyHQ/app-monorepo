@@ -4,6 +4,7 @@ import { Layout } from './utils/Layout';
 
 const DividerGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Divider"
     elements={[
       {

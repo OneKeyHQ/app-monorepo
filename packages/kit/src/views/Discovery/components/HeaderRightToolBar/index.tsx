@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   Popover,
@@ -24,6 +26,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
@@ -56,7 +59,7 @@ function HeaderRightToolBarSkeleton() {
   );
 }
 
-function SingleAccountAndNetworkSelectorTrigger({
+export function SingleAccountAndNetworkSelectorTrigger({
   origin,
   num,
   account,
@@ -88,7 +91,10 @@ function SingleAccountAndNetworkSelectorTrigger({
   });
   return (
     <XStack gap="$6" alignItems="center">
-      <NetworkSelectorTriggerBrowserSingle num={num} />
+      <NetworkSelectorTriggerBrowserSingle
+        num={num}
+        recordNetworkHistoryEnabled
+      />
       <AccountSelectorTriggerBrowserSingle num={num} />
     </XStack>
   );
@@ -176,6 +182,19 @@ function AccountSelectorPopoverContent({
     async () => closePopover?.(),
     [closePopover],
   );
+
+  // Safety check: only render if we actually have multiple accounts
+  if (!accountsInfo || accountsInfo.length <= 1) {
+    return null;
+  }
+
+  const availableNetworksMap = accountsInfo.reduce((acc, account) => {
+    if (Array.isArray(account.availableNetworkIds)) {
+      acc[account.num] = { networkIds: account.availableNetworkIds };
+    }
+    return acc;
+  }, {} as Record<number, { networkIds: string[] }>);
+
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -183,19 +202,14 @@ function AccountSelectorPopoverContent({
         sceneUrl: origin,
       }}
       enabledNum={accountsInfo.map((account) => account.num)}
-      availableNetworksMap={accountsInfo.reduce((acc, account) => {
-        if (Array.isArray(account.availableNetworkIds)) {
-          acc[account.num] = { networkIds: account.availableNetworkIds };
-        }
-        return acc;
-      }, {} as Record<number, { networkIds: string[] }>)}
+      availableNetworksMap={availableNetworksMap}
     >
       <YStack p="$5" gap="$2">
         {accountsInfo.map((account) => (
           <DAppAccountListItem
             key={account.num}
             num={account.num}
-            compressionUiMode
+            // compressionUiMode
             beforeShowTrigger={beforeShowTrigger}
             handleAccountChanged={async (accountChangedParams) => {
               await handleAccountInfoChanged({
@@ -219,6 +233,14 @@ function HeaderRightToolBar() {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const origin = tab?.url ? new URL(tab.url).origin : null;
+  const intl = useIntl();
+
+  // Use ref to always get the latest value in callbacks
+  const connectedAccountsInfoRef = useRef<
+    IConnectionAccountInfoWithNum[] | null
+  >(null);
+  const originRef = useRef<string | null>(null);
+
   const {
     result: connectedAccountsInfo,
     isLoading,
@@ -233,7 +255,6 @@ function HeaderRightToolBar() {
           origin,
         );
 
-      console.log('====>>>connectedAccount: ', connectedAccount);
       return connectedAccount;
     },
     [origin],
@@ -245,6 +266,12 @@ function HeaderRightToolBar() {
   const afterChangeAccount = useCallback(() => {
     void run();
   }, [run]);
+
+  // Update refs with latest values
+  useEffect(() => {
+    connectedAccountsInfoRef.current = connectedAccountsInfo || null;
+    originRef.current = origin;
+  }, [connectedAccountsInfo, origin]);
 
   useEffect(() => {
     appEventBus.on(EAppEventBusNames.DAppConnectUpdate, afterChangeAccount);
@@ -262,14 +289,35 @@ function HeaderRightToolBar() {
     [setIsOpen],
   );
 
+  const renderPopoverContent = useCallback(() => {
+    const currentAccountsInfo = connectedAccountsInfoRef.current;
+    const currentOrigin = originRef.current;
+
+    if (
+      !currentAccountsInfo ||
+      currentAccountsInfo.length <= 1 ||
+      !currentOrigin
+    ) {
+      return null;
+    }
+
+    return (
+      <AccountSelectorPopoverContent
+        origin={currentOrigin}
+        accountsInfo={currentAccountsInfo}
+        afterChangeAccount={afterChangeAccount}
+      />
+    );
+  }, [afterChangeAccount]);
+
   const content = useMemo(() => {
-    console.log('=====> DesktopBrowserHeaderRightCmp: memo renderer');
     if (isLoading) {
       return <Spinner />;
     }
     if (!connectedAccountsInfo || !origin) {
       return <ShortcutsActionButton />;
     }
+
     if (connectedAccountsInfo.length === 1) {
       return (
         <Stack
@@ -314,20 +362,19 @@ function HeaderRightToolBar() {
     return (
       <Stack ml="$6">
         <Popover
-          title="Connected Accounts"
+          key={`popover-${connectedAccountsInfo.length}-${connectedAccountsInfo
+            .map((a) => a.num)
+            .join('-')}`}
+          title={intl.formatMessage({
+            id: ETranslations.explore_connected_accounts,
+          })}
           keepChildrenMounted
           open={isOpen}
           onOpenChange={handleOpenChange}
           renderTrigger={
             <AvatarStackTrigger accountsInfo={connectedAccountsInfo} />
           }
-          renderContent={
-            <AccountSelectorPopoverContent
-              origin={origin}
-              accountsInfo={connectedAccountsInfo}
-              afterChangeAccount={afterChangeAccount}
-            />
-          }
+          renderContent={renderPopoverContent}
         />
       </Stack>
     );
@@ -335,8 +382,10 @@ function HeaderRightToolBar() {
     isLoading,
     connectedAccountsInfo,
     origin,
+    intl,
     isOpen,
     handleOpenChange,
+    renderPopoverContent,
     afterChangeAccount,
   ]);
 

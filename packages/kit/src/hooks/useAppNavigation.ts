@@ -2,19 +2,42 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
-import { Page, rootNavigationRef } from '@onekeyhq/components';
+import {
+  Page,
+  rootNavigationRef,
+  switchTab,
+  useIsTabletMainView,
+} from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
   IPageNavigationProp,
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
-import type {
-  EModalRoutes,
-  ETabRoutes,
-  IModalParamList,
-  ITabStackParamList,
-} from '@onekeyhq/shared/src/routes';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import type { IModalParamList } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+
+const getModalRoute = () => {
+  const state = rootNavigationRef.current?.getState();
+  const currentIndex = state?.index || 0;
+  const routes = state?.routes || [];
+  const currentRoute = routes[currentIndex];
+  if (currentRoute?.name === ERootRoutes.Modal) {
+    return currentRoute;
+  }
+  return null;
+};
+
+const getScreenName = (modalRoute: ReturnType<typeof getModalRoute>) => {
+  return (
+    (
+      modalRoute?.params as {
+        screen: string;
+      }
+    )?.screen || modalRoute?.state?.routes?.[modalRoute.state?.index || 0]?.name
+  );
+};
 
 export type IAppNavigation = ReturnType<typeof useAppNavigation>;
 
@@ -57,8 +80,10 @@ function useAppNavigation<
     | IPageNavigationProp<any>
     | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
+  // rootNavigationRef
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
+  const isTabletMainView = useIsTabletMainView();
 
   if (navigationRef.current !== navigation) {
     navigationRef.current = navigation;
@@ -75,22 +100,6 @@ function useAppNavigation<
       popStack();
     }
   }, [popStack]);
-
-  const switchTab = useCallback(
-    <T extends ETabRoutes>(
-      route: T,
-      params?: {
-        screen: keyof ITabStackParamList[T];
-        params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
-      },
-    ) => {
-      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-        screen: route,
-        params,
-      });
-    },
-    [],
-  );
 
   const pushModalPage = useCallback(
     <T extends EModalRoutes>(
@@ -117,6 +126,9 @@ function useAppNavigation<
         return;
       }
 
+      // TODO:
+      // prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
+      //  with plan to migrate to rootNavigationRef
       // eslint-disable-next-line no-extra-boolean-cast
       if (!!navigationInstance.push) {
         lastPushAbleNavigation = navigationInstance;
@@ -134,6 +146,7 @@ function useAppNavigation<
         });
         return;
       }
+
       // If there is no stack route, use navigate to create a router stack.
       navigationInstance.navigate(modalType, {
         screen: route,
@@ -151,9 +164,16 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
-      pushModalPage(ERootRoutes.Modal, route, params as any);
+      if (isTabletMainView) {
+        appEventBus.emit(EAppEventBusNames.PushModalPageInTabletDetailView, {
+          route,
+          params,
+        });
+      } else {
+        pushModalPage(ERootRoutes.Modal, route, params as any);
+      }
     },
-    [pushModalPage],
+    [isTabletMainView, pushModalPage],
   );
 
   const pushFullModal = useCallback(
@@ -189,9 +209,41 @@ function useAppNavigation<
     [],
   );
 
-  const push: typeof navigationRef.current.push = useCallback((...args) => {
-    navigationRef.current.push(...args);
-  }, []);
+  const push: typeof navigationRef.current.push = useCallback(
+    (...args) => {
+      if (isTabletMainView) {
+        appEventBus.emit(EAppEventBusNames.PushPageInTabletDetailView, args);
+        return;
+      }
+      const modalRoute = getModalRoute();
+      if (modalRoute) {
+        const isSettingsModal =
+          modalRoute.state?.routes?.[modalRoute.state?.index || 0]?.name ===
+          EModalRoutes.SettingModal;
+        if (!isSettingsModal) {
+          const parentState = navigation.getParent()?.getState();
+          const currentScreenModal = getScreenName(modalRoute);
+          const screenModal = getScreenName({
+            state: parentState,
+            key: '',
+            name: '',
+          });
+          if (currentScreenModal !== screenModal) {
+            navigationRef.current.navigate(ERootRoutes.Modal, {
+              screen: currentScreenModal,
+              params: {
+                screen: args[0],
+                params: args[1],
+              },
+            });
+            return;
+          }
+        }
+      }
+      navigationRef.current.navigate(...args);
+    },
+    [isTabletMainView, navigation],
+  );
 
   const replace: typeof navigationRef.current.replace = useCallback(
     (...args) => {
@@ -203,6 +255,21 @@ function useAppNavigation<
   const navigate: typeof navigationRef.current.navigate = useCallback(
     (...args: any) => {
       navigationRef.current.navigate(...args);
+    },
+    [],
+  );
+
+  const popToTop: typeof navigationRef.current.popToTop = useCallback(() => {
+    navigationRef.current.popToTop();
+  }, []);
+
+  const popTo: typeof navigationRef.current.popTo = useCallback(
+    (...args: any) => {
+      const [screen, params, options] = args;
+      navigationRef.current.navigate(screen, params, {
+        pop: true,
+        ...options,
+      });
     },
     [],
   );
@@ -220,19 +287,22 @@ function useAppNavigation<
       reset,
       setOptions,
       switchTab,
+      popToTop,
+      popTo,
     }),
     [
       dispatch,
       navigate,
       pop,
       popStack,
+      popTo,
+      popToTop,
       push,
       pushFullModal,
       pushModal,
       replace,
       reset,
       setOptions,
-      switchTab,
     ],
   );
 }

@@ -1,7 +1,10 @@
+/* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable spellcheck/spell-checker */
 // @ts-nocheck
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';
+
+import { OneKeyLocalError } from '../../errors/errors/localError';
 
 type IXMLHttpRequestResponseType =
   | ''
@@ -13,7 +16,7 @@ type IXMLHttpRequestResponseType =
 
 function assert(cond: unknown, msg = 'assertion failed'): asserts cond {
   if (!cond) {
-    const err = new Error(msg);
+    const err = new OneKeyLocalError(msg);
     err.name = 'AssertionError';
     throw err;
   }
@@ -27,7 +30,7 @@ function extractLength(response: Response) {
     if (candidateValue == null) {
       candidateValue = value;
     } else if (value !== candidateValue) {
-      throw new Error('invalid content-length');
+      throw new OneKeyLocalError('invalid content-length');
     }
   }
   if (candidateValue === '' || candidateValue == null) {
@@ -45,7 +48,7 @@ function extractMIMEType(headers: Headers) {
   let mimeType: string | null = null;
   const values = headers.get('content-type')?.split(/\s*,\s*/);
   if (!values) {
-    throw new Error('missing content type');
+    throw new OneKeyLocalError('missing content type');
   }
   for (const value of values) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
@@ -57,7 +60,7 @@ function extractMIMEType(headers: Headers) {
     mimeType = temporaryMimeType;
   }
   if (mimeType == null) {
-    throw new Error('missing content type');
+    throw new OneKeyLocalError('missing content type');
   }
   return mimeType;
 }
@@ -553,7 +556,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     try {
       let base: string | undefined;
       try {
-        base = globalThis.location.toString();
+        base = global.location.toString();
       } catch {
         // we just want to avoid the error about location in Deno
       }
@@ -777,7 +780,7 @@ function maybeDefine(value: any, name: string, scope: object) {
     enumerable: false,
     configurable: true,
   });
-  if (!(name in globalThis)) {
+  if (!(name in global)) {
     Object.defineProperty(scope, name, {
       value,
       writable: true,
@@ -787,6 +790,6 @@ function maybeDefine(value: any, name: string, scope: object) {
   }
 }
 
-maybeDefine(XMLHttpRequest, 'XMLHttpRequest', globalThis);
-maybeDefine(XMLHttpRequestEventTarget, 'XMLHttpRequestEventTarget', globalThis);
-maybeDefine(XMLHttpRequestUpload, 'XMLHttpRequestUpload', globalThis);
+maybeDefine(XMLHttpRequest, 'XMLHttpRequest', global);
+maybeDefine(XMLHttpRequestEventTarget, 'XMLHttpRequestEventTarget', global);
+maybeDefine(XMLHttpRequestUpload, 'XMLHttpRequestUpload', global);

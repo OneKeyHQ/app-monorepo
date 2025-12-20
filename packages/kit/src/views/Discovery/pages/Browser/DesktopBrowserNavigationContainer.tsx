@@ -9,6 +9,7 @@ import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
@@ -36,8 +37,10 @@ function DesktopBrowserNavigationBar({
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
   const { setPinnedTab, setWebTabData } = useBrowserTabActions().current;
-  const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction().current;
+  const {
+    addOrUpdateBrowserBookmark: addBrowserBookmark,
+    removeBrowserBookmark,
+  } = useBrowserBookmarkAction().current;
   const [innerRef, setInnerRef] = useState<IElectronWebView>(
     webviewRefs[id]?.innerRef as IElectronWebView,
   );
@@ -90,7 +93,12 @@ function DesktopBrowserNavigationBar({
     (isBookmark: boolean) => {
       if (tab) {
         if (isBookmark) {
-          void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+          void addBrowserBookmark({
+            url: tab?.url,
+            title: tab?.title ?? '',
+            logo: undefined,
+            sortIndex: undefined,
+          });
         } else {
           void removeBrowserBookmark(tab?.url);
         }
@@ -153,7 +161,7 @@ function DesktopBrowserNavigationBar({
   useShortcutsOnRouteFocused(EShortcutEvents.PinOrUnpinTab, onShortcutsPin);
 
   const onShortcutsChangeUrl = useCallback(() => {
-    if (tab?.url && isActive) {
+    if (tab?.url && isActive && !platformEnv.isDesktop) {
       handleSearch(tab.url);
     }
   }, [handleSearch, isActive, tab?.url]);
@@ -165,7 +173,7 @@ function DesktopBrowserNavigationBar({
 
   if (tab) {
     return (
-      <Freeze key={`${id}-navigationBar`} freeze={!isActive}>
+      <Freeze key={`${id}-${tab?.url ?? ''}-navigationBar`} freeze={!isActive}>
         <DesktopBrowserInfoBar
           {...tab}
           goBack={goBack}

@@ -6,12 +6,10 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Dialog, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EModalStakingRoutes,
-  type IModalSwapParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -24,11 +22,15 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EarnNavigation } from '../../Earn/earnUtils';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms, platforms = {} } = token || {};
@@ -69,11 +71,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-
-  const contractAddress = useMemo(
-    () => network?.contract_address ?? '',
-    [network],
-  );
 
   const { isNative = false, tokenAddress: realContractAddress = '' } =
     network || {};
@@ -175,6 +172,8 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const navigateToSwapPage = (
         params: IModalSwapParamList[EModalSwapRoutes.SwapMainLand],
       ) => {
+        params.swapSource = ESwapSource.MARKET;
+
         if (mode === 'modal') {
           navigation.replace(EModalSwapRoutes.SwapMainLand, params);
         } else {
@@ -250,18 +249,35 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       return;
     }
     const normalizedSymbol = normalizeToEarnSymbol(symbol);
-    if (!normalizedSymbol) {
+    if (!normalizedSymbol || !networkId) {
       return;
     }
-    if (networkId && networkAccount && normalizedSymbol) {
-      navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.AssetProtocolList,
-        params: {
-          networkId,
-          accountId: networkAccount.id,
-          indexedAccountId: networkAccount.indexedAccountId,
-          symbol: normalizedSymbol,
-        },
+
+    // Fetch protocol list to check if we should skip the list page
+    const protocolList =
+      await backgroundApiProxy.serviceStaking.getProtocolList({
+        symbol: normalizedSymbol,
+      });
+
+    // If only one protocol, navigate directly to details page
+    if (protocolList.length === 1) {
+      const protocol = protocolList[0];
+      const vault = earnUtils.isVaultBasedProvider({
+        providerName: protocol.provider.name,
+      })
+        ? protocol.provider.vault
+        : undefined;
+      void EarnNavigation.pushToEarnProtocolDetails(navigation, {
+        networkId: protocol.network.networkId,
+        symbol: normalizedSymbol,
+        provider: protocol.provider.name,
+        vault,
+      });
+    } else {
+      // Navigate to protocols list page if multiple providers
+      void EarnNavigation.pushToEarnProtocols(navigation, {
+        symbol: normalizedSymbol,
+        // filterNetworkId: networkId,
       });
     }
   }, [createAccountIfNotExists, navigation, networkId, symbol]);

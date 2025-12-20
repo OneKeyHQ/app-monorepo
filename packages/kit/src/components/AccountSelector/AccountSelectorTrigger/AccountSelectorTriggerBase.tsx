@@ -3,12 +3,14 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
+  DebugRenderTracker,
   Icon,
   SizableText,
-  View,
+  Stack,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
+import { brandDark } from '@onekeyhq/components/colors/primitive/brand';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
@@ -23,47 +25,52 @@ import type { ISpotlightViewProps } from '../../Spotlight';
 
 export function AccountSelectorTriggerBase({
   num,
-  autoWidthForHome,
   spotlightProps,
+  horizontalLayout,
+  showWalletAvatar,
+  showWalletName = true,
+  showConnectWalletModalInDappMode,
+  linkNetworkId,
+  linkNetwork,
   ...others
 }: {
   num: number;
   autoWidthForHome?: boolean;
   spotlightProps?: ISpotlightViewProps;
+  horizontalLayout?: boolean;
+  showWalletAvatar?: boolean;
+  showWalletName?: boolean;
+  showConnectWalletModalInDappMode?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const {
     activeAccount: { account, dbAccount, indexedAccount, accountName, wallet },
     showAccountSelector,
-  } = useAccountSelectorTrigger({ num, ...others });
+  } = useAccountSelectorTrigger({
+    num,
+    showConnectWalletModalInDappMode,
+    linkNetworkId,
+    linkNetwork: linkNetwork || !!linkNetworkId,
+    ...others,
+  });
   const intl = useIntl();
-  const media = useMedia();
+  const walletName =
+    wallet?.name || intl.formatMessage({ id: ETranslations.global_no_wallet });
+  const displayAccountName =
+    accountName || intl.formatMessage({ id: ETranslations.no_account });
 
-  const maxWidth = useMemo(() => {
-    if (autoWidthForHome) {
-      if (media.gtLg) {
-        return '$80';
-      }
-      if (media.sm) {
-        return '$60';
-      }
-      if (media.md) {
-        return '$48';
-      }
-    }
-    return '$48';
-  }, [autoWidthForHome, media.gtLg, media.md, media.sm]);
+  const isWebDappModeWithNoWallet =
+    platformEnv.isWebDappMode && !wallet && !accountName;
 
-  const content = useMemo(
+  const contentView = useMemo(
     () => (
       <XStack
         testID="AccountSelectorTriggerBase"
         role="button"
         alignItems="center"
-        maxWidth={maxWidth}
         width="$full"
         // width="$80"
         // flex={1}
-        py="$0.5"
+        py="$1"
         px="$1.5"
         mx="$-1.5"
         borderRadius="$2"
@@ -76,57 +83,110 @@ export function AccountSelectorTriggerBase({
         onPress={showAccountSelector}
         userSelect="none"
       >
-        <AccountAvatar
-          size="small"
-          borderRadius="$1"
-          indexedAccount={indexedAccount}
-          account={account}
-          dbAccount={dbAccount}
-        />
-        <View
-          pl="$2"
-          pr="$1"
-          minWidth={0}
-          flexShrink={1}
-          flex={platformEnv.isNative ? undefined : 1}
-        >
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            numberOfLines={1}
-            flexShrink={0}
+        {isWebDappModeWithNoWallet ? (
+          <Button
+            size="small"
+            variant="primary"
+            bg={brandDark.brand11}
+            color="$text"
+            shadowOpacity={0}
+            elevation={0}
+            hoverStyle={{
+              opacity: 0.9,
+            }}
+            pressStyle={{
+              opacity: 0.8,
+            }}
           >
-            {wallet?.name ||
-              intl.formatMessage({ id: ETranslations.global_no_wallet })}
-          </SizableText>
-          <SizableText
-            size="$bodyMdMedium"
-            numberOfLines={1}
-            flexShrink={0}
-            testID="account-name"
-          >
-            {accountName ||
-              intl.formatMessage({ id: ETranslations.no_account })}
-          </SizableText>
-        </View>
-        <Icon
-          flexShrink={0} // Prevents the icon from shrinking when the text is too long
-          name="ChevronGrabberVerOutline"
-          size="$5"
-          color="$iconSubdued"
-        />
+            {intl.formatMessage({ id: ETranslations.global_connect_wallet })}
+          </Button>
+        ) : (
+          <>
+            <AccountAvatar
+              size="small"
+              borderRadius="$1"
+              indexedAccount={indexedAccount}
+              account={account}
+              dbAccount={dbAccount}
+              wallet={showWalletAvatar ? wallet : undefined}
+            />
+            <Stack
+              flexDirection={horizontalLayout ? 'row' : 'column'}
+              pl={showWalletAvatar ? '$2.5' : '$2'}
+              flexShrink={1}
+              flex={platformEnv.isNative ? undefined : 1}
+            >
+              {horizontalLayout ? (
+                <SizableText
+                  size={showWalletName ? '$bodyMdMedium' : '$bodyLgMedium'}
+                  $gtMd={{
+                    size: '$bodyMdMedium',
+                  }}
+                  color="$text"
+                  $gtXl={{
+                    maxWidth: '56',
+                  }}
+                  numberOfLines={1}
+                  flexShrink={1}
+                  maxWidth="$36"
+                >
+                  {showWalletName
+                    ? `${walletName} / ${displayAccountName}`
+                    : displayAccountName}
+                </SizableText>
+              ) : (
+                <>
+                  <SizableText
+                    size="$bodyMd"
+                    color="$text"
+                    numberOfLines={horizontalLayout ? undefined : 1}
+                    flexShrink={1}
+                  >
+                    {walletName}
+                  </SizableText>
+                  <SizableText
+                    size="$bodyMd"
+                    numberOfLines={horizontalLayout ? undefined : 1}
+                    flexShrink={1}
+                    testID="account-name"
+                  >
+                    {displayAccountName}
+                  </SizableText>
+                </>
+              )}
+            </Stack>
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          </>
+        )}
       </XStack>
     ),
     [
       account,
-      accountName,
       dbAccount,
+      displayAccountName,
+      horizontalLayout,
       indexedAccount,
-      intl,
-      maxWidth,
+      isWebDappModeWithNoWallet,
       showAccountSelector,
-      wallet?.name,
+      showWalletAvatar,
+      showWalletName,
+      wallet,
+      walletName,
+      intl,
     ],
+  );
+
+  const content = (
+    <DebugRenderTracker
+      name="AccountSelectorTriggerBase"
+      position="bottom-center"
+    >
+      {contentView}
+    </DebugRenderTracker>
   );
 
   useShortcutsOnRouteFocused(

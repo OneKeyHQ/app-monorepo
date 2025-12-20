@@ -19,11 +19,11 @@ yarn
 
 Entwickeln Sie verschiedene Geschäftscodes, indem Sie die folgenden Befehle im Stammverzeichnis ausführen
 
-- yarn web": Web-Modus entwickeln, der einen statischen Server auf Port 3000 lokal startet
-- yarn ios": Debugging-Entwicklung auf iphone-Geräten über USB-Verbindung
-- yarn android": Fehlersuche für Android
-- yarn desktop": Entwicklung im Desktop-Modus
-- `yarn ext`: Entwicklung von Browser-Plugins
+- `yarn app:web`: Web-Modus entwickeln, der einen statischen Server auf Port 3000 lokal startet
+- `yarn app:ios`: Debugging-Entwicklung auf iphone-Geräten über USB-Verbindung
+- `yarn app:android`: Fehlersuche für Android
+- `yarn app:desktop`: Entwicklung im Desktop-Modus
+- `yarn app:ext`: Entwicklung von Browser-Plugins
 
 ### Android-Projektkonfiguration
 

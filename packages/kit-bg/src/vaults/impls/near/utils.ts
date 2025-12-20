@@ -150,6 +150,7 @@ export function getPublicKey({
   encoding?: 'hex' | 'base58' | 'buffer';
   prefix?: boolean;
 } = {}): string {
+  // eslint-disable-next-line spellcheck/spell-checker
   // Before commit a7430c1038763d8d7f51e7ddfe1284e3e0bcc87c, pubkey was stored
   // in hexstring, afterwards it is stored using encoded format.
 

@@ -1,6 +1,10 @@
 import ISO6391 from 'iso-639-1';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+// must keep this platformEnv import, otherwise the IDE will be very laggy when linting, don't know why
+/*
+Linting file xxx.tsx took 14762ms. Please check the ESLint rules for performance issues.
+*/
+import '@onekeyhq/shared/src/platformEnv';
 
 import { LOCALES as _LOCALES } from './localeJsonMap';
 
@@ -35,6 +39,7 @@ const getLanguage = (symbol: string): string => {
 };
 
 const PRIORITY_LOCALE_KEYS: ILocaleSymbol[] = [
+  'en',
   'en-US',
   'zh-CN',
   'zh-HK',
@@ -54,11 +59,6 @@ const LOCALES_OPTION = LOCALES_KEYS.map((key) => ({
   value: key as ILocaleSymbol,
   label: getLanguage(key),
 }));
-
-if (platformEnv.isExtensionBackground) {
-  // debugger;
-  // throw new Error('components/locale is not allowed imported from background');
-}
 
 export { LOCALES_OPTION };
 

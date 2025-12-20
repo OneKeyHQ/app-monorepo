@@ -3,16 +3,12 @@ import { useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
-  Accordion,
   Button,
   Dialog,
   Form,
-  Icon,
   Input,
-  SizableText,
   YStack,
   useForm,
 } from '@onekeyhq/components';
@@ -28,7 +24,6 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { DataViewerTab } from '../SignatureConfirmDataViewer';
 
@@ -55,7 +50,7 @@ const showNonceFaq = () => {
   });
 };
 
-const showHexDataFaq = () => {
+export const showHexDataFaq = () => {
   Dialog.show({
     title: appLocale.intl.formatMessage({
       id: ETranslations.global_hex_data_default,

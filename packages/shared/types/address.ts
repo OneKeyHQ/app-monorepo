@@ -1,3 +1,5 @@
+import type { IBadgeProps, IKeyOfIcons } from '@onekeyhq/components';
+import type { IBtcBlockbookDerivedInfo } from '@onekeyhq/core/src/chains/btc/types';
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
@@ -17,6 +19,11 @@ export enum EInputAddressChangeType {
 export enum EDeriveAddressActionType {
   Copy = 'copy',
   Select = 'select',
+}
+
+export enum EWalletAddressActionType {
+  Copy = 'copy',
+  ViewInExplorer = 'viewInExplorer',
 }
 
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
@@ -45,6 +52,9 @@ export type IFetchAccountDetailsParams = {
   withCheckInscription?: boolean;
   withFrozenBalance?: boolean;
   withTronAccountResources?: boolean;
+  withTransactionCount?: boolean;
+  withXpubDerivedTokens?: boolean;
+  withUTXOBlockTime?: boolean;
 };
 
 export type IFetchAccountDetailsResp = {
@@ -68,6 +78,8 @@ export type IFetchAccountDetailsResp = {
   frozenBalanceParsed?: string;
   totalBalance?: string;
   totalBalanceParsed?: string;
+  transactionCount?: number;
+  xpubDerivedTokens?: IBtcBlockbookDerivedInfo[];
 };
 
 export type IValidateAddressResp = {
@@ -104,6 +116,8 @@ export type INetworkAccountAddressDetail = {
   normalizedAddress: string; // lowercase address saved to db in EVM
   displayAddress: string; // checksum address in EVM
   allowEmptyAddress: boolean; // allow empty address, like lightning network
+  masterAddress?: string; // master address of this address, like first address in BTC
+  receiveAddressPath?: string | undefined; // btc fresh address path
 };
 
 export enum EServerInteractedStatus {
@@ -117,7 +131,7 @@ export type IServerAccountBadgeResp = {
   isCex?: boolean;
   isContract?: boolean;
   isScam?: boolean;
-  badges?: { label: string }[];
+  badges?: IAddressBadge[];
   label?: string;
 };
 
@@ -145,7 +159,13 @@ export type IQueryCheckAddressArgs = {
   enableAddressContract?: boolean;
   enableVerifySendFundToSelf?: boolean;
   enableAllowListValidation?: boolean;
+  enableAddressDeriveInfo?: boolean;
   skipValidateAddress?: boolean;
+  walletAccountItem?: {
+    walletName: string;
+    accountName: string;
+    accountId: string;
+  };
 };
 
 export type IFetchServerAccountDetailsParams = IFetchAccountDetailsParams & {
@@ -170,3 +190,13 @@ export interface IServerFetchNonceResponse {
   nonce: number | undefined;
   accountNumber?: number;
 }
+
+export type IAddressBadge = {
+  label: string;
+  type: IBadgeProps['badgeType'];
+  tip?: string;
+  icon?: IKeyOfIcons;
+  logoURI?: string;
+};
+
+export type IAddressInfo = IAddressBadge;

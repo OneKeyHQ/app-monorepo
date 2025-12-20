@@ -8,4 +8,8 @@ export enum EAppSyncStorageKeys {
   onekey_debug_render_tracker = 'onekey_debug_render_tracker',
   onekey_db_perf_monitor = 'onekey_db_perf_monitor',
   onekey_developer_mode_enabled = 'onekey_developer_mode_enabled',
+  last_onekey_id_login_email = 'last_onekey_id_login_email',
+  last_scan_qr_code_text = 'last_scan_qr_code_text',
+  last_valid_server_time = 'last_valid_server_time',
+  last_valid_local_time = 'last_valid_local_time',
 }

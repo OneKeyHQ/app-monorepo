@@ -8,6 +8,7 @@ import {
   SectionList,
   SizableText,
   Stack,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -45,24 +46,15 @@ const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
         <Image
           borderRadius="$full"
           overflow="hidden"
-          width={40}
-          height={40}
+          size={40}
           mr="$3"
-        >
-          <Image.Source
-            source={{
-              uri: item.logo,
-            }}
-          />
-          <Image.Fallback
-            alignItems="center"
-            justifyContent="center"
-            bg="$gray5"
-            delayMs={1000}
-          >
-            <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
-          </Image.Fallback>
-        </Image>
+          source={{ uri: item.logo }}
+          fallback={
+            <Image.Fallback>
+              <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
+            </Image.Fallback>
+          }
+        />
         <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
           {`${getConnectedSiteTitle(item.url)}`}
         </SizableText>
@@ -117,9 +109,10 @@ export const ConnectedSites = () => {
   );
 
   return (
-    <SectionList
+    <Tabs.SectionList
+      stickySectionHeadersEnabled={false}
       sections={sections}
-      estimatedItemSize={154}
+      // estimatedItemSize={154}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (

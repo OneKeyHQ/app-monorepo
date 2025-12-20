@@ -3,6 +3,8 @@ import { Linking } from 'react-native';
 
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -36,7 +38,6 @@ import localDb from '../../dbs/local/localDb';
 
 import walletConnectClient from './walletConnectClient';
 import { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
-import walletConnectStorage from './walletConnectStorage';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBExternalAccount } from '../../dbs/local/types';
@@ -195,7 +196,9 @@ export class WalletConnectDappSide {
       });
     } else {
       // handle non-EVM
-      throw new Error('WalletConnectEventSessionEvent only support EVM now');
+      throw new OneKeyLocalError(
+        'WalletConnectEventSessionEvent only support EVM now',
+      );
     }
   }
 
@@ -258,7 +261,7 @@ export class WalletConnectDappSide {
     let provider: WalletConnectDappSideProvider | undefined;
 
     if (!topic && !createNewTopic) {
-      throw new Error('topic or createNewTopic is required');
+      throw new OneKeyLocalError('topic or createNewTopic is required');
     }
     if (createNewTopic) {
       // eslint-disable-next-line no-param-reassign
@@ -275,13 +278,16 @@ export class WalletConnectDappSide {
 
     if (!provider) {
       const client = await this.getSharedClient();
+
       provider = await WalletConnectDappSideProvider.initPro({
         ...walletConnectClient.sharedOptions,
         logger: WALLET_CONNECT_LOGGER_LEVEL,
         metadata: WALLET_CONNECT_CLIENT_META,
         client,
-        storage: walletConnectStorage.dappSideStorage,
+        // TODO client include storage, remove walletConnectStorage here
+        // storage: walletConnectStorage.dappSideStorage,
         sessionTopic: topic,
+        backgroundApi: this.backgroundApi,
       });
     }
 
@@ -313,7 +319,7 @@ export class WalletConnectDappSide {
           v?.session?.topic,
         );
       });
-      throw new Error('getOrCreateProvider ERROR: topic mismatched');
+      throw new OneKeyLocalError('getOrCreateProvider ERROR: topic mismatched');
     }
 
     return provider;
@@ -321,9 +327,11 @@ export class WalletConnectDappSide {
 
   openNativeWalletAppByDeepLink({
     account,
+    fallbackSdkSavedDeeplink,
     delay = 1000,
   }: {
     account: IDBExternalAccount;
+    fallbackSdkSavedDeeplink?: { href: string; name: string };
     delay?: number; // wait provider.request() send done
   }) {
     console.log('call openWalletNativeAppByDeepLink');
@@ -343,9 +351,12 @@ export class WalletConnectDappSide {
         }
         return false;
       };
-      const r = await openApp(redirect?.universal);
+      let r = await openApp(redirect?.universal);
       if (!r) {
-        await openApp(redirect?.native);
+        r = await openApp(redirect?.native);
+      }
+      if (!r) {
+        r = await openApp(fallbackSdkSavedDeeplink?.href);
       }
     }, delay);
   }
@@ -366,6 +377,8 @@ export class WalletConnectDappSide {
     // refresh account address from walletconnect session
     await this.getOrCreateProvider({ topic, updateDB: true });
   }
+
+  lastConnectToWalletProvider: WalletConnectDappSideProvider | undefined;
 
   async connectToWallet({ impl }: IWalletConnectConnectToWalletParams) {
     console.log('WalletConnectDappSide connectToWallet111');
@@ -472,14 +485,27 @@ export class WalletConnectDappSide {
         }
       }
       console.log('WalletConnectDappSide connectToWallet', connectParams);
+      this.lastConnectToWalletProvider = provider;
       // call connect() to create new session
       await provider.connect(connectParams);
       if (!provider.session || !provider.isWalletConnect) {
-        throw new Error('WalletConnect ERROR: Connect to wallet failed');
+        throw new OneKeyLocalError(
+          'WalletConnect ERROR: Connect to wallet failed',
+        );
       }
+      appEventBus.emit(EAppEventBusNames.WalletConnectConnectSuccess, {
+        session: provider.session,
+      });
       return provider.session;
+    } catch (error) {
+      console.error('connectToWallet error: ', error);
+      appEventBus.emit(EAppEventBusNames.WalletConnectConnectError, {
+        error: errorUtils.toPlainErrorObject(error),
+      });
+      throw error;
     } finally {
       this.closeModal();
+      this.lastConnectToWalletProvider = undefined;
       provider.off(EWalletConnectSessionEvents.display_uri, displayUriHandler);
       provider.off(
         EWalletConnectSessionEvents.session_delete,
@@ -501,7 +527,8 @@ export class WalletConnectDappSide {
       )
       .filter(Boolean);
 
-    const sessions = await walletConnectStorage.dappSideStorage.getSessions();
+    const sessions = await walletConnectClient.getDappSideStorageSessions();
+    // const sessions = await walletConnectStorage.dappSideStorage.getSessions();
     const sessionTopics: string[] = (sessions || [])
       .map((item) => item.topic)
       .filter(Boolean);

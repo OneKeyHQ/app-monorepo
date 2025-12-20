@@ -1,6 +1,7 @@
 import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
+  WEB_APP_URL_SHORT,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
@@ -22,10 +23,10 @@ const urlAccount: IQRCodeHandler<IUrlAccountValue> = async (value, options) => {
   //   );
   // }
 
-  if (urlValue?.data?.urlParamList) {
+  if (urlValue?.data?.urlPathList?.[1] === 'url-account') {
     const origin = urlValue?.data?.origin;
-    if ([WEB_APP_URL, WEB_APP_URL_DEV].includes(origin)) {
-      const [networkId, address] = urlValue?.data?.urlPathList?.slice(1) || [];
+    if ([WEB_APP_URL, WEB_APP_URL_DEV, WEB_APP_URL_SHORT].includes(origin)) {
+      const [networkId, address] = urlValue?.data?.urlPathList?.slice(2) || [];
       const network =
         await options?.backgroundApi?.serviceNetwork.getNetworkSafe({
           networkId,

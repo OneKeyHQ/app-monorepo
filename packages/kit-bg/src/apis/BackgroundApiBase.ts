@@ -1,3 +1,4 @@
+import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isFunction } from 'lodash';
 
@@ -8,19 +9,20 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
   getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
-import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
-import {
-  EEventBusBroadcastMethodNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   EAppEventBusNames,
   IAppEventBusPayload,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EEventBusBroadcastMethodNames,
+  appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -49,9 +51,6 @@ import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JotaiCrossAtom } from '../states/jotai/utils/JotaiCrossAtom';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-
-import { consts } from '@onekeyfe/cross-inpage-provider-core';
-
 import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
@@ -111,7 +110,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const atoms = await this.allAtoms;
     const atom = atoms[atomName];
     if (!atom) {
-      throw new Error(`setAtomValue ERROR: atomName not found: ${atomName}`);
+      throw new OneKeyLocalError(
+        `setAtomValue ERROR: atomName not found: ${atomName}`,
+      );
     }
     await atom.set(value);
   }
@@ -173,7 +174,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const provider: ProviderApiBase | null =
       this.providers[scope as IInjectedProviderNames];
     if (!provider) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `[${scope as string}] ProviderApi instance is not found.`,
       );
     }
@@ -208,11 +209,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const { method, params } = request;
 
     if (!origin) {
-      throw new Error('BackgroundApi [payload.origin] is required.');
+      throw new OneKeyLocalError('BackgroundApi [payload.origin] is required.');
     }
 
     if (!internal && !scope) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'BackgroundApi [payload.scope] is required for non-internal method call.',
       );
     }
@@ -278,7 +279,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   sendForProvider(providerName: IInjectedProviderNamesStrings): any {
     if (!providerName) {
-      throw new Error('sendForProvider: providerName is required.');
+      throw new OneKeyLocalError('sendForProvider: providerName is required.');
     }
     if (!this.sendForProviderMaps[providerName]) {
       this.sendForProviderMaps[providerName] =
@@ -314,20 +315,27 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       }
       this.bridgeExtBg?.requestToAllCS(scope, data, targetOrigin);
     } else {
-      if (this.bridge) {
-        if (isFunction(data) && this.bridge.remoteInfo.origin) {
+      if (this.bridge && this.bridge.remoteInfo.origin) {
+        if (isFunction(data)) {
           // eslint-disable-next-line no-param-reassign
           data = await data({ origin: this.bridge.remoteInfo.origin });
         }
         ensureSerializable(data);
+
+        if (scope === 'ethereum') {
+          // console.log('sendMessagesToInjectedBridge>>>>>>', scope, data, {
+          //   targetOrigin,
+          //   globalOnMessageEnabled: this.bridge.globalOnMessageEnabled,
+          // });
+        }
 
         // this.bridge.requestSync({ scope, data });
         if (this.bridge.globalOnMessageEnabled) {
           this.bridge.requestSync({ scope, data });
         }
       }
-      if (this.webEmbedBridge) {
-        if (isFunction(data) && this.webEmbedBridge.remoteInfo.origin) {
+      if (this.webEmbedBridge && this.webEmbedBridge.remoteInfo.origin) {
+        if (isFunction(data)) {
           // eslint-disable-next-line no-param-reassign
           data = await data({ origin: this.webEmbedBridge.remoteInfo.origin });
         }

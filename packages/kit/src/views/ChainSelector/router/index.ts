@@ -12,6 +12,10 @@ const SettingCustomNetworkModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNetwork'),
 );
 
+const AllNetworksManager = LazyLoadPage(
+  () => import('../pages/AllNetworksManager'),
+);
+
 export const ChainSelectorRouter: IModalFlowNavigatorConfig<
   EChainSelectorPages,
   IChainSelectorParamList
@@ -27,5 +31,9 @@ export const ChainSelectorRouter: IModalFlowNavigatorConfig<
   {
     name: EChainSelectorPages.AddCustomNetwork,
     component: SettingCustomNetworkModal,
+  },
+  {
+    name: EChainSelectorPages.AllNetworksManager,
+    component: AllNetworksManager,
   },
 ];

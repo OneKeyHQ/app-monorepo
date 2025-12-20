@@ -2,22 +2,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapCrossChainStatus,
+  ESwapExtraStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import type { ColorValue } from 'react-native';
-
-export function validateAmountInput(text: string, decimal?: number) {
-  const regex = new RegExp(
-    `^$|^0(\\.\\d{0,${decimal ?? 6}})?$|^[1-9]\\d*(\\.\\d{0,${
-      decimal ?? 6
-    }})?$|^[1-9]\\d*\\.$|^0\\.$`,
-  );
-  if (!regex.test(text)) {
-    return false;
-  }
-  return true;
-}
 
 export function validateAmountInputInfiniteDecimal(text: string) {
   // 修改后的正则，支持输入过程中的状态：
@@ -37,6 +26,22 @@ export function truncateDecimalPlaces(str?: string, decimal?: number) {
   return str;
 }
 
+export function truncateMiddle(
+  str?: string,
+  prefixLength = 4,
+  suffixLength = 4,
+  separator = '...',
+): string {
+  if (!str || str.length <= prefixLength + suffixLength) {
+    return str || '';
+  }
+
+  const prefix = str.substring(0, prefixLength);
+  const suffix = str.substring(str.length - suffixLength);
+
+  return `${prefix}${separator}${suffix}`;
+}
+
 export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {
   const networks = [...arr];
   const index = networks.findIndex((item) => item.networkId === networkId);
@@ -47,10 +52,19 @@ export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {
   return networks;
 }
 
-export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
+export function getSwapHistoryStatusTextProps(
+  status: ESwapTxHistoryStatus,
+  extraStatus?: ESwapExtraStatus,
+): {
   key: ETranslations;
   color: ColorValue;
 } {
+  if (extraStatus === ESwapExtraStatus.HOLD) {
+    return {
+      key: ETranslations.swap_ch_status_hold,
+      color: '$textCaution',
+    };
+  }
   if (status === ESwapTxHistoryStatus.PENDING) {
     return {
       key: ETranslations.swap_history_status_pending,
@@ -61,6 +75,13 @@ export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
   if (status === ESwapTxHistoryStatus.SUCCESS) {
     return {
       key: ETranslations.swap_history_status_success,
+      color: '$textSuccess',
+    };
+  }
+
+  if (status === ESwapTxHistoryStatus.PARTIALLY_FILLED) {
+    return {
+      key: ETranslations.Limit_order_history_status_partially_filled,
       color: '$textSuccess',
     };
   }

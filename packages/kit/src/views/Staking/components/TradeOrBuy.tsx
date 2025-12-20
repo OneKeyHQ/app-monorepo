@@ -2,66 +2,38 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp, IStackProps } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
-import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import { getImportFromToken } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import ActionBuy from '../../AssetDetails/pages/TokenDetails/ActionBuy';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { useHandleSwap } from '../hooks/useHandleSwap';
 
 function BasicTradeOrBuy({
   token,
   accountId,
   networkId,
+  containerStyle,
 }: {
   token: IToken;
   accountId: string;
   networkId: string;
+  containerStyle?: IXStackProps;
 }) {
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
   const networkIdsMap = getNetworkIdsMap();
   const intl = useIntl();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const { handleSwap } = useHandleSwap();
 
   const handleOnSwap = useCallback(async () => {
-    const { isSupportSwap } =
-      await backgroundApiProxy.serviceSwap.checkSupportSwap({
-        networkId,
-      });
-    const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-      networkId,
-    });
-    const { importFromToken, swapTabSwitchType } = getImportFromToken({
-      networkId,
-      isSupportSwap,
-      tokenAddress: token.address,
-    });
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapMainLand,
-      params: {
-        importToToken: {
-          ...token,
-          contractAddress: token.address,
-          networkId,
-          networkLogoURI: network.logoURI,
-        },
-        importFromToken,
-        swapTabSwitchType,
-      },
-    });
-  }, [navigation, networkId, token]);
+    await handleSwap({ token, networkId });
+  }, [handleSwap, token, networkId]);
 
   const isHiddenComponent = networkId === networkIdsMap.cosmoshub;
 
@@ -70,7 +42,7 @@ function BasicTradeOrBuy({
   }
 
   return (
-    <XStack ai="center" jc="space-between" pt="$5">
+    <XStack ai="center" jc="space-between" pt="$5" {...containerStyle}>
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage(
           { id: ETranslations.earn_not_enough_token },
@@ -88,7 +60,10 @@ function BasicTradeOrBuy({
           networkId={networkId}
           accountId={accountId}
           walletType={wallet?.type}
+          walletId={wallet?.id ?? ''}
           tokenAddress={token.address}
+          tokenSymbol={token.symbol}
+          source="earn"
         />
       </XStack>
     </XStack>
@@ -99,10 +74,12 @@ export function TradeOrBuy({
   token,
   accountId,
   networkId,
+  containerStyle,
 }: {
   token: IToken;
   accountId: string;
   networkId: string;
+  containerStyle?: IXStackProps;
 }) {
   return (
     <HomeTokenListProviderMirror>
@@ -110,6 +87,7 @@ export function TradeOrBuy({
         token={token}
         accountId={accountId}
         networkId={networkId}
+        containerStyle={containerStyle}
       />
     </HomeTokenListProviderMirror>
   );

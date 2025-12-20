@@ -19,11 +19,12 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const intl = useIntl();
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
-  const displayUrl = activeTabId && tab?.url;
+  const currentUrl = tab?.displayUrl ?? tab?.url;
+  const displayUrl = activeTabId && currentUrl;
   const { hiddenHttpsUrl } = formatHiddenHttpsUrl(
-    displayUrl ? tab?.url : undefined,
+    displayUrl ? currentUrl : undefined,
   );
-  const { hostSecurity, iconConfig } = useUrlRiskConfig(tab?.url);
+  const { hostSecurity, iconConfig } = useUrlRiskConfig(currentUrl);
   const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
 
   return (
@@ -44,11 +45,11 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       pressStyle={{
         bg: '$bgActive',
       }}
-      onPress={() => handleSearchBarPress(tab?.url ?? '')}
+      onPress={() => handleSearchBarPress(currentUrl ?? '')}
       borderCurve="continuous"
     >
       <Popover
-        title="dApp info"
+        title={intl.formatMessage({ id: ETranslations.global_info })}
         open={dappInfoIsOpen}
         onOpenChange={setDappInfoIsOpen}
         renderTrigger={
@@ -87,7 +88,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         {displayUrl
           ? hiddenHttpsUrl
           : intl.formatMessage({
-              id: ETranslations.explore_search_dapps,
+              id: ETranslations.global_universal_search_placeholder,
             })}
       </SizableText>
     </XStack>

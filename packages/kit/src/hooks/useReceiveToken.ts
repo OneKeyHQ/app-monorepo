@@ -9,9 +9,11 @@ import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
-import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenData,
+} from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -24,10 +26,12 @@ function useReceiveToken({
   tokens,
   tokenListState,
   isMultipleDerive,
+  indexedAccountId,
 }: {
   accountId: string;
   networkId: string;
   walletId: string;
+  indexedAccountId: string;
   isAllNetworks?: boolean;
   tokens?: ITokenData;
   tokenListState?: {
@@ -45,8 +49,33 @@ function useReceiveToken({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
   const handleOnReceive = useCallback(
-    (token?: IToken) => {
+    async ({
+      token,
+      withAllAggregateTokens,
+      sameModal,
+      useSelector,
+    }: {
+      token?: IToken;
+      withAllAggregateTokens?: boolean;
+      sameModal?: boolean;
+      useSelector?: boolean;
+    }) => {
+      if (useSelector) {
+        navigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.ReceiveSelector,
+        });
+        return;
+      }
+
       if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+        if (sameModal) {
+          navigation.push(EModalReceiveRoutes.CreateInvoice, {
+            networkId,
+            accountId,
+          });
+          return;
+        }
+
         navigation.pushModal(EModalRoutes.ReceiveModal, {
           screen: EModalReceiveRoutes.CreateInvoice,
           params: {
@@ -63,113 +92,139 @@ function useReceiveToken({
           !accountUtils.isOthersWallet({ walletId }) &&
           vaultSettings?.mergeDeriveAssetsEnabled
         ) {
+          if (sameModal) {
+            navigation.push(EModalReceiveRoutes.ReceiveToken, {
+              networkId,
+              accountId: '',
+              walletId,
+              token: token ?? tokens?.data?.[0],
+              indexedAccountId,
+            });
+            return;
+          }
           navigation.pushModal(EModalRoutes.ReceiveModal, {
-            screen: EModalReceiveRoutes.ReceiveSelectDeriveAddress,
+            screen: EModalReceiveRoutes.ReceiveToken,
             params: {
               networkId,
-              indexedAccountId: account?.indexedAccountId ?? '',
+              accountId: '',
+              walletId,
               token: token ?? tokens?.data?.[0],
-              tokenMap: tokens?.map,
-              accountId: token?.accountId ?? accountId,
-              actionType: EDeriveAddressActionType.Select,
-              onSelected: ({ account: a }: { account: INetworkAccount }) => {
-                navigation.push(EModalReceiveRoutes.ReceiveToken, {
-                  networkId,
-                  accountId: a.id ?? accountId,
-                  walletId,
-                  token: token ?? tokens?.data?.[0],
-                });
-              },
+              indexedAccountId,
             },
           });
           return;
         }
 
-        navigation.pushModal(EModalRoutes.ReceiveModal, {
-          screen: EModalReceiveRoutes.ReceiveToken,
-          params: {
+        if (sameModal) {
+          navigation.push(EModalReceiveRoutes.ReceiveToken, {
             networkId,
             accountId,
             walletId,
             token,
-          },
-        });
+            indexedAccountId,
+            disableSelector: true,
+          });
+        } else {
+          navigation.pushModal(EModalRoutes.ReceiveModal, {
+            screen: EModalReceiveRoutes.ReceiveToken,
+            params: {
+              networkId,
+              accountId,
+              walletId,
+              token,
+              indexedAccountId,
+              disableSelector: true,
+            },
+          });
+        }
       } else {
-        navigation.pushModal(EModalRoutes.ReceiveModal, {
-          screen: EModalReceiveRoutes.ReceiveSelectToken,
-          params: {
-            title: intl.formatMessage({ id: ETranslations.global_receive }),
-            networkId,
-            accountId,
-            tokens,
-            tokenListState,
-            searchAll: true,
-            closeAfterSelect: false,
-            footerTipText: intl.formatMessage({
-              id: ETranslations.receive_token_list_footer_text,
-            }),
-            onSelect: async (t: IToken) => {
-              if (networkUtils.isLightningNetworkByNetworkId(t.networkId)) {
-                navigation.pushModal(EModalRoutes.ReceiveModal, {
-                  screen: EModalReceiveRoutes.CreateInvoice,
-                  params: {
-                    networkId: t.networkId ?? '',
-                    accountId: t.accountId ?? '',
-                  },
-                });
-                return;
-              }
+        let allAggregateTokenMap:
+          | Record<string, { tokens: IAccountToken[] }>
+          | undefined;
+        let allAggregateTokens: IAccountToken[] | undefined;
 
-              const settings =
-                await backgroundApiProxy.serviceNetwork.getVaultSettings({
+        if (withAllAggregateTokens) {
+          const res =
+            await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
+          await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
+          allAggregateTokenMap = res.allAggregateTokenMap;
+          allAggregateTokens = res.allAggregateTokens;
+        }
+
+        const params = {
+          allAggregateTokenMap,
+          allAggregateTokens,
+          aggregateTokenSelectorScreen:
+            EModalReceiveRoutes.ReceiveSelectAggregateToken,
+          title: intl.formatMessage({
+            id: ETranslations.global_select_crypto,
+          }),
+          networkId,
+          accountId,
+          indexedAccountId,
+          tokens,
+          tokenListState,
+          searchAll: true,
+          closeAfterSelect: false,
+          footerTipText: intl.formatMessage({
+            id: ETranslations.receive_token_list_footer_text,
+          }),
+          enableNetworkAfterSelect: true,
+          onSelect: async (t: IToken) => {
+            if (networkUtils.isLightningNetworkByNetworkId(t.networkId)) {
+              navigation.pushModal(EModalRoutes.ReceiveModal, {
+                screen: EModalReceiveRoutes.CreateInvoice,
+                params: {
                   networkId: t.networkId ?? '',
-                });
+                  accountId: t.accountId ?? '',
+                },
+              });
+              return;
+            }
 
-              if (
-                settings.mergeDeriveAssetsEnabled &&
-                network?.isAllNetworks &&
-                !accountUtils.isOthersWallet({ walletId })
-              ) {
-                navigation.push(
-                  EModalReceiveRoutes.ReceiveSelectDeriveAddress,
-                  {
-                    networkId: t.networkId ?? '',
-                    indexedAccountId: account?.indexedAccountId ?? '',
-                    token: t,
-                    tokenMap: tokens?.map,
-                    accountId: t.accountId ?? '',
-                    actionType: EDeriveAddressActionType.Select,
-                    onSelected: ({
-                      account: a,
-                    }: {
-                      account: INetworkAccount;
-                    }) => {
-                      navigation.push(EModalReceiveRoutes.ReceiveToken, {
-                        networkId: t.networkId ?? networkId,
-                        accountId: a.id ?? accountId,
-                        walletId,
-                        token: t,
-                      });
-                    },
-                  },
-                );
-                return;
-              }
+            const settings =
+              await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                networkId: t.networkId ?? '',
+              });
 
+            if (
+              settings.mergeDeriveAssetsEnabled &&
+              network?.isAllNetworks &&
+              !accountUtils.isOthersWallet({ walletId })
+            ) {
               navigation.push(EModalReceiveRoutes.ReceiveToken, {
                 networkId: t.networkId ?? networkId,
-                accountId: t.accountId ?? accountId,
+                accountId: '',
                 walletId,
                 token: t,
+                indexedAccountId,
               });
-            },
+              return;
+            }
+
+            navigation.push(EModalReceiveRoutes.ReceiveToken, {
+              networkId: t.networkId ?? networkId,
+              accountId: t.accountId ?? accountId,
+              walletId,
+              token: t,
+              indexedAccountId,
+            });
           },
-        });
+        };
+
+        if (sameModal) {
+          navigation.push(EModalReceiveRoutes.ReceiveSelectToken, params);
+        } else {
+          navigation.pushModal(EModalRoutes.ReceiveModal, {
+            screen: EModalReceiveRoutes.ReceiveSelectToken,
+            params,
+          });
+        }
       }
     },
     [
-      account?.indexedAccountId,
       accountId,
+      indexedAccountId,
       intl,
       isMultipleDerive,
       navigation,

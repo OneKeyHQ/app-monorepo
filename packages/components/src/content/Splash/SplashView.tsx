@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { AnimatePresence } from 'tamagui';
+import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Image, Stack } from '../../primitives';
 
@@ -33,7 +34,7 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
           key="splash-view"
           animation="50ms"
           position="absolute"
-          top={0}
+          top={platformEnv.isDesktopWin || platformEnv.isDesktopLinux ? -30 : 0}
           left={0}
           right={0}
           bottom={0}

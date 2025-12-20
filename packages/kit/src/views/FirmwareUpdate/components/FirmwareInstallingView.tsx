@@ -16,11 +16,9 @@ import type {
 import { FirmwareUpdateDone } from './FirmwareUpdateDone';
 import { FirmwareUpdateErrors } from './FirmwareUpdateErrors';
 import { FirmwareUpdateProgressBar } from './FirmwareUpdateProgressBar';
-import { FirmwareUpdateWalletProfile } from './FirmwareUpdateWalletProfile';
 
 export function FirmwareInstallingViewBase({
   result,
-  isDone,
   tipMessage,
   retryInfo,
   progressBarKey,
@@ -31,12 +29,18 @@ export function FirmwareInstallingViewBase({
   retryInfo?: IFirmwareUpdateRetry | undefined;
   progressBarKey?: number;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const profile = <FirmwareUpdateWalletProfile result={result} />;
+  const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+  const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
+  const needOnboarding =
+    stepInfo.step === EFirmwareUpdateSteps.updateDone
+      ? stepInfo.payload?.needOnboarding ?? false
+      : false;
 
   const content = useMemo(() => {
     if (isDone) {
-      return <FirmwareUpdateDone result={result} />;
+      return (
+        <FirmwareUpdateDone result={result} needOnboarding={needOnboarding} />
+      );
     }
     if (retryInfo) {
       return (
@@ -54,21 +58,14 @@ export function FirmwareInstallingViewBase({
         key={progressBarKey}
       />
     );
-  }, [isDone, progressBarKey, result, retryInfo, tipMessage]);
-  return (
-    <Stack>
-      {/* {profile} */}
-      {content}
-    </Stack>
-  );
+  }, [isDone, needOnboarding, progressBarKey, result, retryInfo, tipMessage]);
+  return <Stack>{content}</Stack>;
 }
 
 export function FirmwareInstallingView({
   result,
-  isDone,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
-  isDone?: boolean;
 }) {
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
   const [retryInfo] = useFirmwareUpdateRetryAtom();
@@ -95,7 +92,6 @@ export function FirmwareInstallingView({
     <>
       <FirmwareInstallingViewBase
         result={result}
-        isDone={isDone}
         tipMessage={lastFirmwareTipMessage}
         retryInfo={
           stepInfo.step === EFirmwareUpdateSteps.updateStart

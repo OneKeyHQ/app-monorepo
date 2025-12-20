@@ -16,34 +16,47 @@ import {
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   AnimatePresence,
   Sheet,
-  SizableText,
-  Dialog as TMDialog,
-  useMedia,
-} from 'tamagui';
-
-import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
+  TMDialog,
+} from '@onekeyhq/components/src/shared/tamagui';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Toast } from '../../actions/Toast';
-import { SheetGrabber } from '../../content';
+import { Keyboard, SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
-import { Portal } from '../../hocs';
-import { useBackHandler, useOverlayZIndex } from '../../hooks';
+import {
+  EPageType,
+  EPortalContainerConstantName,
+  Portal,
+  usePageType,
+} from '../../hocs';
+import {
+  useBackHandler,
+  useModalNavigatorContextPortalId,
+  useOverlayZIndex,
+} from '../../hooks';
+import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
-import { Spinner, Stack } from '../../primitives';
+import { SizableText, Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
+import { addDialogInstance, removeDialogInstance } from './dialogInstances';
 import { Footer, FooterAction } from './Footer';
 import {
   DialogDescription,
   DialogHeader,
   DialogHeaderContext,
+  DialogHyperlinkTextDescription,
   DialogIcon,
   DialogRichDescription,
   DialogTitle,
@@ -61,9 +74,12 @@ import type {
   IDialogShowProps,
 } from './type';
 import type { IPortalManager } from '../../hocs';
-import type { IStackProps } from '../../primitives';
+import type { UseFormReturn } from '../../hooks';
+import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
+import type { GestureResponderEvent } from 'react-native';
 
+export * from './dialogInstances';
 export * from './hooks';
 export type {
   IDialogCancelProps,
@@ -72,17 +88,29 @@ export type {
   IDialogShowProps,
 } from './type';
 
-export const FIX_SHEET_PROPS: IStackProps = {
+export const FIX_SHEET_PROPS: IYStackProps = {
   display: 'block',
 };
 
+const MAX_CONTENT_WIDTH = 400;
+
+/**
+ * Renders a responsive dialog component that adapts between a sheet (for medium and larger screens) and a modal dialog (for smaller screens or web), supporting customizable content, footer actions, and platform-specific behaviors.
+ *
+ * Handles dialog open/close state, confirm and cancel actions (including async handlers), backdrop and back button interactions, and tracks dialog events. Supports custom header, footer, and content rendering, as well as various configuration options for appearance and interactivity.
+ *
+ * @returns The rendered dialog UI as a React element.
+ */
 function DialogFrame({
+  title,
   open,
+  onHeaderCloseButtonPress,
   onClose,
   modal,
   renderContent,
   showFooter = true,
   footerProps,
+  contentContainerProps,
   onConfirm,
   onConfirmText,
   onCancel,
@@ -94,12 +122,15 @@ function DialogFrame({
   estimatedContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
+  sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
   showConfirmButton = true,
   showCancelButton = true,
   testID,
   isAsync,
+  trackID,
+  forceMount,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -121,8 +152,13 @@ function DialogFrame({
   );
 
   useEffect(() => {
+    if (trackID) {
+      defaultLogger.ui.dialog.dialogOpen({
+        trackId: trackID,
+      });
+    }
     onOpen?.();
-  }, [onOpen]);
+  }, [trackID, onOpen]);
 
   const handleBackPress = useCallback(() => {
     if (!open) {
@@ -134,29 +170,45 @@ function DialogFrame({
 
   useBackHandler(handleBackPress);
 
+  const handleEscapeKeyDown = useCallback((event: GestureResponderEvent) => {
+    event.preventDefault();
+  }, []);
+
   const handleCancelButtonPress = useCallback(async () => {
-    const cancel = onCancel || footerRef.props?.onCancel;
-    cancel?.(() => onClose());
-    if (!onCancel?.length) {
-      await onClose();
+    if (trackID) {
+      defaultLogger.ui.dialog.dialogCancel({
+        trackId: trackID,
+      });
     }
-  }, [footerRef.props?.onCancel, onCancel, onClose]);
+    const cancel = onCancel || footerRef.props?.onCancel;
+    cancel?.(() => onClose({ flag: 'cancel' }));
+    if (!onCancel?.length) {
+      await onClose({ flag: 'cancel' });
+    }
+  }, [trackID, footerRef.props?.onCancel, onCancel, onClose]);
+
+  const handleHeaderCloseButtonPress = useCallback(async () => {
+    onHeaderCloseButtonPress?.();
+    await onClose?.();
+  }, [onClose, onHeaderCloseButtonPress]);
 
   const media = useMedia();
 
-  const zIndex = useOverlayZIndex(open);
+  const zIndex = useOverlayZIndex(open, title);
   const renderDialogContent = (
     <Stack>
-      <DialogHeader onClose={handleCancelButtonPress} />
+      <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
       {/* extra children */}
       <Content
         testID={testID}
         isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
+        {...(contentContainerProps as any)}
       >
         {renderContent}
       </Content>
       <Footer
+        trackID={trackID}
         tone={tone}
         showFooter={showFooter}
         footerProps={footerProps}
@@ -197,15 +249,20 @@ function DialogFrame({
         snapPointsMode="fit"
         animation="quick"
         zIndex={zIndex}
+        // OK-36893 OK-38624
+        // When modal is false, multiple Tamagui sheets may collapse into position:relative
+        // which causes z-index stacking issues
+        modal={!platformEnv.isNative && modal === undefined ? true : modal}
         {...sheetProps}
       >
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
           animation="quick"
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
+          enterStyle={{ opacity: 0 } as any}
+          exitStyle={{ opacity: 0 } as any}
           backgroundColor="$bgBackdrop"
           zIndex={sheetProps?.zIndex || zIndex}
+          {...sheetOverlayProps}
         />
         <Sheet.Frame
           unstyled
@@ -215,6 +272,10 @@ function DialogFrame({
           bg="$bg"
           borderCurve="continuous"
           disableHideBottomOverflow
+          // Fix width issue for portrait iPad mini - ensure proper dialog width
+          mx={platformEnv.isNativeIOSPad ? 'auto' : undefined}
+          width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
+          maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
           {!disableDrag ? <SheetGrabber /> : null}
           {renderDialogContent}
@@ -250,6 +311,7 @@ function DialogFrame({
               backgroundColor="$bgBackdrop"
               animateOnly={['opacity']}
               animation="quick"
+              forceMount={forceMount || undefined}
               enterStyle={{
                 opacity: 0,
               }}
@@ -263,6 +325,7 @@ function DialogFrame({
             <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
+              onEscapeKeyDown={handleEscapeKeyDown as any}
               key="content"
               testID={testID}
               animateOnly={['transform', 'opacity']}
@@ -278,13 +341,20 @@ function DialogFrame({
               exitStyle={{ opacity: 0, scale: 0.85 }}
               borderRadius="$4"
               borderWidth="$0"
-              outlineColor="$borderSubdued"
-              outlineStyle="solid"
-              outlineWidth="$px"
+              $theme-dark={{
+                outlineColor: '$neutral5',
+              }}
+              outlineWidth={1}
+              outlineOffset={0}
+              outlineColor="$neutral3"
+              style={{
+                outlineStyle: 'solid',
+              }}
               bg="$bg"
-              width={400}
+              width={MAX_CONTENT_WIDTH}
               p="$0"
               {...floatingPanelProps}
+              zIndex={floatingPanelProps?.zIndex || zIndex}
             >
               {renderDialogContent}
             </TMDialog.Content>
@@ -307,6 +377,7 @@ function BaseDialogContainer(
     renderIcon,
     showExitButton,
     open,
+    isExist,
     onOpenChange,
     ...props
   }: IDialogContainerProps,
@@ -324,14 +395,31 @@ function BaseDialogContainer(
     },
     [isControlled, onOpenChange],
   );
-  const formRef = useRef();
+  const formRef = useRef<UseFormReturn<any, any, any> | undefined | undefined>(
+    undefined,
+  );
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
+      if (
+        props.trackID &&
+        extra?.flag !== 'confirm' &&
+        extra?.flag !== 'cancel'
+      ) {
+        defaultLogger.ui.dialog.dialogClose({
+          trackId: props.trackID,
+        });
+      }
       changeIsOpen(false);
+      void Keyboard.dismissWithDelay(50);
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [changeIsOpen, onClose],
+    [changeIsOpen, onClose, props.trackID],
+  );
+
+  const handleIsExist = useCallback(
+    () => (isExist ? isExist() : false),
+    [isExist],
   );
 
   const contextValue = useMemo(
@@ -339,13 +427,14 @@ function BaseDialogContainer(
       dialogInstance: {
         close: handleClose,
         ref: formRef,
+        isExist: handleIsExist,
       },
       footerRef: {
         notifyUpdate: undefined,
         props: undefined,
       },
     }),
-    [handleClose],
+    [handleClose, handleIsExist],
   );
 
   const handleOpen = useCallback(() => {
@@ -363,8 +452,9 @@ function BaseDialogContainer(
     () => ({
       close: handleImperativeClose,
       getForm: () => formRef.current,
+      isExist: handleIsExist,
     }),
-    [handleImperativeClose],
+    [handleImperativeClose, handleIsExist],
   );
   const [headerProps, setHeaderProps] = useState<IDialogHeaderProps>({
     title,
@@ -400,6 +490,7 @@ function BaseDialogContainer(
           onOpen={handleOpen}
           renderContent={renderContent}
           onClose={handleClose}
+          title={title}
           {...props}
         />
       </DialogHeaderContext.Provider>
@@ -412,25 +503,29 @@ export const DialogContainer = forwardRef<
   IDialogContainerProps
 >(BaseDialogContainer);
 
+type IDialogShowFunctionProps = IDialogShowProps & {
+  dialogContainer?: (o: {
+    ref: React.RefObject<IDialogInstance | null>;
+  }) => JSX.Element;
+};
 function dialogShow({
   onClose,
   dialogContainer,
   portalContainer,
+  isOverTopAllViews,
   ...props
-}: IDialogShowProps & {
-  dialogContainer?: (o: {
-    ref: React.RefObject<IDialogInstance> | undefined;
-  }) => JSX.Element;
-}): IDialogInstance {
-  dismissKeyboard();
-  let instanceRef: React.RefObject<IDialogInstance> | undefined =
-    createRef<IDialogInstance>();
+}: IDialogShowFunctionProps): IDialogInstance {
+  void Keyboard.dismissWithDelay(50);
+  let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
+    createRef();
 
   let portalRef:
     | {
         current: IPortalManager;
       }
     | undefined;
+
+  let dialogInstance: IDialogInstance | undefined;
 
   const buildForwardOnClose =
     (options: {
@@ -447,11 +542,16 @@ function dialogShow({
             portalRef.current.destroy();
             portalRef = undefined;
           }
+          if (dialogInstance) {
+            removeDialogInstance(dialogInstance);
+            dialogInstance = undefined;
+          }
+          void Keyboard.dismissWithDelay(50);
           void options.onClose?.(extra);
           resolve();
         }, 300);
       });
-
+  const isExist = () => !!instanceRef?.current;
   const element = (() => {
     if (dialogContainer) {
       const e = dialogContainer({ ref: instanceRef });
@@ -470,13 +570,14 @@ function dialogShow({
         ref={instanceRef}
         {...props}
         onClose={buildForwardOnClose({ onClose })}
+        isExist={isExist}
       />
     );
   })();
 
   portalRef = {
     current: portalContainer
-      ? renderToContainer(portalContainer, element)
+      ? renderToContainer(portalContainer, element, isOverTopAllViews)
       : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   const close = async (extra?: { flag?: string }, times = 0) => {
@@ -491,10 +592,13 @@ function dialogShow({
     }
     return instanceRef?.current?.close(extra);
   };
-  return {
+  dialogInstance = {
     close,
     getForm: () => instanceRef?.current?.getForm(),
+    isExist,
   };
+  addDialogInstance(dialogInstance);
+  return dialogInstance;
 }
 
 const dialogConfirm = (props: IDialogConfirmProps) =>
@@ -516,23 +620,39 @@ const dialogCancel = (props: IDialogCancelProps) =>
 const dialogDebugMessage = (
   props: IDialogShowProps & { debugMessage: any },
 ) => {
-  const dataContent = JSON.stringify(props.debugMessage, null, 2);
-  console.log('dialogDebugMessage:', dataContent);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const dataContent = (() => {
+    if (props.debugMessage instanceof Error) {
+      return stringUtils.stableStringify(
+        errorUtils.toPlainErrorObject(props.debugMessage),
+        null,
+        4,
+      );
+    }
+    return stringUtils.stableStringify(props.debugMessage, null, 4);
+  })();
+  const copyContent = async () => {
+    await setStringAsync(dataContent);
+    console.log('dialogDebugMessage: object >>> ', props.debugMessage);
+    console.log('dialogDebugMessage: ', dataContent);
+    Toast.success({
+      title: 'Copied',
+    });
+  };
   return dialogShow({
     title: 'DebugMessage',
-    showFooter: false,
-    showConfirmButton: false,
-    showCancelButton: false,
+    showFooter: true,
+    showConfirmButton: true,
+    showCancelButton: true,
+    onConfirmText: 'Copy',
+    dismissOnOverlayPress: false,
+    onConfirm: async ({ preventClose }) => {
+      preventClose();
+      await copyContent();
+    },
     renderContent: (
       <ScrollView maxHeight="$48" nestedScrollEnabled>
-        <SizableText
-          onPress={async () => {
-            await setStringAsync(dataContent);
-            Toast.success({
-              title: 'Copied',
-            });
-          }}
-        >
+        <SizableText size="$bodySm" onPress={copyContent}>
           {dataContent}
         </SizableText>
       </ScrollView>
@@ -562,7 +682,8 @@ export function DialogLoadingView({
 }
 
 export type IDialogLoadingProps = {
-  title: string;
+  title?: string;
+  description?: string;
   showExitButton?: boolean;
 };
 function dialogLoading(props: IDialogLoadingProps) {
@@ -584,6 +705,7 @@ export const Dialog = {
   Title: DialogTitle,
   Description: DialogDescription,
   RichDescription: DialogRichDescription,
+  HyperlinkTextDescription: DialogHyperlinkTextDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
   Form: DialogForm,
@@ -595,3 +717,70 @@ export const Dialog = {
   loading: dialogLoading,
   debugMessage: dialogDebugMessage,
 };
+
+export enum EInPageDialogType {
+  inTabPages = 'inTabPages',
+  inModalPage = 'inModalPage',
+}
+export const useInPageDialog = (dialogType?: EInPageDialogType) => {
+  const navigatorPortalId = useModalNavigatorContextPortalId();
+  const { pagePortalId } = usePageContext();
+  const pageType = usePageType();
+  const type =
+    dialogType ||
+    (pageType === EPageType.modal
+      ? EInPageDialogType.inModalPage
+      : EInPageDialogType.inTabPages);
+  const portalId = useMemo(() => {
+    if (type === EInPageDialogType.inTabPages) {
+      return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;
+    }
+    return platformEnv.isNative
+      ? (pagePortalId as EPortalContainerConstantName)
+      : navigatorPortalId;
+  }, [navigatorPortalId, pagePortalId, type]);
+
+  const basicDialogProps = useMemo(
+    () => ({
+      testID: portalId,
+      modal: false,
+      forceMount: platformEnv.isNative ? undefined : true,
+      portalContainer: portalId,
+    }),
+    [portalId],
+  );
+  return useMemo(
+    () => ({
+      show: (props: IDialogShowFunctionProps) => {
+        return dialogShow({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      confirm: (props: IDialogConfirmProps) => {
+        return dialogConfirm({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      cancel: (props: IDialogCancelProps) => {
+        return dialogConfirm({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+      loading: (props: IDialogLoadingProps) => {
+        return dialogLoading({
+          ...basicDialogProps,
+          ...props,
+        });
+      },
+    }),
+    [basicDialogProps],
+  );
+};
+
+export const useInTabDialog = () =>
+  useInPageDialog(EInPageDialogType.inTabPages);
+export const useInModalDialog = () =>
+  useInPageDialog(EInPageDialogType.inModalPage);

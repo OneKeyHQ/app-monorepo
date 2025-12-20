@@ -1,21 +1,11 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect } from 'react';
 
-import { manipulateAsync } from 'expo-image-manipulator';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
 
 import type { IStackProps } from '@onekeyhq/components';
-import {
-  IconButton,
-  SizableText,
-  Stack,
-  Toast,
-  useClipboard,
-} from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import { IconButton, Stack, Toast, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useBrowserBookmarkAction,
@@ -26,45 +16,38 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
-import {
-  EDiscoveryModalRoutes,
-  EModalRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
-import { THUMB_CROP_SIZE } from '../../config/TabList.constants';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import {
-  useDisabledAddedNewTab,
   useDisplayHomePageFlag,
   useWebTabDataById,
-  useWebTabs,
 } from '../../hooks/useWebTabs';
-import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
-import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
+import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
+import RefreshButton from './RefreshButton';
+import TabCountButton from './TabCountButton';
 
 import type { ESiteMode } from '../../types';
 import type WebView from 'react-native-webview';
 
 export interface IMobileBrowserBottomBarProps extends IStackProps {
   id: string;
+  onGoBackHomePage?: () => void;
 }
 
-function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
+function MobileBrowserBottomBar({
+  id,
+  onGoBackHomePage,
+  ...rest
+}: IMobileBrowserBottomBarProps) {
   const intl = useIntl();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
   const { tab } = useWebTabDataById(id);
-  const { tabs } = useWebTabs();
 
   useEffect(() => {
     if (tab?.url) {
@@ -90,98 +73,25 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     }, [origin]);
 
   const { displayHomePage } = useDisplayHomePageFlag();
+  const { setPinnedTab, setCurrentWebTab, closeWebTab, setSiteMode } =
+    useBrowserTabActions().current;
+
   const {
-    setWebTabData,
-    setPinnedTab,
-    setCurrentWebTab,
-    closeWebTab,
-    setSiteMode,
-  } = useBrowserTabActions().current;
-  const { disabledAddedNewTab } = useDisabledAddedNewTab();
-  const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction().current;
+    addOrUpdateBrowserBookmark: addBrowserBookmark,
+    removeBrowserBookmark,
+  } = useBrowserBookmarkAction().current;
   const { handleShareUrl } = useBrowserOptionsAction();
-
-  const tabCount = useMemo(() => tabs.length, [tabs]);
-
-  const takeScreenshot = useCallback(
-    () =>
-      new Promise<boolean>((resolve, reject) => {
-        if (!id) {
-          reject(new Error('capture view id is null'));
-          return;
-        }
-        captureRef(captureViewRefs[id ?? ''], {
-          format: 'jpg',
-          quality: 0.2,
-        })
-          .then(async (imageUri) => {
-            const manipulateValue = await manipulateAsync(imageUri, [
-              {
-                crop: {
-                  originX: 0,
-                  originY: 0,
-                  width: THUMB_CROP_SIZE,
-                  height: THUMB_CROP_SIZE,
-                },
-              },
-            ]);
-            const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
-            setWebTabData({
-              id,
-              thumbnail: path,
-            });
-            void saveScreenshot(manipulateValue.uri, path);
-            resolve(true);
-          })
-          .catch((e) => {
-            console.log('capture error e: ', e);
-            reject(e);
-          });
-      }),
-    [id, setWebTabData],
-  );
-
-  const handleShowTabList = useCallback(async () => {
-    try {
-      if (!displayHomePage) {
-        await takeScreenshot();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.MobileTabList,
-    });
-  }, [takeScreenshot, navigation, displayHomePage]);
-
-  const handleAddNewTab = useCallback(async () => {
-    if (disabledAddedNewTab) {
-      Toast.message({
-        title: intl.formatMessage(
-          { id: ETranslations.explore_toast_tab_limit_reached },
-          { number: '20' },
-        ),
-      });
-      return;
-    }
-    try {
-      if (!displayHomePage) {
-        await takeScreenshot();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-    });
-  }, [disabledAddedNewTab, navigation, displayHomePage, takeScreenshot, intl]);
 
   const handleBookmarkPress = useCallback(
     (isBookmark: boolean) => {
       if (tab) {
         if (isBookmark) {
-          void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+          void addBrowserBookmark({
+            url: tab?.url,
+            title: tab?.title ?? '',
+            logo: undefined,
+            sortIndex: undefined,
+          });
         } else {
           void removeBrowserBookmark(tab?.url);
         }
@@ -222,30 +132,17 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     showTabBar();
   }, [closeWebTab, setCurrentWebTab, id]);
 
-  const handleGoBackHome = useCallback(async () => {
-    try {
-      await takeScreenshot();
-    } catch (e) {
-      console.error('takeScreenshot error: ', e);
-    }
-    setTimeout(() => {
-      setCurrentWebTab(null);
-      if (platformEnv.isNativeIOSPad) {
-        navigation.switchTab(ETabRoutes.Discovery);
-      }
-    });
-  }, [takeScreenshot, setCurrentWebTab, navigation]);
-
   const onShare = useCallback(() => {
-    handleShareUrl(tab?.url ?? '');
-  }, [tab?.url, handleShareUrl]);
+    handleShareUrl(tab?.displayUrl ?? tab?.url ?? '');
+  }, [tab?.displayUrl, tab?.url, handleShareUrl]);
 
   const { copyText } = useClipboard();
   const onCopyUrl = useCallback(() => {
-    if (tab?.url) {
-      copyText(tab.url);
+    const urlToCopy = tab?.displayUrl ?? tab?.url;
+    if (urlToCopy) {
+      copyText(urlToCopy);
     }
-  }, [tab?.url, copyText]);
+  }, [tab?.displayUrl, tab?.url, copyText]);
 
   useEffect(() => {
     const fn = () => {
@@ -283,6 +180,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
 
   const disabledGoBack = displayHomePage || !tab?.canGoBack;
   const disabledGoForward = displayHomePage ? true : !tab?.canGoForward;
+
   return (
     <Stack
       flexDirection="row"
@@ -319,42 +217,15 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           testID="browser-bar-go-forward"
         />
       </Stack>
+
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <IconButton
-          variant="secondary"
-          size="medium"
-          icon="PlusLargeOutline"
-          onPress={handleAddNewTab}
-          testID="browser-bar-add"
-        />
+        <TabCountButton testID="browser-bar-tabs" />
       </Stack>
+
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <Stack
-          p="$3"
-          borderRadius="$full"
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-          onPress={() => {
-            void handleShowTabList();
-          }}
-          testID="browser-bar-tabs"
-        >
-          <Stack
-            minWidth="$5"
-            minHeight="$5"
-            borderRadius="$1"
-            borderWidth="$0.5"
-            borderColor="$iconSubdued"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <SizableText size="$bodySmMedium" color="$iconSubdued">
-              {tabCount}
-            </SizableText>
-          </Stack>
-        </Stack>
+        <RefreshButton onRefresh={handleRefresh} />
       </Stack>
+
       <Stack flex={1} alignItems="center" justifyContent="center">
         <MobileBrowserBottomOptions
           disabled={displayHomePage}
@@ -366,11 +237,12 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           isPinned={tab?.isPinned ?? false}
           onPinnedPress={handlePinTab}
           onBrowserOpen={() => {
-            if (tab?.url) {
-              openUrlExternal(tab.url);
+            const urlToOpen = tab?.displayUrl ?? tab?.url;
+            if (urlToOpen) {
+              openUrlExternal(urlToOpen);
             }
           }}
-          onGoBackHomePage={handleGoBackHome}
+          onGoBackHomePage={onGoBackHomePage}
           onCloseTab={handleCloseTab}
           displayDisconnectOption={!!hasConnectedAccount}
           onDisconnect={handleDisconnect}

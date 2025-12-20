@@ -16,7 +16,7 @@ import type {
   IUnsignedMessageEth,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -81,10 +81,12 @@ async function hardwareEvmSignTransaction({
 
   const value = encodedTx.value ?? '0x0';
   const data = encodedTx.data ?? '0x';
+  const to = encodedTx.to ?? '';
 
   if (isEip1559) {
     const txToSignEIP1559: EVMTransactionEIP1559 = {
       ...omit(encodedTx, 'from'),
+      to,
       value,
       data,
       chainId,
@@ -98,6 +100,7 @@ async function hardwareEvmSignTransaction({
   } else {
     const txToSignNormal: EVMTransaction = {
       ...omit(encodedTx, 'from'),
+      to,
       value,
       data,
       chainId,
@@ -149,7 +152,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.evm.hd;
 
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const chainId = await this.getNetworkChainId();
     const { unsignedTx } = params;
@@ -181,12 +186,14 @@ export class KeyringHardware extends KeyringHardwareBase {
   }): Promise<string> {
     const { message, deviceParams } = params;
     if (!deviceParams) {
-      throw new Error('deviceParams is undefined');
+      throw new OneKeyLocalError('deviceParams is undefined');
     }
     const { dbDevice, deviceCommonParams } = deviceParams;
     const { connectId, deviceId } = dbDevice;
 
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const path = await this.vault.getAccountPath();
 
     const chainId = Number(await this.getNetworkChainId());
@@ -202,7 +209,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       let messageBuffer: Buffer;
       try {
         if (!hexUtils.isHexString(message.message))
-          throw new Error('not hex string');
+          throw new OneKeyLocalError('not hex string');
 
         messageBuffer = Buffer.from(message.message.replace('0x', ''), 'hex');
       } catch (error) {
@@ -277,10 +284,13 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async buildHwAllNetworkPrepareAccountsParams(
     params: IBuildHwAllNetworkPrepareAccountsParams,
   ): Promise<AllNetworkAddressParams | undefined> {
+    const chainId = await this.getNetworkChainId();
+
     return {
       network: this.hwSdkNetwork,
       path: params.path,
       showOnOneKey: false,
+      chainName: chainId,
     };
   }
 
@@ -314,6 +324,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -321,7 +332,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
 
@@ -355,7 +366,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, address } = item;
+          const { path, address, __hwExtraInfo__ } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address,
           );
@@ -363,6 +374,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address: normalizedAddress || address,
             path,
             publicKey: '', // TODO return pub from hardware?
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }

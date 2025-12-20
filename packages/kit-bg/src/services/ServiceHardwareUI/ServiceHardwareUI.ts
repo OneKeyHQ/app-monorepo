@@ -1,9 +1,10 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   isHardwareError,
   isHardwareErrorByCode,
@@ -17,7 +18,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceSharedCallParams,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import {
   EHardwareUiStateAction,
@@ -27,6 +32,7 @@ import ServiceBase from '../ServiceBase';
 
 import { HardwareProcessingManager } from './HardwareProcessingManager';
 
+import type { IDBDevice } from '../../dbs/local/types';
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
@@ -41,6 +47,7 @@ export type IWithHardwareProcessingControlParams = {
 export type IWithHardwareProcessingOptions = {
   deviceParams: IDeviceSharedCallParams | undefined;
   debugMethodName?: string;
+  onFinally?: () => void;
 } & IWithHardwareProcessingControlParams;
 
 export type ICloseHardwareUiStateDialogParams = {
@@ -65,18 +72,19 @@ class ServiceHardwareUI extends ServiceBase {
   @backgroundMethod()
   async sendUiResponse(response: UiResponseEvent) {
     return (
-      await this.backgroundApi.serviceHardware.getSDKInstance()
+      await this.backgroundApi.serviceHardware.getSDKInstance({
+        connectId: undefined,
+      })
     ).uiResponse(response);
   }
 
   @backgroundMethod()
   async showConfirmOnDeviceToastDemo({ connectId }: { connectId: string }) {
-    const { EOneKeyDeviceMode } = await CoreSDKLoader();
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.REQUEST_BUTTON,
       connectId,
       payload: {
-        deviceType: 'classic',
+        deviceType: EDeviceType.Classic,
         uiRequestType: EHardwareUiStateAction.REQUEST_BUTTON,
         eventType: '',
         deviceId: '',
@@ -108,6 +116,36 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
+  async showBluetoothDevicePairingDialog({
+    device,
+    features,
+    deviceId,
+    usbConnectId,
+    promiseId,
+  }: {
+    device: IDBDevice;
+    features: IOneKeyDeviceFeatures | undefined;
+    deviceId: string;
+    usbConnectId: string;
+    promiseId?: number;
+  }) {
+    await hardwareUiStateAtom.set({
+      action: EHardwareUiStateAction.DeviceChecking,
+      connectId: usbConnectId,
+      payload: {
+        uiRequestType: EHardwareUiStateAction.DeviceChecking,
+        eventType: EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING,
+        deviceType: device.deviceType,
+        deviceId,
+        connectId: usbConnectId,
+        deviceMode: EOneKeyDeviceMode.normal,
+        promiseId: promiseId?.toString(),
+        rawPayload: { deviceId, usbConnectId, features },
+      },
+    });
+  }
+
+  @backgroundMethod()
   async showEnterPassphraseOnDeviceDialog() {
     const { UI_RESPONSE } = await CoreSDKLoader();
     await this.sendUiResponse({
@@ -115,6 +153,21 @@ class ServiceHardwareUI extends ServiceBase {
       payload: {
         value: '',
         passphraseOnDevice: true,
+        attachPinOnDevice: false,
+        save: false,
+      },
+    });
+  }
+
+  @backgroundMethod()
+  async showEnterAttachPinOnDeviceDialog() {
+    const { UI_RESPONSE } = await CoreSDKLoader();
+    await this.sendUiResponse({
+      type: UI_RESPONSE.RECEIVE_PASSPHRASE,
+      payload: {
+        value: '',
+        passphraseOnDevice: false,
+        attachPinOnDevice: true,
         save: false,
       },
     });
@@ -168,6 +221,21 @@ class ServiceHardwareUI extends ServiceBase {
       action: EHardwareUiStateAction.EnterPinOnDevice,
       connectId,
       payload,
+    });
+  }
+
+  @backgroundMethod()
+  async sendRequestDeviceInBootloaderForWebDevice({
+    deviceId,
+  }: {
+    deviceId: string;
+  }) {
+    const { UI_RESPONSE } = await CoreSDKLoader();
+    await this.sendUiResponse({
+      type: UI_RESPONSE.SELECT_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE,
+      payload: {
+        deviceId,
+      },
     });
   }
 
@@ -263,17 +331,21 @@ class ServiceHardwareUI extends ServiceBase {
   ): Promise<T> {
     clearTimeout(this.closeHardwareUiStateDialogTimer);
     clearTimeout(this.backgroundApi.serviceHardware.cancelTimer);
+    console.log(
+      `withHardwareProcessing START: processingNestedNum=${this.processingNestedNum}`,
+      params,
+    );
     const {
       deviceParams,
       skipDeviceCancel = false,
       skipCloseHardwareUiStateDialog = false,
       skipDeviceCancelAtFirst = true,
-      skipWaitingAnimationAtFirst,
       hideCheckingDeviceLoading,
-      debugMethodName,
+      onFinally,
     } = params;
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
+    let isOuterCall = false;
 
     let deviceResetToHome = true;
     let isBusy = false;
@@ -282,22 +354,13 @@ class ServiceHardwareUI extends ServiceBase {
         this.processingNestedNum = 0;
       }
       this.processingNestedNum += 1;
+      // Determine outer call AFTER increment so that the first caller is treated as outer
+      isOuterCall = this.isOuterProcessing();
 
       defaultLogger.hardware.sdkLog.consoleLog('withHardwareProcessing');
       defaultLogger.account.accountCreatePerf.withHardwareProcessingStart(
         params,
       );
-
-      const waitForCancelDone = async () => {
-        if (
-          this.backgroundApi.serviceHardware.isLastCancelLessThanMsAgo(
-            connectId,
-            2000,
-          )
-        ) {
-          await timerUtils.wait(2000);
-        }
-      };
 
       if (connectId) {
         // The device update detection is postponed for two hours
@@ -313,13 +376,14 @@ class ServiceHardwareUI extends ServiceBase {
         //   deviceParams.dbDevice.connectId = '11111';
         // }
 
+        await this.cleanHardwareUiState();
         if (connectId && !hideCheckingDeviceLoading) {
           await this.showCheckingDeviceDialog({
             connectId,
           });
         }
 
-        await waitForCancelDone();
+        // await waitForCancelDone();
 
         defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessing({
           message: 'cancelableDelay',
@@ -338,7 +402,7 @@ class ServiceHardwareUI extends ServiceBase {
           },
         );
       } else {
-        await waitForCancelDone();
+        // await waitForCancelDone();
       }
 
       // test delay
@@ -352,7 +416,7 @@ class ServiceHardwareUI extends ServiceBase {
           this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
         if (isMutexLocked) {
           isBusy = true;
-          throw new Error(
+          throw new OneKeyLocalError(
             appLocale.intl.formatMessage({
               id: ETranslations.feedback_hardware_is_busy,
             }),
@@ -410,6 +474,7 @@ class ServiceHardwareUI extends ServiceBase {
           error: error as any,
           code: [
             HardwareErrorCode.ActionCancelled,
+            HardwareErrorCode.CallQueueActionCancelled,
             HardwareErrorCode.PinCancelled,
             HardwareErrorCode.DeviceNotFound,
             // Hardware interrupts generally have follow-up actions; skip reset to home
@@ -443,7 +508,11 @@ class ServiceHardwareUI extends ServiceBase {
       }
       throw error;
     } finally {
-      if (connectId && this.isOuterProcessing()) {
+      console.log('withHardwareProcessing FINALLY:', {
+        processingNestedNum: this.processingNestedNum,
+        skipCloseHardwareUiStateDialog,
+      });
+      if (connectId && isOuterCall) {
         if (!skipCloseHardwareUiStateDialog) {
           const closeDialogParams = {
             // skipDeviceCancel: true,
@@ -459,12 +528,19 @@ class ServiceHardwareUI extends ServiceBase {
             skipDeviceCancel: closeDialogParams.skipDeviceCancel,
             deviceResetToHome: closeDialogParams.deviceResetToHome,
           });
+          void this.backgroundApi.serviceAccount.generateHwWalletsMissingXfp({
+            wallet: deviceParams?.dbWallet,
+            connectId,
+            deviceId: device?.deviceId,
+            withUserInteraction: false,
+          });
         }
         void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
           { connectId },
         );
       }
       this.processingNestedNum -= 1;
+      onFinally?.();
     }
   }
 }

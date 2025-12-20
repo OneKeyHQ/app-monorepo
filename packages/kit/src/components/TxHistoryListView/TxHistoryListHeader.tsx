@@ -1,23 +1,16 @@
 import { useCallback, useMemo } from 'react';
 
-import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   ESwitchSize,
   IconButton,
   Popover,
   Stack,
   Switch,
-  useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
-import {
-  SEARCH_DEBOUNCE_INTERVAL,
-  SEARCH_KEY_MIN_LENGTH,
-} from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -26,10 +19,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import {
-  useHistoryListActions,
-  useSearchKeyAtom,
-} from '../../states/jotai/contexts/historyList';
 import { ListItem } from '../ListItem';
 import { ListToolToolBar } from '../ListToolBar';
 
@@ -42,18 +31,27 @@ const filterScamHistorySupportedNetworks =
 const filterScamHistorySupportedNetworkIds =
   filterScamHistorySupportedNetworks.map((n) => n.id);
 
-function TxHistoryListHeader({ filteredHistory }: IProps) {
+function TxHistoryListHeader({ filteredHistory: _filteredHistory }: IProps) {
   const intl = useIntl();
-  const media = useMedia();
-  const [searchKey] = useSearchKeyAtom();
+
   const [settings, setSettings] = useSettingsPersistAtom();
-  const { updateSearchKey } = useHistoryListActions().current;
 
   const handleFilterScamHistoryOnChange = useCallback(
     (value: boolean) => {
       setSettings((v) => ({
         ...v,
         isFilterScamHistoryEnabled: !!value,
+      }));
+      appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
+    },
+    [setSettings],
+  );
+
+  const handleFilterLowValueHistoryOnChange = useCallback(
+    (value: boolean) => {
+      setSettings((v) => ({
+        ...v,
+        isFilterLowValueHistoryEnabled: !!value,
       }));
       appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
     },
@@ -74,35 +72,17 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
   return (
     <Stack>
       <ListToolToolBar
-        searchProps={{
-          onChangeText: debounce(
-            (text) => updateSearchKey(text),
-            SEARCH_DEBOUNCE_INTERVAL,
-          ),
-          searchResultCount:
-            searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH
-              ? filteredHistory.length
-              : 0,
-        }}
         headerRight={
           <Popover
             title={intl.formatMessage({ id: ETranslations.global_settings })}
             renderTrigger={
-              media.md ? (
-                <IconButton
-                  title={intl.formatMessage({
-                    id: ETranslations.manage_token_custom_token_title,
-                  })}
-                  variant="tertiary"
-                  icon="SliderHorOutline"
-                />
-              ) : (
-                <Button icon="SliderHorOutline" size="small" variant="tertiary">
-                  {intl.formatMessage({
-                    id: ETranslations.global_manage,
-                  })}
-                </Button>
-              )
+              <IconButton
+                title={intl.formatMessage({
+                  id: ETranslations.manage_token_custom_token_title,
+                })}
+                variant="tertiary"
+                icon="SliderHorOutline"
+              />
             }
             renderContent={
               <Stack py="$2">
@@ -117,7 +97,7 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
                         })
                       : intl.formatMessage(
                           {
-                            id: ETranslations.wallet_history_settings_hide_risk_transaction_desc_unsupprted,
+                            id: ETranslations.wallet_history_settings_hide_risk_transaction_desc_unsupported,
                           },
                           {
                             networkName: network?.name ?? '',
@@ -126,14 +106,30 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
                   }
                 >
                   <Switch
+                    isUncontrolled
                     disabled={!filterScamHistorySupported}
                     size={ESwitchSize.small}
                     onChange={handleFilterScamHistoryOnChange}
-                    value={
+                    defaultChecked={
                       filterScamHistorySupported
                         ? settings.isFilterScamHistoryEnabled
                         : false
                     }
+                  />
+                </ListItem>
+                <ListItem
+                  title={intl.formatMessage({
+                    id: ETranslations.wallet_history_settings_hide_small_transaction_title,
+                  })}
+                  subtitle={intl.formatMessage({
+                    id: ETranslations.wallet_history_settings_hide_small_transaction_desc,
+                  })}
+                >
+                  <Switch
+                    isUncontrolled
+                    size={ESwitchSize.small}
+                    onChange={handleFilterLowValueHistoryOnChange}
+                    defaultChecked={settings.isFilterLowValueHistoryEnabled}
                   />
                 </ListItem>
               </Stack>

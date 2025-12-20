@@ -13,12 +13,79 @@ export type IAccountActivityNotificationSettings = {
 
 export type ISimpleDbNotificationSettings = {
   accountActivity?: IAccountActivityNotificationSettings;
+  primeBackupAccountActivity?: IAccountActivityNotificationSettings;
 };
 
 export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimpleDbNotificationSettings> {
   entityName = 'notificationSettings';
 
   override enableCache = false;
+
+  async backupPrimeAccountActivityNotificationSettings() {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      primeBackupAccountActivity: rawData?.accountActivity,
+    }));
+  }
+
+  @backgroundMethod()
+  async updateBackupPrimeAccountActivityNotificationSettings({
+    accountId,
+    walletId,
+    enabled,
+  }: {
+    walletId: string;
+    enabled: boolean;
+    accountId: string | null;
+  }) {
+    await this.setRawData((rawData) => {
+      const currentPrimeBackup = rawData?.primeBackupAccountActivity || {};
+
+      // Skip if wallet doesn't exist in primeBackupAccountActivity
+      if (!currentPrimeBackup[walletId]) {
+        console.log(
+          'Wallet not found in primeBackupAccountActivity, skipping:',
+          walletId,
+        );
+        return rawData || {};
+      }
+
+      const newPrimeBackup = { ...currentPrimeBackup };
+
+      if (accountId === null) {
+        // Update wallet enabled
+        newPrimeBackup[walletId] = {
+          ...newPrimeBackup[walletId],
+          enabled,
+        };
+      } else {
+        // Update account enabled - skip if account doesn't exist
+        if (!currentPrimeBackup[walletId]?.accounts?.[accountId]) {
+          console.log(
+            'Account not found in primeBackupAccountActivity, skipping:',
+            { walletId, accountId },
+          );
+          return rawData || {};
+        }
+
+        newPrimeBackup[walletId] = {
+          ...newPrimeBackup[walletId],
+          accounts: {
+            ...newPrimeBackup[walletId].accounts,
+            [accountId]: {
+              ...newPrimeBackup[walletId].accounts[accountId],
+              enabled,
+            },
+          },
+        };
+      }
+
+      return {
+        ...(rawData || {}),
+        primeBackupAccountActivity: newPrimeBackup,
+      };
+    });
+  }
 
   @backgroundMethod()
   async saveAccountActivityNotificationSettings(
@@ -27,6 +94,16 @@ export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimp
     await this.setRawData((rawData) => ({
       ...rawData,
       accountActivity: settings,
+    }));
+  }
+
+  @backgroundMethod()
+  async savePrimeBackupAccountActivityNotificationSettings(
+    settings: IAccountActivityNotificationSettings | undefined,
+  ) {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      primeBackupAccountActivity: settings,
     }));
   }
 

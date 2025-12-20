@@ -1,12 +1,14 @@
-import { cloneDeep } from 'lodash';
+import { cloneDeep, isString } from 'lodash';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import indexedUtils from './indexed/indexedDBUtils';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
 import type {
+  EIndexedDBBucketNames,
   IDBAccount,
   IDBDevice,
   IDBIndexedAccount,
@@ -16,30 +18,48 @@ import type {
   ILocalDBGetAllRecordsResult,
   ILocalDBGetRecordByIdParams,
   ILocalDBGetRecordByIdResult,
+  ILocalDBGetRecordIdsParams,
+  ILocalDBGetRecordIdsResult,
+  ILocalDBGetRecordsByIdsParams,
+  ILocalDBGetRecordsByIdsResult,
   ILocalDBGetRecordsCountParams,
   ILocalDBGetRecordsCountResult,
+  ILocalDBRemoveRecordsParams,
   ILocalDBTxAddRecordsParams,
   ILocalDBTxAddRecordsResult,
   ILocalDBTxGetAllRecordsParams,
   ILocalDBTxGetAllRecordsResult,
   ILocalDBTxGetRecordByIdParams,
   ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordIdsParams,
+  ILocalDBTxGetRecordIdsResult,
+  ILocalDBTxGetRecordsByIdsParams,
+  ILocalDBTxGetRecordsByIdsResult,
   ILocalDBTxGetRecordsCountParams,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
+  ILocalDBWithTransactionOptions,
   ILocalDBWithTransactionTask,
 } from './types';
 
 export abstract class LocalDbBaseContainer implements ILocalDBAgent {
-  protected abstract readyDb: Promise<ILocalDBAgent>;
+  abstract readyDb: Promise<ILocalDBAgent>;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T> {
-    // throw new Error(
+  async withTransaction<T>(
+    bucketName: EIndexedDBBucketNames,
+    task: ILocalDBWithTransactionTask<T>,
+    options?: ILocalDBWithTransactionOptions,
+  ): Promise<T> {
+    // throw new OneKeyLocalError(
     //   'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
     // );
+    if (!isString(bucketName)) {
+      debugger;
+    }
     const db = await this.readyDb;
-    return db.withTransaction(task);
+    // TODO default to readOnly: true
+    return db.withTransaction(bucketName, task, options);
   }
 
   async getRecordsCount<T extends ELocalDBStoreNames>(
@@ -63,6 +83,13 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     return db.getAllRecords(params);
   }
 
+  async getRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBGetRecordsByIdsResult<T>> {
+    const db = await this.readyDb;
+    return db.getRecordsByIds(params);
+  }
+
   async getRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>> {
@@ -81,6 +108,13 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
 
     const db = await this.readyDb;
     return db.getRecordById(params);
+  }
+
+  async getRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordIdsParams<T>,
+  ): Promise<ILocalDBGetRecordIdsResult> {
+    const db = await this.readyDb;
+    return db.getRecordIds(params);
   }
 
   private getRecordByIdWithCache = memoizee(
@@ -138,6 +172,18 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     this.dbAllRecordsCache.clear();
   }
 
+  async removeRecords<T extends ELocalDBStoreNames>(
+    params: ILocalDBRemoveRecordsParams<T>,
+  ) {
+    const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
+    return this.withTransaction(bucketName, (tx) => {
+      return this.txRemoveRecords({
+        ...params,
+        tx,
+      });
+    });
+  }
+
   async txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
@@ -145,11 +191,25 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     return db.txGetAllRecords(params);
   }
 
+  async txGetRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBTxGetRecordsByIdsResult<T>> {
+    const db = await this.readyDb;
+    return db.txGetRecordsByIds(params);
+  }
+
   async txGetRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordByIdParams<T>,
   ): Promise<ILocalDBTxGetRecordByIdResult<T>> {
     const db = await this.readyDb;
     return db.txGetRecordById(params);
+  }
+
+  async txGetRecordIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordIdsParams<T>,
+  ): Promise<ILocalDBTxGetRecordIdsResult> {
+    const db = await this.readyDb;
+    return db.txGetRecordIds(params);
   }
 
   async txUpdateRecords<T extends ELocalDBStoreNames>(

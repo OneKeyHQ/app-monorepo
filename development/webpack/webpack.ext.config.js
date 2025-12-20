@@ -19,9 +19,43 @@ const utils = require('./utils');
 const codeSplit = require('./ext/codeSplit');
 const pluginsHtml = require('./ext/pluginsHtml');
 const pluginsCopy = require('./ext/pluginsCopy');
+const ChromeExtensionV3ViolationPlugin = require('./ext/ChromeExtensionV3ViolationPlugin');
 // const htmlLazyScript = require('./ext/htmlLazyScript');
 
 const IS_DEV = isDev;
+
+const chromeExtensionV3ViolationPlugin = new ChromeExtensionV3ViolationPlugin([
+  // @sentry/react
+  {
+    regexToFind: /https:\/\/browser\.sentry-cdn\.com/g,
+    replacement: '',
+  },
+  // @privy-io/react-auth
+  {
+    regexToFind: /https:\/\/svelte-stripe-js\.vercel\.app/g,
+    replacement: '',
+  },
+  // @privy-io/react-auth
+  {
+    regexToFind: /r\.src=`\${n}\/js\/telegram-login\.js`/g,
+    replacement: 'r.src=``',
+  },
+  // @privy-io/react-auth
+  {
+    regexToFind: /g\.src=`\${v}\/js\/telegram-login\.js`/g,
+    replacement: 'g.src=``',
+  },
+  // maps.googleapis.com
+  {
+    regexToFind: /https:\/\/maps\.googleapis\.com\/maps\/api\/js/g,
+    replacement: '',
+  },
+  // js.stripe.com
+  {
+    regexToFind: /\.p="https:\/\/js\.stripe\.com\/v3\/"/g,
+    replacement: '.p=""',
+  },
+]);
 
 module.exports = ({
   basePath,
@@ -58,6 +92,14 @@ module.exports = ({
       devMiddleware: {
         publicPath: `http://localhost:${WEB_PORT}/`,
         writeToDisk: true,
+      },
+      client: {
+        webSocketURL: {
+          hostname: 'localhost',
+          pathname: '/ws',
+          port: WEB_PORT,
+          protocol: 'ws',
+        },
       },
     },
   });
@@ -99,6 +141,7 @@ module.exports = ({
         config.plugins = [
           ...config.plugins,
           ...pluginsHtml.uiHtml,
+          chromeExtensionV3ViolationPlugin,
           // ...(isManifestV3 ? [] : pluginsHtml.backgroundHtml),
         ].filter(Boolean);
         return config;
@@ -126,9 +169,11 @@ module.exports = ({
             config,
           });
         }
-        config.plugins = [...config.plugins, ...pluginsHtml.passkeyHtml].filter(
-          Boolean,
-        );
+        config.plugins = [
+          ...config.plugins,
+          ...pluginsHtml.passkeyHtml,
+          chromeExtensionV3ViolationPlugin,
+        ].filter(Boolean);
         return config;
       },
     },
@@ -163,6 +208,7 @@ module.exports = ({
           new webpack.ProvidePlugin({
             process: 'process/browser',
           }),
+          chromeExtensionV3ViolationPlugin,
           // new htmlLazyScript.HtmlLazyScriptPlugin(config),
         ].filter(Boolean);
         return config;
@@ -192,6 +238,7 @@ module.exports = ({
         config.plugins = [
           ...config.plugins,
           ...pluginsHtml.offscreenHtml,
+          chromeExtensionV3ViolationPlugin,
         ].filter(Boolean);
 
         return config;
@@ -221,7 +268,11 @@ module.exports = ({
         codeSplit.disableCodeSplitChunks({
           config,
         });
-        config.plugins = [...config.plugins, ...pluginsCopy].filter(Boolean);
+        config.plugins = [
+          ...config.plugins,
+          ...pluginsCopy,
+          chromeExtensionV3ViolationPlugin,
+        ].filter(Boolean);
         return config;
       },
     },

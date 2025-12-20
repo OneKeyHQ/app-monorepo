@@ -7,12 +7,20 @@ import {
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
 
-const MarketHome = LazyLoadRootTabPage(
-  () => import('../../../views/Market/MarketHome'),
-);
+const MarketHome = LazyLoadRootTabPage(() => {
+  return import('../../../views/Market/MarketHome');
+});
 
 const MarketDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketDetail'),
+);
+
+const MarketDetailV2 = LazyLoadPage(
+  () => import('../../../views/Market/MarketDetailV2'),
+);
+
+const MarketBannerDetail = LazyLoadPage(
+  () => import('../../../views/Market/MarketBannerDetail'),
 );
 
 export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
@@ -26,5 +34,17 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabMarketRoutes.MarketDetail,
     component: MarketDetail,
     rewrite: '/tokens/:token',
+  },
+  {
+    name: ETabMarketRoutes.MarketDetailV2,
+    component: MarketDetailV2,
+    headerShown: !platformEnv.isNative,
+    rewrite: '/token/:network/:tokenAddress',
+  },
+  {
+    name: ETabMarketRoutes.MarketBannerDetail,
+    component: MarketBannerDetail,
+    headerShown: !platformEnv.isNative,
+    rewrite: '/banner/:tokenListId',
   },
 ];

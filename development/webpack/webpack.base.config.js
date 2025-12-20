@@ -37,13 +37,14 @@ class BuildDoneNotifyPlugin {
   }
 }
 
-const baseResolve = ({ platform, configName }) => ({
+const baseResolve = ({ platform, configName, basePath }) => ({
   mainFields: ['browser', 'module', 'main'],
   aliasFields: ['browser', 'module', 'main'],
   extensions: createResolveExtensions({ platform, configName }),
   symlinks: true,
   alias: {
     'react-native$': 'react-native-web',
+    'react-native-aes-crypto': false,
     'react-native/Libraries/Components/View/ViewStylePropTypes$':
       'react-native-web/dist/exports/View/ViewStylePropTypes',
     'react-native/Libraries/EventEmitter/RCTDeviceEventEmitter$':
@@ -54,6 +55,22 @@ const baseResolve = ({ platform, configName }) => ({
       'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
     'react-native/Libraries/EventEmitter/NativeEventEmitter$':
       'react-native-web/dist/vendor/react-native/NativeEventEmitter',
+    '@react-aria/focus': path.join(
+      basePath,
+      '../../node_modules/@react-aria/focus/src/index.ts',
+    ),
+    '@react-aria/interactions': path.join(
+      basePath,
+      '../../node_modules/@react-aria/interactions/src/index.ts',
+    ),
+    '@react-aria/ssr': path.join(
+      basePath,
+      '../../node_modules/@react-aria/ssr/src/index.ts',
+    ),
+    '@react-aria/utils': path.join(
+      basePath,
+      '../../node_modules/@react-aria/utils/src/index.ts',
+    ),
   },
   fallback: {
     'crypto': require.resolve(
@@ -176,7 +193,6 @@ module.exports = ({ platform, basePath, configName }) => {
           ),
           WEB_PUBLIC_URL: PUBLIC_URL || '/',
           WEB_TITLE: platform,
-          LANG_ISO_CODE: 'en',
           NO_SCRIPT:
             '<form action="" style="background-color:#fff;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;"><div style="font-size:18px;font-family:Helvetica,sans-serif;line-height:24px;margin:10%;width:80%;"> <p>Oh no! It looks like JavaScript is not enabled in your browser.</p> <p style="margin:20px 0;"> <button type="submit" style="background-color: #4630EB; border-radius: 100px; border: none; box-shadow: none; color: #fff; cursor: pointer; font-weight: bold; line-height: 20px; padding: 6px 16px;">Reload</button> </p> </div> </form>',
           ROOT_ID: 'root',
@@ -275,7 +291,7 @@ module.exports = ({ platform, basePath, configName }) => {
             },
             {
               test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
-              exclude: [/react-native-logs/, /react-native-modalize/],
+              exclude: [/react-native-logs/],
               use: useBabelLoader,
               resolve: { fullySpecified: false },
             },
@@ -289,8 +305,14 @@ module.exports = ({ platform, basePath, configName }) => {
                 // /(@?tamagui*).*\.(c|m)?(ts|js)x?$/,
                 // // keystonehq
                 // /(@?keystonehq).*\.(c|m)?(ts|js)x?$/,
+
+                /* web-embed on  */
+                /react-router/,
+                /turbo-stream/,
+                // @react-aria packages
+                /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
               ],
-              exclude: [/react-native-logs/, /react-native-modalize/],
+              exclude: [/react-native-logs/],
               use: useBabelLoader,
               resolve: { fullySpecified: false },
             },
@@ -349,9 +371,27 @@ module.exports = ({ platform, basePath, configName }) => {
         },
       ],
     },
-    resolve: baseResolve({ platform, configName }),
+    resolve: baseResolve({ platform, configName, basePath }),
     experiments: baseExperiments,
     performance: basePerformance,
+    optimization: {
+      splitChunks: {
+        cacheGroups: {
+          icons: {
+            test: (module) => {
+              const iconTestRegex =
+                /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
+              return module.resource && iconTestRegex.test(module.resource);
+            },
+            name: 'icons',
+            chunks: 'async',
+            enforce: true,
+            priority: 30,
+            reuseExistingChunk: true,
+          },
+        },
+      },
+    },
   };
 };
 

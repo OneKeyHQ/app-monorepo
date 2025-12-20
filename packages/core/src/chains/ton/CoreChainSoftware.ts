@@ -1,8 +1,11 @@
 /* eslint-disable new-cap */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import TonWeb from 'tonweb';
+import { Cell } from '@ton/core';
 
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -25,9 +28,14 @@ import {
 } from '../../types';
 
 import { genAddressFromPublicKey } from './sdkTon';
-import { serializeData, serializeProof } from './sdkTon/tx';
+import {
+  serializeData,
+  serializeDataPayload,
+  serializeProof,
+} from './sdkTon/tx';
 
 import type { IEncodedTxTon } from './types';
+import type TonWeb from 'tonweb';
 
 const curve: ICurveName = 'ed25519';
 
@@ -40,14 +48,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return (await decryptAsync({ password, data: privateKeyRaw })).toString(
         'hex',
       );
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -73,8 +81,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (!rawTxUnsigned) {
       throw new OneKeyInternalError('rawTxUnsigned not found');
     }
-    const signingMessage = TonWeb.boc.Cell.oneFromBoc(rawTxUnsigned);
-    const hash = await signingMessage.hash();
+    const signingMessage = Cell.fromHex(rawTxUnsigned);
+    const hash = signingMessage.hash();
     const [signature] = await signer.sign(Buffer.from(hash));
     return {
       encodedTx,
@@ -87,23 +95,36 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     const unsignedMsg = payload.unsignedMsg as IUnsignedMessageTon;
-    const data = unsignedMsg.payload.isProof
-      ? await serializeProof({
-          message: unsignedMsg.message,
-          timestamp: unsignedMsg.payload.timestamp,
-          address: unsignedMsg.payload.address as string,
-          appDomain: unsignedMsg.payload.appDomain as string,
-        })
-      : await serializeData({
-          message: unsignedMsg.message,
-          schemaCrc: unsignedMsg.payload.schemaCrc ?? 0,
-          timestamp: unsignedMsg.payload.timestamp,
-        });
+
+    let data: Buffer;
+    if (unsignedMsg.payload.payload) {
+      data = await serializeDataPayload({
+        payload: unsignedMsg.payload.payload,
+        appDomain: unsignedMsg.payload.appDomain as string,
+        timestamp: unsignedMsg.payload.timestamp,
+        address: unsignedMsg.payload.address as string,
+      });
+    } else if (unsignedMsg.payload.isProof) {
+      const proof = await serializeProof({
+        message: unsignedMsg.message,
+        timestamp: unsignedMsg.payload.timestamp,
+        address: unsignedMsg.payload.address as string,
+        appDomain: unsignedMsg.payload.appDomain as string,
+      });
+      data = proof.bytes;
+    } else {
+      const signData = await serializeData({
+        message: unsignedMsg.message,
+        schemaCrc: unsignedMsg.payload.schemaCrc ?? 0,
+        timestamp: unsignedMsg.payload.timestamp,
+      });
+      data = signData.bytes;
+    }
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    const [signature] = await signer.sign(data.bytes);
+    const [signature] = await signer.sign(data);
     return signature.toString('hex');
   }
 
@@ -132,6 +153,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       address: addr.nonBounceAddress,
       publicKey,
       addresses: {},
+      __hwExtraInfo__: undefined,
     };
   }
 

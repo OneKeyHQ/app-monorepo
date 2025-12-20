@@ -2,6 +2,7 @@ import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
 import type { IDBWallet, IDBWalletType } from '../../types';
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type Realm from 'realm';
 
 class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
@@ -27,6 +28,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public isTemp?: boolean;
 
+  public isMocked?: boolean;
+
   public passphraseState?: string;
 
   public firstEvmAddress?: string;
@@ -36,6 +39,10 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
   public xfp?: string;
 
   public airGapAccountsInfoRaw?: string;
+
+  public deprecated?: boolean;
+
+  public firmwareTypeAtCreated?: EFirmwareType;
 
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Wallet,
@@ -56,11 +63,14 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       },
       associatedDevice: 'string?',
       isTemp: { type: 'bool', default: false },
+      isMocked: { type: 'bool', default: false },
       passphraseState: 'string?',
       firstEvmAddress: 'string?',
       hash: 'string?',
       xfp: 'string?',
       airGapAccountsInfoRaw: 'string?',
+      deprecated: { type: 'bool', default: false },
+      firmwareTypeAtCreated: 'string?',
     },
   };
 
@@ -79,11 +89,14 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       nextIds: (this.nextIds?.toJSON() as any) || {},
       associatedDevice: this.associatedDevice,
       isTemp: this.isTemp,
+      isMocked: this.isMocked,
       passphraseState: this.passphraseState,
       firstEvmAddress: this.firstEvmAddress,
       hash: this.hash,
       xfp: this.xfp,
       airGapAccountsInfoRaw: this.airGapAccountsInfoRaw,
+      deprecated: this.deprecated || false,
+      firmwareTypeAtCreated: this.firmwareTypeAtCreated,
     };
   }
 }

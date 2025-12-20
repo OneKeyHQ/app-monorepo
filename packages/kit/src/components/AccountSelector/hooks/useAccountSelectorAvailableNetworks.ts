@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import {
   EAppEventBusNames,
@@ -19,6 +19,10 @@ export function useAccountSelectorAvailableNetworks({
   const { serviceNetwork } = backgroundApiProxy;
   const [map] = useAccountSelectorAvailableNetworksAtom();
   const availableNetworksInfo = map[num];
+
+  const defaultNetworkId = useMemo(() => {
+    return availableNetworksInfo?.defaultNetworkId;
+  }, [availableNetworksInfo?.defaultNetworkId]);
 
   const { result: networkIds, run } = usePromiseResult(
     async () => {
@@ -47,8 +51,11 @@ export function useAccountSelectorAvailableNetworks({
     };
   }, [run]);
 
-  return {
-    networkIds,
-    defaultNetworkId: availableNetworksInfo?.defaultNetworkId,
-  };
+  return useMemo(
+    () => ({
+      networkIds,
+      defaultNetworkId,
+    }),
+    [networkIds, defaultNetworkId],
+  );
 }

@@ -136,10 +136,17 @@ module.exports = (config, projectRoot) => {
       return bundle;
     };
 
+    const applyFixImageAssetsMiddleware = (middleware) => {
+      return (req, res, next) => {
+        console.log('req.url', req.url);
+        return middleware(req, res, next);
+      };
+    };
+
     const outputChunkDir = path.resolve(projectRoot, 'dist/chunks');
     config.server.enhanceMiddleware = (metroMiddleware, metroServer) =>
       connect()
-        .use(metroMiddleware)
+        .use(applyFixImageAssetsMiddleware(metroMiddleware))
         .use('/async-thunks', (req, res, next) => {
           const { url } = req;
           console.log(
@@ -161,14 +168,14 @@ module.exports = (config, projectRoot) => {
             next();
           }
         });
-    config.hooks = {
-      onEnd: () =>
-        new Promise((resolve) => {
-          const { linkAssets } = require('./linkAssets');
-          linkAssets(projectRoot);
-          resolve();
-        }),
-    };
+    // config.hooks = {
+    //   onEnd: () =>
+    //     new Promise((resolve) => {
+    //       const { linkAssets } = require('./linkAssets');
+    //       linkAssets(projectRoot);
+    //       resolve();
+    //     }),
+    // };
   }
   return config;
 };

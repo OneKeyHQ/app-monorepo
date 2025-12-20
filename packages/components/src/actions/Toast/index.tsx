@@ -1,21 +1,25 @@
 import type { RefObject } from 'react';
-import { createRef } from 'react';
+import { createRef, useEffect } from 'react';
 
-import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
-import { useMedia } from 'tamagui';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import { ToastProvider } from '@onekeyhq/components/src/shared/tamagui';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { AnchorSizableText } from '../../content/AnchorSizableText';
 import { Portal } from '../../hocs';
+import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { Icon, View, XStack, YStack } from '../../primitives';
+import { Spinner } from '../../primitives/Spinner/Spinner';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';
 
 import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
+import type { IToastMessageOptions } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { ISizableTextProps } from '../../primitives';
 
@@ -24,25 +28,34 @@ export interface IToastProps {
   title: string;
   message?: string;
   duration?: number;
+  actionsAlign?: 'left' | 'right';
   actions?: JSX.Element | JSX.Element[];
+  onClose?: () => void;
 }
 
 export interface IToastBaseProps extends IToastProps {
   title: string;
   message?: string;
   duration?: number;
-  haptic?: 'success' | 'warning' | 'info' | 'error' | 'none';
+  haptic?: 'success' | 'warning' | 'info' | 'error' | 'loading' | 'none';
   preset?: 'done' | 'error' | 'none' | 'custom';
+  /**
+   * Change the position of the toast.
+   * Only works on web platform.
+   * @platform web
+   */
+  position?: IToastMessageOptions['position'];
 }
 
 const iconMap = {
   success: <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />,
-  error: <Icon name="XCircleSolid" color="$iconCritical" size="$5" />,
+  error: <Icon name="ErrorSolid" color="$iconCritical" size="$5" />,
   info: <Icon name="InfoCircleSolid" color="$iconInfo" size="$5" />,
   warning: <Icon name="ErrorSolid" color="$iconCaution" size="$5" />,
+  loading: <Spinner size="small" />,
 };
 
-const RenderLines = ({
+function RenderLines({
   size,
   children: text,
   color,
@@ -50,7 +63,8 @@ const RenderLines = ({
   children?: string;
   size: ISizableTextProps['size'];
   color: ISizableTextProps['color'];
-}) => {
+}) {
+  const { HyperlinkText } = useSettingConfig();
   if (!text) {
     return null;
   }
@@ -63,20 +77,23 @@ const RenderLines = ({
   return (
     <YStack>
       {lines.map((line, index) => (
-        <AnchorSizableText
+        <HyperlinkText
           key={index}
           color={color}
           textTransform="none"
           userSelect="none"
+          underlineTextProps={{
+            color: '$textSubdued',
+          }}
           size={size}
           wordWrap="break-word"
-        >
-          {line}
-        </AnchorSizableText>
+          translationId={line as ETranslations}
+          defaultMessage={line}
+        />
       ))}
     </YStack>
   );
-};
+}
 
 export function ToastContent({
   title,
@@ -84,18 +101,25 @@ export function ToastContent({
   icon,
   maxWidth,
   actions,
+  onClose,
   actionsAlign = 'right',
 }: {
   title: string;
   message?: string;
   maxWidth?: number;
   icon?: JSX.Element;
+  onClose?: () => void;
   actions?: IToastProps['actions'];
   actionsAlign?: 'left' | 'right';
 }) {
   const { height, width } = useWindowDimensions();
   const media = useMedia();
-
+  useEffect(
+    () => () => {
+      onClose?.();
+    },
+    [onClose],
+  );
   return (
     <YStack
       flex={1}
@@ -166,10 +190,21 @@ function toastMessage({
   haptic,
   preset = 'custom',
   actions,
+  actionsAlign = 'right',
+  position,
+  onClose,
 }: IToastBaseProps) {
+  const handleClose = () => {
+    if (toastId) {
+      toastIdMap.delete(toastId);
+    }
+    onClose?.();
+  };
   if (platformEnv.isDev) {
     if (title?.length === 0) {
-      throw new Error(`The parameter 'title' cannot be an empty string`);
+      throw new OneKeyLocalError(
+        `The parameter 'title' cannot be an empty string`,
+      );
     }
   }
   if (toastId) {
@@ -183,22 +218,24 @@ function toastMessage({
       }
       toastIdMap.delete(toastId);
     }
-
     toastIdMap.set(toastId, [Date.now(), duration + 500]);
   }
-  showMessage({
+  return showMessage({
     renderContent: (props) => (
       <ToastContent
+        onClose={handleClose}
         title={title}
         maxWidth={props?.width}
         message={message}
         icon={iconMap[haptic as keyof typeof iconMap]}
         actions={actions}
+        actionsAlign={actionsAlign}
       />
     ),
     duration,
     haptic,
     preset,
+    position,
   });
 }
 
@@ -209,16 +246,19 @@ export type IToastShowResult = {
 };
 export const Toast = {
   success: (props: IToastProps) => {
-    toastMessage({ haptic: 'success', ...props });
+    return toastMessage({ haptic: 'success', ...props });
   },
   error: (props: IToastProps) => {
-    toastMessage({ haptic: 'error', ...props });
+    return toastMessage({ haptic: 'error', ...props });
   },
   warning: (props: IToastProps) => {
-    toastMessage({ haptic: 'warning', ...props });
+    return toastMessage({ haptic: 'warning', ...props });
   },
   message: (props: IToastProps) => {
-    toastMessage({ haptic: 'info', preset: 'none', ...props });
+    return toastMessage({ haptic: 'info', preset: 'none', ...props });
+  },
+  loading: (props: IToastProps) => {
+    return toastMessage({ haptic: 'loading', ...props });
   },
   /* show custom view on Toast */
   show: ({
@@ -227,8 +267,8 @@ export const Toast = {
     ...others
   }: IShowToasterProps): IToastShowResult => {
     dismissKeyboard();
-    let instanceRef: RefObject<IShowToasterInstance> | undefined =
-      createRef<IShowToasterInstance>();
+    let instanceRef: RefObject<IShowToasterInstance | null> | undefined =
+      createRef();
     let portalRef:
       | {
           current: IPortalManager;

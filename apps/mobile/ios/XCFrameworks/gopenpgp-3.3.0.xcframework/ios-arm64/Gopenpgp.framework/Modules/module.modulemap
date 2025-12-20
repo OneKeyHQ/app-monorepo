@@ -1,0 +1,13 @@
+framework module "Gopenpgp" {
+	header "ref.h"
+    header "Crypto.objc.h"
+    header "Armor.objc.h"
+    header "Constants.objc.h"
+    header "Mime.objc.h"
+    header "Mobile.objc.h"
+    header "Profile.objc.h"
+    header "Universe.objc.h"
+    header "Gopenpgp.h"
+
+    export *
+}

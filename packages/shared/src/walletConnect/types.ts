@@ -1,5 +1,6 @@
 import { SIGN_CLIENT_EVENTS } from '@walletconnect/sign-client';
 
+import type { IWalletKit } from '@reown/walletkit';
 import type { IKeyValueStorage } from '@walletconnect/keyvaluestorage';
 import type { pino } from '@walletconnect/logger';
 import type SignClient from '@walletconnect/sign-client';
@@ -9,8 +10,9 @@ import type {
   SignClientTypes,
 } from '@walletconnect/types';
 import type { ConnectParams } from '@walletconnect/universal-provider';
-import type Web3Wallet from '@walletconnect/web3wallet';
+import type UniversalProvider from '@walletconnect/universal-provider';
 
+export type IWalletConnectUniversalProvider = UniversalProvider;
 export type IWalletConnectConnectParams = ConnectParams;
 export type IWalletConnectNamespaces = SessionTypes.Namespaces;
 export type IWalletConnectRequiredNamespaces = ProposalTypes.RequiredNamespaces;
@@ -44,10 +46,20 @@ export enum EWalletConnectSessionEvents {
   session_event = 'session_event',
   session_update = 'session_update',
   session_delete = 'session_delete',
+  session_connect = 'session_connect',
   session_proposal = 'session_proposal',
   session_request = 'session_request',
-  auth_request = 'auth_request',
+  auth_request = 'auth_request', // TODO rename to session_authenticate
+  session_authenticate = 'session_authenticate',
 }
+/*
+session_proposal: SessionProposal;
+session_request: SessionRequest;
+session_delete: Omit<BaseEventArgs, "params">;
+proposal_expire: ProposalExpire;
+session_request_expire: SessionRequestExpire;
+session_authenticate: SessionAuthenticate;
+*/
 export type IWalletConnectSignClientEvents = SignClientTypes.Event;
 export type IWalletConnectSignClientEventsParams =
   SignClientTypes.EventArguments;
@@ -61,7 +73,7 @@ export type IWalletConnectEventSessionEventParams =
 export type IWalletConnectLoggerLevel = pino.Level;
 export type IWalletConnectKeyValueStorage = IKeyValueStorage;
 export type IWalletConnectSignClient = SignClient;
-export type IWalletConnectWeb3Wallet = Web3Wallet;
+export type IWalletConnectWeb3Wallet = IWalletKit;
 export type IWalletConnectConnectToWalletParams = { impl?: string };
 export type IWalletConnectChainString = string; // "eip155:137"
 export type IWalletConnectAddressString = string; // "eip155:137:0x275841633e1e5bF0B382B95Cd3f31E141EE15D88"

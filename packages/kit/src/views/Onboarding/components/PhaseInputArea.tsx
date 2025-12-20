@@ -35,7 +35,6 @@ import {
   Page,
   Popover,
   ScrollView,
-  SecureView,
   Select,
   SizableText,
   Stack,
@@ -45,13 +44,12 @@ import {
   useKeyboardEvent,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  type EMnemonicType,
-  validateMnemonic,
-} from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { parseSecretRecoveryPhrase } from '@onekeyhq/shared/src/utils/phrase';
+import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import { PHRASE_LENGTHS, useSuggestion } from './hooks';
 
@@ -130,7 +128,7 @@ function SuggestionList({
   suggestions: string[];
   onPressItem: (text: string) => void;
   isFocusable?: boolean;
-  firstButtonRef?: RefObject<IElement>;
+  firstButtonRef?: RefObject<IElement | null>;
 }) {
   const wordItems = suggestions
     .slice(0, 9)
@@ -236,7 +234,7 @@ function BasicPhaseInput(
   }>,
   ref: any,
 ) {
-  const inputRef: RefObject<TextInput> | null = useRef(null);
+  const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const media = useMedia();
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFocusable] = useState(false);
@@ -263,11 +261,10 @@ function BasicPhaseInput(
   const handleChangeText = useCallback(
     (v: string) => {
       // Supports inputting mnemonic phrases via drag-and-drop text or toolbar of keyboard, such as 1Password.
-      const trimmedValue = v ? v.trim() : '';
+      const trimmedValue = v ? parseSecretRecoveryPhrase(v) : '';
       if (
         trimmedValue &&
-        trimmedValue.split(' ').filter(Boolean).length === phraseLength &&
-        validateMnemonic(trimmedValue)
+        trimmedValue.split(' ').filter(Boolean).length === phraseLength
       ) {
         if (onPasteMnemonic(trimmedValue, 0)) {
           onInputChange('');
@@ -314,7 +311,7 @@ function BasicPhaseInput(
       if (!platformEnv.isNative) {
         const item = event.nativeEvent?.items?.[0];
         if (item?.type === EPasteEventPayloadItemType.TextPlain && item.data) {
-          onPasteMnemonic(item?.data, index);
+          onPasteMnemonic(parseSecretRecoveryPhrase(item?.data || ''), index);
         }
       }
     },
@@ -351,7 +348,7 @@ function BasicPhaseInput(
   const suggestions = suggestionsRef.current ?? [];
 
   const keyLabel = handleGetReturnKeyLabel();
-  const inputProps: IInputProps & { ref: RefObject<TextInput> } = {
+  const inputProps: IInputProps & { ref: RefObject<TextInput | null> } = {
     value: displayValue,
     ref: inputRef,
     keyboardType: 'ascii-capable',
@@ -553,6 +550,8 @@ export function PhaseInputArea({
     [handleClear],
   );
 
+  useRecoveryPhraseProtected();
+
   return (
     <>
       <Page.Body>
@@ -597,43 +596,40 @@ export function PhaseInputArea({
             ) : null}
           </XStack>
         ) : null}
-
-        <SecureView>
-          <Form form={form}>
-            <XStack px="$4" flexWrap="wrap">
-              {Array.from({ length: phraseLengthNumber }).map((_, index) => (
-                <Stack
-                  key={index}
-                  $md={{
-                    flexBasis: '50%',
-                  }}
-                  flexBasis="33.33%"
-                  p="$1"
-                >
-                  <Form.Field name={`phrase${index + 1}`}>
-                    <PhaseInput
-                      index={index}
-                      isShowError={isShowErrors[index]}
-                      onInputBlur={onInputBlur}
-                      phraseLength={phraseLengthNumber}
-                      onInputChange={onInputChange}
-                      onInputFocus={onInputFocus}
-                      onPasteMnemonic={onPasteMnemonic}
-                      suggestionsRef={suggestionsRef}
-                      updateInputValue={updateInputValue}
-                      openStatusRef={openStatusRef}
-                      selectInputIndex={selectInputIndex}
-                      closePopover={closePopover}
-                      onReturnKeyPressed={handleReturnKeyPressed}
-                      getReturnKeyLabel={getReturnKeyLabel}
-                      testID={`phrase-input-index${index}`}
-                    />
-                  </Form.Field>
-                </Stack>
-              ))}
-            </XStack>
-          </Form>
-        </SecureView>
+        <Form form={form}>
+          <XStack px="$4" flexWrap="wrap">
+            {Array.from({ length: phraseLengthNumber }).map((_, index) => (
+              <Stack
+                key={index}
+                $md={{
+                  flexBasis: '50%',
+                }}
+                flexBasis="33.33%"
+                p="$1"
+              >
+                <Form.Field name={`phrase${index + 1}`}>
+                  <PhaseInput
+                    index={index}
+                    isShowError={isShowErrors[index]}
+                    onInputBlur={onInputBlur}
+                    phraseLength={phraseLengthNumber}
+                    onInputChange={onInputChange}
+                    onInputFocus={onInputFocus}
+                    onPasteMnemonic={onPasteMnemonic}
+                    suggestionsRef={suggestionsRef}
+                    updateInputValue={updateInputValue}
+                    openStatusRef={openStatusRef}
+                    selectInputIndex={selectInputIndex}
+                    closePopover={closePopover}
+                    onReturnKeyPressed={handleReturnKeyPressed}
+                    getReturnKeyLabel={getReturnKeyLabel}
+                    testID={`phrase-input-index${index}`}
+                  />
+                </Form.Field>
+              </Stack>
+            ))}
+          </XStack>
+        </Form>
 
         <HeightTransition>
           {invalidWordsLength > 0 ? (

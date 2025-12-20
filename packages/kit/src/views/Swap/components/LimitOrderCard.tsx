@@ -14,16 +14,20 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  formatDate,
+  formatDistanceStrict,
+} from '@onekeyhq/shared/src/utils/dateUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapLimitOrderStatus,
+  ESwapQuoteKind,
   type IFetchLimitOrderRes,
   LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { Token } from '../../../components/Token';
+import { SwapTxHistoryAvatar } from './SwapTxHistoryListCell';
 
 const LimitOrderCard = ({
   item,
@@ -66,15 +70,21 @@ const LimitOrderCard = ({
 
   const expirationTitle = useMemo(() => {
     const date = new BigNumber(item.expiredAt).shiftedBy(3).toNumber();
-    const dateStr = formatDate(new Date(date), {
+    let dateStr = formatDate(new Date(date), {
       hideSeconds: true,
     });
+    if (
+      item.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING ||
+      item.status === ESwapLimitOrderStatus.OPEN
+    ) {
+      const now = new Date();
+      dateStr = formatDistanceStrict(new Date(date), now);
+    }
     return (
       <YStack
-        flex={1}
         gap="$1.5"
         justifyContent="flex-start"
-        minWidth={gtMd ? 100 : 150}
+        minWidth={gtMd ? 150 : 180}
       >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status_expired })}
@@ -82,7 +92,12 @@ const LimitOrderCard = ({
         <SizableText size="$bodySm">{dateStr}</SizableText>
       </YStack>
     );
-  }, [intl, item.expiredAt, gtMd]);
+  }, [item.expiredAt, item.status, gtMd, intl]);
+
+  const networkName = useMemo(() => {
+    const networkInfo = networkUtils.getLocalNetworkInfo(item?.networkId);
+    return networkInfo?.name;
+  }, [item]);
 
   const tokenInfo = useCallback(() => {
     const fromAmountFormatted = new BigNumber(fromAmount).shiftedBy(
@@ -92,24 +107,35 @@ const LimitOrderCard = ({
       -(toTokenInfo?.decimals ?? 0),
     );
     return (
-      <XStack gap="$2" alignItems="center">
-        <XStack gap="$1" alignItems="center">
-          <Token size="xs" tokenImageUri={fromTokenInfo?.logoURI} />
-          <NumberSizeableText size="$bodyMd" formatter="balance">
-            {fromAmountFormatted.toFixed()}
-          </NumberSizeableText>
-          <SizableText size="$bodyMd">
-            {fromTokenInfo?.symbol ?? '-'}
+      <XStack gap="$8" alignItems="center">
+        <SwapTxHistoryAvatar
+          fromUri={fromTokenInfo?.logoURI ?? ''}
+          toUri={toTokenInfo?.logoURI ?? ''}
+        />
+        <YStack>
+          <XStack alignItems="center" gap="$1" flex={1}>
+            {gtMd ? (
+              <NumberSizeableText size="$bodyMd" formatter="balance">
+                {fromAmountFormatted.toFixed()}
+              </NumberSizeableText>
+            ) : null}
+            <SizableText size="$bodyMd" numberOfLines={1}>
+              {fromTokenInfo?.symbol ?? '-'}
+            </SizableText>
+            <SizableText size="$bodyMd">→</SizableText>
+            {gtMd ? (
+              <NumberSizeableText size="$bodyMd" formatter="balance">
+                {toAmountFormatted.toFixed()}
+              </NumberSizeableText>
+            ) : null}
+            <SizableText size="$bodyMd" numberOfLines={1}>
+              {toTokenInfo?.symbol ?? '-'}
+            </SizableText>
+          </XStack>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {` ${networkName ?? '-'}`}
           </SizableText>
-        </XStack>
-        <SizableText size="$bodyMd">→</SizableText>
-        <XStack gap="$1" alignItems="center">
-          <Token size="xs" tokenImageUri={toTokenInfo?.logoURI} />
-          <NumberSizeableText size="$bodyMd" formatter="balance">
-            {toAmountFormatted.toFixed()}
-          </NumberSizeableText>
-          <SizableText size="$bodyMd">{toTokenInfo?.symbol ?? '-'}</SizableText>
-        </XStack>
+        </YStack>
       </XStack>
     );
   }, [
@@ -121,6 +147,8 @@ const LimitOrderCard = ({
     toTokenInfo?.decimals,
     toTokenInfo?.logoURI,
     toTokenInfo?.symbol,
+    networkName,
+    gtMd,
   ]);
   const decimalsAmount = useMemo(
     () => ({
@@ -154,9 +182,8 @@ const LimitOrderCard = ({
   const renderLimitOrderPrice = useCallback(
     () => (
       <YStack
-        flex={1}
         gap="$1.5"
-        minWidth={gtMd ? 180 : 160}
+        minWidth={gtMd ? 200 : 180}
         justifyContent="flex-start"
       >
         <SizableText size="$bodySm" color="$textSubdued">
@@ -172,7 +199,7 @@ const LimitOrderCard = ({
     [item, limitPrice, intl, gtMd],
   );
   const renderLimitOrderStatus = useCallback(() => {
-    const { status, executedSellAmount } = item ?? {};
+    const { status, executedSellAmount, executedBuyAmount, kind } = item ?? {};
     let label = intl.formatMessage({
       id: ETranslations.Limit_order_status_open,
     });
@@ -181,7 +208,7 @@ const LimitOrderCard = ({
       switch (status) {
         case ESwapLimitOrderStatus.CANCELLED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_cancel,
+            id: ETranslations.Limit_order_status_cancelled,
           });
           color = '$textCritical';
           break;
@@ -197,6 +224,12 @@ const LimitOrderCard = ({
           });
           color = '$textCaution';
           break;
+        case ESwapLimitOrderStatus.PARTIALLY_FILLED:
+          label = intl.formatMessage({
+            id: ETranslations.Limit_order_history_status_partially_filled,
+          });
+          color = '$textSuccess';
+          break;
         case ESwapLimitOrderStatus.PRESIGNATURE_PENDING:
           label = intl.formatMessage({
             id: ETranslations.Limit_order_status_open,
@@ -206,30 +239,46 @@ const LimitOrderCard = ({
           break;
       }
     }
+    let sellPercentage = '0';
+    if (kind === ESwapQuoteKind.SELL) {
+      const fromAmountBN = new BigNumber(fromAmount ?? '0').shiftedBy(
+        -(fromTokenInfo?.decimals ?? 0),
+      );
+      const executedSellAmountBN = new BigNumber(
+        executedSellAmount ?? '0',
+      ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
 
-    const fromAmountBN = new BigNumber(fromAmount ?? '0').shiftedBy(
-      -(fromTokenInfo?.decimals ?? 0),
-    );
-    const executedSellAmountBN = new BigNumber(
-      executedSellAmount ?? '0',
-    ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
-    const sellPercentage = executedSellAmountBN
-      .div(fromAmountBN)
-      .multipliedBy(100)
-      .toFixed(2);
+      sellPercentage = executedSellAmountBN
+        .div(fromAmountBN)
+        .multipliedBy(100)
+        .toFixed(2);
+    } else if (kind === ESwapQuoteKind.BUY) {
+      const toAmountBN = new BigNumber(toAmount ?? '0').shiftedBy(
+        -(toTokenInfo?.decimals ?? 0),
+      );
+      const executedBuyAmountBN = new BigNumber(
+        executedBuyAmount ?? '0',
+      ).shiftedBy(-(toTokenInfo?.decimals ?? 0));
+      sellPercentage = executedBuyAmountBN
+        .div(toAmountBN)
+        .multipliedBy(100)
+        .toFixed(2);
+    }
+
     return (
-      <YStack gap="$1.5" flex={1}>
+      <YStack gap="$1.5" justifyContent="flex-start">
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status })}
         </SizableText>
-        <XStack gap="$2" alignItems="center" flex={1}>
+        <XStack gap="$2" alignItems="center">
           <SizableText size="$bodySm" color={color}>
             {label}
           </SizableText>
           <Progress
             w={progressWidth}
             h="$1"
-            colors={['$neutral5', '$textSuccess']}
+            progressColor="$neutral5"
+            indicatorColor="$textSuccess"
             value={Number(sellPercentage)}
           />
           <SizableText size="$bodySm" color="$textSubdued">
@@ -238,12 +287,15 @@ const LimitOrderCard = ({
         </XStack>
       </YStack>
     );
-  }, [item, intl, fromAmount, fromTokenInfo?.decimals, progressWidth]);
-
-  const networkName = useMemo(() => {
-    const networkInfo = networkUtils.getLocalNetworkInfo(item?.networkId);
-    return networkInfo?.name;
-  }, [item]);
+  }, [
+    item,
+    intl,
+    progressWidth,
+    fromAmount,
+    fromTokenInfo?.decimals,
+    toAmount,
+    toTokenInfo?.decimals,
+  ]);
 
   return (
     <YStack
@@ -267,12 +319,6 @@ const LimitOrderCard = ({
         <YStack gap="$2">
           {createdAtFormat}
           {tokenInfo()}
-          <XStack>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_network })}
-            </SizableText>
-            <SizableText size="$bodySm">{`:${networkName ?? '-'}`}</SizableText>
-          </XStack>
         </YStack>
         {!hiddenCancelIcon ? (
           <Badge
@@ -281,9 +327,14 @@ const LimitOrderCard = ({
             borderRadius="$2.5"
             borderWidth={1}
             borderColor={cancelLoading ? '$borderActive' : '$borderSubdued'}
-            onPress={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
+            onPress={(e: {
+              stopPropagation?: () => void;
+              preventDefault?: () => void;
+            }) => {
+              if (e) {
+                e.stopPropagation?.();
+                e.preventDefault?.();
+              }
               onCancel?.();
             }}
             userSelect="none"
@@ -303,7 +354,7 @@ const LimitOrderCard = ({
         ) : null}
       </XStack>
       <Divider />
-      <XStack flexWrap="wrap" justifyContent="flex-start" gap="$3">
+      <XStack gap="$3" flexWrap="wrap" justifyContent="flex-start">
         {renderLimitOrderPrice()}
         {expirationTitle}
         {renderLimitOrderStatus()}

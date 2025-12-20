@@ -23,7 +23,7 @@ import type {
   IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
 import { perfTokenListView } from '../../../components/TokenListView/perfTokenListView';
@@ -52,6 +52,7 @@ function TokenList() {
     accountId,
     networkId,
     walletId,
+    indexedAccountId,
     tokenList,
     title,
     helpText,
@@ -60,6 +61,12 @@ function TokenList() {
     deriveInfo,
     deriveType,
     isAllNetworks,
+    hideValue,
+    aggregateTokensListMap,
+    aggregateTokensMap,
+    accountAddress,
+    allAggregateTokenMap,
+    searchKeyLengthThreshold,
   } = route.params;
   const { tokens, map: tokenMap, keys } = tokenList;
 
@@ -68,6 +75,8 @@ function TokenList() {
     refreshTokenListMap,
     updateTokenListState,
     updateSearchKey,
+    refreshAggregateTokensListMap,
+    refreshAggregateTokensMap,
   } = useTokenListActions().current;
 
   const headerRight = useCallback(() => {
@@ -102,27 +111,35 @@ function TokenList() {
   }, [helpText, intl]);
 
   const handleOnPressToken = useCallback(
-    (token: IToken) => {
+    (token: IAccountToken) => {
       navigation.push(EModalAssetDetailRoutes.TokenDetails, {
         accountId: token.accountId ?? accountId,
         networkId: token.networkId ?? networkId,
         walletId,
-        tokenInfo: token,
         isBlocked,
         deriveInfo,
         deriveType,
         isAllNetworks,
+        indexedAccountId: indexedAccountId ?? '',
+        tokenInfo: token,
+        aggregateTokens: aggregateTokensListMap?.[token.$key]?.tokens ?? [],
+        tokenMap,
+        accountAddress,
       });
     },
     [
       accountId,
+      aggregateTokensListMap,
       deriveInfo,
       deriveType,
+      indexedAccountId,
       isAllNetworks,
       isBlocked,
       navigation,
       networkId,
+      tokenMap,
       walletId,
+      accountAddress,
     ],
   );
 
@@ -138,13 +155,26 @@ function TokenList() {
       perfTokenListView.markEnd('tokenListRefreshing_tokenListPageUseEffect');
       updateTokenListState({ initialized: true, isRefreshing: false });
     }
+
+    if (aggregateTokensListMap && aggregateTokensMap) {
+      refreshAggregateTokensListMap({
+        tokens: aggregateTokensListMap,
+      });
+      refreshAggregateTokensMap({
+        tokens: aggregateTokensMap,
+      });
+    }
   }, [
+    aggregateTokensMap,
+    aggregateTokensListMap,
     keys,
     refreshTokenList,
     refreshTokenListMap,
     tokenMap,
     tokens,
     updateTokenListState,
+    refreshAggregateTokensListMap,
+    refreshAggregateTokensMap,
   ]);
 
   return (
@@ -169,10 +199,16 @@ function TokenList() {
       />
       <Page.Body>
         <TokenListView
+          accountId={accountId}
+          networkId={networkId}
+          indexedAccountId={indexedAccountId}
           onPressToken={onPressToken ?? handleOnPressToken}
           withPrice
-          withNetwork={isAllNetworks}
           isAllNetworks={isAllNetworks}
+          hideValue={hideValue}
+          allAggregateTokenMap={allAggregateTokenMap}
+          showNetworkIcon={isAllNetworks}
+          searchKeyLengthThreshold={searchKeyLengthThreshold}
         />
       </Page.Body>
     </Page>

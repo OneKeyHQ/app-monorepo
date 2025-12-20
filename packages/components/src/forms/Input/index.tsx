@@ -15,12 +15,20 @@ import {
 } from 'react';
 
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
-import { InteractionManager } from 'react-native';
-import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
+import noop from 'lodash/noop';
 
+import {
+  Group,
+  getFontSize,
+  useProps,
+  useThemeName,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { useSelectionColor } from '../../hooks';
+import { useClipboard, useSelectionColor } from '../../hooks';
 import { useScrollToLocation } from '../../layouts/ScrollView';
 import { Icon } from '../../primitives';
 
@@ -34,6 +42,7 @@ import type {
   IStackProps,
   IStackStyle,
 } from '../../primitives';
+import type { IInputProps as ITMInputProps } from '../TextArea/TamaguiInput';
 import type {
   IPasteEventParams,
   IPasteEventPayload,
@@ -46,9 +55,6 @@ import type {
   TextInput,
   TextInputFocusEventData,
 } from 'react-native';
-import type { GetProps } from 'tamagui';
-
-type ITMInputProps = GetProps<typeof TMInput>;
 
 export { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 
@@ -70,12 +76,25 @@ export type IInputProps = {
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
   allowClear?: boolean; // add clear button when controlled value is not empty
+  allowPaste?: boolean; // add paste button
+  allowScan?: boolean; // add scan button
+  startScanQrCode?: (
+    params: IQRCodeHandlerParseOutsideOptions,
+  ) => Promise<{ raw?: string }>; // const { start: startScanQrCode } = useScanQrCode();
+  clearClipboardOnPaste?: boolean; // clear clipboard on paste
   autoFocusDelayMs?: number;
+  selectTextOnFocus?: boolean;
+  /**
+   * Auto scroll to top delay in milliseconds.
+   * Default is 250ms, only works on Android.
+   */
+  autoScrollTopDelayMs?: number;
   allowSecureTextEye?: boolean;
   containerProps?: IGroupProps;
   onPaste?: (event: IPasteEventParams) => void;
   onChangeText?: ((text: string) => string | void) | undefined;
-} & Omit<ITMInputProps, 'size' | 'onChangeText' | 'onPaste'> & {
+  onSecureTextEntryChange?: (secureTextEntry: boolean) => void;
+} & Omit<ITMInputProps, 'size' | 'onChangeText' | 'onPaste' | 'readOnly'> & {
     /** Web only */
     onCompositionStart?: CompositionEventHandler<any>;
     /** Web only */
@@ -105,6 +124,16 @@ const SIZE_MAPPINGS = {
   },
 };
 
+export const useAutoScrollToTop = platformEnv.isNativeAndroid
+  ? (ref: RefObject<TextInput | null>, waitMs = 250) => {
+      useEffect(() => {
+        setTimeout(() => {
+          ref.current?.setSelection(0, 0);
+        }, waitMs);
+      }, [ref, waitMs]);
+    }
+  : () => {};
+
 const useReadOnlyStyle = (readOnly = false) =>
   useMemo(
     () =>
@@ -117,8 +146,8 @@ const useReadOnlyStyle = (readOnly = false) =>
     [readOnly],
   );
 
-const useAutoFocus = (
-  inputRef: RefObject<TextInput>,
+export const useAutoFocus = (
+  inputRef: RefObject<TextInput | null>,
   autoFocus?: boolean,
   autoFocusDelayMs?: number,
 ) => {
@@ -144,6 +173,72 @@ const useAutoFocus = (
   return shouldReloadAutoFocus ? false : autoFocus;
 };
 
+// Fix for Android input not rendering value correctly on first render in React Native 0.79.x
+// This hook ensures proper value display by controlling the rendering timing
+export const useFixAndroidInputValueDisplay = platformEnv.isNativeAndroid
+  ? (value: string | undefined) => {
+      const [isRendered, setIsRendered] = useState(false);
+      useEffect(() => {
+        setTimeout(() => {
+          setIsRendered(true);
+        }, 0);
+      }, []);
+      return isRendered ? value : '';
+    }
+  : (value: string | undefined) => value;
+
+export const useOnWebPaste = platformEnv.isNative
+  ? noop
+  : (
+      inputRef: RefObject<TextInput> | null,
+      onPaste?: (event: IPasteEventParams) => void,
+    ) => {
+      useEffect(() => {
+        if (!platformEnv.isNative && inputRef?.current && onPaste) {
+          const handleWebPaste = (event: {
+            type: 'paste';
+            clipboardData: {
+              items: DataTransferItem[];
+            };
+          }) => {
+            if (event.type === 'paste') {
+              const clipboardData = event.clipboardData;
+              if (clipboardData && clipboardData.items.length > 0) {
+                const items: IPasteEventPayload = [];
+                const promises: Promise<void>[] = [];
+
+                for (let i = 0; i < clipboardData.items.length; i += 1) {
+                  const item = clipboardData.items[i];
+                  if (item.kind === 'string') {
+                    promises.push(
+                      new Promise<void>((resolve) => {
+                        item.getAsString((pastedText) => {
+                          items.push({
+                            data: pastedText,
+                            type: EPasteEventPayloadItemType.TextPlain,
+                          });
+                          resolve();
+                        });
+                      }),
+                    );
+                  }
+                }
+
+                void Promise.all(promises).then(() => {
+                  onPaste({ nativeEvent: { items } });
+                });
+              }
+            }
+          };
+          const inputElement = inputRef.current as unknown as HTMLInputElement;
+          inputElement.addEventListener('paste', handleWebPaste as any);
+          return () => {
+            inputElement.removeEventListener('paste', handleWebPaste as any);
+          };
+        }
+      }, [inputRef, onPaste]);
+    };
+
 function BaseInput(
   inputProps: IInputProps,
   forwardedRef: ForwardedRef<IInputRef>,
@@ -155,6 +250,11 @@ function BaseInput(
     leftIconName,
     addOns: addOnsInProps,
     allowClear,
+    allowPaste,
+    allowScan,
+    allowSecureTextEye,
+    startScanQrCode,
+    clearClipboardOnPaste,
     disabled,
     editable,
     error,
@@ -166,15 +266,16 @@ function BaseInput(
     selectTextOnFocus,
     onFocus,
     value,
-    onPaste,
+    onPaste: onPasteProps,
     onChangeText,
     keyboardType,
     InputComponentStyle,
     autoFocusDelayMs,
+    autoScrollTopDelayMs,
     secureTextEntry,
-    allowSecureTextEye,
+    onSecureTextEntryChange,
     ...props
-  } = useProps(inputProps);
+  } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({
@@ -184,9 +285,21 @@ function BaseInput(
     size,
   });
   const themeName = useThemeName();
-  const inputRef: RefObject<TextInput> | null = useRef(null);
+  const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
+  const { clearText, getClipboard, supportPaste, onPasteClearText } =
+    useClipboard();
+
+  const onPaste = useCallback(
+    (event: IPasteEventParams) => {
+      onPasteProps?.(event);
+      if (clearClipboardOnPaste) {
+        onPasteClearText?.(event);
+      }
+    },
+    [onPasteProps, clearClipboardOnPaste, onPasteClearText],
+  );
 
   const [secureEntryState, setSecureEntryState] = useState(true);
 
@@ -208,10 +321,49 @@ function BaseInput(
         },
       });
     }
+    if (allowScan) {
+      allAddOns.push({
+        iconName: 'ScanOutline',
+        onPress: async () => {
+          /*
+          const result = await start({
+            handlers: [],
+            autoHandleResult: false,
+          });
+          form.setValue('input', result.raw);
+          */
+          if (!startScanQrCode) {
+            throw new OneKeyLocalError('props startScanQrCode is required');
+          }
+          const result = await startScanQrCode?.({
+            handlers: [],
+            autoHandleResult: false,
+          });
+          if (result?.raw) {
+            onChangeText?.(result.raw || '');
+          }
+        },
+      });
+    }
+    if (allowPaste && supportPaste) {
+      allAddOns.push({
+        iconName: 'ClipboardOutline' as IKeyOfIcons,
+        onPress: async () => {
+          const text = await getClipboard();
+          if (text) {
+            onChangeText?.(text || '');
+            if (clearClipboardOnPaste) {
+              clearText();
+            }
+          }
+        },
+      });
+    }
     if (allowSecureTextEye) {
       allAddOns.push({
-        iconName: secureEntryState ? 'EyeOutline' : 'EyeOffOutline',
+        iconName: secureEntryState ? 'EyeOffOutline' : 'EyeOutline',
         onPress: () => {
+          onSecureTextEntryChange?.(!secureEntryState);
           setSecureEntryState(!secureEntryState);
         },
       });
@@ -221,55 +373,22 @@ function BaseInput(
     addOnsInProps,
     allowClear,
     inputProps?.value,
+    allowScan,
+    allowPaste,
+    supportPaste,
     allowSecureTextEye,
     onChangeText,
+    startScanQrCode,
+    getClipboard,
+    clearClipboardOnPaste,
+    clearText,
     secureEntryState,
+    onSecureTextEntryChange,
   ]);
 
-  useEffect(() => {
-    if (!platformEnv.isNative && inputRef.current && onPaste) {
-      const handleWebPaste = (event: {
-        type: 'paste';
-        clipboardData: {
-          items: DataTransferItem[];
-        };
-      }) => {
-        if (event.type === 'paste') {
-          const clipboardData = event.clipboardData;
-          if (clipboardData && clipboardData.items.length > 0) {
-            const items: IPasteEventPayload = [];
-            const promises: Promise<void>[] = [];
+  useOnWebPaste(inputRef, onPaste);
 
-            for (let i = 0; i < clipboardData.items.length; i += 1) {
-              const item = clipboardData.items[i];
-              if (item.kind === 'string') {
-                promises.push(
-                  new Promise<void>((resolve) => {
-                    item.getAsString((pastedText) => {
-                      items.push({
-                        data: pastedText,
-                        type: EPasteEventPayloadItemType.TextPlain,
-                      });
-                      resolve();
-                    });
-                  }),
-                );
-              }
-            }
-
-            void Promise.all(promises).then(() => {
-              onPaste({ nativeEvent: { items } });
-            });
-          }
-        }
-      };
-      const inputElement = inputRef.current as unknown as HTMLInputElement;
-      inputElement.addEventListener('paste', handleWebPaste as any);
-      return () => {
-        inputElement.removeEventListener('paste', handleWebPaste as any);
-      };
-    }
-  }, [onPaste]);
+  useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
 
   useImperativeHandle(forwardedRef, () => ({
     ...inputRef.current,
@@ -296,28 +415,28 @@ function BaseInput(
   }));
 
   const selectionColor = useSelectionColor();
-
   const valueRef = useRef(value);
   if (valueRef.current !== value) {
     valueRef.current = value;
   }
 
+  const shownValue = useFixAndroidInputValueDisplay(value);
   const { scrollToView } = useScrollToLocation(inputRef);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
-    async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
       onFocus?.(e);
       if (platformEnv.isNative && selectTextOnFocus) {
-        const { currentTarget } = e;
-        await InteractionManager.runAfterInteractions(() => {
-          currentTarget.setNativeProps({
+        const currentTarget = e.currentTarget;
+        void timerUtils.setTimeoutPromised(() => {
+          currentTarget?.setNativeProps({
             selection: { start: 0, end: valueRef.current?.length || 0 },
           });
         });
       }
       scrollToView();
     },
-    [onFocus, selectTextOnFocus, scrollToView],
+    [onFocus, scrollToView, selectTextOnFocus],
   );
 
   const onNumberPadChangeText = useCallback(
@@ -325,6 +444,11 @@ function BaseInput(
       onChangeText?.(text.replace(',', '.'));
     },
     [onChangeText],
+  );
+
+  const isNumberKeyboardType = useMemo(
+    () => keyboardType === 'decimal-pad' || keyboardType === 'number-pad',
+    [keyboardType],
   );
 
   return (
@@ -362,7 +486,6 @@ function BaseInput(
           ref={inputRef}
           keyboardType={keyboardType}
           flex={1}
-          // @ts-expect-error
           pointerEvents={readonly ? 'none' : 'auto'}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
@@ -382,20 +505,20 @@ function BaseInput(
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
           borderCurve="continuous"
           autoFocus={reloadAutoFocus}
-          value={value}
-          onFocus={handleFocus}
+          value={shownValue}
+          onFocus={handleFocus as any}
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}
           secureTextEntry={usedSecureTextEntry}
           {...readOnlyStyle}
           {...InputComponentStyle}
           {...props}
-          onPaste={platformEnv.isNative ? (onPaste as any) : undefined}
+          // @ts-expect-error
+          onPaste={platformEnv.isNative ? onPaste : undefined}
           onChangeText={
-            platformEnv.isNativeIOS && keyboardType === 'decimal-pad'
-              ? onNumberPadChangeText
-              : onChangeText
+            isNumberKeyboardType ? onNumberPadChangeText : onChangeText
           }
+          allowFontScaling={false}
         />
       </Group.Item>
 
@@ -421,7 +544,7 @@ function BaseInput(
             orientation="horizontal"
             disabled={disabled}
             disablePassBorderRadius="start"
-            {...addOnsContainerProps}
+            {...(addOnsContainerProps as any)}
           >
             {addOns.map(
               (
@@ -483,7 +606,7 @@ function BaseInputUnControlled(
   inputProps: IInputProps,
   ref: ForwardedRef<IInputRef>,
 ) {
-  const inputRef: RefObject<IInputRef> = useRef(null);
+  const inputRef: RefObject<IInputRef | null> = useRef(null);
 
   const [internalValue, setInternalValue] = useState(
     inputProps?.defaultValue || '',
@@ -503,12 +626,15 @@ function BaseInputUnControlled(
         blur: () => {},
       },
   );
+
   return (
     <Input
       ref={inputRef}
+      allowFontScaling={false}
       {...(inputProps as any)}
       value={internalValue}
       onChangeText={handleChange}
+      defaultValue={undefined}
     />
   );
 }

@@ -1,5 +1,6 @@
 import { injected } from '@wagmi/core';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IExternalConnectionInfo,
   IExternalConnectorEvm,
@@ -10,7 +11,7 @@ import type { EvmConnectorManager } from './EvmConnectorManager';
 export const EVM_INJECTED_GLOBAL_VAR = 'ethereum';
 export class ExternalConnectorEvmInjected {
   constructor() {
-    throw new Error(
+    throw new OneKeyLocalError(
       'ExternalConnectorEvmInjected is mocked class, use ExternalConnectorEvmInjected.createConnector()',
     );
   }

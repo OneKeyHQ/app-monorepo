@@ -4,7 +4,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
+  EAvailableAssetsTypeEnum,
   IEarnPermitCache,
   IEarnPermitCacheKey,
 } from '@onekeyhq/shared/types/earn';
@@ -12,20 +14,30 @@ import type {
   IAvailableAsset,
   IEarnAccountTokenResponse,
   IEarnAtomData,
+  IRecommendAsset,
 } from '@onekeyhq/shared/types/staking';
 
-import { contextAtomMethod, earnAtom, earnPermitCacheAtom } from './atoms';
+import {
+  contextAtomMethod,
+  earnAtom,
+  earnLoadingStatesAtom,
+  earnPermitCacheAtom,
+} from './atoms';
 
 export const homeResettingFlags: Record<string, number> = {};
 
-class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
+class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
   syncToDb = contextAtomMethod((get, set, payload: IEarnAtomData) => {
     const atom = earnAtom();
     if (!get(atom).isMounted) {
       return;
     }
-    void this.syncToJotai.call(set, payload);
-    void backgroundApiProxy.simpleDb.earn.setRawData(payload);
+    const data = {
+      ...get(atom),
+      ...payload,
+    };
+    void this.syncToJotai.call(set, data);
+    void backgroundApiProxy.simpleDb.earn.setRawData(data);
   });
 
   syncToJotai = contextAtomMethod((get, set, payload: IEarnAtomData) => {
@@ -33,21 +45,29 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     if (!get(atom).isMounted) {
       return;
     }
-    set(atom, (prev: IEarnAtomData) => ({
-      ...prev,
-      ...payload,
-    }));
+    set(atom, payload);
   });
 
-  getAvailableAssets = contextAtomMethod((get) => {
-    const { availableAssets } = get(earnAtom());
-    return availableAssets || [];
-  });
+  getAvailableAssetsByType = contextAtomMethod(
+    (get, set, type: EAvailableAssetsTypeEnum) => {
+      const { availableAssetsByType } = get(earnAtom());
+      return availableAssetsByType?.[type] || [];
+    },
+  );
 
-  updateAvailableAssets = contextAtomMethod(
-    (_, set, availableAssets: IAvailableAsset[]) => {
+  updateAvailableAssetsByType = contextAtomMethod(
+    (
+      get,
+      set,
+      type: EAvailableAssetsTypeEnum,
+      availableAssets: IAvailableAsset[],
+    ) => {
+      const earnData = get(earnAtom());
       this.syncToDb.call(set, {
-        availableAssets,
+        availableAssetsByType: {
+          ...earnData.availableAssetsByType,
+          [type]: availableAssets,
+        },
       });
     },
   );
@@ -70,7 +90,7 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
       },
     ) => {
       const earnData = get(earnAtom());
-      this.syncToJotai.call(set, {
+      this.syncToDb.call(set, {
         earnAccount: {
           ...earnData.earnAccount,
           [key]: earnAccount,
@@ -122,33 +142,116 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
       });
     },
   );
+
+  resetEarnCacheData = contextAtomMethod((_, set) => {
+    this.syncToDb.call(set, {
+      availableAssetsByType: {},
+      earnAccount: {},
+    });
+  });
+
+  triggerRefresh = contextAtomMethod((get, set) => {
+    const earnData = get(earnAtom());
+    this.syncToDb.call(set, {
+      refreshTrigger: Number(earnData.refreshTrigger || 0) + 1,
+    });
+  });
+
+  setLoadingState = contextAtomMethod(
+    (get, set, key: string, isLoading: boolean) => {
+      const loadingStates = get(earnLoadingStatesAtom());
+      set(earnLoadingStatesAtom(), {
+        ...loadingStates,
+        [key]: isLoading,
+      });
+    },
+  );
+
+  getLoadingState = contextAtomMethod((get, set, key: string) => {
+    const loadingStates = get(earnLoadingStatesAtom());
+    return loadingStates[key] || false;
+  });
+
+  isDataIncomplete = contextAtomMethod((get, set, key: string) => {
+    const loadingStates = get(earnLoadingStatesAtom());
+    return loadingStates[key] || false;
+  });
+
+  getRecommendedTokens = contextAtomMethod((get, set) => {
+    const { recommendedTokens } = get(earnAtom());
+    return recommendedTokens || [];
+  });
+
+  updateRecommendedTokens = contextAtomMethod(
+    (get, set, tokens: IRecommendAsset[]) => {
+      this.syncToDb.call(set, {
+        recommendedTokens: tokens,
+      });
+    },
+  );
+
+  getBanners = contextAtomMethod((get, set) => {
+    const { banners } = get(earnAtom());
+    return banners || [];
+  });
+
+  updateBanners = contextAtomMethod((get, set, banners: IDiscoveryBanner[]) => {
+    this.syncToDb.call(set, {
+      banners,
+    });
+  });
 }
 
-const createActions = memoFn(() => new ContextJotaiActionsMarket());
+const createActions = memoFn(() => new ContextJotaiActionsEarn());
 
 export function useEarnActions() {
   const actions = createActions();
-  const getAvailableAssets = actions.getAvailableAssets.use();
-  const updateAvailableAssets = actions.updateAvailableAssets.use();
+  const getAvailableAssetsByType = actions.getAvailableAssetsByType.use();
+  const updateAvailableAssetsByType = actions.updateAvailableAssetsByType.use();
   const updateEarnAccounts = actions.updateEarnAccounts.use();
   const getEarnAccount = actions.getEarnAccount.use();
   const getPermitCache = actions.getPermitCache.use();
   const updatePermitCache = actions.updatePermitCache.use();
   const removePermitCache = actions.removePermitCache.use();
+  const triggerRefresh = actions.triggerRefresh.use();
+  const setLoadingState = actions.setLoadingState.use();
+  const getLoadingState = actions.getLoadingState.use();
+  const isDataIncomplete = actions.isDataIncomplete.use();
 
   const buildEarnAccountsKey = useCallback(
-    (account = '', network = '') => `${account}-${network}`,
+    ({
+      accountId,
+      indexAccountId,
+      networkId,
+    }: {
+      accountId?: string;
+      indexAccountId?: string;
+      networkId: string;
+    }) => `${indexAccountId || accountId || ''}-${networkId}`,
     [],
   );
 
+  const getRecommendedTokens = actions.getRecommendedTokens.use();
+  const updateRecommendedTokens = actions.updateRecommendedTokens.use();
+  const getBanners = actions.getBanners.use();
+  const updateBanners = actions.updateBanners.use();
+
   return useRef({
-    getAvailableAssets,
-    updateAvailableAssets,
+    getAvailableAssetsByType,
+    updateAvailableAssetsByType,
     buildEarnAccountsKey,
     updateEarnAccounts,
     getEarnAccount,
     getPermitCache,
     updatePermitCache,
     removePermitCache,
+    triggerRefresh,
+    setLoadingState,
+    getLoadingState,
+    isDataIncomplete,
+    getRecommendedTokens,
+    updateRecommendedTokens,
+    getBanners,
+    updateBanners,
   });
 }

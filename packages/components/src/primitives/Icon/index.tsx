@@ -1,8 +1,10 @@
-import { Suspense, forwardRef } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 
-import { styled, withStaticProperties } from 'tamagui';
-
-import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
+import {
+  type GetProps,
+  styled,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { useThemeValue } from '../../hooks/useStyle';
 import { OptimizationView } from '../../optimization';
@@ -12,7 +14,6 @@ import ICON_CONFIG from './Icons';
 import type { IKeyOfIcons } from './Icons';
 import type { TextStyle } from 'react-native';
 import type { Svg, SvgProps } from 'react-native-svg';
-import type { GetProps } from 'tamagui';
 
 export type IIconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
   name?: IKeyOfIcons;
@@ -23,26 +24,54 @@ const ComponentMaps: Record<string, typeof Svg> = {};
 
 const DEFAULT_SIZE = 24;
 
-const loadIcon = (name: IKeyOfIcons) =>
-  new Promise<typeof Svg>((resolve) => {
-    void ICON_CONFIG[name]().then((module: any) => {
+// Global promise cache to ensure only one loading promise per icon
+const isLoadingIcon: Record<string, boolean> = {};
+// Callback queues for each icon
+const callbackQueues: Record<
+  string,
+  Array<(component: typeof Svg) => void>
+> = {};
+
+const loadIconModule = (name: IKeyOfIcons): Promise<typeof Svg> => {
+  return new Promise((resolveCallback) => {
+    if (callbackQueues[name]) {
+      callbackQueues[name].push(resolveCallback);
+    } else {
+      callbackQueues[name] = [resolveCallback];
+    }
+
+    if (isLoadingIcon[name]) {
+      return;
+    }
+
+    isLoadingIcon[name] = true;
+    void ICON_CONFIG[name]?.().then((module: any) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      ComponentMaps[name] = module.default as typeof Svg;
-      resolve(ComponentMaps[name]);
+      if (module?.default) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const component = module.default as typeof Svg;
+        ComponentMaps[name] = component;
+        delete isLoadingIcon[name];
+
+        const callbacks = callbackQueues[name] || [];
+        callbacks.forEach((callback) => callback(component));
+
+        delete callbackQueues[name];
+      }
     });
   });
+};
 
-// eslint-disable-next-line @typescript-eslint/unbound-method
-const { useSuspender } = createSuspender(
-  (name: IKeyOfIcons) =>
-    new Promise<typeof Svg>((resolve) => {
-      if (ComponentMaps[name]) {
-        resolve(ComponentMaps[name]);
-      } else {
-        void loadIcon(name).then(resolve);
-      }
-    }),
-);
+const loadIcon = (name: IKeyOfIcons) =>
+  new Promise<typeof Svg>((resolve) => {
+    // If component is already loaded, resolve immediately
+    if (ComponentMaps[name]) {
+      resolve(ComponentMaps[name]);
+      return;
+    }
+
+    void loadIconModule(name).then(resolve);
+  });
 
 function IconLoader({
   name,
@@ -54,8 +83,28 @@ function IconLoader({
   color: string;
   style?: TextStyle;
 }) {
-  const SVGComponent = useSuspender(name);
-  return <SVGComponent {...props} />;
+  const [, setCount] = useState(0);
+
+  useEffect(() => {
+    if (ComponentMaps[name]) {
+      return;
+    }
+    void loadIcon(name).then(() => {
+      setCount((prev) => prev + 1);
+    });
+  }, [name]);
+
+  const Svg = ComponentMaps[name];
+  return Svg ? (
+    <Svg {...props} />
+  ) : (
+    <OptimizationView
+      style={{
+        width: props.width,
+        height: props.height,
+      }}
+    />
+  );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -79,24 +128,13 @@ function BasicIconContainer({ name, style }: IIconContainerProps, _: any) {
       color={componentColor}
     />
   ) : (
-    <Suspense
-      fallback={
-        <OptimizationView
-          style={{
-            width: componentWidth,
-            height: componentHeight,
-          }}
-        />
-      }
-    >
-      <IconLoader
-        width={componentWidth}
-        height={componentHeight}
-        style={style}
-        color={componentColor}
-        name={name}
-      />
-    </Suspense>
+    <IconLoader
+      width={componentWidth}
+      height={componentHeight}
+      style={style}
+      color={componentColor}
+      name={name}
+    />
   );
 }
 const IconContainer = forwardRef(BasicIconContainer);

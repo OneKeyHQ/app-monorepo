@@ -6,11 +6,9 @@ import { useIntl } from 'react-intl';
 import {
   Dialog,
   Empty,
-  Heading,
   SectionList,
   SizableText,
   Skeleton,
-  Toast,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -18,9 +16,14 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type {
+  IFetchLimitOrderRes,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
+  ESwapCancelLimitOrderSource,
   ESwapLimitOrderStatus,
-  type IFetchLimitOrderRes,
 } from '@onekeyhq/shared/types/swap/types';
 
 import LimitOrderListItem from '../../components/LimitOrderListItem';
@@ -31,6 +34,7 @@ import LimitOrderCancelDialog from './LimitOrderCancelDialog';
 interface ILimitOrderListProps {
   onClickCell: (item: IFetchLimitOrderRes) => void;
   isLoading?: boolean;
+  filterToken?: ISwapToken;
   type: 'open' | 'history';
 }
 
@@ -43,30 +47,35 @@ interface ISectionData {
 const LimitOrderList = ({
   isLoading,
   type,
+  filterToken,
   onClickCell,
 }: ILimitOrderListProps) => {
   const { gtMd } = useMedia();
   const intl = useIntl();
-  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState<Record<string, boolean>>(
+    {},
+  );
   const { cancelLimitOrder } = useSwapBuildTx();
   const [{ swapLimitOrders }] = useInAppNotificationAtom();
+
   const runCancel = useCallback(
     async (item: IFetchLimitOrderRes) => {
       try {
-        setCancelLoading(true);
-        await cancelLimitOrder(item);
+        setCancelLoading((prev) => ({
+          ...prev,
+          [item.orderId]: true,
+        }));
+        await cancelLimitOrder(item, ESwapCancelLimitOrderSource.LIST);
       } catch (error) {
         console.error(error);
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_failed,
-          }),
-        });
       } finally {
-        setCancelLoading(false);
+        setCancelLoading((prev) => ({
+          ...prev,
+          [item.orderId]: false,
+        }));
       }
     },
-    [cancelLimitOrder, intl],
+    [cancelLimitOrder],
   );
   const onCancel = useCallback(
     async (item: IFetchLimitOrderRes) => {
@@ -97,7 +106,7 @@ const LimitOrderList = ({
     ({ item }: { item: IFetchLimitOrderRes }) => (
       <LimitOrderListItem
         item={item}
-        cancelLoading={cancelLoading}
+        cancelLoading={cancelLoading[item.orderId]}
         onClickCell={onClickCell}
         onCancel={onCancel}
       />
@@ -120,6 +129,19 @@ const LimitOrderList = ({
           order.status !== ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
       );
     }
+    if (filterToken) {
+      filteredData = filteredData.filter(
+        (order) =>
+          equalTokenNoCaseSensitive({
+            token1: order.fromTokenInfo,
+            token2: filterToken,
+          }) ||
+          equalTokenNoCaseSensitive({
+            token1: order.toTokenInfo,
+            token2: filterToken,
+          }),
+      );
+    }
     return (
       filteredData?.sort((a, b) => {
         const aDate = new BigNumber(a.createdAt).toNumber();
@@ -127,7 +149,7 @@ const LimitOrderList = ({
         return bDate - aDate;
       }) ?? []
     );
-  }, [swapLimitOrders, type]);
+  }, [filterToken, swapLimitOrders, type]);
 
   const sectionData = useMemo(() => {
     const groupByDay = orderData.reduce<Record<string, IFetchLimitOrderRes[]>>(
@@ -167,6 +189,7 @@ const LimitOrderList = ({
       )),
     [gtMd],
   );
+
   return !swapLimitOrders.length && isLoading ? (
     loadingSkeleton
   ) : (

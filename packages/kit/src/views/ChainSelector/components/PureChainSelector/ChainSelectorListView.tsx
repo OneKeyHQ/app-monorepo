@@ -12,6 +12,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
 
@@ -48,6 +49,7 @@ const ChainSelectorListViewContent = ({
       ListEmptyComponent={ListEmptyComponent}
       ListFooterComponent={<Stack h={bottom || '$2'} />}
       estimatedItemSize={48}
+      initialNumToRender={platformEnv.isNative ? undefined : 40}
       data={networks}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
@@ -58,6 +60,10 @@ const ChainSelectorListViewContent = ({
               logoURI={item.logoURI}
               isCustomNetwork={item.isCustomNetwork}
               networkName={item.name}
+              isAllNetworks={item.isAllNetworks}
+              allNetworksIconProps={{
+                color: '$iconActive',
+              }}
               size="$8"
             />
           }
@@ -100,7 +106,7 @@ export const ChainSelectorListView: FC<IChainSelectorListViewProps> = ({
   }, [networkFuseSearch, text, networks]);
   return (
     <Stack flex={1}>
-      <Stack px="$5" pb="$4">
+      <Stack px="$5" pb="$2">
         <SearchBar
           placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={text}

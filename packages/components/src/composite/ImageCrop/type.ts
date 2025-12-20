@@ -121,7 +121,7 @@ export interface IPickerImageOptions extends CommonOptions {
   /**
    * Cancel button color. HEX-like string color.
    *
-   * @example '#ff00ee'
+   * @example '#000000'
    * @platform iOS only
    */
   cropperCancelColor?: string;

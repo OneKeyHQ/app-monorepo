@@ -1,9 +1,12 @@
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon, IconButton, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDisplayComponentAddress } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
@@ -37,6 +40,21 @@ function Address(props: IProps) {
 
   const networkId = component.networkId || currentNetworkId;
 
+  const isLightningNetwork =
+    networkUtils.isLightningNetworkByNetworkId(networkId);
+
+  const accountName = usePromiseResult(async () => {
+    if (!networkId || !isLightningNetwork) return;
+
+    const r = await backgroundApiProxy.serviceAccount.getAccountNameFromAddress(
+      {
+        address: component.address,
+        networkId,
+      },
+    );
+    return r?.[0]?.accountName;
+  }, [component.address, networkId, isLightningNetwork]).result;
+
   return (
     <SignatureConfirmItem>
       <SignatureConfirmItem.Label>
@@ -50,7 +68,7 @@ function Address(props: IProps) {
           maxWidth="$96"
           style={{ wordBreak: 'break-all' }}
         >
-          {component.address}
+          {component.showAccountName ? accountName : component.address}
         </SignatureConfirmItem.Value>
         {component.isNavigable ? (
           <XStack gap="$3" ml="$5">

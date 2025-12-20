@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
-import { memo, useMemo } from 'react';
+import { isValidElement, useMemo } from 'react';
 
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { isString } from 'lodash';
 
 import type {
@@ -21,12 +22,15 @@ import type {
   IDBAccount,
   IDBExternalAccount,
   IDBIndexedAccount,
+  IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { NetworkAvatar } from '../NetworkAvatar';
+import { WalletAvatar } from '../WalletAvatar';
 
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
@@ -38,6 +42,12 @@ const VARIANT_SIZE = {
     logoContainerSize: '$5',
     logoSize: '$4',
     relativeMargin: '$6',
+  },
+  'medium': {
+    containerSize: '$8',
+    logoContainerSize: '$5',
+    logoSize: '$4',
+    relativeMargin: '$4',
   },
   'small': {
     containerSize: '$6',
@@ -60,16 +70,15 @@ export interface IAccountAvatarProps extends IImageProps {
   loadingProps?: IImageLoadingProps;
   fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
+  wallet?: IDBWallet;
 }
 
-function HashImageSource({ id }: { id: string }) {
-  // native ethereum-blockies-base64 can't parse ':' in address
-  const idFixed = id.replaceAll(':', '');
-  const uri = useBlockieImageUri(idFixed);
-  return uri ? <Image.Source src={uri} /> : null;
-}
-
-const MemoHashImageSource = memo(HashImageSource);
+const getBlockieImageId = (id?: string) => {
+  if (!id) {
+    return '';
+  }
+  return id.replaceAll(':', '');
+};
 
 function DefaultImageLoading({
   delayMs = 150,
@@ -115,8 +124,8 @@ function BasicAccountAvatar({
   loadingProps,
   fallback,
   fallbackProps,
-  circular,
   networkId,
+  wallet,
   ...restProps
 }: IAccountAvatarProps) {
   const isValidSize = !!VARIANT_SIZE[size as IKeyOfVariantSize];
@@ -128,16 +137,26 @@ function BasicAccountAvatar({
           containerSize: size || VARIANT_SIZE.default.containerSize,
         };
 
-  const renderContent = useMemo(() => {
+  const accountSourceUri = useBlockieImageUri(
+    getBlockieImageId(
+      address ||
+        indexedAccount?.idHash ||
+        indexedAccount?.id ||
+        (account || dbAccount)?.address,
+    ),
+  );
+
+  const firmwareType = useMemo(() => {
+    return wallet?.firmwareTypeAtCreated;
+  }, [wallet?.firmwareTypeAtCreated]);
+
+  const uriSource = useMemo(() => {
     const emptyAccountAvatar = <DefaultEmptyAccount />;
 
-    if (address) {
-      return <MemoHashImageSource id={address} />;
-    }
-    if (indexedAccount) {
-      return (
-        <MemoHashImageSource id={indexedAccount.idHash || indexedAccount.id} />
-      );
+    if (address || indexedAccount) {
+      return {
+        uri: accountSourceUri,
+      };
     }
     // dbAccount exists, but network not compatible, so account is undefined
     const finalAccount = account || dbAccount;
@@ -148,9 +167,9 @@ function BasicAccountAvatar({
             return null;
           }
           if (isString(logo)) {
-            return <Image.Source src={logo} />;
+            return { uri: logo };
           }
-          return <Image.Source source={logo as any} />;
+          return logo;
         };
         const externalAccount = finalAccount as IDBExternalAccount;
 
@@ -184,18 +203,27 @@ function BasicAccountAvatar({
           return renderExternalAvatar(walletConnectIcon);
         }
       }
-      return finalAccount.address ? (
-        <MemoHashImageSource id={finalAccount.address} />
-      ) : (
-        emptyAccountAvatar
-      );
+      return finalAccount.address
+        ? {
+            uri: accountSourceUri,
+          }
+        : emptyAccountAvatar;
     }
     if (source || src || fallbackProps) {
-      return <Image.Source src={src} source={source} />;
+      return src ? { uri: src } : source;
     }
 
     return emptyAccountAvatar;
-  }, [account, address, dbAccount, fallbackProps, indexedAccount, source, src]);
+  }, [
+    account,
+    accountSourceUri,
+    address,
+    dbAccount,
+    fallbackProps,
+    indexedAccount,
+    source,
+    src,
+  ]);
 
   const renderLoading = useMemo(
     () =>
@@ -227,7 +255,9 @@ function BasicAccountAvatar({
       source ||
       src ||
       loadingProps ||
-      loading
+      loading ||
+      fallback ||
+      fallbackProps
     ) {
       return (
         fallback ||
@@ -256,21 +286,49 @@ function BasicAccountAvatar({
       justifyContent="center"
       alignItems="center"
     >
-      <Image
-        size={containerSize}
-        style={
-          {
-            borderCurve: 'continuous',
-          } as ImageStyle
-        }
-        borderRadius={size === 'small' ? '$1' : '$2'}
-        {...restProps}
-      >
-        {renderContent}
-        {renderFallback}
-        {renderLoading}
-      </Image>
+      {isValidElement(uriSource) ? (
+        uriSource
+      ) : (
+        <Image
+          size={containerSize}
+          source={uriSource as IImageProps['source']}
+          style={
+            {
+              borderCurve: 'continuous',
+            } as ImageStyle
+          }
+          borderRadius={size === 'small' ? '$1' : '$2'}
+          {...restProps}
+          skeleton={renderLoading}
+          fallback={renderFallback}
+        />
+      )}
 
+      {wallet ? (
+        <Stack
+          position="absolute"
+          justifyContent="center"
+          alignItems="center"
+          height="$5"
+          width="$5"
+          bottom="$-1.5"
+          right="$-1.5"
+          zIndex="$1"
+        >
+          <Stack
+            position="absolute"
+            top="$0"
+            bottom="$0"
+            borderCurve="continuous"
+            bg="$bgApp"
+            {...(wallet.type === 'hw' &&
+            !accountUtils.isHwHiddenWallet({ wallet })
+              ? { right: '$0.5', left: '$0.5', borderRadius: 2 }
+              : { right: '$0', left: '$0', borderRadius: '$1' })}
+          />
+          <WalletAvatar wallet={wallet} size="$5" />
+        </Stack>
+      ) : null}
       {networkId ? (
         <Stack
           position="absolute"
@@ -286,6 +344,21 @@ function BasicAccountAvatar({
           zIndex="$1"
         >
           <NetworkAvatar networkId={networkId} size={logoSize} />
+        </Stack>
+      ) : null}
+
+      {firmwareType === EFirmwareType.BitcoinOnly ? (
+        <Stack
+          position="absolute"
+          h="$4"
+          px="$0.5"
+          justifyContent="center"
+          top={-4}
+          left={-4}
+          borderRadius="$full"
+          zIndex="$1"
+        >
+          <NetworkAvatar networkId={presetNetworksMap.btc.id} size={14} />
         </Stack>
       ) : null}
     </Stack>

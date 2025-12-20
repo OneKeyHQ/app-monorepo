@@ -1,35 +1,60 @@
+import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IWalletActionBaseParams } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/walletActions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalFiatCryptoRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
-import { RawActions } from './RawActions';
-
-export function WalletActionBuy() {
+export function WalletActionBuy({
+  onClose,
+  renderTrigger,
+  source,
+  sameModal,
+}: {
+  onClose: () => void;
+  renderTrigger?: (props: {
+    onPress: () => void;
+    disabled: boolean;
+  }) => ReactElement;
+  source?: IWalletActionBaseParams['source'];
+  sameModal?: boolean;
+}) {
   const {
-    activeAccount: { network, account, wallet, deriveInfoItems, vaultSettings },
+    activeAccount: { network, account, wallet, vaultSettings, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const navigation = useAppNavigation();
   const { isSupported, handleFiatCrypto } = useFiatCrypto({
     networkId: network?.id ?? '',
     accountId: account?.id ?? '',
     fiatCryptoType: 'buy',
   });
 
+  const intl = useIntl();
+
   const [map] = useAllTokenListMapAtom();
+
+  const { result: nativeToken } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceToken.getNativeToken({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+      }),
+    [network?.id, account?.id],
+  );
 
   const isBuyDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
@@ -43,68 +68,112 @@ export function WalletActionBuy() {
     return false;
   }, [isSupported, wallet?.type]);
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleBuyToken = useCallback(async () => {
     if (isBuyDisabled) return;
 
-    if (vaultSettings?.isSingleToken) {
-      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
-        networkId: network?.id ?? '',
-        accountId: account?.id ?? '',
-      });
-
-      if (
-        account &&
-        network &&
-        wallet &&
-        nativeToken &&
-        deriveInfoItems.length > 1 &&
-        vaultSettings?.mergeDeriveAssetsEnabled &&
-        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
-      ) {
-        navigation.pushModal(EModalRoutes.FiatCryptoModal, {
-          screen: EModalFiatCryptoRoutes.DeriveTypesAddress,
-          params: {
-            networkId: network.id,
-            indexedAccountId: account.indexedAccountId ?? '',
-            accountId: account.id,
-            actionType: EDeriveAddressActionType.Select,
-            token: nativeToken,
-            tokenMap: map,
-            onUnmounted: () => {},
-            onSelected: async ({
-              account: a,
-            }: {
-              account: INetworkAccount;
-            }) => {
-              const { url } =
-                await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
-                  networkId: network?.id ?? '',
-                  tokenAddress: nativeToken.address,
-                  accountId: a.id,
-                  type: 'buy',
-                });
-              openUrlExternal(url);
-              navigation.pop();
-            },
-          },
-        });
-        return;
-      }
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
     }
 
-    handleFiatCrypto();
+    defaultLogger.wallet.walletActions.actionBuy({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: source ?? 'homePage',
+      isSoftwareWalletOnlyUser,
+    });
+
+    handleFiatCrypto({ sameModal });
+    onClose();
   }, [
     isBuyDisabled,
-    network,
-    account,
-    vaultSettings?.isSingleToken,
-    vaultSettings?.mergeDeriveAssetsEnabled,
     handleFiatCrypto,
+    network,
     wallet,
-    deriveInfoItems.length,
-    navigation,
-    map,
+    isSoftwareWalletOnlyUser,
+    onClose,
+    source,
+    sameModal,
   ]);
 
-  return <RawActions.Buy onPress={handleBuyToken} disabled={isBuyDisabled} />;
+  if (
+    !network?.isAllNetworks &&
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
+    vaultSettings?.mergeDeriveAssetsEnabled &&
+    nativeToken &&
+    !isBuyDisabled
+  ) {
+    return (
+      <AddressTypeSelector
+        placement="bottom-end"
+        offset={{
+          crossAxis: -16,
+        }}
+        walletId={wallet?.id ?? ''}
+        networkId={network?.id ?? ''}
+        indexedAccountId={indexedAccount?.id ?? ''}
+        renderSelectorTrigger={
+          renderTrigger ? (
+            renderTrigger({
+              disabled: isBuyDisabled,
+              onPress: () => {},
+            })
+          ) : (
+            <ActionList.Item
+              trackID="wallet-buy"
+              icon="PlusLargeOutline"
+              label={intl.formatMessage({ id: ETranslations.global_buy })}
+              disabled={isBuyDisabled}
+              onClose={() => {}}
+              onPress={() => {}}
+            />
+          )
+        }
+        tokenMap={map}
+        onSelect={async ({
+          account: a,
+        }: {
+          account: INetworkAccount | undefined;
+        }) => {
+          defaultLogger.wallet.walletActions.buyStarted({
+            tokenAddress: nativeToken.address,
+            tokenSymbol: nativeToken.symbol,
+            networkID: network?.id ?? '',
+          });
+          const { url } =
+            await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+              networkId: network?.id ?? '',
+              tokenAddress: nativeToken.address,
+              accountId: a?.id ?? '',
+              type: 'buy',
+            });
+          openUrlExternal(url);
+          onClose();
+        }}
+        doubleConfirm
+      />
+    );
+  }
+
+  if (renderTrigger) {
+    return renderTrigger({
+      disabled: isBuyDisabled,
+      onPress: handleBuyToken,
+    });
+  }
+
+  return (
+    <ActionList.Item
+      trackID="wallet-buy"
+      icon="PlusLargeOutline"
+      label={intl.formatMessage({ id: ETranslations.global_buy })}
+      onClose={() => {}}
+      onPress={handleBuyToken}
+      disabled={isBuyDisabled}
+    />
+  );
 }

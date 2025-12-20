@@ -4,8 +4,8 @@ import { type ChangeEvent, useCallback, useRef, useState } from 'react';
 
 import { Cropper } from 'react-mobile-cropper';
 import 'react-mobile-cropper/dist/style.css';
-import { withStaticProperties } from 'tamagui';
 
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -50,6 +50,7 @@ const resizeImage = (
 function BasicImageCrop({
   src,
   onConfirm,
+  onCancel,
   defaultSize,
 }: {
   src: string;
@@ -58,6 +59,7 @@ function BasicImageCrop({
     width: number;
   };
   onConfirm: (data: IPickerImage) => void;
+  onCancel?: () => void;
 }) {
   const cropperRef = useRef<CropperRef>(null);
 
@@ -108,6 +110,7 @@ function BasicImageCrop({
         />
       </Stack>
       <Dialog.Footer
+        onCancel={onCancel}
         onConfirm={async () => {
           if (cropperRef.current && cropperRef.current.getCanvas()) {
             const canvas = cropperRef.current.getCanvas();
@@ -178,6 +181,37 @@ const openPicker: IOpenPickerFunc = ({ width, height }) =>
     input.click();
   });
 
+const openCropImage = (
+  image: string,
+  width: number,
+  height: number,
+): Promise<IPickerImage> =>
+  new Promise((resolve, reject) => {
+    const dialog = Dialog.show({
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.global_crop_image,
+      }),
+      sheetProps: {
+        disableDrag: true,
+      },
+      renderContent: (
+        <BasicImageCrop
+          src={image}
+          defaultSize={{
+            width,
+            height,
+          }}
+          onConfirm={resolve as any}
+          onCancel={() => {
+            void dialog?.close();
+            reject(new Error('User cancelled'));
+          }}
+        />
+      ),
+    });
+  });
+
 export const ImageCrop = withStaticProperties(BasicImageCrop, {
   openPicker,
+  openCropImage,
 });

@@ -1,9 +1,10 @@
 import type ProviderApiWalletConnect from './ProviderApiWalletConnect';
 import type { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import type { Web3WalletTypes } from '@walletconnect/web3wallet';
+import type { WalletKitTypes } from '@reown/walletkit';
 
 export type IWalletConnectRequestOptions = {
-  sessionRequest?: Web3WalletTypes.SessionRequest;
+  sessionRequest?: WalletKitTypes.SessionRequest;
+  wcChain?: string;
 };
 
 export abstract class WalletConnectRequestProxy {
@@ -32,7 +33,10 @@ export abstract class WalletConnectRequestProxy {
     const resp = await this.client.backgroundApi.handleProviderMethods<T>({
       scope: this.providerName,
       origin: this.client.getDAppOrigin(options),
-      data,
+      data: {
+        ...data,
+        wcChainName: options.wcChain,
+      },
       isWalletConnectRequest: true,
     });
     return Promise.resolve(resp.result as T);

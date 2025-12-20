@@ -3,6 +3,7 @@ import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
   IEncodedTxSol,
   INativeTxSol,
@@ -13,6 +14,7 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -27,8 +29,6 @@ import {
 } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
-
-import { parseToNativeTx } from './utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -87,6 +87,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -94,7 +95,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.solGetAddress(connectId, deviceId, {
@@ -129,7 +130,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, address } = item;
+          const { path, address, __hwExtraInfo__ } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address || '',
           );
@@ -137,6 +138,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address: normalizedAddress || address || '',
             path,
             publicKey: '',
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }
@@ -158,15 +160,17 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
 
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;
 
-    const transaction = await parseToNativeTx(encodedTx);
+    const transaction = parseToNativeTx(encodedTx);
 
     if (!transaction) {
-      throw new Error(
+      throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.feedback_failed_to_parse_transaction,
         }),
@@ -201,7 +205,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       };
     }
 
-    throw new Error(
+    throw new OneKeyLocalError(
       appLocale.intl.formatMessage({
         id: ETranslations.feedback_failed_to_sign_transaction,
       }),
@@ -211,14 +215,20 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    const HardwareSDK = await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();
 
     const result = await Promise.all(
       params.messages.map(
-        async (payload: { type: string; message: string }) => {
+        async (payload: {
+          type: string;
+          message: string;
+          applicationDomain?: string;
+        }) => {
           if (payload.type === EMessageTypesCommon.SIGN_MESSAGE) {
             const response = await HardwareSDK.solSignMessage(
               connectId,
@@ -243,6 +253,9 @@ export class KeyringHardware extends KeyringHardwareBase {
                 ...params.deviceParams?.deviceCommonParams,
                 path: dbAccount.path,
                 messageHex: Buffer.from(payload.message).toString('hex'),
+                applicationDomainHex: payload.applicationDomain
+                  ? Buffer.from(payload.applicationDomain).toString('hex')
+                  : undefined,
                 // @ts-expect-error
                 messageFormat: OffchainMessage.guessMessageFormat(
                   Buffer.from(payload.message),
@@ -256,7 +269,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             return response.payload?.signature;
           }
 
-          throw new Error('signMessage not supported on hardware');
+          throw new OneKeyLocalError('signMessage not supported on hardware');
         },
       ),
     );

@@ -3,10 +3,8 @@ import notifee from '@notifee/react-native';
 import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
 
 import type { IDemoNotificationSdk } from './types';
-import type { EventType } from '@notifee/react-native';
 
 notifee.onForegroundEvent((event, ...others) => {
-  const type: EventType = event.type;
   console.log('notifee.onForegroundEvent >>> ', event, ...others);
 });
 

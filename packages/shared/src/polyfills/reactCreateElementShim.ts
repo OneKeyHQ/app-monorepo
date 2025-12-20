@@ -9,8 +9,10 @@ function reactCreateElementShim() {
     // @ts-ignore
     React.createElement = (type: any, props: any, ...children: any[]) => {
       if (props) {
-        const { standardProps, nonStandardProps } =
-          filterReactWebElementNonStandardProps(type, props);
+        const { standardProps } = filterReactWebElementNonStandardProps(
+          type,
+          props,
+        );
         return originalCreateElement(type, standardProps, ...children);
       }
       return originalCreateElement(type, props, ...children);

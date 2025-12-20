@@ -1,9 +1,14 @@
-import { isEmpty, isNil } from 'lodash';
+import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { Semaphore } from 'async-mutex';
+import { ethers } from 'ethers';
+import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
+import { convertLtcXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
-  EMnemonicType,
   decodeSensitiveTextAsync,
+  decryptImportedCredential,
   decryptRevealableSeed,
   encryptImportedCredential,
   ensureSensitiveTextEncoded,
@@ -18,9 +23,13 @@ import {
 } from '@onekeyhq/core/src/secret';
 import type {
   EAddressEncodings,
+  ICoreCredentialsInfo,
+  ICoreHyperLiquidAgentCredential,
+  ICoreImportedCredential,
   IExportKeyType,
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   backgroundClass,
   backgroundMethod,
@@ -28,20 +37,30 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HD,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   COINTYPE_ALLNETWORKS,
+  COINTYPE_STC,
+  FIRST_EVM_ADDRESS_PATH,
   IMPL_ALLNETWORKS,
+  IMPL_BTC,
   IMPL_EVM,
+  IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidMnemonic,
   OneKeyError,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -54,17 +73,28 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  IChangeHistoryItem,
+  IChangeHistoryUpdateItem,
+} from '@onekeyhq/shared/src/types/changeHistory';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -72,45 +102,72 @@ import type {
   IBatchCreateAccount,
   IHwQrWalletWithDevice,
   INetworkAccount,
+  IQrWalletAirGapAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceSharedCallParams,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
+import {
+  EConfirmOnDeviceType,
+  EHardwareCallContext,
+} from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
+import type {
+  IPrimeTransferAccount,
+  IPrimeTransferPublicData,
+  IPrimeTransferPublicDataWalletDetail,
+} from '@onekeyhq/shared/types/prime/primeTransferTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import {
+  EIndexedDBBucketNames,
+  type IDBAccount,
+  type IDBAddress,
+  type IDBCreateHwWalletParams,
+  type IDBCreateHwWalletParamsBase,
+  type IDBCreateQRWalletParams,
+  type IDBCredentialBase,
+  type IDBDevice,
+  type IDBEnsureAccountNameNotDuplicateParams,
+  type IDBExternalAccount,
+  type IDBGetWalletsParams,
+  type IDBIndexedAccount,
+  type IDBRemoveWalletParams,
+  type IDBSetAccountNameParams,
+  type IDBSetUniversalIndexedAccountNameParams,
+  type IDBSetWalletNameAndAvatarParams,
+  type IDBUtxoAccount,
+  type IDBVariantAccount,
+  type IDBWallet,
+  type IDBWalletId,
+  type IDBWalletIdSingleton,
+} from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
+import {
+  devSettingsPersistAtom,
+  hardwareWalletXfpStatusAtom,
+  indexedAccountAddressCreationStateAtom,
+  primePersistAtom,
+} from '../../states/jotai/atoms';
+import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
-import type {
-  IDBAccount,
-  IDBCreateHwWalletParams,
-  IDBCreateHwWalletParamsBase,
-  IDBCreateQRWalletParams,
-  IDBCredentialBase,
-  IDBDevice,
-  IDBEnsureAccountNameNotDuplicateParams,
-  IDBExternalAccount,
-  IDBGetWalletsParams,
-  IDBIndexedAccount,
-  IDBRemoveWalletParams,
-  IDBSetAccountNameParams,
-  IDBSetWalletNameAndAvatarParams,
-  IDBUtxoAccount,
-  IDBVariantAccount,
-  IDBWallet,
-  IDBWalletId,
-  IDBWalletIdSingleton,
-} from '../../dbs/local/types';
+import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsResponse,
+  IPrepareHDOrHWAccountChainExtraParams,
   IPrepareHardwareAccountsParams,
   IPrepareHdAccountsParams,
   IPrepareImportedAccountsParams,
@@ -128,6 +185,7 @@ export type IAddHDOrHWAccountsParams = {
   deriveType: IAccountDeriveTypes;
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   isVerifyAddressAction?: boolean;
+  createAllDeriveTypes?: boolean;
 
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -151,31 +209,39 @@ class ServiceAccount extends ServiceBase {
     super({ backgroundApi });
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
-      this.clearAccountCache();
+      void this.clearAccountCache();
     });
   }
 
-  clearAccountCache() {
+  @backgroundMethod()
+  async clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
+    this.getAccountNameFromAddressMemo.clear();
     localDb.clearStoreCachedData();
   }
 
   @backgroundMethod()
+  async resetIndexedAccountAddressCreationState() {
+    await indexedAccountAddressCreationStateAtom.set(undefined);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async validateMnemonic(mnemonic: string): Promise<{
     mnemonic: string;
     mnemonicType: EMnemonicType;
@@ -201,18 +267,80 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
+  private async shouldIncludeWalletButNotKeyless(
+    wallet: IDBWallet,
+  ): Promise<boolean> {
+    const isKeylessWallet = accountUtils.isKeylessWallet({
+      walletId: wallet.id,
+    });
+    if (!isKeylessWallet) {
+      return true;
+    }
+    let expectedId: string | undefined;
+    if (expectedId === undefined) {
+      const { keylessWalletId: packSetId } = await primePersistAtom.get();
+      expectedId = packSetId
+        ? accountUtils.buildKeylessWalletId({ sharePackSetId: packSetId })
+        : undefined;
+    }
+    if (!expectedId) {
+      return false;
+    }
+    return wallet.id === expectedId;
+  }
+
   @backgroundMethod()
   async getWallet({ walletId }: { walletId: string }): Promise<IDBWallet> {
-    return localDb.getWallet({ walletId });
+    const wallet = await localDb.getWallet({ walletId });
+    const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
+    if (!shouldInclude) {
+      throw new OneKeyError('KeylessWallet not found', {
+        code: EOneKeyErrorClassNames.OneKeyError,
+      });
+    }
+    return wallet;
+  }
+
+  @backgroundMethod()
+  async checkIsWalletNotBackedUp({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<boolean> {
+    try {
+      const resp = await new Promise<boolean>((resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+        appEventBus.emit(EAppEventBusNames.CheckWalletBackupStatus, {
+          promiseId,
+          walletId,
+        });
+      });
+      return !resp;
+    } catch (e) {
+      return true;
+    }
   }
 
   @backgroundMethod()
   async getWalletSafe({
     walletId,
+    withoutRefill,
   }: {
     walletId: string;
+    withoutRefill?: boolean;
   }): Promise<IDBWallet | undefined> {
-    return localDb.getWalletSafe({ walletId });
+    const wallet = await localDb.getWalletSafe({ walletId, withoutRefill });
+    if (!wallet) {
+      return undefined;
+    }
+    const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
+    if (!shouldInclude) {
+      return undefined;
+    }
+    return wallet;
   }
 
   // TODO move to serviceHardware
@@ -251,9 +379,57 @@ class ServiceAccount extends ServiceBase {
     return localDb.getDevice(dbDeviceId);
   }
 
+  async getAllWallets(
+    params: { refillWalletInfo?: boolean; excludeKeylessWallet?: boolean } = {},
+  ) {
+    const { excludeKeylessWallet = false } = params;
+    let { wallets } = await localDb.getAllWallets();
+    let allDevices: IDBDevice[] | undefined;
+    if (params.refillWalletInfo) {
+      allDevices = (await this.getAllDevices()).devices;
+      const refilledWalletsCache: {
+        [walletId: string]: IDBWallet;
+      } = {};
+      wallets = await Promise.all(
+        wallets.map((wallet) =>
+          localDb.refillWalletInfo({
+            wallet,
+            refilledWalletsCache,
+            allDevices,
+          }),
+        ),
+      );
+    }
+    // Filter out keyless wallets if excludeKeylessWallet is true
+    if (excludeKeylessWallet) {
+      wallets = wallets.filter(
+        (wallet) =>
+          !accountUtils.isKeylessWallet({
+            walletId: wallet.id,
+          }),
+      );
+    }
+    return { wallets, allDevices };
+  }
+
   @backgroundMethod()
-  async getWallets(options?: IDBGetWalletsParams) {
-    return localDb.getWallets(options);
+  async getWallets(options?: IDBGetWalletsParams): Promise<{
+    wallets: IDBWallet[];
+  }> {
+    const r = await localDb.getWallets(options);
+
+    const wallets: IDBWallet[] = [];
+    for (const wallet of r.wallets) {
+      const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
+      if (shouldInclude) {
+        wallets.push(wallet);
+      }
+    }
+
+    return {
+      ...r,
+      wallets,
+    };
   }
 
   @backgroundMethod()
@@ -273,21 +449,62 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllHwQrWalletWithDevice() {
+  async getAllHwQrWalletWithDevice(params?: {
+    filterQrWallet?: boolean;
+    filterHiddenWallet?: boolean;
+    skipDuplicateDevice?: boolean;
+  }) {
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
+      excludeKeylessWallet: true,
     });
-    // const { devices } = await this.getAllDevices();
+
+    const filterQrWallet = params?.filterQrWallet ?? false;
+    const filterHiddenWallet = params?.filterHiddenWallet ?? false;
+    const skipDuplicateDevice = params?.skipDuplicateDevice ?? false;
 
     const result: {
       [walletId: string]: IHwQrWalletWithDevice;
     } = {};
 
+    // Map of deviceId -> walletId for hardware wallets
+    const deviceToHwWalletMap: Record<string, string> = {};
+
+    // Collect all hardware wallet device IDs if skip duplication is enabled
+    if (skipDuplicateDevice) {
+      for (const wallet of wallets) {
+        if (
+          accountUtils.isHwWallet({ walletId: wallet.id }) &&
+          !accountUtils.isHwHiddenWallet({ wallet }) &&
+          wallet.associatedDevice
+        ) {
+          deviceToHwWalletMap[wallet.associatedDevice] = wallet.id;
+        }
+      }
+    }
+
     for (const wallet of wallets) {
+      const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
+      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
+      const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
+
+      // Check if this wallet should be included in the result
+      const isValidWalletType = isHwWallet || isQrWallet;
+      const passesHiddenWalletFilter = !filterHiddenWallet || !isHiddenWallet;
+      const passesQrWalletFilter = !filterQrWallet || !isQrWallet;
+      const passesDeviceDuplicationCheck = !(
+        skipDuplicateDevice &&
+        isQrWallet &&
+        wallet.associatedDevice &&
+        deviceToHwWalletMap[wallet.associatedDevice]
+      );
+
+      // Only add wallet to result if it passes all checks
       if (
-        !accountUtils.isHwHiddenWallet({ wallet }) &&
-        (accountUtils.isHwWallet({ walletId: wallet.id }) ||
-          accountUtils.isQrWallet({ walletId: wallet.id }))
+        isValidWalletType &&
+        passesHiddenWalletFilter &&
+        passesQrWalletFilter &&
+        passesDeviceDuplicationCheck
       ) {
         const device = (allDevices ?? []).find(
           (d) => d.id === wallet.associatedDevice,
@@ -300,6 +517,31 @@ class ServiceAccount extends ServiceBase {
     }
 
     return result;
+  }
+
+  @backgroundMethod()
+  async existsHwStandardWallet({
+    connectId,
+    deviceId,
+  }: {
+    connectId: string;
+    deviceId: string;
+  }) {
+    const device = await this.backgroundApi.localDb.getDeviceByQuery({
+      connectId,
+      featuresDeviceId: deviceId,
+    });
+    if (!device) {
+      return false;
+    }
+
+    const standardWallets =
+      await this.backgroundApi.localDb.getNormalHwWalletInSameDevice({
+        associatedDevice: device.id,
+        excludeMocked: true,
+      });
+
+    return standardWallets.length > 0;
   }
 
   @backgroundMethod()
@@ -330,8 +572,14 @@ class ServiceAccount extends ServiceBase {
         }
       }
       if (accountUtils.isImportedAccount({ accountId: credential.id })) {
+        let accountId = credential.id;
+        if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+          accountId = accountUtils.getAccountIdFromTonMnemonicCredentialId({
+            credentialId: credential.id,
+          });
+        }
         const account = await this.getDBAccountSafe({
-          accountId: credential.id,
+          accountId,
         });
         if (!account) {
           isRemoved = true;
@@ -460,6 +708,7 @@ class ServiceAccount extends ServiceBase {
     confirmOnDevice,
     hwAllNetworkPrepareAccountsResponse,
     isVerifyAddressAction,
+    customReceiveAddressPath,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -470,21 +719,36 @@ class ServiceAccount extends ServiceBase {
     confirmOnDevice?: EConfirmOnDeviceType;
     hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
     isVerifyAddressAction?: boolean;
+    customReceiveAddressPath?: string;
   }) {
     if (!walletId) {
-      throw new Error('walletId is required');
+      throw new OneKeyLocalError('walletId is required');
     }
     if (!networkId) {
-      throw new Error('networkId is required');
+      throw new OneKeyLocalError('networkId is required');
     }
     if (!deriveType) {
-      throw new Error('deriveType is required');
+      throw new OneKeyLocalError('deriveType is required');
     }
     const { isHardware, password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
         reason: EReasonForNeedPassword.Default,
       });
+
+    const wallet = await this.getWalletSafe({
+      walletId,
+    });
+    if (password && wallet && accountUtils.isHdWallet({ walletId })) {
+      if (!accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+        setTimeout(async () => {
+          await this.generateHDWalletMissingHashAndXfp({
+            password,
+            hdWallets: [wallet].filter(Boolean),
+          });
+        }, 1000);
+      }
+    }
 
     // canAutoCreateNextAccount
     // skip exists account added
@@ -503,6 +767,13 @@ class ServiceAccount extends ServiceBase {
         deriveType,
       });
 
+    const chainExtraParams = await this.prepareHDOrHWAccountChainExtraParams({
+      networkId,
+      indexedAccountId,
+      deriveType,
+      customReceiveAddressPath,
+    });
+
     let prepareParams:
       | IPrepareHdAccountsParams
       | IPrepareHardwareAccountsParams;
@@ -517,6 +788,7 @@ class ServiceAccount extends ServiceBase {
         names,
         deriveInfo,
         hwAllNetworkPrepareAccountsResponse,
+        chainExtraParams,
       };
       prepareParams = hwParams;
     } else {
@@ -547,9 +819,6 @@ class ServiceAccount extends ServiceBase {
   async prepareHdOrHwAccounts(params: IAddHDOrHWAccountsParams) {
     // addHDOrHWAccounts
     const {
-      indexes,
-      indexedAccountId,
-      deriveType,
       skipCloseHardwareUiStateDialog,
       skipDeviceCancel,
       skipDeviceCancelAtFirst,
@@ -631,14 +900,25 @@ class ServiceAccount extends ServiceBase {
     walletId,
     networkId,
     account,
+    indexedAccountNames,
+    skipEventEmit,
   }: {
     walletId: string;
     networkId: string;
     account: IBatchCreateAccount;
+    indexedAccountNames?: {
+      [index: number]: string;
+    };
+    skipEventEmit?: boolean;
   }) {
-    const { addressDetail, existsInDb, displayAddress, ...dbAccount } = account;
+    const {
+      addressDetail: _addressDetail,
+      existsInDb: _existsInDb,
+      displayAddress: _displayAddress,
+      ...dbAccount
+    } = account;
     if (isNil(dbAccount.pathIndex)) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',
       );
     }
@@ -646,11 +926,13 @@ class ServiceAccount extends ServiceBase {
       walletId,
       indexes: [dbAccount.pathIndex],
       skipIfExists: true,
+      names: indexedAccountNames,
     });
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts: [dbAccount],
+      skipEventEmit,
     });
   }
 
@@ -712,6 +994,7 @@ class ServiceAccount extends ServiceBase {
     importedCredential?: string;
   }) {
     const { walletId, accounts, importedCredential } = params;
+    const wallet = await this.getWalletSafe({ walletId });
     const shouldCreateIndexAccount =
       accountUtils.isHdWallet({ walletId }) ||
       accountUtils.isHwWallet({ walletId });
@@ -765,10 +1048,21 @@ class ServiceAccount extends ServiceBase {
           (existsAccount) => existsAccount.id === account.id,
         );
         if (!isAccountExists) {
-          await this.setAccountName({
-            name: account.name,
-            indexedAccountId: account.indexedAccountId,
-          });
+          if (wallet?.xfp && account.indexedAccountId) {
+            await this.setUniversalIndexedAccountName({
+              name: account.name,
+              indexedAccountId: account.indexedAccountId,
+              index: accountUtils.parseIndexedAccountId({
+                indexedAccountId: account.indexedAccountId,
+              }).index,
+              walletXfp: wallet.xfp,
+            });
+          } else {
+            await this.setAccountName({
+              name: account.name,
+              indexedAccountId: account.indexedAccountId,
+            });
+          }
         }
       }
     }
@@ -841,7 +1135,6 @@ class ServiceAccount extends ServiceBase {
     networkId,
     deriveType,
     exportType,
-    accountName,
   }: {
     accountId: string | undefined;
     indexedAccountId: string | undefined;
@@ -851,17 +1144,17 @@ class ServiceAccount extends ServiceBase {
     accountName: string | undefined;
   }) {
     if (!accountId && !indexedAccountId) {
-      throw new Error('accountId or indexedAccountId is required');
+      throw new OneKeyLocalError('accountId or indexedAccountId is required');
     }
     if (accountId && indexedAccountId) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'accountId and indexedAccountId can not be used at the same time',
       );
     }
     let dbAccountId = accountId;
     if (indexedAccountId) {
       if (!deriveType) {
-        throw new Error('deriveType required');
+        throw new OneKeyLocalError('deriveType required');
       }
       dbAccountId = await this.getDbAccountIdFromIndexedAccountId({
         indexedAccountId,
@@ -870,7 +1163,7 @@ class ServiceAccount extends ServiceBase {
       });
     }
     if (!dbAccountId) {
-      throw new Error('dbAccountId required');
+      throw new OneKeyLocalError('dbAccountId required');
     }
     const dbAccount = await this.getDBAccountSafe({
       accountId: dbAccountId,
@@ -893,7 +1186,7 @@ class ServiceAccount extends ServiceBase {
             networkId,
           });
       }
-      throw new Error(
+      throw new OneKeyLocalError(
         appLocale.intl.formatMessage(
           {
             id: ETranslations.global_private_key_error,
@@ -914,12 +1207,12 @@ class ServiceAccount extends ServiceBase {
     });
     const keyType = keyTypes?.[0];
     if (!keyType) {
-      // throw new Error(
+      // throw new OneKeyLocalError(
       //   appLocale.intl.formatMessage({
       //     id: ETranslations.hardware_not_support,
       //   }),
       // );
-      throw new Error('Export keyType not found for the network');
+      throw new OneKeyLocalError('Export keyType not found for the network');
     }
     if (exportType === 'privateKey') {
       return this.exportAccountSecretKey({
@@ -935,7 +1228,9 @@ class ServiceAccount extends ServiceBase {
         keyType,
       });
     }
-    throw new Error(`exportType not supported: ${String(exportType)}`);
+    throw new OneKeyLocalError(
+      `exportType not supported: ${String(exportType)}`,
+    );
   }
 
   @backgroundMethod()
@@ -974,7 +1269,9 @@ class ServiceAccount extends ServiceBase {
   }): Promise<string | undefined> {
     const buildResult = async (account: IDBAccount | undefined) => {
       if (!account) {
-        throw new Error('exportAccountPublicKey ERROR: account not found');
+        throw new OneKeyLocalError(
+          'exportAccountPublicKey ERROR: account not found',
+        );
       }
       let publicKey: string | undefined;
       if (keyType === ECoreApiExportedSecretKeyType.publicKey) {
@@ -984,7 +1281,7 @@ class ServiceAccount extends ServiceBase {
         publicKey = (account as IDBUtxoAccount | undefined)?.xpub;
       }
       if (!publicKey) {
-        throw new Error('publicKey not found');
+        throw new OneKeyLocalError('publicKey not found');
       }
       return publicKey;
     };
@@ -1006,17 +1303,12 @@ class ServiceAccount extends ServiceBase {
           networkId,
           account,
         });
-      const { prepareParams, deviceParams } =
-        await this.getPrepareHDOrHWAccountsParams({
-          walletId,
-          networkId,
-          indexedAccountId,
-          deriveType,
-          confirmOnDevice: EConfirmOnDeviceType.EveryItem,
-        });
-      const vault = await vaultFactory.getWalletOnlyVault({
-        networkId,
+      const { prepareParams } = await this.getPrepareHDOrHWAccountsParams({
         walletId,
+        networkId,
+        indexedAccountId,
+        deriveType,
+        confirmOnDevice: EConfirmOnDeviceType.EveryItem,
       });
 
       // const accounts = await vault.keyring.prepareAccounts(prepareParams);
@@ -1066,6 +1358,218 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
+  async prepareHyperLiquidAgentCredential(
+    params: ICoreHyperLiquidAgentCredential,
+  ) {
+    ensureSensitiveTextEncoded(params.privateKey);
+    const decodedPrivateKey = await decodeSensitiveTextAsync({
+      encodedText: params.privateKey,
+    });
+    const agentWallet = new ethers.Wallet(decodedPrivateKey);
+    const credential: ICoreHyperLiquidAgentCredential = {
+      userAddress: params.userAddress,
+      agentName: params.agentName,
+      privateKey: decodedPrivateKey,
+      agentAddress: agentWallet.address,
+      validUntil: params.validUntil,
+    };
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Default,
+      });
+    return {
+      credential,
+      password,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addOrUpdateHyperLiquidAgentCredential(
+    params: ICoreHyperLiquidAgentCredential,
+  ): Promise<{
+    credentialId: string;
+  }> {
+    try {
+      return await this.addHyperLiquidAgentCredential(params);
+    } catch (error) {
+      return this.updateHyperLiquidAgentCredential(params);
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addHyperLiquidAgentCredential(
+    params: ICoreHyperLiquidAgentCredential,
+  ): Promise<{
+    credentialId: string;
+  }> {
+    const { credential, password } =
+      await this.prepareHyperLiquidAgentCredential(params);
+    const { credentialId } = await localDb.addHyperLiquidAgentCredential({
+      credential,
+      password,
+    });
+    return {
+      credentialId,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async updateHyperLiquidAgentCredential(
+    params: ICoreHyperLiquidAgentCredential,
+  ): Promise<{
+    credentialId: string;
+  }> {
+    const { credential, password } =
+      await this.prepareHyperLiquidAgentCredential(params);
+    const { credentialId } = await localDb.updateHyperLiquidAgentCredential({
+      credential,
+      password,
+    });
+    return {
+      credentialId,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async getHyperLiquidAgentCredential({
+    userAddress,
+    agentName,
+  }: {
+    userAddress: string;
+    agentName: EHyperLiquidAgentName;
+  }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Default,
+      });
+    return localDb.getHyperLiquidAgentCredential({
+      userAddress,
+      agentName,
+      password,
+    });
+  }
+
+  private extractUserAddressFromCredentialId(credentialId: string): string {
+    // Format: hyperliquid-agent--{userAddress}--{agentName}
+    const parts = credentialId.split('--');
+    if (
+      parts.length !== 3 ||
+      parts[0] !==
+        accountUtils.HYPERLIQUID_AGENT_CREDENTIAL_PREFIX.replace('--', '')
+    ) {
+      throw new OneKeyLocalError(
+        `Invalid HyperLiquid agent credential ID format: ${credentialId}`,
+      );
+    }
+    return parts[1]; // userAddress
+  }
+
+  private async shouldDeleteCredential({
+    addressRecord,
+    deletedInfo,
+  }: {
+    addressRecord: IDBAddress | null;
+    deletedInfo: {
+      walletId?: string;
+      indexedAccountId?: string;
+      accountId?: string;
+    };
+  }): Promise<boolean> {
+    if (!addressRecord) {
+      return false;
+    }
+
+    // Check if the deleted wallet is in the address record's wallets
+    if (deletedInfo.walletId && addressRecord.wallets[deletedInfo.walletId]) {
+      return true;
+    }
+
+    // Check if any of the wallet values match deleted account/indexedAccount IDs
+    if (deletedInfo.accountId || deletedInfo.indexedAccountId) {
+      const walletValues = Object.values(addressRecord.wallets);
+      if (
+        (deletedInfo.accountId &&
+          walletValues.includes(deletedInfo.accountId)) ||
+        (deletedInfo.indexedAccountId &&
+          walletValues.includes(deletedInfo.indexedAccountId))
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  @backgroundMethod()
+  async cleanupOrphanedHyperLiquidAgentCredentials({
+    walletId,
+    indexedAccountId,
+    accountId,
+  }: {
+    walletId?: string;
+    indexedAccountId?: string;
+    accountId?: string;
+  }): Promise<void> {
+    try {
+      await timerUtils.wait(1000);
+      if (indexedAccountId || accountId) {
+        // eslint-disable-next-line no-param-reassign
+        walletId = undefined;
+      }
+      const deletedInfo = {
+        walletId,
+        indexedAccountId,
+        accountId,
+      };
+      // Get all HyperLiquid agent credentials
+      const allCredentials = await localDb.getAllHyperLiquidAgentCredentials();
+
+      const credentialsToDelete: IDBCredentialBase[] = [];
+      // Process each credential
+      for (const credential of allCredentials) {
+        try {
+          // Extract userAddress from credential ID
+          const userAddress = this.extractUserAddressFromCredentialId(
+            credential.id,
+          );
+
+          // Use existing address lookup table to check if address still exists
+          const addressRecord = await localDb.getAddressByNetworkImpl({
+            networkId: PERPS_NETWORK_ID,
+            normalizedAddress: userAddress.toLowerCase(),
+          });
+
+          // Check if this credential should be deleted
+          if (
+            await this.shouldDeleteCredential({
+              addressRecord,
+              deletedInfo,
+            })
+          ) {
+            credentialsToDelete.push(credential);
+          }
+        } catch (error) {
+          // Log error but continue processing other credentials
+          console.warn(
+            `Failed to process HyperLiquid agent credential ${credential.id}:`,
+            error,
+          );
+        }
+      }
+
+      if (credentialsToDelete.length) {
+        await localDb.removeCredentials({ credentials: credentialsToDelete });
+      }
+    } catch (error) {
+      // Log error but don't throw to avoid breaking main deletion flow
+      console.error('Failed to cleanup HyperLiquid agent credentials:', error);
+    }
+  }
+
   @backgroundMethod()
   @toastIfError()
   async addImportedAccountWithCredential({
@@ -1076,6 +1580,7 @@ class ServiceAccount extends ServiceBase {
     fallbackName,
     shouldCheckDuplicateName,
     skipAddIfNotEqualToAddress,
+    skipEventEmit,
   }: {
     name?: string;
     fallbackName?: string;
@@ -1084,6 +1589,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
     skipAddIfNotEqualToAddress?: string;
+    skipEventEmit?: boolean;
   }): Promise<{
     networkId: string;
     walletId: string;
@@ -1091,7 +1597,7 @@ class ServiceAccount extends ServiceBase {
     isOverrideAccounts: boolean;
   }> {
     if (platformEnv.isWebDappMode) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'addImportedAccountWithCredential ERROR: Not supported in Dapp mode',
       );
     }
@@ -1118,6 +1624,7 @@ class ServiceAccount extends ServiceBase {
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       });
     const credentialEncrypt = await encryptImportedCredential({
       credential: {
@@ -1148,7 +1655,8 @@ class ServiceAccount extends ServiceBase {
       skipAddIfNotEqualToAddress &&
       accounts.length === 1 &&
       accounts?.[0]?.address &&
-      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
+      accounts?.[0]?.address?.toLowerCase() !==
+        skipAddIfNotEqualToAddress?.toLowerCase()
     ) {
       return {
         networkId,
@@ -1158,19 +1666,36 @@ class ServiceAccount extends ServiceBase {
       };
     }
 
-    const { isOverrideAccounts } = await localDb.addAccountsToWallet({
-      allAccountsBelongToNetworkId: networkId,
-      walletId,
-      accounts,
-      importedCredential: credentialEncrypt,
-      accountNameBuilder: ({ nextAccountId }) => {
-        if (fallbackName) {
-          return fallbackName;
-        }
-        return accountUtils.buildBaseAccountName({ nextAccountId });
-      },
+    const { isOverrideAccounts, existsAccounts } =
+      await localDb.addAccountsToWallet({
+        skipEventEmit,
+        allAccountsBelongToNetworkId: networkId,
+        walletId,
+        accounts,
+        importedCredential: credentialEncrypt,
+        accountNameBuilder: ({ nextAccountId }) => {
+          if (fallbackName) {
+            return fallbackName;
+          }
+          return accountUtils.buildBaseAccountName({ nextAccountId });
+        },
+      });
+
+    void this.fixAccountName({
+      account: existsAccounts?.[0],
+      name,
+      fallbackName,
     });
+
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+
+    if (isOverrideAccounts && existsAccounts.length) {
+      void this.addAccountNameChangeHistory({
+        accounts,
+        existsAccounts,
+      });
+    }
+
     return {
       networkId,
       walletId,
@@ -1211,7 +1736,7 @@ class ServiceAccount extends ServiceBase {
           id: accountId,
           type: EDBAccountType.VARIANT,
           name: '',
-          connectionInfoRaw: stringUtils.safeStringify(connectionInfo),
+          connectionInfoRaw: stringUtils.stableStringify(connectionInfo),
           addresses: {},
           connectedAddresses: addresses, // TODO merge with addresses
           selectedAddress: {},
@@ -1238,7 +1763,7 @@ class ServiceAccount extends ServiceBase {
         id: accountId,
         type: EDBAccountType.VARIANT,
         name: '',
-        connectionInfoRaw: stringUtils.safeStringify(connectionInfo),
+        connectionInfoRaw: stringUtils.stableStringify(connectionInfo),
         addresses: {},
         connectedAddresses: addresses, // TODO merge with addresses
         selectedAddress: {},
@@ -1278,6 +1803,27 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
+  async fixAccountName({
+    account,
+    name,
+    fallbackName,
+  }: {
+    account: IDBAccount | undefined;
+    name?: string;
+    fallbackName?: string;
+  }) {
+    if (!account) {
+      return;
+    }
+    const newName = name || fallbackName;
+    if (newName && account.name !== newName) {
+      await this.setAccountName({
+        accountId: account.id,
+        name: newName,
+      });
+    }
+  }
+
   @backgroundMethod()
   @toastIfError()
   async addWatchingAccount({
@@ -1289,6 +1835,7 @@ class ServiceAccount extends ServiceBase {
     shouldCheckDuplicateName,
     isUrlAccount,
     skipAddIfNotEqualToAddress,
+    skipEventEmit,
   }: {
     input: string;
     networkId: string;
@@ -1298,14 +1845,22 @@ class ServiceAccount extends ServiceBase {
     deriveType?: IAccountDeriveTypes;
     isUrlAccount?: boolean;
     skipAddIfNotEqualToAddress?: string;
+    skipEventEmit?: boolean;
   }): Promise<{
     networkId: string;
     walletId: string;
     accounts: IDBAccount[];
     isOverrideAccounts: boolean;
   }> {
+    // eslint-disable-next-line no-param-reassign
+    input = await this.backgroundApi.servicePassword.decodeSensitiveText({
+      encodedText: input,
+    });
+    if (!input) {
+      throw new OneKeyLocalError('addWatchingAccount ERROR: input not valid');
+    }
     if (networkUtils.isAllNetwork({ networkId })) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'addWatchingAccount ERROR: networkId should not be all networks',
       );
     }
@@ -1318,6 +1873,7 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
+    // eslint-disable-next-line spellcheck/spell-checker
     // /evm/0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
     if (networkId === IMPL_EVM) {
       // eslint-disable-next-line no-param-reassign
@@ -1328,7 +1884,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
     });
     if (!network) {
-      throw new Error('addWatchingAccount ERROR: network not found');
+      throw new OneKeyLocalError('addWatchingAccount ERROR: network not found');
     }
 
     const vault = await vaultFactory.getWalletOnlyVault({
@@ -1349,7 +1905,7 @@ class ServiceAccount extends ServiceBase {
       }
     }
     if (!address && !xpub) {
-      throw new Error('input not valid');
+      throw new OneKeyLocalError('input not valid');
     }
 
     const params: IPrepareWatchingAccountsParams = {
@@ -1373,7 +1929,9 @@ class ServiceAccount extends ServiceBase {
         deriveTypeByAddressEncoding &&
         deriveTypeByAddressEncoding !== deriveType
       ) {
-        throw new Error('addWatchingAccount ERROR: deriveType not correct');
+        throw new OneKeyLocalError(
+          'addWatchingAccount ERROR: deriveType not correct',
+        );
       }
     }
 
@@ -1398,8 +1956,13 @@ class ServiceAccount extends ServiceBase {
       skipAddIfNotEqualToAddress &&
       accounts.length === 1 &&
       accounts?.[0]?.address &&
-      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
+      accounts?.[0]?.address?.toLowerCase() !==
+        skipAddIfNotEqualToAddress?.toLowerCase()
     ) {
+      console.error('addWatchingAccount skipAddIfNotEqualToAddress', {
+        skipAddIfNotEqualToAddress,
+        address: accounts?.[0]?.address,
+      });
       return {
         networkId,
         walletId,
@@ -1408,27 +1971,74 @@ class ServiceAccount extends ServiceBase {
       };
     }
 
-    const { isOverrideAccounts } = await localDb.addAccountsToWallet({
-      allAccountsBelongToNetworkId: networkId,
-      walletId,
-      accounts,
-      accountNameBuilder: ({ nextAccountId }) => {
-        if (isUrlAccount) {
-          return `Url Account ${Date.now()}`;
-        }
-        if (fallbackName) {
-          return fallbackName;
-        }
-        return accountUtils.buildBaseAccountName({ nextAccountId });
-      },
+    const { isOverrideAccounts, existsAccounts } =
+      await localDb.addAccountsToWallet({
+        skipEventEmit,
+        allAccountsBelongToNetworkId: networkId,
+        walletId,
+        accounts,
+        accountNameBuilder: ({ nextAccountId }) => {
+          if (isUrlAccount) {
+            return `Url Account ${Date.now()}`;
+          }
+          if (fallbackName) {
+            return fallbackName;
+          }
+          return accountUtils.buildBaseAccountName({ nextAccountId });
+        },
+      });
+
+    void this.fixAccountName({
+      account: existsAccounts?.[0],
+      name,
+      fallbackName,
     });
+
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+
+    if (isOverrideAccounts && existsAccounts.length) {
+      void this.addAccountNameChangeHistory({
+        accounts,
+        existsAccounts,
+      });
+    }
     return {
       networkId,
       walletId,
       accounts,
       isOverrideAccounts,
     };
+  }
+
+  async addAccountNameChangeHistory({
+    accounts,
+    existsAccounts,
+  }: {
+    accounts: IDBAccount[];
+    existsAccounts: IDBAccount[];
+  }) {
+    const items: IChangeHistoryUpdateItem[] = accounts
+      .map((account) => {
+        const oldName =
+          existsAccounts.find((item) => item.id === account.id)?.name || '';
+        const newName = account.name || '';
+        if (!newName || !oldName) {
+          return null;
+        }
+        return {
+          entityType: EChangeHistoryEntityType.Account,
+          entityId: account.id,
+          contentType: EChangeHistoryContentType.Name,
+          oldValue: oldName,
+          value: newName,
+        };
+      })
+      .filter(Boolean);
+
+    // Record the name change history
+    await simpleDb.changeHistory.addChangeHistory({
+      items,
+    });
   }
 
   @backgroundMethod()
@@ -1444,9 +2054,10 @@ class ServiceAccount extends ServiceBase {
     walletId: IDBWalletIdSingleton;
     activeNetworkId?: string;
   }) {
-    let { accounts } = await localDb.getSingletonAccountsOfWallet({
-      walletId,
-    });
+    let { accounts, removedAccountIds } =
+      await localDb.getSingletonAccountsOfWallet({
+        walletId,
+      });
     accounts = await Promise.all(
       accounts.map(async (account) => {
         const { id: accountId } = account;
@@ -1467,6 +2078,11 @@ class ServiceAccount extends ServiceBase {
         return account;
       }),
     );
+    if (removedAccountIds?.length) {
+      void localDb.removeAccountsByIds({
+        ids: removedAccountIds,
+      });
+    }
     return { accounts };
   }
 
@@ -1501,6 +2117,9 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getDBAccountSafe({ accountId }: { accountId: string }) {
+    if (accountUtils.isAllNetworkMockAccount({ accountId })) {
+      return undefined;
+    }
     const account = await localDb.getAccountSafe({ accountId });
     return account;
   }
@@ -1538,6 +2157,11 @@ class ServiceAccount extends ServiceBase {
     address: string;
   }) {
     return this.getAccountNameFromAddressMemo({ networkId, address });
+  }
+
+  @backgroundMethod()
+  async clearAccountNameFromAddressCache() {
+    this.getAccountNameFromAddressMemo.clear();
   }
 
   getAccountNameFromAddressMemo = memoizee(
@@ -1609,10 +2233,12 @@ class ServiceAccount extends ServiceBase {
     dbAccount,
     accountId,
     networkId,
+    indexedAccountId,
   }: {
     dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }): Promise<INetworkAccount> {
     checkIsDefined(accountId);
     checkIsDefined(networkId);
@@ -1631,7 +2257,7 @@ class ServiceAccount extends ServiceBase {
           networkId: undefined,
         });
         if (realNetworkId === getNetworkIdsMap().onekeyall) {
-          throw new Error(
+          throw new OneKeyLocalError(
             'getAccount ERROR: realNetworkId can not be allnetwork',
           );
         }
@@ -1641,15 +2267,16 @@ class ServiceAccount extends ServiceBase {
           networkId: checkIsDefined(realNetworkId),
         });
       }
-      const indexedAccountId =
+      const newIndexedAccountId =
+        indexedAccountId ||
         accountUtils.buildAllNetworkIndexedAccountIdFromAccountId({
           accountId,
         });
       const allNetworkAccount = await this.getMockedAllNetworkAccount({
-        indexedAccountId,
+        indexedAccountId: newIndexedAccountId,
       });
       if (allNetworkAccount.id !== accountId) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'getAccount ERROR: allNetworkAccount accountId not match',
         );
       }
@@ -1687,18 +2314,20 @@ class ServiceAccount extends ServiceBase {
     }
     if (indexedAccountId) {
       if (!deriveType) {
-        throw new Error('deriveType is required');
+        throw new OneKeyLocalError('deriveType is required');
       }
       const { accounts } = await this.getAccountsByIndexedAccounts({
         networkId,
         deriveType,
         indexedAccountIds: [indexedAccountId],
-        dbAccounts: [dbAccount].filter(Boolean),
+        allDbAccounts: [dbAccount].filter(Boolean),
       });
       if (accounts[0]) {
         return accounts[0];
       }
-      throw new Error(`indexedAccounts not found: ${indexedAccountId}`);
+      throw new OneKeyLocalError(
+        `indexedAccounts not found: ${indexedAccountId}`,
+      );
     }
     throw new OneKeyInternalError({
       message: 'accountId or indexedAccountId missing',
@@ -1862,25 +2491,29 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
-  async getAllWallets(params: { refillWalletInfo?: boolean } = {}) {
-    let { wallets } = await localDb.getAllWallets();
-    let allDevices: IDBDevice[] | undefined;
-    if (params.refillWalletInfo) {
-      allDevices = (await this.getAllDevices()).devices;
-      const refilledWalletsCache: {
-        [walletId: string]: IDBWallet;
-      } = {};
-      wallets = await Promise.all(
-        wallets.map((wallet) =>
-          localDb.refillWalletInfo({
-            wallet,
-            refilledWalletsCache,
-            allDevices,
-          }),
-        ),
-      );
+  @backgroundMethod()
+  async getAccountCreatedNetworkId({
+    account,
+  }: {
+    account: {
+      createAtNetwork?: string | undefined;
+      networks?: string[] | undefined;
+      impl: string | undefined;
+      coinType: string | undefined;
+    };
+  }) {
+    let networkId = account?.createAtNetwork || account?.networks?.[0];
+    if (!networkId && account.impl) {
+      const { networkIds } =
+        await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
+          impls: [account.impl],
+        });
+      networkId = networkIds?.[0];
     }
-    return { wallets, allDevices };
+    if (!networkId && account?.coinType) {
+      networkId = v4CoinTypeToNetworkId[account.coinType];
+    }
+    return networkId;
   }
 
   async getAllDevices() {
@@ -1948,12 +2581,14 @@ class ServiceAccount extends ServiceBase {
    * @returns A promise that resolves to an object containing the retrieved accounts.
    */
   async getAccountsByIndexedAccounts({
-    dbAccounts,
+    allDbAccounts,
+    skipDbQueryIfNotFoundFromAllDbAccounts,
     indexedAccountIds,
     networkId,
     deriveType,
   }: {
-    dbAccounts?: IDBAccount[];
+    allDbAccounts?: IDBAccount[];
+    skipDbQueryIfNotFoundFromAllDbAccounts?: boolean;
     indexedAccountIds: string[];
     networkId: string;
     deriveType: IAccountDeriveTypes;
@@ -1970,9 +2605,13 @@ class ServiceAccount extends ServiceBase {
           networkId,
           deriveType,
         });
-        const dbAccount: IDBAccount | undefined = dbAccounts?.find(
-          (o) => o.id === realDBAccountId,
-        );
+        let dbAccount: IDBAccount | undefined;
+        if (allDbAccounts?.length) {
+          dbAccount = allDbAccounts?.find((o) => o.id === realDBAccountId);
+          if (skipDbQueryIfNotFoundFromAllDbAccounts && !dbAccount) {
+            return dbAccount;
+          }
+        }
         return this.getAccount({
           accountId: realDBAccountId,
           networkId,
@@ -1981,7 +2620,7 @@ class ServiceAccount extends ServiceBase {
       }),
     );
     return {
-      accounts,
+      accounts: accounts.filter(Boolean),
     };
   }
 
@@ -2025,18 +2664,132 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
+    const { accountId, indexedAccountId, name } = params;
+
+    let account: IDBAccount | undefined;
+    let indexedAccount: IDBIndexedAccount | undefined;
+
+    // Get the old name before updating
+    let oldName = '';
+    if (name) {
+      if (accountId) {
+        account = await this.getDBAccountSafe({ accountId });
+        oldName = account?.name || '';
+      } else if (indexedAccountId) {
+        indexedAccount = await this.getIndexedAccountSafe({
+          id: indexedAccountId,
+        });
+        oldName = indexedAccount?.name || '';
+      }
+    }
+
+    if (!account && !indexedAccount) {
+      return;
+    }
+    if (!name) {
+      return;
+    }
+    if (oldName && name && oldName === name) {
+      return;
+    }
+
     const r = await localDb.setAccountName(params);
     if (!params.skipEventEmit) {
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     }
+
+    // Only proceed if the name is actually changing
+    if (oldName && name && oldName !== name) {
+      const entityType: EChangeHistoryEntityType = accountId
+        ? EChangeHistoryEntityType.Account
+        : EChangeHistoryEntityType.IndexedAccount;
+
+      const entityId = accountId || indexedAccountId || '';
+      // Record the name change history
+      await simpleDb.changeHistory.addChangeHistory({
+        items: [
+          {
+            entityType,
+            entityId,
+            contentType: EChangeHistoryContentType.Name,
+            oldValue: oldName,
+            value: name,
+          },
+        ],
+      });
+    }
+
     return r;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setUniversalIndexedAccountName(
+    params: IDBSetUniversalIndexedAccountNameParams,
+  ) {
+    const { index, walletXfp, name, ...others } = params;
+    let wallets: IDBWallet[] = [];
+    if (walletXfp) {
+      wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
+    } else if (params.indexedAccountId) {
+      const { walletId } = accountUtils.parseIndexedAccountId({
+        indexedAccountId: params.indexedAccountId,
+      });
+      const wallet = await this.getWalletSafe({
+        walletId,
+      });
+      if (wallet) {
+        wallets.push(wallet);
+      }
+    }
+
+    if (params.shouldCheckDuplicate && params.indexedAccountId) {
+      // if it is manually triggered, call the non-try-catch modification once first to ensure that the duplicate name detection takes effect and terminates the function with an error
+      await this.setAccountName({
+        name,
+        ...others,
+        indexedAccountId: params.indexedAccountId,
+        skipEventEmit: true,
+        skipSaveLocalSyncItem: params.skipSaveLocalSyncItem,
+        shouldCheckDuplicate: params.shouldCheckDuplicate,
+      });
+    }
+
+    for (const wallet of wallets) {
+      try {
+        const indexedAccountId = accountUtils.buildIndexedAccountId({
+          walletId: wallet.id,
+          index,
+        });
+        const isSelfAccount = indexedAccountId === params.indexedAccountId;
+        await this.setAccountName({
+          name,
+          ...others,
+          indexedAccountId,
+          skipEventEmit: true,
+          skipSaveLocalSyncItem: isSelfAccount
+            ? params.skipSaveLocalSyncItem
+            : true,
+          shouldCheckDuplicate: isSelfAccount
+            ? params.shouldCheckDuplicate
+            : false,
+        });
+      } catch (e) {
+        console.error('setUniversalIndexedAccountName ERROR', e);
+      }
+    }
+    if (wallets.length && !params.skipEventEmit) {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
   }
 
   @backgroundMethod()
   async getWalletDeviceParams({
     walletId,
+    hardwareCallContext,
   }: {
     walletId: string;
+    hardwareCallContext: EHardwareCallContext;
   }): Promise<IDeviceSharedCallParams | undefined> {
     if (!accountUtils.isHwWallet({ walletId })) {
       return undefined;
@@ -2044,9 +2797,28 @@ class ServiceAccount extends ServiceBase {
 
     const wallet = await this.getWallet({ walletId });
     const dbDevice = await this.getWalletDevice({ walletId });
+
+    // Ensure connectId is compatible for the current transport type
+    if (dbDevice.connectId) {
+      try {
+        dbDevice.connectId =
+          await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+            connectId: dbDevice.connectId,
+            featuresDeviceId: dbDevice.deviceId,
+            features: dbDevice.featuresInfo,
+            hardwareCallContext,
+          });
+      } catch (error) {
+        // If getCompatibleConnectId fails, use the original connectId
+        console.warn('Failed to get compatible connectId:', error);
+        throw error;
+      }
+    }
+
     return {
       confirmOnDevice: EConfirmOnDeviceType.LastItem,
       dbDevice,
+      dbWallet: wallet,
       deviceCommonParams: {
         passphraseState: wallet?.passphraseState,
         useEmptyPassphrase: !wallet.passphraseState,
@@ -2064,35 +2836,75 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     skipDeviceCancel?: boolean;
     hideCheckingDeviceLoading?: boolean;
+    isAttachPinMode?: boolean;
   }) {
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
+    const compatibleConnectId =
+      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+        connectId,
+        featuresDeviceId: dbDevice.deviceId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
 
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const passphraseState =
           await this.backgroundApi.serviceHardware.getPassphraseState({
-            connectId,
+            connectId: compatibleConnectId,
             forceInputPassphrase: true,
           });
 
         if (!passphraseState) {
-          throw new DeviceNotOpenedPassphrase({
+          const deviceNotOpenedPassphraseError = new DeviceNotOpenedPassphrase({
             payload: {
-              connectId,
+              connectId: compatibleConnectId,
               deviceId: dbDevice.deviceId ?? undefined,
             },
           });
+          throw deviceNotOpenedPassphraseError;
         }
 
         // TODO save remember states
-
-        return this.createHWWalletBase({
-          device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
-          features: dbDevice.featuresInfo || ({} as any),
-          passphraseState,
+        const features = await this.backgroundApi.serviceHardware.getFeatures({
+          connectId: compatibleConnectId,
         });
+        const dbWallet = await this.createHWWalletBase({
+          device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
+          features: features || dbDevice.featuresInfo || ({} as any),
+          passphraseState,
+          fillingXfpByCallingSdk: true,
+        });
+
+        if (dbWallet?.wallet.id) {
+          const hiddenWalletImmediately =
+            await this.backgroundApi.serviceSetting.getHiddenWalletImmediately();
+          await this.setWalletTempStatus({
+            walletId: dbWallet.wallet.id,
+            isTemp: !hiddenWalletImmediately,
+          });
+        }
+
+        defaultLogger.account.wallet.walletAdded({
+          status: 'success',
+          addMethod: 'ConnectHWWallet',
+          details: {
+            deviceType: dbDevice.featuresInfo
+              ? await deviceUtils.getDeviceTypeFromFeatures({
+                  features: dbDevice.featuresInfo,
+                })
+              : undefined,
+            hardwareWalletType: 'Hidden',
+          },
+          isSoftwareWalletOnlyUser:
+            await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
+        });
+
+        return {
+          ...dbWallet,
+          isAttachPinMode: features.unlocked_attach_pin,
+        };
       },
       {
         deviceParams: {
@@ -2108,8 +2920,12 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async createQrWallet(params: IDBCreateQRWalletParams) {
+    const fullXfp = this.buildQrWalletFullXfp({
+      shortXfp: params.qrDevice.xfp,
+      airGapAccounts: params.airGapAccounts,
+    });
     // const { name, deviceId, xfp, version } = qrDevice;
-    const result = await localDb.createQrWallet(params);
+    const result = await localDb.createQrWallet({ ...params, fullXfp });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
@@ -2118,8 +2934,20 @@ class ServiceAccount extends ServiceBase {
   @toastIfError()
   async createHWWallet(params: IDBCreateHwWalletParamsBase) {
     // createHWWallet
+    // Get forceTransportType from global atom first, otherwise fallback to current transport type setting
+    const hardwareForceTransportAtomState =
+      await hardwareForceTransportAtom.get();
+    const transportType =
+      hardwareForceTransportAtomState.forceTransportType ||
+      (await this.backgroundApi.serviceSetting.getHardwareTransportType());
+
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      () => this.createHWWalletBase(params),
+      () =>
+        this.createHWWalletBase({
+          ...params,
+          fillingXfpByCallingSdk: true,
+          transportType,
+        }),
       {
         deviceParams: {
           dbDevice: params.device as IDBDevice,
@@ -2138,32 +2966,108 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async createHWWalletBase(params: IDBCreateHwWalletParams) {
-    const { features, passphraseState } = params;
+    const {
+      features,
+      passphraseState,
+      fillingXfpByCallingSdk,
+      isMockedStandardHwWallet,
+      transportType,
+    } = params;
     if (!features) {
-      throw new Error('createHWWalletBase ERROR: features is required');
+      throw new OneKeyLocalError(
+        'createHWWalletBase ERROR: features is required',
+      );
+    }
+    const compatibleConnectId =
+      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+        connectId: params.device.connectId ?? '',
+        featuresDeviceId: params.device.deviceId ?? '',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
+    const searchDeviceId = params.device.deviceId ?? '';
+    const deviceId = deviceUtils.getRawDeviceId({
+      device: params.device,
+      features,
+    });
+
+    console.log('createHWWalletBase paramsInfo', {
+      connectId: compatibleConnectId,
+      deviceId,
+      searchDeviceId,
+    });
+
+    let xfp: string | undefined;
+    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
+      xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
+        connectId: compatibleConnectId,
+        deviceId,
+        passphraseState,
+        throwError: true,
+        withUserInteraction: true,
+      });
+      console.log('createHWWalletBase xfp', xfp, compatibleConnectId, deviceId);
+    }
+    // if the connectId is not compatible, maybe the device is new bluetooth connection device, refresh the device info
+    if (compatibleConnectId !== params.device.connectId) {
+      const refreshedDevice = await localDb.getDeviceByQuery({
+        connectId: params.device.connectId || compatibleConnectId,
+        featuresDeviceId: deviceId,
+      });
+      if (refreshedDevice) {
+        params.device = refreshedDevice;
+      }
     }
     const result = await localDb.createHwWallet({
       ...params,
+      xfp,
       passphraseState: passphraseState || '',
+      getFirstEvmAddressFn: async (): Promise<string | null> => {
+        if (isMockedStandardHwWallet) {
+          return '';
+        }
+        const r: string | null =
+          await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
+            {
+              connectId: compatibleConnectId,
+              deviceId,
+              path: FIRST_EVM_ADDRESS_PATH,
+            },
+          );
+        return r;
+      },
+      transportType,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
 
-  walletHashBuilder = (options: { realMnemonic: string }) => {
+  hdWalletHashAndXfpBuilder = async (options: {
+    realMnemonic: string;
+  }): Promise<{
+    hash: string;
+    xfp: string;
+  }> => {
     const text = `${options.realMnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375`;
-    const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
-    const walletHash0 = bufferUtils.bytesToHex(buff);
-    return walletHash0;
+    const buff = await sha256(bufferUtils.toBuffer(text, 'utf8'));
+    const hash = bufferUtils.bytesToHex(buff);
+
+    const { fullXfp: fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({
+      mnemonic: options.realMnemonic,
+    });
+    return { hash, xfp: fulXfp };
   };
 
   @backgroundMethod()
   async createHDWallet({
     name,
     mnemonic,
+    isWalletBackedUp,
+    avatarInfo,
   }: {
     mnemonic: string;
     name?: string;
+    isWalletBackedUp?: boolean;
+    avatarInfo?: IAvatarInfo;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -2176,12 +3080,12 @@ class ServiceAccount extends ServiceBase {
       await this.validateMnemonic(mnemonic);
 
     if (mnemonicType === EMnemonicType.TON) {
-      throw new Error('TON mnemonic is not supported');
+      throw new OneKeyLocalError('TON mnemonic is not supported');
     }
 
-    await this.generateHDWalletsMissingHash({ password });
+    await this.generateAllHdAndQrWalletsHashAndXfp({ password });
 
-    const walletHash: string | undefined = this.walletHashBuilder({
+    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
       realMnemonic,
     });
 
@@ -2196,7 +3100,15 @@ class ServiceAccount extends ServiceBase {
       throw new InvalidMnemonic();
     }
 
-    return this.createHDWalletWithRs({ rs, password, name, walletHash });
+    return this.createHDWalletWithRs({
+      rs,
+      password,
+      name,
+      walletHash: walletHashAndXfp.hash,
+      walletXfp: walletHashAndXfp.xfp,
+      isWalletBackedUp,
+      avatarInfo,
+    });
   }
 
   @backgroundMethod()
@@ -2216,7 +3128,7 @@ class ServiceAccount extends ServiceBase {
       await this.validateMnemonic(mnemonic);
 
     if (mnemonicType !== EMnemonicType.TON) {
-      throw new Error('saveTonMnemonic ERROR: Not a TON mnemonic');
+      throw new OneKeyLocalError('saveTonMnemonic ERROR: Not a TON mnemonic');
     }
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
@@ -2239,25 +3151,40 @@ class ServiceAccount extends ServiceBase {
     avatarInfo,
     name,
     walletHash,
+    walletXfp,
+    isWalletBackedUp,
   }: {
     rs: string;
     password: string;
     avatarInfo?: IAvatarInfo;
     name?: string;
     walletHash: string;
+    walletXfp: string;
+    isWalletBackedUp?: boolean;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
     isOverrideWallet?: boolean;
   }> {
     if (platformEnv.isWebDappMode) {
-      throw new Error('createHDWallet ERROR: Not supported in Dapp mode');
+      throw new OneKeyLocalError(
+        'createHDWallet ERROR: Not supported in Dapp mode',
+      );
     }
     ensureSensitiveTextEncoded(password);
 
-    if (walletHash) {
+    let shouldCheckDuplicate = true;
+
+    const devSettings = await devSettingsPersistAtom.get();
+    if (devSettings.enabled && devSettings.settings?.allowAddSameHDWallet) {
+      shouldCheckDuplicate = false;
+    }
+
+    if (walletHash && shouldCheckDuplicate) {
       // TODO performance issue
-      const { wallets } = await this.getAllWallets();
+      const { wallets } = await this.getAllWallets({
+        excludeKeylessWallet: true,
+      });
       const existsSameHashWallet = wallets.find(
         (item) => walletHash && item.hash && item.hash === walletHash,
       );
@@ -2272,7 +3199,7 @@ class ServiceAccount extends ServiceBase {
         //   addedHdAccountIndex:
         // })
         // DO NOT throw error, just return the exists wallet, so v4 migration can continue
-        // throw new Error('Wallet with the same mnemonic hash already exists');
+        // throw new OneKeyLocalError('Wallet with the same mnemonic hash already exists');
         return {
           wallet: existsSameHashWallet,
           isOverrideWallet: true,
@@ -2284,10 +3211,11 @@ class ServiceAccount extends ServiceBase {
     const result = await localDb.createHDWallet({
       password,
       rs,
-      backuped: false,
+      backuped: !!isWalletBackedUp,
       avatar: avatarInfo ?? randomAvatar(),
       name,
       walletHash,
+      walletXfp,
     });
 
     await timerUtils.wait(100);
@@ -2327,11 +3255,43 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
+    const { walletId, name } = params;
+
+    let oldName = '';
+    // Get the old name before updating
+    if (name) {
+      const wallet = await this.getWalletSafe({
+        walletId,
+        withoutRefill: true,
+      });
+      oldName = wallet?.name || '';
+    }
+
     const result = await localDb.setWalletNameAndAvatar(params);
-    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-    appEventBus.emit(EAppEventBusNames.WalletRename, {
-      walletId: params.walletId,
-    });
+
+    if (!params.skipEmitEvent) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      appEventBus.emit(EAppEventBusNames.WalletRename, {
+        walletId: params.walletId,
+      });
+    }
+
+    // Only proceed if the name is actually changing
+    if (name && oldName && oldName !== name) {
+      // Record the name change history
+      await simpleDb.changeHistory.addChangeHistory({
+        items: [
+          {
+            entityType: EChangeHistoryEntityType.Wallet,
+            entityId: walletId,
+            contentType: EChangeHistoryContentType.Name,
+            oldValue: oldName,
+            value: name,
+          },
+        ],
+      });
+    }
+
     return result;
   }
 
@@ -2376,6 +3336,12 @@ class ServiceAccount extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     appEventBus.emit(EAppEventBusNames.AccountRemove, undefined);
 
+    // Cleanup orphaned HyperLiquid agent credentials
+    void this.cleanupOrphanedHyperLiquidAgentCredentials({
+      accountId: account?.id,
+      indexedAccountId: indexedAccount?.id,
+    });
+
     if (
       account &&
       accountUtils.isExternalAccount({
@@ -2386,26 +3352,156 @@ class ServiceAccount extends ServiceBase {
         account,
       });
     }
+
+    if (account) {
+      void this.backgroundApi.serviceDBBackup.removeBackupImportedAccount({
+        accountId: account.id,
+      });
+    }
   }
 
   @backgroundMethod()
+  @toastIfError()
   async removeWallet({
     walletId,
+    skipBackupWalletRemove,
+    isRemoveToMocked,
   }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>) {
     if (!walletId) {
-      throw new Error('walletId is required');
+      throw new OneKeyLocalError('walletId is required');
+    }
+    if (accountUtils.isOthersWallet({ walletId })) {
+      throw new OneKeyLocalError(
+        'Remove non-hd and non-hw wallet is not allowed',
+      );
     }
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
     });
     const result = await localDb.removeWallet({
       walletId,
+      isRemoveToMocked,
     });
+
+    // WARNING:
+    // Use setTimeout to change React Native's render scheduling to avoid exceptions penetrating the scheduler and causing crashes.
+    // If using React 19, it should not crash in React Native. Need to wait for RN upgrade to 0.79 to remove this code.
+    if (platformEnv.isNative) {
+      await timerUtils.wait(1500);
+    }
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
       walletId,
     });
+
+    // Cleanup orphaned HyperLiquid agent credentials
+    void this.cleanupOrphanedHyperLiquidAgentCredentials({
+      walletId,
+    });
+
+    if (!skipBackupWalletRemove) {
+      void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
+        walletId,
+      });
+    }
     return result;
+  }
+
+  async buildAccountXpubOrAddress({
+    getAccountXpubFn,
+    getAccountAddressFn,
+    addressToLowerCase = true,
+  }: {
+    getAccountXpubFn: () => Promise<string | undefined>;
+    getAccountAddressFn: () => Promise<string | undefined>;
+    addressToLowerCase?: boolean;
+  }): Promise<string | null> {
+    let accountXpubOrAddress: string | undefined;
+
+    let accountXpub: string | undefined;
+    try {
+      accountXpub = await getAccountXpubFn();
+    } catch (error) {
+      console.error(error);
+    }
+    if (accountXpub) {
+      accountXpubOrAddress = accountXpub;
+    } else {
+      let accountAddress: string | undefined;
+      try {
+        accountAddress = await getAccountAddressFn();
+      } catch (error) {
+        console.error(error);
+      }
+      if (accountAddress) {
+        accountXpubOrAddress = accountAddress;
+        if (addressToLowerCase) {
+          accountXpubOrAddress = accountXpubOrAddress?.toLowerCase();
+        }
+      }
+    }
+
+    return accountXpubOrAddress || null;
+  }
+
+  getAccountXpubOrAddressWithMemo = memoizee(
+    async ({
+      accountId,
+      networkId,
+      addressToLowerCase = true,
+    }: {
+      accountId: string | undefined;
+      networkId: string | undefined;
+      addressToLowerCase?: boolean;
+    }): Promise<string | null> => {
+      // console.log('getAccountXpubOrAddressWithMemo', accountId, networkId);
+      if (!networkId || !accountId) {
+        return null;
+      }
+
+      return this.buildAccountXpubOrAddress({
+        addressToLowerCase,
+        getAccountXpubFn: () =>
+          this.getAccountXpub({
+            networkId,
+            accountId,
+          }),
+        getAccountAddressFn: () =>
+          this.getAccountAddressForApi({
+            networkId,
+            accountId,
+          }),
+      });
+    },
+    {
+      max: 100,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      promise: true,
+    },
+  );
+
+  @backgroundMethod()
+  async getAccountXpubOrAddress({
+    accountId,
+    networkId,
+    addressToLowerCase = true,
+  }: {
+    accountId: string | undefined;
+    networkId: string | undefined;
+    addressToLowerCase?: boolean;
+  }): Promise<string | null> {
+    // Because all EVM networks use the same address, so the networkId is unified to eth to better utilize the cache
+    if (networkUtils.isEvmNetwork({ networkId })) {
+      // eslint-disable-next-line no-param-reassign
+      networkId = getNetworkIdsMap().eth;
+    }
+
+    return this.getAccountXpubOrAddressWithMemo({
+      accountId,
+      networkId,
+      addressToLowerCase,
+    });
   }
 
   @backgroundMethod()
@@ -2443,14 +3539,38 @@ class ServiceAccount extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
+    const info = await this.getAccountAddressInfoForApi({
+      dbAccount,
+      accountId,
+      networkId,
+    });
+    return info.address;
+  }
+
+  @backgroundMethod()
+  async getAccountAddressInfoForApi({
+    dbAccount,
+    accountId,
+    networkId,
+  }: {
+    dbAccount?: IDBAccount;
+    accountId: string;
+    networkId: string;
+  }): Promise<{ address: string; account: INetworkAccount }> {
+    const account: INetworkAccount = await this.getAccount({
+      accountId,
+      networkId,
+      dbAccount,
+    });
+
     if (networkUtils.isAllNetwork({ networkId })) {
-      return ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
+      return { address: ALL_NETWORK_ACCOUNT_MOCK_ADDRESS, account };
     }
-    const account = await this.getAccount({ accountId, networkId, dbAccount });
+
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
-      return account.addressDetail.normalizedAddress;
+      return { address: account.addressDetail.normalizedAddress, account };
     }
-    return account.address;
+    return { address: account.address, account };
   }
 
   @backgroundMethod()
@@ -2462,12 +3582,15 @@ class ServiceAccount extends ServiceBase {
     reason?: EReasonForNeedPassword;
   }) {
     if (!accountUtils.isHdWallet({ walletId })) {
-      throw new Error('getHDAccountMnemonic ERROR: Not a HD account');
+      throw new OneKeyLocalError(
+        'getHDAccountMnemonic ERROR: Not a HD account',
+      );
     }
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
         reason,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       });
     const credential = await localDb.getCredential(walletId);
     const mnemonicRaw = await mnemonicFromEntropy(
@@ -2484,7 +3607,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getTonImportedAccountMnemonic({ accountId }: { accountId: string }) {
     if (!accountUtils.isImportedAccount({ accountId })) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'getTonImportedAccountMnemonic ERROR: Not a Ton Imported account',
       );
     }
@@ -2561,6 +3684,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
+    customReceiveAddressPath?: string;
   }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
@@ -2638,7 +3762,7 @@ class ServiceAccount extends ServiceBase {
   }) {
     const checkIsNotHiddenWallet = (wallet: IDBWallet | undefined) => {
       if (wallet && accountUtils.isHwHiddenWallet({ wallet })) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'insertWalletOrder ERROR: Not supported for HW hidden wallet',
         );
       }
@@ -2830,10 +3954,14 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes({
+    allDbAccounts,
+    skipDbQueryIfNotFoundFromAllDbAccounts,
     networkId,
     indexedAccountId,
     excludeEmptyAccount,
   }: {
+    allDbAccounts?: IDBAccount[];
+    skipDbQueryIfNotFoundFromAllDbAccounts?: boolean;
     networkId: string;
     indexedAccountId: string;
     excludeEmptyAccount?: boolean;
@@ -2841,7 +3969,7 @@ class ServiceAccount extends ServiceBase {
     const { serviceNetwork } = this.backgroundApi;
     const network = await serviceNetwork.getNetworkSafe({ networkId });
     if (!network) {
-      throw new Error('Network not found');
+      throw new OneKeyLocalError('Network not found');
     }
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
     const vaultSettings = await vault.getVaultSettings();
@@ -2856,6 +3984,8 @@ class ServiceAccount extends ServiceBase {
         let resp: { accounts: INetworkAccount[] } | undefined;
         try {
           resp = await this.getAccountsByIndexedAccounts({
+            allDbAccounts,
+            skipDbQueryIfNotFoundFromAllDbAccounts,
             indexedAccountIds: [indexedAccountId],
             networkId,
             deriveType: item.deriveType,
@@ -2908,7 +4038,7 @@ class ServiceAccount extends ServiceBase {
     { allowWatchAccount }: { allowWatchAccount?: boolean },
   ) {
     if (!accountId && !indexedAccountId) {
-      throw new Error('accountId or indexedAccountId is required');
+      throw new OneKeyLocalError('accountId or indexedAccountId is required');
     }
 
     const { serviceNetwork, serviceAccount } = this.backgroundApi;
@@ -2984,47 +4114,1467 @@ class ServiceAccount extends ServiceBase {
     return undefined;
   }
 
-  async generateHDWalletsMissingHash({ password }: { password: string }) {
-    const { wallets } = await this.getAllWallets({ refillWalletInfo: false });
-    const hdWallets = wallets.filter((wallet) =>
-      accountUtils.isHdWallet({ walletId: wallet.id }),
+  @backgroundMethod()
+  async clearAllWalletHashAndXfp() {
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        allHdWalletsHashAndXfpGenerated: false,
+        allQrWalletsXfpGenerated: false,
+      }),
     );
+    await localDb.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      const { recordPairs } = await localDb.txGetAllRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+      });
+      await localDb.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        recordPairs,
+        updater: (record) => {
+          if (
+            accountUtils.isHdWallet({ walletId: record.id }) ||
+            accountUtils.isHwWallet({ walletId: record.id }) ||
+            accountUtils.isQrWallet({ walletId: record.id })
+          ) {
+            record.hash = undefined;
+            if (accountUtils.isQrWallet({ walletId: record.id })) {
+              record.xfp = accountUtils.getShortXfp({ xfp: record.xfp || '' });
+            } else {
+              record.xfp = undefined;
+            }
+          }
+          return record;
+        },
+      });
+    });
+  }
+
+  generateAllHdAndQrWalletsHashAndXfpMutex = new Semaphore(1);
+
+  @backgroundMethod()
+  async generateAllHdAndQrWalletsHashAndXfp({
+    password,
+    skipLocalSync,
+    skipAppStatusCheck,
+  }: {
+    password: string;
+    skipLocalSync?: boolean;
+    skipAppStatusCheck?: boolean;
+  }) {
+    await this.generateAllHdAndQrWalletsHashAndXfpMutex.runExclusive(
+      async () => {
+        if (!skipAppStatusCheck) {
+          const appStatus = await simpleDb.appStatus.getRawData();
+          if (appStatus?.allHdWalletsHashAndXfpGenerated) {
+            return;
+          }
+        }
+
+        const { wallets } = await this.getAllWallets({
+          refillWalletInfo: false,
+          excludeKeylessWallet: true,
+        });
+        const hdWallets = wallets.filter((wallet) =>
+          accountUtils.isHdWallet({ walletId: wallet.id }),
+        );
+        await this.generateAllQrWalletsMissingXfp({ skipLocalSync: true });
+        await this.generateHDWalletMissingHashAndXfp({
+          password,
+          hdWallets,
+        });
+
+        await simpleDb.appStatus.setRawData(
+          (v): ISimpleDBAppStatus => ({
+            ...v,
+            allHdWalletsHashAndXfpGenerated: true,
+            allQrWalletsXfpGenerated: true,
+          }),
+        );
+
+        if (!skipLocalSync) {
+          console.log('generateAllHdAndQrWalletsHashAndXfp', {
+            skipAppStatusCheck,
+          });
+          await this.runLocalSyncForIndexedAccount({
+            reason: 'generateAllHdAndQrWalletsHashAndXfp',
+          });
+        }
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async generateHDWalletMissingHashAndXfp({
+    password,
+    hdWallets,
+  }: {
+    password: string;
+    hdWallets: IDBWallet[];
+  }) {
     if (!hdWallets?.length) {
       return;
     }
-    let hdWalletsToProcess = [];
-    const appStatus = await simpleDb.appStatus.getRawData();
-    if (!appStatus?.hdWalletHashGenerated) {
-      hdWalletsToProcess = hdWallets;
-    } else {
-      hdWalletsToProcess = hdWallets.filter((wallet) => !wallet.hash);
-    }
-    if (!hdWalletsToProcess?.length) {
-      return;
-    }
-    const walletsHashMap: { [walletId: string]: string } = {};
-    for (const wallet of hdWalletsToProcess) {
+    const walletsHashXfpMap: {
+      [walletId: string]: { hash: string; xfp: string };
+    } = {};
+    for (const wallet of hdWallets) {
+      const isKeylessWallet = accountUtils.isKeylessWallet({
+        walletId: wallet.id,
+      });
+      if (isKeylessWallet) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       try {
-        const credentialInfo = await localDb.getCredential(wallet.id);
-        if (!credentialInfo) {
-          // eslint-disable-next-line no-continue
-          continue;
+        const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
+        if (isHdWallet) {
+          const credentialInfo = await localDb.getCredential(wallet.id);
+          if (!credentialInfo) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+          const realMnemonic = await mnemonicFromEntropy(
+            credentialInfo.credential,
+            password,
+          );
+          const walletHashXfp = await this.hdWalletHashAndXfpBuilder({
+            realMnemonic,
+          });
+          walletsHashXfpMap[wallet.id] = walletHashXfp;
         }
-        const realMnemonic = await mnemonicFromEntropy(
-          credentialInfo.credential,
-          password,
-        );
-        const walletHash = this.walletHashBuilder({ realMnemonic });
-        walletsHashMap[wallet.id] = walletHash;
       } catch (error) {
         console.error(error);
       }
     }
-    await localDb.updateWalletsHash(walletsHashMap);
-    await simpleDb.appStatus.setRawData((v) => ({
-      ...v,
-      hdWalletHashGenerated: true,
-    }));
+    await localDb.updateWalletsHashAndXfp(walletsHashXfpMap);
+  }
+
+  generateHwWalletsMissingXfpFn = async ({
+    wallet,
+    connectId,
+    deviceId,
+    withUserInteraction,
+    throwError,
+  }: {
+    wallet: IDBWallet | undefined;
+    connectId: string | undefined;
+    deviceId: string | undefined;
+    withUserInteraction: boolean;
+    throwError?: boolean;
+  }) => {
+    if (!wallet?.id) {
+      return;
+    }
+    if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
+      return;
+    }
+    if (wallet && accountUtils.isValidWalletXfp({ xfp: wallet?.xfp })) {
+      console.log('wallet already has xfp', wallet.xfp);
+      return;
+    }
+    if (!connectId) {
+      const device = await localDb.getWalletDeviceSafe({
+        dbWallet: wallet,
+        walletId: wallet?.id,
+      });
+      // eslint-disable-next-line no-param-reassign
+      connectId = device?.connectId;
+      // eslint-disable-next-line no-param-reassign
+      deviceId = device?.deviceId;
+    }
+
+    const xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
+      connectId,
+      deviceId,
+      passphraseState: wallet?.passphraseState,
+      throwError: throwError ?? false,
+      withUserInteraction,
+    });
+    if (xfp) {
+      await localDb.updateWalletsHashAndXfp({
+        [wallet?.id]: {
+          xfp,
+        },
+      });
+    }
+    console.log('generateHwWalletsMissingXfp', { xfp, connectId, deviceId });
+  };
+
+  generateHwWalletsMissingXfpDebounced = debounce(
+    this.generateHwWalletsMissingXfpFn,
+    3000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  buildQrWalletFullXfp({
+    shortXfp,
+    airGapAccounts,
+  }: {
+    shortXfp: string;
+    airGapAccounts: IQrWalletAirGapAccount[];
+  }) {
+    if (!airGapAccounts?.length) {
+      return;
+    }
+    const firstTaprootAccount = airGapAccounts.find(
+      (item) => item.path === BTC_FIRST_TAPROOT_PATH,
+    );
+    if (!firstTaprootAccount) {
+      return;
+    }
+    const xpub = firstTaprootAccount.extendedPublicKey;
+    if (xpub && shortXfp) {
+      const fullXfp = accountUtils.buildFullXfp({
+        xfp: shortXfp,
+        firstTaprootXpub: xpub,
+      });
+      return fullXfp;
+    }
+  }
+
+  @backgroundMethod()
+  async generateAllQrWalletsMissingXfp({
+    skipLocalSync,
+  }: {
+    skipLocalSync?: boolean;
+  } = {}) {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.allQrWalletsXfpGenerated) {
+      return;
+    }
+
+    const { wallets } = await this.getAllWallets({
+      refillWalletInfo: true,
+      excludeKeylessWallet: true,
+    });
+    const qrWallets = wallets.filter((wallet) =>
+      accountUtils.isQrWallet({ walletId: wallet.id }),
+    );
+    if (!qrWallets?.length) {
+      return;
+    }
+    await Promise.all(
+      qrWallets.map(async (wallet) => {
+        if (!wallet?.id) {
+          return;
+        }
+        if (!accountUtils.isQrWallet({ walletId: wallet?.id })) {
+          return;
+        }
+        if (wallet && accountUtils.isValidWalletXfp({ xfp: wallet?.xfp })) {
+          console.log('wallet already has xfp', wallet.xfp);
+          return;
+        }
+        const shortXfp = wallet.xfp;
+        const airGapAccounts = wallet.airGapAccountsInfo?.accounts;
+        if (shortXfp && airGapAccounts?.length) {
+          // TODO airGapAccounts missing firstTaprootAccount, show QR code to add if current wallet is self
+          const fullXfp = this.buildQrWalletFullXfp({
+            shortXfp,
+            airGapAccounts,
+          });
+          if (fullXfp) {
+            await localDb.updateWalletsHashAndXfp({
+              [wallet?.id]: { xfp: fullXfp },
+            });
+          }
+        }
+      }),
+    );
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        allQrWalletsXfpGenerated: true,
+      }),
+    );
+    if (!skipLocalSync) {
+      await this.runLocalSyncForIndexedAccount({
+        reason: 'generateAllQrWalletsMissingXfp',
+      });
+    }
+  }
+
+  @backgroundMethod()
+  async generateHwWalletsMissingXfp({
+    wallet,
+    connectId,
+    deviceId,
+    withUserInteraction,
+  }: {
+    wallet: IDBWallet | undefined;
+    connectId: string;
+    deviceId: string | undefined;
+    withUserInteraction: boolean;
+  }) {
+    await this.generateHwWalletsMissingXfpDebounced({
+      wallet,
+      connectId,
+      deviceId,
+      withUserInteraction,
+    });
+  }
+
+  @backgroundMethod()
+  async generateWalletsMissingMetaSilently({ walletId }: { walletId: string }) {
+    let canCallSilently = false;
+    let cachePassword: string | undefined;
+
+    if (walletId) {
+      if (accountUtils.isHdWallet({ walletId })) {
+        cachePassword =
+          await this.backgroundApi.servicePassword.getCachedPassword();
+        if (cachePassword) {
+          canCallSilently = true;
+        }
+      }
+      if (accountUtils.isQrWallet({ walletId })) {
+        canCallSilently = true;
+      }
+
+      const isHwWallet = accountUtils.isHwWallet({ walletId });
+      if (isHwWallet) {
+        const wallet = await localDb.getWalletSafe({ walletId });
+        if (
+          wallet &&
+          !wallet?.deprecated &&
+          !accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+        ) {
+          await hardwareWalletXfpStatusAtom.set((v) => ({
+            ...v,
+            [walletId]: {
+              ...(v?.[walletId] || {}),
+              xfpMissing: true,
+            },
+          }));
+        }
+
+        const hardwareWalletXfpStatus = await hardwareWalletXfpStatusAtom.get();
+        if (
+          hardwareWalletXfpStatus?.[walletId]?.xfpMissing &&
+          wallet &&
+          accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+        ) {
+          await hardwareWalletXfpStatusAtom.set((v) => ({
+            ...v,
+            [walletId]: {
+              ...(v?.[walletId] || {}),
+              xfpMissing: false,
+            },
+          }));
+        }
+      }
+    }
+
+    if (canCallSilently) {
+      try {
+        await this.generateWalletsMissingMetaWithUserInteraction({ walletId });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async generateWalletsMissingMetaWithUserInteraction({
+    walletId,
+    cachePassword,
+  }: {
+    walletId: string;
+    cachePassword?: string;
+  }) {
+    if (!walletId) {
+      throw new OneKeyLocalError('walletId is required');
+    }
+    const wallet = await localDb.getWalletSafe({ walletId });
+    if (!wallet) {
+      throw new OneKeyLocalError('wallet not found');
+    }
+
+    let walletUpdated = false;
+
+    const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
+    if (isHdWallet) {
+      if (wallet.hash && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+        return;
+      }
+      const password =
+        cachePassword ||
+        (await this.backgroundApi.servicePassword.promptPasswordVerify({}))
+          ?.password;
+      if (!password) {
+        return;
+      }
+      await this.generateAllHdAndQrWalletsHashAndXfp({
+        password,
+        skipLocalSync: true,
+      });
+      walletUpdated = true;
+    }
+
+    const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
+    if (isHwWallet) {
+      if (accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+        return;
+      }
+      const device = await localDb.getWalletDeviceSafe({
+        dbWallet: wallet,
+        walletId: wallet?.id,
+      });
+      if (!device) {
+        throw new OneKeyLocalError('wallet associated device not found');
+      }
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          await timerUtils.wait(1000);
+          await this.generateHwWalletsMissingXfpFn({
+            wallet,
+            connectId: device?.connectId || '',
+            deviceId: device?.deviceId || '',
+            throwError: true,
+            withUserInteraction: true,
+          });
+          await timerUtils.wait(1000);
+          walletUpdated = true;
+        },
+        {
+          deviceParams: {
+            dbDevice: device,
+          },
+        },
+      );
+    }
+
+    const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
+    if (isQrWallet) {
+      if (accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
+        return;
+      }
+      await this.generateAllQrWalletsMissingXfp({ skipLocalSync: true });
+      walletUpdated = true;
+    }
+
+    if (walletUpdated) {
+      if (isHwWallet) {
+        await hardwareWalletXfpStatusAtom.set((v) => ({
+          ...v,
+          [walletId]: {
+            ...(v?.[walletId] || {}),
+            xfpMissing: false,
+          },
+        }));
+      }
+      await this.runLocalSyncForIndexedAccount({
+        reason: 'generateWalletsMissingMetaWithUserInteraction',
+      });
+    }
+  }
+
+  async runLocalSyncForIndexedAccount({ reason }: { reason?: string } = {}) {
+    console.log('runLocalSyncForIndexedAccount', reason);
+    try {
+      const { servicePrimeCloudSync } = this.backgroundApi;
+      await servicePrimeCloudSync.initLocalSyncItemsDBForLegacyIndexedAccount();
+
+      // TODO syncToSceneWithLocalSyncItems migrate and merge hd accounts
+      let { items } = await servicePrimeCloudSync.getAllLocalSyncItems();
+      items = items.filter(
+        (item) =>
+          item.dataType === EPrimeCloudSyncDataType.IndexedAccount &&
+          cloudSyncUtils.canSyncWithoutServer(item.dataType),
+      );
+      await servicePrimeCloudSync._syncToSceneWithLocalSyncItems({
+        items,
+        syncCredential: undefined,
+        forceSync: true,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  @backgroundMethod()
+  async updateWalletsDeprecatedState(params: {
+    willUpdateDeprecateMap: Record<string, boolean>;
+  }) {
+    const { willUpdateDeprecateMap } = params;
+
+    if (
+      !willUpdateDeprecateMap ||
+      Object.keys(willUpdateDeprecateMap).length === 0
+    ) {
+      return true;
+    }
+
+    try {
+      for (const [walletId, isDeprecated] of Object.entries(
+        willUpdateDeprecateMap,
+      )) {
+        await localDb.setWalletDeprecated({
+          walletId,
+          isDeprecated,
+        });
+      }
+      return true;
+    } catch (error) {
+      console.error(
+        `updateWalletsDeprecatedState failed: `,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    return false;
+  }
+
+  async getLocalSameHDWallets({
+    password,
+    skipAppStatusCheck,
+  }: {
+    password: string;
+    skipAppStatusCheck?: boolean;
+  }) {
+    await this.generateAllHdAndQrWalletsHashAndXfp({
+      password,
+      skipAppStatusCheck,
+    });
+    const { wallets: allWallets } = await this.getAllWallets({
+      refillWalletInfo: true,
+      excludeKeylessWallet: true,
+    });
+    const sameWalletsMap: {
+      [walletHash: string]: IDBWallet[];
+    } = {};
+    for (const wallet of allWallets) {
+      const walletHash = wallet.hash;
+      if (walletHash) {
+        sameWalletsMap[walletHash] = sameWalletsMap[walletHash] || [];
+        sameWalletsMap[walletHash].push(wallet);
+      }
+    }
+    const sameWallets: Array<{ walletHash: string; wallets: IDBWallet[] }> = [];
+    Object.entries(sameWalletsMap).forEach(([walletHash, wallets]) => {
+      if (wallets.length >= 2) {
+        sameWallets.push({ walletHash, wallets });
+      }
+    });
+    return sameWallets;
+  }
+
+  @backgroundMethod()
+  async mergeDuplicateHDWallets({
+    password,
+    skipAppStatusCheck,
+  }: {
+    password: string;
+    skipAppStatusCheck?: boolean;
+  }) {
+    if (!skipAppStatusCheck) {
+      const appStatus = await simpleDb.appStatus.getRawData();
+      if (appStatus?.allHdDuplicateWalletsMerged && !skipAppStatusCheck) {
+        return;
+      }
+    }
+
+    try {
+      const sameWallets = await this.getLocalSameHDWallets({
+        password,
+        skipAppStatusCheck,
+      });
+
+      if (sameWallets?.length) {
+        const walletsToRemove: string[] = [];
+
+        const { accounts: allAccounts } = await this.getAllAccounts();
+
+        for (const sameWallet of sameWallets) {
+          let walletToKeep: IDBWallet | undefined;
+          const accountsToAddParams: {
+            oldIndexedAccountId: string;
+            deriveType: IAccountDeriveTypes;
+            networkId: string;
+            index: number;
+            name: string;
+          }[] = [];
+          const walletNames: string[] = [];
+          const indexedAccountNames: {
+            indexedAccountId: string;
+            name: string;
+          }[] = [];
+
+          for (let i = 0; i < sameWallet.wallets.length; i += 1) {
+            const wallet = sameWallet.wallets[i];
+            if (i === 0) {
+              walletToKeep = wallet;
+            } else {
+              walletsToRemove.push(wallet.id);
+              walletNames.push(wallet.name);
+              try {
+                const changeHistory =
+                  await this.backgroundApi.simpleDb.changeHistory.getChangeHistory(
+                    {
+                      entityType: EChangeHistoryEntityType.Wallet,
+                      entityId: wallet.id,
+                      contentType: EChangeHistoryContentType.Name,
+                    },
+                  );
+                if (changeHistory?.length) {
+                  walletNames.push(...changeHistory.map((item) => item.value));
+                }
+              } catch (e) {
+                console.error(e);
+              }
+
+              await Promise.all(
+                allAccounts
+                  .filter(
+                    (item) =>
+                      item?.id &&
+                      wallet?.id &&
+                      accountUtils.parseAccountId({ accountId: item?.id })
+                        ?.walletId === wallet?.id,
+                  )
+                  // eslint-disable-next-line no-loop-func, @typescript-eslint/no-loop-func
+                  .map(async (item) => {
+                    let networkIds: string[] = [];
+                    if (item.impl === IMPL_EVM) {
+                      networkIds = [getNetworkIdsMap().eth];
+                    } else {
+                      ({ networkIds } =
+                        await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls(
+                          {
+                            impls: [item.impl],
+                          },
+                        ));
+                    }
+                    for (const networkId of networkIds) {
+                      const { deriveType } =
+                        await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate(
+                          {
+                            accountId: item.id,
+                            networkId,
+                            template: item.template,
+                          },
+                        );
+                      let indexedAccount: IDBIndexedAccount | undefined;
+                      try {
+                        indexedAccount = await this.getIndexedAccountByAccount({
+                          account: item,
+                        });
+                      } catch (e) {
+                        console.error(e);
+                      }
+                      if (
+                        indexedAccount &&
+                        !isNil(item.pathIndex) &&
+                        indexedAccount?.name
+                      ) {
+                        accountsToAddParams.push({
+                          oldIndexedAccountId: indexedAccount.id,
+                          networkId,
+                          deriveType,
+                          index: item.pathIndex,
+                          name: indexedAccount?.name,
+                        });
+
+                        if (walletToKeep?.id && item.pathIndex >= 0) {
+                          const indexedAccountIdToAdd =
+                            accountUtils.buildIndexedAccountId({
+                              walletId: walletToKeep?.id,
+                              index: item.pathIndex,
+                            });
+                          if (indexedAccountIdToAdd) {
+                            const indexedAccountNameChangeHistory =
+                              await this.backgroundApi.simpleDb.changeHistory.getChangeHistory(
+                                {
+                                  entityType:
+                                    EChangeHistoryEntityType.IndexedAccount,
+                                  entityId: indexedAccount?.id,
+                                  contentType: EChangeHistoryContentType.Name,
+                                },
+                              );
+
+                            indexedAccountNames.push(
+                              ...indexedAccountNameChangeHistory.map(
+                                (info: IChangeHistoryItem) => ({
+                                  indexedAccountId: indexedAccountIdToAdd,
+                                  name: info.value,
+                                }),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    }
+                  }),
+              );
+            }
+          }
+
+          if (walletToKeep && walletToKeep?.id && accountsToAddParams?.length) {
+            for (const accountToAddParam of accountsToAddParams) {
+              const indexedAccountIdToAdd = accountUtils.buildIndexedAccountId({
+                walletId: walletToKeep?.id,
+                index: accountToAddParam.index,
+              });
+              const existingIndexedAccount = await this.getIndexedAccountSafe({
+                id: indexedAccountIdToAdd,
+              });
+              try {
+                await this.addHDOrHWAccounts({
+                  walletId: walletToKeep?.id,
+                  networkId: accountToAddParam.networkId,
+                  deriveType: accountToAddParam.deriveType,
+                  indexes: [accountToAddParam.index],
+                  names: [accountToAddParam.name],
+                  indexedAccountId: undefined,
+                });
+              } catch (e) {
+                console.error(e);
+              }
+              indexedAccountNames.push({
+                indexedAccountId: indexedAccountIdToAdd,
+                name: accountToAddParam.name,
+              });
+              if (existingIndexedAccount?.name) {
+                indexedAccountNames.push({
+                  indexedAccountId: indexedAccountIdToAdd,
+                  name: existingIndexedAccount?.name,
+                });
+              }
+            }
+          }
+
+          const indexedAccountNamesUnique = uniqBy(
+            indexedAccountNames,
+            (item) => item.indexedAccountId + item.name,
+          );
+
+          try {
+            await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
+              items: indexedAccountNamesUnique.map(
+                ({ indexedAccountId, name }) => ({
+                  entityType: EChangeHistoryEntityType.IndexedAccount,
+                  entityId: indexedAccountId,
+                  contentType: EChangeHistoryContentType.Name,
+                  oldValue: '',
+                  value: name,
+                }),
+              ),
+            });
+          } catch (e) {
+            console.error(e);
+          }
+          if (walletToKeep) {
+            try {
+              await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
+                items: [
+                  {
+                    entityType: EChangeHistoryEntityType.Wallet,
+                    entityId: walletToKeep?.id,
+                    contentType: EChangeHistoryContentType.Name,
+                    oldValue: '',
+                    value: walletToKeep?.name,
+                  },
+                  ...uniq(walletNames).map((name) => ({
+                    entityType: EChangeHistoryEntityType.Wallet,
+                    entityId: walletToKeep?.id,
+                    contentType: EChangeHistoryContentType.Name,
+                    oldValue: '',
+                    value: name,
+                  })),
+                ],
+              });
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        }
+
+        for (const walletId of walletsToRemove) {
+          try {
+            await this.removeWallet({
+              walletId,
+              // skipBackupWalletRemove: true
+            });
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+        // await timerUtils.wait(3000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      await simpleDb.appStatus.setRawData(
+        (v): ISimpleDBAppStatus => ({
+          ...v,
+          allHdDuplicateWalletsMerged: true,
+        }),
+      );
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async updateWalletBackupStatus({
+    walletId,
+    isBackedUp,
+  }: {
+    walletId: string;
+    isBackedUp: boolean;
+  }): Promise<void> {
+    if (!walletId) {
+      return;
+    }
+
+    const wallet = await this.getWalletSafe({ walletId });
+    if (!wallet) {
+      throw new OneKeyLocalError(
+        'updateWalletBackupStatus ERROR: wallet not found',
+      );
+    }
+    await localDb.updateWalletsBackupStatus({
+      [walletId]: {
+        isBackedUp,
+      },
+    });
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async updateHdWalletsBackedUpStatusForCloudBackup({
+    publicData,
+  }: {
+    publicData: IPrimeTransferPublicData | undefined;
+  }) {
+    const cloudBackupedWallets: IPrimeTransferPublicDataWalletDetail[] =
+      Object.values(publicData?.walletDetails || {});
+    if (!cloudBackupedWallets?.length) {
+      return;
+    }
+
+    const { wallets } = await this.getWallets();
+    const walletsBackedUpStatusMap: {
+      [walletId: string]: {
+        isBackedUp: boolean;
+      };
+    } = {};
+
+    for (const wallet of wallets) {
+      if (wallet.type === WALLET_TYPE_HD && !wallet.backuped && wallet.xfp) {
+        if (
+          cloudBackupedWallets.find((item) => item.walletXfp === wallet.xfp)
+        ) {
+          walletsBackedUpStatusMap[wallet.id] = {
+            isBackedUp: true,
+          };
+        }
+      }
+    }
+    await localDb.updateWalletsBackupStatus(walletsBackedUpStatusMap);
+
+    if (Object.keys(walletsBackedUpStatusMap).length > 0) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
+  }
+
+  @backgroundMethod()
+  async migrateHdWalletsBackedUpStatus() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.hdWalletsBackupMigrated) {
+      console.log('migrateHdWalletsBackedUpStatus: already migrated');
+      return;
+    }
+    const { wallets } = await this.getWallets();
+    const walletsBackedUpStatusMap: {
+      [walletId: string]: {
+        isBackedUp: boolean;
+      };
+    } = {};
+    for (const wallet of wallets) {
+      if (wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+        walletsBackedUpStatusMap[wallet.id] = {
+          isBackedUp: true,
+        };
+      }
+    }
+    await localDb.updateWalletsBackupStatus(walletsBackedUpStatusMap);
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        hdWalletsBackupMigrated: true,
+      }),
+    );
+
+    if (Object.keys(walletsBackedUpStatusMap).length > 0) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
+  }
+
+  @backgroundMethod()
+  async migrateHardwareLtcXPub() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.fixHardwareLtcXPubMigrated) {
+      console.log('migrateLtcXPub: already migrated');
+      return;
+    }
+
+    const { accounts } = await this.getAllAccounts();
+    const hwLtcAccounts = accounts
+      .filter((item) => accountUtils.isHwAccount({ accountId: item?.id }))
+      .filter((item) => item.impl === IMPL_LTC);
+
+    const fixedAccounts: {
+      [accountId: string]: {
+        xpub: string;
+        xpubSegwit: string;
+      };
+    } = {};
+
+    for (const account of hwLtcAccounts) {
+      // IDBUtxoAccount
+      if ('xpub' in account && 'xpubSegwit' in account) {
+        const xpub = account.xpub;
+
+        const parts = account.path?.split('/');
+        if (xpub && xpub.length > 0 && parts && parts.length > 2) {
+          const newXpub = await convertLtcXpub({
+            purpose: parts[1],
+            xpub,
+          });
+
+          if (newXpub && newXpub !== xpub) {
+            fixedAccounts[account.id] = {
+              xpub: newXpub,
+              xpubSegwit: newXpub,
+            };
+          }
+        }
+      }
+    }
+
+    if (Object.keys(fixedAccounts).length > 0) {
+      await localDb.updateAccountXpub(fixedAccounts);
+    }
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        fixHardwareLtcXPubMigrated: true,
+      }),
+    );
+  }
+
+  async getExportedPrivateKeyOfImportedAccount({
+    importedAccount,
+    encryptedCredential,
+    password,
+    credentialDecrypted,
+    networkId,
+  }: {
+    importedAccount: IPrimeTransferAccount;
+    password: string;
+    encryptedCredential: string;
+    credentialDecrypted?: ICoreImportedCredential | undefined;
+    networkId: string | undefined;
+  }) {
+    if (!networkId) {
+      throw new OneKeyLocalError('NetworkId is required');
+    }
+    if (!password) {
+      throw new OneKeyLocalError(
+        'getExportedPrivateKeyOfImportedAccount Error: Password is required',
+      );
+    }
+    if (!credentialDecrypted) {
+      if (!encryptedCredential) {
+        throw new OneKeyLocalError(
+          'getExportedPrivateKeyOfImportedAccount Error: Encrypted credential is required',
+        );
+      }
+    }
+    let privateKey: string | undefined;
+    if (credentialDecrypted) {
+      privateKey = credentialDecrypted.privateKey;
+    } else {
+      ({ privateKey } = await decryptImportedCredential({
+        credential: encryptedCredential,
+        password,
+        allowRawPassword: true,
+      }));
+    }
+    if (!privateKey) {
+      throw new OneKeyLocalError(
+        'getExportedPrivateKeyOfImportedAccount Error: Private key is required',
+      );
+    }
+    const coreApi = this.backgroundApi.serviceNetwork.getCoreApiByNetwork({
+      networkId,
+    });
+    const chainId = networkUtils.getNetworkChainId({
+      networkId,
+      hex: false,
+    });
+    const credentials: ICoreCredentialsInfo = {
+      imported: await encryptImportedCredential({
+        credential: {
+          privateKey,
+        },
+        password,
+      }),
+    };
+    // TODO try catch
+    let exportedPrivateKey = await coreApi.imported.getExportedSecretKey({
+      networkInfo: { chainId } as any, // only works for HD
+
+      password,
+      credentials,
+
+      account: { ...importedAccount, path: importedAccount.path || '' },
+
+      keyType:
+        importedAccount.type === EDBAccountType.UTXO
+          ? ECoreApiExportedSecretKeyType.xprvt
+          : ECoreApiExportedSecretKeyType.privateKey,
+      addressEncoding: undefined,
+    });
+    if (
+      !exportedPrivateKey &&
+      privateKey &&
+      importedAccount?.coinType === COINTYPE_STC
+    ) {
+      exportedPrivateKey = hexUtils.addHexPrefix(privateKey);
+    }
+    return { exportedPrivateKey, privateKey };
+  }
+
+  async restoreImportedAccountByInput({
+    importedAccount,
+    input,
+    privateKey,
+    networkId,
+    skipEventEmit,
+  }: {
+    importedAccount: IPrimeTransferAccount;
+    input: string;
+    privateKey: string;
+    networkId: string;
+    skipEventEmit?: boolean;
+  }) {
+    let addedAccounts: IDBAccount[] = [];
+    try {
+      const { serviceAccount, serviceNetwork, servicePassword } =
+        this.backgroundApi;
+
+      let deriveTypes: IAccountDeriveTypes[] = [];
+      if (importedAccount?.address) {
+        try {
+          const deriveType = await serviceNetwork.getDeriveTypeByAddress({
+            networkId,
+            address: importedAccount.address,
+          });
+          if (deriveType) {
+            deriveTypes.push(deriveType);
+          }
+        } catch (e) {
+          console.error('getDeriveTypeByAddress error', e);
+        }
+      }
+
+      if (!deriveTypes?.length) {
+        try {
+          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+            accountId: importedAccount.id,
+            networkId,
+            input: await servicePassword.encodeSensitiveText({
+              text: input,
+            }),
+            validatePrivateKey: true,
+            validateXprvt: true,
+            template: importedAccount.template,
+          });
+        } catch (e) {
+          console.error('getAccountImportingDeriveTypes error', e);
+        }
+      }
+
+      if (!deriveTypes?.length) {
+        deriveTypes = ['default'];
+      }
+
+      const skipAddIfNotEqualToAddress =
+        deriveTypes.length > 1 ? importedAccount.address : undefined;
+      for (const deriveType of deriveTypes) {
+        try {
+          const { accounts } =
+            await serviceAccount.addImportedAccountWithCredential({
+              skipEventEmit,
+              credential: await servicePassword.encodeSensitiveText({
+                text: privateKey,
+              }),
+              fallbackName: importedAccount.name,
+              networkId,
+              name: importedAccount.name,
+              deriveType,
+              skipAddIfNotEqualToAddress,
+            });
+          addedAccounts = [...addedAccounts, ...(accounts || [])];
+        } catch (e) {
+          console.error('addImportedAccountByInput error', e);
+        }
+      }
+    } catch (e) {
+      console.error('addImportedAccountByInput error', e);
+    }
+    return { addedAccounts };
+  }
+
+  async restoreWatchingAccountByInput({
+    watchingAccount,
+    input,
+    networkId,
+    skipEventEmit,
+  }: {
+    watchingAccount: IPrimeTransferAccount;
+    input: string;
+    networkId: string;
+    skipEventEmit?: boolean;
+  }): Promise<{
+    addedAccounts: IDBAccount[];
+  }> {
+    let addedAccounts: IDBAccount[] = [];
+    try {
+      const { serviceAccount, serviceNetwork, servicePassword } =
+        this.backgroundApi;
+
+      let deriveTypes: IAccountDeriveTypes[] = [];
+      if (watchingAccount?.address) {
+        try {
+          const deriveType = await serviceNetwork.getDeriveTypeByAddress({
+            networkId,
+            address: watchingAccount.address,
+          });
+          if (deriveType) {
+            deriveTypes.push(deriveType);
+          }
+        } catch (e) {
+          console.error('getDeriveTypeByAddress error', e);
+        }
+      }
+
+      if (!deriveTypes?.length) {
+        try {
+          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+            accountId: watchingAccount.id,
+            networkId: networkId || '',
+            input: await servicePassword.encodeSensitiveText({
+              text: input,
+            }),
+            validateAddress: true,
+            validateXpub: true,
+            template: watchingAccount.template,
+          });
+        } catch (e) {
+          console.error('getAccountImportingDeriveTypes error', e);
+        }
+      }
+
+      if (!deriveTypes?.length) {
+        deriveTypes = ['default'];
+      }
+
+      const skipAddIfNotEqualToAddress =
+        deriveTypes.length > 1 ? watchingAccount.address : undefined;
+      for (const deriveType of deriveTypes) {
+        try {
+          const { accounts } = await serviceAccount.addWatchingAccount({
+            skipEventEmit,
+            input,
+            fallbackName: watchingAccount.name,
+            networkId: networkId || '',
+            name: watchingAccount.name,
+            deriveType,
+            isUrlAccount: false,
+            skipAddIfNotEqualToAddress,
+          });
+          addedAccounts = [...addedAccounts, ...(accounts || [])];
+        } catch (e) {
+          console.error('addWatchingAccountByInput error', e);
+        }
+      }
+    } catch (e) {
+      console.error('addWatchingAccountByInput error', e);
+    }
+    return { addedAccounts };
+  }
+
+  @backgroundMethod()
+  async getMasterAddress({
+    networkAccount,
+    allNetworkAccountInfo,
+    networkId,
+  }: {
+    networkAccount: INetworkAccount | undefined;
+    allNetworkAccountInfo: IAllNetworkAccountInfo | undefined;
+    networkId: string;
+  }): Promise<{
+    masterAddress: string;
+  }> {
+    const enableBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (!networkUtils.isBTCNetwork(networkId) || !enableBTCFreshAddress) {
+      if (networkAccount) {
+        return {
+          masterAddress: networkAccount.address || '',
+        };
+      }
+      if (allNetworkAccountInfo) {
+        return {
+          masterAddress: allNetworkAccountInfo.apiAddress || '',
+        };
+      }
+    }
+
+    let account: INetworkAccount | undefined = networkAccount;
+    if (!networkAccount && allNetworkAccountInfo) {
+      account = await this.getAccount({
+        accountId: allNetworkAccountInfo.accountId,
+        networkId,
+      });
+    }
+
+    return {
+      masterAddress:
+        account?.addressDetail.masterAddress || account?.address || '',
+    };
+  }
+
+  @backgroundMethod()
+  async prepareHDOrHWAccountChainExtraParams({
+    networkId,
+    indexedAccountId,
+    deriveType,
+    customReceiveAddressPath,
+  }: {
+    networkId: string;
+    indexedAccountId: string | undefined;
+    deriveType: IAccountDeriveTypes;
+    customReceiveAddressPath: string | undefined;
+  }): Promise<IPrepareHDOrHWAccountChainExtraParams | undefined> {
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return undefined;
+    }
+    if (customReceiveAddressPath) {
+      return { receiveAddressPath: customReceiveAddressPath };
+    }
+    if (!indexedAccountId) {
+      return undefined;
+    }
+    const enabledBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (!enabledBTCFreshAddress) {
+      return undefined;
+    }
+    try {
+      const account = await this.getNetworkAccount({
+        indexedAccountId,
+        deriveType,
+        networkId,
+        accountId: undefined,
+      });
+      if (!account) {
+        return undefined;
+      }
+      return {
+        receiveAddressPath: account.addressDetail.receiveAddressPath,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  isBtcOnlyFirmwareByWalletIdMemoized = memoizee(
+    async ({
+      walletId,
+      featuresInfo,
+    }: {
+      walletId: string;
+      featuresInfo?: IOneKeyDeviceFeatures;
+    }) => {
+      let firmwareType: EFirmwareType | undefined;
+      if (featuresInfo) {
+        firmwareType = await deviceUtils.getFirmwareType({
+          features: featuresInfo,
+        });
+      } else {
+        const walletDevice =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+        if (walletDevice) {
+          firmwareType = await deviceUtils.getFirmwareType({
+            features: walletDevice.featuresInfo,
+          });
+        }
+      }
+
+      return firmwareType === EFirmwareType.BitcoinOnly;
+    },
+    {
+      promise: true,
+      primitive: true,
+      normalizer: ([options]) => {
+        const fwVendor = options.featuresInfo?.fw_vendor || '';
+        const capabilities =
+          options.featuresInfo?.capabilities?.join(',') ?? '';
+        return `${options.walletId}-${fwVendor}-${capabilities}`;
+      },
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
+      max: 5,
+    },
+  );
+
+  /**
+   * Check if the wallet is a Bitcoin Only firmware
+   * @param walletId - wallet id
+   * @param featuresInfo - Optional: avoids redundant device queries
+   * @returns {boolean} if the wallet is a Bitcoin Only firmware
+   */
+  @backgroundMethod()
+  async isBtcOnlyFirmwareByWalletId({
+    walletId,
+    featuresInfo,
+  }: {
+    walletId: string;
+    featuresInfo?: IOneKeyDeviceFeatures;
+  }): Promise<boolean> {
+    if (
+      accountUtils.isHwWallet({ walletId }) ||
+      accountUtils.isQrWallet({ walletId })
+    ) {
+      return this.isBtcOnlyFirmwareByWalletIdMemoized({
+        walletId,
+        featuresInfo,
+      });
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if the account network is supported by the wallet
+   *
+   * @param accountId - Optional: account ID (either accountId or walletId must be provided)
+   * @param walletId - Optional: wallet ID (either accountId or walletId must be provided)
+   * @param accountImpl - Optional: account implementation, avoids DB query if already known
+   * @param featuresInfo - Optional: device features, avoids redundant device queries
+   * @param activeNetworkId - Required: active network ID to check
+   *
+   * @throws {OneKeyInternalError} if neither accountId nor walletId is provided
+   * @returns {object | undefined} Returns { networkImpl } if network is not supported, undefined otherwise
+   */
+  @backgroundMethod()
+  async checkAccountNetworkNotSupported({
+    accountId,
+    walletId,
+    accountImpl,
+    featuresInfoCache,
+    activeNetworkId,
+  }: {
+    accountId?: string;
+    walletId?: string;
+    accountImpl?: string;
+    featuresInfoCache?: IOneKeyDeviceFeatures;
+    activeNetworkId: string;
+  }): Promise<
+    | {
+        networkImpl: string;
+      }
+    | undefined
+  > {
+    // Validate: at least one of accountId or walletId must be provided
+    if (!accountId && !walletId) {
+      throw new OneKeyInternalError(
+        'checkAccountNetworkNotSupported: either accountId or walletId must be provided',
+      );
+    }
+
+    // Determine walletId
+    let finalWalletId = walletId;
+    if (!finalWalletId && accountId) {
+      finalWalletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    }
+
+    // Early returns for watching wallet
+    if (finalWalletId === WALLET_TYPE_WATCHING) {
+      return undefined;
+    }
+
+    const { impl: activeNetworkImpl } = networkUtils.parseNetworkId({
+      networkId: activeNetworkId ?? '',
+    });
+
+    // other account maybe not have accountId only have walletId
+    if (accountId && accountUtils.isOthersAccount({ accountId })) {
+      let currentAccountImpl = accountImpl;
+      if (!currentAccountImpl) {
+        const account = await this.getDBAccountSafe({ accountId });
+        if (!account) {
+          return undefined;
+        }
+        currentAccountImpl = account.impl;
+      }
+
+      const isAllNetwork = currentAccountImpl === IMPL_ALLNETWORKS;
+
+      if (isAllNetwork || currentAccountImpl === activeNetworkImpl) {
+        return undefined;
+      }
+
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
+
+    // other account maybe not have accountId only have walletId
+    if (
+      !accountId &&
+      finalWalletId &&
+      accountUtils.isOthersWallet({ walletId: finalWalletId })
+    ) {
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
+
+    if (!finalWalletId) {
+      return undefined;
+    }
+
+    if (activeNetworkImpl === IMPL_ALLNETWORKS) {
+      return undefined;
+    }
+
+    const isBtcOnlyFirmware = await this.isBtcOnlyFirmwareByWalletId({
+      walletId: finalWalletId,
+      featuresInfo: featuresInfoCache,
+    });
+
+    if (isBtcOnlyFirmware && activeNetworkImpl !== IMPL_BTC) {
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
+
+    return undefined;
   }
 }
 

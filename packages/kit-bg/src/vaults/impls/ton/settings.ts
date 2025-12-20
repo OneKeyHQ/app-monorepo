@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   EAddressEncodings,
   ECoreApiExportedSecretKeyType,
@@ -57,6 +59,13 @@ const settings: IVaultSettings = {
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
     ECoreApiExportedSecretKeyType.mnemonic,
+  ],
+
+  supportedDeviceTypes: [
+    EDeviceType.Touch,
+    EDeviceType.Pro,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
   ],
 
   withMemo: true,

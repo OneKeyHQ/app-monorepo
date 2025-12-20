@@ -1,9 +1,11 @@
 import { useCallback, useContext, useMemo, useState } from 'react';
 
-import { InteractionManager } from 'react-native';
-import { useMedia, withStaticProperties } from 'tamagui';
+import { Keyboard } from 'react-native';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
@@ -21,7 +23,7 @@ import type {
   ISelectSection,
   ISelectTriggerProps,
 } from './type';
-import type { IListViewProps, ISectionListProps } from '../../layouts';
+import type { IListViewProps } from '../../layouts';
 import type { GestureResponderEvent } from 'react-native';
 
 const useTriggerLabel = (value: string | number | undefined | boolean) => {
@@ -59,8 +61,16 @@ const useTriggerLabel = (value: string | number | undefined | boolean) => {
 function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   const { changeOpenStatus, value, placeholder, disabled, labelInValue } =
     useContext(SelectContext);
+
   const handleTriggerPressed = useCallback(() => {
-    changeOpenStatus?.(true);
+    if (platformEnv.isNative && Keyboard.isVisible()) {
+      Keyboard.dismiss();
+      setTimeout(() => {
+        changeOpenStatus?.(true);
+      }, 100);
+    } else {
+      changeOpenStatus?.(true);
+    }
   }, [changeOpenStatus]);
   const renderTriggerOnPress = useCallback(
     (event: GestureResponderEvent) => {
@@ -96,14 +106,21 @@ function SelectItemView({
   return (
     <>
       <SizableText
+        size="$bodyLg"
         $gtMd={{
           size: '$bodyMd',
         }}
+        numberOfLines={2}
       >
         {label}
       </SizableText>
       {description ? (
-        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+        <SizableText
+          mt="$0.5"
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={2}
+        >
           {description}
         </SizableText>
       ) : null}
@@ -118,15 +135,17 @@ function SelectItem({
   leading,
   selectedValue,
   description,
+  disabled,
   testID = '',
 }: ISelectItemProps) {
   const { md } = useMedia();
   const handleSelect = useCallback(() => {
+    if (disabled) return;
     onSelect({
       value,
       label,
     });
-  }, [label, onSelect, value]);
+  }, [disabled, label, onSelect, value]);
   return useMemo(
     () => (
       <XStack
@@ -139,11 +158,13 @@ function SelectItem({
           borderRadius: '$3',
         }}
         borderCurve="continuous"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
+        opacity={disabled ? 0.5 : 1}
+        hoverStyle={disabled ? undefined : { bg: '$bgHover' }}
+        pressStyle={disabled ? undefined : { bg: '$bgActive' }}
         onPress={handleSelect}
         testID={testID}
         alignItems="center"
+        cursor={disabled ? 'not-allowed' : undefined}
       >
         {leading ? (
           <Stack alignContent="center" justifyContent="center" pr="$3">
@@ -167,11 +188,14 @@ function SelectItem({
               mr: '$0.5',
             })}
           />
-        ) : null}
+        ) : (
+          <Stack w="$8" h={1} />
+        )}
       </XStack>
     ),
     [
       description,
+      disabled,
       handleSelect,
       label,
       leading,
@@ -201,6 +225,11 @@ const requestIdleCallback = (callback: () => void) => {
   setTimeout(callback, 150);
 };
 
+/**
+ * Renders the dropdown content for the select component, displaying a list or sectioned list of selectable items within a popover.
+ *
+ * The content adapts to the presence of sections or a flat item list, and configures popover behavior and layout based on the number of items. Selection changes are deferred until after the dropdown closes.
+ */
 function SelectContent() {
   const {
     changeOpenStatus,
@@ -214,6 +243,7 @@ function SelectContent() {
     floatingPanelProps,
     placement,
     labelInValue,
+    usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
@@ -285,10 +315,8 @@ function SelectContent() {
         <SectionList
           sections={sections}
           renderSectionHeader={renderSectionHeader}
-          {...(listProps as Omit<
-            ISectionListProps<any>,
-            'sections' | 'renderSectionHeader'
-          >)}
+          SectionSeparatorComponent={<Stack h="$2" />}
+          {...(listProps as any)}
         />
       ) : (
         <ListView
@@ -302,15 +330,18 @@ function SelectContent() {
   );
 
   const popoverTrigger = useRenderPopoverTrigger();
+  const usingPercentSnapPoints =
+    usingPercentSnapPointsFromContext || (items?.length && items?.length > 10);
   return (
     <Popover
       title={title || ''}
       open={isOpen}
       onOpenChange={handleOpenChange}
-      keepChildrenMounted
+      keepChildrenMounted={!platformEnv.isNative}
       sheetProps={{
         dismissOnSnapToBottom: true,
-        snapPointsMode: 'fit',
+        snapPointsMode: usingPercentSnapPoints ? 'percent' : 'fit',
+        snapPoints: usingPercentSnapPoints ? [65] : undefined,
         ...sheetProps,
       }}
       floatingPanelProps={{
@@ -342,13 +373,14 @@ function SelectFrame<
   offset,
   labelInValue = false,
   floatingPanelProps,
-  placement = 'bottom-start',
+  placement = platformEnv.isNative ? 'bottom-start' : undefined,
+  usingPercentSnapPoints,
 }: ISelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const changeOpenStatus = useCallback(
     (openStatus: boolean) => {
       setIsOpen(openStatus);
-      void InteractionManager.runAfterInteractions(() => {
+      void timerUtils.setTimeoutPromised(() => {
         onOpenChange?.(openStatus);
       });
     },
@@ -371,6 +403,7 @@ function SelectFrame<
       floatingPanelProps,
       placement,
       offset,
+      usingPercentSnapPoints,
     }),
     [
       isOpen,
@@ -387,6 +420,7 @@ function SelectFrame<
       floatingPanelProps,
       placement,
       offset,
+      usingPercentSnapPoints,
     ],
   );
   return (
@@ -407,7 +441,7 @@ function BasicSelect<
   const media = useMedia();
   const defaultRenderTrigger = useCallback(
     ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
-      <>
+      <Stack position="relative" flex={1}>
         <Input
           value={label}
           disabled={disabled}
@@ -430,7 +464,7 @@ function BasicSelect<
           right="$3"
           top={media.gtMd ? '$2' : '$3'}
         />
-      </>
+      </Stack>
     ),
     [defaultTriggerInputProps, media.gtMd, testID],
   );

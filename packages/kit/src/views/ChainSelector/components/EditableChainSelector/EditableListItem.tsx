@@ -1,10 +1,14 @@
 import { useCallback, useContext, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { XStack } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
+import { Button, SizableText, XStack } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/networkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EditableChainSelectorContext } from './context';
@@ -20,6 +24,14 @@ type IEditableListItemProps = {
   isCustomNetworkEditable?: boolean;
   drag?: () => void;
   dragProps?: Record<string, any>;
+  actions?:
+    | {
+        leadingIcon?: IKeyOfIcons;
+        trailingIcon?: IKeyOfIcons;
+        title?: string;
+        onPress?: () => void;
+      }[]
+    | React.ReactNode;
 };
 
 const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
@@ -76,10 +88,18 @@ export const EditableListItem = ({
   isDraggable,
   isEditable = true,
   isCustomNetworkEditable,
+  actions,
 }: IEditableListItemProps) => {
   const intl = useIntl();
-  const { isEditMode, networkId, onPressItem, onEditCustomNetwork } =
-    useContext(EditableChainSelectorContext);
+  const {
+    isEditMode,
+    networkId,
+    onPressItem,
+    onEditCustomNetwork,
+    accountNetworkValues,
+    accountNetworkValueCurrency,
+    frequentlyUsedItemsIds,
+  } = useContext(EditableChainSelectorContext);
 
   const onPress = useMemo(() => {
     if (!isEditMode) {
@@ -87,6 +107,18 @@ export const EditableListItem = ({
     }
     return undefined;
   }, [isEditMode, item, onPressItem]);
+
+  const networkValue = useMemo(() => {
+    if (item.isAllNetworks) {
+      return Object.values(accountNetworkValues)
+        .reduce((acc, curr) => {
+          return acc.plus(curr ?? '0');
+        }, new BigNumber(0))
+        .toFixed();
+    }
+
+    return accountNetworkValues[item.id];
+  }, [item.isAllNetworks, item.id, accountNetworkValues]);
 
   return (
     <ListItem
@@ -102,12 +134,48 @@ export const EditableListItem = ({
         <NetworkAvatarBase
           logoURI={item.logoURI}
           isCustomNetwork={item.isCustomNetwork}
+          isAllNetworks={item.isAllNetworks}
           networkName={item.name}
           size="$8"
+          allNetworksIconProps={{
+            color: '$iconActive',
+          }}
         />
       }
+      renderItemText={(textProps) => (
+        <ListItem.Text
+          userSelect="none"
+          {...textProps}
+          primary={
+            <XStack alignItems="center" gap="$3">
+              <SizableText size="$bodyLgMedium">
+                {item.isAllNetworks
+                  ? intl.formatMessage({
+                      id: ETranslations.global_all_networks,
+                    })
+                  : item.name}
+              </SizableText>
+              {Array.isArray(actions)
+                ? actions?.map((action) => (
+                    <Button
+                      key={action.title}
+                      size="small"
+                      variant="secondary"
+                      icon={action.leadingIcon}
+                      iconAfter={action.trailingIcon}
+                      onPress={action.onPress}
+                    >
+                      {action.title}
+                    </Button>
+                  ))
+                : actions}
+            </XStack>
+          }
+        />
+      )}
       onPress={onPress}
       disabled={isDisabled}
+      bg={networkId === item.id ? '$bgActive' : undefined}
     >
       <XStack gap="$5">
         {isCustomNetworkEditable && isEditMode && !isDisabled ? (
@@ -132,8 +200,20 @@ export const EditableListItem = ({
             />
           </>
         ) : null}
-        {networkId === item.id && !isEditMode ? (
-          <ListItem.CheckMark key="checkmark" />
+
+        {new BigNumber(networkValue || 0).gt(
+          NETWORK_SHOW_VALUE_THRESHOLD_USD,
+        ) ? (
+          <Currency
+            hideValue
+            numberOfLines={1}
+            flexShrink={1}
+            size="$bodyLgMedium"
+            userSelect="none"
+            sourceCurrency={accountNetworkValueCurrency}
+          >
+            {networkValue || '0'}
+          </Currency>
         ) : null}
       </XStack>
     </ListItem>

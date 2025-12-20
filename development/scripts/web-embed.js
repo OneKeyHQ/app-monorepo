@@ -14,6 +14,11 @@ if (process.env.EAS_BUILD) {
   console.log('build web-embed on EAS_BUILD');
   require('child_process').execSync('yarn app:web-embed:build', {
     stdio: 'inherit',
+    env: {
+      ...process.env,
+      NODE_OPTIONS: '--max-old-space-size=8192',
+      NODE_ENV: 'production',
+    },
   });
   exit(0);
 }

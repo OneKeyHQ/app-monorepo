@@ -115,6 +115,7 @@ export default class Vault extends VaultBase {
         ...params,
         includingNonExistingAccount: true,
         withoutAccountId: false,
+        excludeIncompatibleWithWalletAccounts: true,
       },
     );
   }

@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ITabPageProps, ITableColumn } from '@onekeyhq/components';
+import type { ITableColumn } from '@onekeyhq/components';
 import {
   Dialog,
   Icon,
@@ -13,7 +13,7 @@ import {
   View,
   XStack,
   YStack,
-  renderNestedScrollView,
+  useInPageDialog,
   useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -48,7 +48,15 @@ function NetworkIdSelect({
   onChange: (selectedIndex: number) => void;
 }) {
   return (
-    <XStack gap="$2" px="$5" pb="$2" mt="$5" $gtMd={{ pr: 0 }} py="$2">
+    <XStack
+      gap="$2"
+      px="$5"
+      pb="$2"
+      mt="$5"
+      $gtMd={{ pr: 0 }}
+      py="$2"
+      flexWrap="wrap"
+    >
       {options.map((networkId, index) => (
         <NetworksFilterItem
           key={networkId}
@@ -151,7 +159,7 @@ function MarketDetailPoolsSkeletonRow() {
 export function MarketDetailPools({
   detailPlatforms,
   tickers,
-}: ITabPageProps & {
+}: {
   tickers?: IMarketDetailTicker[];
   detailPlatforms: IMarketDetailPlatform;
 }) {
@@ -260,10 +268,13 @@ export function MarketDetailPools({
     }),
     [handleSortTypeChange],
   );
+
+  const inPageDialog = useInPageDialog();
+
   const onRow = useCallback(
     (item: IMarketDetailPool | IMarketDetailTicker) => ({
       onPress: () => {
-        Dialog.show({
+        inPageDialog.show({
           showFooter: false,
           title: intl.formatMessage({
             id: ETranslations.market_pool_details,
@@ -276,7 +287,7 @@ export function MarketDetailPools({
         });
       },
     }),
-    [intl, isCEXSelected],
+    [inPageDialog, intl, isCEXSelected],
   );
 
   const poolColumns = useMemo(
@@ -560,6 +571,7 @@ export function MarketDetailPools({
       contentContainerStyle={{
         pb: '$10',
       }}
+      scrollEnabled={false}
       TableHeaderComponent={
         <NetworkIdSelect
           options={oneKeyNetworkIds}
@@ -569,7 +581,6 @@ export function MarketDetailPools({
         />
       }
       TableEmptyComponent={<MarketDetailPoolsSkeletonRow />}
-      renderScrollComponent={renderNestedScrollView}
       onRow={onRow}
       onHeaderRow={onHeaderRow as any}
       rowProps={{

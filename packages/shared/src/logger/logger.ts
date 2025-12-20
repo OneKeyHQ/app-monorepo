@@ -4,13 +4,23 @@ import { AccountScope } from './scopes/account';
 import { AccountSelectorScope } from './scopes/accountSelector';
 import { AddressInputScope } from './scopes/addressInput';
 import { AppScope } from './scopes/app';
+import { ApprovalScope } from './scopes/approval';
 import { CloudBackupScope } from './scopes/cloudBackup';
+import { CloudSyncScope } from './scopes/cloudSync';
 import { DemoScope } from './scopes/demo';
+import { DexScope } from './scopes/dex';
 import { DiscoveryScope } from './scopes/discovery';
 import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
+import { IpTableScope } from './scopes/ipTable';
 import { MarketScope } from './scopes/market';
+import { NetworkDoctorScope } from './scopes/networkDoctor';
 import { NotificationScope } from './scopes/notification/notification';
+import { OnboardingScope } from './scopes/onboarding';
+import { PerpScope } from './scopes/perp';
+import { PrimeScope } from './scopes/prime';
+import { ReferralScope } from './scopes/referral';
+import { RewardScope } from './scopes/reward';
 import { ScanQrCodeScope } from './scopes/scanQrCode';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
@@ -18,16 +28,23 @@ import { StakingScope } from './scopes/staking';
 import { SwapScope } from './scopes/swap';
 import { TokenScope } from './scopes/token';
 import { TransactionScope } from './scopes/transaction';
+import { UIScope } from './scopes/ui';
+import { UniversalSearchScope } from './scopes/universalSearch';
 import { UpdateScope } from './scopes/update';
+import { WalletScope } from './scopes/wallet';
 
 export class DefaultLogger {
   account = new AccountScope();
 
   cloudBackup = new CloudBackupScope();
 
+  cloudSync = new CloudSyncScope();
+
   accountSelector = new AccountSelectorScope();
 
   app = new AppScope();
+
+  approval = new ApprovalScope();
 
   demo = new DemoScope();
 
@@ -51,13 +68,35 @@ export class DefaultLogger {
 
   hardware = new HardwareScope();
 
+  ipTable = new IpTableScope();
+
+  networkDoctor = new NetworkDoctorScope();
+
   fiatCrypto = new FiatCryptoScope();
 
   notification = new NotificationScope();
 
   market = new MarketScope();
 
+  perp = new PerpScope();
+
   scanQrCode = new ScanQrCodeScope();
+
+  wallet = new WalletScope();
+
+  ui = new UIScope();
+
+  referral = new ReferralScope();
+
+  reward = new RewardScope();
+
+  dex = new DexScope();
+
+  prime = new PrimeScope();
+
+  onboarding = new OnboardingScope();
+
+  universalSearch = new UniversalSearchScope();
 }
 
 const defaultLogger = new DefaultLogger();

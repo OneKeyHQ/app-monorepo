@@ -23,28 +23,32 @@ export const useAllNetworkCopyAddressHandler = ({
     networkUtils.isAllNetwork({ networkId: network.id }) &&
     indexedAccount !== undefined;
 
-  const handleAllNetworkCopyAddress = useCallback(async () => {
-    console.log(activeAccountRef.current);
-    if (!indexedAccount) {
-      return;
-    }
-    const accountId = account?.id;
-    // if (!accountId) {
-    //   const allNetworkMockedAccount =
-    //     await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount({
-    //       indexedAccountId: indexedAccount.id,
-    //     });
-    //   accountId = allNetworkMockedAccount.id;
-    // }
-    appNavigation.pushModal(EModalRoutes.WalletAddress, {
-      screen: EModalWalletAddressRoutes.WalletAddress,
-      params: {
-        accountId,
-        indexedAccountId: indexedAccount.id,
-        walletId: wallet?.id,
-      },
-    });
-  }, [appNavigation, account, indexedAccount, wallet]);
+  const handleAllNetworkCopyAddress = useCallback(
+    async (excludeTestNetwork?: boolean) => {
+      console.log(activeAccountRef.current);
+      if (!indexedAccount) {
+        return;
+      }
+      const accountId = account?.id;
+      // if (!accountId) {
+      //   const allNetworkMockedAccount =
+      //     await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount({
+      //       indexedAccountId: indexedAccount.id,
+      //     });
+      //   accountId = allNetworkMockedAccount.id;
+      // }
+      appNavigation.pushModal(EModalRoutes.WalletAddress, {
+        screen: EModalWalletAddressRoutes.WalletAddress,
+        params: {
+          accountId,
+          indexedAccountId: indexedAccount.id,
+          walletId: wallet?.id,
+          excludeTestNetwork,
+        },
+      });
+    },
+    [appNavigation, account, indexedAccount, wallet],
+  );
 
   return {
     isAllNetworkEnabled,

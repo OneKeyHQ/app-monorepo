@@ -1,3 +1,9 @@
+/* eslint-disable import/first */
+/* eslint-disable unicorn/prefer-global-this */
+if (typeof window !== 'undefined') {
+  window.$$onekeyJsReadyAt = Date.now();
+}
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';

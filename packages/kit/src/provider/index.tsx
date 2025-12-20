@@ -16,14 +16,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
+import SupabaseAuthProvider from '../components/OneKeyAuth/supabase/SupabaseAuthProvider';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
-import { PrivyProviderLazy } from '../views/Prime/components/PrivyProviderLazy';
 
-import { ColdStartByNotification, Container } from './Container';
-import InAppNotification from './Container/InAppNotification';
+import { Container } from './Container';
+import { ColdStartByNotification } from './Container/ColdStartByNotification';
 import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
 import { StateActiveContainer } from './Container/StateActiveContainer';
+import { HardwareServiceProvider } from './HardwareServiceProvider';
+import { KeyboardProvider } from './KeyboardProvider';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
@@ -61,23 +63,25 @@ export function KitProvider(props: any = {}) {
   const content = (
     <SafeAreaProvider>
       <GlobalJotaiReady>
-        <PrivyProviderLazy>
-          <GestureHandlerRootView style={flexStyle}>
-            <ThemeProvider>
-              <NetworkReachabilityTracker />
-              <SplashProvider>
-                <Container />
-              </SplashProvider>
-              <PasswordVerifyPromptMount />
-              <WebViewWebEmbedProvider />
-              <LastActivityTracker />
-              <SystemLocaleTracker />
-              <StateActiveContainer />
-              <InAppNotification />
-              <SyncHomeAccountToDappAccountProvider />
-            </ThemeProvider>
-          </GestureHandlerRootView>
-        </PrivyProviderLazy>
+        <SupabaseAuthProvider>
+          <KeyboardProvider>
+            <GestureHandlerRootView style={flexStyle}>
+              <ThemeProvider>
+                <NetworkReachabilityTracker />
+                <SplashProvider>
+                  <Container />
+                </SplashProvider>
+                <PasswordVerifyPromptMount />
+                <WebViewWebEmbedProvider />
+                <LastActivityTracker />
+                <SystemLocaleTracker />
+                <StateActiveContainer />
+                <SyncHomeAccountToDappAccountProvider />
+                <HardwareServiceProvider />
+              </ThemeProvider>
+            </GestureHandlerRootView>
+          </KeyboardProvider>
+        </SupabaseAuthProvider>
       </GlobalJotaiReady>
     </SafeAreaProvider>
   );

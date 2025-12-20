@@ -60,7 +60,7 @@ const usePasswordProtection = (isLock: boolean) => {
     return '';
   }, [isProtectionTime, passwordErrorProtectionTimeMinutesSurplus, intl]);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const intervalRef = useRef<ReturnType<typeof setInterval>>(null);
 
   const protectionTimeRun = useCallback(() => {
     if (passwordErrorProtectionTime < Date.now()) {

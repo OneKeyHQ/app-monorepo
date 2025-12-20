@@ -10,15 +10,15 @@ import {
 import { memoizee } from '../utils/cacheUtils';
 
 import type { IBiologyAuth } from './types';
-import type { LocalAuthenticationResult } from 'expo-local-authentication';
+import type {
+  LocalAuthenticationError,
+  LocalAuthenticationResult,
+} from 'expo-local-authentication';
 
 const isSupportBiologyAuthFn = () =>
-  new Promise<boolean>((resolve) => {
-    const result = platformEnv.isE2E
-      ? false
-      : globalThis?.desktopApi?.canPromptTouchID();
-    resolve(!!result);
-  });
+  platformEnv.isE2E
+    ? Promise.resolve(false)
+    : globalThis?.desktopApiProxy?.security?.canPromptTouchID();
 
 export const isSupportBiologyAuth = memoizee(isSupportBiologyAuthFn, {
   promise: true,
@@ -37,8 +37,9 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
     if (!supported) {
       return {
         success: false,
-        error: 'biologyAuthenticate no supported',
-      };
+        error:
+          'biologyAuthenticate no supported' as unknown as LocalAuthenticationError,
+      } as LocalAuthenticationResult;
     }
 
     try {
@@ -46,21 +47,32 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
       //  so it needs the corresponding text in the system default language.
       const locale = getDefaultLocale();
       const messages = await getLocaleMessages(locale);
-      const result = await globalThis?.desktopApi?.promptTouchID(
+      const result = await globalThis?.desktopApiProxy?.security?.promptTouchID(
         messages[ETranslations.global_unlock],
       );
-      return result.success
-        ? { success: true }
-        : {
-            success: false,
-            error: result.error || 'biologyAuthenticate failed',
-            warning: result.error,
-          };
-    } catch (e: any) {
+      if (result.success) {
+        return {
+          success: true,
+        } as LocalAuthenticationResult;
+      }
+      if (result.isSupport) {
+        return {
+          success: false,
+          error: (result.error ||
+            'biologyAuthenticate failed') as unknown as LocalAuthenticationError,
+          warning: result.error,
+        };
+      }
       return {
         success: false,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        error: e?.message || 'biologyAuthenticate failed',
+        error: 'not_available',
+      };
+    } catch (e: unknown) {
+      const authError = e as { message: string };
+      return {
+        success: false,
+        error: (authError?.message ||
+          'biologyAuthenticate failed') as unknown as LocalAuthenticationError,
       };
     }
   };

@@ -116,7 +116,6 @@ export function V4MigrationProcess({
         headerTitle={intl.formatMessage({
           id: ETranslations.v4_migration_update_in_progress,
         })}
-        disableClose
       />
       <Page.Body
         py="$2.5"

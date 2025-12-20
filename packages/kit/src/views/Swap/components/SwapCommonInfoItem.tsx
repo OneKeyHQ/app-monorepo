@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
 import {
+  type ISizableTextProps,
   Icon,
-  IconButton,
   Popover,
   SizableText,
   Skeleton,
@@ -18,24 +18,30 @@ interface ISwapCommonInfoItemProps {
   onPress?: () => void;
   questionMarkContent?: ReactNode;
   isLoading?: boolean;
+  titleProps?: ISizableTextProps;
+  valueProps?: ISizableTextProps;
+  containerProps?: ComponentProps<typeof XStack>;
 }
 
 const SwapCommonInfoItemTitleContent = ({
   title,
   questionMarkContent,
+  titleProps,
 }: {
   title: string;
   questionMarkContent?: ReactNode;
+  titleProps?: ISizableTextProps;
 }) => {
   const questionMarkComponent = useMemo(
     () => (
       <Popover
         title={title}
         renderTrigger={
-          <IconButton
-            variant="tertiary"
-            size="small"
-            icon="InfoCircleOutline"
+          <Icon
+            name="InfoCircleOutline"
+            size="$3.5"
+            cursor="pointer"
+            color="$iconSubdued"
           />
         }
         renderContent={<Stack>{questionMarkContent}</Stack>}
@@ -44,12 +50,13 @@ const SwapCommonInfoItemTitleContent = ({
     [questionMarkContent, title],
   );
   return (
-    <XStack>
+    <XStack alignItems="center">
       <SizableText
         userSelect="none"
         mr="$1"
         size="$bodyMd"
         color="$textSubdued"
+        {...titleProps}
       >
         {title}
       </SizableText>
@@ -67,6 +74,9 @@ const SwapCommonInfoItem = ({
   isLoading,
   valueComponent,
   questionMarkContent,
+  titleProps,
+  valueProps,
+  containerProps,
 }: ISwapCommonInfoItemProps) => {
   const rightTrigger = useMemo(
     () => (
@@ -80,7 +90,9 @@ const SwapCommonInfoItem = ({
         cursor={onPress ? 'pointer' : undefined}
       >
         {valueComponent || (
-          <SizableText size="$bodyMdMedium">{value}</SizableText>
+          <SizableText size="$bodyMdMedium" {...valueProps}>
+            {value}
+          </SizableText>
         )}
         {onPress ? (
           <Icon
@@ -92,19 +104,24 @@ const SwapCommonInfoItem = ({
         ) : null}
       </XStack>
     ),
-    [onPress, value, valueComponent],
+    [onPress, value, valueComponent, valueProps],
   );
 
   return (
-    <XStack justifyContent="space-between" alignItems="center">
+    <XStack
+      justifyContent="space-between"
+      alignItems="center"
+      {...containerProps}
+    >
       <SwapCommonInfoItemTitleContentMemo
         title={title}
         questionMarkContent={questionMarkContent}
+        titleProps={titleProps}
       />
 
       <XStack gap="$2">
         {isLoading ? (
-          <Stack py="$1">
+          <Stack py={valueProps?.size === '$bodySmMedium' ? '$0' : '$1'}>
             <Skeleton h="$3" w="$24" />
           </Stack>
         ) : (

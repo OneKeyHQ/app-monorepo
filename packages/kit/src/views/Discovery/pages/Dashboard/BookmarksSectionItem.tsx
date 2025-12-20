@@ -19,6 +19,7 @@ export function BookmarksSectionItem({
 }) {
   return (
     <DiscoveryItemCard
+      isLoading={false}
       logo={logo}
       title={title}
       url={url}

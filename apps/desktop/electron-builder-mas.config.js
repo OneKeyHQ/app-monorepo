@@ -1,9 +1,9 @@
-/* eslint-disable no-template-curly-in-string */
-require('../../development/env');
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
 
 module.exports = {
   ...baseElectronBuilderConfig,
+  'appId': 'so.onekey.wallet',
+  'buildVersion': `${process.env.BUILD_NUMBER}0`,
   'dmg': {
     'sign': false,
   },
@@ -18,6 +18,10 @@ module.exports = {
     'entitlements': 'entitlements.mac.plist',
     'extendInfo': {
       'NSCameraUsageDescription': 'Use Camera to scan QR Code.',
+      'NSBluetoothAlwaysUsageDescription':
+        'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
+      'NSBluetoothPeripheralUsageDescription':
+        'OneKey wallet needs Bluetooth access to discover and connect with hardware wallets',
     },
   },
   'mas': {
@@ -31,6 +35,10 @@ module.exports = {
     'extendInfo': {
       'ElectronTeamID': 'BVJ3FU5H2K',
       'ITSAppUsesNonExemptEncryption': false,
+      'NSBluetoothAlwaysUsageDescription':
+        'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
+      'NSBluetoothPeripheralUsageDescription':
+        'OneKey wallet needs Bluetooth access to discover and connect with hardware wallets',
     },
   },
   'asarUnpack': ['**/*.node'],

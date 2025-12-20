@@ -1,5 +1,7 @@
 import { isPlainObject } from 'lodash';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import platformEnv from '../../platformEnv';
 import resetUtils from '../../utils/resetUtils';
 
@@ -15,7 +17,7 @@ const syncStorageWeb = {
   setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
     resetUtils.checkNotInResetting();
     if (!isPlainObject(value)) {
-      throw new Error('value must be a plain object');
+      throw new OneKeyLocalError('value must be a plain object');
     }
     mmkvStorageInstance.set(key, JSON.stringify(value));
   },
@@ -40,7 +42,7 @@ const syncStorageWeb = {
     return mmkvStorageInstance.getBoolean(key);
   },
   delete(key: EAppSyncStorageKeys) {
-    mmkvStorageInstance.delete(key);
+    mmkvStorageInstance.remove(key);
   },
   clearAll() {
     mmkvStorageInstance.clearAll();
@@ -53,32 +55,32 @@ const syncStorageWeb = {
 export type ISyncStorage = typeof syncStorageWeb;
 
 const syncStorageExtBg: ISyncStorage = {
-  set(key: EAppSyncStorageKeys, value: boolean | string | number): void {
+  set(_key: EAppSyncStorageKeys, _value: boolean | string | number): void {
     // do nothing
   },
   setObject<T extends Record<string, any>>(
-    key: EAppSyncStorageKeys,
-    value: T,
+    _key: EAppSyncStorageKeys,
+    _value: T,
   ): void {
     // do nothing
   },
-  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+  getObject<T>(_key: EAppSyncStorageKeys): T | undefined {
     // do nothing
     return undefined;
   },
-  getString(key: EAppSyncStorageKeys): string | undefined {
+  getString(_key: EAppSyncStorageKeys): string | undefined {
     // do nothing
     return undefined;
   },
-  getNumber(key: EAppSyncStorageKeys): number | undefined {
+  getNumber(_key: EAppSyncStorageKeys): number | undefined {
     // do nothing
     return undefined;
   },
-  getBoolean(key: EAppSyncStorageKeys): boolean | undefined {
+  getBoolean(_key: EAppSyncStorageKeys): boolean | undefined {
     // do nothing
     return undefined;
   },
-  delete(key: EAppSyncStorageKeys): void {
+  delete(_key: EAppSyncStorageKeys): void {
     // do nothing
   },
   clearAll(): void {

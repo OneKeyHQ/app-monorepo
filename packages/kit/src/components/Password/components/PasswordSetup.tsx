@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
@@ -70,6 +70,7 @@ const PasswordSetup = ({
   });
   const [secureEntry, setSecureEntry] = useState(true);
   const [secureReentry, setSecureReentry] = useState(true);
+  const [passCodeConfirmClear, setPassCodeConfirmClear] = useState(false);
   const passCodeFirstStep = useMemo(
     () => currentPasswordMode === EPasswordMode.PASSCODE && !passCodeConfirm,
     [currentPasswordMode, passCodeConfirm],
@@ -90,6 +91,14 @@ const PasswordSetup = ({
     }, 150);
   };
 
+  const clearPasscodeTimeOut = useCallback(() => {
+    setPassCodeConfirmClear(false);
+    setTimeout(() => {
+      form.setValue('confirmPassCode', '');
+      setPassCodeConfirmClear(true);
+    }, 200);
+  }, [form]);
+
   return (
     <>
       {currentPasswordMode === EPasswordMode.PASSCODE && passCodeConfirm ? (
@@ -102,7 +111,17 @@ const PasswordSetup = ({
             </Heading>
           </Dialog.Title>
         </Dialog.Header>
-      ) : null}
+      ) : (
+        <Dialog.Header>
+          <Dialog.Title>
+            <Heading size="$headingXl" py="$px">
+              {intl.formatMessage({
+                id: ETranslations.global_set_passcode,
+              })}
+            </Heading>
+          </Dialog.Title>
+        </Dialog.Header>
+      )}
       <Form form={form}>
         {currentPasswordMode === EPasswordMode.PASSWORD ? (
           <>
@@ -121,7 +140,7 @@ const PasswordSetup = ({
                 minLength: {
                   value: 8,
                   message: intl.formatMessage(
-                    { id: ETranslations.auth_error_passwcode_too_short },
+                    { id: ETranslations.auth_error_passcode_too_short },
                     {
                       length: 8,
                     },
@@ -131,7 +150,7 @@ const PasswordSetup = ({
                   value: 128,
                   message: intl.formatMessage(
                     {
-                      id: ETranslations.auth_erro_passcode_too_long,
+                      id: ETranslations.auth_error_passcode_too_long,
                     },
                     {
                       length: 128,
@@ -157,7 +176,7 @@ const PasswordSetup = ({
                   size: 'medium',
                 }}
                 placeholder={intl.formatMessage({
-                  id: ETranslations.auth_new_passwcode_form_placeholder,
+                  id: ETranslations.auth_new_passcode_form_placeholder,
                 })}
                 disabled={loading}
                 autoFocus
@@ -246,7 +265,7 @@ const PasswordSetup = ({
                     v.length >= PIN_CELL_COUNT
                       ? undefined
                       : intl.formatMessage(
-                          { id: ETranslations.auth_error_passwcode_too_short },
+                          { id: ETranslations.auth_error_passcode_too_short },
                           {
                             length: PIN_CELL_COUNT,
                           },
@@ -270,6 +289,7 @@ const PasswordSetup = ({
                 }}
                 editable
                 autoFocus
+                onComplete={form.handleSubmit(onPassCodeNext)}
                 autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
                 testId="pass-code"
               />
@@ -286,6 +306,9 @@ const PasswordSetup = ({
                     }
                     const state = form.getFieldState('passCode');
                     if (!state.error) {
+                      if (v !== values.passCode) {
+                        clearPasscodeTimeOut();
+                      }
                       return v !== values.passCode
                         ? intl.formatMessage({
                             id: ETranslations.auth_error_passcode_not_match,
@@ -307,6 +330,8 @@ const PasswordSetup = ({
                 }}
                 editable
                 autoFocus={passCodeConfirm}
+                clearCodeAndFocus={passCodeConfirmClear}
+                onComplete={form.handleSubmit(onSetupPassword)}
                 autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
                 testId="confirm-pass-code"
               />
@@ -317,22 +342,24 @@ const PasswordSetup = ({
         {!passCodeFirstStep ? (
           <Unspaced>{biologyAuthSwitchContainer}</Unspaced>
         ) : null}
-        <Button
-          size="large"
-          $gtMd={
-            {
-              size: 'medium',
-            } as any
-          }
-          variant="primary"
-          loading={loading}
-          onPress={form.handleSubmit(
-            passCodeFirstStep ? onPassCodeNext : onSetupPassword,
-          )}
-          testID="set-password"
-        >
-          {confirmBtnTextMemo}
-        </Button>
+        {currentPasswordMode === EPasswordMode.PASSWORD ? (
+          <Button
+            size="large"
+            $gtMd={
+              {
+                size: 'medium',
+              } as any
+            }
+            variant="primary"
+            loading={loading}
+            onPress={form.handleSubmit(
+              passCodeFirstStep ? onPassCodeNext : onSetupPassword,
+            )}
+            testID="set-password"
+          >
+            {confirmBtnTextMemo}
+          </Button>
+        ) : null}
         {platformEnv.isNative &&
         (passCodeFirstStep ||
           currentPasswordMode === EPasswordMode.PASSWORD) ? (

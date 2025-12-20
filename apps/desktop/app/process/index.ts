@@ -1,10 +1,8 @@
 import { app } from 'electron';
 import logger from 'electron-log/main';
 
-import autoUpdateInit from './AutoUpdate';
 import BridgeProcess, { BridgeHeart } from './Bridge';
 import HttpServerInit from './HttpServer';
-import updateTouchResInit from './TouchRes';
 
 import type { ILocalStore } from '../libs/store';
 import type { BrowserWindow } from 'electron';
@@ -40,13 +38,9 @@ export const restartBridge = async () => {
   await bridgeInstance?.restart();
 };
 
-const init = async ({ mainWindow, store }: IDependencies) => {
+const init = async () => {
   await launchBridge();
-  if (!process.mas) {
-    autoUpdateInit({ mainWindow, store });
-  }
   HttpServerInit();
-  updateTouchResInit({ mainWindow });
 };
 
 export default init;

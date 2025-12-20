@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 
 const QRCodeGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="QRCode"
     elements={[
       {

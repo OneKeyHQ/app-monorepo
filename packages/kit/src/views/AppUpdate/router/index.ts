@@ -11,6 +11,14 @@ const WhatsNew = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AppUpdate/pages/WhatsNew'),
 );
 
+const DownloadVerify = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/AppUpdate/pages/DownloadVerify'),
+);
+
+const ManualInstall = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/AppUpdate/pages/ManualInstall'),
+);
+
 export const AppUpdateRouter: IModalFlowNavigatorConfig<
   EAppUpdateRoutes,
   IAppUpdatePagesParamList
@@ -18,9 +26,18 @@ export const AppUpdateRouter: IModalFlowNavigatorConfig<
   {
     name: EAppUpdateRoutes.UpdatePreview,
     component: UpdatePreview,
+    rewrite: '/preview',
   },
   {
     name: EAppUpdateRoutes.WhatsNew,
     component: WhatsNew,
+  },
+  {
+    name: EAppUpdateRoutes.DownloadVerify,
+    component: DownloadVerify,
+  },
+  {
+    name: EAppUpdateRoutes.ManualInstall,
+    component: ManualInstall,
   },
 ];

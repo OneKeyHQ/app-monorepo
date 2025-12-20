@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 import { findIndex, isEmpty } from 'lodash';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -46,8 +45,8 @@ export function buildTxActionDirection({
   accountAddress: string;
 }) {
   const fixedFrom = from?.toLowerCase() ?? '';
-  const fixedTo = to.toLowerCase();
-  const fixedAccountAddress = accountAddress.toLowerCase();
+  const fixedTo = to?.toLowerCase() ?? '';
+  const fixedAccountAddress = accountAddress?.toLowerCase() ?? '';
 
   // out first for internal send
   if (fixedFrom && fixedFrom === fixedAccountAddress) {
@@ -133,6 +132,34 @@ export function calculateNativeAmountInActions(actions: IDecodedTxAction[]) {
   return {
     nativeAmount,
     nativeAmountValue,
+  };
+}
+
+export function calculateTokenAmountInActions({
+  actions,
+  tokenAddress,
+}: {
+  actions: IDecodedTxAction[];
+  tokenAddress: string;
+}) {
+  let tokenAmount = '0';
+  actions.forEach((item) => {
+    if (
+      item.type === EDecodedTxActionType.ASSET_TRANSFER &&
+      item.assetTransfer
+    ) {
+      item.assetTransfer.sends.forEach((send) => {
+        if (
+          send.tokenIdOnNetwork.toLowerCase() === tokenAddress.toLowerCase()
+        ) {
+          tokenAmount = new BigNumber(tokenAmount).plus(send.amount).toFixed();
+        }
+      });
+    }
+  });
+
+  return {
+    tokenAmount,
   };
 }
 
@@ -222,14 +249,12 @@ export function getStakingActionLabel({
 
 export function convertAddressToSignatureConfirmAddress({
   address,
-  networkId,
   label,
-  owner,
+  showAccountName,
 }: {
   address: string;
-  networkId: string;
   label?: string;
-  owner?: string;
+  showAccountName?: boolean;
 }): IDisplayComponentAddress {
   return {
     type: EParseTxComponentType.Address,
@@ -238,10 +263,9 @@ export function convertAddressToSignatureConfirmAddress({
       appLocale.intl.formatMessage({
         id: ETranslations.copy_address_modal_title,
       }),
-    address: networkUtils.isLightningNetworkByNetworkId(networkId)
-      ? owner ?? ''
-      : address,
+    address,
     tags: [],
+    showAccountName,
   };
 }
 

@@ -1,0 +1,69 @@
+diff --git a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/index.d.ts b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/index.d.ts
+index 83c5549..aaeca52 100644
+--- a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/index.d.ts
++++ b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/index.d.ts
+@@ -35,7 +35,7 @@ export declare const Tabs: {
+     }) => React.ReactElement;
+ };
+ export { Container, Tab, Lazy, FlatList, ScrollView, SectionList, FlashList, MasonryFlashList, };
+-export { useCurrentTabScrollY, useHeaderMeasurements, useFocusedTab, useAnimatedTabIndex, useCollapsibleStyle, } from './hooks';
++export { useCurrentTabScrollY, useHeaderMeasurements, useFocusedTab, useAnimatedTabIndex, useCollapsibleStyle, useTabNameContext } from './hooks';
+ export type { HeaderMeasurements } from './hooks';
+ export { MaterialTabBar } from './MaterialTabBar/TabBar';
+ export { MaterialTabItem } from './MaterialTabBar/TabItem';
+diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
+index ba7dffa..e12c0c2 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
+@@ -101,7 +101,11 @@ export function useTabProps<T extends TabName>(
+  */
+ export function useTabsContext(): ContextType<TabName> {
+   const c = useContext(Context)
+-  if (!c) throw new Error('useTabsContext must be inside a Tabs.Container')
++  // if (!c) throw new Error('useTabsContext must be inside a Tabs.Container')
++  if (!c) {
++    console.error('useTabsContext must be inside a Tabs.Container')
++    return {} as ContextType<TabName>
++  }
+   return c
+ }
+ 
+@@ -114,7 +118,11 @@ export function useTabsContext(): ContextType<TabName> {
+  */
+ export function useTabNameContext(): TabName {
+   const c = useContext(TabNameContext)
+-  if (!c) throw new Error('useTabNameContext must be inside a TabNameContext')
++  // if (!c) throw new Error('useTabNameContext must be inside a TabNameContext')
++  if (!c) {
++    console.error('useTabNameContext must be inside a TabNameContext')
++    return '' as TabName
++  }
+   return c
+ }
+ 
+@@ -579,11 +587,11 @@ export function useAfterMountEffect(
+ export function useConvertAnimatedToValue<T>(
+   animatedValue: Animated.SharedValue<T>
+ ) {
+-  const [value, setValue] = useState<T>(animatedValue.value)
++  const [value, setValue] = useState<T>(animatedValue?.value)
+ 
+   useAnimatedReaction(
+     () => {
+-      return animatedValue.value
++      return animatedValue?.value
+     },
+     (animValue) => {
+       if (animValue !== value) {
+diff --git a/node_modules/react-native-collapsible-tab-view/src/index.tsx b/node_modules/react-native-collapsible-tab-view/src/index.tsx
+index 3d0be9d..94c928f 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/index.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/index.tsx
+@@ -58,6 +58,7 @@ export {
+   useFocusedTab,
+   useAnimatedTabIndex,
+   useCollapsibleStyle,
++  useTabNameContext,
+ } from './hooks'
+ export type { HeaderMeasurements } from './hooks'
+ 

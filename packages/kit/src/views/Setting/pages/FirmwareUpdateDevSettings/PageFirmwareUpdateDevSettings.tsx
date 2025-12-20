@@ -1,6 +1,6 @@
 import { Page } from '@onekeyhq/components';
 
-import { FirmwareUpdateDevSettings } from '../List/DevSettingsSection/FirmwareUpdateDevSettings';
+import { FirmwareUpdateDevSettings } from '../Tab/DevSettingsSection/FirmwareUpdateDevSettings';
 
 export default function PageFirmwareUpdateDevSettings() {
   return (

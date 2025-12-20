@@ -16,6 +16,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   LowerTransactionAmountError,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -77,7 +78,7 @@ export default class VaultNexa extends VaultBase {
   ): Promise<INetworkAccountAddressDetail> {
     const { account, networkId } = params;
     const network = await this.getNetwork();
-    const displayAddress = getDisplayAddress({
+    const displayAddress = await getDisplayAddress({
       address: account.address,
       chainId: network.chainId,
     });
@@ -104,7 +105,9 @@ export default class VaultNexa extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
     const { to, amount } = transferInfo;
     const dbAccount = await this.getAccount();

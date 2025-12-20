@@ -1,0 +1,444 @@
+diff --git a/node_modules/react-native-aes-crypto/android/build/.transforms/7661799f1c3d5750d6964f986682ec97/results.bin b/node_modules/react-native-aes-crypto/android/build/.transforms/7661799f1c3d5750d6964f986682ec97/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/.transforms/7661799f1c3d5750d6964f986682ec97/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/react-native-aes-crypto/android/build/.transforms/7661799f1c3d5750d6964f986682ec97/transformed/classes/classes_dex/classes.dex b/node_modules/react-native-aes-crypto/android/build/.transforms/7661799f1c3d5750d6964f986682ec97/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..2a454c4
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/.transforms/7661799f1c3d5750d6964f986682ec97/transformed/classes/classes_dex/classes.dex differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/.transforms/7b8cbfeb28aa7e07619b173949477571/results.bin b/node_modules/react-native-aes-crypto/android/build/.transforms/7b8cbfeb28aa7e07619b173949477571/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/.transforms/7b8cbfeb28aa7e07619b173949477571/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/react-native-aes-crypto/android/build/.transforms/7b8cbfeb28aa7e07619b173949477571/transformed/classes/classes_dex/classes.dex b/node_modules/react-native-aes-crypto/android/build/.transforms/7b8cbfeb28aa7e07619b173949477571/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..aaf3adf
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/.transforms/7b8cbfeb28aa7e07619b173949477571/transformed/classes/classes_dex/classes.dex differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/.transforms/9e830e1e28da8c297741469bb7cd33d3/results.bin b/node_modules/react-native-aes-crypto/android/build/.transforms/9e830e1e28da8c297741469bb7cd33d3/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/.transforms/9e830e1e28da8c297741469bb7cd33d3/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/react-native-aes-crypto/android/build/.transforms/9e830e1e28da8c297741469bb7cd33d3/transformed/classes/classes_dex/classes.dex b/node_modules/react-native-aes-crypto/android/build/.transforms/9e830e1e28da8c297741469bb7cd33d3/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..2a9eb4f
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/.transforms/9e830e1e28da8c297741469bb7cd33d3/transformed/classes/classes_dex/classes.dex differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/.transforms/f76f7fbaac229ef9041dccd5ce2afff7/results.bin b/node_modules/react-native-aes-crypto/android/build/.transforms/f76f7fbaac229ef9041dccd5ce2afff7/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/.transforms/f76f7fbaac229ef9041dccd5ce2afff7/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/react-native-aes-crypto/android/build/.transforms/f76f7fbaac229ef9041dccd5ce2afff7/transformed/classes/classes_dex/classes.dex b/node_modules/react-native-aes-crypto/android/build/.transforms/f76f7fbaac229ef9041dccd5ce2afff7/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..b605f06
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/.transforms/f76f7fbaac229ef9041dccd5ce2afff7/transformed/classes/classes_dex/classes.dex differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/generated/source/buildConfig/debug/com/tectiv3/aes/BuildConfig.java b/node_modules/react-native-aes-crypto/android/build/generated/source/buildConfig/debug/com/tectiv3/aes/BuildConfig.java
+new file mode 100644
+index 0000000..04d61c8
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/generated/source/buildConfig/debug/com/tectiv3/aes/BuildConfig.java
+@@ -0,0 +1,10 @@
++/**
++ * Automatically generated file. DO NOT MODIFY
++ */
++package com.tectiv3.aes;
++
++public final class BuildConfig {
++  public static final boolean DEBUG = Boolean.parseBoolean("true");
++  public static final String LIBRARY_PACKAGE_NAME = "com.tectiv3.aes";
++  public static final String BUILD_TYPE = "debug";
++}
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml b/node_modules/react-native-aes-crypto/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml
+new file mode 100644
+index 0000000..f86e712
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="com.tectiv3.aes" >
++
++    <uses-sdk android:minSdkVersion="24" />
++
++</manifest>
+\ No newline at end of file
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json b/node_modules/react-native-aes-crypto/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json
+new file mode 100644
+index 0000000..5b42511
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json
+@@ -0,0 +1,18 @@
++{
++  "version": 3,
++  "artifactType": {
++    "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
++    "kind": "Directory"
++  },
++  "applicationId": "com.tectiv3.aes",
++  "variantName": "debug",
++  "elements": [
++    {
++      "type": "SINGLE",
++      "filters": [],
++      "attributes": [],
++      "outputFile": "AndroidManifest.xml"
++    }
++  ],
++  "elementType": "File"
++}
+\ No newline at end of file
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties b/node_modules/react-native-aes-crypto/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties
+new file mode 100644
+index 0000000..1211b1e
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties
+@@ -0,0 +1,6 @@
++aarFormatVersion=1.0
++aarMetadataVersion=1.0
++minCompileSdk=1
++minCompileSdkExtension=0
++minAndroidGradlePluginVersion=1.0.0
++coreLibraryDesugaringEnabled=false
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json b/node_modules/react-native-aes-crypto/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json
+new file mode 100644
+index 0000000..9e26dfe
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json
+@@ -0,0 +1 @@
++{}
+\ No newline at end of file
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar b/node_modules/react-native-aes-crypto/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar
+new file mode 100644
+index 0000000..6a859eb
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar b/node_modules/react-native-aes-crypto/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar
+new file mode 100644
+index 0000000..3368ae3
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/compile_symbol_list/debug/generateDebugRFile/R.txt b/node_modules/react-native-aes-crypto/android/build/intermediates/compile_symbol_list/debug/generateDebugRFile/R.txt
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties b/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
+new file mode 100644
+index 0000000..ddf1803
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
+@@ -0,0 +1 @@
++#Tue May 27 19:09:58 CST 2025
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml b/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml
+new file mode 100644
+index 0000000..475f7b0
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main" generated-set="main$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/debug/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug" generated-set="debug$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/debug/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/build/generated/res/resValues/debug"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated" generated-set="generated$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/build/generated/res/resValues/debug"/></dataSet><mergedItems/></merger>
+\ No newline at end of file
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml b/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml
+new file mode 100644
+index 0000000..ac3f2d4
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/jniLibs"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/debug/jniLibs"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/mergeDebugShaders/merger.xml b/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/mergeDebugShaders/merger.xml
+new file mode 100644
+index 0000000..d56a306
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/mergeDebugShaders/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/shaders"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/debug/shaders"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/packageDebugAssets/merger.xml b/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/packageDebugAssets/merger.xml
+new file mode 100644
+index 0000000..1861a6e
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/incremental/packageDebugAssets/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/assets"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/debug/assets"/></dataSet><dataSet config="generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/build/intermediates/shader_assets/debug/compileDebugShaders/out"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/tectiv3/aes/Aes.class b/node_modules/react-native-aes-crypto/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/tectiv3/aes/Aes.class
+new file mode 100644
+index 0000000..0300474
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/tectiv3/aes/Aes.class differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/tectiv3/aes/AesPackage.class b/node_modules/react-native-aes-crypto/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/tectiv3/aes/AesPackage.class
+new file mode 100644
+index 0000000..b7251a4
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/tectiv3/aes/AesPackage.class differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/tectiv3/aes/BuildConfig.class b/node_modules/react-native-aes-crypto/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/tectiv3/aes/BuildConfig.class
+new file mode 100644
+index 0000000..967cd36
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/tectiv3/aes/BuildConfig.class differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt b/node_modules/react-native-aes-crypto/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt
+new file mode 100644
+index 0000000..78ac5b8
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt
+@@ -0,0 +1,2 @@
++R_DEF: Internal format may change without notice
++local
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt b/node_modules/react-native-aes-crypto/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt
+new file mode 100644
+index 0000000..4235b15
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt
+@@ -0,0 +1,7 @@
++1<?xml version="1.0" encoding="utf-8"?>
++2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++3    package="com.tectiv3.aes" >
++4
++5    <uses-sdk android:minSdkVersion="24" />
++6
++7</manifest>
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml b/node_modules/react-native-aes-crypto/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml
+new file mode 100644
+index 0000000..f86e712
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="com.tectiv3.aes" >
++
++    <uses-sdk android:minSdkVersion="24" />
++
++</manifest>
+\ No newline at end of file
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json b/node_modules/react-native-aes-crypto/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json
+new file mode 100644
+index 0000000..0637a08
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json
+@@ -0,0 +1 @@
++[]
+\ No newline at end of file
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt b/node_modules/react-native-aes-crypto/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt
+new file mode 100644
+index 0000000..08f4ebe
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt
+@@ -0,0 +1 @@
++0 Warning/Error
+\ No newline at end of file
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar b/node_modules/react-native-aes-crypto/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar
+new file mode 100644
+index 0000000..75d6aae
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt b/node_modules/react-native-aes-crypto/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt
+new file mode 100644
+index 0000000..7b125fb
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt
+@@ -0,0 +1 @@
++com.tectiv3.aes
+diff --git a/node_modules/react-native-aes-crypto/android/build/outputs/logs/manifest-merger-debug-report.txt b/node_modules/react-native-aes-crypto/android/build/outputs/logs/manifest-merger-debug-report.txt
+new file mode 100644
+index 0000000..344d6fc
+--- /dev/null
++++ b/node_modules/react-native-aes-crypto/android/build/outputs/logs/manifest-merger-debug-report.txt
+@@ -0,0 +1,16 @@
++-- Merging decision tree log ---
++manifest
++ADDED from /Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/AndroidManifest.xml:2:1-3:12
++INJECTED from /Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/AndroidManifest.xml:2:1-3:12
++	package
++		INJECTED from /Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/AndroidManifest.xml
++	xmlns:android
++		ADDED from /Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/AndroidManifest.xml:2:11-69
++uses-sdk
++INJECTED from /Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
++INJECTED from /Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/AndroidManifest.xml
++INJECTED from /Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/AndroidManifest.xml
++	android:targetSdkVersion
++		INJECTED from /Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/AndroidManifest.xml
++	android:minSdkVersion
++		INJECTED from /Users/zuozhuo/workspace/onekey/app-monorepo2/node_modules/react-native-aes-crypto/android/src/main/AndroidManifest.xml
+diff --git a/node_modules/react-native-aes-crypto/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Aes.class.uniqueId1 b/node_modules/react-native-aes-crypto/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Aes.class.uniqueId1
+new file mode 100644
+index 0000000..aab18a6
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Aes.class.uniqueId1 differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/AesPackage.class.uniqueId0 b/node_modules/react-native-aes-crypto/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/AesPackage.class.uniqueId0
+new file mode 100644
+index 0000000..b7251a4
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/AesPackage.class.uniqueId0 differ
+diff --git a/node_modules/react-native-aes-crypto/android/build/tmp/compileDebugJavaWithJavac/previous-compilation-data.bin b/node_modules/react-native-aes-crypto/android/build/tmp/compileDebugJavaWithJavac/previous-compilation-data.bin
+new file mode 100644
+index 0000000..d56ba7c
+Binary files /dev/null and b/node_modules/react-native-aes-crypto/android/build/tmp/compileDebugJavaWithJavac/previous-compilation-data.bin differ
+diff --git a/node_modules/react-native-aes-crypto/android/src/main/java/com/tectiv3/aes/Aes.java b/node_modules/react-native-aes-crypto/android/src/main/java/com/tectiv3/aes/Aes.java
+index 9fa6716..9b9ef44 100755
+--- a/node_modules/react-native-aes-crypto/android/src/main/java/com/tectiv3/aes/Aes.java
++++ b/node_modules/react-native-aes-crypto/android/src/main/java/com/tectiv3/aes/Aes.java
+@@ -168,7 +168,8 @@ public class Aes extends ReactContextBaseJavaModule {
+ 
+     private String shaX(String data, String algorithm) throws Exception {
+         MessageDigest md = MessageDigest.getInstance(algorithm);
+-        md.update(data.getBytes());
++        // md.update(data.getBytes());
++        md.update(Hex.decode(data));
+         byte[] digest = md.digest();
+         return bytesToHex(digest);
+     }
+@@ -197,7 +198,10 @@ public class Aes extends ReactContextBaseJavaModule {
+             algorithmDigest = new SHA512Digest();
+         }
+         PKCS5S2ParametersGenerator gen = new PKCS5S2ParametersGenerator(algorithmDigest);
+-        gen.init(pwd.getBytes("UTF_8"), salt.getBytes("UTF_8"), cost);
++        
++        // gen.init(pwd.getBytes("UTF_8"), salt.getBytes("UTF_8"), cost);
++        gen.init(Hex.decode(pwd), Hex.decode(salt), cost);
++
+         byte[] key = ((KeyParameter) gen.generateDerivedParameters(length)).getKey();
+         return bytesToHex(key);
+     }
+@@ -205,7 +209,9 @@ public class Aes extends ReactContextBaseJavaModule {
+     private static String hmacX(String text, String key, String algorithm)
+     throws NoSuchAlgorithmException, InvalidKeyException, UnsupportedEncodingException
+     {
+-        byte[] contentData = text.getBytes("UTF_8");
++        // byte[] contentData = text.getBytes("UTF_8");
++        byte[] contentData = Hex.decode(text);
++        
+         byte[] akHexData = Hex.decode(key);
+         Mac sha_HMAC = Mac.getInstance(algorithm);
+         SecretKey secret_key = new SecretKeySpec(akHexData, algorithm);
+@@ -225,8 +231,10 @@ public class Aes extends ReactContextBaseJavaModule {
+ 
+         Cipher cipher = Cipher.getInstance(algorithm);
+         cipher.init(Cipher.ENCRYPT_MODE, secretKey, hexIv == null ? emptyIvSpec : new IvParameterSpec(Hex.decode(hexIv)));
+-        byte[] encrypted = cipher.doFinal(text.getBytes("UTF-8"));
+-        return Base64.encodeToString(encrypted, Base64.NO_WRAP);
++        // byte[] encrypted = cipher.doFinal(text.getBytes("UTF-8"));
++        byte[] encrypted = cipher.doFinal(Hex.decode(text));
++        // return Base64.encodeToString(encrypted, Base64.NO_WRAP);
++        return bytesToHex(encrypted);
+     }
+ 
+     private static String decrypt(String ciphertext, String hexKey, String hexIv, String algorithm) throws Exception {
+@@ -239,8 +247,10 @@ public class Aes extends ReactContextBaseJavaModule {
+ 
+         Cipher cipher = Cipher.getInstance(algorithm);
+         cipher.init(Cipher.DECRYPT_MODE, secretKey, hexIv == null ? emptyIvSpec : new IvParameterSpec(Hex.decode(hexIv)));
+-        byte[] decrypted = cipher.doFinal(Base64.decode(ciphertext, Base64.NO_WRAP));
+-        return new String(decrypted, "UTF-8");
++        // byte[] decrypted = cipher.doFinal(Base64.decode(ciphertext, Base64.NO_WRAP));
++        byte[] decrypted = cipher.doFinal(Hex.decode(ciphertext));
++        // return new String(decrypted, "UTF-8");
++        return bytesToHex(decrypted);
+     }
+ 
+ }
+diff --git a/node_modules/react-native-aes-crypto/ios/Aes/lib/AesCrypt.m b/node_modules/react-native-aes-crypto/ios/Aes/lib/AesCrypt.m
+index 45375cb..9fcd11c 100755
+--- a/node_modules/react-native-aes-crypto/ios/Aes/lib/AesCrypt.m
++++ b/node_modules/react-native-aes-crypto/ios/Aes/lib/AesCrypt.m
+@@ -37,8 +37,11 @@
+ 
+ + (NSString *) pbkdf2:(NSString *)password salt: (NSString *)salt cost: (NSInteger)cost length: (NSInteger)length algorithm:(NSString *)algorithm{
+     // Data of String to generate Hash key(hexa decimal string).
+-    NSData *passwordData = [password dataUsingEncoding:NSUTF8StringEncoding];
+-    NSData *saltData = [salt dataUsingEncoding:NSUTF8StringEncoding];
++    NSData *passwordData = [self fromHex:password]; // use hex instead of utf8
++    NSData *saltData = [self fromHex:salt]; // use hex instead of utf8
++    // NSData *passwordData = [password dataUsingEncoding:NSUTF8StringEncoding];
++    // NSData *saltData = [salt dataUsingEncoding:NSUTF8StringEncoding];
++ 
+ 
+     // Hash key (hexa decimal) string data length.
+     NSMutableData *hashKeyData = [NSMutableData dataWithLength:length/8];
+@@ -189,29 +192,31 @@
+ 
+ + (NSString *) encrypt: (NSString *)clearText key: (NSString *)key iv: (NSString *)iv algorithm: (NSString *)algorithm {
+     if ([algorithm containsString:@"ctr"]) {
+-        NSData *result = [self AESCTR:@"encrypt" data:[clearText dataUsingEncoding:NSUTF8StringEncoding] key:key iv:iv algorithm:algorithm];
++        NSData *result = [self AESCTR:@"encrypt" data:[self fromHex:clearText] key:key iv:iv algorithm:algorithm];
+         return [self toHex:result];
+     }
+     else{
+-        NSData *result = [self AESCBC:@"encrypt" data:[clearText dataUsingEncoding:NSUTF8StringEncoding] key:key iv:iv algorithm:algorithm];
+-        return [result base64EncodedStringWithOptions:0];
++        NSData *result = [self AESCBC:@"encrypt" data:[self fromHex:clearText] key:key iv:iv algorithm:algorithm];
++        return [self toHex:result];
+     }
+ }
+ 
+ + (NSString *) decrypt: (NSString *)cipherText key: (NSString *)key iv: (NSString *)iv algorithm: (NSString *)algorithm {
+     if ([algorithm containsString:@"ctr"]) {
+         NSData *result = [self AESCTR:@"decrypt" data:[self fromHex:cipherText] key:key iv:iv algorithm:algorithm];
+-        return [[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding];
++        return [self toHex:result];
+     }
+     else{
+-        NSData *result = [self AESCBC:@"decrypt" data:[[NSData alloc] initWithBase64EncodedString:cipherText options:0] key:key iv:iv algorithm:algorithm];
+-        return [[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding];
++        NSData *result = [self AESCBC:@"decrypt" data:[self fromHex:cipherText] key:key iv:iv algorithm:algorithm];
++        return [self toHex:result];
+     }
+ }
+ 
+ + (NSString *) hmac256: (NSString *)input key: (NSString *)key {
+     NSData *keyData = [self fromHex:key];
+-    NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    // NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    NSData* inputData = [self fromHex:input];
++
+     void* buffer = malloc(CC_SHA256_DIGEST_LENGTH);
+     CCHmac(kCCHmacAlgSHA256, [keyData bytes], [keyData length], [inputData bytes], [inputData length], buffer);
+     NSData *nsdata = [NSData dataWithBytesNoCopy:buffer length:CC_SHA256_DIGEST_LENGTH freeWhenDone:YES];
+@@ -220,7 +225,9 @@
+ 
+ + (NSString *) hmac512: (NSString *)input key: (NSString *)key {
+     NSData *keyData = [self fromHex:key];
+-    NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    // NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    NSData* inputData = [self fromHex:input];
++
+     void* buffer = malloc(CC_SHA512_DIGEST_LENGTH);
+     CCHmac(kCCHmacAlgSHA512, [keyData bytes], [keyData length], [inputData bytes], [inputData length], buffer);
+     NSData *nsdata = [NSData dataWithBytesNoCopy:buffer length:CC_SHA512_DIGEST_LENGTH freeWhenDone:YES];
+@@ -228,14 +235,18 @@
+ }
+ 
+ + (NSString *) sha1: (NSString *)input {
+-    NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    // NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    NSData* inputData = [self fromHex:input];
++
+     NSMutableData *result = [[NSMutableData alloc] initWithLength:CC_SHA1_DIGEST_LENGTH];
+     CC_SHA1([inputData bytes], (CC_LONG)[inputData length], result.mutableBytes);
+     return [self toHex:result];
+ }
+ 
+ + (NSString *) sha256: (NSString *)input {
+-    NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    // NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    NSData* inputData = [self fromHex:input];
++
+     unsigned char* buffer = malloc(CC_SHA256_DIGEST_LENGTH);
+     CC_SHA256([inputData bytes], (CC_LONG)[inputData length], buffer);
+     NSData *result = [NSData dataWithBytesNoCopy:buffer length:CC_SHA256_DIGEST_LENGTH freeWhenDone:YES];
+@@ -243,7 +254,9 @@
+ }
+ 
+ + (NSString *) sha512: (NSString *)input {
+-    NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    // NSData* inputData = [input dataUsingEncoding:NSUTF8StringEncoding];
++    NSData* inputData = [self fromHex:input];
++
+     unsigned char* buffer = malloc(CC_SHA512_DIGEST_LENGTH);
+     CC_SHA512([inputData bytes], (CC_LONG)[inputData length], buffer);
+     NSData *result = [NSData dataWithBytesNoCopy:buffer length:CC_SHA512_DIGEST_LENGTH freeWhenDone:YES];

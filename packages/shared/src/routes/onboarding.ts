@@ -1,4 +1,4 @@
-import type { EMnemonicType } from '@onekeyhq/core/src/secret';
+import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IWalletConnectConnectToWalletParams } from '../walletConnect/types';
@@ -32,6 +32,7 @@ export enum EOnboardingPages {
 
   // connect 3rd-party wallet
   ConnectWallet = 'ConnectWallet',
+  ConnectWalletOptions = 'ConnectWalletOptions',
   ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
 
   // finalize wallet setup
@@ -40,11 +41,15 @@ export enum EOnboardingPages {
 
   // device management guide page
   DeviceManagementGuide = 'DeviceManagementGuide',
+
+  // prompt web device access
+  PromptWebDeviceAccess = 'PromptWebDeviceAccess',
 }
 
 export type IOnboardingParamList = {
   [EOnboardingPages.GetStarted]: {
-    showCloseButton?: boolean;
+    isFullModal?: boolean;
+    fromExt?: boolean;
   };
 
   // v4 migration
@@ -69,22 +74,30 @@ export type IOnboardingParamList = {
   [EOnboardingPages.BeforeShowRecoveryPhrase]: {
     mnemonic?: string;
     isBackup?: boolean;
+    isWalletBackedUp?: boolean;
+    walletId?: string;
   };
   [EOnboardingPages.RecoveryPhrase]: {
     mnemonic?: string;
     isBackup?: boolean;
+    isWalletBackedUp?: boolean;
+    walletId?: string;
   };
   [EOnboardingPages.VerifyRecoverPhrase]: {
     mnemonic: string;
     verifyRecoveryPhrases?: string[][][];
     isBackup?: boolean;
+    isWalletBackedUp?: boolean;
+    walletId?: string;
   };
 
   // import wallet
   [EOnboardingPages.ImportWalletOptions]: undefined;
   [EOnboardingPages.ImportRecoveryPhrase]: undefined;
   [EOnboardingPages.ImportPrivateKey]: undefined;
-  [EOnboardingPages.ImportAddress]: undefined;
+  [EOnboardingPages.ImportAddress]: {
+    isFromOnboardingV2?: boolean;
+  };
   [EOnboardingPages.ImportCloudBackup]: undefined;
   [EOnboardingPages.ImportKeyTag]: undefined;
 
@@ -92,12 +105,16 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ConnectWallet]: IWalletConnectConnectToWalletParams & {
     title: string;
   };
+  [EOnboardingPages.ConnectWalletOptions]: {
+    defaultTab?: 'onekey' | 'others';
+  };
   [EOnboardingPages.ConnectWalletSelectNetworks]: undefined;
 
   // finalize wallet setup
   [EOnboardingPages.FinalizeWalletSetup]: {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;
+    isWalletBackedUp?: boolean;
   };
 
   // device management guide page

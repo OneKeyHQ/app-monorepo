@@ -20,6 +20,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
   OneKeyInternalError,
+  OneKeyLocalError,
   RemainingMinBalanceError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -64,7 +65,7 @@ import {
   convertTxToTxSkeleton,
   getTransactionSizeByTxSkeleton,
 } from './utils/transaction';
-import { transfer as xUDTTransafer } from './utils/xudt';
+import { transfer as xUDTTransfer } from './utils/xudt';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -177,11 +178,13 @@ export default class Vault extends VaultBase {
     const { tokenInfo, amount, from, to } = transferInfo;
 
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
 
     if (!tokenInfo) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
       );
     }
@@ -233,14 +236,16 @@ export default class Vault extends VaultBase {
       );
     } else {
       if (!tokenInfo.address) {
-        throw new Error('buildEncodedTx ERROR: tokenInfo.address is missing');
+        throw new OneKeyLocalError(
+          'buildEncodedTx ERROR: tokenInfo.address is missing',
+        );
       }
       amountValue = new BigNumber(amount)
         .shiftedBy(tokenInfo.decimals)
         .toFixed();
       // token transfer
       // support XUDT
-      txSkeleton = await xUDTTransafer(
+      txSkeleton = await xUDTTransfer(
         txSkeleton,
         from,
         tokenInfo,

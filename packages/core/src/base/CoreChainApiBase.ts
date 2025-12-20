@@ -7,6 +7,7 @@ import type {
 import {
   NotImplemented,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
@@ -16,7 +17,7 @@ import type {
 
 import {
   batchGetPrivateKeys,
-  batchGetPublicKeysAsync,
+  batchGetPublicKeys,
   decryptAsync,
   decryptImportedCredential,
   ed25519,
@@ -99,7 +100,7 @@ export abstract class CoreChainApiBase {
     }
 
     if (!privateKey) {
-      throw new Error(`No private key found: ${accountPath}`);
+      throw new OneKeyLocalError(`No private key found: ${accountPath}`);
     }
 
     return this.baseCreateSigner({
@@ -147,7 +148,7 @@ export abstract class CoreChainApiBase {
       privateKeys[''] = encryptPrivateKey;
     }
     if (!Object.keys(privateKeys).length) {
-      throw new Error('No private keys found');
+      throw new OneKeyLocalError('No private keys found');
     }
     return privateKeys;
   }
@@ -197,7 +198,8 @@ export abstract class CoreChainApiBase {
     },
   ): Promise<ICoreApiGetAddressesResult> {
     const { curve, generateFrom } = options;
-    const { template, hdCredential, password, indexes } = query;
+    const { template, hdCredential, password, indexes, addressEncoding } =
+      query;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
@@ -215,7 +217,7 @@ export abstract class CoreChainApiBase {
         indexFormatted,
       );
     } else {
-      pubkeyInfos = await batchGetPublicKeysAsync({
+      pubkeyInfos = await batchGetPublicKeys({
         curveName: curve,
         hdCredential,
         password,
@@ -244,6 +246,7 @@ export abstract class CoreChainApiBase {
             networkInfo: query.networkInfo,
             privateKeyRaw,
             privateKeyInfo: info,
+            addressEncoding,
           });
         } else {
           publicKey = key.toString('hex');
@@ -251,6 +254,7 @@ export abstract class CoreChainApiBase {
             networkInfo: query.networkInfo,
             publicKey,
             publicKeyInfo: info,
+            addressEncoding,
           });
         }
 

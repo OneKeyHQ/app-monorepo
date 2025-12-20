@@ -64,7 +64,7 @@ class MockStorage implements AsyncStorageStatic {
   }
 
   multiMerge(
-    keyValuePairs: string[][],
+    keyValuePairs: readonly (readonly [string, string])[],
     callback?: (errors?: Error[]) => void,
   ): Promise<void> {
     return Promise.resolve(undefined);
@@ -75,7 +75,7 @@ class MockStorage implements AsyncStorageStatic {
   }
 
   multiSet(
-    keyValuePairs: string[][],
+    keyValuePairs: readonly (readonly [string, string])[],
     callback?: (errors?: Error[]) => void,
   ): Promise<void> {
     return Promise.resolve(undefined);

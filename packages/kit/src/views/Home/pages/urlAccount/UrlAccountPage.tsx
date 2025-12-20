@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -228,14 +227,14 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
   if (urlAccountStatus === 'invalid') {
     return (
       <Page>
-        <Page.Header headerLeft={renderHeaderLeft} />
+        {/* <Page.Header headerLeft={renderHeaderLeft} /> */}
         <Stack flex={1} ai="center" jc="center">
           <SizableText size="$headingXl">
             {intl.formatMessage({ id: ETranslations.global_404_message })}
           </SizableText>
-          {process.env.NODE_ENV !== 'production' ? (
+          {/* {process.env.NODE_ENV !== 'production' ? (
             <SizableText my="$6">{JSON.stringify(routeParams)}</SizableText>
-          ) : null}
+          ) : null} */}
         </Stack>
       </Page>
     );

@@ -1,116 +1,515 @@
-import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
-import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
-import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
-import { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
-import { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
-import { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
-import { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
-import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
-import { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
-import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
-import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
-import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
-import { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
-import { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
-import { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
-import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
-import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
-import { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
-import { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
-import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
-import { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
-import { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
-import { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
-import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
-import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
-import { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
-import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
-import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
-import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
-import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
-import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
-import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
-import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
-import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
-import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
-import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
-import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
-import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
-
 export class SimpleDb {
-  prime = new SimpleDbEntityPrime();
+  // Lazy load entities using getters
+  get prime() {
+    const SimpleDbEntityPrime = (
+      require('../entity/SimpleDbEntityPrime') as unknown as typeof import('../entity/SimpleDbEntityPrime')
+    ).SimpleDbEntityPrime;
+    const value = new SimpleDbEntityPrime();
+    Object.defineProperty(this, 'prime', { value });
+    return value;
+  }
 
-  browserTabs = new SimpleDbEntityBrowserTabs();
+  get primeTransfer() {
+    const SimpleDbEntityPrimeTransfer = (
+      require('../entity/SimpleDbEntityPrimeTransfer') as unknown as typeof import('../entity/SimpleDbEntityPrimeTransfer')
+    ).SimpleDbEntityPrimeTransfer;
+    const value = new SimpleDbEntityPrimeTransfer();
+    Object.defineProperty(this, 'primeTransfer', { value });
+    return value;
+  }
 
-  browserBookmarks = new SimpleDbEntityBrowserBookmarks();
+  get referralCode() {
+    const SimpleDbEntityReferralCode = (
+      require('../entity/SimpleDbEntityReferralCode') as unknown as typeof import('../entity/SimpleDbEntityReferralCode')
+    ).SimpleDbEntityReferralCode;
+    const value = new SimpleDbEntityReferralCode();
+    Object.defineProperty(this, 'referralCode', { value });
+    return value;
+  }
 
-  browserClosedTabs = new SimpleDbEntityBrowserClosedTabs();
+  get browserTabs() {
+    const SimpleDbEntityBrowserTabs = (
+      require('../entity/SimpleDbEntityBrowserTabs') as unknown as typeof import('../entity/SimpleDbEntityBrowserTabs')
+    ).SimpleDbEntityBrowserTabs;
+    const value = new SimpleDbEntityBrowserTabs();
+    Object.defineProperty(this, 'browserTabs', { value });
+    return value;
+  }
 
-  browserRiskWhiteList = new SimpleDbEntityBrowserRiskWhiteList();
+  get browserBookmarks() {
+    const SimpleDbEntityBrowserBookmarks = (
+      require('../entity/SimpleDbEntityBrowserBookmarks') as unknown as typeof import('../entity/SimpleDbEntityBrowserBookmarks')
+    ).SimpleDbEntityBrowserBookmarks;
+    const value = new SimpleDbEntityBrowserBookmarks();
+    Object.defineProperty(this, 'browserBookmarks', { value });
+    return value;
+  }
 
-  dappConnection = new SimpleDbEntityDappConnection();
+  get browserClosedTabs() {
+    const SimpleDbEntityBrowserClosedTabs = (
+      require('../entity/SimpleDbEntityBrowserClosedTabs') as unknown as typeof import('../entity/SimpleDbEntityBrowserClosedTabs')
+    ).SimpleDbEntityBrowserClosedTabs;
+    const value = new SimpleDbEntityBrowserClosedTabs();
+    Object.defineProperty(this, 'browserClosedTabs', { value });
+    return value;
+  }
 
-  browserHistory = new SimpleDbEntityBrowserHistory();
+  get browserRiskWhiteList() {
+    const SimpleDbEntityBrowserRiskWhiteList = (
+      require('../entity/SimpleDbEntityBrowserRiskWhiteList') as unknown as typeof import('../entity/SimpleDbEntityBrowserRiskWhiteList')
+    ).SimpleDbEntityBrowserRiskWhiteList;
+    const value = new SimpleDbEntityBrowserRiskWhiteList();
+    Object.defineProperty(this, 'browserRiskWhiteList', { value });
+    return value;
+  }
 
-  accountSelector = new SimpleDbEntityAccountSelector();
+  get dappConnection() {
+    const SimpleDbEntityDappConnection = (
+      require('../entity/SimpleDbEntityDappConnection') as unknown as typeof import('../entity/SimpleDbEntityDappConnection')
+    ).SimpleDbEntityDappConnection;
+    const value = new SimpleDbEntityDappConnection();
+    Object.defineProperty(this, 'dappConnection', { value });
+    return value;
+  }
 
-  appCleanup = new SimpleDbEntityAppCleanup();
+  get browserHistory() {
+    const SimpleDbEntityBrowserHistory = (
+      require('../entity/SimpleDbEntityBrowserHistory') as unknown as typeof import('../entity/SimpleDbEntityBrowserHistory')
+    ).SimpleDbEntityBrowserHistory;
+    const value = new SimpleDbEntityBrowserHistory();
+    Object.defineProperty(this, 'browserHistory', { value });
+    return value;
+  }
 
-  swapNetworksSort = new SimpleDbEntitySwapNetworksSort();
+  get accountSelector() {
+    const SimpleDbEntityAccountSelector = (
+      require('../entity/SimpleDbEntityAccountSelector') as unknown as typeof import('../entity/SimpleDbEntityAccountSelector')
+    ).SimpleDbEntityAccountSelector;
+    const value = new SimpleDbEntityAccountSelector();
+    Object.defineProperty(this, 'accountSelector', { value });
+    return value;
+  }
 
-  swapHistory = new SimpleDbEntitySwapHistory();
+  get appCleanup() {
+    const SimpleDbEntityAppCleanup = (
+      require('../entity/SimpleDbEntityAppCleanup') as unknown as typeof import('../entity/SimpleDbEntityAppCleanup')
+    ).SimpleDbEntityAppCleanup;
+    const value = new SimpleDbEntityAppCleanup();
+    Object.defineProperty(this, 'appCleanup', { value });
+    return value;
+  }
 
-  swapConfigs = new SimpleDbEntitySwapConfigs();
+  get swapNetworksSort() {
+    const SimpleDbEntitySwapNetworksSort = (
+      require('../entity/SimpleDbEntitySwapNetworksSort') as unknown as typeof import('../entity/SimpleDbEntitySwapNetworksSort')
+    ).SimpleDbEntitySwapNetworksSort;
+    const value = new SimpleDbEntitySwapNetworksSort();
+    Object.defineProperty(this, 'swapNetworksSort', { value });
+    return value;
+  }
 
-  localTokens = new SimpleDbEntityLocalTokens();
+  get swapHistory() {
+    const SimpleDbEntitySwapHistory = (
+      require('../entity/SimpleDbEntitySwapHistory') as unknown as typeof import('../entity/SimpleDbEntitySwapHistory')
+    ).SimpleDbEntitySwapHistory;
+    const value = new SimpleDbEntitySwapHistory();
+    Object.defineProperty(this, 'swapHistory', { value });
+    return value;
+  }
 
-  addressBook = new SimpleDbEntityAddressBook();
+  get swapConfigs() {
+    const SimpleDbEntitySwapConfigs = (
+      require('../entity/SimpleDbEntitySwapConfigs') as unknown as typeof import('../entity/SimpleDbEntitySwapConfigs')
+    ).SimpleDbEntitySwapConfigs;
+    const value = new SimpleDbEntitySwapConfigs();
+    Object.defineProperty(this, 'swapConfigs', { value });
+    return value;
+  }
 
-  localHistory = new SimpleDbEntityLocalHistory();
+  get localTokens() {
+    const SimpleDbEntityLocalTokens = (
+      require('../entity/SimpleDbEntityLocalTokens') as unknown as typeof import('../entity/SimpleDbEntityLocalTokens')
+    ).SimpleDbEntityLocalTokens;
+    const value = new SimpleDbEntityLocalTokens();
+    Object.defineProperty(this, 'localTokens', { value });
+    return value;
+  }
 
-  riskyTokens = new SimpleDbEntityRiskyTokens();
+  get addressBook() {
+    const SimpleDbEntityAddressBook = (
+      require('../entity/SimpleDbEntityAddressBook') as unknown as typeof import('../entity/SimpleDbEntityAddressBook')
+    ).SimpleDbEntityAddressBook;
+    const value = new SimpleDbEntityAddressBook();
+    Object.defineProperty(this, 'addressBook', { value });
+    return value;
+  }
 
-  defaultWalletSettings = new SimpleDbEntityDefaultWalletSettings();
+  get localHistory() {
+    const SimpleDbEntityLocalHistory = (
+      require('../entity/SimpleDbEntityLocalHistory') as unknown as typeof import('../entity/SimpleDbEntityLocalHistory')
+    ).SimpleDbEntityLocalHistory;
+    const value = new SimpleDbEntityLocalHistory();
+    Object.defineProperty(this, 'localHistory', { value });
+    return value;
+  }
 
-  networkSelector = new SimpleDbEntityNetworkSelector();
+  get riskyTokens() {
+    const SimpleDbEntityRiskyTokens = (
+      require('../entity/SimpleDbEntityRiskyTokens') as unknown as typeof import('../entity/SimpleDbEntityRiskyTokens')
+    ).SimpleDbEntityRiskyTokens;
+    const value = new SimpleDbEntityRiskyTokens();
+    Object.defineProperty(this, 'riskyTokens', { value });
+    return value;
+  }
 
-  notificationSettings = new SimpleDbEntityNotificationSettings();
+  get defaultWalletSettings() {
+    const SimpleDbEntityDefaultWalletSettings = (
+      require('../entity/SimpleDbEntityDefaultWalletSettings') as unknown as typeof import('../entity/SimpleDbEntityDefaultWalletSettings')
+    ).SimpleDbEntityDefaultWalletSettings;
+    const value = new SimpleDbEntityDefaultWalletSettings();
+    Object.defineProperty(this, 'defaultWalletSettings', { value });
+    return value;
+  }
 
-  lightning = new SimpleDbEntityLightning();
+  get networkSelector() {
+    const SimpleDbEntityNetworkSelector = (
+      require('../entity/SimpleDbEntityNetworkSelector') as unknown as typeof import('../entity/SimpleDbEntityNetworkSelector')
+    ).SimpleDbEntityNetworkSelector;
+    const value = new SimpleDbEntityNetworkSelector();
+    Object.defineProperty(this, 'networkSelector', { value });
+    return value;
+  }
 
-  feeInfo = new SimpleDbEntityFeeInfo();
+  get notificationSettings() {
+    const SimpleDbEntityNotificationSettings = (
+      require('../entity/SimpleDbEntityNotificationSettings') as unknown as typeof import('../entity/SimpleDbEntityNotificationSettings')
+    ).SimpleDbEntityNotificationSettings;
+    const value = new SimpleDbEntityNotificationSettings();
+    Object.defineProperty(this, 'notificationSettings', { value });
+    return value;
+  }
 
-  marketWatchList = new SimpleDbEntityMarketWatchList();
+  get lightning() {
+    const SimpleDbEntityLightning = (
+      require('../entity/SimpleDbEntityLightning') as unknown as typeof import('../entity/SimpleDbEntityLightning')
+    ).SimpleDbEntityLightning;
+    const value = new SimpleDbEntityLightning();
+    Object.defineProperty(this, 'lightning', { value });
+    return value;
+  }
 
-  floatingIconDomainBlockList = new SimpleDbEntityFloatingIconDomainBlockList();
+  get feeInfo() {
+    const SimpleDbEntityFeeInfo = (
+      require('../entity/SimpleDbEntityFeeInfo') as unknown as typeof import('../entity/SimpleDbEntityFeeInfo')
+    ).SimpleDbEntityFeeInfo;
+    const value = new SimpleDbEntityFeeInfo();
+    Object.defineProperty(this, 'feeInfo', { value });
+    return value;
+  }
 
-  floatingIconSettings = new SimpleDbEntityFloatingIconSettings();
+  get marketWatchList() {
+    const SimpleDbEntityMarketWatchList = (
+      require('../entity/SimpleDbEntityMarketWatchList') as unknown as typeof import('../entity/SimpleDbEntityMarketWatchList')
+    ).SimpleDbEntityMarketWatchList;
+    const value = new SimpleDbEntityMarketWatchList();
+    Object.defineProperty(this, 'marketWatchList', { value });
+    return value;
+  }
 
-  earn = new SimpleDbEntityEarn();
+  get marketWatchListV2() {
+    const SimpleDbEntityMarketWatchListV2 = (
+      require('../entity/SimpleDbEntityMarketWatchListV2') as unknown as typeof import('../entity/SimpleDbEntityMarketWatchListV2')
+    ).SimpleDbEntityMarketWatchListV2;
+    const value = new SimpleDbEntityMarketWatchListV2();
+    Object.defineProperty(this, 'marketWatchListV2', { value });
+    return value;
+  }
 
-  earnOrders = new SimpleDbEntityEarnOrders();
+  get floatingIconDomainBlockList() {
+    const SimpleDbEntityFloatingIconDomainBlockList = (
+      require('../entity/SimpleDbEntityFloatingIconDomainBlockList') as unknown as typeof import('../entity/SimpleDbEntityFloatingIconDomainBlockList')
+    ).SimpleDbEntityFloatingIconDomainBlockList;
+    const value = new SimpleDbEntityFloatingIconDomainBlockList();
+    Object.defineProperty(this, 'floatingIconDomainBlockList', { value });
+    return value;
+  }
 
-  universalSearch = new SimpleDbEntityUniversalSearch();
+  get floatingIconSettings() {
+    const SimpleDbEntityFloatingIconSettings = (
+      require('../entity/SimpleDbEntityFloatingIconSettings') as unknown as typeof import('../entity/SimpleDbEntityFloatingIconSettings')
+    ).SimpleDbEntityFloatingIconSettings;
+    const value = new SimpleDbEntityFloatingIconSettings();
+    Object.defineProperty(this, 'floatingIconSettings', { value });
+    return value;
+  }
 
-  customTokens = new SimpleDbEntityCustomTokens();
+  get earn() {
+    const SimpleDbEntityEarn = (
+      require('../entity/SimpleDbEntityEarn') as unknown as typeof import('../entity/SimpleDbEntityEarn')
+    ).SimpleDbEntityEarn;
+    const value = new SimpleDbEntityEarn();
+    Object.defineProperty(this, 'earn', { value });
+    return value;
+  }
 
-  customRpc = new SimpleDbEntityCustomRpc();
+  get earnExtra() {
+    const SimpleDbEntityEarnExtra = (
+      require('../entity/SimpleDbEntityEarnExtra') as unknown as typeof import('../entity/SimpleDbEntityEarnExtra')
+    ).SimpleDbEntityEarnExtra;
+    const value = new SimpleDbEntityEarnExtra();
+    Object.defineProperty(this, 'earnExtra', { value });
+    return value;
+  }
 
-  customNetwork = new SimpleDbEntityCustomNetwork();
+  get earnOrders() {
+    const SimpleDbEntityEarnOrders = (
+      require('../entity/SimpleDbEntityEarnOrders') as unknown as typeof import('../entity/SimpleDbEntityEarnOrders')
+    ).SimpleDbEntityEarnOrders;
+    const value = new SimpleDbEntityEarnOrders();
+    Object.defineProperty(this, 'earnOrders', { value });
+    return value;
+  }
 
-  serverNetwork = new SimpleDbEntityServerNetwork();
+  get universalSearch() {
+    const SimpleDbEntityUniversalSearch = (
+      require('../entity/SimpleDbEntityUniversalSearch') as unknown as typeof import('../entity/SimpleDbEntityUniversalSearch')
+    ).SimpleDbEntityUniversalSearch;
+    const value = new SimpleDbEntityUniversalSearch();
+    Object.defineProperty(this, 'universalSearch', { value });
+    return value;
+  }
 
-  v4MigrationResult = new SimpleDbEntityV4MigrationResult();
+  get customTokens() {
+    const SimpleDbEntityCustomTokens = (
+      require('../entity/SimpleDbEntityCustomTokens') as unknown as typeof import('../entity/SimpleDbEntityCustomTokens')
+    ).SimpleDbEntityCustomTokens;
+    const value = new SimpleDbEntityCustomTokens();
+    Object.defineProperty(this, 'customTokens', { value });
+    return value;
+  }
 
-  accountValue = new SimpleDbEntityAccountValue();
+  get customRpc() {
+    const SimpleDbEntityCustomRpc = (
+      require('../entity/SimpleDbEntityCustomRPC') as unknown as typeof import('../entity/SimpleDbEntityCustomRPC')
+    ).SimpleDbEntityCustomRpc;
+    const value = new SimpleDbEntityCustomRpc();
+    Object.defineProperty(this, 'customRpc', { value });
+    return value;
+  }
 
-  legacyWalletNames = new SimpleDbEntityLegacyWalletNames();
+  get customNetwork() {
+    const SimpleDbEntityCustomNetwork = (
+      require('../entity/SimpleDbEntityCustomNetwork') as unknown as typeof import('../entity/SimpleDbEntityCustomNetwork')
+    ).SimpleDbEntityCustomNetwork;
+    const value = new SimpleDbEntityCustomNetwork();
+    Object.defineProperty(this, 'customNetwork', { value });
+    return value;
+  }
 
-  localNFTs = new SimpleDbEntityLocalNFTs();
+  get serverNetwork() {
+    const SimpleDbEntityServerNetwork = (
+      require('../entity/SimpleDbEntityServerNetwork') as unknown as typeof import('../entity/SimpleDbEntityServerNetwork')
+    ).SimpleDbEntityServerNetwork;
+    const value = new SimpleDbEntityServerNetwork();
+    Object.defineProperty(this, 'serverNetwork', { value });
+    return value;
+  }
 
-  babylonSync = new SimpleDbEntityBabylonSync();
+  get v4MigrationResult() {
+    const SimpleDbEntityV4MigrationResult = (
+      require('../entity/SimpleDbEntityV4MigrationResult') as unknown as typeof import('../entity/SimpleDbEntityV4MigrationResult')
+    ).SimpleDbEntityV4MigrationResult;
+    const value = new SimpleDbEntityV4MigrationResult();
+    Object.defineProperty(this, 'v4MigrationResult', { value });
+    return value;
+  }
 
-  appStatus = new SimpleDbEntityAppStatus();
+  get accountValue() {
+    const SimpleDbEntityAccountValue = (
+      require('../entity/SimpleDbEntityAccountValue') as unknown as typeof import('../entity/SimpleDbEntityAccountValue')
+    ).SimpleDbEntityAccountValue;
+    const value = new SimpleDbEntityAccountValue();
+    Object.defineProperty(this, 'accountValue', { value });
+    return value;
+  }
 
-  allNetworks = new SimpleDbEntityAllNetworks();
+  get legacyWalletNames() {
+    const SimpleDbEntityLegacyWalletNames = (
+      require('../entity/SimpleDbEntityLegacyWalletNames') as unknown as typeof import('../entity/SimpleDbEntityLegacyWalletNames')
+    ).SimpleDbEntityLegacyWalletNames;
+    const value = new SimpleDbEntityLegacyWalletNames();
+    Object.defineProperty(this, 'legacyWalletNames', { value });
+    return value;
+  }
+
+  get localNFTs() {
+    const SimpleDbEntityLocalNFTs = (
+      require('../entity/SimpleDbEntityLocalNFTs') as unknown as typeof import('../entity/SimpleDbEntityLocalNFTs')
+    ).SimpleDbEntityLocalNFTs;
+    const value = new SimpleDbEntityLocalNFTs();
+    Object.defineProperty(this, 'localNFTs', { value });
+    return value;
+  }
+
+  get babylonSync() {
+    const SimpleDbEntityBabylonSync = (
+      require('../entity/SimpleDbEntityBabylonSync') as unknown as typeof import('../entity/SimpleDbEntityBabylonSync')
+    ).SimpleDbEntityBabylonSync;
+    const value = new SimpleDbEntityBabylonSync();
+    Object.defineProperty(this, 'babylonSync', { value });
+    return value;
+  }
+
+  get appStatus() {
+    const SimpleDbEntityAppStatus = (
+      require('../entity/SimpleDbEntityAppStatus') as unknown as typeof import('../entity/SimpleDbEntityAppStatus')
+    ).SimpleDbEntityAppStatus;
+    const value = new SimpleDbEntityAppStatus();
+    Object.defineProperty(this, 'appStatus', { value });
+    return value;
+  }
+
+  get allNetworks() {
+    const SimpleDbEntityAllNetworks = (
+      require('../entity/SimpleDbEntityAllNetworks') as unknown as typeof import('../entity/SimpleDbEntityAllNetworks')
+    ).SimpleDbEntityAllNetworks;
+    const value = new SimpleDbEntityAllNetworks();
+    Object.defineProperty(this, 'allNetworks', { value });
+    return value;
+  }
+
+  get changeHistory() {
+    const SimpleDbEntityChangeHistory = (
+      require('../entity/SimpleDbEntityChangeHistory') as unknown as typeof import('../entity/SimpleDbEntityChangeHistory')
+    ).SimpleDbEntityChangeHistory;
+    const value = new SimpleDbEntityChangeHistory();
+    Object.defineProperty(this, 'changeHistory', { value });
+    return value;
+  }
+
+  get recentNetworks() {
+    const SimpleDbEntityRecentNetworks = (
+      require('../entity/SimpleDbEntityRecentNetworks') as unknown as typeof import('../entity/SimpleDbEntityRecentNetworks')
+    ).SimpleDbEntityRecentNetworks;
+    const value = new SimpleDbEntityRecentNetworks();
+    Object.defineProperty(this, 'recentNetworks', { value });
+    return value;
+  }
+
+  get addressInfo() {
+    const SimpleDbEntityAddressInfo = (
+      require('../entity/SimpleDbEntityAddressInfo') as unknown as typeof import('../entity/SimpleDbEntityAddressInfo')
+    ).SimpleDbEntityAddressInfo;
+    const value = new SimpleDbEntityAddressInfo();
+    Object.defineProperty(this, 'addressInfo', { value });
+    return value;
+  }
+
+  get recentRecipients() {
+    const SimpleDbEntityRecentRecipients = (
+      require('../entity/SimpleDbEntityRecentRecipients') as unknown as typeof import('../entity/SimpleDbEntityRecentRecipients')
+    ).SimpleDbEntityRecentRecipients;
+    const value = new SimpleDbEntityRecentRecipients();
+    Object.defineProperty(this, 'recentRecipients', { value });
+    return value;
+  }
+
+  get riskTokenManagement() {
+    const SimpleDbEntityRiskTokenManagement = (
+      require('../entity/SimpleDbEntityRiskTokenManagement') as unknown as typeof import('../entity/SimpleDbEntityRiskTokenManagement')
+    ).SimpleDbEntityRiskTokenManagement;
+    const value = new SimpleDbEntityRiskTokenManagement();
+    Object.defineProperty(this, 'riskTokenManagement', { value });
+    return value;
+  }
+
+  get walletBanner() {
+    const SimpleDbEntityWalletBanner = (
+      require('../entity/SimpleDbEntityWalletBanner') as unknown as typeof import('../entity/SimpleDbEntityWalletBanner')
+    ).SimpleDbEntityWalletBanner;
+    const value = new SimpleDbEntityWalletBanner();
+    Object.defineProperty(this, 'walletBanner', { value });
+    return value;
+  }
+
+  get perp() {
+    const SimpleDbEntityPerp = (
+      require('../entity/SimpleDbEntityPerp') as unknown as typeof import('../entity/SimpleDbEntityPerp')
+    ).SimpleDbEntityPerp;
+    const value = new SimpleDbEntityPerp();
+    Object.defineProperty(this, 'perp', { value });
+    return value;
+  }
+
+  get approval() {
+    const SimpleDbEntityApproval = (
+      require('../entity/SimpleDbEntityApproval') as unknown as typeof import('../entity/SimpleDbEntityApproval')
+    ).SimpleDbEntityApproval;
+    const value = new SimpleDbEntityApproval();
+    Object.defineProperty(this, 'approval', { value });
+    return value;
+  }
+
+  get aggregateToken() {
+    const SimpleDbEntityAggregateToken = (
+      require('../entity/SimpleDbEntityAggregateToken') as unknown as typeof import('../entity/SimpleDbEntityAggregateToken')
+    ).SimpleDbEntityAggregateToken;
+    const value = new SimpleDbEntityAggregateToken();
+    Object.defineProperty(this, 'aggregateToken', { value });
+    return value;
+  }
+
+  get chainResource() {
+    const SimpleDbEntityChainResource = (
+      require('../entity/SimpleDbEntityChainResource') as unknown as typeof import('../entity/SimpleDbEntityChainResource')
+    ).SimpleDbEntityChainResource;
+    const value = new SimpleDbEntityChainResource();
+    Object.defineProperty(this, 'chainResource', { value });
+    return value;
+  }
+
+  get btcFreshAddress() {
+    const SimpleDbEntityBTCFreshAddress = (
+      require('../entity/SimpleDbEntityBTCFreshAddress') as unknown as typeof import('../entity/SimpleDbEntityBTCFreshAddress')
+    ).SimpleDbEntityBTCFreshAddress;
+    const value = new SimpleDbEntityBTCFreshAddress();
+    Object.defineProperty(this, 'btcFreshAddress', { value });
+    return value;
+  }
+
+  get btcFreshAddressMeta() {
+    const SimpleDbEntityBTCFreshAddressMeta = (
+      require('../entity/SimpleDbEntityBTCFreshAddressMeta') as unknown as typeof import('../entity/SimpleDbEntityBTCFreshAddressMeta')
+    ).SimpleDbEntityBTCFreshAddressMeta;
+    const value = new SimpleDbEntityBTCFreshAddressMeta();
+    Object.defineProperty(this, 'btcFreshAddressMeta', { value });
+    return value;
+  }
+
+  get walletStatus() {
+    const SimpleDbEntityWalletStatus = (
+      require('../entity/SimpleDbEntityWalletStatus') as unknown as typeof import('../entity/SimpleDbEntityWalletStatus')
+    ).SimpleDbEntityWalletStatus;
+    const value = new SimpleDbEntityWalletStatus();
+    Object.defineProperty(this, 'walletStatus', { value });
+    return value;
+  }
+
+  get ipTable() {
+    const SimpleDbEntityIpTable = (
+      require('../entity/SimpleDbEntityIpTable') as unknown as typeof import('../entity/SimpleDbEntityIpTable')
+    ).SimpleDbEntityIpTable;
+    const value = new SimpleDbEntityIpTable();
+    Object.defineProperty(this, 'ipTable', { value });
+    return value;
+  }
+
+  get deFi() {
+    const SimpleDbEntityDeFi = (
+      require('../entity/SimpleDbEntityDeFi') as unknown as typeof import('../entity/SimpleDbEntityDeFi')
+    ).SimpleDbEntityDeFi;
+    const value = new SimpleDbEntityDeFi();
+    Object.defineProperty(this, 'deFi', { value });
+    return value;
+  }
 }

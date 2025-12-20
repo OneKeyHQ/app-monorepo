@@ -14,6 +14,13 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
   WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  ETabHomeRoutes,
+  ETabReferFriendsRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -32,18 +39,29 @@ type IProcessDeepLinkParams = {
   parsedUrl: Linking.ParsedURL;
 };
 
-async function processDeepLinkUrlAccount({
-  parsedUrl,
-}: IProcessDeepLinkParams) {
+async function processDeepLinkUrlAccount(
+  params: IProcessDeepLinkParams,
+  times = 0,
+) {
+  if (times > 10) {
+    return;
+  }
   try {
-    const { hostname, queryParams, scheme } = parsedUrl;
+    const { parsedUrl } = params;
+    const { hostname, queryParams, scheme, path } = parsedUrl;
     if (
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
     ) {
       console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
       const navigation = appGlobals.$rootAppNavigation;
-      switch (hostname) {
+      if (!navigation) {
+        setTimeout(() => {
+          void processDeepLinkUrlAccount(params, times + 1);
+        }, 1500);
+        return;
+      }
+      switch (hostname ?? path?.slice(1)) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
@@ -69,6 +87,45 @@ async function processDeepLinkUrlAccount({
             }
           }
           break;
+        case EOneKeyDeepLinkPath.invite_share:
+          {
+            const { utm_source: utmSource, code } =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invite_share];
+            if (navigation) {
+              // Navigate to Tab page instead of modal
+              navigation.switchTab(ETabRoutes.ReferFriends, {
+                screen: ETabReferFriendsRoutes.TabReferAFriend,
+                params: {
+                  utmSource,
+                  code,
+                },
+              });
+            }
+            defaultLogger.referral.page.enterReferralGuideFromDeepLink(
+              code,
+              utmSource,
+            );
+          }
+          break;
+        case EOneKeyDeepLinkPath.invited_by_friend:
+          {
+            const { code, page } =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
+            if (navigation) {
+              // Navigate to ReferralLandingPage which handles the modal opening
+              navigation.switchTab(ETabRoutes.Home, {
+                screen: ETabHomeRoutes.TabHomeReferralLanding,
+                params: {
+                  code,
+                  page: page ?? '',
+                },
+              });
+            }
+          }
+          break;
+        case EOneKeyDeepLinkPath.cross_device_transfer:
+          console.log('TODO implement cross_device_transfer deeplink');
+          break;
         default:
           break;
       }
@@ -91,6 +148,7 @@ async function processDeepLinkWalletConnect({
 }: IProcessDeepLinkParams) {
   try {
     const { hostname, path, queryParams, scheme } = parsedUrl;
+
     let wcUri = '';
     // define deeplink schema at
     //  - packages/web/validation/deeplink.ios.json
@@ -98,9 +156,9 @@ async function processDeepLinkWalletConnect({
 
     const universalLinkHost = await getUniversalLink();
     // ** ios UniversalLink
-    //        https://1key.so/wc/connect/wc?uri=wc%3Aeb16df1f-1d3b-4018-9d18-28ef610cc1a4%401%3Fbridge%3Dhttps%253A%252F%252Fj.bridge.walletconnect.org%26key%3D0037246aefb211f98a8386d4bf7fd2a5344960bf98cb39c57fb312a098f2eb77
+    //        https://app.onekey.so/wc/connect/wc?uri=wc%3Aeb16df1f-1d3b-4018-9d18-28ef610cc1a4%401%3Fbridge%3Dhttps%253A%252F%252Fj.bridge.walletconnect.org%26key%3D0037246aefb211f98a8386d4bf7fd2a5344960bf98cb39c57fb312a098f2eb77
     // check UniversalLink allowed path here:
-    //    https://1key.so/.well-known/apple-app-site-association
+    //    https://app.onekey.so/.well-known/apple-app-site-association
     if (
       hostname === universalLinkHost &&
       path === WalletConnectUniversalLinkPath
@@ -122,6 +180,7 @@ async function processDeepLinkWalletConnect({
     ) {
       if (
         (path === WALLET_CONNECT_DEEP_LINK_NAME && !hostname) ||
+        (path === `/${WALLET_CONNECT_DEEP_LINK_NAME}` && !hostname) ||
         (hostname === WALLET_CONNECT_DEEP_LINK_NAME && !path)
       ) {
         if (queryParams?.uri) {
@@ -145,7 +204,7 @@ async function processDeepLinkWalletConnect({
       // V1
       if (queryParams?.bridge && queryParams?.key) {
         // wcUri = url;
-        throw new Error('WalletConnect V1 is not supported');
+        throw new OneKeyLocalError('WalletConnect V1 is not supported');
       }
       // V2
       // eslint-disable-next-line spellcheck/spell-checker

@@ -4,6 +4,7 @@ import { isNil, isString, uniqBy } from 'lodash';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -156,7 +157,9 @@ export class ExternalControllerEvm extends ExternalControllerBase {
 
   get manager() {
     if (!this._manager) {
-      this._manager = new EvmConnectorManager();
+      this._manager = new EvmConnectorManager({
+        backgroundApi: this.backgroundApi,
+      });
     }
     return this._manager;
   }
@@ -227,7 +230,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
       });
     }
     if (!connector) {
-      throw new Error('connector is not defined');
+      throw new OneKeyLocalError('connector is not defined');
     }
     return { connector, connectionInfo };
   }
@@ -301,7 +304,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
   override async signMessageByWalletConnect(
     payload: IExternalSignMessageByWalletConnectPayload,
   ): Promise<ISignedMessagePro> {
-    const { params, networkId, connector } = payload;
+    const { params, networkId, connector, account } = payload;
 
     const wcChain = await this.getWcChain({ networkId });
     const { method, callParams } = evmConnectorUtils.parseSignMessageParams({
@@ -309,15 +312,18 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     });
     const provider = await connector.getProvider();
     if (!wcChain) {
-      throw new Error('evmWalletConnect signMessage ERROR: wcChain not found');
+      throw new OneKeyLocalError(
+        'evmWalletConnect signMessage ERROR: wcChain not found',
+      );
     }
-    const result = (await provider.request(
-      {
+    const result = await provider.request<string>({
+      args: {
         method,
         params: callParams,
       },
       wcChain,
-    )) as string;
+      account,
+    });
 
     return [result];
   }
@@ -325,7 +331,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
   override async sendTransactionByWalletConnect(
     payload: IExternalSendTransactionByWalletConnectPayload,
   ): Promise<ISignedTxPro> {
-    const { params, networkId, connector } = payload;
+    const { params, networkId, connector, account } = payload;
 
     const wcChain = await this.getWcChain({ networkId });
     const { method, callParams } = evmConnectorUtils.parseSendTransactionParams(
@@ -335,20 +341,23 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     );
     const provider = await connector.getProvider();
     if (!wcChain) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'evmWalletConnect sendTransaction ERROR: wcChain not found',
       );
     }
-    const txid = (await provider.request(
-      {
+    const txid = await provider.request<string>({
+      args: {
         method,
         params: callParams,
       },
       wcChain,
-    )) as string;
+      account,
+    });
 
     if (!txid) {
-      throw new Error('walletConnect sendTransaction ERROR: txid not found');
+      throw new OneKeyLocalError(
+        'walletConnect sendTransaction ERROR: txid not found',
+      );
     }
 
     return {
@@ -502,7 +511,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     });
 
     if (!txid) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'ExternalWalletControllerEvm sendTransaction ERROR: txid not found',
       );
     }
@@ -547,13 +556,14 @@ export class ExternalControllerEvm extends ExternalControllerBase {
 
     if (walletConnectProvider) {
       const wcChain = await this.getWcChain({ networkId });
-      const chainIdNumOrHexString = (await walletConnectProvider.request(
-        {
+      const chainIdNumOrHexString = await walletConnectProvider.request({
+        args: {
           method: 'eth_chainId',
         },
         wcChain,
-      )) as string;
-      return new BigNumber(chainIdNumOrHexString).toNumber();
+        account: undefined,
+      });
+      return new BigNumber(chainIdNumOrHexString as string).toNumber();
     }
 
     const chainIdNumOrHexString = await provider.request({
@@ -576,12 +586,13 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     let addresses: `0x${string}`[] = [];
     if (walletConnectProvider) {
       const wcChain = await this.getWcChain({ networkId });
-      addresses = (await walletConnectProvider.request(
-        {
+      addresses = await walletConnectProvider.request({
+        args: {
           method: 'eth_accounts',
         },
         wcChain,
-      )) as `0x${string}`[];
+        account: undefined,
+      });
     } else {
       addresses = await provider.request({
         method: 'eth_accounts',
@@ -597,32 +608,72 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     payload: IExternalCheckNetworkOrAddressMatchedPayload,
   ): Promise<void> {
     const { account, networkId } = payload;
-    const chainId = networkUtils.getNetworkChainId({ networkId });
-    const isWalletConnect =
-      payload.connector instanceof ExternalConnectorWalletConnect;
+
     const connector = payload.connector as IExternalConnectorEvm;
-    const peerChainIdNum = await this.requestChainId({ connector, networkId });
     const peerAddresses = await this.requestAccounts({ connector, networkId });
 
     if (
       !peerAddresses.includes((account.address || '')?.toLowerCase() as any)
     ) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `${appLocale.intl.formatMessage({
           id: ETranslations.feedback_address_not_matched,
         })}: ${networkId} ${account.address}`,
       );
     }
 
+    /*
     // walletconnect does not need to check if chainId matches
     // because wcChain has been passed in request()
     // and OKX wallet will not return the correct chainId
+    */
+    const chainId = networkUtils.getNetworkChainId({ networkId });
+    const isWalletConnect =
+      payload.connector instanceof ExternalConnectorWalletConnect;
+    const peerChainIdNum = await this.requestChainId({ connector, networkId });
+
     if (!isWalletConnect && chainId !== peerChainIdNum.toString()) {
-      throw new Error(
-        `${appLocale.intl.formatMessage({
-          id: ETranslations.global_network_not_matched,
-        })}: ${networkId} peerChainId=${peerChainIdNum}`,
-      );
+      // throw new OneKeyLocalError(
+      //   `${appLocale.intl.formatMessage({
+      //     id: ETranslations.global_network_not_matched,
+      //   })}: expected=${chainId} received=${peerChainIdNum}`,
+      // );
+      // switch chain to the correct chainId, metamask no longer returns chainId of wallet homepage
+      const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
+        networkId,
+      });
+      const customRpc =
+        await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+          networkId,
+        );
+      // ethereum.request({method: 'wallet_switchEthereumChain', params: []})
+      await connector?.switchChain?.({
+        // ethereum.request({method: 'wallet_addEthereumChain', params: []})
+        addEthereumChainParameter: {
+          // chainId: Number(chainId),
+          chainName:
+            network?.name || network?.shortname || network?.shortcode || '',
+          // nativeCurrency: {
+          //   name: network?.symbol || '',
+          //   symbol: network?.symbol || '',
+          //   // TODO do not hardcode 18, throw error if decimals not valid
+          //   // decimals: network?.decimals,
+          // },
+          get nativeCurrency():
+            | { name: string; symbol: string; decimals: number }
+            | undefined {
+            throw new OneKeyLocalError(
+              `${appLocale.intl.formatMessage({
+                id: ETranslations.feedback_external_wallet_does_not_approve_network,
+              })}: ${network?.name || network?.shortname || networkId}`,
+            );
+          },
+          rpcUrls: customRpc?.rpc ? [customRpc.rpc] : [],
+          blockExplorerUrls: [network?.explorerURL]?.filter(Boolean) || [],
+          iconUrls: [network?.logoURI]?.filter(Boolean) || [],
+        },
+        chainId: Number(chainId),
+      });
     }
   }
 }

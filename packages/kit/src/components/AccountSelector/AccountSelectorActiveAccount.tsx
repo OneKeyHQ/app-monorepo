@@ -1,169 +1,105 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type {
+  IIconButtonProps,
+  IPageNavigationProp,
+} from '@onekeyhq/components';
 import {
   Icon,
   IconButton,
   NATIVE_HIT_SLOP,
   SizableText,
-  Skeleton,
   Tooltip,
   XStack,
-  useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
-import {
-  EModalReceiveRoutes,
-  EModalRoutes,
-  EModalWalletAddressRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
-import {
-  useAccountOverviewStateAtom,
-  useAllNetworksStateStateAtom,
-} from '../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
-const AllNetworkAccountSelector = ({ num }: { num: number }) => {
+const AllNetworkAccountSelector = ({
+  num,
+  showCopyButton,
+}: {
+  num: number;
+  showCopyButton: boolean;
+}) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
-  const shouldClearAllNetworksCache = useRef(false);
-  const [allNetworksState] = useAllNetworksStateStateAtom();
-  const [overviewState] = useAccountOverviewStateAtom();
 
-  const [isFocus, setIsFocus] = useState(false);
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
     useAllNetworkCopyAddressHandler({
       activeAccount,
     });
-  useListenTabFocusState(
-    ETabRoutes.Home,
-    async (focus: boolean, hideByModal: boolean) => {
-      setIsFocus(!hideByModal);
-    },
-  );
-
-  const { result: allNetworksCount, run } = usePromiseResult(async () => {
-    const { network, wallet } = activeAccount;
-    if (!network?.isAllNetworks) return null;
-
-    if (shouldClearAllNetworksCache.current) {
-      await backgroundApiProxy.serviceNetwork.clearNetworkVaultSettingsCache();
-    }
-
-    const { networkIds } =
-      await backgroundApiProxy.serviceNetwork.getAllNetworkIds({
-        clearCache: shouldClearAllNetworksCache.current,
-      });
-    const { networkIdsCompatible } =
-      await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
-        {
-          walletId: wallet?.id,
-          networkIds,
-        },
-      );
-
-    shouldClearAllNetworksCache.current = false;
-    return networkIdsCompatible.length;
-  }, [activeAccount]);
-
-  useEffect(() => {
-    const reloadAllNetworks = () => {
-      shouldClearAllNetworksCache.current = true;
-      void run();
-    };
-    appEventBus.on(
-      EAppEventBusNames.NetworkDeriveTypeChanged,
-      reloadAllNetworks,
-    );
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
-    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.NetworkDeriveTypeChanged,
-        reloadAllNetworks,
-      );
-      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
-    };
-  }, [run]);
 
   if (!isAllNetworkEnabled) {
     return null;
   }
 
-  return (
-    <Spotlight
-      delayMs={150}
-      isVisible={isFocus ? !platformEnv.isE2E : undefined}
-      message={intl.formatMessage({
-        id: ETranslations.spotlight_enable_network_message,
+  return showCopyButton ? (
+    <Tooltip
+      shortcutKey={EShortcutEvents.CopyAddressOrUrl}
+      renderContent={intl.formatMessage({
+        id: ETranslations.global_copy_address,
       })}
-      tourName={ESpotlightTour.createAllNetworks}
-    >
-      <XStack
-        gap="$2"
-        p="$1"
-        m="$-1"
-        borderRadius="$2"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-        focusVisibleStyle={{
-          outlineColor: '$focusRing',
-          outlineWidth: 2,
-          outlineStyle: 'solid',
-          outlineOffset: 0,
-        }}
-        hitSlop={{
-          right: 8,
-          bottom: 8,
-          top: 8,
-        }}
-        userSelect="none"
-        onPress={handleAllNetworkCopyAddress}
-      >
-        <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
-        {overviewState.initialized ? (
-          <SizableText size="$bodyMd">
-            {`${allNetworksState.visibleCount ?? 0} / ${allNetworksCount ?? 0}`}
-          </SizableText>
-        ) : (
-          <Skeleton h="$5" w="$10" />
-        )}
-      </XStack>
-      {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
-    </Spotlight>
-  );
+      placement="bottom"
+      renderTrigger={
+        <XStack
+          gap="$2"
+          p="$1"
+          m="$-1"
+          borderRadius="$2"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
+          focusVisibleStyle={{
+            outlineColor: '$focusRing',
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineOffset: 0,
+          }}
+          hitSlop={{
+            right: 8,
+            bottom: 8,
+            top: 8,
+          }}
+          userSelect="none"
+          onPress={async () => {
+            if (
+              await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+                walletId: activeAccount?.wallet?.id ?? '',
+              })
+            ) {
+              return;
+            }
+            await handleAllNetworkCopyAddress(true);
+          }}
+        >
+          <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
+        </XStack>
+      }
+    />
+  ) : null;
 
   // const visible = isFirstVisit && isFocus;
   // console.log('AllNetworkAccountSelector____visible', visible);
@@ -190,17 +126,50 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   // );
 };
 
-export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
+function CopyButton({
+  onPress,
+  visible,
+}: {
+  onPress: IIconButtonProps['onPress'];
+  visible: boolean;
+}) {
+  const intl = useIntl();
+  return visible ? (
+    <IconButton
+      title={intl.formatMessage({
+        id: ETranslations.global_copy_address,
+      })}
+      icon="Copy3Outline"
+      size="small"
+      variant="tertiary"
+      onPress={onPress}
+    />
+  ) : null;
+}
+
+export function AccountSelectorActiveAccountHome({
+  num,
+  showAccountAddress = true,
+  showCopyButton = false,
+  showCreateAddressButton = true,
+  showNoAddressTip = true,
+}: {
+  num: number;
+  showAccountAddress?: boolean;
+  showCopyButton?: boolean;
+  showCreateAddressButton?: boolean;
+  showNoAddressTip?: boolean;
+}) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
-  const { copyText } = useClipboard();
+  const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
   const {
     account,
     wallet,
     network,
-    deriveInfo,
-    deriveInfoItems,
+    indexedAccount,
     vaultSettings,
+    deriveInfoItems,
   } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
@@ -221,10 +190,19 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     console.log(activeAccount?.wallet?.avatar);
   }, [activeAccount, selectedAccount]);
 
-  const handleAddressOnPress = useCallback(() => {
-    if (!account?.address || !network || !deriveInfo || !wallet) {
+  const handleAddressOnPress = useCallback(async () => {
+    if (!account?.address || !network || !wallet) {
       return;
     }
+
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet.id,
+      })
+    ) {
+      return;
+    }
+
     if (
       wallet?.id &&
       (accountUtils.isHwWallet({
@@ -242,33 +220,62 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
           walletId: wallet.id,
         },
       });
+    } else if (
+      vaultSettings?.mergeDeriveAssetsEnabled &&
+      accountUtils.isHdWallet({ walletId: wallet?.id ?? '' })
+    ) {
+      const defaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: network?.id ?? '',
+        });
+
+      const { accounts } =
+        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+          indexedAccountIds: [indexedAccount?.id ?? ''],
+          networkId: network?.id ?? '',
+          deriveType: defaultDeriveType,
+        });
+
+      copyAddressWithDeriveType({
+        address: accounts?.[0]?.address || '',
+        deriveInfo: deriveInfoItems.find(
+          (item) => item.value === defaultDeriveType,
+        )?.item,
+        networkName: network?.name,
+      });
     } else {
-      copyText(account.address);
+      let networkName = network?.name;
+      if (
+        network?.isAllNetworks &&
+        accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
+        account?.createAtNetwork
+      ) {
+        const createAtNetwork =
+          await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+            networkId: account.createAtNetwork,
+          });
+        networkName = createAtNetwork?.shortname ?? networkName;
+      }
+
+      copyAddressWithDeriveType({
+        address: account.address,
+        networkName,
+      });
     }
     logActiveAccount();
   }, [
-    account,
-    copyText,
-    deriveInfo,
+    account?.address,
+    account?.createAtNetwork,
+    account?.id,
+    copyAddressWithDeriveType,
+    deriveInfoItems,
+    indexedAccount?.id,
     logActiveAccount,
     navigation,
     network,
+    vaultSettings?.mergeDeriveAssetsEnabled,
     wallet,
   ]);
-
-  const handleMultiDeriveAddressOnPress = useCallback(() => {
-    if (!network || !activeAccount.indexedAccount) {
-      return;
-    }
-    navigation.pushModal(EModalRoutes.WalletAddress, {
-      screen: EModalWalletAddressRoutes.DeriveTypesAddress,
-      params: {
-        networkId: network.id,
-        indexedAccountId: activeAccount.indexedAccount.id,
-        actionType: EDeriveAddressActionType.Copy,
-      },
-    });
-  }, [activeAccount.indexedAccount, navigation, network]);
 
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,
@@ -278,85 +285,74 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   );
 
   if (isAllNetworkEnabled) {
-    return <AllNetworkAccountSelector num={num} />;
+    return (
+      <AllNetworkAccountSelector num={num} showCopyButton={showCopyButton} />
+    );
   }
 
   if (accountUtils.isAllNetworkMockAddress({ address: account?.address })) {
     return null;
   }
 
-  // show copy address icon button if account has multiple derive types
-  if (
-    vaultSettings?.mergeDeriveAssetsEnabled &&
-    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
-    deriveInfoItems.length > 1
-  ) {
-    return (
-      <IconButton
-        title={intl.formatMessage({
-          id: ETranslations.global_copy_address,
-        })}
-        icon="Copy3Outline"
-        size="small"
-        variant="tertiary"
-        onPress={handleMultiDeriveAddressOnPress}
-      />
-    );
-  }
-
   // show address if account has an address
   if (account?.address) {
+    if (showAccountAddress) {
+      return (
+        <Tooltip
+          shortcutKey={EShortcutEvents.CopyAddressOrUrl}
+          renderContent={intl.formatMessage({
+            id: ETranslations.global_copy_address,
+          })}
+          placement="top"
+          renderTrigger={
+            <XStack
+              alignItems="center"
+              onPress={handleAddressOnPress}
+              py="$1"
+              px="$2"
+              my="$-1"
+              mx="$-2"
+              borderRadius="$2"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusable
+              focusVisibleStyle={{
+                outlineWidth: 2,
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+              }}
+              hitSlop={NATIVE_HIT_SLOP}
+              userSelect="none"
+              testID="account-selector-address"
+            >
+              {platformEnv.isE2E ? (
+                <SizableText
+                  testID="account-selector-address-text"
+                  size="$bodyMd"
+                  width={200}
+                >
+                  {account?.address}
+                </SizableText>
+              ) : (
+                <SizableText
+                  testID="account-selector-address-text"
+                  size="$bodyMd"
+                >
+                  {accountUtils.shortenAddress({ address: account?.address })}
+                </SizableText>
+              )}
+            </XStack>
+          }
+        />
+      );
+    }
+
     return (
-      <Tooltip
-        shortcutKey={EShortcutEvents.CopyAddressOrUrl}
-        renderContent={intl.formatMessage({
-          id: ETranslations.global_copy_address,
-        })}
-        placement="top"
-        renderTrigger={
-          <XStack
-            alignItems="center"
-            onPress={handleAddressOnPress}
-            py="$1"
-            px="$2"
-            my="$-1"
-            mx="$-2"
-            borderRadius="$2"
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            focusable
-            focusVisibleStyle={{
-              outlineWidth: 2,
-              outlineColor: '$focusRing',
-              outlineStyle: 'solid',
-            }}
-            hitSlop={NATIVE_HIT_SLOP}
-            userSelect="none"
-            testID="account-selector-address"
-          >
-            {platformEnv.isE2E ? (
-              <SizableText
-                testID="account-selector-address-text"
-                size="$bodyMd"
-                width={200}
-              >
-                {account?.address}
-              </SizableText>
-            ) : (
-              <SizableText
-                testID="account-selector-address-text"
-                size="$bodyMd"
-              >
-                {accountUtils.shortenAddress({ address: account?.address })}
-              </SizableText>
-            )}
-          </XStack>
-        }
-      />
+      <CopyButton onPress={handleAddressOnPress} visible={showCopyButton} />
     );
   }
 
@@ -365,7 +361,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     return null;
   }
 
-  if (activeAccount.canCreateAddress) {
+  if (activeAccount.canCreateAddress && showCreateAddressButton) {
     // show create button if account not exists
     return (
       <AccountSelectorCreateAddressButton
@@ -391,11 +387,11 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     );
   }
 
-  return (
+  return showNoAddressTip ? (
     <XStack onPress={() => logActiveAccount()}>
       <SizableText size="$bodyMd" color="$textCaution">
         {intl.formatMessage({ id: ETranslations.wallet_no_address })}
       </SizableText>
     </XStack>
-  );
+  ) : null;
 }

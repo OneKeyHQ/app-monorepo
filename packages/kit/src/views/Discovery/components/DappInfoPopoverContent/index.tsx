@@ -23,7 +23,7 @@ import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { DAppRequestedDappList } from '../../../DAppConnection/components/DAppRequestContent/DAppRequestedDappList';
 import { DAppRiskyAlertDetail } from '../../../DAppConnection/components/DAppRequestLayout/DAppRiskyAlertDetail';
 
-const SecurityTitle = {
+const SecurityTitleMap = {
   [EHostSecurityLevel.Security]: ETranslations.dapp_connect_verified_site,
   [EHostSecurityLevel.High]: ETranslations.dapp_connect_malicious_site_warning,
   [EHostSecurityLevel.Medium]:
@@ -50,7 +50,7 @@ export function DappInfoPopoverContent({
         securityElement: (
           <SizableText size="$bodyMd">
             {intl.formatMessage({
-              id: ETranslations.global_unknown,
+              id: ETranslations.browser_risk_detection_unknown,
             })}
           </SizableText>
         ),
@@ -64,13 +64,15 @@ export function DappInfoPopoverContent({
         .join(' & ') || '';
     return {
       securityStatus: hostSecurity?.level
-        ? SecurityTitle[hostSecurity?.level]
+        ? SecurityTitleMap[hostSecurity?.level]
         : EHostSecurityLevel.Unknown,
       securityElement: (
         <>
           <SizableText size="$bodyMd" flex={1}>
             {intl.formatMessage({
-              id: ETranslations.dapp_connect_verified_site,
+              id: hostSecurity?.level
+                ? SecurityTitleMap[hostSecurity?.level]
+                : ETranslations.browser_risk_detection_unknown,
             })}
           </SizableText>
           {providerNames ? (
@@ -101,33 +103,20 @@ export function DappInfoPopoverContent({
       <XStack alignItems="center" userSelect="none" gap="$3">
         {/* logomark */}
         <Image
-          w="$10"
-          h="$10"
+          size="$10"
           borderRadius="$2"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
           borderCurve="continuous"
-        >
-          {hostSecurity?.dapp?.logo ? (
-            <Image.Source
-              source={{
-                uri: hostSecurity?.dapp?.logo,
-              }}
-            />
-          ) : null}
-          <Image.Fallback
-            alignItems="center"
-            justifyContent="center"
-            bg="$bgSubdued"
-          >
-            <Icon name="GlobusOutline" width="$6" height="$6" />
-          </Image.Fallback>
-          {hostSecurity?.dapp?.logo ? (
-            <Image.Loading>
-              <Skeleton width="100%" height="100%" />
-            </Image.Loading>
-          ) : null}
-        </Image>
+          source={{
+            uri: hostSecurity?.dapp?.logo,
+          }}
+          fallback={
+            <Image.Fallback>
+              <Icon name="GlobusOutline" size="$10" />
+            </Image.Fallback>
+          }
+        />
         {/* title, badge and description */}
         <Stack flex={1} gap="$0.5">
           <XStack alignItems="center" gap="$2">
@@ -199,9 +188,9 @@ export function DappInfoPopoverContent({
             color={iconConfig.iconColor}
             size="$5"
           />
-          <XStack pl="$3" flex={1}>
+          <YStack pl="$3" flex={1}>
             {securityElement}
-          </XStack>
+          </YStack>
           {securityStatus === EHostSecurityLevel.Unknown ? null : (
             <Icon
               name="ChevronRightSmallOutline"

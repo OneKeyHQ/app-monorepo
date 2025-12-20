@@ -1,10 +1,4 @@
-import {
-  type ComponentProps,
-  type FC,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import { type ComponentProps, useCallback, useMemo, useState } from 'react';
 
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -22,7 +16,7 @@ type IRatioImageProps = {
   base: IImageItem;
 };
 
-export const RatioImage: FC<IRatioImageProps> = ({ sm, base }) => {
+export const RatioImage = ({ sm, base }: IRatioImageProps) => {
   const [width, setWidth] = useState<number>(0);
   const md = useMedia();
   const debouncedSetHeight = useDebouncedCallback(

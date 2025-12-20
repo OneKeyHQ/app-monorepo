@@ -1,6 +1,8 @@
 import { utils } from '@ckb-lumos/base';
 import { getConfig as getSDKConfig } from '@ckb-lumos/config-manager';
-import { generateAddress, parseAddress } from '@ckb-lumos/helpers';
+import { generateAddress } from '@ckb-lumos/helpers';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { Script } from '@ckb-lumos/base';
 import type { Config } from '@ckb-lumos/config-manager';
@@ -19,7 +21,7 @@ export function getConfig(chainId: string) {
     return config;
   }
 
-  throw new Error('Invalid chainId');
+  throw new OneKeyLocalError('Invalid chainId');
 }
 
 export function scriptToAddress(
@@ -42,7 +44,7 @@ export function pubkeyToAddress(
   const template = config.SCRIPTS.SECP256K1_BLAKE160;
 
   if (!template) {
-    throw new Error('SECP256K1_BLAKE160 not found in config');
+    throw new OneKeyLocalError('SECP256K1_BLAKE160 not found in config');
   }
 
   const lockScript = {

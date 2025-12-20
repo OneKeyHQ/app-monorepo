@@ -7,6 +7,7 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 
 export enum EEnterMethod {
   banner = 'banner',
+  trending = 'trending',
   dashboard = 'dashboard',
   search = 'search',
   addressBar = 'addressBar',
@@ -14,6 +15,7 @@ export enum EEnterMethod {
   bookmark = 'bookmark',
   bookmarkInSearch = 'bookmarkInSearch',
   historyInSearch = 'historyInSearch',
+  externalNavigation = 'externalNavigation',
 }
 
 export class DappScene extends BaseScene {

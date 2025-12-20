@@ -24,11 +24,13 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { googleDriveStorage } from '@onekeyhq/shared/src/storage/GoogleDriveStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
@@ -112,19 +114,23 @@ class ServiceCloudBackup extends ServiceBase {
       wallets: {},
     };
     const { version } = platformEnv;
-    const contacts = await serviceAddressBook.getSafeRawItems();
-    defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
-      contacts.length,
-    );
+    if (password) {
+      const { items: contacts } = await serviceAddressBook.getSafeRawItems({
+        password,
+      });
+      defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
+        contacts.length,
+      );
 
-    contacts.forEach((contact) => {
-      const contactUUID = getContactUUID(contact);
-      privateBackupData.contacts[contactUUID] = contact;
-      publicBackupData.contacts[contactUUID] = {
-        ...contact,
-        address: shortenAddress({ address: contact.address }),
-      };
-    });
+      contacts.forEach((contact) => {
+        const contactUUID = getContactUUID(contact);
+        privateBackupData.contacts[contactUUID] = contact;
+        publicBackupData.contacts[contactUUID] = {
+          ...contact,
+          address: shortenAddress({ address: contact.address }),
+        };
+      });
+    }
 
     const bookmarks = await serviceDiscovery.getBookmarkData(undefined);
     publicBackupData.discoverBookmarks = bookmarks;
@@ -149,6 +155,10 @@ class ServiceCloudBackup extends ServiceBase {
       const walletId = accountUtils.parseAccountId({
         accountId: account.id,
       }).walletId;
+      if (!walletId) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       const wallet = walletAccountMap[walletId];
       if (wallet && wallet.type !== WALLET_TYPE_HW) {
         if (wallet.type === WALLET_TYPE_IMPORTED) {
@@ -233,8 +243,31 @@ class ServiceCloudBackup extends ServiceBase {
     };
   }
 
+  async touchLegacyMetaDataFile() {
+    if (!RNFS) return;
+    const filename = generateUUID();
+    const localTempFilePath = this.getTempFilePath(filename);
+    if (localTempFilePath) {
+      const existMetaData = await this.getMetaDataFromCloud();
+      if (existMetaData?.length && existMetaData?.[0]) {
+        // @ts-ignore
+        existMetaData[0].refreshTime = Date.now();
+        const newMetaData = JSON.stringify(existMetaData);
+        await RNFS.writeFile(localTempFilePath, newMetaData, 'utf8');
+
+        await CloudFs.uploadToCloud(
+          localTempFilePath,
+          this.getBackupPath(CLOUD_METADATA_FILE_NAME),
+        );
+        await RNFS.unlink(localTempFilePath);
+        this.metaDataCache = newMetaData;
+        await this.getDataFromCloud.delete(CLOUD_METADATA_FILE_NAME);
+      }
+    }
+  }
+
   @backgroundMethod()
-  async backupNow(isManualBackup = true) {
+  async backupNowLegacy(isManualBackup = true) {
     const cloudBackupValueList = await cloudBackupPersistAtom.get();
     const { isEnabled } = cloudBackupValueList;
     if (!isEnabled) {
@@ -263,7 +296,7 @@ class ServiceCloudBackup extends ServiceBase {
     };
     const accountCount = accountCountWithBackup(cloudData.publicData);
     if (!isAvailableBackupWithBackup(cloudData.publicData)) {
-      throw new Error(
+      throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.backup_no_content_available_for_backup,
         }),
@@ -274,7 +307,7 @@ class ServiceCloudBackup extends ServiceBase {
       if (!RNFS) return;
       const localTempFilePath = this.getTempFilePath(filename);
       if (!localTempFilePath) {
-        throw new Error('Invalid local temp file path.');
+        throw new OneKeyLocalError('Invalid local temp file path.');
       }
       await RNFS.writeFile(
         localTempFilePath,
@@ -319,6 +352,11 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   @backgroundMethod()
+  async backupNow(isManualBackup = true) {
+    console.log('backupNow', isManualBackup);
+  }
+
+  @backgroundMethod()
   async checkCloudBackupStatus() {
     await CloudFs.sync();
     const cloudBackupValueList = await cloudBackupPersistAtom.get();
@@ -340,17 +378,23 @@ class ServiceCloudBackup extends ServiceBase {
     return CloudFs.isAvailable();
   }
 
-  async getMetaDataFromCloud() {
-    if (!(await this.getCloudAvailable())) {
-      return [];
-    }
-    const metaString = await this.getDataFromCloud(CLOUD_METADATA_FILE_NAME);
-    if (metaString.length <= 0) {
-      return [];
-    }
+  @backgroundMethod()
+  async getMetaDataFromCloud(): Promise<IMetaDataObject[]> {
     try {
-      const metaData = JSON.parse(metaString) as IMetaDataObject[];
-      return metaData;
+      if (!(await this.getCloudAvailable())) {
+        return [];
+      }
+      const metaString = await this.getDataFromCloud(CLOUD_METADATA_FILE_NAME);
+      if (metaString.length <= 0) {
+        return [];
+      }
+      try {
+        const metaData = JSON.parse(metaString) as IMetaDataObject[];
+        return metaData;
+      } catch (e) {
+        console.error(e);
+        return [];
+      }
     } catch (e) {
       console.error(e);
       return [];
@@ -584,7 +628,7 @@ class ServiceCloudBackup extends ServiceBase {
       });
 
       try {
-        await serviceAccount.generateHDWalletsMissingHash({
+        await serviceAccount.generateAllHdAndQrWalletsHashAndXfp({
           password: localPassword,
         });
       } catch (e) {
@@ -615,8 +659,8 @@ class ServiceCloudBackup extends ServiceBase {
           localPassword,
         );
 
-        const walletHash: string | undefined =
-          this.backgroundApi.serviceAccount.walletHashBuilder({
+        const walletHashAndXfp =
+          await this.backgroundApi.serviceAccount.hdWalletHashAndXfpBuilder({
             realMnemonic: mnemonicFromRs,
           });
 
@@ -625,7 +669,9 @@ class ServiceCloudBackup extends ServiceBase {
             rs: rsEncoded,
             password: localPassword,
             avatarInfo: avatar,
-            walletHash,
+            walletHash: walletHashAndXfp.hash,
+            walletXfp: walletHashAndXfp.xfp,
+            isWalletBackedUp: true,
           });
         await serviceAccount.restoreAccountsToWallet({
           walletId: wallet.id,
@@ -740,19 +786,21 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async requestAutoBackup() {
-    void this.requestAutoBackupDebounce();
+    console.log('requestAutoBackup');
+    // void this.requestAutoBackupDebounce();
   }
 
   async autoCreateAndRemoveBackup() {
-    await this.backupNow(false);
-    const metaData = await this.getMetaDataFromCloud();
-    if (metaData.length <= 0) {
-      return;
-    }
-    const willRemoveList = filterWillRemoveBackupList(metaData);
-    for (const willRemoveBackup of willRemoveList) {
-      await this.removeBackup(willRemoveBackup.filename);
-    }
+    console.log('autoCreateAndRemoveBackup');
+    // await this.backupNow(false);
+    // const metaData = await this.getMetaDataFromCloud();
+    // if (metaData.length <= 0) {
+    //   return;
+    // }
+    // const willRemoveList = filterWillRemoveBackupList(metaData);
+    // for (const willRemoveBackup of willRemoveList) {
+    //   await this.removeBackup(willRemoveBackup.filename);
+    // }
   }
 
   @backgroundMethod()
@@ -791,14 +839,51 @@ class ServiceCloudBackup extends ServiceBase {
     return CloudFs.logoutFromGoogleDrive(revokeAccess);
   }
 
+  getGoogleDriveMetadataFileObject() {
+    return googleDriveStorage.getFileObject({
+      fileName: this.getBackupPath(CLOUD_METADATA_FILE_NAME),
+    });
+  }
+
+  async downloadMetadataFile() {
+    const getMetaDataFromManifestV2 = async () => {
+      const manifest =
+        await this.backgroundApi.serviceCloudBackupV2.androidGetManifest();
+      if (manifest?.googleDriveLegacyMetaDataFileId) {
+        const file = await googleDriveStorage.downloadFile({
+          fileId: manifest.googleDriveLegacyMetaDataFileId,
+        });
+        return file?.content;
+      }
+    };
+
+    try {
+      const filename = CLOUD_METADATA_FILE_NAME;
+      const content = await CloudFs.downloadFromCloud(
+        platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
+      );
+      if (content) {
+        return content;
+      }
+    } catch (e) {
+      console.error('downloadMetadataFile', e);
+    }
+    return getMetaDataFromManifestV2();
+  }
+
   private metaDataCache = '';
 
   private getDataFromCloud = memoizee(
     async (filename: string) => {
       try {
-        const content = await CloudFs.downloadFromCloud(
-          platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
-        );
+        let content = '[]';
+        if (filename === CLOUD_METADATA_FILE_NAME) {
+          content = (await this.downloadMetadataFile()) ?? '[]';
+        } else {
+          content = await CloudFs.downloadFromCloud(
+            platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
+          );
+        }
         if (
           filename === CLOUD_METADATA_FILE_NAME &&
           (content?.length ?? 0) <= 0 &&

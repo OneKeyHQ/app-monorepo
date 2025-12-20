@@ -1,5 +1,19 @@
+/* eslint-disable no-inner-declarations */
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable prefer-template */
+/* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
-require('setimmediate');
+require('./setimmediateShim');
+
+// Promise.allSettled polyfill - must be injected before any code uses it
+// Hermes engine may have Promise but lack allSettled on some devices
+if (typeof Promise.allSettled !== 'function') {
+  console.log('Shims Injected log: Promise.allSettled');
+  // Use the promise library's implementation
+  const PromisePolyfill = require('promise/setimmediate/es6-extensions');
+  Promise.allSettled = PromisePolyfill.allSettled.bind(Promise);
+}
+
 require('./intlShim');
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
@@ -21,13 +35,86 @@ if (typeof process === 'undefined') {
   }
 }
 
+if (platformEnv.isNative) {
+  const useJsBundle =
+    require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').useJsBundle();
+  if (useJsBundle) {
+    const getJsBundlePath =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
+    const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc')[0];
+    const assetsPath = `file://${mainBundlePath}/assets/`;
+    const { Platform, PixelRatio } = require('react-native');
+    const AssetSourceResolver =
+      require('react-native/Libraries/Image/AssetSourceResolver').default;
+    const wrap = require('lodash/wrap');
+
+    const { pickScale } = require('react-native/Libraries/Image/AssetUtils');
+
+    let getAndroidResourceFolderName;
+    let getAndroidResourceIdentifier;
+    if (Platform.OS === 'android') {
+      const pathSupport = require('@react-native/assets-registry/path-support');
+      getAndroidResourceFolderName = pathSupport.getAndroidResourceFolderName;
+      getAndroidResourceIdentifier = pathSupport.getAndroidResourceIdentifier;
+    }
+
+    function getAssetPathInDrawableFolder(asset) {
+      const scale = pickScale(asset.scales, PixelRatio.get());
+      const drawableFolder = getAndroidResourceFolderName(asset, scale);
+      const fileName = getAndroidResourceIdentifier(asset);
+      return drawableFolder + '/' + fileName + '.' + asset.type;
+    }
+
+    AssetSourceResolver.prototype.defaultAsset = wrap(
+      AssetSourceResolver.prototype.defaultAsset,
+      function (func, ...args) {
+        const isLoadedFromServer = this.isLoadedFromServer();
+        if (isLoadedFromServer) {
+          const serverUrl = this.assetServerURL();
+          return serverUrl;
+        }
+        if (Platform.OS === 'android') {
+          const isLoadedFromFileSystem = this.isLoadedFromFileSystem();
+          if (useJsBundle) {
+            const asset = this.fromSource(
+              assetsPath + getAssetPathInDrawableFolder(this.asset),
+            );
+            asset.uri = asset.uri
+              .replace('__packages', 'packages')
+              .replace('__node_modules', 'node_modules');
+            return asset;
+          }
+          if (isLoadedFromFileSystem) {
+            const resolvedAssetSource = this.drawableFolderInBundle();
+            return resolvedAssetSource;
+          }
+          const resolvedAssetSource = this.resourceIdentifierWithoutScale();
+          return resolvedAssetSource;
+        }
+        if (Platform.OS === 'ios') {
+          const iOSAsset = this.scaledAssetURLNearBundle();
+          if (useJsBundle) {
+            iOSAsset.uri = iOSAsset.uri
+              .replace(this.jsbundleUrl, assetsPath)
+              .replace('__packages', 'packages')
+              .replace('__node_modules', 'node_modules');
+          }
+          return iOSAsset;
+        }
+      },
+    );
+  }
+}
+
 // TextEncoder and TextDecoder polyfill for starcoin
-if (typeof TextDecoder === 'undefined') {
+// Expo implements TextDecoder but only supports utf8 encoding
+if (platformEnv.isNative || typeof TextDecoder === 'undefined') {
   shimsInjectedLog('TextDecoder');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   global.TextDecoder = require('text-encoding').TextDecoder;
 }
-if (typeof TextEncoder === 'undefined') {
+// Expo implements TextEncoder but only supports utf8 encoding
+if (platformEnv.isNative || typeof TextEncoder === 'undefined') {
   shimsInjectedLog('TextEncoder');
   global.TextEncoder = require('text-encoding').TextEncoder;
 }
@@ -47,6 +134,10 @@ if (!(Buffer.alloc(1).subarray(0, 1) instanceof Buffer)) {
     Object.setPrototypeOf(result, Buffer.prototype);
     return result;
   };
+}
+
+if (!platformEnv.isNative) {
+  require('./globalShim');
 }
 
 // Crypto polyfill
@@ -155,6 +246,48 @@ if (platformEnv.isNativeAndroid) {
 if (platformEnv.isNativeIOS) {
   // typeforce causes iOS to crash.
   Error.captureStackTrace = () => {};
+}
+
+if (platformEnv.isNative) {
+  shimsInjectedLog('event-target-polyfill');
+  try {
+    require('event-target-polyfill');
+  } catch (error) {
+    console.warn('event-target-polyfill load failed', error);
+  }
+
+  if (typeof global.CustomEvent !== 'function' && typeof Event === 'function') {
+    global.CustomEvent = function CustomEvent(type, params = {}) {
+      const event = new Event(type, params);
+      event.detail = params.detail || null;
+      return event;
+    };
+  }
+
+  if (
+    typeof AbortSignal !== 'undefined' &&
+    typeof AbortSignal.timeout !== 'function' &&
+    typeof AbortController !== 'undefined'
+  ) {
+    AbortSignal.timeout = function timeout(delay) {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), delay);
+      return controller.signal;
+    };
+  }
+
+  if (!ArrayBuffer.prototype.transfer) {
+    // eslint-disable-next-line no-extend-native
+    ArrayBuffer.prototype.transfer = function (newByteLength) {
+      const length = newByteLength ?? this.byteLength;
+      const newBuffer = new ArrayBuffer(length);
+      const oldView = new Uint8Array(this);
+      const newView = new Uint8Array(newBuffer);
+      newView.set(oldView.subarray(0, Math.min(oldView.length, length)));
+      Object.defineProperty(this, 'byteLength', { value: 0 });
+      return newBuffer;
+    };
+  }
 }
 
 console.log('polyfillsPlatform.native shim loaded');

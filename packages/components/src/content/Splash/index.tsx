@@ -1,20 +1,23 @@
 import { useCallback, useMemo, useRef } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/metrics';
+import { type LayoutChangeEvent } from 'react-native';
 
 import { Stack } from '../../primitives';
 
 import { SplashView } from './SplashView';
 
-import type { LayoutChangeEvent } from 'react-native';
-
 export type ISplashProps = PropsWithChildren;
 
+const noop = () => {};
 export function Splash({ children }: ISplashProps) {
-  const resolveSplash = useRef<() => void>();
+  const resolveSplash = useRef<() => void>(noop);
   const handleExitComplete = useCallback(() => {
-    markFPTime();
+    globalThis.$$onekeyUIVisibleAt = Date.now();
+    if (typeof globalThis.nativePerformanceNow === 'function') {
+      globalThis.$$onekeyUIVisibleFromPerformanceNow =
+        globalThis.nativePerformanceNow();
+    }
   }, []);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {

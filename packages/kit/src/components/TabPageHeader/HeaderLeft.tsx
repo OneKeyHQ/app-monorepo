@@ -1,73 +1,192 @@
-import { useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { TouchableOpacity } from 'react-native';
 
-import { NavBackButton, Page, SizableText } from '@onekeyhq/components';
+import {
+  DebugRenderTracker,
+  NavBackButton,
+  Page,
+  SizableText,
+  Stack,
+  XStack,
+  rootNavigationRef,
+  useMedia,
+} from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  ETabHomeRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import {
-  AccountSelectorProviderMirror,
-  AccountSelectorTriggerHome,
-} from '../AccountSelector';
-import { useSpotlight } from '../Spotlight';
+import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-export function HeaderLeft({
-  sceneName,
+import { WalletConnectionGroup, WebHeaderNavigation } from './components';
+import { UrlAccountPageHeader } from './urlAccountPageHeader';
+
+export function HeaderLeftCloseButton() {
+  return (
+    <Page.Close>
+      <NavBackButton />
+    </Page.Close>
+  );
+}
+const discoveryTabs = [
+  ETranslations.global_market,
+  ETranslations.global_earn,
+  ETranslations.global_browser,
+];
+
+function SegmentText({
+  translationId,
+  selected,
 }: {
-  sceneName: EAccountSelectorSceneName;
+  translationId: (typeof discoveryTabs)[number];
+  selected: boolean;
 }) {
   const intl = useIntl();
-  const { tourTimes, tourVisited } = useSpotlight(
-    ESpotlightTour.switchDappAccount,
+  const handlePress = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+      tab: translationId as
+        | ETranslations.global_market
+        | ETranslations.global_browser
+        | ETranslations.global_earn,
+    });
+  }, [translationId]);
+  return (
+    <TouchableOpacity onPress={handlePress} activeOpacity={1}>
+      <SizableText
+        size="$headingXl"
+        color={selected ? '$text' : '$textSubdued'}
+        onPress={handlePress}
+      >
+        {intl.formatMessage({ id: translationId })}
+      </SizableText>
+    </TouchableOpacity>
   );
+}
 
-  const [isFocus, setIsFocus] = useState(false);
+export function DiscoveryHeaderSegment({
+  selectedHeaderTab,
+}: {
+  selectedHeaderTab?: ETranslations;
+}) {
+  return (
+    <XStack gap="$4">
+      {discoveryTabs.map((tab) => (
+        <SegmentText
+          key={tab}
+          translationId={tab}
+          selected={selectedHeaderTab === tab}
+        />
+      ))}
+    </XStack>
+  );
+}
 
-  useListenTabFocusState(
-    ETabRoutes.Home,
-    async (focus: boolean, hideByModal: boolean) => {
-      setIsFocus(!hideByModal && focus);
-    },
-  );
-  const spotlightVisible = useMemo(
-    () => tourTimes === 1 && isFocus,
-    [isFocus, tourTimes],
-  );
+export function HeaderLeft({
+  selectedHeaderTab,
+  sceneName,
+  tabRoute,
+  customHeaderLeftItems,
+}: {
+  selectedHeaderTab?: ETranslations;
+  sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
+  customHeaderLeftItems?: ReactNode;
+}) {
+  const { gtMd } = useMedia();
+
   const items = useMemo(() => {
+    const withWebNavigation = (content: ReactNode) => {
+      if (platformEnv.isWebDappMode && gtMd) {
+        return (
+          <XStack gap="$6" ai="center">
+            <WebHeaderNavigation />
+            {content}
+          </XStack>
+        );
+      }
+
+      return content;
+    };
+
+    if (customHeaderLeftItems) {
+      if (tabRoute === ETabRoutes.WebviewPerpTrade) {
+        return withWebNavigation(customHeaderLeftItems);
+      }
+      return customHeaderLeftItems;
+    }
+
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+      if (platformEnv.isWebDappMode && gtMd) {
+        return withWebNavigation(null);
+      }
+
       return (
-        <Page.Close>
-          <NavBackButton />
-        </Page.Close>
+        <XStack gap="$1.5">
+          <NavBackButton
+            onPress={() => {
+              if (platformEnv.isWebDappMode) {
+                rootNavigationRef.current?.navigate(
+                  ETabRoutes.Market,
+                  {
+                    screen: ETabMarketRoutes.TabMarket,
+                  },
+                  {
+                    pop: true,
+                  },
+                );
+              } else {
+                rootNavigationRef.current?.navigate(
+                  ETabRoutes.Home,
+                  {
+                    screen: ETabHomeRoutes.TabHome,
+                  },
+                  {
+                    pop: true,
+                  },
+                );
+              }
+            }}
+          />
+          {platformEnv.isNativeIOS ? <UrlAccountPageHeader /> : null}
+        </XStack>
       );
     }
 
-    const accountSelectorTrigger = (
-      <AccountSelectorTriggerHome
-        num={0}
-        key="accountSelectorTrigger"
-        spotlightProps={{
-          visible: spotlightVisible,
-          content: (
-            <SizableText size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.spotlight_account_alignment_desc,
-              })}
-            </SizableText>
-          ),
-          onConfirm: () => {
-            void tourVisited(2);
-          },
-          childrenPaddingVertical: 0,
-        }}
-      />
-    );
-    return accountSelectorTrigger;
-  }, [intl, sceneName, spotlightVisible, tourVisited]);
+    if (tabRoute === ETabRoutes.Discovery) {
+      return platformEnv.isNative ? (
+        <DiscoveryHeaderSegment selectedHeaderTab={selectedHeaderTab} />
+      ) : null;
+    }
+
+    if (tabRoute === ETabRoutes.WebviewPerpTrade) {
+      return (
+        <SizableText size="$headingLg">
+          {/* {intl.formatMessage({
+            id: ETranslations.global_browser,
+          })} */}
+        </SizableText>
+      );
+    }
+
+    // For web platform, only show WebHeaderNavigation (logo + navigation)
+    // Account selector will be moved to HeaderRight
+    if (platformEnv.isWebDappMode && gtMd) {
+      return <WebHeaderNavigation />;
+    }
+
+    // For mobile and native platforms, keep the original layout
+    return <WalletConnectionGroup tabRoute={tabRoute} />;
+  }, [customHeaderLeftItems, sceneName, tabRoute, gtMd, selectedHeaderTab]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
@@ -76,7 +195,9 @@ export function HeaderLeft({
         sceneUrl: '',
       }}
     >
-      {items}
+      <DebugRenderTracker name="TabPageHeader__HeaderLeft" position="top-right">
+        {items}
+      </DebugRenderTracker>
     </AccountSelectorProviderMirror>
   );
 }

@@ -1,0 +1,1 @@
+export { MarketTradingView } from './MarketTradingView';

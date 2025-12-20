@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -58,23 +58,27 @@ function useRiskDetection({
     if (isRiskSignMethod) {
       return true;
     }
-    if (!urlSecurityInfo) {
-      return false;
-    }
-    const show = !(
+
+    return !(
       riskLevel === EHostSecurityLevel.Security ||
       riskLevel === EHostSecurityLevel.Unknown
     );
+  }, [riskLevel, isRiskSignMethod]);
+
+  // Handle state changes when showContinueOperate changes
+  useEffect(() => {
+    // Auto-enable continue operate when checkbox is not shown
+    setContinueOperate(!showContinueOperate);
+  }, [showContinueOperate]);
+
+  // Log risk detection info
+  useEffect(() => {
     defaultLogger.discovery.dapp.dappRiskDetect({
       riskLevel,
-      showContinueOperateCheckBox: show,
+      showContinueOperateCheckBox: showContinueOperate,
       currentContinueOperate: continueOperate,
     });
-    if (!show && !continueOperate) {
-      setContinueOperate(true);
-    }
-    return show;
-  }, [riskLevel, urlSecurityInfo, continueOperate, isRiskSignMethod]);
+  }, [riskLevel, showContinueOperate, continueOperate]);
 
   return {
     showContinueOperate,

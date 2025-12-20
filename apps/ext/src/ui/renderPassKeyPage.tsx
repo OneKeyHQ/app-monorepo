@@ -13,17 +13,15 @@ import {
   usePasswordPersistAtom,
   usePasswordPromptPromiseTriggerAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EPassKeyWindowFrom,
-  EPassKeyWindowType,
-} from '@onekeyhq/shared/src/utils/extUtils';
+import { EPassKeyWindowType } from '@onekeyhq/shared/src/utils/extUtils';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { setupExtUIEventOnPassKeyPage } from '../background/extUI';
+import { closeWindow } from '../closePasskeyWIndow';
 
 const params = new URLSearchParams(globalThis.location.href.split('?').pop());
-const from = params.get('from') as EPassKeyWindowFrom;
 const type = params.get('type') as EPassKeyWindowType;
 
 const usePassKeyOperations = () => {
@@ -35,13 +33,25 @@ const usePassKeyOperations = () => {
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
   const intl = useIntl();
-
+  const [{ enablePasswordErrorProtection }, setPasswordPersist] =
+    usePasswordPersistAtom();
   const switchWebAuth = useCallback(
     async (checked: boolean) => {
       const res = await setWebAuthEnable(checked);
       if (res) {
-        await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(checked);
+        try {
+          await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(
+            checked,
+          );
+        } catch (error) {
+          console.log(error);
+        } finally {
+          console.log('close on switchWebAuth');
+          closeWindow();
+        }
       }
+      console.log('close on switchWebAuth', res);
+      closeWindow();
     },
     [setWebAuthEnable],
   );
@@ -62,6 +72,13 @@ const usePassKeyOperations = () => {
             value: EPasswordVerifyStatus.VERIFIED,
           },
         }));
+        if (enablePasswordErrorProtection) {
+          setPasswordPersist((v) => ({
+            ...v,
+            passwordErrorAttempts: 0,
+            passwordErrorProtectionTime: 0,
+          }));
+        }
         // Password Dialog
         if (passwordPromptPromiseTriggerData?.idNumber) {
           await backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(
@@ -95,15 +112,16 @@ const usePassKeyOperations = () => {
         },
       }));
     } finally {
-      if (from === EPassKeyWindowFrom.sidebar) {
-        window.close();
-      }
+      console.log('close from renderPassKeyPage');
+      closeWindow();
     }
   }, [
     checkWebAuth,
+    enablePasswordErrorProtection,
     intl,
     passwordPromptPromiseTriggerData?.idNumber,
     setPasswordAtom,
+    setPasswordPersist,
     verifiedPasswordWebAuth,
     webAuthCredentialId,
   ]);
@@ -139,7 +157,7 @@ function PassKeyContainer() {
 
 function renderPassKeyPage() {
   const root = globalThis.document.querySelector('#root');
-  if (!root) throw new Error('No root element found!');
+  if (!root) throw new OneKeyLocalError('No root element found!');
 
   createRoot(root).render(
     <GlobalJotaiReady>

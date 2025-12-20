@@ -9,6 +9,7 @@ import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequest
 import {
   NotImplemented,
   OneKeyErrorAirGapInvalidQrCode,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -26,6 +27,7 @@ import { KeyringBase } from './KeyringBase';
 
 import type { IDBAccount, IDBWallet } from '../../dbs/local/types';
 import type {
+  INormalizeGetMultiAccountsPathParams,
   IPrepareQrAccountsParams,
   IGetChildPathTemplatesParams as IQrWalletGetChildPathTemplatesParams,
   IGetChildPathTemplatesResult as IQrWalletGetChildPathTemplatesResult,
@@ -39,6 +41,10 @@ export abstract class KeyringQrBase extends KeyringBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.qr;
 
   abstract verifySignedTxMatched(...args: any[]): Promise<void>;
+
+  abstract normalizeGetMultiAccountsPath(
+    params: INormalizeGetMultiAccountsPathParams,
+  ): Promise<string>;
 
   getChildPathTemplates(
     params: IQrWalletGetChildPathTemplatesParams,
@@ -72,7 +78,7 @@ export abstract class KeyringQrBase extends KeyringBase {
   ): Promise<T> {
     const wallet = await localDb.getWallet({ walletId: this.walletId });
     if (!wallet.associatedDevice) {
-      throw new Error('associatedDevice not found');
+      throw new OneKeyLocalError('associatedDevice not found');
     }
     const device = await localDb.getDevice(wallet.associatedDevice);
     const path = await this.vault.getAccountPath();
@@ -85,9 +91,10 @@ export abstract class KeyringQrBase extends KeyringBase {
       wallet,
       index: checkIsDefined(account.pathIndex),
     });
-    const xfp = airGapAccount?.xfp || wallet.xfp;
+    let xfp = airGapAccount?.xfp || wallet.xfp;
+    xfp = accountUtils.getShortXfp({ xfp: xfp || '' });
     if (!xfp) {
-      throw new Error('xfp not found');
+      throw new OneKeyLocalError('xfp not found');
     }
     const signRequestUr = await options.signRequestUrBuilder({
       requestId,
@@ -283,6 +290,7 @@ export abstract class KeyringQrBase extends KeyringBase {
       xpub: '',
       relPath: accountUtils.buildUtxoAddressRelPath(),
       addresses: {},
+      __hwExtraInfo__: undefined,
     });
     return ret;
   }

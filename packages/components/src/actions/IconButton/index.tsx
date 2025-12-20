@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import type { TooltipProps } from '@onekeyhq/components/src/shared/tamagui';
+
 import {
   ButtonFrame,
   Icon,
@@ -8,13 +10,12 @@ import {
   getSharedButtonStyles,
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
-import { NATIVE_HIT_SLOP } from '../../utils';
+import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { Tooltip } from '../Tooltip';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
 import type { ITooltipProps } from '../Tooltip';
 import type { GestureResponderEvent } from 'react-native';
-import type { TooltipProps } from 'tamagui';
 
 export interface IIconButtonProps
   extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
@@ -46,7 +47,7 @@ const sizes = {
 const getSizeStyles = (size: IButtonProps['size']) =>
   sizes[size || 'medium'] || sizes.medium;
 
-export const IconButton = (props: IIconButtonProps) => {
+export function IconButton(props: IIconButtonProps) {
   const {
     iconSize,
     disabled,
@@ -125,4 +126,4 @@ export const IconButton = (props: IIconButtonProps) => {
   }
 
   return renderIconButton();
-};
+}

@@ -16,7 +16,8 @@ export interface IBrowserHistory {
 export interface IBrowserBookmark {
   title: string;
   url: string;
-  logo?: string;
+  logo: string | undefined;
+  sortIndex: number | undefined;
 }
 
 export interface IBrowserRiskWhiteList {
@@ -76,6 +77,7 @@ export enum ESiteMode {
 export interface IWebTab {
   id: string;
   url: string;
+  displayUrl?: string; // URL for address bar display and UI functions (sharing, external browser)
   isActive?: boolean;
   title?: string;
   customTitle?: string;
@@ -90,6 +92,7 @@ export interface IWebTab {
   refReady?: boolean;
   timestamp?: number;
   siteMode?: ESiteMode;
+  type?: 'normal' | 'home';
 }
 
 export interface IWebTabsAtom {
@@ -107,7 +110,7 @@ export interface IMobileBottomOptionsProps {
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
   onBrowserOpen: () => void;
-  onGoBackHomePage: () => void;
+  onGoBackHomePage?: () => void;
   onCloseTab: () => void;
   displayDisconnectOption: boolean;
   onDisconnect: () => void;

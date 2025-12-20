@@ -2,8 +2,21 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import {
+  InputAccessoryView,
+  Keyboard,
+  type StyleProp,
+  type TextStyle,
+} from 'react-native';
 
-import { Dialog, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  SizableText,
+  XStack,
+  YStack,
+  useIsKeyboardShown,
+} from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
@@ -12,13 +25,18 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
@@ -26,15 +44,67 @@ import {
   ESwapRateDifferenceUnit,
   ESwapTabSwitchType,
   SwapAmountInputAccessoryViewID,
+  SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import SwapInputActions from './SwapInputActions';
 
-import type { StyleProp, TextStyle } from 'react-native';
+export function PercentageStageOnKeyboard({
+  onSelectPercentageStage,
+}: {
+  onSelectPercentageStage?: (stage: number) => void;
+}) {
+  const isShow = useIsKeyboardShown();
+  const [{ swapPercentageInputStageShowForNative }] =
+    useInAppNotificationAtom();
+  let viewShow = platformEnv.isNativeIOS;
+  if (!platformEnv.isNativeIOS) {
+    viewShow = isShow && swapPercentageInputStageShowForNative;
+  }
+  return viewShow ? (
+    <XStack
+      alignItems="center"
+      gap="$1"
+      justifyContent="space-around"
+      bg="$bgSubdued"
+      h="$10"
+    >
+      <>
+        {SwapPercentageInputStageForNative.map((stage) => (
+          <SwapPercentageStageBadge
+            badgeSize="lg"
+            key={`swap-percentage-input-stage-${stage}`}
+            stage={stage}
+            borderRadius={0}
+            onSelectStage={onSelectPercentageStage}
+            flex={1}
+            justifyContent="center"
+            alignItems="center"
+            h="$10"
+          />
+        ))}
+        <Button
+          icon="KeyboardDownOutline"
+          flex={1}
+          h="$10"
+          size="small"
+          justifyContent="center"
+          borderRadius={0}
+          alignItems="center"
+          variant="tertiary"
+          onPress={() => {
+            Keyboard.dismiss();
+          }}
+        />
+      </>
+    </XStack>
+  ) : null;
+}
 
 interface ISwapInputContainerProps {
   direction: ESwapDirectionType;
@@ -83,10 +153,12 @@ const SwapInputContainer = ({
   }, [amountValue, token?.price]);
 
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
+  const [, setInAppNotification] = useInAppNotificationAtom();
 
   const fromInputHasError = useMemo(() => {
     const accountError =
@@ -138,7 +210,11 @@ const SwapInputContainer = ({
     });
   }, [intl]);
   const valueMoreComponent = useMemo(() => {
-    if (rateDifference && direction === ESwapDirectionType.TO) {
+    if (
+      rateDifference &&
+      direction === ESwapDirectionType.TO &&
+      swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+    ) {
       let color = '$textSubdued';
       if (inputLoading) {
         color = '$textPlaceholder';
@@ -151,38 +227,57 @@ const SwapInputContainer = ({
       }
       return (
         <XStack alignItems="center">
-          <SizableText size="$bodyMd" color={color}>
+          <SizableText size="$bodySm" color={color}>
             (
           </SizableText>
           <SizableText
-            size="$bodyMd"
+            size="$bodySm"
             color={color}
             cursor="pointer"
             onPress={onRateDifferencePress}
             {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
               textDecorationLine: 'underline',
+              textDecorationStyle: 'dotted',
             })}
           >
             {rateDifference.value}
           </SizableText>
-          <SizableText size="$bodyMd" color={color}>
+          <SizableText size="$bodySm" color={color}>
             )
           </SizableText>
         </XStack>
       );
     }
     return null;
-  }, [direction, inputLoading, onRateDifferencePress, rateDifference]);
+  }, [
+    direction,
+    inputLoading,
+    onRateDifferencePress,
+    rateDifference,
+    swapTypeSwitch,
+  ]);
 
   const [percentageInputStageShow, setPercentageInputStageShow] =
     useState(false);
 
   const onFromInputFocus = () => {
     setPercentageInputStageShow(true);
+    if (direction === ESwapDirectionType.FROM) {
+      setInAppNotification((v) => ({
+        ...v,
+        swapPercentageInputStageShowForNative: true,
+      }));
+    }
   };
 
   const onFromInputBlur = () => {
     // delay to avoid blur when select percentage stage
+    if (direction === ESwapDirectionType.FROM) {
+      setInAppNotification((v) => ({
+        ...v,
+        swapPercentageInputStageShowForNative: false,
+      }));
+    }
     setTimeout(() => {
       setPercentageInputStageShow(false);
     }, 200);
@@ -221,6 +316,17 @@ const SwapInputContainer = ({
       fromInputHasError.hasBalanceError,
     [direction, accountInfo?.account?.id, fromToken, fromInputHasError],
   );
+  const readOnly = useMemo(() => {
+    if (direction === ESwapDirectionType.TO) {
+      return (
+        checkWrappedTokenPair({
+          fromToken,
+          toToken,
+        }) || swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+      );
+    }
+    return false;
+  }, [direction, swapTypeSwitch, fromToken, toToken]);
   return (
     <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
@@ -262,23 +368,17 @@ const SwapInputContainer = ({
         }}
         inputProps={{
           placeholder: '0.0',
-          readOnly:
-            (direction === ESwapDirectionType.TO &&
-              swapTypeSwitch !== ESwapTabSwitchType.LIMIT) ||
-            inputIsLoading,
+          readonly: readOnly || inputIsLoading,
           color: inputIsLoading ? '$textPlaceholder' : undefined,
           style:
-            !platformEnv.isNative &&
-            direction === ESwapDirectionType.TO &&
-            swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+            !platformEnv.isNative && readOnly
               ? ({
                   caretColor: 'transparent',
                 } as unknown as StyleProp<TextStyle>)
               : undefined,
-          inputAccessoryViewID:
-            direction === ESwapDirectionType.FROM && platformEnv.isNativeIOS
-              ? SwapAmountInputAccessoryViewID
-              : undefined,
+          inputAccessoryViewID: platformEnv.isNativeIOS
+            ? SwapAmountInputAccessoryViewID
+            : undefined,
           autoCorrect: false,
           spellCheck: false,
           autoComplete: 'off',
@@ -287,7 +387,6 @@ const SwapInputContainer = ({
         }}
         tokenSelectorTriggerProps={{
           loading: selectTokenLoading,
-          selectedNetworkImageUri: token?.networkLogoURI,
           selectedTokenImageUri: token?.logoURI,
           selectedTokenSymbol: token?.symbol,
           onPress: () => {
@@ -296,6 +395,13 @@ const SwapInputContainer = ({
         }}
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
+      {platformEnv.isNativeIOS && direction === ESwapDirectionType.FROM ? (
+        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        </InputAccessoryView>
+      ) : null}
     </YStack>
   );
 };

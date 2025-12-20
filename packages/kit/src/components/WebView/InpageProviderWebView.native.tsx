@@ -2,8 +2,14 @@ import type { FC } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
+import { StatusBar } from 'react-native';
 
-import { Progress, Spinner, Stack } from '@onekeyhq/components';
+import {
+  Progress,
+  Spinner,
+  Stack,
+  useKeyboardHeight,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ESiteMode } from '../../views/Discovery/types';
@@ -21,20 +27,22 @@ const desktopUserAgent = platformEnv.isNativeIOS
   ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15'
   : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-const injectedJavaScript = `
-  const updateMedate = () => {
-    setTimeout(() => {
+const injectedMetaJavaScript = `
+  ;(function() {
+      const updateMedate = () => {
       const meta = document.createElement('meta');
       meta.setAttribute('content', 'width=device-width, initial-scale=0.5, maximum-scale=2, user-scalable=2'); 
       meta.setAttribute('name', 'viewport');
       document.getElementsByTagName('head')[0].appendChild(meta);
-    }, 1500);
-  };
-  document.addEventListener("DOMContentLoaded", () => {
+    };
+    document.addEventListener("DOMContentLoaded", () => {
+      updateMedate();
+    });
     updateMedate();
-  });
-  updateMedate();
+  })();
 `;
+
+const defaultOnMessage = (_event: any) => {};
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (
@@ -58,10 +66,16 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onProgress,
       webviewDebuggingEnabled,
       siteMode,
+      onMessage,
+      useGeckoView,
+      useInjectedNativeCode = true,
+      pullToRefreshEnabled,
+      allowsBackForwardNavigationGestures,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
     const [progress, setProgress] = useState(5);
+    const keyboardHeight = useKeyboardHeight();
     const { webviewRef, setWebViewRef } = useWebViewBridge();
 
     useImperativeHandle(
@@ -88,8 +102,16 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onOpenWindow,
       onShouldStartLoadWithRequest,
     ]);
+
+    const isDesktopMode = useMemo(
+      () =>
+        // Enable desktop mode by default on iPad
+        platformEnv.isNativeIOSPad ? true : siteMode === ESiteMode.desktop,
+      [siteMode],
+    );
+
     const nativeInjectedJsCode = useMemo(() => {
-      let code: string = injectedNativeCode || '';
+      let code: string = useInjectedNativeCode ? injectedNativeCode : '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
         code += `
         ;(function() {
@@ -99,8 +121,19 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         })();
         `;
       }
+      if (
+        platformEnv.isNative &&
+        !platformEnv.isNativeIOSPad &&
+        isDesktopMode
+      ) {
+        code += injectedMetaJavaScript;
+      }
       return code;
-    }, [nativeInjectedJavaScriptBeforeContentLoaded]);
+    }, [
+      isDesktopMode,
+      nativeInjectedJavaScriptBeforeContentLoaded,
+      useInjectedNativeCode,
+    ]);
 
     const progressLoading = useMemo(() => {
       if (!displayProgressBar) {
@@ -140,16 +173,24 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       }
       return null;
     }, [isSpinnerLoading, progress, displayProgressBar]);
-    const isDesktopMode = useMemo(
-      () =>
-        // Enable desktop mode by default on iPad
-        platformEnv.isNativeIOSPad ? true : siteMode === ESiteMode.desktop,
-      [siteMode],
-    );
+    const containerStyle = useMemo(() => {
+      if (platformEnv.isNativeAndroid && keyboardHeight > 0) {
+        return {
+          height: keyboardHeight + (StatusBar.currentHeight || 0) + 60,
+        };
+      }
+
+      return {
+        flex: 1,
+      };
+    }, [keyboardHeight]);
+
     return (
-      <Stack flex={1}>
+      <Stack {...containerStyle}>
         {progressLoading}
+
         <NativeWebView
+          pullToRefreshEnabled={pullToRefreshEnabled}
           scalesPageToFit={!isDesktopMode}
           webviewDebuggingEnabled={webviewDebuggingEnabled}
           ref={setWebViewRef}
@@ -157,11 +198,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onSrcChange={onSrcChange}
           receiveHandler={receiveHandler}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
-          injectedJavaScript={
-            platformEnv.isNative && !platformEnv.isNativeIOSPad && isDesktopMode
-              ? injectedJavaScript
-              : undefined
-          }
           onLoadProgress={({ nativeEvent }) => {
             const p = Math.ceil(nativeEvent.progress * 100);
             onProgress?.(p);
@@ -185,7 +221,11 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           originWhitelist={['*']}
           userAgent={isDesktopMode ? desktopUserAgent : undefined}
           // https://github.com/react-native-webview/react-native-webview/issues/1779
-          onMessage={(event) => {}}
+          onMessage={onMessage || defaultOnMessage}
+          useGeckoView={useGeckoView}
+          allowsBackForwardNavigationGestures={
+            allowsBackForwardNavigationGestures
+          }
           {...nativeWebviewProps}
         />
       </Stack>

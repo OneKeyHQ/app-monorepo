@@ -48,9 +48,12 @@ const LimitRateInput = ({
         {fromTokenInfo ? `1 ${currency.from} = ` : '-'}
       </SizableText>
       <Input
+        key={`${currency.from}-${currency.to}`}
+        autoScrollTopDelayMs={2500}
         keyboardType="decimal-pad"
         fontSize={getFontSize('$heading3xl')}
         fontWeight="600"
+        height="$14"
         size="large"
         focusVisibleStyle={undefined}
         containerProps={{

@@ -10,7 +10,6 @@ import {
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 
-// eslint-disable-next-line import/order
 import { Progress, Spinner, Stack } from '@onekeyhq/components';
 
 import { DesktopWebView } from './DesktopWebView';
@@ -27,6 +26,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       receiveHandler,
       allowpopups,
       isSpinnerLoading,
+      displayProgressBar,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -34,7 +34,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onDidFailLoad,
       onPageTitleUpdated,
       onPageFaviconUpdated,
-      // onNewWindow,
+      onLoadEnd,
       onDomReady,
     }: IInpageProviderWebViewProps,
     ref: any,
@@ -81,6 +81,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     }, [onDidStopLoading]);
 
     const progressLoading = useMemo(() => {
+      if (!displayProgressBar) {
+        return null;
+      }
       if (showProgress) {
         if (isSpinnerLoading) {
           // should be absolute position, otherwise android will crashed!
@@ -114,7 +117,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         );
       }
       return null;
-    }, [isSpinnerLoading, progress, showProgress]);
+    }, [displayProgressBar, isSpinnerLoading, progress, showProgress]);
 
     return (
       <Stack flex={1}>
@@ -135,11 +138,11 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onDidStartLoading={() => innerOnDidStartLoading}
           onDidStartNavigation={onDidStartNavigation}
           onDidFinishLoad={onDidFinishLoad}
+          onLoadEnd={onLoadEnd}
           onDidStopLoading={innerOnStopLoading}
           onDidFailLoad={onDidFailLoad}
           onPageTitleUpdated={onPageTitleUpdated}
           onPageFaviconUpdated={onPageFaviconUpdated}
-          // onNewWindow={onNewWindow}
           onDomReady={onDomReady}
         />
       </Stack>

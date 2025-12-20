@@ -1,17 +1,18 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IExportKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { navigateToBackupWalletReminderPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import type {
   IDBAccount,
   IDBIndexedAccount,
+  IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
-  EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
 
 export function AccountExportPrivateKeyButton({
@@ -23,6 +24,7 @@ export function AccountExportPrivateKeyButton({
   icon,
   label,
   exportType,
+  wallet,
 }: {
   testID?: string;
   accountName?: string;
@@ -32,6 +34,7 @@ export function AccountExportPrivateKeyButton({
   icon: IKeyOfIcons;
   label: string;
   exportType: IExportKeyType;
+  wallet?: IDBWallet;
 }) {
   const navigation = useAppNavigation();
 
@@ -42,6 +45,15 @@ export function AccountExportPrivateKeyButton({
       label={label}
       onClose={onClose}
       onPress={async () => {
+        if (
+          await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+            walletId: wallet?.id ?? '',
+          })
+        ) {
+          onClose?.();
+          return;
+        }
+
         if (exportType === 'mnemonic') {
           onClose?.();
           const { mnemonic } =
@@ -51,12 +63,11 @@ export function AccountExportPrivateKeyButton({
               },
             );
           if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
-          navigation.pushModal(EModalRoutes.OnboardingModal, {
-            screen: EOnboardingPages.BeforeShowRecoveryPhrase,
-            params: {
-              mnemonic,
-              isBackup: true,
-            },
+          await navigateToBackupWalletReminderPage({
+            walletId: wallet?.id ?? '',
+            accountName: accountName ?? '',
+            isWalletBackedUp: wallet?.backuped ?? false,
+            mnemonic,
           });
           return;
         }

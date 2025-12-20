@@ -13,10 +13,15 @@ export const { target: spotlightPersistAtom, use: useSpotlightPersistAtom } =
     initialValue: {
       data: {
         [ESpotlightTour.createAllNetworks]: 0,
-        [ESpotlightTour.oneKeyProBanner]: 0,
         [ESpotlightTour.switchDappAccount]: 0,
         [ESpotlightTour.allNetworkAccountValue]: 0,
         [ESpotlightTour.showFloatingIconDialog]: 0,
+        [ESpotlightTour.referAFriend]: 0,
+        [ESpotlightTour.hardwareSalesRewardAlert]: 0,
+        [ESpotlightTour.earnRewardAlert]: 0,
+        [ESpotlightTour.allNetworksInfo]: 0,
+        [ESpotlightTour.earnRewardHistory]: 0,
+        [ESpotlightTour.showDevelopmentBuildWarningDialog]: 0,
       },
     },
   });

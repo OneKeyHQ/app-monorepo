@@ -1,4 +1,9 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type {
+  IWalletAddedEventParams,
+  IWalletStartedParams,
+} from '@onekeyhq/shared/types/analytics/onboarding';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -10,6 +15,121 @@ interface IToken {
 }
 
 export class WalletScene extends BaseScene {
+  @LogToServer()
+  @LogToLocal()
+  public addWalletStarted(params: IWalletStartedParams) {
+    switch (params.addMethod) {
+      case 'CreateWallet':
+        return {
+          addMethod: 'CreateWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            unbackedUp: params.details.unbackedUp,
+          },
+        };
+
+      case 'ImportWallet':
+        return {
+          addMethod: 'ImportWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            importType: params.details.importType,
+          },
+        };
+
+      case 'ConnectHWWallet':
+        return {
+          addMethod: 'ConnectHWWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            communication: params.details.communication,
+            hardwareWalletType: params.details.hardwareWalletType,
+          },
+        };
+
+      case 'Connect3rdPartyWallet':
+        return {
+          addMethod: 'Connect3rdPartyWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            protocol: params.details.protocol,
+            network: params.details.network,
+            walletName: params.details.walletName,
+          },
+        };
+
+      default: {
+        const _exhaustiveCheck: never = params;
+        throw new OneKeyLocalError(
+          `Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`,
+        );
+      }
+    }
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public walletAdded(params: IWalletAddedEventParams) {
+    switch (params.addMethod) {
+      case 'CreateWallet':
+        return {
+          status: params.status,
+          addMethod: 'CreateWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            isBiometricSet: params.details.isBiometricSet,
+            unbackedUp: params.details.unbackedUp,
+          },
+        };
+
+      case 'ImportWallet':
+        return {
+          status: params.status,
+          addMethod: 'ImportWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            importType: params.details.importType,
+          },
+        };
+
+      case 'ConnectHWWallet':
+        return {
+          status: params.status,
+          addMethod: 'ConnectHardware',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            communication: params.details.communication,
+            deviceType: params.details.deviceType,
+            hardwareWalletType: params.details.hardwareWalletType,
+            ...(params.details.firmwareVersions && {
+              firmwareVersions: params.details.firmwareVersions,
+            }),
+          },
+        };
+
+      case 'Connect3rdPartyWallet':
+        return {
+          status: params.status,
+          addMethod: 'Connect3rdPartyWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            protocol: params.details.protocol,
+            network: params.details.network,
+            ...(params.details.walletName && {
+              walletName: params.details.walletName,
+            }),
+          },
+        };
+
+      default: {
+        const _exhaustiveCheck: never = params;
+        throw new OneKeyLocalError(
+          `Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`,
+        );
+      }
+    }
+  }
+
   @LogToServer()
   @LogToLocal()
   public onboard(params: {
@@ -24,38 +144,7 @@ export class WalletScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public createWallet(params: { isBiometricVerificationSet: boolean }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
   public deleteWallet() {}
-
-  @LogToServer()
-  @LogToLocal()
-  public importWallet(params: { importMethod: string }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public connectHWWallet(params: {
-    connectType: string;
-    deviceType: string;
-    deviceFmVersion?: string;
-  }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public connect3rdPartyWallet(params: {
-    ['3rdpartyConnectNetwork']: string;
-    ['3rdpartyConnectType']: string;
-  }) {
-    return params;
-  }
 
   @LogToServer()
   @LogToLocal()
@@ -140,6 +229,14 @@ export class WalletScene extends BaseScene {
 
     return {
       error: errorMessage,
+    };
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public onboardingExit() {
+    return {
+      onboardingExit: true,
     };
   }
 }

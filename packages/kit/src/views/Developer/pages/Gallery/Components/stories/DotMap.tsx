@@ -30,6 +30,7 @@ const DotMapInputDemo = () => {
 
 const DotMapGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="DotMap"
     elements={[
       {

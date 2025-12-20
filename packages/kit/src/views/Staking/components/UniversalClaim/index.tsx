@@ -2,7 +2,9 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNaN } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Alert,
@@ -11,26 +13,39 @@ import {
   SizableText,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  ECheckAmountActionType,
+  type ICheckAmountAlert,
+  type IEarnEstimateFeeResp,
+} from '@onekeyhq/shared/types/staking';
 
-import { validateAmountInput } from '../../../Swap/utils/utils';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
-import { StakingAmountInput } from '../StakingAmountInput';
+import { EarnText } from '../ProtocolDetails/EarnText';
+import {
+  StakingAmountInput,
+  useOnBlurAmountValue,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalClaimProps = {
+  accountId: string;
   networkId: string;
 
   balance: string;
@@ -52,6 +67,7 @@ type IUniversalClaimProps = {
 };
 
 export const UniversalClaim = ({
+  accountId,
   networkId,
   balance,
   price: inputPrice,
@@ -67,6 +83,9 @@ export const UniversalClaim = ({
   estimateFeeResp,
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
+  const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const { handleOpenWebSite } = useBrowserAction().current;
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
@@ -93,15 +112,44 @@ export const UniversalClaim = ({
     }
   }, [amountValue, onConfirm]);
 
+  const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
+    ICheckAmountAlert[]
+  >([]);
+  const checkAmount = useDebouncedCallback(async (amount: string) => {
+    if (isNaN(amount)) {
+      return;
+    }
+    const response = await backgroundApiProxy.serviceStaking.checkAmount({
+      accountId,
+      networkId,
+      symbol: tokenSymbol,
+      provider: providerName,
+      action: ECheckAmountActionType.CLAIM,
+      amount,
+      withdrawAll: false,
+    });
+
+    if (Number(response.code) === 0) {
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts(response.data?.alerts || []);
+    } else {
+      setCheckoutAmountMessage(response.message);
+      setCheckAmountAlerts([]);
+    }
+  }, 300);
+
   const onChangeAmountValue = useCallback(
     (value: string) => {
-      if (!validateAmountInput(value, decimals)) {
+      if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts([]);
         }
         return;
       }
@@ -115,8 +163,9 @@ export const UniversalClaim = ({
       } else {
         setAmountValue(value);
       }
+      void checkAmount(value);
     },
-    [decimals],
+    [decimals, checkAmount],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -139,6 +188,8 @@ export const UniversalClaim = ({
     return false;
   }, [minAmount, amountValue]);
 
+  const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
+
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
@@ -156,13 +207,22 @@ export const UniversalClaim = ({
     [balance, decimals, onChangeAmountValue],
   );
 
+  const isCheckAmountMessageError =
+    amountValue?.length > 0 && !!checkAmountMessage;
+
   const isDisable = useMemo(
     () =>
       BigNumber(amountValue).isNaN() ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
+      isLessThanMinAmount ||
+      isCheckAmountMessageError,
+    [
+      amountValue,
+      isCheckAmountMessageError,
+      isInsufficientBalance,
       isLessThanMinAmount,
-    [amountValue, isInsufficientBalance, isLessThanMinAmount],
+    ],
   );
 
   const receiving = useMemo(() => {
@@ -193,9 +253,14 @@ export const UniversalClaim = ({
         <StakingAmountInput
           title={intl.formatMessage({ id: ETranslations.earn_claim })}
           disabled={!editable}
-          hasError={isInsufficientBalance || isLessThanMinAmount}
+          hasError={
+            isInsufficientBalance ||
+            isLessThanMinAmount ||
+            isCheckAmountMessageError
+          }
           value={amountValue}
           onChange={onChangeAmountValue}
+          onBlur={onBlurAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol,
@@ -219,32 +284,65 @@ export const UniversalClaim = ({
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
         ) : null}
       </Stack>
-      {isLessThanMinAmount ? (
+      {isCheckAmountMessageError ? (
         <Alert
           icon="InfoCircleOutline"
           type="critical"
-          title={intl.formatMessage(
-            { id: ETranslations.earn_minimum_amount },
-            { number: `${minAmount} ${tokenSymbol ?? ''}` },
-          )}
+          title={checkAmountMessage}
         />
       ) : null}
-      {isInsufficientBalance ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage({
-            id: ETranslations.earn_insufficient_claimable_balance,
-          })}
-        />
+      {checkAmountAlerts.length > 0 ? (
+        <>
+          {checkAmountAlerts.map((alert, index) => (
+            <Alert
+              key={index}
+              type="warning"
+              renderTitle={() => {
+                return <EarnText text={alert.text} size="$bodyMdMedium" />;
+              }}
+              action={
+                alert.button
+                  ? {
+                      primary: alert.button.text.text,
+                      onPrimaryPress: () => {
+                        if (alert.button?.data?.link) {
+                          handleOpenWebSite({
+                            switchToMultiTabBrowser: gtMd,
+                            navigation,
+                            useCurrentWindow: false,
+                            webSite: {
+                              url: alert.button.data.link,
+                              title: alert.button.data.link,
+                              logo: undefined,
+                              sortIndex: undefined,
+                            },
+                          });
+                        }
+                      },
+                    }
+                  : undefined
+              }
+            />
+          ))}
+        </>
       ) : null}
       <CalculationList>
         {receiving ? (
           <CalculationListItem>
-            <CalculationListItem.Label>
-              {intl.formatMessage({ id: ETranslations.earn_receive })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>{receiving}</CalculationListItem.Value>
+            {platformEnv.isNative ? (
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.earn_receive })}
+              </SizableText>
+            ) : (
+              <CalculationListItem.Label>
+                {intl.formatMessage({ id: ETranslations.earn_receive })}
+              </CalculationListItem.Label>
+            )}
+            {platformEnv.isNative ? (
+              <XStack flex={1}>{receiving}</XStack>
+            ) : (
+              <CalculationListItem.Value>{receiving}</CalculationListItem.Value>
+            )}
           </CalculationListItem>
         ) : null}
         {providerName && providerLogo ? (
@@ -253,7 +351,7 @@ export const UniversalClaim = ({
               {providerLabel ??
                 intl.formatMessage({ id: ETranslations.global_protocol })}
             </CalculationListItem.Label>
-            <CalculationListItem.Value>
+            <XStack>
               <XStack gap="$2" alignItems="center">
                 <Image
                   width="$5"
@@ -265,7 +363,7 @@ export const UniversalClaim = ({
                   {capitalizeString(providerName)}
                 </SizableText>
               </XStack>
-            </CalculationListItem.Value>
+            </XStack>
           </CalculationListItem>
         ) : null}
         {estimateFeeResp ? (

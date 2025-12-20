@@ -23,7 +23,7 @@ import {
   onVisibilityStateChange,
   useForm,
 } from '@onekeyhq/components';
-import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
@@ -64,7 +64,7 @@ export interface IPasswordVerifyForm {
   passCode: string;
 }
 
-const PasswordVerify = ({
+function PasswordVerify({
   isEnable,
   alertText,
   confirmBtnDisabled,
@@ -74,7 +74,7 @@ const PasswordVerify = ({
   onBiologyAuth,
   onPasswordChange,
   onInputPasswordAuth,
-}: IPasswordVerifyProps) => {
+}: IPasswordVerifyProps) {
   const intl = useIntl();
   const form = useForm<IPasswordVerifyForm>({
     mode: 'onSubmit',
@@ -111,7 +111,7 @@ const PasswordVerify = ({
   const passwordInput = form.watch(
     passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
   );
-  const [{ manualLocking }] = usePasswordAtom();
+  const [{ manualLocking }] = usePasswordPersistAtom();
   const { icon: biologyAuthIconName, title: authTitle } =
     useBiometricAuthInfo();
 
@@ -189,6 +189,7 @@ const PasswordVerify = ({
             icon: 'ErrorOutline',
             tone: 'warning',
             ...inAppStateLockStyle,
+            isOverTopAllViews: true,
             portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
             title: intl.formatMessage(
               {
@@ -270,6 +271,12 @@ const PasswordVerify = ({
 
   useHandleAppStateActive(isEnable ? onActive : undefined);
 
+  const onPassCodeComplete = useCallback(() => {
+    setTimeout(() => {
+      void form.handleSubmit(onInputPasswordAuth)();
+    });
+  }, [form, onInputPasswordAuth]);
+
   return (
     <Form form={form}>
       {passwordMode === EPasswordMode.PASSWORD ? (
@@ -344,7 +351,7 @@ const PasswordVerify = ({
                 status.value !== EPasswordVerifyStatus.VERIFYING &&
                   !disableInput,
               )}
-              onComplete={form.handleSubmit(onInputPasswordAuth)}
+              onComplete={onPassCodeComplete}
               clearCode={passCodeClear}
               disabledComplete={confirmBtnDisabled}
               testId="pass-code-input"
@@ -352,7 +359,7 @@ const PasswordVerify = ({
           </Form.Field>
           {alertText ? (
             <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
-              <SizableText size="$bodyMd" color="$textOnBrightColor">
+              <SizableText size="$bodyMd" color="$textDisabled">
                 {alertText}
               </SizableText>
             </XStack>
@@ -372,5 +379,5 @@ const PasswordVerify = ({
       )}
     </Form>
   );
-};
+}
 export default memo(PasswordVerify);

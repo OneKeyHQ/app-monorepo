@@ -5,10 +5,35 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
-import { ModalNavigator } from './Modal/Navigator';
-import { fullModalRouter, modalRouter } from './Modal/router';
+import {
+  IOSFullScreenNavigator,
+  ModalNavigator,
+  OnboardingNavigator,
+} from './Modal/Navigator';
+import {
+  fullModalRouter,
+  modalRouter,
+  onboardingRouterV2Config,
+} from './Modal/router';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
+
+const buildPermissionRouter = () => {
+  const PromptWebDeviceAccessPage = LazyLoad(
+    () =>
+      import('@onekeyhq/kit/src/views/Permission/PromptWebDeviceAccessPage'),
+  );
+  return [
+    platformEnv.isExtension
+      ? {
+          name: ERootRoutes.PermissionWebDevice,
+          component: PromptWebDeviceAccessPage,
+          rewrite: '/permission/web-device',
+          exact: true,
+        }
+      : undefined,
+  ].filter(Boolean);
+};
 
 export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
@@ -17,15 +42,21 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     initialRoute: true,
   },
   {
+    name: ERootRoutes.Onboarding,
+    component: OnboardingNavigator,
+    type: 'onboarding',
+  },
+  {
     name: ERootRoutes.Modal,
     component: ModalNavigator,
     type: 'modal',
   },
   {
     name: ERootRoutes.iOSFullScreen,
-    component: ModalNavigator,
+    component: IOSFullScreenNavigator,
     type: 'iOSFullScreen',
   },
+  ...buildPermissionRouter(),
 ];
 
 if (platformEnv.isDev) {
@@ -45,6 +76,10 @@ export const useRootRouter = () => {
         children: tabRouter,
       },
       {
+        name: ERootRoutes.Onboarding,
+        children: onboardingRouterV2Config,
+      },
+      {
         name: ERootRoutes.Modal,
         children: modalRouter,
       },
@@ -52,6 +87,8 @@ export const useRootRouter = () => {
         name: ERootRoutes.iOSFullScreen,
         children: fullModalRouter,
       },
+
+      ...buildPermissionRouter(),
     ],
     [tabRouter],
   );

@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -8,24 +10,32 @@ import {
   SizableText,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { useAddressesInfoAtom } from '../../states/jotai/contexts/historyList';
 import {
   InfoItem,
   InfoItemGroup,
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { NetworkAvatar } from '../NetworkAvatar';
 import { Token } from '../Token';
+import TxHistoryAddressInfo from '../TxHistoryListView/TxHistoryAddressInfo';
 
 import type {
   ITxActionCommonDetailViewProps,
@@ -35,11 +45,12 @@ import type {
 function TxActionCommonAvatar({
   avatar,
   networkLogoURI,
+  compact,
 }: Pick<
   ITxActionCommonListViewProps,
-  'avatar' | 'tableLayout' | 'networkLogoURI'
+  'avatar' | 'tableLayout' | 'networkLogoURI' | 'compact'
 >) {
-  const containerSize = '$10';
+  const containerSize = compact ? '$8' : '$10';
 
   const {
     activeAccount: { network: activeNetwork },
@@ -48,7 +59,7 @@ function TxActionCommonAvatar({
   if (!avatar.src || typeof avatar.src === 'string') {
     return (
       <Token
-        size="lg"
+        size={compact ? 'md' : 'lg'}
         isNFT={avatar.isNFT}
         fallbackIcon={avatar.fallbackIcon}
         tokenImageUri={avatar.src}
@@ -109,9 +120,10 @@ function TxActionCommonTitle({
   replaceType,
   status,
   riskyLevel,
+  compact,
 }: Pick<
   ITxActionCommonListViewProps,
-  'title' | 'tableLayout' | 'replaceType' | 'status' | 'riskyLevel'
+  'title' | 'tableLayout' | 'replaceType' | 'status' | 'riskyLevel' | 'compact'
 >) {
   const intl = useIntl();
 
@@ -121,7 +133,7 @@ function TxActionCommonTitle({
         numberOfLines={1}
         flexShrink={1}
         size="$bodyLgMedium"
-        {...(tableLayout && {
+        {...((tableLayout || compact) && {
           size: '$bodyMdMedium',
         })}
       >
@@ -152,8 +164,60 @@ function TxActionCommonTitle({
 }
 
 function TxActionCommonDescription({
+  networkId,
   description,
-}: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'>) {
+}: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'> & {
+  networkId: string;
+}) {
+  const [addressesInfo] = useAddressesInfoAtom();
+
+  const { result: addressLocalLabel, run } = usePromiseResult(async () => {
+    if (!description?.originalAddress) {
+      return null;
+    }
+
+    const result = await backgroundApiProxy.serviceAccountProfile.queryAddress({
+      networkId,
+      address: description?.originalAddress,
+      enableAddressBook: true,
+      enableWalletName: true,
+      skipValidateAddress: true,
+    });
+
+    return result.addressBookName || result.walletAccountName;
+  }, [description?.originalAddress, networkId]);
+
+  useEffect(() => {
+    const refresh = async () => {
+      await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
+      await run({ alwaysSetState: true });
+    };
+
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refresh);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, refresh);
+    appEventBus.on(EAppEventBusNames.AddressBookUpdate, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.AddressBookUpdate, refresh);
+    };
+  }, [run]);
+
+  if (description?.originalAddress) {
+    const addressInfoKey = buildAddressMapInfoKey({
+      networkId,
+      address: description?.originalAddress,
+    });
+    if (addressesInfo[addressInfoKey]) {
+      return (
+        <TxHistoryAddressInfo
+          address={description.originalAddress}
+          badge={addressesInfo[addressInfoKey]}
+        />
+      );
+    }
+  }
+
   return (
     <XStack alignItems="center" flex={1}>
       {description?.prefix ? (
@@ -169,8 +233,13 @@ function TxActionCommonDescription({
           name={description.icon}
         />
       ) : null}
-      <SizableText size="$bodyMd" color="$textSubdued" minWidth={0}>
-        {description?.children}
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        minWidth={0}
+        numberOfLines={addressLocalLabel ? 1 : undefined}
+      >
+        {addressLocalLabel || description?.children}
       </SizableText>
     </XStack>
   );
@@ -179,7 +248,10 @@ function TxActionCommonDescription({
 function TxActionCommonChange({
   change,
   tableLayout,
-}: Pick<ITxActionCommonListViewProps, 'tableLayout'> & { change: string }) {
+  compact,
+}: Pick<ITxActionCommonListViewProps, 'tableLayout' | 'compact'> & {
+  change: string;
+}) {
   return (
     <SizableText
       numberOfLines={1}
@@ -187,7 +259,7 @@ function TxActionCommonChange({
       {...(change?.includes('+') && {
         color: '$textSuccess',
       })}
-      {...(tableLayout && {
+      {...((tableLayout || compact) && {
         size: '$bodyMdMedium',
       })}
     >
@@ -213,13 +285,22 @@ function TxActionCommonFee({
   feeFiatValue,
   feeSymbol,
   currencySymbol,
-}: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue' | 'feeSymbol'> & {
+  tableLayout,
+  hideFeeInfo,
+}: Pick<
+  ITxActionCommonListViewProps,
+  'fee' | 'feeFiatValue' | 'feeSymbol' | 'tableLayout' | 'hideFeeInfo'
+> & {
   currencySymbol: string;
 }) {
   const intl = useIntl();
 
+  if (!tableLayout) {
+    return null;
+  }
+
   return (
-    <Stack flexGrow={1} flexBasis={0}>
+    <Stack flexGrow={1} flexBasis={0} opacity={hideFeeInfo ? 0 : 1}>
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.swap_history_detail_network_fee,
@@ -267,6 +348,7 @@ function TxActionCommonListView(
     networkId,
     networkLogoURI,
     riskyLevel,
+    compact,
     ...rest
   } = props;
   const [settings] = useSettingsPersistAtom();
@@ -279,6 +361,7 @@ function TxActionCommonListView(
       flexDirection="column"
       alignItems="flex-start"
       userSelect="none"
+      opacity={riskyLevel && riskyLevel > TX_RISKY_LEVEL_SPAM ? 0.5 : 1}
       {...rest}
     >
       {/* Content */}
@@ -297,6 +380,7 @@ function TxActionCommonListView(
               avatar={avatar}
               tableLayout={tableLayout}
               networkLogoURI={networkLogoURI}
+              compact={compact}
             />
           ) : null}
           <Stack flex={1}>
@@ -306,6 +390,7 @@ function TxActionCommonListView(
               tableLayout={tableLayout}
               replaceType={replaceType}
               riskyLevel={riskyLevel}
+              compact={compact}
             />
             <XStack alignSelf="stretch">
               {timestamp &&
@@ -325,6 +410,7 @@ function TxActionCommonListView(
                 </>
               ) : null}
               <TxActionCommonDescription
+                networkId={networkId}
                 description={description}
                 tableLayout={tableLayout}
               />
@@ -342,7 +428,11 @@ function TxActionCommonListView(
           })}
         >
           {typeof change === 'string' ? (
-            <TxActionCommonChange change={change} tableLayout={tableLayout} />
+            <TxActionCommonChange
+              change={change}
+              tableLayout={tableLayout}
+              compact={compact}
+            />
           ) : (
             change
           )}
@@ -355,14 +445,14 @@ function TxActionCommonListView(
           )}
         </Stack>
         {/* fees */}
-        {tableLayout && !hideFeeInfo ? (
-          <TxActionCommonFee
-            fee={fee}
-            feeFiatValue={feeFiatValue}
-            feeSymbol={feeSymbol}
-            currencySymbol={currencySymbol}
-          />
-        ) : null}
+        <TxActionCommonFee
+          tableLayout={tableLayout}
+          hideFeeInfo={hideFeeInfo}
+          fee={fee}
+          feeFiatValue={feeFiatValue}
+          feeSymbol={feeSymbol}
+          currencySymbol={currencySymbol}
+        />
       </XStack>
     </ListItem>
   );

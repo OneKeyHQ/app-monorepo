@@ -1,10 +1,9 @@
 import { isObject, isString, isUndefined, omitBy } from 'lodash';
 
-import type {
-  ETranslations,
-  ETranslationsMock,
-} from '@onekeyhq/shared/src/locale';
+import type { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import appGlobals from '../../appGlobals';
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
 
@@ -15,35 +14,40 @@ import type {
 } from '../types/errorTypes';
 import type { MessageDescriptor } from 'react-intl';
 
-// TODO also update JsBridgeBase.toPlainError
 /**
  * Converts an error object into a plain object with specific properties.
  *
  * @param {Object} error - The error object to convert. It may have properties such as name, message, stack (js native Error), code, data (Web3RpcError), className, info, key (OneKeyError).
  * @returns {Object} A plain object with properties: name, message, code, data, className, info, key, stack. If the platform is Android hermes engine, the stack property will be a specific error message.
  */
-export function toPlainErrorObject(error: IOneKeyError) {
+export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
   if (!error) {
-    return error;
+    return {
+      name: 'UnknownEmptyError',
+      message: 'Unknown empty error',
+    };
   }
+  const e = error as IOneKeyError;
   return omitBy(
     {
-      name: error.name,
-      constructorName: error.constructorName,
-      className: error.className,
-      key: error.key,
-      code: error.code,
-      message: error.message,
-      autoToast: error.autoToast,
-      requestId: error.requestId,
-      data: error.data,
-      info: error.info,
-      payload: error.payload,
+      // ****** also update JsBridgeBase.toPlainError
+      name: e.name,
+      constructorName: e.constructorName,
+      className: e.className,
+      key: e.key,
+      code: e.code,
+      message: e.message,
+      autoToast: e.autoToast,
+      requestId: e.requestId,
+      httpStatusCode: e.httpStatusCode,
+      data: e.data,
+      info: e.info,
+      payload: e.payload,
       // Crash in native hermes engine (error.stack serialize fail, only if Web3Errors object)
       stack: platformEnv.isNative
         ? 'Access error.stack failed in native hermes engine: unable to serialize, circular reference is too complex to analyze'
-        : error.stack,
-      reconnect: error.reconnect,
+        : e.stack,
+      reconnect: e.reconnect,
       // TODO Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
       // 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
     },
@@ -122,11 +126,19 @@ export function normalizeErrorProps(
     (isString(props) ? undefined : props?.key) ||
     config?.defaultKey ||
     undefined;
+
+  if (key === ETranslations.auth_error_passcode_incorrect) {
+    // console.log('IncorrectPasswordI18nKey before', key, msg);
+  }
+
   if (!msg && key && appLocale.intl.formatMessage && !platformEnv.isJest) {
     msg = appLocale.intl.formatMessage(
       { id: key },
       (props as IOneKeyError)?.info,
     );
+    if (key === ETranslations.auth_error_passcode_incorrect) {
+      // console.log('IncorrectPasswordI18nKey', key, msg);
+    }
     if (msg === key) {
       msg = [config?.defaultMessage, key].filter(Boolean).join(' ');
     }
@@ -151,11 +163,11 @@ export function normalizeErrorProps(
   }
 
   return {
+    ...(isString(props) ? {} : props),
     message: msg,
     key,
     autoToast: (props as IOneKeyError)?.autoToast ?? config?.defaultAutoToast,
     requestId: (props as IOneKeyError)?.requestId,
-    ...(isString(props) ? {} : props),
   };
 }
 
@@ -181,8 +193,9 @@ function isErrorByClassName({
   return Boolean(errorClassName && classNames.includes(errorClassName));
 }
 
-function getCurrentCallStack() {
+function getCurrentCallStackV1() {
   try {
+    // eslint-disable-next-line no-restricted-syntax
     throw new Error();
   } catch (e) {
     autoPrintErrorIgnore(e);
@@ -190,7 +203,30 @@ function getCurrentCallStack() {
   }
 }
 
-export default {
+function getCurrentCallStack() {
+  const e = new Error();
+  const stack = e.stack;
+  return stack;
+}
+
+function logCurrentCallStack(name?: string) {
+  if (process.env.NODE_ENV !== 'production') {
+    if (
+      console &&
+      console.groupCollapsed &&
+      console.groupEnd &&
+      console.trace
+    ) {
+      console.groupCollapsed(`[${name || ''}] logCurrentCallStack ↓↓↓ `);
+      console.trace();
+      console.log(getCurrentCallStack());
+      console.log(getCurrentCallStackV1());
+      console.groupEnd();
+    }
+  }
+}
+
+const errorUtils = {
   autoPrintErrorIgnore,
   normalizeErrorProps,
   safeConsoleLogError,
@@ -199,5 +235,11 @@ export default {
   errorsIntlFormatter,
   getDeviceErrorPayloadMessage,
   isErrorByClassName,
+  getCurrentCallStackV1,
   getCurrentCallStack,
+  logCurrentCallStack,
 };
+
+appGlobals.$$errorUtils = errorUtils;
+
+export default errorUtils;

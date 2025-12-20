@@ -11,15 +11,25 @@ import type {
   INotificationPushMessageAckParams,
   INotificationPushMessageInfo,
 } from '@onekeyhq/shared/types/notification';
-import { EPushProviderEventNames } from '@onekeyhq/shared/types/notification';
-import type { IPrimeDeviceLogoutInfo } from '@onekeyhq/shared/types/socket';
+import {
+  ENotificationPushMessageAckAction,
+  EPushProviderEventNames,
+} from '@onekeyhq/shared/types/notification';
+import type {
+  IPrimeConfigChangedInfo,
+  IPrimeConfigFlushInfo,
+  IPrimeDeviceLogoutInfo,
+  IPrimeLockChangedInfo,
+} from '@onekeyhq/shared/types/socket';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
 import { getEndpointInfo } from '../../../endpoints';
+import { notificationStatusAtom } from '../../../states/jotai/atoms/notifications';
 
 import { PushProviderBase } from './PushProviderBase';
 
 import type { IPushProviderBaseProps } from './PushProviderBase';
+import type { INotificationStatusAtomData } from '../../../states/jotai/atoms/notifications';
 import type { Socket } from 'socket.io-client';
 
 export class PushProviderWebSocket extends PushProviderBase {
@@ -87,6 +97,12 @@ export class PushProviderWebSocket extends PushProviderBase {
         socketId: this.socket?.id,
         socket: this.socket,
       });
+      void notificationStatusAtom.set(
+        (v): INotificationStatusAtomData => ({
+          ...v,
+          websocketConnected: true,
+        }),
+      );
     });
     this.socket.on('connect_error', (error) => {
       defaultLogger.notification.websocket.consoleLog(
@@ -97,13 +113,19 @@ export class PushProviderWebSocket extends PushProviderBase {
     this.socket.on('error', (error) => {
       defaultLogger.notification.websocket.consoleLog('WebSocket 错误:', error);
     });
-    this.socket.on('reconnect', (payload) => {
+    this.socket.on('reconnect', (_payload) => {
       defaultLogger.notification.websocket.consoleLog('WebSocket 重新连接成功');
     });
     this.socket.on('disconnect', (reason) => {
       defaultLogger.notification.websocket.consoleLog(
         'WebSocket 连接断开',
         reason,
+      );
+      void notificationStatusAtom.set(
+        (v): INotificationStatusAtomData => ({
+          ...v,
+          websocketConnected: false,
+        }),
       );
     });
 
@@ -133,6 +155,14 @@ export class PushProviderWebSocket extends PushProviderBase {
     this.socket.on(
       EAppSocketEventNames.primeDeviceLogout,
       (payload: IPrimeDeviceLogoutInfo) => {
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason:
+            'WebSocket: DEVICE_LOGOUT, EAppSocketEventNames.primeDeviceLogout',
+        });
         appEventBus.emit(EAppEventBusNames.PrimeDeviceLogout, undefined);
         defaultLogger.notification.websocket.consoleLog(
           'WebSocket 收到 primeDeviceLogout 消息:',
@@ -141,8 +171,76 @@ export class PushProviderWebSocket extends PushProviderBase {
       },
     );
 
-    defaultLogger.notification.websocket.consoleLog('WebSocket 初始化完成');
+    this.socket.on(
+      EAppSocketEventNames.primeConfigChanged,
+      async (payload: IPrimeConfigChangedInfo) => {
+        if (!payload?.pwdHash) {
+          console.error(
+            'EAppSocketEventNames.primeConfigChanged ERROR:  payload pwdHash is missing',
+            payload,
+          );
+          return;
+        }
+        defaultLogger.notification.websocket.consoleLog(
+          'WebSocket 收到 primeConfigChanged 消息:',
+          payload,
+        );
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
+        const syncCredential =
+          await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+        await this.backgroundApi.servicePrimeCloudSync.saveServerSyncItemsToLocal(
+          {
+            serverItems: payload.serverData,
+            shouldSyncToScene: true,
+            syncCredential,
+            serverPwdHash: payload?.pwdHash,
+          },
+        );
+      },
+    );
+
+    this.socket.on(
+      EAppSocketEventNames.primeLockChanged,
+      (payload: IPrimeLockChangedInfo) => {
+        defaultLogger.notification.websocket.consoleLog(
+          'WebSocket 收到 primeLockChanged 消息:',
+          payload,
+        );
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
+        void this.backgroundApi.servicePrimeCloudSync.onWebSocketMasterPasswordChanged(
+          payload,
+        );
+      },
+    );
+
+    this.socket.on(
+      EAppSocketEventNames.primeConfigFlush,
+      (payload: IPrimeConfigFlushInfo) => {
+        defaultLogger.notification.websocket.consoleLog(
+          'WebSocket 收到 primeConfigFlush 消息:',
+          payload,
+        );
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
+        void this.backgroundApi.servicePrimeCloudSync.onWebSocketMasterPasswordChanged(
+          payload,
+        );
+      },
+    );
 
     // this.socket.off('notification');
+  }
+
+  // Provide access to the socket for other services
+  getSocket(): Socket | null {
+    return this.socket;
   }
 }

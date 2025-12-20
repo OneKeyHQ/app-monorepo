@@ -9,6 +9,7 @@ import { TransparentModalTheme } from './CommonConfig';
 import ModalFlowNavigator from './ModalFlowNavigator';
 
 import type { IModalFlowNavigatorConfig } from './ModalFlowNavigator';
+import type { EPageType } from '../../../hocs';
 
 export interface IModalRootNavigatorConfig<RouteName extends string> {
   name: RouteName;
@@ -27,7 +28,8 @@ const ModalStack = createStackNavigator();
 
 export function RootModalNavigator<RouteName extends string>({
   config,
-}: IModalNavigatorProps<RouteName>) {
+  pageType,
+}: IModalNavigatorProps<RouteName> & { pageType?: EPageType }) {
   const screenOptions = useMemo(() => makeRootModalStackOptions(), []);
 
   const modalComponents = useMemo(
@@ -38,13 +40,14 @@ export function RootModalNavigator<RouteName extends string>({
         children: () => (
           <ModalFlowNavigator
             config={children}
+            pageType={pageType}
             name={name}
             onMounted={onMounted}
             onUnmounted={onUnmounted}
           />
         ),
       })),
-    [config],
+    [config, pageType],
   );
 
   return (

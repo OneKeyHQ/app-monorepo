@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -25,10 +25,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
-import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
@@ -82,7 +80,8 @@ function SendConfirmActionsContainer(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
-  const { updateSendTxStatus } = useSendConfirmActions().current;
+  const { updateSendTxStatus, clearSelectedUTXOs } =
+    useSendConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
 
   const dappApprove = useDappApproveAction({
@@ -134,7 +133,7 @@ function SendConfirmActionsContainer(props: IProps) {
 
     let newUnsignedTxs: IUnsignedTxPro[];
     try {
-      newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSend({
+      newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
         accountId,
         networkId,
         unsignedTxs,
@@ -219,27 +218,14 @@ function SendConfirmActionsContainer(props: IProps) {
           successfullySentTxs: successfullySentTxs.current,
         });
 
-      const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
-      const swapInfo = newUnsignedTxs?.[0].swapInfo;
-      const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
-      defaultLogger.transaction.send.sendConfirm({
-        network: networkId,
-        txnType: getTxnType({
-          actions: result?.[0].decodedTx.actions,
-          swapInfo,
-          stakingInfo,
-        }),
-        tokenAddress: transferInfo?.tokenInfo?.address,
-        tokenSymbol: transferInfo?.tokenInfo?.symbol,
-        tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
-        interactContract: undefined,
-      });
-
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.feedback_transaction_submitted,
         }),
       });
+
+      // Clear selected UTXOs after successful transaction (Coin Control)
+      clearSelectedUTXOs();
 
       const signedTx = result[0].signedTx;
 
@@ -265,6 +251,7 @@ function SendConfirmActionsContainer(props: IProps) {
     }
   }, [
     updateSendTxStatus,
+    clearSelectedUTXOs,
     sendSelectedFeeInfo,
     networkId,
     accountId,

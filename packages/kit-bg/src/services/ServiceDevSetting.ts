@@ -4,6 +4,8 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import {
@@ -26,12 +28,21 @@ class ServiceDevSetting extends ServiceBase {
     super({ backgroundApi });
   }
 
+  async saveDevModeToSyncStorage() {
+    const devSettings = await devSettingsPersistAtom.get();
+    appStorage.syncStorage.set(
+      EAppSyncStorageKeys.onekey_developer_mode_enabled,
+      !!devSettings.enabled,
+    );
+  }
+
   @backgroundMethod()
   public async switchDevMode(isOpen: boolean) {
     await devSettingsPersistAtom.set((prev) => ({
       enabled: isOpen,
       settings: isOpen ? prev.settings : {},
     }));
+    void this.saveDevModeToSyncStorage();
   }
 
   @backgroundMethod()
@@ -43,6 +54,7 @@ class ServiceDevSetting extends ServiceBase {
         [name]: value,
       },
     }));
+    void this.saveDevModeToSyncStorage();
   }
 
   @backgroundMethod()
@@ -63,6 +75,16 @@ class ServiceDevSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async updateFirmwareUpdateDevSettings(
+    values: Partial<IFirmwareUpdateDevSettings>,
+  ) {
+    await firmwareUpdateDevSettingsPersistAtom.set((prev) => ({
+      ...prev,
+      ...values,
+    }));
+  }
+
+  @backgroundMethod()
   public async initAnalytics() {
     const devSettings = await this.getDevSetting();
     const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
@@ -72,6 +94,8 @@ class ServiceDevSetting extends ServiceBase {
         serviceName: EServiceEndpointEnum.Utility,
         env: devSettings.settings?.enableTestEndpoint ? 'test' : 'prod',
       }),
+      enableAnalyticsInDev:
+        devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
     });
   }
 }

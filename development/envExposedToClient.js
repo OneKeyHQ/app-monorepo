@@ -6,7 +6,9 @@ function buildEnvExposedToClientDangerously({ platform }) {
   const transformInlineEnvironmentVariables = [
     'NODE_ENV',
     'VERSION',
+    'BUNDLE_VERSION',
     'BUILD_NUMBER',
+    'BUILD_TIME',
     'ONEKEY_PLATFORM',
     'PUBLIC_URL',
     'EXT_INJECT_RELOAD_BUTTON',
@@ -19,8 +21,19 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'COVALENT_KEY',
     'HARDWARE_SDK_CONNECT_SRC',
     'GITHUB_SHA',
+    'WORKFLOW_GITHUB_SHA',
     'STORYBOOK_ENABLED',
     'WALLETCONNECT_PROJECT_ID',
+    'SENTRY_DSN_EXT',
+    'SENTRY_DSN_DESKTOP',
+    'SENTRY_DSN_MAS',
+    'SENTRY_DSN_SNAP',
+    'SENTRY_DSN_WINMS',
+    'SENTRY_DSN_REACT_NATIVE',
+    'SENTRY_DSN_WEB',
+    // Supabase (publishable)
+    'SUPABASE_PROJECT_URL',
+    'SUPABASE_PUBLIC_API_KEY',
   ];
   // ***        also update Inject Environment Variables at release-ios.yml, release-android      ***
 

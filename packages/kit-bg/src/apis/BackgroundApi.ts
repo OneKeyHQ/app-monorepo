@@ -4,22 +4,29 @@
 // eslint-disable-next-line import/order
 
 import externalWalletFactory from '../connectors/externalWalletFactory';
+import localDb from '../dbs/local/localDb';
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import BackgroundApiBase from './BackgroundApiBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
+import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
+import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   constructor() {
     super();
     vaultFactory.setBackgroundApi(this);
     externalWalletFactory.setBackgroundApi(this);
+    localDb.setBackgroundApi(this);
     void this.serviceBootstrap.init();
   }
 
   simpleDb = simpleDb;
+
+  localDb = localDb;
   // validator = this.engine.validator;
 
   // vaultFactory = this.engine.vaultFactory;
@@ -81,6 +88,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'servicePassword', { value });
+    return value;
+  }
+
+  get serviceWebviewPerp() {
+    const Service =
+      require('../services/ServiceWebviewPerp') as typeof import('../services/ServiceWebviewPerp');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceWebviewPerp', { value });
     return value;
   }
 
@@ -204,13 +221,23 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceDefi() {
-    const ServiceDefi =
-      require('../services/ServiceDefi') as typeof import('../services/ServiceDefi');
-    const value = new ServiceDefi.default({
+  get serviceTransaction() {
+    const ServiceTransaction =
+      require('../services/ServiceTransaction') as typeof import('../services/ServiceTransaction');
+    const value = new ServiceTransaction.default({
       backgroundApi: this,
     });
-    Object.defineProperty(this, 'serviceDefi', { value });
+    Object.defineProperty(this, 'serviceTransaction', { value });
+    return value;
+  }
+
+  get serviceDeFi() {
+    const ServiceDeFi =
+      require('../services/ServiceDeFi') as typeof import('../services/ServiceDeFi');
+    const value = new ServiceDeFi.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDeFi', { value });
     return value;
   }
 
@@ -231,6 +258,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceCloudBackup', { value });
+    return value;
+  }
+
+  get serviceCloudBackupV2() {
+    const ServiceCloudBackupV2 =
+      require('../services/ServiceCloudBackupV2') as typeof import('../services/ServiceCloudBackupV2');
+    const value = new ServiceCloudBackupV2.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceCloudBackupV2', { value });
     return value;
   }
 
@@ -334,6 +371,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get servicePrimeCloudSync() {
+    const Service =
+      require('../services/ServicePrimeCloudSync') as typeof import('../services/ServicePrimeCloudSync');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'servicePrimeCloudSync', { value });
+    return value;
+  }
+
   get serviceQrWallet() {
     const Service =
       require('../services/ServiceQrWallet') as typeof import('../services/ServiceQrWallet');
@@ -351,6 +398,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceAccountProfile', { value });
+    return value;
+  }
+
+  get serviceFreshAddress() {
+    const Service =
+      require('../services/ServiceFreshAddress') as typeof import('../services/ServiceFreshAddress');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceFreshAddress', { value });
     return value;
   }
 
@@ -415,9 +472,9 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceAddressBook() {
-    const ServiceAddressBook =
+    const Service =
       require('../services/ServiceAddressBook') as typeof import('../services/ServiceAddressBook');
-    const value = new ServiceAddressBook.default({
+    const value = new Service.default({
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceAddressBook', { value });
@@ -451,6 +508,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceMarket', { value });
+    return value;
+  }
+
+  get serviceMarketV2() {
+    const ServiceMarketV2 =
+      require('../services/ServiceMarketV2') as typeof import('../services/ServiceMarketV2');
+    const value = new ServiceMarketV2.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceMarketV2', { value });
+    return value;
+  }
+
+  get serviceMarketWS() {
+    const ServiceMarketWS =
+      require('../services/ServiceMarketWS') as typeof import('../services/ServiceMarketWS');
+    const value = new ServiceMarketWS.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceMarketWS', { value });
     return value;
   }
 
@@ -581,6 +658,166 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceSignatureConfirm', { value });
+    return value;
+  }
+
+  get serviceMasterPassword() {
+    const ServiceMasterPassword =
+      require('../services/ServiceMasterPassword') as typeof import('../services/ServiceMasterPassword');
+    const value = new ServiceMasterPassword.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceMasterPassword', { value });
+    return value;
+  }
+
+  get serviceReferralCode() {
+    const ServiceReferralCode =
+      require('../services/ServiceReferralCode') as typeof import('../services/ServiceReferralCode');
+    const value = new ServiceReferralCode.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceReferralCode', { value });
+    return value;
+  }
+
+  get serviceDBBackup() {
+    const ServiceDBBackup =
+      require('../services/ServiceDBBackup') as typeof import('../services/ServiceDBBackup');
+    const value = new ServiceDBBackup.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDBBackup', { value });
+    return value;
+  }
+
+  get servicePrimeTransfer() {
+    const ServicePrimeTransfer =
+      require('../services/ServicePrimeTransfer') as typeof import('../services/ServicePrimeTransfer');
+    const value = new ServicePrimeTransfer.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'servicePrimeTransfer', { value });
+    return value;
+  }
+
+  get serviceWalletBanner() {
+    const ServiceWalletBanner =
+      require('../services/ServiceWalletBanner') as typeof import('../services/ServiceWalletBanner');
+    const value = new ServiceWalletBanner.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceWalletBanner', { value });
+    return value;
+  }
+
+  get serviceWalletStatus() {
+    const ServiceWalletStatus =
+      require('../services/ServiceWalletStatus') as typeof import('../services/ServiceWalletStatus');
+    const value = new ServiceWalletStatus.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceWalletStatus', { value });
+    return value;
+  }
+
+  get serviceApproval() {
+    const ServiceApproval =
+      require('../services/ServiceApproval') as typeof import('../services/ServiceApproval');
+    const value = new ServiceApproval.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceApproval', { value });
+    return value;
+  }
+
+  get serviceInternalSignAndVerify() {
+    const ServiceInternalSignAndVerify =
+      require('../services/ServiceInternalSignAndVerify') as typeof import('../services/ServiceInternalSignAndVerify');
+    const value = new ServiceInternalSignAndVerify.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceInternalSignAndVerify', { value });
+    return value;
+  }
+
+  get serviceHyperliquid() {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquid') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquid');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquid', { value });
+    return value;
+  }
+
+  get serviceHyperliquidExchange(): ServiceHyperliquidExchange {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquidExchange') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidExchange');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquidExchange', { value });
+    return value;
+  }
+
+  get serviceHyperliquidWallet(): ServiceHyperliquidWallet {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquidWallet') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidWallet');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquidWallet', { value });
+    return value;
+  }
+
+  get serviceHyperliquidSubscription(): ServiceHyperliquidSubscription {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquidSubscription') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidSubscription');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquidSubscription', { value });
+    return value;
+  }
+
+  get serviceKeylessWallet() {
+    const Service =
+      require('../services/ServiceKeylessWallet/ServiceKeylessWallet') as typeof import('../services/ServiceKeylessWallet/ServiceKeylessWallet');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceKeylessWallet', { value });
+    return value;
+  }
+
+  get serviceIpTable() {
+    const ServiceIpTable =
+      require('../services/ServiceIpTable') as typeof import('../services/ServiceIpTable');
+    const value = new ServiceIpTable.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceIpTable', { value });
+    return value;
+  }
+
+  get serviceNetworkDoctor() {
+    const ServiceNetworkDoctor =
+      require('../services/ServiceNetworkDoctor') as typeof import('../services/ServiceNetworkDoctor');
+    const value = new ServiceNetworkDoctor.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceNetworkDoctor', { value });
+    return value;
+  }
+
+  get serviceOneKeyID() {
+    const Service =
+      require('../services/ServiceOneKeyID') as typeof import('../services/ServiceOneKeyID');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceOneKeyID', { value });
     return value;
   }
 }

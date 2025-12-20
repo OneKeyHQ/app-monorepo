@@ -1,13 +1,14 @@
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { decryptAsync } from '../../secret';
 import {
+  EAddressEncodings,
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
-  type ICoreApiGetAddressQueryImported,
+  type ICoreApiGetAddressQueryImportedKaspa,
   type ICoreApiGetAddressQueryPublicKey,
   type ICoreApiGetAddressesQueryHd,
   type ICoreApiGetAddressesResult,
@@ -23,7 +24,8 @@ import {
   addressFromPublicKey,
   getTweakedPrivateKey,
   privateKeyFromBuffer,
-  privateKeyFromOriginPrivateKey,
+  privateKeyFromHex,
+  publicKeyFromDER,
   publicKeyFromOriginPubkey,
   signTransaction,
   toTransaction,
@@ -54,16 +56,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       const chainId = networkInfo.chainId;
       return privateKeyFromBuffer(
         await decryptAsync({ password, data: privateKeyRaw }),
         chainId,
-      ).toWIF();
+      ).toString();
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -84,30 +86,51 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       unsignedTx,
       account,
       networkInfo: { chainId, isTestnet },
+      addressEncoding,
     } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-
     const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
+
+    let privateKeyHex: string;
+    switch (addressEncoding) {
+      case EAddressEncodings.KASPA_ORG:
+        privateKeyHex = bufferUtils.bytesToHex(await signer.getPrvkey());
+        break;
+      default:
+        privateKeyHex = getTweakedPrivateKey(
+          await signer.getPrvkey(),
+          await signer.getPubkey(true),
+        );
+        break;
+    }
+
+    let publicKey;
+    switch (addressEncoding) {
+      case EAddressEncodings.KASPA_ORG:
+        publicKey = publicKeyFromDER(checkIsDefined(account.pub));
+        break;
+      default:
+        publicKey = publicKeyFromOriginPubkey(
+          Buffer.from(bufferUtils.hexToBytes(checkIsDefined(account.pub))),
+        );
+        break;
+    }
+
     if (unsignedTx.isKRC20RevealTx) {
       const api = await sdk.getKaspaApi();
 
       if (!encodedTx.commitScriptHex) {
-        throw new Error('commitScriptHex is required');
+        throw new OneKeyLocalError('commitScriptHex is required');
       }
-
-      const tweakedPrivateKey = getTweakedPrivateKey(
-        await signer.getPrvkey(),
-        await signer.getPubkey(true),
-      );
 
       const rawTx = await api.signRevealTransactionSoftware({
         accountAddress: account.address,
         encodedTx,
         isTestnet: !!isTestnet,
-        tweakedPrivateKey,
+        tweakedPrivateKey: privateKeyHex,
       });
 
       return {
@@ -120,14 +143,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const txn = toTransaction(encodedTx);
     const signedTx = await signTransaction(txn, {
       getPublicKey() {
-        return publicKeyFromOriginPubkey(
-          Buffer.from(bufferUtils.hexToBytes(checkIsDefined(account.pub))),
-        );
+        return publicKey;
       },
       async getPrivateKey(): Promise<PrivateKey> {
-        const privateKey = await signer.getPrvkey();
-        const publicKey = await signer.getPubkey(true);
-        return privateKeyFromOriginPrivateKey(privateKey, publicKey, chainId);
+        return privateKeyFromHex(privateKeyHex, chainId);
       },
     });
 
@@ -145,15 +164,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async getAddressFromPrivate(
-    query: ICoreApiGetAddressQueryImported,
+    query: ICoreApiGetAddressQueryImportedKaspa,
   ): Promise<ICoreApiGetAddressItem> {
     // throw new NotImplemented();;
-    const { privateKeyRaw } = query;
+    const { privateKeyRaw, addressEncoding } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
     return this.getAddressFromPublic({
       publicKey: bufferUtils.bytesToHex(pub),
       networkInfo: query.networkInfo,
+      addressEncoding,
     });
   }
 
@@ -164,12 +184,21 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const {
       publicKey,
       networkInfo: { chainId },
+      addressEncoding,
     } = query;
-    const pub = publicKeyFromOriginPubkey(bufferUtils.toBuffer(publicKey));
+
+    let pub;
+    if (addressEncoding === EAddressEncodings.KASPA_ORG) {
+      pub = publicKeyFromDER(publicKey);
+    } else {
+      // OneKey tweak convert
+      pub = publicKeyFromOriginPubkey(bufferUtils.toBuffer(publicKey));
+    }
     const address = addressFromPublicKey(pub, chainId);
     return Promise.resolve({
       address,
       publicKey,
+      __hwExtraInfo__: undefined,
     });
   }
 

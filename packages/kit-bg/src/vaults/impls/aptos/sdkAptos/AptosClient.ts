@@ -2,7 +2,7 @@
 import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { InvalidAccount } from '@onekeyhq/shared/src/errors';
+import { InvalidAccount, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type {
   AccountAddressInput,
@@ -36,7 +36,7 @@ export class AptosClient {
   getAccountModule(
     accountAddress: string,
     moduleName: string,
-    options?: LedgerVersionArg,
+    _options?: LedgerVersionArg,
   ): Promise<MoveModuleBytecode> {
     return this.proxyRequest('getAccountModule', [accountAddress, moduleName]);
   }
@@ -57,9 +57,16 @@ export class AptosClient {
         typeof message === 'string' &&
         message.includes('account_not_found')
       ) {
-        throw new InvalidAccount({
-          message,
-        });
+        try {
+          const { message: errorMessage } = JSON.parse(message);
+          throw new InvalidAccount({
+            message: errorMessage,
+          });
+        } catch (_) {
+          throw new InvalidAccount({
+            message,
+          });
+        }
       }
       throw error;
     }
@@ -128,7 +135,7 @@ export class AptosClient {
       });
     const response = res?.[0];
     if (!response) {
-      throw new Error('No response received from the proxy');
+      throw new OneKeyLocalError('No response received from the proxy');
     }
 
     return response;

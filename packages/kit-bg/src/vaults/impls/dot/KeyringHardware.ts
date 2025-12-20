@@ -15,17 +15,20 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import { getMetadataRpc } from './utils';
 
+import type VaultDot from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
@@ -35,6 +38,12 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+
+const SpecialNetworkIdMap = {
+  [networkUtils.parseNetworkId({
+    networkId: presetNetworksMap.assethubPolkadot.id,
+  }).chainId]: 'polkadot-assethub',
+};
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.dot.hd;
@@ -52,7 +61,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       path: params.path,
       showOnOneKey: false,
       prefix: networkInfo.addressPrefix,
-      chainName: chainId,
+      chainName: SpecialNetworkIdMap[chainId] || chainId,
     };
   }
 
@@ -60,19 +69,18 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
     const networkInfo = await this.getNetworkInfo();
-    const chainId = await this.getNetworkChainId();
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
         const list = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
           sdkGetAddressFn: async ({
-            connectId,
-            deviceId,
-            pathPrefix,
-            pathSuffix,
+            connectId: _connectId,
+            deviceId: _deviceId,
+            pathPrefix: _pathPrefix,
+            pathSuffix: _pathSuffix,
             template,
-            showOnOnekeyFn,
+            showOnOnekeyFn: _showOnOnekeyFn,
           }) => {
             const buildFullPath = (p: { index: number }) =>
               accountUtils.buildPathFromTemplate({
@@ -85,16 +93,17 @@ export class KeyringHardware extends KeyringHardwareBase {
               usedIndexes,
               hwSdkNetwork: this.hwSdkNetwork,
               buildPath: buildFullPath,
-              buildResultAccount: ({ account, index }) => ({
+              buildResultAccount: ({ account, index: _index }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
                 publicKey: account.payload?.publicKey || '',
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
             // const response = await sdk.polkadotGetAddress(connectId, deviceId, {
@@ -116,7 +125,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < list.length; i += 1) {
           const item = list[i];
-          const { path, address, publicKey } = item;
+          const { path, address, publicKey, __hwExtraInfo__ } = item;
           const addresses = {
             [this.networkId]:
               address ??
@@ -130,6 +139,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             addresses,
             path,
             publicKey,
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }
@@ -141,7 +151,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const unsignedTx = checkIsDefined(params.unsignedTx);
     const deviceParams = checkIsDefined(params.deviceParams);
     const encodedTx = checkIsDefined(unsignedTx.encodedTx) as IEncodedTxDot;
@@ -150,18 +162,26 @@ export class KeyringHardware extends KeyringHardwareBase {
     const account = await this.vault.getAccount();
     const network = await this.getNetwork();
     encodedTx.chainName = network.name;
+    const networkInfo = await this.getNetworkInfo();
+
+    const customRpcClient = await (
+      this.vault as VaultDot
+    ).getCustomApiPromise();
     const metadataRpc = await getMetadataRpc(
       this.networkId,
       this.backgroundApi,
+      customRpcClient,
     );
     const tx = await serializeUnsignedTransaction({
       ...encodedTx,
       metadataRpc,
     });
+    const chainId = await this.getNetworkChainId();
     const { signature } = await convertDeviceResponse(async () =>
       sdk.polkadotSignTransaction(connectId, deviceId, {
         path: account.path,
-        network: network.chainId,
+        prefix: +networkInfo.addressPrefix,
+        network: SpecialNetworkIdMap[chainId] || chainId,
         rawTx: bufferUtils.bytesToHex(tx.rawTx),
         ...deviceCommonParams,
       }),
@@ -182,7 +202,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+  override signMessage(
+    _params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
     throw new NotImplemented();
   }
 }

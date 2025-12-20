@@ -4,6 +4,7 @@ export type IListItemSelectOption<T> = {
   value: T;
   title: string;
   subtitle?: string;
+  disabled?: boolean;
 };
 
 export type IListItemSelectProps<T> = {
@@ -23,6 +24,7 @@ export function ListItemSelect<T>({
       title={opt.title}
       subtitle={opt.subtitle}
       onPress={() => onChange?.(opt.value)}
+      disabled={opt.disabled}
     >
       {value === opt.value ? (
         <ListItem.IconButton

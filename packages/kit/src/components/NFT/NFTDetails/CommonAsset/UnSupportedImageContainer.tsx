@@ -1,1 +1,1 @@
-export const UnSupportedImageContainer = (props: { src?: string }) => null;
+export const UnSupportedImageContainer = (_props: { src?: string }) => null;

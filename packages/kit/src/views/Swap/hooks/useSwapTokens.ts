@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { useIsModalPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -11,6 +11,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -18,6 +19,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ESwapCrossChainStatus,
+  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -30,6 +32,7 @@ import {
   useSwapAllNetworkTokenListMapAtom,
   useSwapNetworksAtom,
   useSwapNetworksIncludeAllNetworkAtom,
+  useSwapSelectTokenNetworkAtom,
   useSwapTokenFetchingAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -40,6 +43,7 @@ export function useSwapTokenList(
   selectTokenModalType: ESwapDirectionType,
   currentNetworkId?: string,
   keywords?: string,
+  from?: ESwapTabSwitchType,
 ) {
   const [currentTokens, setCurrentTokens] = useState<
     (ISwapToken | IFuseResult<ISwapToken>)[]
@@ -53,6 +57,11 @@ export function useSwapTokenList(
     useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [swapTokenFetching] = useSwapTokenFetchingAtom();
+  const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
+  const searchLogStateRef = useRef<{
+    key: string;
+    phase: 'idle' | 'fetching' | 'done';
+  } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -77,11 +86,16 @@ export function useSwapTokenList(
 
   const tokenFetchParams = useMemo(() => {
     const findNetInfo = swapSupportAllAccountsRef.current.find(
-      (net) => net.networkId === currentNetworkId,
+      (net) =>
+        net.networkId === currentNetworkId ||
+        net.networkId === currentSelectNetwork?.networkId,
     );
-    if (swapAddressInfo.networkId === currentNetworkId) {
+    if (
+      swapAddressInfo.networkId === currentNetworkId ||
+      swapAddressInfo.networkId === currentSelectNetwork?.networkId
+    ) {
       return {
-        networkId: currentNetworkId,
+        networkId: currentSelectNetwork?.networkId ?? currentNetworkId,
         keywords,
         accountAddress: swapAddressInfo?.address,
         accountNetworkId: swapAddressInfo?.networkId,
@@ -89,7 +103,7 @@ export function useSwapTokenList(
       };
     }
     return {
-      networkId: currentNetworkId,
+      networkId: currentSelectNetwork?.networkId ?? currentNetworkId,
       keywords,
       accountAddress: findNetInfo?.apiAddress,
       accountNetworkId: findNetInfo?.networkId,
@@ -101,6 +115,7 @@ export function useSwapTokenList(
     swapAddressInfo?.address,
     swapAddressInfo?.accountInfo?.account?.id,
     keywords,
+    currentSelectNetwork?.networkId,
   ]);
 
   const swapAllNetworkTokenList = useMemo(
@@ -285,6 +300,63 @@ export function useSwapTokenList(
   ]);
 
   useEffect(() => {
+    if (!keywords) {
+      searchLogStateRef.current = null;
+      return;
+    }
+    const queryLength = keywords.length;
+    if (queryLength < 1 || queryLength > 10) {
+      searchLogStateRef.current = null;
+      return;
+    }
+
+    const networkId = currentSelectNetwork?.networkId ?? '';
+    const key = `${keywords}__${networkId}__${selectTokenModalType}`;
+
+    if (!searchLogStateRef.current || searchLogStateRef.current.key !== key) {
+      searchLogStateRef.current = { key, phase: 'idle' };
+    }
+
+    const state = searchLogStateRef.current;
+    if (!state) {
+      return;
+    }
+
+    if (swapTokenFetching) {
+      if (state.phase !== 'fetching') {
+        searchLogStateRef.current = { key, phase: 'fetching' };
+      }
+      return;
+    }
+
+    if (state.phase === 'fetching') {
+      const resultCount =
+        fuseRemoteTokensSearchRef.current?.search(keywords)?.length ?? 0;
+
+      defaultLogger.swap.tokenSelectorSearch.swapTokenSelectorSearch({
+        query: keywords,
+        resultCount,
+        networkId,
+        networkName: currentSelectNetwork?.isAllNetworks
+          ? 'All Networks'
+          : currentSelectNetwork?.name ?? '',
+        direction: selectTokenModalType,
+        from,
+      });
+
+      searchLogStateRef.current = { key, phase: 'done' };
+    }
+  }, [
+    keywords,
+    currentSelectNetwork?.networkId,
+    currentSelectNetwork?.name,
+    currentSelectNetwork?.isAllNetworks,
+    from,
+    selectTokenModalType,
+    swapTokenFetching,
+  ]);
+
+  useEffect(() => {
     if (keywords && fuseRemoteTokensSearchRef.current) {
       setCurrentTokens(fuseRemoteTokensSearchRef.current.search(keywords));
     } else {
@@ -314,6 +386,14 @@ export function useSwapTokenList(
   };
 }
 
+/**
+ * Manages and updates detailed information for a selected swap token, including balance and status, in response to swap transaction events and focus changes.
+ *
+ * Triggers token detail reloads when relevant swap transaction history updates occur, and manages event listeners based on modal and tab focus state.
+ *
+ * @param token - The swap token to manage details for
+ * @param type - The swap direction type (`FROM` or `TO`)
+ */
 export function useSwapSelectedTokenInfo({
   token,
   type,
@@ -322,6 +402,7 @@ export function useSwapSelectedTokenInfo({
   token?: ISwapToken;
 }) {
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM); // always fetch from account balance
+  const swapAddressInfoTo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
   const swapHistoryPendingListRef = useRef(swapHistoryPendingList);
@@ -393,9 +474,9 @@ export function useSwapSelectedTokenInfo({
     },
     [type, loadSwapSelectTokenDetailDeb],
   );
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   useEffect(() => {
-    if (isFocused && pageType === EPageType.modal) {
+    if (isFocused && isModalPage) {
       appEventBus.off(
         EAppEventBusNames.SwapTxHistoryStatusUpdate,
         reloadSwapSelectTokenDetail,
@@ -405,13 +486,21 @@ export function useSwapSelectedTokenInfo({
         reloadSwapSelectTokenDetail,
       );
     }
-  }, [isFocused, pageType, reloadSwapSelectTokenDetail]);
+  }, [isFocused, isModalPage, reloadSwapSelectTokenDetail]);
 
   useEffect(() => {
-    void loadSwapSelectTokenDetailDeb(type, swapAddressInfoRef.current, false);
+    if (isFocused) {
+      void loadSwapSelectTokenDetailDeb(
+        type,
+        swapAddressInfoRef.current,
+        false,
+      );
+    }
   }, [
+    isFocused,
     type,
     swapAddressInfo,
+    swapAddressInfoTo.accountInfo?.deriveType,
     token?.networkId,
     token?.contractAddress,
     token?.balanceParsed,
@@ -423,7 +512,7 @@ export function useSwapSelectedTokenInfo({
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal) {
+      if (!isModalPage) {
         if (isFocus) {
           appEventBus.off(
             EAppEventBusNames.SwapTxHistoryStatusUpdate,

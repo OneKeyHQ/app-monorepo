@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
@@ -24,7 +25,7 @@ function useManageToken({
   walletId: string;
   isOthersWallet?: boolean;
   indexedAccountId?: string;
-  deriveType: IAccountDeriveTypes;
+  deriveType: IAccountDeriveTypes | undefined;
 }) {
   const navigation = useAppNavigation();
 
@@ -37,6 +38,9 @@ function useManageToken({
   // );
 
   const handleOnManageToken = useCallback(() => {
+    if (!deriveType) {
+      throw new OneKeyLocalError('deriveType is required');
+    }
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenManagerModal,
       params: {

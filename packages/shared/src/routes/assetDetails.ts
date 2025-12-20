@@ -1,17 +1,16 @@
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import type { IDeFiProtocol, IProtocolSummary } from '../../types/defi';
 import type { IUtxoAddressInfo } from '../../types/tx';
 
 export enum EModalAssetDetailRoutes {
-  TokenDetails = 'TokenDetails',
-  NFTDetails = 'NFTDetails',
-  HistoryDetails = 'HistoryDetails',
-  UTXODetails = 'UTXODetails',
+  TokenDetails = 'AssetDetail_TokenDetails',
+  DeFiProtocolDetails = 'AssetDetail_DeFiProtocolDetails',
+  NFTDetails = 'AssetDetail_NFTDetails',
+  HistoryDetails = 'AssetDetail_HistoryDetails',
+  UTXODetails = 'AssetDetail_UTXODetails',
+  MarketDetail = 'AssetDetail_MarketDetail',
 }
 
 export type IModalAssetDetailsParamList = {
@@ -19,12 +18,17 @@ export type IModalAssetDetailsParamList = {
     accountId: string;
     networkId: string;
     walletId: string;
-    deriveInfo: IAccountDeriveInfo;
-    deriveType: IAccountDeriveTypes;
-    tokenInfo: IToken;
     isBlocked?: boolean;
     riskyTokens?: string[];
     isAllNetworks?: boolean;
+    indexedAccountId: string;
+    tokenInfo: IAccountToken;
+    aggregateTokens?: IAccountToken[];
+    tokenMap?: Record<string, ITokenFiat>;
+    accountAddress?: string;
+  };
+  [EModalAssetDetailRoutes.MarketDetail]: {
+    token: string;
   };
   [EModalAssetDetailRoutes.NFTDetails]: {
     networkId: string;
@@ -51,5 +55,9 @@ export type IModalAssetDetailsParamList = {
     txId: string;
     inputs?: IUtxoAddressInfo[];
     outputs?: IUtxoAddressInfo[];
+  };
+  [EModalAssetDetailRoutes.DeFiProtocolDetails]: {
+    protocol: IDeFiProtocol;
+    protocolInfo: IProtocolSummary;
   };
 };

@@ -3,6 +3,7 @@ import * as signUtil from '@metamask/eth-sig-util';
 import * as ethUtil from 'ethereumjs-util';
 import { isHexString } from 'ethjs-util';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import type { ToBufferInputTypes } from '@ethereumjs/util';
@@ -65,7 +66,7 @@ const hashMessage = ({
 
     default:
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new Error(`Invalid messageType: ${messageType}`);
+      throw new OneKeyLocalError(`Invalid messageType: ${messageType}`);
   }
 };
 
