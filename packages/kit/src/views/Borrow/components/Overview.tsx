@@ -180,7 +180,7 @@ export const Overview = () => {
       <OverviewItem
         title={{ text: 'Claimable rewards' }} // FIXME[borrow]: i18n
         text={
-          reserves?.overview?.rewards.text ?? {
+          reserves?.overview?.rewards?.text ?? {
             text: amountPlaceholder,
             color: '$textDisabled',
           }

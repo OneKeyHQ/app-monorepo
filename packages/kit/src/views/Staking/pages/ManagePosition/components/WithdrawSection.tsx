@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
+import { UniversalBorrowRepay } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowRepay';
+import { UniversalBorrowWithdraw } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowWithdraw';
 import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
@@ -14,8 +16,6 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { UniversalBorrowRepay } from '../../../components/UniversalBorrowRepay';
-import { UniversalBorrowWithdraw } from '../../../components/UniversalBorrowWithdraw';
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';

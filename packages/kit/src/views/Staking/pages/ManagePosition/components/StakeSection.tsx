@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import { UniversalBorrowBorrow } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowBorrow';
+import { UniversalBorrowSupply } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowSupply';
 import {
   useUniversalBorrowBorrow,
   useUniversalBorrowSupply,
@@ -23,8 +25,6 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { UniversalBorrowBorrow } from '../../../components/UniversalBorrowBorrow';
-import { UniversalBorrowSupply } from '../../../components/UniversalBorrowSupply';
 import { UniversalStake } from '../../../components/UniversalStake';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
