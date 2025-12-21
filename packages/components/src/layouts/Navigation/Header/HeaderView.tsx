@@ -197,8 +197,6 @@ function HeaderView({
             ? { position: 'absolute', right: 0, left: 0 }
             : {}
         }
-        // borderBottomWidth={StyleSheet.hairlineWidth}
-        // borderBottomColor="$borderSubdued"
         pointerEvents="box-none"
         {...(!isModelScreen && {
           $gtMd: platformEnv.isNativeAndroid
