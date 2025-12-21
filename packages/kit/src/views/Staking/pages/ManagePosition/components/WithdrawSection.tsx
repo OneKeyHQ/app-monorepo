@@ -93,36 +93,7 @@ export const WithdrawSection = ({
     }) => {
       if (!hasRequiredData) return;
 
-      if (borrowApiCtx.isBorrow) {
-        const { provider, marketAddress, reserveAddress, action } =
-          borrowApiCtx.borrowApiParams;
-
-        await (action === 'repay' ? handleBorrowRepay : handleBorrowWithdraw)({
-          amount,
-          provider,
-          marketAddress,
-          reserveAddress,
-          stakingInfo: token
-            ? {
-                label:
-                  action === 'repay' ? EEarnLabels.Stake : EEarnLabels.Withdraw,
-                protocol: earnUtils.getEarnProviderName({
-                  providerName: provider,
-                }),
-                protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-                ...(action === 'repay'
-                  ? { send: { token, amount } }
-                  : { receive: { token, amount } }),
-                tags: [protocolInfo?.stakeTag || ''],
-              }
-            : undefined,
-          onSuccess: () => {
-            onSuccess?.();
-          },
-        });
-
-        return;
-      }
+      if (borrowApiCtx.isBorrow) return;
 
       await handleWithdraw({
         amount,
@@ -154,9 +125,6 @@ export const WithdrawSection = ({
     },
     [
       hasRequiredData,
-      borrowApiCtx,
-      handleBorrowRepay,
-      handleBorrowWithdraw,
       handleWithdraw,
       // identity,
       providerName,
@@ -166,6 +134,49 @@ export const WithdrawSection = ({
       token,
       protocolInfo?.stakeTag,
       symbol,
+    ],
+  );
+
+  const onBorrowConfirm = useCallback(
+    async (amount: string) => {
+      if (!hasRequiredData || !borrowApiCtx.isBorrow) return;
+
+      const { provider, marketAddress, reserveAddress, action } =
+        borrowApiCtx.borrowApiParams;
+
+      await (action === 'repay' ? handleBorrowRepay : handleBorrowWithdraw)({
+        amount,
+        provider,
+        marketAddress,
+        reserveAddress,
+        stakingInfo: token
+          ? {
+              label:
+                action === 'repay' ? EEarnLabels.Stake : EEarnLabels.Withdraw,
+              protocol: earnUtils.getEarnProviderName({
+                providerName: provider,
+              }),
+              protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+              ...(action === 'repay'
+                ? { send: { token, amount } }
+                : { receive: { token, amount } }),
+              tags: [protocolInfo?.stakeTag || ''],
+            }
+          : undefined,
+        onSuccess: () => {
+          onSuccess?.();
+        },
+      });
+    },
+    [
+      borrowApiCtx,
+      handleBorrowRepay,
+      handleBorrowWithdraw,
+      hasRequiredData,
+      onSuccess,
+      protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.stakeTag,
+      token,
     ],
   );
 
@@ -179,18 +190,14 @@ export const WithdrawSection = ({
     ) {
       return (
         <BorrowWithdrawComponent
-          accountAddress=""
-          price="0"
-          balance="0"
           accountId={accountId}
           networkId={networkId}
           providerName=""
-          onConfirm={async () => {}}
-          protocolVault=""
+          balance="0"
+          price="0"
           isDisabled
           borrowMarketAddress={borrowMarketAddress}
           borrowReserveAddress={borrowReserveAddress}
-          isInModalContext={isInModalContext}
           beforeFooter={beforeFooter}
           tokenImageUri={fallbackTokenImageUri}
           tokenSymbol={tokenInfo?.token.symbol}
@@ -220,7 +227,6 @@ export const WithdrawSection = ({
     <>
       {isBorrowWithdraw ? (
         <BorrowWithdrawComponent
-          accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
           balance={protocolInfo?.activeBalance || '0'}
@@ -228,21 +234,16 @@ export const WithdrawSection = ({
           networkId={networkId}
           tokenSymbol={symbol || ''}
           tokenImageUri={token?.logoURI || fallbackTokenImageUri}
-          providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
-          onConfirm={onConfirm}
-          minAmount={
-            Number(protocolInfo?.minUnstakeAmount) > 0
-              ? String(protocolInfo?.minUnstakeAmount)
-              : undefined
-          }
-          protocolVault={protocolInfo?.vault ?? ''}
+          onConfirm={onBorrowConfirm}
+          tokenInfo={tokenInfo}
           isDisabled={isDisabled}
-          borrowMarketAddress={borrowApiCtx.borrowApiParams?.marketAddress}
-          borrowReserveAddress={borrowApiCtx.borrowApiParams?.reserveAddress}
+          borrowMarketAddress={borrowApiCtx.borrowApiParams?.marketAddress ?? ''}
+          borrowReserveAddress={
+            borrowApiCtx.borrowApiParams?.reserveAddress ?? ''
+          }
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
-          isInModalContext={isInModalContext}
         />
       ) : (
         <UniversalWithdraw
