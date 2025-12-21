@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Page, XStack, useMedia } from '@onekeyhq/components';
+import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -69,13 +70,21 @@ export function TabPageHeader({
     [sceneName],
   );
 
+  const gtMd = useMedia();
+
   return (
     <>
-      <Page.Header
-        headerTitle={renderHeaderTitle}
-        headerLeft={hideHeaderLeft ? undefined : renderHeaderLeft}
-        headerRight={renderHeaderRight}
-      />
+      {gtMd ? (
+        <XStack p="$5">
+          {hideHeaderLeft ? undefined : renderHeaderLeft()}
+        </XStack>
+      ) : (
+        <Page.Header
+          headerTitle={renderHeaderTitle}
+          headerLeft={hideHeaderLeft ? undefined : renderHeaderLeft}
+          headerRight={renderHeaderRight}
+        />
+      )}
 
       {!hideSearch ? (
         <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />

@@ -484,8 +484,6 @@ export function DesktopLeftSideBar({
       style={{
         backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
-        borderRightColor: theme.neutral4.val,
-        borderRightWidth: StyleSheet.hairlineWidth,
         zIndex: 2,
       }}
     >
