@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
-import { Page, XStack, useMedia } from '@onekeyhq/components';
-import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
+import { Page, XStack, useMedia, useTheme } from '@onekeyhq/components';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -71,13 +70,17 @@ export function TabPageHeader({
   );
 
   const gtMd = useMedia();
+  const theme = useTheme();
 
   return (
     <>
       {gtMd ? (
-        <XStack p="$5">
-          {hideHeaderLeft ? undefined : renderHeaderLeft()}
-        </XStack>
+        <>
+          <Page.Header headerStyle={{ backgroundColor: theme.bgSubdued.val }} />
+          <XStack p="$5" bg="$bgApp" borderRadius="$4">
+            {hideHeaderLeft ? undefined : renderHeaderLeft()}
+          </XStack>
+        </>
       ) : (
         <Page.Header
           headerTitle={renderHeaderTitle}
