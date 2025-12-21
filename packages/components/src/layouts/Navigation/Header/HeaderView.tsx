@@ -12,6 +12,7 @@ import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsModalPage } from '../../../hocs';
+import { useIsDesktopModeUIInTabPages } from '../../../hooks';
 import { Stack, XStack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 import { rootNavigationRef } from '../Navigator/NavigationContainer';
@@ -172,6 +173,15 @@ function HeaderView({
     }
     return undefined;
   }, [isGtMd, isModelScreen]);
+
+  const isDesktopModeUI = useIsDesktopModeUIInTabPages();
+  const headerBackgroundColor = useMemo(() => {
+    if (headerTransparent) {
+      return 'transparent';
+    }
+    return isDesktopModeUI ? '$bgSubdued' : '$bgApp';
+  }, [headerTransparent, isDesktopModeUI]);
+
   if (!headerShown) {
     return null;
   }
@@ -180,7 +190,7 @@ function HeaderView({
     <DesktopDragZoneBoxView disabled={isModelScreen}>
       <Stack
         alignItems="center"
-        bg={headerTransparent ? 'transparent' : '$bgApp'}
+        bg={headerBackgroundColor}
         pt={isOnboardingScreen ? '$10' : undefined}
         style={
           headerTransparent && !platformEnv.isNativeAndroid
