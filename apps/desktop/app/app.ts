@@ -55,6 +55,7 @@ import {
 } from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
+import { setMainWindow } from './service/oauthLocalServer/oauthLocalServer';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -561,6 +562,9 @@ async function createMainWindow() {
       });
 
   void browserWindow.loadURL(src);
+
+  // Set main window reference for OAuth server
+  setMainWindow(browserWindow);
 
   // Protocol handler for win32
   if (isWin || isMac) {

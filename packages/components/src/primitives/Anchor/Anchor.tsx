@@ -1,13 +1,13 @@
 import type { Ref } from 'react';
 
+import { SizableText } from '@tamagui/text';
 import { Linking } from 'react-native';
 
-import {
-  SizableText,
-  type SizableTextProps,
-  type TamaguiTextElement,
-  styled,
+import type {
+  SizableTextProps,
+  TamaguiTextElement,
 } from '@onekeyhq/components/src/shared/tamagui';
+import { styled } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export interface IAnchorExtraProps {
@@ -44,6 +44,7 @@ export const Anchor = AnchorFrame.styleable<IAnchorProps, any, any>(
               },
             })}
         ref={ref}
+        allowFontScaling={false}
       />
     );
   },

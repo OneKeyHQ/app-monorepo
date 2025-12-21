@@ -246,7 +246,7 @@ export const EarnNavigation = {
       await timerUtils.wait(50);
       navigation.popToTop();
     }
-    await timerUtils.wait(250);
+    await timerUtils.wait(80);
     appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
       tab: params?.tab ?? 'assets',
     });
