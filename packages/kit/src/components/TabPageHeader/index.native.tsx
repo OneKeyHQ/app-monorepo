@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
-import { PageHeaderDivider } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -71,8 +70,6 @@ export function TabPageHeader({
       {!hideSearch ? (
         <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
       ) : null}
-
-      <PageHeaderDivider mt="$3" />
     </>
   );
 }
