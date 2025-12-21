@@ -307,12 +307,16 @@ class ServiceDeFi extends ServiceBase {
               result[i] = {
                 accountId: account.accountId,
                 networkId: account.networkId,
-                overview: rawData?.overview?.[key],
+                overview: {
+                  [accountInfo.networkId]:
+                    rawData.overview[key][accountInfo.networkId],
+                },
               };
             } else {
               result[i].overview = {
                 ...(result[i].overview ?? {}),
-                ...rawData?.overview?.[key],
+                [accountInfo.networkId]:
+                  rawData.overview[key][accountInfo.networkId],
               };
             }
           }

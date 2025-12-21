@@ -102,23 +102,21 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
     deFiRawData?: IDeFiDBStruct;
   }) {
     const rawData = deFiRawData ?? (await this.getRawData());
-    return accounts
-      .map(({ accountAddress, xpub }) => {
-        const key = accountUtils.buildAccountLocalAssetsKey({
-          accountAddress,
-          xpub,
-        });
+    return accounts.map(({ accountAddress, xpub }) => {
+      const key = accountUtils.buildAccountLocalAssetsKey({
+        accountAddress,
+        xpub,
+      });
 
-        if (!rawData?.overview?.[key]) {
-          return undefined;
-        }
+      if (!rawData?.overview?.[key]) {
+        return undefined;
+      }
 
-        return {
-          accountAddress,
-          xpub,
-          overview: rawData?.overview?.[key],
-        };
-      })
-      .filter(Boolean);
+      return {
+        accountAddress,
+        xpub,
+        overview: rawData?.overview?.[key],
+      };
+    });
   }
 }
