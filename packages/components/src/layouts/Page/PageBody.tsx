@@ -26,8 +26,8 @@ export function PageBody({ children, ...props }: IStackProps) {
         borderRadius={isDesktopLayout ? '$4' : undefined}
         borderWidth={isDesktopLayout ? 1 : undefined}
         borderColor={isDesktopLayout ? '$borderSubdued' : undefined}
-        pr={isDesktopLayout ? '$1' : undefined}
-        pb={isDesktopLayout ? '$1' : undefined}
+        mr={isDesktopLayout ? '$1' : undefined}
+        mb={isDesktopLayout ? '$1' : undefined}
       >
         {platformEnv.isNativeIOSPad ? <PageHeaderDivider /> : null}
         {children}
