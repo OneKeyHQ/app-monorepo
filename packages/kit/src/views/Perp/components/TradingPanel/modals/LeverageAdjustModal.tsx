@@ -122,7 +122,6 @@ const LeverageContent = memo(
                   w: 80,
                   justifyContent: 'flex-end',
                   alignItems: 'flex-end',
-                  overflow: 'visible',
                 }}
                 InputComponentStyle={{
                   p: 0,
