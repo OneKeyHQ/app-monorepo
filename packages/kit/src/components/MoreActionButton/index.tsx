@@ -67,6 +67,7 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
+import { useOnPrimeButtonPressed } from '../../views/Prime/components/PrimeHeaderIconButton/PrimeHeaderIconButton';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId';
@@ -96,71 +97,6 @@ function MoreActionProvider({ children }: PropsWithChildren) {
     >
       <HomeTokenListProviderMirror>{children}</HomeTokenListProviderMirror>
     </AccountSelectorProviderMirror>
-  );
-}
-
-function _MoreActionContentHeader() {
-  const intl = useIntl();
-  const { user } = useOneKeyAuth();
-
-  const { closePopover } = usePopoverContext();
-  const { isPrimeAvailable } = usePrimeAvailable();
-  const {
-    activeAccount: { network },
-  } = useActiveAccount({ num: 0 });
-
-  const { loginOneKeyId } = useOneKeyAuth();
-
-  const handleLogin = useCallback(async () => {
-    await closePopover?.();
-    await loginOneKeyId({
-      toOneKeyIdPageOnLoginSuccess: true,
-    });
-  }, [closePopover, loginOneKeyId]);
-
-  return (
-    <XStack
-      px="$5"
-      py="$4"
-      ai="center"
-      jc="space-between"
-      borderBottomWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderSubdued"
-    >
-      <XStack
-        gap="$1"
-        ai="center"
-        p="$1"
-        pl="$1.5"
-        m="$-1"
-        ml="$-1.5"
-        onPress={handleLogin}
-        pressStyle={pressStyle}
-        hoverStyle={hoverStyle}
-      >
-        <SizableText
-          size="$bodyLgMedium"
-          $gtMd={{
-            size: '$bodyMdMedium',
-          }}
-          userSelect="none"
-        >
-          {user?.displayEmail ||
-            intl.formatMessage({ id: ETranslations.prime_signup_login })}
-        </SizableText>
-        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
-      </XStack>
-      <XStack gap="$5">
-        {isPrimeAvailable ? (
-          <PrimeHeaderIconButtonLazy
-            key="prime"
-            visible
-            onPress={closePopover}
-            networkId={network?.id}
-          />
-        ) : null}
-      </XStack>
-    </XStack>
   );
 }
 
@@ -412,27 +348,19 @@ function MoreActionContentGridItem({
       testID={testID}
       onPress={handlePress}
       group
-      flexBasis="33.33%"
+      flexBasis="25%"
       ai="center"
+      jc="center"
       gap="$2"
-      py="$2.5"
-      px={5}
+      m="$1"
+      h={64}
+      borderRadius="$2"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
       userSelect="none"
     >
-      <YStack
-        p={lottieSrc ? '$2' : '$3'}
-        borderWidth={1}
-        borderColor="$borderSubdued"
-        borderRadius="$2"
-        borderCurve="continuous"
-        $group-hover={{
-          bg: '$bgHover',
-        }}
-        $group-press={{
-          bg: '$bgActive',
-        }}
-        overflow={showRedDot ? 'visible' : 'hidden'}
-      >
+      <YStack>
         {icon ? <Icon name={icon} /> : null}
         {lottieSrc ? (
           <LottieView width={32} height={32} source={lottieSrc} />
@@ -511,9 +439,9 @@ function MoreActionContentGridRender({
   items: IMoreActionContentGridItemProps[];
 }) {
   const displayItems = useMemo(() => {
-    const remainder = items.length % 3;
+    const remainder = items.length % 4;
     if (remainder !== 0) {
-      const paddingCount = 3 - remainder;
+      const paddingCount = 4 - remainder;
       return [
         ...items,
         ...Array(paddingCount).fill(null),
@@ -534,10 +462,22 @@ function MoreActionContentGridRender({
   );
 }
 
+function MoreActionDivider() {
+  return (
+    <XStack py="$2" mx="$-5">
+      <Divider />
+    </XStack>
+  );
+}
+
 function MoreActionOneKeyId() {
   const intl = useIntl();
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
-  const loginAttemptedRef = useRef(false);
+  const { isPrimeAvailable } = usePrimeAvailable();
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num: 0 });
+
   const { closeTooltip } = useTooltipContext();
 
   const displayName = useMemo(() => {
@@ -549,40 +489,67 @@ function MoreActionOneKeyId() {
 
   const handlePress = useCallback(async () => {
     await closeTooltip();
-    if (!isLoggedIn) {
-      // Mark that login was attempted from this component
-      loginAttemptedRef.current = true;
-      // Trigger login flow directly
-      void loginOneKeyId();
-    } else {
-      // TODO
-    }
-  }, [closeTooltip, isLoggedIn, loginOneKeyId]);
+    // Trigger login flow directly
+    void loginOneKeyId();
+    await loginOneKeyId({
+      toOneKeyIdPageOnLoginSuccess: true,
+    });
+  }, [closeTooltip, loginOneKeyId]);
+
+  const { icon, onPrimeButtonPressed } = useOnPrimeButtonPressed({
+    onPress: closeTooltip,
+    networkId: network?.id,
+  });
 
   return (
-    <XStack alignItems="center" py="$4" userSelect="none" onPress={handlePress}>
+    <XStack
+      alignItems="center"
+      py="$4"
+      userSelect="none"
+      justifyContent="space-between"
+      onPress={handlePress}
+    >
       <XStack alignItems="center" gap="$3" flex={1}>
         {/* Avatar */}
         <OneKeyIdAvatar size="$16" />
 
         {/* Username and Label */}
         <YStack flex={1} gap="$0.5">
-          <SizableText
-            size="$bodyMdMedium"
-            color="$text"
-            numberOfLines={1}
-            ellipsizeMode="middle"
-          >
+          <XStack alignItems="center" gap="$2.5">
+            <SizableText
+              size="$headingXl"
+              color="$text"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              OneKey ID
+            </SizableText>
+            {isPrimeAvailable ? (
+              <XStack
+                ai="center"
+                jc="center"
+                gap="$1"
+                px="$2"
+                h={22}
+                bg="rgba(1, 239, 13, 0.06)"
+                borderRadius="$full"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="rgba(22, 67, 30, 0.09)"
+                onPress={onPrimeButtonPressed}
+              >
+                <Icon name={icon} size="$4" />
+                <SizableText size="$bodyMdMedium">Prime</SizableText>
+              </XStack>
+            ) : null}
+          </XStack>
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
             {displayName}
-          </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            OneKey ID
           </SizableText>
         </YStack>
       </XStack>
-      {/* {isLoggedIn ? (
+      {isLoggedIn ? (
         <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
-      ) : null} */}
+      ) : null}
     </XStack>
   );
 }
@@ -896,6 +863,89 @@ function UpdateReminders() {
   ) : null;
 }
 
+function BaseMoreActionGrid({
+  title,
+  items,
+}: {
+  title: string;
+  items: IMoreActionContentGridItemProps[];
+}) {
+  const displayItems = useMemo(() => {
+    const remainder = items.length % 4;
+    if (remainder !== 0) {
+      const paddingCount = 4 - remainder;
+      return [
+        ...items,
+        ...Array(paddingCount).fill(null),
+      ] as IMoreActionContentGridItemProps[];
+    }
+    return items;
+  }, [items]);
+  console.log('displayItems', displayItems);
+  return (
+    <YStack>
+      <SizableText
+        size="$headingMd"
+        color="$text"
+        numberOfLines={1}
+        ellipsizeMode="middle"
+      >
+        {title}
+      </SizableText>
+      <YStack gap="$2">
+        {Array.from({ length: Math.ceil(displayItems.length / 4) }).map(
+          (_, rowIndex) => (
+            <XStack key={rowIndex} justifyContent="space-between">
+              {displayItems
+                .slice(rowIndex * 4, (rowIndex + 1) * 4)
+                .map((item, colIndex) =>
+                  item ? (
+                    <MoreActionContentGridItem
+                      key={rowIndex * 4 + colIndex}
+                      {...item}
+                    />
+                  ) : (
+                    <XStack flexBasis="25%" key={rowIndex * 4 + colIndex} />
+                  ),
+                )}
+            </XStack>
+          ),
+        )}
+      </YStack>
+    </YStack>
+  );
+}
+
+function MoreActionGeneralGrid() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const handleSettings = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListModal,
+    });
+  }, [navigation]);
+  const handleCustomerSupport = useCallback(() => {
+    void showIntercom();
+  }, []);
+  const items = useMemo(() => {
+    return [
+      {
+        title: intl.formatMessage({ id: ETranslations.settings_settings }),
+        icon: 'SettingsOutline' as const,
+        onPress: handleSettings,
+        trackID: 'wallet-settings',
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.settings_contact_us }),
+        icon: 'HelpSupportOutline' as const,
+        onPress: handleCustomerSupport,
+        trackID: 'wallet-customer-support',
+      },
+    ];
+  }, [handleCustomerSupport, handleSettings, intl]);
+  return <BaseMoreActionGrid title="General" items={items} />;
+}
+
 function MoreActionContent() {
   return (
     <MoreActionProvider>
@@ -909,7 +959,9 @@ function MoreActionContent() {
         >
           <UpdateReminders />
           <MoreActionOneKeyId />
-          <MoreActionContentGrid />
+          <MoreActionDivider />
+          <MoreActionGeneralGrid />
+          <MoreActionDivider />
           <MoreActionContentFooter />
         </ScrollView>
       </YStack>
