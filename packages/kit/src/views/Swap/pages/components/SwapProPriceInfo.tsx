@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import {
   useSwapProTimeRangeAtom,
   useSwapProTokenMarketDetailInfoAtom,
@@ -34,20 +34,8 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
     }
   }, [swapProTimeRange.value, tokenMarketDetailInfo]);
   const formattedPrice = useMemo(() => {
-    return numberFormat(
-      swapProTokenTransactionPrice ?? tokenMarketDetailInfo?.price ?? '0',
-      {
-        formatter: 'price',
-        formatterOptions: {
-          currency: settings?.currencyInfo.symbol,
-        },
-      },
-    );
-  }, [
-    swapProTokenTransactionPrice,
-    tokenMarketDetailInfo?.price,
-    settings?.currencyInfo.symbol,
-  ]);
+    return swapProTokenTransactionPrice ?? tokenMarketDetailInfo?.price ?? '0';
+  }, [swapProTokenTransactionPrice, tokenMarketDetailInfo?.price]);
   const { formattedPriceChange, textColor } = useMemo(() => {
     const priceChangeValue = Number(priceChange);
     const formattedPriceChangeValue = numberFormat(priceChange, {
@@ -73,14 +61,20 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
       userSelect="none"
       cursor="pointer"
       onPress={() => {
-        onPricePress(
-          swapProTokenTransactionPrice ?? tokenMarketDetailInfo?.price ?? '0',
-        );
+        onPricePress(formattedPrice);
       }}
     >
-      <SizableText size="$headingLg" color={textColor} fontFamily="$monoMedium">
+      <NumberSizeableText
+        size="$headingLg"
+        color={textColor}
+        fontFamily="$monoMedium"
+        formatter="price"
+        formatterOptions={{
+          currency: settings?.currencyInfo.symbol,
+        }}
+      >
         {formattedPrice}
-      </SizableText>
+      </NumberSizeableText>
       <SizableText
         size="$bodySmMedium"
         color={textColor}

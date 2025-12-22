@@ -48,15 +48,16 @@ const SwapProTradeInfoGroup = ({
   const limitPriceValue = useMemo(() => {
     const displayLimitRate = new BigNumber(swapLimitPriceUseRate.rate || 0);
     if (displayLimitRate.isZero() || displayLimitRate.isNaN()) {
-      return '--';
+      return {
+        fromValue: '-',
+        toValue: '-',
+      };
     }
-    const formattedDisplayLimitRate = numberFormat(displayLimitRate.toFixed(), {
-      formatter: 'price',
-    });
-    return `1 ${inputToken?.symbol ?? '-'} = ${
-      formattedDisplayLimitRate ?? '--'
-    } ${toToken?.symbol ?? '-'}`;
-  }, [swapLimitPriceUseRate.rate, inputToken?.symbol, toToken?.symbol]);
+    return {
+      fromValue: `1 ${inputToken?.symbol ?? '-'} = `,
+      toValue: displayLimitRate.toFixed(),
+    };
+  }, [swapLimitPriceUseRate.rate, inputToken?.symbol]);
   const balanceValue = useMemo(() => {
     const balanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
     if (balanceBN.isZero() || balanceBN.isNaN()) {
@@ -124,16 +125,30 @@ const SwapProTradeInfoGroup = ({
       />
       {swapProTradeType === ESwapProTradeType.LIMIT ? (
         <SwapCommonInfoItem
-          title={intl.formatMessage({ id: ETranslations.Limit_limit_price })}
+          title={intl.formatMessage({
+            id: ETranslations.dexmarket_pro_trigger_price,
+          })}
           valueComponent={
-            <SizableText
-              size="$bodySmMedium"
-              numberOfLines={2}
-              textAlign="right"
-              maxWidth="$40"
-            >
-              {limitPriceValue}
-            </SizableText>
+            <YStack>
+              <SizableText
+                size="$bodySmMedium"
+                numberOfLines={1}
+                textAlign="right"
+                maxWidth="$36"
+              >
+                {limitPriceValue.fromValue}
+              </SizableText>
+              <NumberSizeableText
+                size="$bodySmMedium"
+                numberOfLines={1}
+                textAlign="right"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol: toToken?.symbol ?? '-' }}
+                maxWidth="$36"
+              >
+                {limitPriceValue.toValue}
+              </NumberSizeableText>
+            </YStack>
           }
           titleProps={ITEM_TITLE_PROPS}
           valueProps={ITEM_VALUE_PROPS}

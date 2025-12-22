@@ -717,7 +717,7 @@ export const { atom: swapProTokenValueAtom, use: useSwapProTokenValueAtom } =
 export const {
   atom: swapProEnableCurrentSymbolAtom,
   use: useSwapProEnableCurrentSymbolAtom,
-} = contextAtom<boolean>(true);
+} = contextAtom<boolean>(false);
 
 export const {
   atom: swapProLimitPriceValueAtom,
