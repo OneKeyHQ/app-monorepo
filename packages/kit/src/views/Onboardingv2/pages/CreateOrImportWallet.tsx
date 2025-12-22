@@ -403,7 +403,13 @@ function CreateOrImportWallet() {
                   <Icon name="PlusLargeOutline" color="$iconOnColor" />
                 </YStack>
                 <YStack gap="$0.5" flex={1} alignItems="flex-start">
-                  <Card.Title>Seed phrase wallet</Card.Title>
+                  <Card.Title>
+                    {isKeylessWalletEnabled
+                      ? 'Seed phrase wallet'
+                      : intl.formatMessage({
+                          id: ETranslations.onboarding_create_new_wallet,
+                        })}
+                  </Card.Title>
                   <Button
                     px="$1"
                     py="$0.5"
