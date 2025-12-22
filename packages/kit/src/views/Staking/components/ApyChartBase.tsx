@@ -23,6 +23,7 @@ interface IApyChartBaseProps {
   bottomColor?: string;
   lineWidth?: number;
   showPriceScale?: boolean;
+  showDivider?: boolean;
 }
 
 const ApyChartBaseComponent = ({
@@ -34,6 +35,7 @@ const ApyChartBaseComponent = ({
   bottomColor,
   lineWidth,
   showPriceScale,
+  showDivider = true,
 }: IApyChartBaseProps) => {
   const intl = useIntl();
 
@@ -199,7 +201,7 @@ const ApyChartBaseComponent = ({
             showPriceScale={showPriceScale}
             onHover={handleHover}
           />
-          <Divider mt="$8" />
+          {showDivider ? <Divider mt="$8" /> : null}
         </YStack>
       ) : null}
     </YStack>

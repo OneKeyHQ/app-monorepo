@@ -10,10 +10,11 @@ import {
 } from '@onekeyhq/kit/src/views/Staking/components/PageFrame';
 import { OverviewSkeleton } from '@onekeyhq/kit/src/views/Staking/components/StakingSkeleton';
 
+import { BorrowFAQSection } from './BorrowFAQSection';
 import { ChartSection } from './ChartSection';
-import { ReserveInfoSection } from './ReserveInfoSection';
+import { DailyCapsSection } from './DailyCapsSection';
+import { ProductSection } from './ProductSection';
 import { ReserveProtocolHeader } from './ReserveProtocolHeader';
-import { UserInfoSection } from './UserInfoSection';
 
 interface IDetailsPartProps {
   accountId: string;
@@ -83,8 +84,9 @@ const DetailsPartComponent = ({
                 details={details}
               />
             </YStack>
-            <ReserveInfoSection details={details} />
-            <UserInfoSection userInfo={details.userInfo} />
+            <DailyCapsSection details={details} />
+            <ProductSection details={details} />
+            <BorrowFAQSection provider={provider} symbol={symbol} />
           </YStack>
         ) : null}
       </PageFrame>

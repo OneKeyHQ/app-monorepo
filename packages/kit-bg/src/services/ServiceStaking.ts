@@ -47,6 +47,7 @@ import type {
   IBorrowReserveDetail,
   IBorrowReserveItem,
   IBorrowReserveRequestParams,
+  IBorrowRewards,
   IBorrowTransactionConfirmation,
   IBorrowUnsignedTransaction,
   IBuildPermit2ApproveSignDataParams,
@@ -2331,6 +2332,33 @@ class ServiceStaking extends ServiceBase {
       params: {
         ...rest,
         amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowRewards(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowRewards;
+    }>('/earn/v1/borrow/rewards', {
+      params: {
+        ...rest,
         accountAddress,
       },
     });

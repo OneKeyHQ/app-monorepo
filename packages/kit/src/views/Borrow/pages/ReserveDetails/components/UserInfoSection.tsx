@@ -10,25 +10,70 @@ interface IUserInfoSectionProps {
 export const UserInfoSection = ({ userInfo }: IUserInfoSectionProps) => {
   if (!userInfo) return null;
 
+  const walletBalance = userInfo.walletBalance;
+  const suppliedBalance = userInfo.suppliedBalance;
+  const borrowedBalance = userInfo.borrowedBalance;
+  const availableBorrowBalance = userInfo.availableBorrowBalance;
+
   return (
     <YStack gap="$6">
       <EarnText text={{ text: 'Your Info' }} size="$headingLg" />
       <XStack flexWrap="wrap" m="$-5" p="$2">
         <GridItem
           title={{ text: 'Wallet Balance' }}
-          description={{ text: userInfo.walletBalance ?? '-' }}
+          description={walletBalance?.title ?? { text: '-' }}
+          descriptionComponent={
+            walletBalance?.description ? (
+              <EarnText
+                text={walletBalance.description}
+                size="$bodySm"
+                color="$textSubdued"
+              />
+            ) : null
+          }
+          tooltip={walletBalance?.tooltip}
         />
         <GridItem
           title={{ text: 'Supplied Balance' }}
-          description={{ text: userInfo.suppliedBalance ?? '-' }}
+          description={suppliedBalance?.title ?? { text: '-' }}
+          descriptionComponent={
+            suppliedBalance?.description ? (
+              <EarnText
+                text={suppliedBalance.description}
+                size="$bodySm"
+                color="$textSubdued"
+              />
+            ) : null
+          }
+          tooltip={suppliedBalance?.tooltip}
         />
         <GridItem
           title={{ text: 'Borrowed Balance' }}
-          description={{ text: userInfo.borrowedBalance ?? '-' }}
+          description={borrowedBalance?.title ?? { text: '-' }}
+          descriptionComponent={
+            borrowedBalance?.description ? (
+              <EarnText
+                text={borrowedBalance.description}
+                size="$bodySm"
+                color="$textSubdued"
+              />
+            ) : null
+          }
+          tooltip={borrowedBalance?.tooltip}
         />
         <GridItem
           title={{ text: 'Available to Borrow' }}
-          description={{ text: userInfo.availableBorrowBalance ?? '-' }}
+          description={availableBorrowBalance?.title ?? { text: '-' }}
+          descriptionComponent={
+            availableBorrowBalance?.description ? (
+              <EarnText
+                text={availableBorrowBalance.description}
+                size="$bodySm"
+                color="$textSubdued"
+              />
+            ) : null
+          }
+          tooltip={availableBorrowBalance?.tooltip}
         />
       </XStack>
       <Divider />

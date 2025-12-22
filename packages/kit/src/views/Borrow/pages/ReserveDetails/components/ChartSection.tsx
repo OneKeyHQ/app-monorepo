@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { isEmpty } from 'lodash';
 
 import {
-  Divider,
+  Badge,
   SegmentControl,
   SizableText,
   XStack,
@@ -17,6 +17,10 @@ import type {
   IApyHistoryItem,
   IBorrowReserveDetail,
 } from '@onekeyhq/shared/types/staking';
+
+import { CapUsageChart } from '../../../components/CapUsageChart';
+
+import { DetailsSectionContainer } from './DetailsSectionContainer';
 
 type ITimePeriod = 'week' | 'month' | 'quarter' | 'year';
 
@@ -100,66 +104,114 @@ export function ChartSection({
     [],
   );
 
+  const supplyBadge = details ? (
+    <Badge badgeType={details.supply.canBeCollateral ? 'success' : 'default'}>
+      <Badge.Text>
+        {details.supply.canBeCollateral
+          ? 'Can be collateral'
+          : 'Not collateral'}
+      </Badge.Text>
+    </Badge>
+  ) : null;
+
+  const borrowBadge = details ? (
+    <Badge badgeType={details.borrow.canBeBorrowed ? 'success' : 'default'}>
+      <Badge.Text>
+        {details.borrow.canBeBorrowed ? 'Borrowable' : 'Not borrowable'}
+      </Badge.Text>
+    </Badge>
+  ) : null;
+
   return (
-    <YStack gap="$6" pt="$4">
-      {/* Supply APY Chart */}
-      <YStack gap="$3">
-        <XStack jc="space-between" ai="center">
-          <SizableText size="$headingLg">
-            {Number(latestSupplyApy).toFixed(2)}% Supply APY
-          </SizableText>
-          <SegmentControl
-            value={timePeriod}
-            options={timePeriodOptions}
-            onChange={(value) => setTimePeriod(value as ITimePeriod)}
-          />
-        </XStack>
-        <ApyChartBase
-          data={supplyHistory}
-          isLoading={isLoading}
-          lineColor={supplyLineColor}
-          topColor="#42FFA426"
-          bottomColor="#42FFA400"
-          lineWidth={lineWidth}
-          showPriceScale
-        />
-
-        {/* Supply Metrics */}
-        {details ? (
-          <XStack flexWrap="wrap" m="$-3">
-            <GridItem
-              title={{ text: 'Max LTV' }}
-              description={{ text: details.supply.maxLtv }}
+    <YStack gap="$8">
+      <DetailsSectionContainer title="Supply info" titleAfter={supplyBadge}>
+        <YStack gap="$6" pt="$4">
+          {/* Supply Cap Usage */}
+          {details?.supply.usage ? (
+            <CapUsageChart
+              percentage={details.supply.usage.percentage}
+              title={details.supply.usage.title}
+              description={details.supply.usage.description}
+              tooltip={details.supply.usage.tooltip}
             />
-            <GridItem
-              title={{ text: 'Liquidation LTV' }}
-              description={{ text: details.supply.liquidationLtv }}
-            />
-            <GridItem
-              title={{ text: 'Soft Liquidations' }}
-              description={{ text: details.supply.softLiquidation }}
-            />
-          </XStack>
-        ) : null}
-      </YStack>
+          ) : null}
 
-      <Divider />
+          {/* Supply APY Chart */}
+          <YStack gap="$3">
+            <XStack jc="space-between" ai="center">
+              <SizableText size="$headingLg">
+                {Number(latestSupplyApy).toFixed(2)}% Supply APY
+              </SizableText>
+              <SegmentControl
+                value={timePeriod}
+                options={timePeriodOptions}
+                onChange={(value) => setTimePeriod(value as ITimePeriod)}
+              />
+            </XStack>
+            <ApyChartBase
+              data={supplyHistory}
+              isLoading={isLoading}
+              lineColor={supplyLineColor}
+              topColor="#42FFA426"
+              bottomColor="#42FFA400"
+              lineWidth={lineWidth}
+              showPriceScale
+              showDivider={false}
+            />
 
-      {/* Borrow APY Chart */}
-      <YStack gap="$3">
-        <SizableText size="$headingLg">
-          {Number(latestBorrowApy).toFixed(2)}% Borrow APY
-        </SizableText>
-        <ApyChartBase
-          data={borrowHistory}
-          isLoading={isLoading}
-          lineColor={borrowLineColor}
-          topColor="#BF700026"
-          bottomColor="#BF700000"
-          lineWidth={lineWidth}
-          showPriceScale
-        />
-      </YStack>
+            {/* Supply Metrics */}
+            {details ? (
+              <XStack flexWrap="wrap" mt="$6">
+                <GridItem
+                  title={{ text: 'Max LTV' }}
+                  description={details.supply.maxLtv?.text}
+                  tooltip={details.supply.maxLtv?.tooltip}
+                />
+                <GridItem
+                  title={{ text: 'Liquidation LTV' }}
+                  description={details.supply.liquidationLtv?.text}
+                  tooltip={details.supply.liquidationLtv?.tooltip}
+                />
+                <GridItem
+                  title={{ text: 'Soft Liquidations' }}
+                  description={details.supply.softLiquidation?.text}
+                  tooltip={details.supply.softLiquidation?.tooltip}
+                />
+              </XStack>
+            ) : null}
+          </YStack>
+        </YStack>
+      </DetailsSectionContainer>
+
+      <DetailsSectionContainer title="Borrow info" titleAfter={borrowBadge}>
+        <YStack gap="$6" pt="$4">
+          {/* Borrow Cap Usage */}
+          {details?.borrow.usage ? (
+            <CapUsageChart
+              percentage={details.borrow.usage.percentage}
+              title={details.borrow.usage.title}
+              description={details.borrow.usage.description}
+              tooltip={details.borrow.usage.tooltip}
+            />
+          ) : null}
+
+          {/* Borrow APY Chart */}
+          <YStack gap="$3">
+            <SizableText size="$headingLg">
+              {Number(latestBorrowApy).toFixed(2)}% Borrow APY
+            </SizableText>
+            <ApyChartBase
+              data={borrowHistory}
+              isLoading={isLoading}
+              lineColor={borrowLineColor}
+              topColor="#BF700026"
+              bottomColor="#BF700000"
+              lineWidth={lineWidth}
+              showPriceScale
+            />
+          </YStack>
+        </YStack>
+      </DetailsSectionContainer>
     </YStack>
   );
 }

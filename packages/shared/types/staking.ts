@@ -539,10 +539,17 @@ export interface IEarnHistoryActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnRewardsDetails {
+  type: 'rewardsDetails';
+  disabled: boolean;
+  text: IEarnText;
+  data: any;
+}
+
 export interface IEarnTextTooltip {
   type: 'text';
   data: {
-    title: IEarnText;
+    title?: IEarnText;
     description: IEarnText;
   };
 }
@@ -1732,6 +1739,11 @@ export interface IBorrowHealthFactor {
   };
 }
 
+export interface IBorrowRewards {
+  title: IEarnText;
+  description: IEarnText;
+}
+
 export interface IBorrowEstimateFee {
   feeFiatValue: string;
   coverFeeSeconds?: string;
@@ -1860,40 +1872,103 @@ export interface IBorrowReserveDetail {
   utilizationRatio: string;
   liquidity: string;
   oraclePrice: string;
+  platformBonus?: {
+    icon: {
+      icon: IKeyOfIcons;
+    };
+    title: IEarnText;
+    endsIn: number;
+    rewards: {
+      type: IEarnText;
+      title: IEarnText;
+      description: IEarnText;
+      logoURI: string;
+    }[];
+    button: IEarnLinkActionIcon;
+  };
+  managers?: {
+    items: {
+      title: IEarnText;
+      description: IEarnText;
+      logoURI: string;
+    }[];
+  };
   userInfo: {
-    walletBalance: string;
-    suppliedBalance: string;
-    borrowedBalance: string;
-    availableBorrowBalance: string;
-    alerts: IEarnAlert[];
-    walletBalanceFiatValue: string;
-    suppliedBalanceFiatValue: string;
-    borrowedBalanceFiatValue: string;
-    availableBorrowBalanceFiatValue: string;
+    walletBalance: {
+      title: IEarnText;
+      description?: IEarnText;
+      tooltip?: IEarnTooltip;
+      button?: {
+        type: 'supply';
+        disabled: boolean;
+        text: IEarnText;
+        data: {
+          balance: string;
+        };
+      };
+    };
+    suppliedBalance: {
+      title: IEarnText;
+      description?: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    borrowedBalance: {
+      title: IEarnText;
+      description?: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    availableBorrowBalance: {
+      title: IEarnText;
+      description?: IEarnText;
+      tooltip?: IEarnTooltip;
+      button?: {
+        type: 'borrow';
+        disabled: boolean;
+        text: IEarnText;
+        data: {
+          balance: string;
+        };
+      };
+    };
   };
   supply: {
+    reserveAddress: string;
     token: IEarnToken;
     apyDetail: IBorrowApy;
     categories: string[];
     canBeCollateral: boolean;
-    totalCapacity: string;
-    totalSupplied: string;
-    maxLtv: string;
-    liquidationLtv: string;
-    softLiquidation: string;
-    totalCapacityFiatValue: string;
-    totalSuppliedFiatValue: string;
+    usage: {
+      percentage: string;
+      title: IEarnText;
+      description: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    maxLtv: {
+      text: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    liquidationLtv: {
+      text: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    softLiquidation: {
+      text: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
   };
   borrow: {
+    reserveAddress: string;
     token: IEarnToken;
     apyDetail: IBorrowApy;
     categories: string[];
-    totalCapacity: string;
-    totalBorrowed: string;
     canBeBorrowed: boolean;
+    usage: {
+      percentage: string;
+      title: IEarnText;
+      description: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
     borrowFactor: string;
-    totalCapacityFiatValue: string;
-    totalBorrowedFiatValue: string;
   };
   interestRateModel: string;
 }

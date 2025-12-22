@@ -1,0 +1,95 @@
+import { useMemo } from 'react';
+
+import Svg, { Circle } from 'react-native-svg';
+
+import {
+  SizableText,
+  XStack,
+  YStack,
+  useThemeValue,
+} from '@onekeyhq/components';
+
+interface ICircleProgressProps {
+  percentage: number;
+  size?: number;
+  strokeWidth?: number;
+  progressColor?: string;
+  trackColor?: string;
+}
+
+export function CircleProgress({
+  percentage,
+  size = 64,
+  strokeWidth = 4,
+  progressColor,
+  trackColor,
+}: ICircleProgressProps) {
+  const [defaultProgressColor, defaultTrackColor] = useThemeValue([
+    '$textSuccess',
+    '$textSuccess',
+  ]);
+
+  const finalProgressColor = progressColor ?? defaultProgressColor;
+  const finalTrackColor = trackColor ?? defaultTrackColor;
+
+  // eslint-disable-next-line spellcheck/spell-checker
+  const { radius, circumference, strokeDashoffset } = useMemo(() => {
+    const r = (size - strokeWidth) / 2;
+    const c = 2 * Math.PI * r;
+    const clampedPercentage = Math.min(Math.max(percentage, 0), 100);
+    const offset = c * (1 - clampedPercentage / 100);
+    return {
+      radius: r,
+      circumference: c,
+      // eslint-disable-next-line spellcheck/spell-checker
+      strokeDashoffset: offset,
+    };
+  }, [size, strokeWidth, percentage]);
+
+  const center = size / 2;
+
+  return (
+    <XStack position="relative" width={size} height={size}>
+      <Svg width={size} height={size}>
+        {/* Background track */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke={finalTrackColor}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        {/* Progress arc */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke={finalProgressColor}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          // eslint-disable-next-line spellcheck/spell-checker
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          rotation={-90}
+          origin={`${center}, ${center}`}
+        />
+      </Svg>
+      {/* Center percentage text */}
+      <YStack
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <SizableText size="$bodyMdMedium" color="$text">
+          {percentage.toFixed(2)}%
+        </SizableText>
+      </YStack>
+    </XStack>
+  );
+}

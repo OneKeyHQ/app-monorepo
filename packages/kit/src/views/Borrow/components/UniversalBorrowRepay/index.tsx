@@ -10,6 +10,7 @@ import {
   Divider,
   Icon,
   Page,
+  SegmentControl,
   Stack,
   XStack,
   YStack,
@@ -63,6 +64,8 @@ const isAmountInvalid = (amount: string) =>
   BigNumber(amount).isNaN() ||
   (typeof amount === 'string' && amount.endsWith('.'));
 
+type IRepaySource = 'wallet' | 'collateral';
+
 export function UniversalBorrowRepay({
   accountId,
   networkId,
@@ -85,7 +88,9 @@ export function UniversalBorrowRepay({
   const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
   const [amountValue, setAmountValue] = useState('');
+  const [collateralAmountValue, setCollateralAmountValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [repaySource, setRepaySource] = useState<IRepaySource>('wallet');
 
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const amountInputDisabled = !!isDisabled;
@@ -154,7 +159,39 @@ export function UniversalBorrowRepay({
     [decimals],
   );
 
+  const onChangeCollateralAmountValue = useCallback(
+    (value: string) => {
+      if (!validateAmountInputForStaking(value, decimals)) {
+        return;
+      }
+
+      const valueBN = new BigNumber(value);
+      if (valueBN.isNaN()) {
+        if (value === '') {
+          setCollateralAmountValue('');
+        }
+        return;
+      }
+
+      const isOverflowDecimals = Boolean(
+        decimals &&
+          Number(decimals) > 0 &&
+          countDecimalPlaces(value) > decimals,
+      );
+      if (isOverflowDecimals) {
+        return;
+      }
+
+      setCollateralAmountValue(value);
+    },
+    [decimals],
+  );
+
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
+  const onBlurCollateralAmountValue = useOnBlurAmountValue(
+    collateralAmountValue,
+    setCollateralAmountValue,
+  );
 
   const onMax = useCallback(() => {
     const formattedMaxAmount =
@@ -163,6 +200,14 @@ export function UniversalBorrowRepay({
         : balance;
     onChangeAmountValue(formattedMaxAmount);
   }, [balance, decimals, onChangeAmountValue]);
+
+  const onMaxCollateral = useCallback(() => {
+    const formattedMaxAmount =
+      typeof decimals === 'number'
+        ? new BigNumber(balance).toFixed(decimals, BigNumber.ROUND_DOWN)
+        : balance;
+    onChangeCollateralAmountValue(formattedMaxAmount);
+  }, [balance, decimals, onChangeCollateralAmountValue]);
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
@@ -177,6 +222,19 @@ export function UniversalBorrowRepay({
     [balance, decimals, onChangeAmountValue],
   );
 
+  const onSelectCollateralPercentageStage = useCallback(
+    (percent: number) => {
+      onChangeCollateralAmountValue(
+        calcPercentBalance({
+          balance,
+          percent,
+          decimals,
+        }),
+      );
+    },
+    [balance, decimals, onChangeCollateralAmountValue],
+  );
+
   const currentValue = useMemo<string | undefined>(() => {
     if (Number(amountValue) > 0 && Number(price) > 0) {
       return BigNumber(amountValue)
@@ -187,6 +245,9 @@ export function UniversalBorrowRepay({
   }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo(() => {
+    if (repaySource !== 'wallet') {
+      return false;
+    }
     const amountBN = new BigNumber(amountValue);
     const balanceBN = new BigNumber(balance);
 
@@ -195,7 +256,7 @@ export function UniversalBorrowRepay({
     }
 
     return amountBN.gt(balanceBN);
-  }, [amountValue, balance]);
+  }, [amountValue, balance, repaySource]);
 
   const isDisable = useMemo(
     () =>
@@ -235,42 +296,129 @@ export function UniversalBorrowRepay({
     () => tokenInfo?.token as IToken | undefined,
     [tokenInfo?.token],
   );
+  const onRepaySourceChange = useCallback((value: string | number) => {
+    setRepaySource(value as IRepaySource);
+  }, []);
+  const segmentOptions = useMemo(
+    () => [
+      {
+        // FIXME i18n
+        label: 'From wallet balance',
+        value: 'wallet',
+      },
+      {
+        // FIXME i18n
+        label: 'With Collateral',
+        value: 'collateral',
+      },
+    ],
+    [],
+  );
 
   return (
     <StakingFormWrapper>
-      <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-        <StakingAmountInput
-          title={actionLabel}
-          disabled={amountInputDisabled}
-          hasError={isInsufficientBalance || isCheckAmountMessageError}
-          value={amountValue}
-          onChange={onChangeAmountValue}
-          onBlur={onBlurAmountValue}
-          tokenSelectorTriggerProps={{
-            selectedTokenImageUri: tokenImageUri,
-            selectedTokenSymbol: tokenSymbol?.toUpperCase(),
-            selectedNetworkImageUri: network?.logoURI,
-          }}
-          inputProps={{
-            placeholder: '0',
-            autoFocus: !amountInputDisabled,
-          }}
-          balanceProps={{
-            value: balance,
-            iconText: actionLabel,
-            onPress: onMax,
-          }}
-          valueProps={{
-            value: currentValue,
-            currency: currentValue ? symbol : undefined,
-          }}
-          enableMaxAmount
-          onSelectPercentageStage={onSelectPercentageStage}
+      <YStack gap="$3">
+        <SegmentControl
+          fullWidth
+          value={repaySource}
+          options={segmentOptions}
+          onChange={onRepaySourceChange}
         />
-        {amountInputDisabled ? (
-          <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-        ) : null}
-      </Stack>
+        {repaySource === 'wallet' ? (
+          <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+            <StakingAmountInput
+              title={actionLabel}
+              disabled={amountInputDisabled}
+              hasError={isInsufficientBalance || isCheckAmountMessageError}
+              value={amountValue}
+              onChange={onChangeAmountValue}
+              onBlur={onBlurAmountValue}
+              tokenSelectorTriggerProps={{
+                selectedTokenImageUri: tokenImageUri,
+                selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+                selectedNetworkImageUri: network?.logoURI,
+              }}
+              inputProps={{
+                placeholder: '0',
+                autoFocus: !amountInputDisabled,
+              }}
+              balanceProps={{
+                value: balance,
+                iconText: actionLabel,
+                onPress: onMax,
+              }}
+              valueProps={{
+                value: currentValue,
+                currency: currentValue ? symbol : undefined,
+              }}
+              enableMaxAmount
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+            {amountInputDisabled ? (
+              <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+            ) : null}
+          </Stack>
+        ) : (
+          <YStack gap="$2.5">
+            <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+              <StakingAmountInput
+                // FIXME i18n
+                title="From"
+                disabled={amountInputDisabled}
+                value={collateralAmountValue}
+                onChange={onChangeCollateralAmountValue}
+                onBlur={onBlurCollateralAmountValue}
+                tokenSelectorTriggerProps={{
+                  selectedTokenImageUri: tokenImageUri,
+                  selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+                  selectedNetworkImageUri: network?.logoURI,
+                }}
+                inputProps={{
+                  placeholder: '0',
+                  autoFocus: !amountInputDisabled,
+                }}
+                balanceProps={{
+                  value: balance,
+                  iconText: actionLabel,
+                  onPress: onMaxCollateral,
+                }}
+                enableMaxAmount
+                onSelectPercentageStage={onSelectCollateralPercentageStage}
+              />
+              {amountInputDisabled ? (
+                <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+              ) : null}
+            </Stack>
+            <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+              <StakingAmountInput
+                // FIXME i18n
+                title="To"
+                disabled={amountInputDisabled}
+                hasError={isCheckAmountMessageError}
+                value={amountValue}
+                onChange={onChangeAmountValue}
+                onBlur={onBlurAmountValue}
+                tokenSelectorTriggerProps={{
+                  selectedTokenImageUri: tokenImageUri,
+                  selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+                  selectedNetworkImageUri: network?.logoURI,
+                }}
+                inputProps={{
+                  placeholder: '0',
+                }}
+                valueProps={{
+                  value: currentValue,
+                  currency: currentValue ? symbol : undefined,
+                }}
+                onSelectPercentageStage={() => {}}
+              />
+              {amountInputDisabled ? (
+                <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+              ) : null}
+            </Stack>
+          </YStack>
+        )}
+      </YStack>
 
       {isCheckAmountMessageError ? (
         <Alert
@@ -411,7 +559,11 @@ export function UniversalBorrowRepay({
           }}
         />
         <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
+          onSelectPercentageStage={
+            repaySource === 'collateral'
+              ? onSelectCollateralPercentageStage
+              : onSelectPercentageStage
+          }
         />
       </Page.Footer>
     </StakingFormWrapper>
