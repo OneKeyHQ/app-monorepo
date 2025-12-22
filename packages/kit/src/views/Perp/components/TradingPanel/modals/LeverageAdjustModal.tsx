@@ -115,6 +115,7 @@ const LeverageContent = memo(
           <YStack p="$1" gap="$4" flex={1}>
             <XStack justifyContent="center" alignItems="center">
               <Input
+                height={platformEnv.isNativeAndroid ? 52 : undefined}
                 containerProps={{
                   borderRadius: '$3',
                   borderWidth: 0,
@@ -127,7 +128,7 @@ const LeverageContent = memo(
                   p: 0,
                 }}
                 fontSize={
-                  platformEnv.isNativeAndroid ? 34 : getFontSize('$heading5xl')
+                  platformEnv.isNativeAndroid ? 32 : getFontSize('$heading5xl')
                 }
                 alignItems="center"
                 justifyContent="center"
@@ -139,8 +140,14 @@ const LeverageContent = memo(
                 addOns={[
                   {
                     renderContent: (
-                      <XStack alignItems="center" pr="$1">
-                        <Icon name="CrossedSmallOutline" size="$5" />
+                      <XStack pr="$1" alignItems="center">
+                        <Icon
+                          name="CrossedSmallOutline"
+                          size="$5"
+                          {...(platformEnv.isNativeAndroid
+                            ? { marginTop: -30 }
+                            : {})}
+                        />
                       </XStack>
                     ),
                   },
