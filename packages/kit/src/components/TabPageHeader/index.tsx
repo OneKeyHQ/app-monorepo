@@ -111,8 +111,9 @@ export function TabPageHeader({
           headerRight={renderHeaderRight}
           headerLeft={renderHeaderLeft}
         />
-      ) : null}
-
+      ) : (
+        <Page.Header headerShown={false} />
+      )}
       {!hideSearch ? (
         <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
       ) : null}
