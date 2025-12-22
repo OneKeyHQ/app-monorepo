@@ -17,7 +17,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
-import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import {
   useSwapProInputToken,
@@ -29,10 +28,12 @@ import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
 
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
+  onBalanceMax: () => void;
 }
 
 const SwapProTradeInfoGroup = ({
   balanceLoading,
+  onBalanceMax,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
@@ -82,31 +83,14 @@ const SwapProTradeInfoGroup = ({
       const toAmountBN = new BigNumber(
         toTokenAmount?.value ? toTokenAmount.value : '0',
       );
-      const formattedToTokenValue = numberFormat(toAmountBN.toFixed(), {
-        formatter: 'balance',
-        formatterOptions: {
-          tokenSymbol: toToken?.symbol ?? '-',
-        },
-      });
-      return formattedToTokenValue;
+      return toAmountBN.toFixed();
     }
     if (swapProQuoteResult?.toAmount) {
       const toAmountBN = new BigNumber(swapProQuoteResult.toAmount);
-      const formattedToTokenValue = numberFormat(toAmountBN.toFixed(), {
-        formatter: 'balance',
-        formatterOptions: {
-          tokenSymbol: toToken?.symbol ?? '-',
-        },
-      });
-      return formattedToTokenValue;
+      return toAmountBN.toFixed();
     }
-    return `-- ${toToken?.symbol ?? '-'}`;
-  }, [
-    toTokenAmount?.value,
-    swapProQuoteResult?.toAmount,
-    swapProTradeType,
-    toToken?.symbol,
-  ]);
+    return '';
+  }, [toTokenAmount?.value, swapProQuoteResult?.toAmount, swapProTradeType]);
   const tradingFeeValue = useMemo(() => {
     const tradingFee = swapProQuoteResult?.fee?.percentageFee;
     if (!tradingFee) {
@@ -124,6 +108,9 @@ const SwapProTradeInfoGroup = ({
             size="$bodySmMedium"
             formatter="balance"
             formatterOptions={{ tokenSymbol: inputToken?.symbol ?? '-' }}
+            onPress={onBalanceMax}
+            numberOfLines={1}
+            maxWidth="$36"
           >
             {balanceValue}
           </NumberSizeableText>
@@ -160,9 +147,22 @@ const SwapProTradeInfoGroup = ({
       ) : null}
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
-        value={receiveValue}
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
+        value={receiveValue ? undefined : `-- ${toToken?.symbol ?? '-'}`}
+        valueComponent={
+          receiveValue ? (
+            <NumberSizeableText
+              size="$bodySmMedium"
+              formatter="balance"
+              formatterOptions={{ tokenSymbol: toToken?.symbol ?? '-' }}
+              numberOfLines={1}
+              maxWidth="$36"
+            >
+              {receiveValue}
+            </NumberSizeableText>
+          ) : undefined
+        }
         isLoading={
           swapProTradeType === ESwapProTradeType.LIMIT
             ? false

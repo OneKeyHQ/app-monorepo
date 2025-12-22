@@ -41,6 +41,8 @@ interface ISwapProContainerProps {
   onSwapProActionClick: () => void;
   handleSelectAccountClick: () => void;
   onProMarketDetail: () => void;
+  onSelectPercentageStage: (stage: number) => void;
+  onBalanceMaxPress: () => void;
   config: {
     isLoading: boolean;
     speedConfig: ISwapProSpeedConfig;
@@ -57,6 +59,8 @@ const SwapProContainer = ({
   onSwapProActionClick,
   handleSelectAccountClick,
   onProMarketDetail,
+  onBalanceMaxPress,
+  onSelectPercentageStage,
   config,
 }: ISwapProContainerProps) => {
   const {
@@ -202,6 +206,8 @@ const SwapProContainer = ({
             configLoading={isLoading}
             balanceLoading={balanceLoading}
             isMev={isMEV}
+            onBalanceMax={onBalanceMaxPress}
+            onSelectPercentageStage={onSelectPercentageStage}
             onSwapProActionClick={onSwapProActionClick}
             hasEnoughBalance={hasEnoughBalance}
             handleSelectAccountClick={handleSelectAccountClick}

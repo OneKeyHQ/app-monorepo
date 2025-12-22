@@ -2,10 +2,15 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { useCurrency } from '../../../components/Currency';
@@ -20,21 +25,11 @@ const SwapProPositionItem = ({ token, onPress }: ISwapProPositionItemProps) => {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const formatBalance = useMemo(() => {
-    return numberFormat(token.balanceParsed ?? '0', {
-      formatter: 'balance',
-    });
+    return token.balanceParsed;
   }, [token.balanceParsed]);
   const formatFiatValue = useMemo(() => {
-    return numberFormat(token.fiatValue ?? '0', {
-      formatter: 'value',
-      formatterOptions: {
-        currency: currencyInfo.symbol,
-      },
-    });
-  }, [token.fiatValue, currencyInfo.symbol]);
-  const balanceValue = useMemo(() => {
-    return `${formatBalance}(${formatFiatValue})`;
-  }, [formatBalance, formatFiatValue]);
+    return token.fiatValue;
+  }, [token.fiatValue]);
 
   const tokenNetworkImageUri = useMemo(() => {
     if (token.networkLogoURI) {
@@ -62,7 +57,20 @@ const SwapProPositionItem = ({ token, onPress }: ISwapProPositionItemProps) => {
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.global_balance })}
         </SizableText>
-        <SizableText size="$bodyMdMedium">{balanceValue}</SizableText>
+        <XStack>
+          <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+            {formatBalance}
+          </NumberSizeableText>
+          <SizableText size="$bodyMdMedium">(</SizableText>
+          <NumberSizeableText
+            size="$bodyMdMedium"
+            formatter="value"
+            formatterOptions={{ currency: currencyInfo.symbol }}
+          >
+            {formatFiatValue}
+          </NumberSizeableText>
+          <SizableText size="$bodyMdMedium">)</SizableText>
+        </XStack>
       </XStack>
     </YStack>
   );
