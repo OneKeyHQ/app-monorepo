@@ -4,7 +4,10 @@ import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 
 import { IconButton, Tooltip } from '@onekeyhq/components/src/actions';
-import type { IActionListSection, ITooltipRef } from '@onekeyhq/components/src/actions';
+import type {
+  IActionListSection,
+  ITooltipRef,
+} from '@onekeyhq/components/src/actions';
 import {
   EPortalContainerConstantName,
   Portal,

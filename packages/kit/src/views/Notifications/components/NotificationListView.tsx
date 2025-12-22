@@ -571,7 +571,15 @@ export function NotificationListView({
         ListFooterComponent={<Stack h={bottom || '$5'} />}
       />
     );
-  }, [bottom, intl, isLoading, isVersionCompatible, navigation, sectionsData]);
+  }, [
+    bottom,
+    closeTooltip,
+    intl,
+    isLoading,
+    isVersionCompatible,
+    navigation,
+    sectionsData,
+  ]);
 
   const handleTabPress = useCallback(
     (tabName: string) => {
