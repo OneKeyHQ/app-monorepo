@@ -26,7 +26,7 @@ export function CircleProgress({
 }: ICircleProgressProps) {
   const [defaultProgressColor, defaultTrackColor] = useThemeValue([
     '$textSuccess',
-    '$textSuccess',
+    '$bgStrong',
   ]);
 
   const finalProgressColor = progressColor ?? defaultProgressColor;

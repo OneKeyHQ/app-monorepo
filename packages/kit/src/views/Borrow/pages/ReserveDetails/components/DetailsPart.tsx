@@ -75,6 +75,7 @@ const DetailsPartComponent = ({
                 reserveSize={details.reserveSize}
                 availableLiquidity={details.liquidity}
                 utilizationRatio={details.utilizationRatio}
+                platformBonus={details.platformBonus}
               />
               <ChartSection
                 networkId={networkId}

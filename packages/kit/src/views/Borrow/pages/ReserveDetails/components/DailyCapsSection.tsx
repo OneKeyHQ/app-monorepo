@@ -1,12 +1,28 @@
 import BigNumber from 'bignumber.js';
+
 import { XStack } from '@onekeyhq/components';
 import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/GridItemV2';
-import type { IBorrowReserveDetail, IEarnText } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowReserveDetail,
+  IEarnText,
+} from '@onekeyhq/shared/types/staking';
 
 import { DetailsSectionContainer } from './DetailsSectionContainer';
 
 const fallbackText: IEarnText = { text: '-' };
-const resetText: IEarnText = { text: '24h' };
+
+function formatRemainingTime(ms?: number): string {
+  if (ms === undefined || ms <= 0) return '-';
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  return `${minutes}m`;
+}
 
 const MAGNITUDE_EXPONENTS: Record<string, number> = {
   K: 3,
@@ -49,16 +65,12 @@ function formatCompactNumber(value?: BigNumber) {
     const limit = new BigNumber(10).pow(threshold.exponent);
     if (absValue.gte(limit)) {
       const formatted = stripTrailingZeros(
-        value
-          .dividedBy(limit)
-          .toFixed(2, BigNumber.ROUND_HALF_UP),
+        value.dividedBy(limit).toFixed(2, BigNumber.ROUND_HALF_UP),
       );
       return `${formatted}${threshold.suffix}`;
     }
   }
-  return stripTrailingZeros(
-    value.toFixed(2, BigNumber.ROUND_HALF_UP),
-  );
+  return stripTrailingZeros(value.toFixed(2, BigNumber.ROUND_HALF_UP));
 }
 
 function parseUsageTitle(title?: string) {
@@ -103,6 +115,13 @@ export function DailyCapsSection({
   const borrowableText = formatCompactNumber(borrowableValue);
   const withdrawableText = formatCompactNumber(withdrawableValue);
 
+  const borrowCapResetText = formatRemainingTime(
+    details.dailyInfo?.borrowCapResetRemainingTime,
+  );
+  const withdrawCapResetText = formatRemainingTime(
+    details.dailyInfo?.withdrawCapResetRemainingTime,
+  );
+
   const items = [
     {
       key: 'dailyBorrowCap',
@@ -114,14 +133,12 @@ export function DailyCapsSection({
     {
       key: 'borrowableToday',
       title: 'Borrowable today',
-      description: borrowableText
-        ? { text: borrowableText }
-        : fallbackText,
+      description: borrowableText ? { text: borrowableText } : fallbackText,
     },
     {
       key: 'borrowCapResetsIn',
       title: 'Daily cap resets in',
-      description: resetText,
+      description: { text: borrowCapResetText },
     },
     {
       key: 'dailyWithdrawCap',
@@ -133,14 +150,12 @@ export function DailyCapsSection({
     {
       key: 'withdrawableToday',
       title: 'Withdrawable today',
-      description: withdrawableText
-        ? { text: withdrawableText }
-        : fallbackText,
+      description: withdrawableText ? { text: withdrawableText } : fallbackText,
     },
     {
       key: 'withdrawCapResetsIn',
       title: 'Daily cap resets in',
-      description: resetText,
+      description: { text: withdrawCapResetText },
     },
   ];
 

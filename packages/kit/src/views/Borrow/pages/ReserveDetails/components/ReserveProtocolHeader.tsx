@@ -1,5 +1,8 @@
 import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
+
+import { PlatformBonusSection } from './PlatformBonusSection';
 
 interface IReserveProtocolHeaderProps {
   symbol: string;
@@ -9,6 +12,7 @@ interface IReserveProtocolHeaderProps {
   reserveSize?: string;
   availableLiquidity?: string;
   utilizationRatio?: string;
+  platformBonus?: IBorrowReserveDetail['platformBonus'];
 }
 
 const HeaderField = ({
@@ -36,6 +40,7 @@ export const ReserveProtocolHeader = ({
   reserveSize,
   availableLiquidity,
   utilizationRatio,
+  platformBonus,
 }: IReserveProtocolHeaderProps) => (
   <YStack>
     <YStack jc="center">
@@ -60,14 +65,14 @@ export const ReserveProtocolHeader = ({
           </XStack>
         ) : null}
       </XStack>
-      <XStack gap="$6" mt="$5">
+      <XStack gap="$6" mt="$5" mb="$8">
         {reserveSize ? (
-          <YStack gap="$1" jc="center">
+          <YStack flex={1} gap="$1" jc="center">
             <HeaderField title="Reserve Size:" description={reserveSize} />
           </YStack>
         ) : null}
         {availableLiquidity ? (
-          <YStack gap="$1" jc="center">
+          <YStack flex={1} gap="$1" jc="center">
             <HeaderField
               title="Available Liquidity:"
               description={availableLiquidity}
@@ -75,7 +80,7 @@ export const ReserveProtocolHeader = ({
           </YStack>
         ) : null}
         {utilizationRatio ? (
-          <YStack gap="$1" jc="center">
+          <YStack flex={1} gap="$1" jc="center">
             <HeaderField
               title="Utilization Ratio:"
               description={utilizationRatio}
@@ -83,6 +88,7 @@ export const ReserveProtocolHeader = ({
           </YStack>
         ) : null}
       </XStack>
+      <PlatformBonusSection platformBonus={platformBonus} />
     </YStack>
   </YStack>
 );

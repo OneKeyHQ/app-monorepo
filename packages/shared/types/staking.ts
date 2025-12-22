@@ -1939,6 +1939,34 @@ export interface IBorrowHistory {
   }[];
 }
 
+export interface IBorrowReserveDetailDailyInfo {
+  borrowCapacity: string;
+  borrowable: string;
+  borrowCapResetRemainingTime: number;
+  withdrawCapacity: string;
+  withdrawable: string;
+  withdrawCapResetRemainingTime: number;
+}
+
+export interface IBorrowReserveDetailRiskItem {
+  icon: {
+    icon: string;
+  };
+  title: IEarnText;
+  description: IEarnText;
+  actionButton: {
+    type: 'link';
+    disabled: boolean;
+    data: {
+      link: string;
+    };
+  };
+}
+
+export interface IBorrowReserveDetailRisk {
+  items: IBorrowReserveDetailRiskItem[];
+}
+
 export interface IBorrowReserveDetail {
   reserveSize: string;
   utilizationRatio: string;
@@ -1965,6 +1993,8 @@ export interface IBorrowReserveDetail {
       logoURI: string;
     }[];
   };
+  dailyInfo?: IBorrowReserveDetailDailyInfo;
+  risk?: IBorrowReserveDetailRisk;
   userInfo: {
     walletBalance: {
       title: IEarnText;
