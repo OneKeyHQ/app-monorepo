@@ -99,6 +99,7 @@ export const EditableListItem = ({
     accountNetworkValues,
     accountNetworkValueCurrency,
     frequentlyUsedItemsIds,
+    accountDeFiOverview,
   } = useContext(EditableChainSelectorContext);
 
   const onPress = useMemo(() => {
@@ -108,17 +109,25 @@ export const EditableListItem = ({
     return undefined;
   }, [isEditMode, item, onPressItem]);
 
-  const networkValue = useMemo(() => {
+  const networkTotalValue = useMemo(() => {
     if (item.isAllNetworks) {
-      return Object.values(accountNetworkValues)
+      const networkValue = Object.values(accountNetworkValues)
         .reduce((acc, curr) => {
           return acc.plus(curr ?? '0');
         }, new BigNumber(0))
         .toFixed();
+      const deFiValue = Object.values(accountDeFiOverview)
+        .reduce((acc, curr) => {
+          return acc.plus(curr?.netWorth ?? 0);
+        }, new BigNumber(0))
+        .toFixed();
+      return new BigNumber(networkValue).plus(deFiValue).toFixed();
     }
 
-    return accountNetworkValues[item.id];
-  }, [item.isAllNetworks, item.id, accountNetworkValues]);
+    return new BigNumber(accountDeFiOverview[item.id]?.netWorth ?? 0)
+      .plus(accountNetworkValues[item.id] ?? '0')
+      .toFixed();
+  }, [item.isAllNetworks, accountNetworkValues, accountDeFiOverview, item.id]);
 
   return (
     <ListItem
@@ -201,7 +210,7 @@ export const EditableListItem = ({
           </>
         ) : null}
 
-        {new BigNumber(networkValue || 0).gt(
+        {new BigNumber(networkTotalValue || 0).gt(
           NETWORK_SHOW_VALUE_THRESHOLD_USD,
         ) ? (
           <Currency
@@ -212,7 +221,7 @@ export const EditableListItem = ({
             userSelect="none"
             sourceCurrency={accountNetworkValueCurrency}
           >
-            {networkValue || '0'}
+            {networkTotalValue || '0'}
           </Currency>
         ) : null}
       </XStack>

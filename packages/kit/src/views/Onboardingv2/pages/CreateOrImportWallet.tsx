@@ -37,7 +37,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
+import {
+  useKeylessWallet,
+  useKeylessWalletFeatureIsEnabled,
+} from '../../../components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
@@ -148,6 +151,7 @@ function CreateOrImportWallet() {
   const { fullOptions } = route.params ?? {};
   const [expanded, setExpanded] = useState(false);
   const [keylessExpanded, setKeylessExpanded] = useState(false);
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
   const { enableKeylessWallet, enableKeylessWalletLoading } =
     useKeylessWallet();
 
@@ -247,132 +251,141 @@ function CreateOrImportWallet() {
               </>
             ) : null}
             {/* keyless wallet */}
-            <Card onPress={handleKeylessWalletClick}>
-              <Card.Header>
-                <YStack
-                  w={38}
-                  h={38}
-                  alignItems="center"
-                  justifyContent="center"
-                  borderRadius="$2"
-                  borderCurve="continuous"
-                  borderWidth={StyleSheet.hairlineWidth}
-                  borderColor="$neutral5"
-                  bg="$info9"
-                >
-                  <Icon name="CloudOutline" color="$iconOnColor" />
-                </YStack>
-                <YStack gap="$0.5" flex={1} alignItems="flex-start">
-                  <Card.Title>Keyless wallet</Card.Title>
-                  <Button
-                    px="$1"
-                    py="$0.5"
-                    mx="$-1"
-                    my="$-0.5"
-                    borderWidth={0}
-                    size="small"
-                    variant="tertiary"
-                    onPress={handleKeylessExpand}
-                    hitSlop={10}
-                    childrenAsText={false}
+            {isKeylessWalletEnabled ? (
+              <Card onPress={handleKeylessWalletClick}>
+                <Card.Header>
+                  <YStack
+                    w={38}
+                    h={38}
+                    alignItems="center"
+                    justifyContent="center"
+                    borderRadius="$2"
+                    borderCurve="continuous"
+                    borderWidth={StyleSheet.hairlineWidth}
+                    borderColor="$neutral5"
+                    bg="$info9"
                   >
-                    <XStack alignItems="center">
-                      <SizableText size="$bodySm" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.global_learn_more,
-                        })}
-                      </SizableText>
-                      <YStack
-                        animation="quick"
-                        animateOnly={['transform']}
-                        rotate={keylessExpanded ? '0' : '90deg'}
-                      >
-                        <Icon
-                          name="ChevronRightSmallOutline"
-                          size="$4"
-                          color="$iconDisabled"
-                        />
-                      </YStack>
-                    </XStack>
-                  </Button>
-                </YStack>
-                {/* {isKeylessEnabled ? (
+                    <Icon name="CloudOutline" color="$iconOnColor" />
+                  </YStack>
+                  <YStack gap="$0.5" flex={1} alignItems="flex-start">
+                    <Card.Title>Keyless wallet</Card.Title>
+                    <Button
+                      px="$1"
+                      py="$0.5"
+                      mx="$-1"
+                      my="$-0.5"
+                      borderWidth={0}
+                      size="small"
+                      variant="tertiary"
+                      onPress={handleKeylessExpand}
+                      hitSlop={10}
+                      childrenAsText={false}
+                    >
+                      <XStack alignItems="center">
+                        <SizableText size="$bodySm" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.global_learn_more,
+                          })}
+                        </SizableText>
+                        <YStack
+                          animation="quick"
+                          animateOnly={['transform']}
+                          rotate={keylessExpanded ? '0' : '90deg'}
+                        >
+                          <Icon
+                            name="ChevronRightSmallOutline"
+                            size="$4"
+                            color="$iconDisabled"
+                          />
+                        </YStack>
+                      </XStack>
+                    </Button>
+                  </YStack>
+                  {/* {isKeylessEnabled ? (
                   <SizableText x="$2" color="$textSubdued">
                     {intl.formatMessage({ id: ETranslations.global_enabled })}
                   </SizableText>
                 ) : null} */}
-                {enableKeylessWalletLoading ? (
-                  <Spinner size="small" color="$iconDisabled" />
-                ) : (
-                  <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
-                )}
-              </Card.Header>
-              <Card.Body>
-                <XStack gap="$2" flexWrap="wrap">
-                  {[
-                    {
-                      title: 'Recovery phrase free',
-                      badge: 'success' as const,
-                    },
-                    { title: 'Beginner-friendly' },
-                    { title: 'Supports hundreds of networks' },
-                    {
-                      title: 'Open-source secure sharding',
-                    },
-                    { title: 'Ultra-fast setup' },
-                  ].map((item, index) => (
-                    <Badge
-                      key={index}
-                      {...(item.badge && { badgeType: item.badge })}
-                    >
-                      <Badge.Text size="$bodySm">{item.title}</Badge.Text>
-                    </Badge>
-                  ))}
-                  <Badge>
-                    <Badge.Text size="$bodySm">
-                      {intl.formatMessage({
-                        id: ETranslations.global_supports,
-                      })}
-                    </Badge.Text>
-                    <XStack gap="$1" ml="$1">
-                      <Icon name="GoogleIllus" size="$3" />
-                      <Icon
-                        name="AppleBrand"
-                        color="$iconActive"
-                        size="$3"
-                        y={-1}
-                      />
-                      <Icon name="EmailOutline" color="$iconActive" size="$3" />
-                    </XStack>
-                  </Badge>
-                </XStack>
-                <HeightTransition initialHeight={0}>
-                  <AnimatePresence>
-                    {keylessExpanded ? (
-                      <YStack
-                        pt="$5"
-                        animation="quick"
-                        animateOnly={['opacity']}
-                        enterStyle={{
-                          opacity: 0,
-                        }}
-                        exitStyle={{
-                          opacity: 0,
-                        }}
+                  {enableKeylessWalletLoading ? (
+                    <Spinner size="small" color="$iconDisabled" />
+                  ) : (
+                    <Icon
+                      name="ChevronRightSmallOutline"
+                      color="$iconSubdued"
+                    />
+                  )}
+                </Card.Header>
+                <Card.Body>
+                  <XStack gap="$2" flexWrap="wrap">
+                    {[
+                      {
+                        title: 'Recovery phrase free',
+                        badge: 'success' as const,
+                      },
+                      { title: 'Beginner-friendly' },
+                      { title: 'Supports hundreds of networks' },
+                      {
+                        title: 'Open-source secure sharding',
+                      },
+                      { title: 'Ultra-fast setup' },
+                    ].map((item, index) => (
+                      <Badge
+                        key={index}
+                        {...(item.badge && { badgeType: item.badge })}
                       >
-                        <SizableText size="$bodySm" color="$textSubdued">
-                          Cloud wallet, powered by Shamir encrypted backup,
-                          splits your seed phrase into 3 parts. Any 2 parts can
-                          restore your wallet, and you always retain full
-                          control of your assets. Even if one part is lost, your
-                          wallet remains safe and recoverable.
-                        </SizableText>
-                      </YStack>
-                    ) : null}
-                  </AnimatePresence>
-                </HeightTransition>
-              </Card.Body>
-            </Card>
+                        <Badge.Text size="$bodySm">{item.title}</Badge.Text>
+                      </Badge>
+                    ))}
+                    <Badge>
+                      <Badge.Text size="$bodySm">
+                        {intl.formatMessage({
+                          id: ETranslations.global_supports,
+                        })}
+                      </Badge.Text>
+                      <XStack gap="$1" ml="$1">
+                        <Icon name="GoogleIllus" size="$3" />
+                        <Icon
+                          name="AppleBrand"
+                          color="$iconActive"
+                          size="$3"
+                          y={-1}
+                        />
+                        <Icon
+                          name="EmailOutline"
+                          color="$iconActive"
+                          size="$3"
+                        />
+                      </XStack>
+                    </Badge>
+                  </XStack>
+                  <HeightTransition initialHeight={0}>
+                    <AnimatePresence>
+                      {keylessExpanded ? (
+                        <YStack
+                          pt="$5"
+                          animation="quick"
+                          animateOnly={['opacity']}
+                          enterStyle={{
+                            opacity: 0,
+                          }}
+                          exitStyle={{
+                            opacity: 0,
+                          }}
+                        >
+                          <SizableText size="$bodySm" color="$textSubdued">
+                            Cloud wallet, powered by Shamir encrypted backup,
+                            splits your seed phrase into 3 parts. Any 2 parts
+                            can restore your wallet, and you always retain full
+                            control of your assets. Even if one part is lost,
+                            your wallet remains safe and recoverable.
+                          </SizableText>
+                        </YStack>
+                      ) : null}
+                    </AnimatePresence>
+                  </HeightTransition>
+                </Card.Body>
+              </Card>
+            ) : null}
             {/* create new wallet */}
             <Card onPress={handleCreateNewWallet}>
               <Card.Header>

@@ -65,6 +65,7 @@ export function AccountSelectorAccountListItem({
   hideAddress,
   enabledNetworksCompatibleWithWalletId,
   networkInfoMap,
+  accountsDeFiOverview,
 }: {
   num: number;
   linkedNetworkId: string | undefined;
@@ -78,6 +79,21 @@ export function AccountSelectorAccountListItem({
     value: Record<string, string> | string | undefined;
     currency: string | undefined;
   }[];
+  accountsDeFiOverview: (
+    | {
+        overview: Record<
+          string,
+          {
+            totalValue: number;
+            totalDebt: number;
+            totalReward: number;
+            netWorth: number;
+            currency: string;
+          }
+        >;
+      }
+    | undefined
+  )[];
   linkNetwork: boolean | undefined;
   allowSelectEmptyAccount: boolean | undefined;
   editable: boolean;
@@ -194,6 +210,11 @@ export function AccountSelectorAccountListItem({
     [accountsValue, item.id],
   );
 
+  const accountDeFiOverview = useMemo(
+    () => accountsDeFiOverview?.[index],
+    [accountsDeFiOverview, index],
+  );
+
   const shouldShowCreateAddressButton = useMemo(
     () => !!(linkNetwork && subTitleInfo.isEmptyAddress),
     [linkNetwork, subTitleInfo.isEmptyAddress],
@@ -303,6 +324,7 @@ export function AccountSelectorAccountListItem({
           isOthersUniversal={isOthersUniversal}
           index={index}
           accountValue={accountValue}
+          accountDeFiOverview={accountDeFiOverview}
           indexedAccountId={indexedAccount?.id}
           linkedAccountId={indexedAccount?.associateAccount?.id ?? item.id}
           linkedNetworkId={avatarNetworkId ?? network?.id}
@@ -325,6 +347,7 @@ export function AccountSelectorAccountListItem({
     avatarNetworkId,
     network?.id,
     mergeDeriveAssetsEnabled,
+    accountDeFiOverview,
   ]);
 
   const renderAccountAddress = useCallback(() => {

@@ -126,7 +126,7 @@ export function CumulativeRewards({
               <IconButton
                 icon="ClockTimeHistoryOutline"
                 variant="tertiary"
-                iconColor="$iconSubdued"
+                iconProps={{ color: '$iconSubdued' }}
                 size="small"
                 onPress={navigateToRewardHistory}
               />
@@ -201,7 +201,7 @@ export function CumulativeRewards({
             icon="EditOutline"
             size="small"
             onPress={toEditAddressPage}
-            iconColor="$iconSubdued"
+            iconProps={{ color: '$iconSubdued' }}
           />
         </XStack>
       </YStack>

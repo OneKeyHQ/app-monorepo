@@ -4,6 +4,7 @@ export type IFetchAccountDeFiPositionsParams = {
   accountId: string;
   networkId: string;
   accountAddress?: string;
+  xpub?: string;
   isAllNetworks?: boolean;
   allNetworksAccountId?: string;
   allNetworksNetworkId?: string;
@@ -68,6 +69,7 @@ export type IProtocolSummary = {
   protocolName: string;
   totalValue: number;
   totalDebt: number;
+  totalReward: number;
   netWorth: number;
   networkIds: string[];
   positionCount: number;
@@ -83,6 +85,7 @@ export type IFetchAccountDeFiPositionsResp = {
     totals: {
       totalValue: number;
       totalDebt: number;
+      totalReward: number;
       netWorth: number;
       chains: string[];
       protocolCount: number;

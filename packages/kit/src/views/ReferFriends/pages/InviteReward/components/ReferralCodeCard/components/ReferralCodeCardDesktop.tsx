@@ -1,12 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import {
-  ButtonFrame,
-  Icon,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferralLinkDropdown } from '../../ReferralLinkDropdown';
@@ -29,8 +23,8 @@ function ReferralInputField({
   extra,
 }: IReferralInputFieldProps) {
   return (
-    <ButtonFrame
-      flexDirection="row"
+    <XStack
+      role="button"
       bg="$bgStrong"
       borderRadius="$3"
       px="$3.5"
@@ -38,9 +32,9 @@ function ReferralInputField({
       ai="center"
       jc="space-between"
       w="100%"
-      borderWidth={0}
       onPress={onCopy}
       userSelect="none"
+      cursor="pointer"
       hoverStyle={{
         bg: '$bgHover',
       }}
@@ -72,7 +66,7 @@ function ReferralInputField({
         />
         {extra}
       </XStack>
-    </ButtonFrame>
+    </XStack>
   );
 }
 

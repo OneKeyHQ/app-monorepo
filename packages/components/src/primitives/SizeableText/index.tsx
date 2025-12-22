@@ -1,7 +1,6 @@
-import {
-  type SizableTextProps,
-  SizableText as TamaguiSizableText,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { SizableText as TamaguiSizableText } from '@tamagui/text';
+
+import { type SizableTextProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export const StyledSizableText = TamaguiSizableText;
 
