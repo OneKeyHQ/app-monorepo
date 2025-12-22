@@ -613,11 +613,7 @@ export function useSwapProTokenSearch(
         const queryLength = input.length;
         const currentNetworkId = selectedNetworkId ?? '';
         const logKey = `${input}__${currentNetworkId}`;
-        if (
-          queryLength >= 1 &&
-          queryLength <= 10 &&
-          lastLoggedSearchRef.current !== logKey
-        ) {
+        if (queryLength >= 1 && lastLoggedSearchRef.current !== logKey) {
           lastLoggedSearchRef.current = logKey;
           const networkInfo = selectedNetworkId
             ? networkUtils.getLocalNetworkInfo(selectedNetworkId)

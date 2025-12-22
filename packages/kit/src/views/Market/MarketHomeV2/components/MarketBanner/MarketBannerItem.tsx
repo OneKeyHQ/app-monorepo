@@ -1,14 +1,18 @@
-import { useMemo } from 'react';
+import { StyleSheet } from 'react-native';
 
-import { SizableText, Stack, YStack } from '@onekeyhq/components';
-import { TokenGroup } from '@onekeyhq/kit/src/components/Token';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
 type IMarketBannerItemProps = {
   item: IMarketBannerItem;
   onPress?: (item: IMarketBannerItem) => void;
-  compact?: boolean;
 };
 
 function convertThemeToken(token: string, defaultValue: string): string {
@@ -31,11 +35,47 @@ function convertThemeToken(token: string, defaultValue: string): string {
   return token.startsWith('$') ? token : `$${token}`;
 }
 
-export function MarketBannerItem({
-  item,
-  onPress,
-  compact,
-}: IMarketBannerItemProps) {
+function BannerTokenGroup({ tokenLogos }: { tokenLogos?: string[] }) {
+  if (!tokenLogos?.length) return null;
+
+  const visibleTokens = tokenLogos.slice(0, 3);
+
+  return (
+    <XStack>
+      {visibleTokens.map((url, index) => (
+        <Stack
+          key={url || index}
+          borderRadius="$full"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$neutral3"
+          bg="$bgStrong"
+          overflow="hidden"
+          {...(index !== 0 && { ml: '$-1.5' })}
+        >
+          <Image
+            size="$5"
+            borderRadius="$full"
+            source={{ uri: url }}
+            fallback={
+              <Stack
+                w="$5"
+                h="$5"
+                bg="$gray5"
+                borderRadius="$full"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Icon size="$4" name="CryptoCoinOutline" color="$iconSubdued" />
+              </Stack>
+            }
+          />
+        </Stack>
+      ))}
+    </XStack>
+  );
+}
+
+export function MarketBannerItem({ item, onPress }: IMarketBannerItemProps) {
   const { title, description, backgroundColor, tokenLogos } = item;
   const bgColor = convertThemeToken(backgroundColor, '$bgSubdued');
   const descriptionColor = convertThemeToken(
@@ -43,61 +83,52 @@ export function MarketBannerItem({
     '$textSubdued',
   );
 
-  const tokens = useMemo(
-    () => tokenLogos?.map((url) => ({ tokenImageUri: url })) ?? [],
-    [tokenLogos],
-  );
-
   const handlePress = () => {
     onPress?.(item);
   };
 
-  const isCompact = platformEnv.isNative || compact;
-
   return (
     <Stack
-      flexDirection={isCompact ? 'column' : 'row'}
+      flexDirection="column"
       bg={bgColor}
       borderRadius="$3"
-      p={isCompact ? '$2.5' : '$3'}
-      gap="$6"
-      alignItems={isCompact ? undefined : 'center'}
+      px="$3"
+      py="$3.5"
+      width="$32"
+      alignItems="flex-start"
       justifyContent="space-between"
       onPress={handlePress}
-      {...(!platformEnv.isNative && {
-        animation: 'quick',
-        borderWidth: 1,
-        borderColor: '$transparent',
-        hoverStyle: { borderColor: '$borderHover' },
-      })}
-      pressStyle={{ opacity: 0.7 }}
-      cursor="pointer"
+      animation="quick"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$neutral3"
+      hoverStyle={{ borderColor: '$neutral4' }}
+      pressStyle={{ borderColor: '$neutral5' }}
+      h={118}
+      userSelect="none"
+      $gtMd={{
+        flexDirection: 'row',
+        flex: 1,
+        flexBasis: 0,
+        minWidth: 180,
+        maxWidth: 256,
+        width: 'auto',
+        h: '100%',
+        p: '$4',
+        gap: '$3',
+        alignItems: 'center',
+      }}
     >
-      <YStack gap="$1" flex={isCompact ? undefined : 1}>
-        <SizableText
-          size={isCompact ? '$bodySm' : '$bodyMdMedium'}
-          fontWeight={isCompact ? '500' : undefined}
-          numberOfLines={1}
-        >
+      <YStack gap="$0.5" flex={1} $gtMd={{ flex: 1 }}>
+        <SizableText size="$headingSm" numberOfLines={2}>
           {title}
         </SizableText>
         {description ? (
-          <SizableText
-            size={isCompact ? '$bodyXs' : '$bodySm'}
-            color={descriptionColor}
-          >
+          <SizableText size="$bodyMdMedium" color={descriptionColor}>
             {description.text}
           </SizableText>
         ) : null}
       </YStack>
-      <TokenGroup
-        tokens={tokens}
-        size="xs"
-        maxVisible={3}
-        overlapOffset={-6}
-        showRemainingBadge={false}
-        wrapperStyle="none"
-      />
+      <BannerTokenGroup tokenLogos={tokenLogos} />
     </Stack>
   );
 }

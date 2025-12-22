@@ -7,6 +7,7 @@ import TronWeb from 'tronweb';
 import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
+  TRON_TX_EXPIRATION_TIME,
 } from '@onekeyhq/core/src/chains/tron/constants';
 import type {
   IDecodedTxExtraTron,
@@ -137,6 +138,36 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError();
   }
 
+  async _extendTxExpiration({
+    transaction,
+    expiration,
+  }: {
+    transaction: Types.Transaction;
+    expiration: number;
+  }) {
+    try {
+      const [extendedTransaction] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<Types.Transaction>(
+          {
+            networkId: this.networkId,
+            body: [
+              {
+                route: 'tronweb',
+                params: {
+                  method: 'transactionBuilder.extendExpiration',
+                  params: [transaction, expiration],
+                },
+              },
+            ],
+          },
+        );
+      return extendedTransaction;
+    } catch (e) {
+      console.error('extendTxExpiration ERROR:', e);
+      return transaction;
+    }
+  }
+
   async _buildEncodedTxFromApprove(params: IBuildEncodedTxParams) {
     const { approveInfo } = params;
     const { owner, spender, amount, tokenInfo, isMax } =
@@ -191,7 +222,10 @@ export default class Vault extends VaultBase {
         'Unable to build token approve transaction',
       );
     }
-    return transaction;
+    return this._extendTxExpiration({
+      transaction,
+      expiration: TRON_TX_EXPIRATION_TIME,
+    });
   }
 
   async _buildEncodedTxFromTransfer(
@@ -254,7 +288,10 @@ export default class Vault extends VaultBase {
             'Unable to build token transfer transaction',
           );
         }
-        return transaction;
+        return this._extendTxExpiration({
+          transaction,
+          expiration: TRON_TX_EXPIRATION_TIME,
+        });
       }
 
       try {
@@ -282,7 +319,10 @@ export default class Vault extends VaultBase {
               ],
             },
           );
-        return transaction;
+        return await this._extendTxExpiration({
+          transaction,
+          expiration: TRON_TX_EXPIRATION_TIME,
+        });
       } catch (e) {
         if (typeof e === 'string' && e.endsWith('balance is not sufficient.')) {
           throw new InsufficientBalance({
@@ -634,7 +674,10 @@ export default class Vault extends VaultBase {
             'Unable to build token approve transaction',
           );
         }
-        return transaction;
+        return await this._extendTxExpiration({
+          transaction,
+          expiration: TRON_TX_EXPIRATION_TIME,
+        });
       } catch (e) {
         console.error('updateTokenApproveInfo ERROR:', e);
         return encodedTx;
@@ -679,7 +722,10 @@ export default class Vault extends VaultBase {
             ],
           },
         );
-      return transaction;
+      return this._extendTxExpiration({
+        transaction,
+        expiration: TRON_TX_EXPIRATION_TIME,
+      });
     }
 
     return Promise.resolve(encodedTx);
@@ -895,7 +941,10 @@ export default class Vault extends VaultBase {
       transaction.txID = txID.slice(2);
     }
 
-    return transaction;
+    return this._extendTxExpiration({
+      transaction,
+      expiration: TRON_TX_EXPIRATION_TIME,
+    });
   }
 
   async _createResourceRentalOrder(params: {
