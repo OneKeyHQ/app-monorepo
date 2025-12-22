@@ -61,7 +61,7 @@ export function useUniversalBorrowSupply({
         });
 
       await navigationToTxConfirm({
-        encodedTx: parseBorrowEncodedTx(resp.tx),
+        encodedTx: resp.tx,
         stakingInfo,
         onSuccess,
         onFail,
@@ -187,6 +187,56 @@ export function useUniversalBorrowRepay({
           marketAddress,
           reserveAddress,
           amount,
+        });
+
+      await navigationToTxConfirm({
+        encodedTx: parseBorrowEncodedTx(resp.tx),
+        stakingInfo,
+        onSuccess,
+        onFail,
+      });
+    },
+    [accountId, networkId, navigationToTxConfirm],
+  );
+}
+
+type IBorrowClaimTxParams = {
+  provider: string;
+  marketAddress: string;
+  ids: string[];
+  stakingInfo?: IStakingInfo;
+  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+  onFail?: IModalSendParamList['SendConfirm']['onFail'];
+};
+
+export function useUniversalBorrowClaim({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
+
+  return useCallback(
+    async ({
+      provider,
+      marketAddress,
+      ids,
+      stakingInfo,
+      onSuccess,
+      onFail,
+    }: IBorrowClaimTxParams) => {
+      const resp =
+        await backgroundApiProxy.serviceStaking.borrowBuildClaimTransaction({
+          networkId,
+          accountId,
+          provider,
+          marketAddress,
+          ids,
         });
 
       await navigationToTxConfirm({

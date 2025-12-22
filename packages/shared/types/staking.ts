@@ -539,11 +539,47 @@ export interface IEarnHistoryActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnRewardClaimButton {
+  type: 'claim';
+  disabled: boolean;
+  text: IEarnText;
+}
+
+export interface IEarnRewardTokenSummary {
+  networkId: string;
+  address: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  logoURI: string;
+}
+
+export interface IEarnRewardClaimItem {
+  id: string;
+  title: IEarnText;
+  description?: IEarnText;
+  token: IEarnRewardTokenSummary;
+  button: IEarnRewardClaimButton;
+}
+
+export interface IEarnRewardClaimGroup {
+  title?: IEarnText;
+  items: IEarnRewardClaimItem[];
+}
+
+export interface IEarnRewardsDetail {
+  claimable: IEarnRewardClaimGroup[];
+}
+
+export interface IEarnRewardsDetailsData {
+  rewardsDetail: IEarnRewardsDetail;
+}
+
 export interface IEarnRewardsDetails {
   type: 'rewardsDetails';
   disabled: boolean;
   text: IEarnText;
-  data: any;
+  data: IEarnRewardsDetailsData;
 }
 
 export interface IEarnTextTooltip {
@@ -1742,6 +1778,7 @@ export interface IBorrowHealthFactor {
 export interface IBorrowRewards {
   title: IEarnText;
   description: IEarnText;
+  button: IEarnRewardsDetails;
 }
 
 export interface IBorrowEstimateFee {

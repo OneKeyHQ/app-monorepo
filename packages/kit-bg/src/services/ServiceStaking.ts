@@ -2016,7 +2016,7 @@ class ServiceStaking extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
       data: IBorrowHistory;
-    }>('/earn/v1/borrow/obligation/history', {
+    }>('/earn/v1/borrow/histories', {
       params: data,
     });
     return response.data.data;
@@ -2206,6 +2206,32 @@ class ServiceStaking extends ServiceBase {
     const response = await client.post<{
       data: IBorrowUnsignedTransaction;
     }>('/earn/v1/borrow/build-repay-transaction', {
+      ...rest,
+      accountAddress,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async borrowBuildClaimTransaction(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+    ids: string[];
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IBorrowUnsignedTransaction;
+    }>('/earn/v1/borrow/build-claim-transaction', {
       ...rest,
       accountAddress,
     });

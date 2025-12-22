@@ -1,9 +1,13 @@
 import { isValidElement, useCallback, useMemo } from 'react';
 
-import { Divider, XStack, YStack } from '@onekeyhq/components';
+import { Button, Divider, XStack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnRewardsDetails,
+  IEarnText,
+  IEarnTooltip,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -12,10 +16,12 @@ import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
+import { useBorrowRewards } from '../hooks/useBorrowRewards';
 import { useEarnAccount } from '../hooks/useEarnAccount';
+import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
 
-import { BorrowAction } from './BorrowAction';
 import { BorrowBonusTooltip } from './BorrowBonusTooltip';
+import { showBorrowClaimRewardsDialog } from './BorrowClaimRewardsDialog';
 import { BorrowHealthFactorTooltip } from './BorrowHealthFactorTooltip';
 
 const OverviewItem = ({
@@ -64,14 +70,9 @@ export const Overview = () => {
   const amountPlaceholder = useMemo(() => {
     return `${settings.currencyInfo.symbol}0.00`;
   }, [settings.currencyInfo.symbol]);
-  const claimAction = useMemo(
-    () => reserves?.overview?.rewards.button,
-    [reserves?.overview?.rewards],
-  );
   const provider = market?.provider;
   const networkId = market?.networkId;
   const marketAddress = market?.marketAddress;
-  const providerLogoURI = market?.logoURI;
   const earnAccountId = earnAccount?.account.id;
 
   // Fetch health factor separately with 30s polling
@@ -81,6 +82,19 @@ export const Overview = () => {
     marketAddress,
     accountId: earnAccountId,
     enabled: !!(networkId && provider && marketAddress && earnAccountId),
+  });
+
+  const { borrowRewards } = useBorrowRewards({
+    networkId,
+    provider,
+    marketAddress,
+    accountId: earnAccountId,
+    enabled: !!(networkId && provider && marketAddress && earnAccountId),
+  });
+
+  const handleBorrowClaim = useUniversalBorrowClaim({
+    networkId: networkId ?? '',
+    accountId: earnAccountId ?? '',
   });
 
   const handleRefresh = useCallback(async () => {
@@ -117,6 +131,55 @@ export const Overview = () => {
       title: 'Borrow History', // FIXME[borrow]: i18n
     });
   }, [navigation, provider, networkId, marketAddress, earnAccountId]);
+
+  const handleShowRewardsDialog = useCallback(() => {
+    if (
+      !borrowRewards?.button ||
+      !provider ||
+      !marketAddress ||
+      !networkId ||
+      !earnAccountId
+    )
+      return;
+
+    const rewardsDetails = borrowRewards.button;
+    const claimableGroups = rewardsDetails.data.rewardsDetail.claimable;
+    const allIds: string[] = [];
+    for (const group of claimableGroups) {
+      for (const item of group.items) {
+        allIds.push(item.id);
+      }
+    }
+
+    showBorrowClaimRewardsDialog({
+      rewardsDetails,
+      onClaimItem: async (item) => {
+        await handleBorrowClaim({
+          provider,
+          marketAddress,
+          ids: [item.id],
+          onSuccess: handleRefresh,
+        });
+      },
+      onClaimAll: async () => {
+        await handleBorrowClaim({
+          provider,
+          marketAddress,
+          ids: allIds,
+          onSuccess: handleRefresh,
+        });
+      },
+      onClose: handleRefresh,
+    });
+  }, [
+    borrowRewards?.button,
+    provider,
+    marketAddress,
+    networkId,
+    earnAccountId,
+    handleBorrowClaim,
+    handleRefresh,
+  ]);
 
   // FIXME[borrow]: i18n
 
@@ -177,26 +240,29 @@ export const Overview = () => {
           />
         }
       />
-      <OverviewItem
-        title={{ text: 'Claimable rewards' }} // FIXME[borrow]: i18n
-        text={
-          reserves?.overview?.rewards?.text ?? {
-            text: amountPlaceholder,
-            color: '$textDisabled',
+      {borrowRewards ? (
+        <OverviewItem
+          title={borrowRewards?.title} // FIXME[borrow]: i18n
+          text={borrowRewards?.description}
+          action={
+            <Button
+              p="0"
+              ai="center"
+              size="small"
+              variant="link"
+              cursor={borrowRewards.button.disabled ? 'not-allowed' : 'pointer'}
+              disabled={borrowRewards.button.disabled}
+              onPress={handleShowRewardsDialog}
+            >
+              <EarnText
+                size="$bodyMdMedium"
+                color="$textInfo"
+                text={borrowRewards.button.text}
+              />
+            </Button>
           }
-        }
-        action={
-          <BorrowAction
-            action={claimAction}
-            accountId={earnAccountId}
-            networkId={networkId}
-            provider={provider}
-            providerLogoURI={providerLogoURI}
-            symbol={claimAction?.data?.token?.info.symbol ?? 'USDC'}
-            onSuccess={handleRefresh}
-          />
-        }
-      />
+        />
+      ) : null}
 
       <XStack ml="auto">
         <EarnActionIcon
