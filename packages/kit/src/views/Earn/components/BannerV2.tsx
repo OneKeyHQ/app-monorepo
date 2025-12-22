@@ -23,7 +23,7 @@ interface IBannerV2Props {
 
 const DESKTOP_BANNER_WIDTH = 414;
 const BANNER_PADDING_TOKEN = '$5';
-const BANNER_GAP_TOKEN = '$5';
+const BANNER_GAP_TOKEN = '$3';
 
 function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
   const media = useMedia();
@@ -34,6 +34,7 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
   }, []);
 
   const dataCount = data?.length ?? 0;
+  const shouldAutoPlay = isActive && !media.gtSm;
   const bannerPadding =
     Number(getTokenValue(BANNER_PADDING_TOKEN, 'size')) || 0;
   const bannerGap = Number(getTokenValue(BANNER_GAP_TOKEN, 'size')) || 0;
@@ -56,23 +57,23 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
 
   const renderItem = useCallback(
     ({ item, index }: { item: IDiscoveryBanner; index: number }) => {
-      const isFirst = index === 0;
+      const isLast = index === dataCount - 1;
 
       if (!media.gtSm) {
         return (
-          <Stack px="$5">
+          <Stack px={BANNER_PADDING_TOKEN}>
             <BannerItemV2 item={item} onPress={onBannerPress} />
           </Stack>
         );
       }
 
       return (
-        <Stack pl={isFirst ? '$5' : 0} pr="$5">
+        <Stack pr={isLast ? 0 : BANNER_GAP_TOKEN}>
           <BannerItemV2 item={item} onPress={onBannerPress} />
         </Stack>
       );
     },
-    [media.gtSm, onBannerPress],
+    [dataCount, media.gtSm, onBannerPress],
   );
 
   const content = useMemo(() => {
@@ -99,13 +100,40 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
 
       if (canShowStaticRow) {
         return (
-          <XStack px="$5" paddingVertical={30} gap="$5">
+          <XStack
+            px={BANNER_PADDING_TOKEN}
+            paddingVertical={30}
+            gap={BANNER_GAP_TOKEN}
+          >
             {data.map((item) => (
               <Stack key={item.src} width={DESKTOP_BANNER_WIDTH}>
                 <BannerItemV2 item={item} onPress={onBannerPress} />
               </Stack>
             ))}
           </XStack>
+        );
+      }
+
+      if (media.gtSm) {
+        return (
+          <Stack px={BANNER_PADDING_TOKEN}>
+            <Carousel
+              data={data}
+              maxPageWidth={440}
+              containerStyle={{
+                height: 130,
+                paddingTop: 30,
+              }}
+              pagerProps={{
+                keyboardDismissMode: 'none',
+              }}
+              renderItem={renderItem}
+              autoPlayInterval={3000}
+              loop={shouldAutoPlay}
+              showPagination
+              defaultIndex={0}
+            />
+          </Stack>
         );
       }
 
@@ -122,7 +150,7 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
           }}
           renderItem={renderItem}
           autoPlayInterval={3000}
-          loop={isActive}
+          loop={shouldAutoPlay}
           showPagination
           defaultIndex={0}
         />
@@ -130,7 +158,14 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
     }
 
     return null;
-  }, [canShowStaticRow, isActive, data, onBannerPress, renderItem]);
+  }, [
+    canShowStaticRow,
+    data,
+    onBannerPress,
+    renderItem,
+    media.gtSm,
+    shouldAutoPlay,
+  ]);
 
   return (
     <Stack width="100%" onLayout={handleLayout}>

@@ -14,14 +14,19 @@ type IMarketBannerItemProps = {
 function convertThemeToken(token: string, defaultValue: string): string {
   // Convert "prefix/suffix" format to "$prefixSuffix" Tamagui token
   // e.g., "bg/subdued" -> "$bgSubdued", "text/success" -> "$textSuccess"
+  // Also handles hyphenated suffixes: "bg/info-subdued" -> "$bgInfoSubdued"
   if (!token) {
     return defaultValue;
   }
   const parts = token.split('/');
   if (parts.length === 2) {
     const [prefix, suffix] = parts;
-    const capitalizedSuffix = suffix.charAt(0).toUpperCase() + suffix.slice(1);
-    return `$${prefix}${capitalizedSuffix}`;
+    // Convert hyphenated suffix to camelCase: "info-subdued" -> "InfoSubdued"
+    const camelCaseSuffix = suffix
+      .split('-')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join('');
+    return `$${prefix}${camelCaseSuffix}`;
   }
   return token.startsWith('$') ? token : `$${token}`;
 }
