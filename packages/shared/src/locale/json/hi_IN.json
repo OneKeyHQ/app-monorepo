@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "स्वीकृत कर रहा है...",
   "swap.btn_building": "ऑर्डर बनाना...",
   "swap.ch_status_hold": "समर्थन से संपर्क करें",
+  "swap.limit_amount": "{num1} {fromToken} को {num2} {toToken} में बेचें",
   "swap.loading_content": "सबसे अच्छी कीमत की गणना कर रहे हैं...",
   "swap.native_token_max_tip": "कृपया नेटवर्क शुल्क का भुगतान करने के लिए थोड़ी मात्रा में टोकन सुरक्षित रखें, अन्यथा लेनदेन विफल हो जाएगा।",
   "swap.native_token_max_tip_already": "{num_token} नेटवर्क शुल्क के लिए आरक्षित है। राशि ऑन-चेन शुल्क के आधार पर बदल सकती है।",

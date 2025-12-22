@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "Genehmigung läuft...",
   "swap.btn_building": "Bestellung wird erstellt...",
   "swap.ch_status_hold": "Support kontaktieren",
+  "swap.limit_amount": "Verkaufe {num1} {fromToken} für {num2} {toToken}",
   "swap.loading_content": "Berechnung des besten Preises...",
   "swap.native_token_max_tip": "Bitte reservieren Sie eine kleine Menge an Token, um die Netzwerkgebühren zu bezahlen, da die Transaktion sonst fehlschlägt.",
   "swap.native_token_max_tip_already": "{num_token} ist für Netzwerkgebühren reserviert. Der Betrag kann sich je nach On-Chain-Gebühren ändern.",

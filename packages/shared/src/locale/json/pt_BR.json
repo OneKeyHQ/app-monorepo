@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "Aprovando...",
   "swap.btn_building": "Criando pedido...",
   "swap.ch_status_hold": "Entre em contato com o suporte",
+  "swap.limit_amount": "Vender {num1} {fromToken} por {num2} {toToken}",
   "swap.loading_content": "Calculando o melhor preço...",
   "swap.native_token_max_tip": "Por favor, reserve uma pequena quantidade de tokens para pagar as taxas de rede, caso contrário a transação falhará.",
   "swap.native_token_max_tip_already": "{num_token} está reservado para taxas de rede. O valor pode mudar com base nas taxas on-chain.",

@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "Đang phê duyệt...",
   "swap.btn_building": "Đang xây dựng đơn hàng...",
   "swap.ch_status_hold": "Liên hệ hỗ trợ",
+  "swap.limit_amount": "Bán {num1} {fromToken} để nhận {num2} {toToken}",
   "swap.loading_content": "Đang tính toán giá tốt nhất...",
   "swap.native_token_max_tip": "Vui lòng giữ lại một lượng nhỏ token để trả phí mạng, nếu không giao dịch sẽ thất bại.",
   "swap.native_token_max_tip_already": "{num_token} được dành cho phí mạng. Số tiền có thể thay đổi dựa trên phí on-chain.",

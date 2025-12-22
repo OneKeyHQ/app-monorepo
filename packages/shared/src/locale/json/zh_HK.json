@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "授權中...",
   "swap.btn_building": "建立訂單中...",
   "swap.ch_status_hold": "聯繫支援人員",
+  "swap.limit_amount": "賣出 {num1} {fromToken} 買入 {num2} {toToken}",
   "swap.loading_content": "計算最佳價格中...",
   "swap.native_token_max_tip": "請保留少量代幣以支付網絡費用，否則交易將會失敗。",
   "swap.native_token_max_tip_already": "{num_token} 已預留作網絡費用。金額可能會根據鏈上費用而變動",

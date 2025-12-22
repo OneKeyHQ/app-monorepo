@@ -3360,6 +3360,7 @@
   swap_btn_approving = 'swap.btn_approving',
   swap_btn_building = 'swap.btn_building',
   swap_ch_status_hold = 'swap.ch_status_hold',
+  swap_limit_amount = 'swap.limit_amount',
   swap_loading_content = 'swap.loading_content',
   swap_native_token_max_tip = 'swap.native_token_max_tip',
   swap_native_token_max_tip_already = 'swap.native_token_max_tip_already',

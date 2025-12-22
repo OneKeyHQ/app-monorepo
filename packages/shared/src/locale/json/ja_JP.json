@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "承認中...",
   "swap.btn_building": "注文を作成中...",
   "swap.ch_status_hold": "サポートにお問い合わせください",
+  "swap.limit_amount": "{num1} {fromToken}を{num2} {toToken}で売却",
   "swap.loading_content": "最適な価格を計算中...",
   "swap.native_token_max_tip": "ネットワーク手数料の支払いのために、少量のトークンを残しておいてください。そうしないと、トランザクションが失敗します。",
   "swap.native_token_max_tip_already": "{num_token} はネットワーク手数料として確保されています。金額はオンチェーン手数料に基づいて変動する場合があります。",
