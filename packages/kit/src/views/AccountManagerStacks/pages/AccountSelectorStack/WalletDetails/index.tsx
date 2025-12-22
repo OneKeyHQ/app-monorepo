@@ -188,6 +188,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     () => listDataResult?.accountsValue || [],
     [listDataResult?.accountsValue],
   );
+  const accountsDeFiOverview = useMemo(
+    () => listDataResult?.accountsDeFiOverview || [],
+    [listDataResult?.accountsDeFiOverview],
+  );
   const accountsCount = useMemo(
     () => listDataResult?.accountsCount ?? 0,
     [listDataResult?.accountsCount],
@@ -544,6 +548,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               isOthersUniversal={isOthersUniversal}
               selectedAccount={selectedAccount}
               accountsValue={accountsValue}
+              accountsDeFiOverview={accountsDeFiOverview}
               linkNetwork={linkNetwork}
               editable={editable}
               accountsCount={accountsCount}
@@ -602,6 +607,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     );
   }, [
     accountsCount,
+    accountsDeFiOverview,
     accountsValue,
     actions,
     allowSelectEmptyAccount,
