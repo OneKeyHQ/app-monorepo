@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { XStack } from 'tamagui';
 
 import {
   EPortalContainerConstantName,
@@ -9,6 +10,7 @@ import {
   Portal,
   SizableText,
   Stack,
+  Tooltip,
   YStack,
   useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
@@ -77,12 +79,12 @@ function _NotificationButton() {
 
 function BaseBottomMenu({ isCollapse }: { isCollapse: boolean }) {
   const intl = useIntl();
-  const appNavigation = useAppNavigation();
-  const openSettingPage = useCallback(() => {
-    appNavigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListModal,
-    });
-  }, [appNavigation]);
+  // const appNavigation = useAppNavigation();
+  // const openSettingPage = useCallback(() => {
+  //   appNavigation.pushModal(EModalRoutes.SettingModal, {
+  //     screen: EModalSettingRoutes.SettingListModal,
+  //   });
+  // }, [appNavigation]);
 
   return (
     <YStack
@@ -94,19 +96,49 @@ function BaseBottomMenu({ isCollapse }: { isCollapse: boolean }) {
       gap="$2"
       alignItems={isCollapse ? 'center' : undefined}
     >
-      <DesktopTabItem
-        onPress={openSettingPage}
-        selected={false}
-        icon="DotGridOutline"
-        label={
-          isCollapse
-            ? ''
-            : intl.formatMessage({
-                id: ETranslations.address_book_menu_title,
-              })
+      <Tooltip
+        placement="right-end"
+        offset={{ mainAxis: 6, crossAxis: -28 }}
+        hovering
+        renderTrigger={
+          <XStack userSelect="none" gap="$0.5" py="$1.5">
+            <YStack
+              p="$2"
+              borderRadius="$2"
+              hoverStyle={{ bg: '$bgHover' }}
+              // bg={isFocusedRouteNames ? '$bgActive' : undefined}
+            >
+              <Icon
+                name="DotGridOutline"
+                size="$5"
+                // color={isFocusedRouteNames ? '$iconActive' : '$iconSubdued'}
+              />
+            </YStack>
+            {isCollapse ? null : (
+              <SizableText
+                flex={1}
+                numberOfLines={1}
+                cursor="default"
+                color="$text"
+                textAlign="center"
+                size="$bodyXsMedium"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_more,
+                })}
+              </SizableText>
+            )}
+          </XStack>
         }
-        // shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
-        testID="setting"
+        renderContent={
+          <YStack minWidth={180} pb="$1">
+            <SizableText size="$headingSm" pb="$1" pl="$2.5">
+              {intl.formatMessage({
+                id: ETranslations.global_more,
+              })}
+            </SizableText>
+          </YStack>
+        }
       />
     </YStack>
   );

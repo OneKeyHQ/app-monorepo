@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import { IconButton, Tooltip } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';

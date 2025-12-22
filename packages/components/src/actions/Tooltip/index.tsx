@@ -164,6 +164,7 @@ export function Tooltip({
   placement = 'bottom',
   shortcutKey,
   hovering,
+  contentProps,
   ...props
 }: ITooltipProps) {
   const transformOrigin = transformOriginMap[placement] || 'bottom center';
@@ -241,6 +242,7 @@ export function Tooltip({
         outlineWidth="$px"
         outlineStyle="solid"
         outlineColor="$neutral3"
+        {...contentProps}
         elevation={10}
         style={contentStyle}
         enterStyle={{

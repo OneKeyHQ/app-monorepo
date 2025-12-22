@@ -1,4 +1,7 @@
-import type { TooltipProps as TMTooltipProps } from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  PopoverContentProps,
+  TooltipProps as TMTooltipProps,
+} from '@onekeyhq/components/src/shared/tamagui';
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 export interface ITooltipProps extends TMTooltipProps {
@@ -6,4 +9,5 @@ export interface ITooltipProps extends TMTooltipProps {
   renderContent: React.ReactNode;
   shortcutKey?: EShortcutEvents | string[];
   hovering?: boolean;
+  contentProps?: PopoverContentProps;
 }
