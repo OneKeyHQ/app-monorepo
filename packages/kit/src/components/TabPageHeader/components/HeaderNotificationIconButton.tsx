@@ -36,7 +36,7 @@ export function HeaderNotificationIconButton({
     [firstTimeGuideOpened, badge],
   );
 
-  const handleNotificationPress = useCallback(async () => {
+  const handleNotificationPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.NotificationsModal, {
       screen: EModalNotificationsRoutes.NotificationList,
     });
