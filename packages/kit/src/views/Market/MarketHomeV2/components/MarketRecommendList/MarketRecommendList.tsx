@@ -159,17 +159,15 @@ export function MarketRecommendList({
               size={
                 platformEnv.isExtensionUiPopup ? '$headingXl' : '$heading3xl'
               }
+              color="$text"
             >
               {intl.formatMessage({
                 id: ETranslations.market_favorites_empty,
               })}
             </SizableText>
             <SizableText
-              size={
-                platformEnv.isExtensionUiPopup
-                  ? '$bodyMdMedium'
-                  : '$bodyLgMedium'
-              }
+              color="$textSubdued"
+              size={platformEnv.isExtensionUiPopup ? '$bodyMd' : '$bodyLg'}
               pt="$2"
             >
               {intl.formatMessage({

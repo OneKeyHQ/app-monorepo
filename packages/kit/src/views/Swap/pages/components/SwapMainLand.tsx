@@ -156,7 +156,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
     useSwapActions().current;
   const [{ actionLock }] = useSwapQuoteActionLockAtom();
-  const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
@@ -172,7 +172,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const swapProFromToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
-  const [swapProInputAmount] = useSwapProInputAmountAtom();
+  const [swapProInputAmount, setSwapProInputAmount] =
+    useSwapProInputAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const swapProAccount = useSwapProAccount();
   const focusSwapPro = useMemo(() => {
@@ -205,7 +206,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     return swapTypeSwitch;
   }, [focusSwapPro, swapProTradeType, swapTypeSwitch]);
-
+  const fromTokenBalance = useMemo(() => {
+    if (focusSwapPro) {
+      return swapProFromToken?.balanceParsed;
+    }
+    return swapFromTokenBalance;
+  }, [focusSwapPro, swapFromTokenBalance, swapProFromToken?.balanceParsed]);
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
@@ -419,11 +425,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   const onBalanceMaxPress = useCallback(() => {
     const maxAmount = checkNativeTokenGasToast();
-    setFromInputAmount({
-      value: maxAmount?.toFixed() ?? '',
-      isInput: true,
-    });
-  }, [checkNativeTokenGasToast, setFromInputAmount]);
+    if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
+      setSwapProInputAmount(maxAmount?.toFixed() ?? '');
+    } else {
+      setFromInputAmount({
+        value: maxAmount?.toFixed() ?? '',
+        isInput: true,
+      });
+    }
+  }, [
+    checkNativeTokenGasToast,
+    focusSwapPro,
+    setFromInputAmount,
+    setSwapProInputAmount,
+    swapProTradeType,
+  ]);
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
@@ -444,16 +460,23 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           onBalanceMaxPress();
           return;
         }
-        setFromInputAmount({
-          value: amountAfterDecimal.toFixed(),
-          isInput: true,
-        });
+        if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
+          setSwapProInputAmount(amountAfterDecimal.toFixed());
+        } else {
+          setFromInputAmount({
+            value: amountAfterDecimal.toFixed(),
+            isInput: true,
+          });
+        }
       }
     },
     [
-      onBalanceMaxPress,
       fromTokenBalance,
       fromSelectToken?.decimals,
+      focusSwapPro,
+      swapProTradeType,
+      onBalanceMaxPress,
+      setSwapProInputAmount,
       setFromInputAmount,
     ],
   );
@@ -1069,6 +1092,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           onProSelectToken={onProSelectToken}
           onOpenOrdersClick={onOpenOrdersClick}
           onSwapProActionClick={onPreSwap}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
           handleSelectAccountClick={handleSelectAccountClick}
           onProMarketDetail={onProMarketDetail}
           config={{
