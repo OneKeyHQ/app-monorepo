@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
@@ -157,17 +158,23 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const { cloudBackupFeatureInfo, goToPageBackupList, startBackup } =
     useCloudBackup();
 
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+
   return useMemo(
     () => [
       // OneKey ID tab with custom rendering
-      {
-        name: ESettingsTabNames.OneKeyID,
-        icon: 'PeopleSolid',
-        title: 'OneKey ID',
-        renderTabItem: OneKeyIdTabItem,
-        Component: OneKeyIdSubSettings,
-        configs: [],
-      },
+      ...(isKeylessWalletEnabled
+        ? [
+            {
+              name: ESettingsTabNames.OneKeyID,
+              icon: 'PeopleSolid' as const,
+              title: 'OneKey ID',
+              renderTabItem: OneKeyIdTabItem,
+              Component: OneKeyIdSubSettings,
+              configs: [],
+            },
+          ]
+        : []),
       platformEnv.isWebDappMode
         ? undefined
         : {
@@ -830,6 +837,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
+      isKeylessWalletEnabled,
       startBackup,
       onPressAddressBook,
       helpCenterUrl,
