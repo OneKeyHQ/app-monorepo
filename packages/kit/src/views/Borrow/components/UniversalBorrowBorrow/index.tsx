@@ -43,7 +43,6 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { BorrowInfoItem } from '../BorrowInfoItem';
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
@@ -409,11 +408,11 @@ export function UniversalBorrowBorrow({
           borderColor="$borderSubdued"
         >
           <YStack gap="$6">
-            {transactionConfirmation?.mySupply ? (
+            {transactionConfirmation?.myBorrow ? (
               <BorrowInfoItem
                 title={
                   <EarnText
-                    text={{ text: 'My Supply' }}
+                    text={{ text: 'My Borrow' }}
                     color="$textText"
                     size="$bodyLg"
                     boldTextProps={{
@@ -424,30 +423,30 @@ export function UniversalBorrowBorrow({
               >
                 <YStack ai="flex-end">
                   <EarnText
-                    text={transactionConfirmation.mySupply.current?.title}
+                    text={transactionConfirmation.myBorrow.current?.title}
                     size="$headingLg"
                   />
                   <EarnText
-                    text={transactionConfirmation.mySupply.current?.description}
+                    text={transactionConfirmation.myBorrow.current?.description}
                     size="$bodySmMedium"
                   />
                 </YStack>
-                {transactionConfirmation.mySupply.latest ? (
+                {transactionConfirmation.myBorrow.latest ? (
                   <Icon
                     name="ArrowRightSolid"
                     size="$4"
                     color="$iconDisabled"
                   />
                 ) : null}
-                {transactionConfirmation.mySupply.latest ? (
+                {transactionConfirmation.myBorrow.latest ? (
                   <YStack ai="flex-end">
                     <EarnText
-                      text={transactionConfirmation.mySupply.latest?.title}
+                      text={transactionConfirmation.myBorrow.latest?.title}
                       size="$headingLg"
                     />
                     <EarnText
                       text={
-                        transactionConfirmation.mySupply.latest?.description
+                        transactionConfirmation.myBorrow.latest?.description
                       }
                       size="$bodySmMedium"
                     />
@@ -457,12 +456,7 @@ export function UniversalBorrowBorrow({
             ) : null}
             {showApyDetail && transactionConfirmation?.apyDetail ? (
               <BorrowInfoItem title="Supply APY">
-                <YStack ai="flex-end">
-                  <EarnActionIcon
-                    title={transactionConfirmation.apyDetail.title.text}
-                    actionIcon={transactionConfirmation.apyDetail.button}
-                  />
-                </YStack>
+                <EarnText text={transactionConfirmation.apyDetail.title} />
               </BorrowInfoItem>
             ) : null}
           </YStack>

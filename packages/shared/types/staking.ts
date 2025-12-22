@@ -691,7 +691,7 @@ export interface IBorrowHealthFactorRiskDetail {
       upperLimit: string;
       status: {
         tag: string;
-        badge: string;
+        badge: IBadgeType;
       };
       statusDescription: IEarnText;
       liquidationAt: {
@@ -1763,7 +1763,12 @@ export interface IBorrowReserveItem {
         };
         title: IEarnText;
         endsIn: number;
-        rewards: any[];
+        rewards: {
+          type: IEarnText;
+          title: IEarnText;
+          description: IEarnText;
+          logoURI: string;
+        }[];
         button: IEarnLinkActionIcon;
       };
     };
@@ -1895,6 +1900,16 @@ export interface IBorrowReserveDetail {
 
 export interface IBorrowTransactionConfirmation {
   mySupply?: {
+    current?: {
+      title: IEarnText;
+      description: IEarnText;
+    };
+    latest?: {
+      title: IEarnText;
+      description: IEarnText;
+    };
+  };
+  myBorrow?: {
     current?: {
       title: IEarnText;
       description: IEarnText;

@@ -15,7 +15,7 @@ import { useBorrowReserves } from '../hooks/useBorrowReserves';
 import { useEarnAccount } from '../hooks/useEarnAccount';
 
 import { BorrowAction } from './BorrowAction';
-import { BorrowBouns } from './BorrowBouns';
+import { BorrowBonusTooltip } from './BorrowBonusTooltip';
 import { BorrowHealthFactorTooltip } from './BorrowHealthFactorTooltip';
 
 const OverviewItem = ({
@@ -171,7 +171,7 @@ export const Overview = () => {
           }
         }
         tooltip={
-          <BorrowBouns
+          <BorrowBonusTooltip
             data={reserves?.overview?.platformBonus}
             handleHistoryPress={handleHistoryPress}
           />

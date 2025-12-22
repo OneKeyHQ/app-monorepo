@@ -1,6 +1,13 @@
 import { useMemo } from 'react';
 
-import { Icon, Popover, Stack, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Icon,
+  Popover,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IBorrowHealthFactorRiskDetail } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -25,12 +32,23 @@ export const BorrowHealthFactorTooltip = ({
     };
   }, [detail?.lowerLimit, detail?.upperLimit, detail?.value]);
 
+  const valueColor = useMemo(() => {
+    const badgeType = detail?.status?.badge;
+    if (badgeType === 'success') {
+      return '$textSuccess';
+    }
+    if (badgeType === 'critical') {
+      return '$textCritical';
+    }
+    return '$textCaution';
+  }, [detail?.status?.badge]);
+
   if (!detail) return null;
 
   return (
     <Popover
-      placement="top"
-      title=""
+      placement="bottom"
+      title="Health factor"
       renderTrigger={
         <XStack cursor="pointer" ai="center">
           <EarnText
@@ -46,13 +64,21 @@ export const BorrowHealthFactorTooltip = ({
         </XStack>
       }
       renderContent={
-        <Stack p="$4" w={280} gap="$3">
-          <HealthFactor
-            value={value}
-            min={lowerLimit}
-            max={upperLimit}
-            thresholdValue={1}
-          />
+        <YStack p="$4" gap="$3">
+          {/* Header: Health factor + value + Badge */}
+          <XStack jc="space-between" ai="center">
+            <XStack ai="center" gap="$2">
+              <SizableText size="$headingMd">Health factor</SizableText>
+              <SizableText size="$headingMd" color={valueColor}>
+                {detail.value}
+              </SizableText>
+            </XStack>
+            {detail.status ? (
+              <Badge badgeType={detail.status.badge}>{detail.status.tag}</Badge>
+            ) : null}
+          </XStack>
+
+          {/* Status description */}
           {detail.statusDescription ? (
             <EarnText
               size="$bodySm"
@@ -60,13 +86,17 @@ export const BorrowHealthFactorTooltip = ({
               text={detail.statusDescription}
             />
           ) : null}
-          {detail.liquidationAt?.description ? (
-            <EarnText
-              size="$bodySm"
-              color="$textSubdued"
-              text={detail.liquidationAt.description}
-            />
-          ) : null}
+
+          {/* Health Factor progress bar */}
+          <HealthFactor
+            value={value}
+            min={lowerLimit}
+            max={upperLimit}
+            thresholdValue={1}
+            liquidationText={detail.liquidationAt?.description}
+          />
+
+          {/* Liquidation description */}
           {detail.liquidationAtDescription ? (
             <EarnText
               size="$bodySm"
@@ -74,7 +104,7 @@ export const BorrowHealthFactorTooltip = ({
               text={detail.liquidationAtDescription}
             />
           ) : null}
-        </Stack>
+        </YStack>
       }
     />
   );

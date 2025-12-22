@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { ListItem } from '../../../components/ListItem';
@@ -22,7 +23,7 @@ import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnAct
 import { EarnIcon } from '../../Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 
-export const BorrowBouns = ({
+export const BorrowBonusTooltip = ({
   data,
   handleHistoryPress,
 }: {
@@ -112,11 +113,7 @@ export const BorrowBouns = ({
                 children: (
                   <>
                     <XStack ai="center" gap="$2.5">
-                      <Token
-                        size="sm"
-                        borderRadius="$2"
-                        tokenImageUri={item.token.logoURI}
-                      />
+                      <Token size="sm" tokenImageUri={item.token.logoURI} />
                       <EarnText
                         size="$bodyMdMedium"
                         color="$text"
@@ -132,14 +129,14 @@ export const BorrowBouns = ({
                 ),
               });
             })}
-            <Stack mt="$2" px="$5">
+            <Stack mt="$2" px="$5" mb="$5">
               <EarnText
                 size="$bodySm"
                 color="$textSubdued"
                 text={data.description}
               />
               <Divider mt="$5" mb="$3.5" />
-              <YStack>
+              <YStack gap="$3">
                 {/* <EarnIcon icon={data.data.icon} /> */}
                 <XStack ai="center">
                   <EarnIcon
@@ -162,8 +159,32 @@ export const BorrowBouns = ({
                     text={{ text: endsInDays }}
                   />
                 </XStack>
+                {!isEmpty(data.data.rewards) ? (
+                  <YStack jc="center">
+                    {data.data.rewards.map((reward, index) => {
+                      return (
+                        <XStack gap="$1.5" key={index}>
+                          <Token size="xs" tokenImageUri={reward.logoURI} />
+                          <EarnText text={reward.type} />
+                          <EarnText text={reward.title} />
+                          <EarnText text={reward.description} />
+                        </XStack>
+                      );
+                    })}
+                  </YStack>
+                ) : null}
                 {data.data.button ? (
-                  <EarnActionIcon actionIcon={data.data.button} />
+                  <XStack
+                    gap="$0.5"
+                    cursor="pointer"
+                    onPress={() => openUrlExternal(data.data.button.data.link)}
+                  >
+                    <EarnText
+                      text={data.data.button.text}
+                      size="$bodyMdMedium"
+                      color="$textSubdued"
+                    />
+                  </XStack>
                 ) : null}
               </YStack>
             </Stack>
