@@ -18,6 +18,11 @@ export const OAUTH_CALLBACK_DESKTOP_PATH = '/oauth_callback_desktop';
  */
 export const OAUTH_CALLBACK_WEB_PATH = '/oauth_callback_web/';
 
+/**
+ * OAuth callback path for native platforms (iOS/Android)
+ */
+export const OAUTH_CALLBACK_NATIVE_PATH = 'oauth_callback_native';
+
 // ============================================================================
 // OAuth shared constants (OneKeyAuth)
 // ============================================================================
@@ -31,7 +36,7 @@ export enum EDesktopOAuthMethod {
   LOCALHOST_SERVER = 'LOCALHOST_SERVER',
 
   // Use in-app webview to handle OAuth
-  // Intercepts navigation to onekey-wallet://auth/callback
+  // Intercepts navigation to onekey-wallet://oauth_callback_native
   WEBVIEW = 'WEBVIEW',
 
   // Use system browser + deep link callback
@@ -67,7 +72,7 @@ export enum ENativeOAuthMethod {
 
   // Fallback: Use expo-web-browser.openAuthSessionAsync
   // Opens in-app browser for OAuth, uses deep link callback
-  // Redirect URL: onekey-wallet://auth/callback
+  // Redirect URL: onekey-wallet://oauth_callback_native
   WEB_BROWSER = 'WEB_BROWSER',
 }
 

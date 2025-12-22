@@ -36,7 +36,7 @@ export class OAuthPopup extends OAuthPopupBase {
    * Get OAuth redirect URL for Desktop platform.
    *
    * Starts localhost OAuth server and returns callback URL.
-   * Returns: http://127.0.0.1:{port}/oauth/callback
+   * Returns: http://127.0.0.1:{port}/oauth_callback_desktop
    */
   static override async getRedirectUrl(): Promise<string> {
     if (

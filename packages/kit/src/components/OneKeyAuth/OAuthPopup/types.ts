@@ -32,22 +32,6 @@ export type IOpenOAuthPopupOptions = {
 };
 
 /**
- * OAuth configuration for Google sign-in (native iOS/Android).
- * These values should match your Google Cloud Console OAuth 2.0 Client ID settings.
- */
-export interface INativeOAuthConfig {
-  // Google OAuth Client ID for iOS
-  // Create this in Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs
-  // Application type: iOS
-  iosClientId?: string;
-  // Google OAuth Client ID for Android (Web client ID is used for Android)
-  // Application type: Web application
-  webClientId?: string;
-  // OAuth scopes to request
-  scopes?: string[];
-}
-
-/**
  * Unified OAuth popup options for all platforms
  */
 export interface IOAuthPopupOptions {
@@ -62,6 +46,4 @@ export interface IOAuthPopupOptions {
   handleSessionPersistence: (
     params: IHandleOAuthSessionPersistenceParams,
   ) => Promise<void>;
-  // Native-specific OAuth config (only used on native platform)
-  nativeConfig?: INativeOAuthConfig;
 }

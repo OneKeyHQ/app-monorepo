@@ -1,25 +1,38 @@
 /* eslint-disable spellcheck/spell-checker */
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as WebBrowser from 'expo-web-browser';
 
 import {
   DEFAULT_NATIVE_OAUTH_METHOD,
   ENativeOAuthMethod,
   GOOGLE_OAUTH_CLIENT_IDS,
+  OAUTH_CALLBACK_NATIVE_PATH,
   OAUTH_TOKEN_KEY_ACCESS_TOKEN,
   OAUTH_TOKEN_KEY_REFRESH_TOKEN,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { ONEKEY_APP_DEEP_LINK } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import {
+  GoogleSignInConfigure,
+  GoogleSignInConfigureIOS,
+} from '@onekeyhq/shared/src/consts/googleSignConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OAuthPopupBase } from './OAuthPopupBase';
 
-import type {
-  INativeOAuthConfig,
-  IOAuthPopupOptions,
-  IOAuthPopupResult,
-} from './types';
+import type { IOAuthPopupOptions, IOAuthPopupResult } from './types';
+import type { GoogleSignin as GoogleSigninType } from '@react-native-google-signin/google-signin';
+
+// Lazy load GoogleSignin to avoid crash if native module is not available
+async function getGoogleSignin(): Promise<typeof GoogleSigninType> {
+  try {
+    const module = await import('@react-native-google-signin/google-signin');
+    return module.GoogleSignin;
+  } catch (error) {
+    throw new OneKeyLocalError(
+      'Google Sign-In is not available. Please use web browser authentication.',
+    );
+  }
+}
 
 // ============================================================================
 // Native OAuth Popup Implementation
@@ -42,12 +55,14 @@ export class OAuthPopup extends OAuthPopupBase {
   /**
    * Get OAuth redirect URL for native platforms.
    *
-   * Uses the deep link scheme: onekey-wallet://auth/callback
+   * Uses the deep link scheme: onekey-wallet://oauth_callback_native
    * Note: This is only used for WEB_BROWSER method.
    * GOOGLE_SIGNIN method doesn't need a redirect URL.
    */
   static override getRedirectUrl(): Promise<string> {
-    return Promise.resolve(`${ONEKEY_APP_DEEP_LINK}auth/callback`);
+    return Promise.resolve(
+      `${ONEKEY_APP_DEEP_LINK}${OAUTH_CALLBACK_NATIVE_PATH}`,
+    );
   }
 
   /**
@@ -105,23 +120,19 @@ export class OAuthPopup extends OAuthPopupBase {
 
   /**
    * Configure GoogleSignin with the provided options.
+   * Returns the GoogleSignin instance for further use.
    */
-  private static configureGoogleSignin(
-    nativeConfig: INativeOAuthConfig | undefined,
-  ): void {
-    const configOptions: Parameters<typeof GoogleSignin.configure>[0] = {
-      scopes: nativeConfig?.scopes ?? ['openid', 'profile', 'email'],
-      offlineAccess: true,
-    };
+  private static async configureGoogleSignin(): Promise<
+    typeof GoogleSigninType
+  > {
+    const GoogleSignin = await getGoogleSignin();
 
-    if (platformEnv.isNativeIOS) {
-      configOptions.iosClientId = GOOGLE_OAUTH_CLIENT_IDS.IOS;
-    }
-    if (platformEnv.isNativeAndroid) {
-      configOptions.webClientId = GOOGLE_OAUTH_CLIENT_IDS.ANDROID;
-    }
+    const configOptions = platformEnv.isNativeIOS
+      ? GoogleSignInConfigureIOS
+      : GoogleSignInConfigure;
 
     GoogleSignin.configure(configOptions);
+    return GoogleSignin;
   }
 
   /**
@@ -137,14 +148,14 @@ export class OAuthPopup extends OAuthPopupBase {
   private static async openWithGoogleSignin(
     options: IOAuthPopupOptions,
   ): Promise<IOAuthPopupResult> {
-    const { client, nativeConfig, handleSessionPersistence } = options;
+    const { client, handleSessionPersistence } = options;
 
     if (!client) {
       throw new OneKeyLocalError('Supabase client is required');
     }
 
-    // Configure GoogleSignin
-    OAuthPopup.configureGoogleSignin(nativeConfig);
+    // Configure GoogleSignin (lazy loaded)
+    const GoogleSignin = await OAuthPopup.configureGoogleSignin();
 
     try {
       // Check if Google Play Services is available (Android only)
