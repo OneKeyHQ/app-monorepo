@@ -9,6 +9,13 @@ export enum EStellarTransactionType {
   CHANGE_TRUST = 'changeTrust',
 }
 
+export enum EStellarAssetType {
+  Native = 'native',
+  ContractToken = 'contract',
+  StellarAsset = 'classic',
+  StellarAssetContract = 'stellarAssetContract',
+}
+
 /**
  * Asset information for Stellar
  */

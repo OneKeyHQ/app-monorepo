@@ -1293,6 +1293,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     throw new NotImplemented();
   }
 
+  async convertTokenInfoBeforeSave({
+    token,
+  }: {
+    token: IAccountToken;
+  }): Promise<IAccountToken> {
+    return token;
+  }
+
   async getAddressType({ address }: { address: string }): Promise<{
     typeKey?: MessageDescriptor['id'];
     type?: string;

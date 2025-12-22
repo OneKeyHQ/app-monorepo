@@ -1,8 +1,11 @@
 /* eslint-disable spellcheck/spell-checker */
 import BigNumber from 'bignumber.js';
+
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import { SAC_TOKEN_ASSET_TYPES, SAC_TOKEN_DECIMALS } from '../utils';
+
+import type { ISimulateTransactionResponse } from './types';
 
 interface IHorizonLedgerRecord {
   id: string;
@@ -10,6 +13,14 @@ interface IHorizonLedgerRecord {
   hash: string;
   closed_at: string;
   header_xdr: string;
+}
+
+interface ISubmitTransactionResponse {
+  hash: string;
+  ledger: number;
+  envelope_xdr: string;
+  result_xdr: string;
+  result_meta_xdr: string;
 }
 
 type IHorizonLedgerResponse = IHorizonLedgerRecord & {
@@ -180,7 +191,7 @@ export class HorizonTransport {
       await this.request<Record<string, unknown>>({ method: 'GET', path: '/' });
       return { status: 'healthy' };
     } catch (error) {
-      throw new OneKeyInternalError('Horizon API is unhealthy', error);
+      throw new OneKeyInternalError('Horizon API is unhealthy');
     }
   }
 
@@ -294,14 +305,6 @@ export class HorizonTransport {
     errorResultXdr?: string;
     diagnosticEventsXdr?: string[];
   }> {
-    interface SubmitTransactionResponse {
-      hash: string;
-      ledger: number;
-      envelope_xdr: string;
-      result_xdr: string;
-      result_meta_xdr: string;
-    }
-
     try {
       const response = await this.request<ISubmitTransactionResponse>({
         method: 'POST',
@@ -454,7 +457,9 @@ export class HorizonTransport {
    * simulateTransaction - Not supported by Horizon API
    * This is a Soroban RPC specific method for contract simulation
    */
-  async simulateTransaction(_transaction: string): Promise<any> {
+  async simulateTransaction(
+    _transaction: string,
+  ): Promise<ISimulateTransactionResponse> {
     throw new OneKeyInternalError(
       'simulateTransaction is only supported by Soroban RPC (JsonRpcTransport)',
     );

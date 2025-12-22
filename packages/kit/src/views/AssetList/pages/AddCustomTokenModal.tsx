@@ -324,7 +324,7 @@ function AddCustomTokenModal() {
             },
           });
         } else {
-          const tokenInfo: IAccountToken = {
+          let tokenInfo: IAccountToken = {
             ...searchedTokenRef.current,
             address: searchedTokenRef.current?.address,
             symbol,
@@ -340,6 +340,14 @@ function AddCustomTokenModal() {
             networkId: selectedNetworkIdValue,
             token: tokenInfo,
           });
+          tokenInfo =
+            await backgroundApiProxy.serviceCustomToken.convertTokenInfoBeforeSave(
+              {
+                networkId: selectedNetworkIdValue,
+                accountId: accountIdForNetwork,
+                token: tokenInfo,
+              },
+            );
           const accountXpubOrAddress =
             await backgroundApiProxy.serviceAccount.getAccountXpubOrAddress({
               accountId: accountIdForNetwork,

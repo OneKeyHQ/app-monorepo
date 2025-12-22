@@ -1,16 +1,25 @@
 /* eslint-disable spellcheck/spell-checker */
 import { Asset, Keypair, StellarSdk, StrKey } from '.';
 
-import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
+import { EStellarAssetType } from '../types';
+import { getNetworkPassphrase, getSACAddress } from '../utils';
+
+import type { ISimulateTransactionResponse } from './types';
+
+type IScVal = ReturnType<typeof StellarSdk.xdr.ScVal.fromXDR>;
 /**
  * Stellar JSON-RPC 2.0 Transport
  * Connects directly to Stellar RPC endpoint (Soroban RPC or compatible endpoint)
  * Used for local development and custom network endpoints
  *
  * Example usage:
- *   const transport = new JsonRpcTransport({ rpcUrl: 'https://soroban-testnet.stellar.org' });
+ *   const transport = new JsonRpcTransport({
+ *     rpcUrl: 'https://soroban-testnet.stellar.org',
+ *     networkId: 'stellar--testnet',
+ *   });
  *   const ledger = await transport.getLatestLedger();
  *   const account = await transport.getLedgerEntries([accountKey]);
  *
@@ -20,12 +29,19 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 export class JsonRpcTransport {
   private client: JsonRPCRequest;
 
-  constructor({ rpcUrl }: { rpcUrl: string }) {
+  private networkId: string;
+
+  constructor({ rpcUrl, networkId }: { rpcUrl: string; networkId: string }) {
     this.client = new JsonRPCRequest(rpcUrl);
+    this.networkId = networkId;
   }
 
   private call<T>(method: string, params?: Record<string, unknown>) {
     return this.client.call<T>(method, params);
+  }
+
+  private resolveNetworkPassphrase(): string {
+    return getNetworkPassphrase(this.networkId);
   }
 
   /**
@@ -163,7 +179,9 @@ export class JsonRpcTransport {
    *
    * @param transaction - Base64-encoded TransactionEnvelope XDR
    */
-  async simulateTransaction(transaction: string): Promise<any> {
+  async simulateTransaction(
+    transaction: string,
+  ): Promise<ISimulateTransactionResponse> {
     return this.call('simulateTransaction', { transaction });
   }
 
@@ -301,7 +319,11 @@ export class JsonRpcTransport {
 
     try {
       const ledgerKeys = assets.map((asset) =>
-        this.buildTrustlineLedgerKey(address, asset.assetCode, asset.assetIssuer),
+        this.buildTrustlineLedgerKey(
+          address,
+          asset.assetCode,
+          asset.assetIssuer,
+        ),
       );
 
       // Batch query all trustlines
@@ -356,7 +378,8 @@ export class JsonRpcTransport {
       balance: string;
     }>;
   }> {
-    const accountId = Keypair.fromPublicKey(address).xdrAccountId();
+    const baseAddress = StellarSdk.extractBaseAddress(address);
+    const accountId = Keypair.fromPublicKey(baseAddress).xdrAccountId();
     const ledgerKey = StellarSdk.xdr.LedgerKey.account(
       new StellarSdk.xdr.LedgerKeyAccount({ accountId }),
     );
@@ -372,14 +395,18 @@ export class JsonRpcTransport {
       'base64',
     );
 
-    console.log('=====>>>>> accountData >>>>', accountData);
-
     const account = accountData.account();
 
     // Extract balance and account info
-    const nativeBalance = account.balance().toString();
+    const nativeBalance = account.balance().toBigInt().toString();
     const sequence = account.seqNum().toString();
     const subentryCount = account.numSubEntries();
+
+    console.log('=====>>>>> getAccountInfo: ', {
+      nativeBalance,
+      sequence,
+      subentryCount,
+    });
 
     // Note: Account entry does NOT contain trustlines
     // Trustlines are separate ledger entries that must be queried individually
@@ -408,12 +435,11 @@ export class JsonRpcTransport {
     assetCode: string,
     assetIssuer: string,
   ) {
+    const baseAddress = StellarSdk.extractBaseAddress(address);
     const asset = new Asset(assetCode, assetIssuer);
-    const publicKeyXdr = StellarSdk.xdr.PublicKey.publicKeyTypeEd25519(
-      StrKey.decodeEd25519PublicKey(address),
-    );
+    const accountId = Keypair.fromPublicKey(baseAddress).xdrAccountId();
     const trustlineKeyXdr = new StellarSdk.xdr.LedgerKeyTrustLine({
-      accountId: publicKeyXdr,
+      accountId,
       asset: asset.toTrustLineXDRObject(),
     });
     return StellarSdk.xdr.LedgerKey.trustline(trustlineKeyXdr).toXDR('base64');
@@ -426,6 +452,259 @@ export class JsonRpcTransport {
     const limit = trustline.limit().toString();
     // eslint-disable-next-line no-bitwise
     const authorized = (trustline.flags() & 1) !== 0;
+
+    console.log('=====>>>>> decodeTrustlineEntry: ', {
+      balance,
+      limit,
+      authorized,
+      flags: trustline.flags(),
+      flagsString: trustline.flags().toString(),
+    });
     return { balance, limit, authorized };
+  }
+
+  /**
+   * getContractBalances - Get balances for multiple Soroban contract tokens
+   * @param address - Account address to check balance for
+   * @param contractIds - Array of contract addresses
+   * @returns Array of {contractId, balance}
+   */
+  async getContractBalances(
+    address: string,
+    contractIds: string[],
+  ): Promise<Array<{ contractId: string; balance: string }>> {
+    const results = await Promise.all(
+      contractIds.map(async (contractId) => ({
+        contractId,
+        balance: await this.getContractBalance(contractId, address),
+      })),
+    );
+    return results;
+  }
+
+  /**
+   * getContractTokenInfo - Get token metadata for SEP-41 tokens
+   * @param contractId - Contract address
+   * @returns { name, symbol, decimals } or null on failure
+   */
+  async getContractTokenInfo(contractId: string): Promise<{
+    name: string;
+    symbol: string;
+    decimals: number;
+    admin?: string;
+    type: EStellarAssetType;
+  }> {
+    try {
+      const nameVal = await this.getContractName(contractId);
+      const symbolVal = await this.getContractSymbol(contractId);
+      const decimalsVal = await this.getContractDecimals(contractId);
+      const adminVal = await this.getContractAdmin(contractId);
+      if (!nameVal || !symbolVal || !decimalsVal) {
+        throw new OneKeyInternalError('Failed to get contract token info');
+      }
+
+      let type = EStellarAssetType.ContractToken;
+
+      try {
+        const adminAddress = getSACAddress(symbolVal, adminVal ?? '');
+        if (adminAddress === contractId) {
+          type = EStellarAssetType.StellarAssetContract;
+        }
+      } catch (error) {
+        // ignore error
+      }
+
+      return {
+        name: nameVal ?? undefined,
+        symbol: symbolVal ?? undefined,
+        decimals: decimalsVal ?? undefined,
+        admin: adminVal ?? undefined,
+        type,
+      };
+    } catch (error) {
+      console.error('Failed to get contract token info:', error);
+      throw new OneKeyInternalError('Failed to get contract token info');
+    }
+  }
+
+  /**
+   * getContractBalance - Get balance for a Soroban contract token
+   * Simulates calling the contract's balance() function
+   *
+   * @param contractId - Contract address (C... encoded)
+   * @param address - Account address to check balance for
+   * @returns Balance as string, or '0' if not found or error
+   */
+  async getContractBalance(
+    contractId: string,
+    address: string,
+  ): Promise<string> {
+    try {
+      const addressObj = new StellarSdk.Address(address);
+      const retval = await this.readContractValue(contractId, 'balance', [
+        addressObj.toScVal(),
+      ]);
+      if (!retval) {
+        return '0';
+      }
+      try {
+        const balance = StellarSdk.scValToBigInt(retval);
+        return balance.toString();
+      } catch {
+        return '0';
+      }
+    } catch (error) {
+      console.error('Failed to get contract balance:', error);
+      return '0';
+    }
+  }
+
+  async getContractName(contractId: string): Promise<string | null> {
+    try {
+      const scVal = await this.readContractValue(contractId, 'name');
+      if (!scVal) {
+        return null;
+      }
+      const value = StellarSdk.scValToNative(scVal);
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (
+        value &&
+        typeof (value as { toString?: () => string }).toString === 'function'
+      ) {
+        const str = String(value);
+        return str || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get contract name:', error);
+      return null;
+    }
+  }
+
+  async getContractSymbol(contractId: string): Promise<string | null> {
+    try {
+      const scVal = await this.readContractValue(contractId, 'symbol');
+      if (!scVal) {
+        return null;
+      }
+      const value = StellarSdk.scValToNative(scVal);
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (
+        value &&
+        typeof (value as { toString?: () => string }).toString === 'function'
+      ) {
+        const str = String(value);
+        return str || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get contract symbol:', error);
+      return null;
+    }
+  }
+
+  async getContractAdmin(contractId: string): Promise<string | null> {
+    try {
+      const scVal = await this.readContractValue(contractId, 'admin');
+      if (!scVal) {
+        return null;
+      }
+      const value = StellarSdk.scValToNative(scVal);
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (
+        value &&
+        typeof (value as { toString?: () => string }).toString === 'function'
+      ) {
+        const str = String(value);
+        return str || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get contract admin:', error);
+      return null;
+    }
+  }
+
+  async getContractDecimals(contractId: string): Promise<number | null> {
+    try {
+      const scVal = await this.readContractValue(contractId, 'decimals');
+      if (!scVal) {
+        return null;
+      }
+      const value = StellarSdk.scValToNative(scVal);
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === 'bigint') {
+        return Number(value);
+      }
+      if (typeof value === 'string' && value !== '') {
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get contract decimals:', error);
+      return null;
+    }
+  }
+
+  private async readContractValue(
+    contractId: string,
+    fn: string,
+    args: IScVal[] = [],
+  ): Promise<IScVal | undefined> {
+    const account = new StellarSdk.Account(
+      'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+      '0',
+    );
+    const networkPassphrase = this.resolveNetworkPassphrase();
+
+    const transaction = new StellarSdk.TransactionBuilder(account, {
+      fee: '100',
+      networkPassphrase,
+    })
+      .addOperation(
+        StellarSdk.Operation.invokeContractFunction({
+          contract: contractId,
+          function: fn,
+          args,
+        }),
+      )
+      .setTimeout(30)
+      .build();
+
+    const simulateResult = await this.simulateTransaction(transaction.toXDR());
+    const opResults = simulateResult?.results ?? [];
+    return this.parseSimulateRetvalFromOp(opResults[0]);
+  }
+
+  private parseSimulateRetval(
+    retvalBase64: string | undefined,
+  ): IScVal | undefined {
+    if (!retvalBase64) {
+      return undefined;
+    }
+    try {
+      return StellarSdk.xdr.ScVal.fromXDR(retvalBase64, 'base64');
+    } catch {
+      return undefined;
+    }
+  }
+
+  private parseSimulateRetvalFromOp(opResult: unknown): IScVal | undefined {
+    if (!opResult || typeof opResult !== 'object') {
+      return undefined;
+    }
+    const op = opResult as {
+      xdr?: string;
+    };
+    return this.parseSimulateRetval(op.xdr);
   }
 }

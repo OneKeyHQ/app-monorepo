@@ -7,6 +7,15 @@ export type IStellarAsset =
       type: 'ALPHANUM4' | 'ALPHANUM12';
       code: string;
       issuer: string;
+    }
+  | {
+      type: 'CONTRACT';
+      contractId: string;
+      // Optional: link to classic asset if this is a SAC (Stellar Asset Contract)
+      classicAsset?: {
+        code: string;
+        issuer: string;
+      };
     };
 
 // Stellar operation types
@@ -29,6 +38,20 @@ export type IStellarOperation =
       source?: string;
       asset: IStellarAsset;
       limit?: string;
+    }
+  | {
+      type: 'invokeContractFunction';
+      source?: string;
+      contractId: string;
+      function: string;
+      args: any[];
+      // For token transfer operations decoded from contract calls
+      decodedTransfer?: {
+        from: string;
+        to: string;
+        amount: string;
+        asset: IStellarAsset;
+      };
     };
 
 // Stellar memo types
@@ -79,8 +102,8 @@ export type IEncodedTxStellar = {
   // Network passphrase (required for signing)
   networkPassphrase: string;
 
-  // BIP44 derivation path (optional, for hardware wallet)
-  path?: string;
+  // Indicates if transaction is from dApp (should not be modified)
+  isFromDapp?: boolean;
 };
 
 export type IUnsignedMessageStellar = {

@@ -335,6 +335,25 @@ class ServiceCustomToken extends ServiceBase {
       token,
     });
   }
+
+  @backgroundMethod()
+  async convertTokenInfoBeforeSave({
+    networkId,
+    accountId,
+    token,
+  }: {
+    networkId: string;
+    accountId: string;
+    token: IAccountToken;
+  }): Promise<IAccountToken> {
+    const vault = await vaultFactory.getVault({
+      accountId,
+      networkId,
+    });
+    return vault.convertTokenInfoBeforeSave({
+      token,
+    });
+  }
 }
 
 export default ServiceCustomToken;

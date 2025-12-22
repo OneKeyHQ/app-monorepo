@@ -83,6 +83,7 @@ const settingsLoader: Record<
   [IMPL_BFC]: () => import('./impls/bfc/settings'),
   [IMPL_NEO]: () => import('./impls/neo/settings'),
   [IMPL_AGGREGATE]: () => import('./impls/aggregate/settings'),
+  [IMPL_STELLAR]: () => import('./impls/stellar/settings'),
 };
 
 function validateVaultSettings({

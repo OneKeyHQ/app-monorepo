@@ -71,7 +71,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxStellar;
 
     // Extract transaction hash for signing from XDR
-    const txHash = extractTransactionHash(encodedTx.xdr);
+    const txHash = extractTransactionHash(
+      encodedTx.xdr,
+      encodedTx.networkPassphrase,
+    );
 
     // Sign the transaction hash
     const [signature] = await signer.sign(txHash);
@@ -81,11 +84,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     // Assemble signed transaction using utility function
     // This same function will be used by hardware wallet signing
-    return assembleSignedTransaction({
+    const result = assembleSignedTransaction({
       encodedTx: encodedTx.xdr,
       signature,
       publicKey,
+      networkPassphrase: encodedTx.networkPassphrase,
     });
+
+    return result;
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {

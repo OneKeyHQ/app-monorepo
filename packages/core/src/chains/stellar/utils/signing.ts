@@ -11,8 +11,9 @@ export function assembleSignedTransaction(params: {
   encodedTx: string; // Unsigned transaction XDR
   signature: Buffer; // 64-byte Ed25519 signature
   publicKey: Buffer; // 32-byte public key
+  networkPassphrase: string; // Network passphrase for correct hash calculation
 }): ISignedTxPro {
-  const { encodedTx, signature, publicKey } = params;
+  const { encodedTx, signature, publicKey, networkPassphrase } = params;
 
   // Parse transaction envelope to get raw XDR structure
   const txEnvelope = sdkStellar.xdr.TransactionEnvelope.fromXDR(
@@ -38,7 +39,7 @@ export function assembleSignedTransaction(params: {
   // Parse as Transaction to get hash
   const tx = new sdkStellar.StellarSdk.Transaction(
     txEnvelope,
-    sdkStellar.Networks.PUBLIC,
+    networkPassphrase,
   );
   const txHash = tx.hash();
   const txid = bufferUtils.bytesToHex(txHash);
@@ -60,8 +61,9 @@ export function assembleMultiSignedTransaction(params: {
     signature: Buffer;
     publicKey: Buffer;
   }>;
+  networkPassphrase: string; // Network passphrase for correct hash calculation
 }): ISignedTxPro {
-  const { encodedTx, signatures } = params;
+  const { encodedTx, signatures, networkPassphrase } = params;
 
   // Parse transaction envelope to get raw XDR structure
   const txEnvelope = sdkStellar.xdr.TransactionEnvelope.fromXDR(
@@ -85,7 +87,7 @@ export function assembleMultiSignedTransaction(params: {
   // Parse as Transaction to get hash
   const tx = new sdkStellar.StellarSdk.Transaction(
     txEnvelope,
-    sdkStellar.Networks.PUBLIC,
+    networkPassphrase,
   );
   const txHash = tx.hash();
   const txid = bufferUtils.bytesToHex(txHash);

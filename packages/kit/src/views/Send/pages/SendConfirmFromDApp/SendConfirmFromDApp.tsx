@@ -5,6 +5,7 @@ import { AppState } from 'react-native';
 
 import { Page, Spinner, Stack } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { IEncodedTxStellar } from '@onekeyhq/core/src/chains/stellar/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
@@ -21,6 +22,27 @@ import type {
   NavigationAction,
   StackActionType,
 } from '@react-navigation/native';
+
+// Helper to detect Stellar Soroban transaction
+function isStellarSorobanTransaction(
+  encodedTx: IEncodedTx,
+  networkId: string,
+): boolean {
+  // Check if network is Stellar
+  if (!networkId.startsWith('stellar')) {
+    return false;
+  }
+
+  // Check if encodedTx is Stellar type with xdr
+  const stellarTx = encodedTx as IEncodedTxStellar;
+  if (stellarTx.xdr && typeof stellarTx.xdr === 'string') {
+    // Soroban transactions typically have XDR > 3000 characters
+    // due to ext field with contract data
+    return stellarTx.xdr.length > 3000;
+  }
+
+  return false;
+}
 
 function SendConfirmFromDApp() {
   const navigation = useNavigation();
@@ -115,6 +137,12 @@ function SendConfirmFromDApp() {
       let newEncodedTx = encodedTx;
       let feeInfoEditable = true;
       if (newEncodedTx) {
+        // Check for Stellar Soroban transaction - fee should not be editable
+        if (isStellarSorobanTransaction(newEncodedTx, networkId)) {
+          console.log('[SendConfirmFromDApp] Stellar Soroban detected: feeInfoEditable = false');
+          feeInfoEditable = false;
+        }
+
         const vaultSettings =
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,
@@ -129,7 +157,7 @@ function SendConfirmFromDApp() {
           if (encodedTxWithFee === '') {
             feeInfoEditable = false;
           } else {
-            feeInfoEditable = true;
+            feeInfoEditable = feeInfoEditable && true; // Keep false if Soroban
             newEncodedTx = encodedTxWithFee;
           }
         }

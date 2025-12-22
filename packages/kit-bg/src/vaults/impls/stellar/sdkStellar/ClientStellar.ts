@@ -1,14 +1,14 @@
 /* eslint-disable spellcheck/spell-checker */
-import { Networks } from '.';
-
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { BASE_FEE } from '../utils';
+import { BASE_FEE, getNetworkPassphrase } from '../utils';
 
 import { HorizonTransport } from './HorizonTransport';
 import { JsonRpcTransport } from './JsonRpcTransport';
 import { OneKeyTransport } from './OneKeyTransport';
+
+import type { EStellarAssetType } from '../types';
 
 type IStellarBalance = {
   asset_type: string;
@@ -78,10 +78,17 @@ export default class ClientStellar {
       this.transport = new OneKeyTransport({ backgroundApi, networkId });
     } else if (customRpcUrl && this.isSorobanRpcUrl(customRpcUrl)) {
       // Mode 2: Soroban RPC (for smart contracts)
-      this.transport = new JsonRpcTransport({ rpcUrl: customRpcUrl });
+      this.transport = new JsonRpcTransport({
+        rpcUrl: customRpcUrl,
+        networkId,
+      });
     } else if (customRpcUrl) {
       // Mode 3: Custom Horizon endpoint
-      this.transport = new HorizonTransport({ horizonUrl: customRpcUrl });
+      this.transport = new JsonRpcTransport({
+        rpcUrl: customRpcUrl,
+        networkId,
+      });
+      // this.transport = new HorizonTransport({ horizonUrl: customRpcUrl });
     } else {
       // Mode 4: Default - Public Horizon API (recommended for Classic Assets)
       this.transport = new HorizonTransport({ networkId });
@@ -237,9 +244,7 @@ export default class ClientStellar {
   async getSequence(address: string): Promise<string> {
     const accountInfo = await this.getAccountInfo(address);
     if (!accountInfo) {
-      throw new OneKeyInternalError(
-        `Account ${address} not found on network`,
-      );
+      throw new OneKeyInternalError(`Account ${address} not found on network`);
     }
     return accountInfo.sequence;
   }
@@ -263,13 +268,7 @@ export default class ClientStellar {
    * Get network passphrase
    */
   async getNetworkPassphrase(): Promise<string> {
-    // Use networkId to determine the correct network passphrase
-    // Stellar has specific network passphrases for mainnet and testnet
-    if (this.networkId.includes('testnet')) {
-      return Networks.TESTNET;
-    }
-    // Default to mainnet for 'stellar--mainnet' or any other stellar network
-    return Networks.PUBLIC;
+    return getNetworkPassphrase(this.networkId);
   }
 
   /**
@@ -300,7 +299,10 @@ export default class ClientStellar {
    * Get token balances for an account
    * Returns all non-native assets (trustlines)
    */
-  async getTokenBalances(address: string): Promise<
+  async getStellarAssetBalances(
+    address: string,
+    assets?: Array<{ assetCode: string; assetIssuer: string }>,
+  ): Promise<
     Array<{
       asset_type: string;
       asset_code: string;
@@ -309,6 +311,30 @@ export default class ClientStellar {
     }>
   > {
     try {
+      if (assets?.length && 'getTrustlines' in this.transport) {
+        const chunkSize = 200;
+        const results: Array<{
+          asset_type: string;
+          asset_code: string;
+          asset_issuer: string;
+          balance: string;
+        }> = [];
+        for (let i = 0; i < assets.length; i += chunkSize) {
+          const chunk = assets.slice(i, i + chunkSize);
+          const trustlines = await this.transport.getTrustlines(address, chunk);
+          results.push(
+            ...trustlines.map((t) => ({
+              asset_type: t.asset_type,
+              asset_code: t.asset_code || '',
+              asset_issuer: t.asset_issuer || '',
+              balance: t.balance,
+            })),
+          );
+        }
+        console.log('====>getTokenBalances: results: ', results);
+        return results;
+      }
+
       const accountInfo = await this.getAccountInfo(address);
       if (!accountInfo) {
         return [];
@@ -327,5 +353,53 @@ export default class ClientStellar {
       console.error('Failed to get token balances:', error);
       return [];
     }
+  }
+
+  /**
+   * Get contract token balances for an account
+   * Queries Soroban contract tokens via RPC simulation
+   *
+   * @param address - Account address
+   * @param contractIds - Array of contract addresses (C... encoded)
+   * @returns Array of contract balances
+   */
+  async getContractTokenBalances(
+    address: string,
+    contractIds: string[],
+  ): Promise<Array<{ contractId: string; balance: string }>> {
+    if (!contractIds.length) {
+      return [];
+    }
+
+    // Only JsonRpcTransport supports contract balance queries
+    if ('getContractBalances' in this.transport) {
+      return this.transport.getContractBalances(address, contractIds);
+    }
+
+    // Fallback: return zero balances for other transports
+    return contractIds.map((contractId) => ({
+      contractId,
+      balance: '0',
+    }));
+  }
+
+  /**
+   * Get token metadata for SEP-41 tokens
+   * @param contractId - Contract address (C... encoded)
+   */
+  async getContractTokenInfo(contractId: string): Promise<{
+    name: string;
+    symbol: string;
+    decimals: number;
+    admin?: string;
+    type: EStellarAssetType;
+  }> {
+    if ('getContractTokenInfo' in this.transport) {
+      return this.transport.getContractTokenInfo(contractId);
+    }
+
+    throw new OneKeyInternalError(
+      'getContractTokenInfo is only available with JsonRpcTransport (custom RPC)',
+    );
   }
 }

@@ -1,4 +1,6 @@
 /* eslint-disable spellcheck/spell-checker */
+import type { ISimulateTransactionResponse } from './types';
+
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -200,7 +202,9 @@ export class OneKeyTransport {
    * simulateTransaction - Test a contract invocation without execution
    * Proxied through OneKey servers
    */
-  async simulateTransaction(transaction: string): Promise<any> {
+  async simulateTransaction(
+    transaction: string,
+  ): Promise<ISimulateTransactionResponse> {
     return this.request({
       method: 'POST',
       path: '/simulate_transaction',

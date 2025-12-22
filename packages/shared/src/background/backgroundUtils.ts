@@ -37,6 +37,7 @@ import {
   IMPL_TBTC,
   IMPL_TON,
   IMPL_TRON,
+  IMPL_STELLAR,
 } from '../engine/engineConsts';
 import { NotAutoPrintError } from '../errors';
 import errorUtils from '../errors/utils/errorUtils';
@@ -304,6 +305,7 @@ export const scopeNetworks: Record<
   'webln': [IMPL_LIGHTNING, IMPL_LIGHTNING_TESTNET],
   'nostr': [IMPL_NOSTR],
   'neo': [IMPL_NEO],
+  'stellar': [IMPL_STELLAR],
   '$hardware_sdk': undefined,
   '$private': undefined,
   '$walletConnect': undefined,

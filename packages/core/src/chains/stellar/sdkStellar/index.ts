@@ -12,7 +12,10 @@ export function decodeAddress(address: string): Buffer {
 
 export function isValidAddress(address: string): boolean {
   try {
-    return StellarSdk.StrKey.isValidEd25519PublicKey(address);
+    return (
+      StellarSdk.StrKey.isValidEd25519PublicKey(address) ||
+      StellarSdk.StrKey.isValidMed25519PublicKey(address)
+    );
   } catch (error) {
     return false;
   }

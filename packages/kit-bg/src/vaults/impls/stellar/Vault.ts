@@ -84,6 +84,7 @@ import sdkStellar, {
   TransactionBuilder,
 } from './sdkStellar';
 import ClientStellar from './sdkStellar/ClientStellar';
+import { EStellarAssetType } from './types';
 import {
   BASE_FEE,
   ENTRY_RESERVE,
@@ -91,7 +92,10 @@ import {
   SAC_TOKEN_DECIMALS,
   buildMemoFromString,
   calculateAvailableBalance,
+  getNetworkPassphrase,
+  isContractAddress,
   isValidAccountCreationAmount,
+  parseTokenAddress,
 } from './utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -159,6 +163,14 @@ export default class Vault extends VaultBase {
   // ========== END: LOCAL DEVELOPMENT RPC SUPPORT ==========
 
   /**
+   * Get network passphrase based on current networkId
+   * Uses the utility function from utils.ts
+   */
+  async getNetworkPassphrase(): Promise<string> {
+    return getNetworkPassphrase(this.networkId);
+  }
+
+  /**
    * Check if account exists on the network
    */
   async checkAccountExists(address: string): Promise<boolean> {
@@ -201,13 +213,14 @@ export default class Vault extends VaultBase {
     // Get account sequence
     const fromAccountInfo = await client.getAccountInfo(from);
     if (!fromAccountInfo) {
+      console.error('=====>>>>> fromAccountInfo not found: ', from);
       throw new OneKeyInternalError(
         `Source account ${from} not found on network`,
       );
     }
 
     // Get network passphrase
-    const networkPassphrase = await client.getNetworkPassphrase();
+    const networkPassphrase = getNetworkPassphrase(this.networkId);
 
     // Get suggested fee
     const fee = await client.getSuggestedFee();
@@ -221,12 +234,6 @@ export default class Vault extends VaultBase {
       networkPassphrase,
     });
 
-    // Add memo if provided
-    const memoField = buildMemoFromString(memo);
-    if (memoField) {
-      transactionBuilder.addMemo(memoField);
-    }
-
     // Create asset
     const asset = new Asset(assetCode, assetIssuer);
 
@@ -239,12 +246,23 @@ export default class Vault extends VaultBase {
     );
 
     // Set timeout
-    transactionBuilder.setTimeout(30);
+    transactionBuilder.setTimeout(
+      timerUtils.getTimeDurationMs({ minute: 5 }) / 1000,
+    );
 
     // Build transaction
     const transaction = transactionBuilder.build();
     const xdr = transaction.toXDR();
 
+    console.log('=====>>>>> buildChangeTrustTx: ', {
+      from,
+      assetCode,
+      assetIssuer,
+      limit,
+      memo,
+      xdr,
+      networkPassphrase,
+    });
     // Return encoded transaction (XDR as single source of truth)
     return {
       xdr,
@@ -252,9 +270,28 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override async convertTokenInfoBeforeSave({
+    token,
+  }: {
+    token: IAccountToken;
+  }): Promise<IAccountToken> {
+    if (token.stellarTokenType === EStellarAssetType.StellarAssetContract) {
+      return {
+        ...token,
+        address: token.stellarContractAddress ?? token.address,
+      };
+    }
+    return token;
+  }
+
   /**
    * Activate token by creating trustline
    * Stellar requires trustline to receive non-native tokens
+   *
+   * For SAC (Stellar Asset Contract):
+   * - Prioritizes Classic Asset activation (lower fees)
+   * - Checks if underlying Classic Asset trustline exists
+   * - Creates trustline using Classic Asset format
    */
   override async activateToken(params: {
     token: IAccountToken;
@@ -269,13 +306,20 @@ export default class Vault extends VaultBase {
     const dbAccount = await this.getAccount();
     const network = await this.getNetwork();
     const client = await this.getClient();
-    const [assetCode, assetIssuer] = token.address.split(':');
-    if (!assetCode || !assetIssuer) {
-      throw new OneKeyInternalError(
-        `Invalid token address format: ${token.address}. Expected "assetCode:assetIssuer"`,
-      );
+
+    if (token.stellarTokenType === EStellarAssetType.ContractToken) {
+      return Promise.resolve(true);
     }
 
+    const [assetCode, assetIssuer] = (
+      token.stellarContractAddress ?? token.address
+    ).split(':');
+
+    const hasTrustline = await client.hasTrustline(
+      dbAccount.address,
+      assetCode,
+      assetIssuer,
+    );
     const accountInfo = await client.getAccountInfo(dbAccount.address);
     if (!accountInfo) {
       throw new OneKeyInternalError(
@@ -283,10 +327,7 @@ export default class Vault extends VaultBase {
       );
     }
 
-    // Check if trustline already exists
-    const hasTrustline = accountInfo.balances?.some(
-      (b) => b.asset_code === assetCode && b.asset_issuer === assetIssuer,
-    );
+    console.log('=====>>>>> hasTrustline: ', hasTrustline, accountInfo);
 
     if (hasTrustline) {
       return Promise.resolve(true);
@@ -298,8 +339,10 @@ export default class Vault extends VaultBase {
         numSubEntries: accountInfo.subentry_count,
       }),
     );
-    const reserveRequired = new BigNumber(ENTRY_RESERVE);
-    const feeRequired = new BigNumber(BASE_FEE).shiftedBy(-network.decimals);
+    const reserveRequired = new BigNumber(ENTRY_RESERVE).shiftedBy(
+      network.decimals,
+    );
+    const feeRequired = new BigNumber(BASE_FEE).shiftedBy(network.decimals);
     if (availableBalance.lt(reserveRequired.plus(feeRequired))) {
       throw new ManageTokenInsufficientBalanceError({
         info: {
@@ -381,6 +424,7 @@ export default class Vault extends VaultBase {
 
     const transferInfo = transfersInfo[0];
     const { from, to, amount, tokenInfo } = transferInfo;
+    const isToMuxed = StrKey.isValidMed25519PublicKey(to);
 
     if (!from || !to) {
       throw new OneKeyInternalError('from and to addresses are required');
@@ -405,7 +449,7 @@ export default class Vault extends VaultBase {
     const toAccountExists = await client.accountExists(to);
 
     // Get network passphrase
-    const networkPassphrase = await client.getNetworkPassphrase();
+    const networkPassphrase = getNetworkPassphrase(this.networkId);
 
     // Get suggested fee or use default
     const fee = await client.getSuggestedFee();
@@ -431,6 +475,11 @@ export default class Vault extends VaultBase {
       const amountInXlm = new BigNumber(amount).toFixed(network.decimals);
 
       if (!toAccountExists) {
+        if (isToMuxed) {
+          throw new OneKeyInternalError(
+            'Cannot create account with a muxed (M...) address',
+          );
+        }
         // Use createAccount for non-existent accounts
         if (!isValidAccountCreationAmount(amountInXlm)) {
           throw new OneKeyInternalError(
@@ -462,42 +511,71 @@ export default class Vault extends VaultBase {
         );
       }
 
-      // Parse token address: format is "assetCode:assetIssuer"
-      const [assetCode, assetIssuer] = tokenInfo.address.split(':');
-      if (!assetCode || !assetIssuer) {
-        throw new OneKeyInternalError(
-          `Invalid token address format: ${tokenInfo.address}. Expected "assetCode:assetIssuer"`,
+      // Parse token address to determine if it's classic or contract
+      const tokenAddressParsed = parseTokenAddress(tokenInfo.address);
+
+      if (tokenAddressParsed.type === 'contract') {
+        // Contract Token (Soroban Token) transfer
+        const contractId = tokenAddressParsed.contractId!;
+        const amountFormatted = new BigNumber(amount)
+          .shiftedBy(tokenInfo.decimals)
+          .toFixed();
+
+        // Build Soroban contract invocation for token transfer
+        // Using invokeContractFunction to call contract's transfer function
+        const fromAddress = new sdkStellar.StellarSdk.Address(from);
+        const toAddress = new sdkStellar.StellarSdk.Address(to);
+
+        transactionBuilder.addOperation(
+          sdkStellar.StellarSdk.Operation.invokeContractFunction({
+            contract: contractId,
+            function: 'transfer',
+            args: [
+              fromAddress.toScVal(),
+              toAddress.toScVal(),
+              sdkStellar.StellarSdk.nativeToScVal(amountFormatted, {
+                type: 'i128',
+              }),
+            ],
+          }),
+        );
+      } else {
+        // Classic Asset transfer
+        const assetCode = tokenAddressParsed.code!;
+        const assetIssuer = tokenAddressParsed.issuer!;
+
+        // Check if destination has trustline
+        const hasTrustline = await client.hasTrustline(
+          to,
+          assetCode,
+          assetIssuer,
+        );
+
+        if (!hasTrustline) {
+          throw new OneKeyInternalError(
+            `Destination account does not have trustline for ${assetCode}`,
+          );
+        }
+
+        const asset = new Asset(assetCode, assetIssuer);
+        const amountFormatted = new BigNumber(amount).toFixed(
+          tokenInfo.decimals,
+        );
+
+        transactionBuilder.addOperation(
+          Operation.payment({
+            destination: to,
+            asset,
+            amount: amountFormatted,
+          }),
         );
       }
-
-      // Check if destination has trustline
-      const hasTrustline = await client.hasTrustline(
-        to,
-        assetCode,
-        assetIssuer,
-      );
-
-      if (!hasTrustline) {
-        throw new OneKeyInternalError(
-          `Destination account does not have trustline for ${assetCode}`,
-        );
-      }
-
-      const asset = new Asset(assetCode, assetIssuer);
-      const amountFormatted = new BigNumber(amount).toFixed(tokenInfo.decimals);
-
-      transactionBuilder.addOperation(
-        Operation.payment({
-          destination: to,
-          asset,
-          amount: amountFormatted,
-        }),
-      );
     }
 
     // Set timeout
-    const timeoutSeconds = timerUtils.getTimeDurationMs({ minute: 5 }) / 1000;
-    transactionBuilder.setTimeout(timeoutSeconds);
+    transactionBuilder.setTimeout(
+      timerUtils.getTimeDurationMs({ minute: 5 }) / 1000,
+    );
 
     // Build transaction
     const transaction = transactionBuilder.build();
@@ -586,7 +664,7 @@ export default class Vault extends VaultBase {
       let action: IDecodedTxAction | null = null;
 
       if (op.type === 'payment') {
-        const paymentOp = op as StellarSdk.Operation.Payment;
+        const paymentOp = op;
         const from = paymentOp.source ?? tx.source ?? accountAddress;
         const to = paymentOp.destination;
 
@@ -629,7 +707,7 @@ export default class Vault extends VaultBase {
           transfers: [transfer],
         });
       } else if (op.type === 'createAccount') {
-        const createAccountOp = op as StellarSdk.Operation.CreateAccount;
+        const createAccountOp = op;
         const from = createAccountOp.source ?? tx.source ?? accountAddress;
         const to = createAccountOp.destination;
         const transfer: IDecodedTxTransferInfo = {
@@ -651,7 +729,7 @@ export default class Vault extends VaultBase {
           transfers: [transfer],
         });
       } else if (op.type === 'changeTrust') {
-        const changeTrustOp = op as StellarSdk.Operation.ChangeTrust;
+        const changeTrustOp = op;
         const assetLine = changeTrustOp.line;
         if (assetLine instanceof Asset) {
           const assetInfo = this._convertAssetToIStellarAsset(assetLine);
@@ -679,6 +757,49 @@ export default class Vault extends VaultBase {
               },
             };
           }
+        }
+      } else if (op.type === 'invokeHostFunction') {
+        // Handle Soroban contract calls
+        const invokeOp = op;
+        const decodedContractCall = this._decodeContractCall(invokeOp);
+
+        if (decodedContractCall?.isTokenTransfer) {
+          const {
+            contractId,
+            from: transferFrom,
+            to: transferTo,
+            amount: transferAmount,
+          } = decodedContractCall;
+          const tokenIdOnNetwork = contractId;
+          const tokenInfo = await ensureTokenInfo(tokenIdOnNetwork, {
+            address: tokenIdOnNetwork,
+            decimals: SAC_TOKEN_DECIMALS,
+            logoURI: '',
+            name: contractId.substring(0, 8), // Fallback name
+            symbol: contractId.substring(0, 6), // Fallback symbol
+            isNative: false,
+          });
+
+          const transfer: IDecodedTxTransferInfo = {
+            from: transferFrom,
+            to: transferTo,
+            amount: new BigNumber(transferAmount)
+              .shiftedBy(-tokenInfo.decimals)
+              .toFixed(),
+            tokenIdOnNetwork,
+            icon: tokenInfo.logoURI ?? '',
+            name: tokenInfo.name,
+            symbol: tokenInfo.symbol,
+            isNFT: false,
+            isNative: false,
+          };
+
+          // eslint-disable-next-line no-await-in-loop
+          action = await this.buildTxTransferAssetAction({
+            from: transferFrom,
+            to: transferTo,
+            transfers: [transfer],
+          });
         }
       }
 
@@ -756,10 +877,6 @@ export default class Vault extends VaultBase {
     unsignedTx.encodedTx = builtEncodedTx;
     unsignedTx.transfersInfo = params.transfersInfo ?? [];
 
-    if (typeof params.prevNonce === 'number') {
-      unsignedTx.nonce = new BigNumber(params.prevNonce).plus(1).toNumber();
-    }
-
     return unsignedTx;
   }
 
@@ -769,178 +886,43 @@ export default class Vault extends VaultBase {
     const { unsignedTx, nativeAmountInfo, feeInfo, nonceInfo } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxStellar;
 
+    // dApp transactions should not be modified - they have already been simulated
+    // with proper Soroban resource data
+    if (encodedTx.isFromDapp) {
+      return unsignedTx;
+    }
+
     // If nothing to update, return original
     if (!nativeAmountInfo && !feeInfo && !nonceInfo) {
       return unsignedTx;
     }
 
-    try {
-      // For Stellar SDK, we need to rebuild the entire transaction
-      // This is the simplest approach for modifications
-      const newXdr = await this._updateTransactionXdr({
-        xdr: encodedTx.xdr,
-        networkPassphrase: encodedTx.networkPassphrase,
-        nativeAmountInfo,
-        feeInfo,
-        nonceInfo,
-      });
+    // For local transactions, we can rebuild with updated parameters
+    // Use the original transfersInfo to rebuild the transaction
+    if (unsignedTx.transfersInfo && unsignedTx.transfersInfo.length > 0) {
+      const transfersInfo = unsignedTx.transfersInfo;
 
-      if (nonceInfo) {
-        unsignedTx.nonce = nonceInfo.nonce;
-      }
-
-      unsignedTx.encodedTx = {
-        ...encodedTx,
-        xdr: newXdr,
-      };
-
-      return unsignedTx;
-    } catch (error) {
-      console.error('Failed to update unsigned tx:', error);
-      throw new OneKeyInternalError('Failed to update transaction');
-    }
-  }
-
-  /**
-   * Update transaction XDR with new values
-   * Simpler approach: parse minimal info and rebuild
-   */
-  private async _updateTransactionXdr(params: {
-    xdr: string;
-    networkPassphrase: string;
-    nativeAmountInfo?: INativeAmountInfo;
-    feeInfo?: IFeeInfoUnit;
-    nonceInfo?: { nonce: number };
-  }): Promise<string> {
-    const { xdr, networkPassphrase, nativeAmountInfo, feeInfo, nonceInfo } =
-      params;
-
-    const network = await this.getNetwork();
-    const parsedTx = sdkStellar.StellarSdk.TransactionBuilder.fromXDR(
-      xdr,
-      networkPassphrase,
-    );
-    if (!(parsedTx instanceof sdkStellar.StellarSdk.Transaction)) {
-      throw new OneKeyInternalError(
-        'Only classic transactions can be updated currently.',
-      );
-    }
-    const tx = parsedTx;
-
-    const resolvedFee = this._resolveStellarFeeFromFeeInfo(
-      feeInfo,
-      network.decimals,
-    );
-    const cloneOverrides = resolvedFee
-      ? {
-          fee: resolvedFee,
-        }
-      : undefined;
-
-    const builder = sdkStellar.StellarSdk.TransactionBuilder.cloneFrom(
-      tx,
-      cloneOverrides,
-    );
-
-    if (nonceInfo) {
-      const targetSequence = new BigNumber(nonceInfo.nonce);
-      if (!targetSequence.isInteger() || targetSequence.lte(0)) {
-        throw new OneKeyInternalError('Invalid nonce value provided.');
-      }
-      const builderSequence = targetSequence.minus(1).toFixed(0);
-      const builderWithSource = builder as StellarSdk.TransactionBuilder & {
-        source?: StellarSdk.Account | StellarSdk.MuxedAccount;
-      };
-      builderWithSource.source = StrKey.isValidMed25519PublicKey(tx.source)
-        ? sdkStellar.StellarSdk.MuxedAccount.fromAddress(
-            tx.source,
-            builderSequence,
-          )
-        : new Account(tx.source, builderSequence);
-    }
-
-    const txEnvelope = tx.toEnvelope();
-    const envelopeType = txEnvelope.switch();
-    if (
-      envelopeType !== sdkStellar.xdr.EnvelopeType.envelopeTypeTx() &&
-      envelopeType !== sdkStellar.xdr.EnvelopeType.envelopeTypeTxV0()
-    ) {
-      throw new OneKeyInternalError(
-        'Unsupported transaction envelope type when rebuilding.',
-      );
-    }
-    let rawOperations: StellarSdk.xdr.Operation[] = [];
-    if (envelopeType === sdkStellar.xdr.EnvelopeType.envelopeTypeTxV0()) {
-      const inner = txEnvelope.value() as StellarSdk.xdr.TransactionV0Envelope;
-      rawOperations = inner.tx().operations() ?? [];
-    } else if (envelopeType === sdkStellar.xdr.EnvelopeType.envelopeTypeTx()) {
-      const inner = txEnvelope.value() as StellarSdk.xdr.TransactionV1Envelope;
-      rawOperations = inner.tx().operations() ?? [];
-    }
-
-    builder.clearOperations();
-
-    for (let i = 0; i < tx.operations.length; i += 1) {
-      const op = tx.operations[i];
-      let handled = false;
-
-      if (nativeAmountInfo && op.type === 'payment') {
-        const paymentOp = op;
-        if (paymentOp.asset.isNative()) {
-          const newAmount =
-            nativeAmountInfo.maxSendAmount ?? nativeAmountInfo.amount;
-          if (newAmount) {
-            builder.addOperation(
-              Operation.payment({
-                destination: paymentOp.destination,
-                asset: Asset.native(),
-                amount: new BigNumber(newAmount).toFixed(network.decimals),
-                source: paymentOp.source,
-              }),
-            );
-            handled = true;
-          }
-        }
-      }
-
-      if (!handled && nativeAmountInfo && op.type === 'createAccount') {
-        const createOp = op;
+      // Update amount if provided
+      if (nativeAmountInfo) {
         const newAmount =
           nativeAmountInfo.maxSendAmount ?? nativeAmountInfo.amount;
         if (newAmount) {
-          builder.addOperation(
-            Operation.createAccount({
-              destination: createOp.destination,
-              startingBalance: new BigNumber(newAmount).toFixed(
-                network.decimals,
-              ),
-              source: createOp.source,
-            }),
-          );
-          handled = true;
+          transfersInfo[0] = {
+            ...transfersInfo[0],
+            amount: newAmount,
+          };
         }
       }
 
-      if (handled) {
-        // Already replaced operation with updated value
-        // eslint-disable-next-line no-continue
-        continue;
-      }
+      // Rebuild the transaction with updated parameters
+      const newEncodedTx = (await this.buildEncodedTx({
+        transfersInfo,
+      })) as IEncodedTxStellar;
 
-      const opXdr = rawOperations[i];
-      if (!opXdr) {
-        throw new OneKeyInternalError(
-          'Failed to locate original operation XDR data.',
-        );
-      }
-      builder.addOperation(opXdr);
+      unsignedTx.encodedTx = newEncodedTx;
     }
 
-    if (!tx.timeBounds) {
-      builder.setTimeout(300);
-    }
-
-    return builder.build().toXDR();
+    return unsignedTx;
   }
 
   /**
@@ -962,6 +944,97 @@ export default class Vault extends VaultBase {
       code,
       issuer,
     };
+  }
+
+  /**
+   * Decode Soroban contract call to extract transfer information
+   */
+  private _decodeContractCall(op: StellarSdk.Operation.InvokeHostFunction): {
+    isTokenTransfer: boolean;
+    contractId: string;
+    from: string;
+    to: string;
+    amount: string;
+  } | null {
+    try {
+      // Extract contract address and function from the HostFunction
+      const hostFunction = op.func;
+
+      // Check if this is an invokeContract call
+      if (hostFunction.switch().name !== 'hostFunctionTypeInvokeContract') {
+        return null;
+      }
+
+      const invokeContract = hostFunction.invokeContract();
+      const contractAddress = invokeContract.contractAddress();
+      const functionName = invokeContract.functionName();
+      const args = invokeContract.args();
+
+      // Check if this is a 'transfer' function call
+      const functionNameStr = functionName.toString('utf8');
+      if (functionNameStr !== 'transfer') {
+        return null;
+      }
+
+      // Parse contract address
+      const contractId = sdkStellar.StellarSdk.StrKey.encodeContract(
+        contractAddress.contractId(),
+      );
+
+      // Extract transfer parameters: from, to, amount
+      if (args.length < 3) {
+        return null;
+      }
+
+      const fromScVal = args[0];
+      const toScVal = args[1];
+      const amountScVal = args[2];
+
+      // Convert ScVal to native values
+      const fromAddress = this._scValToAddress(fromScVal);
+      const toAddress = this._scValToAddress(toScVal);
+      const amount = this._scValToAmount(amountScVal);
+
+      if (!fromAddress || !toAddress || !amount) {
+        return null;
+      }
+
+      return {
+        isTokenTransfer: true,
+        contractId,
+        from: fromAddress,
+        to: toAddress,
+        amount,
+      };
+    } catch (error) {
+      console.error('Failed to decode contract call:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Convert ScVal (Soroban Value) to Stellar address string
+   */
+  private _scValToAddress(scVal: StellarSdk.xdr.ScVal): string | null {
+    try {
+      const address = sdkStellar.StellarSdk.Address.fromScVal(scVal);
+      return address.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Convert ScVal to amount string
+   */
+  private _scValToAmount(scVal: StellarSdk.xdr.ScVal): string | null {
+    try {
+      // Try to convert to i128 or u128
+      const value = sdkStellar.StellarSdk.scValToBigInt(scVal);
+      return value.toString();
+    } catch {
+      return null;
+    }
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
@@ -1174,7 +1247,7 @@ export default class Vault extends VaultBase {
         data: {
           address: params.accountAddress,
           balance,
-          balanceParsed: balanceParsed,
+          balanceParsed,
           nonce: parseInt(accountInfo.sequence, 10),
         },
       },
@@ -1194,8 +1267,71 @@ export default class Vault extends VaultBase {
 
     const accountAddress = params.accountAddress;
     const hasAccountAddress = Boolean(accountAddress);
+    const contractList = params.contractList ?? [];
+
+    // Separate classic assets and contract tokens
+    const classicAssetList: Array<{ assetCode: string; assetIssuer: string }> =
+      [];
+    const contractTokenList: string[] = [];
+
+    for (const contract of contractList) {
+      if (!contract || contract === networkInfo.nativeTokenAddress) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
+      const parsed = parseTokenAddress(contract);
+      if (parsed.type === 'contract') {
+        contractTokenList.push(parsed.contractId!);
+      } else if (parsed.type === 'classic') {
+        classicAssetList.push({
+          assetCode: parsed.code!,
+          assetIssuer: parsed.issuer!,
+        });
+      }
+    }
+
+    // Get classic asset balances
+    const tokenBalances = hasAccountAddress
+      ? await client.getStellarAssetBalances(
+          accountAddress ?? '',
+          classicAssetList,
+        )
+      : [];
+    const balancesByContract = new Map(
+      tokenBalances.map((balance) => [
+        `${balance.asset_code}:${balance.asset_issuer}`,
+        balance,
+      ]),
+    );
+
+    // Get contract token balances
+    const contractBalances =
+      hasAccountAddress && contractTokenList.length > 0
+        ? await client.getContractTokenBalances(
+            accountAddress ?? '',
+            contractTokenList,
+          )
+        : [];
+    const balancesByContractId = new Map(
+      contractBalances.map((b) => [b.contractId, b.balance]),
+    );
+
+    const contractTokenInfos =
+      contractTokenList.length > 0
+        ? await Promise.all(
+            contractTokenList.map(async (contractId) => ({
+              contractId,
+              info: await client.getContractTokenInfo(contractId),
+            })),
+          )
+        : [];
+    const tokenInfoByContractId = new Map(
+      contractTokenInfos.map((item) => [item.contractId, item.info]),
+    );
+
     const resp: (IFetchTokenDetailItem | undefined)[] = await Promise.all(
-      params.contractList?.map(async (contract) => {
+      contractList?.map(async (contract) => {
         if (contract === networkInfo.nativeTokenAddress) {
           let accountDetails:
             | IFetchServerAccountDetailsResponse['data']['data']
@@ -1219,6 +1355,8 @@ export default class Vault extends VaultBase {
               logoURI: network.logoURI,
               networkId: network.id,
               isNative: true,
+              stellarContractAddress: networkInfo.nativeTokenAddress,
+              stellarTokenType: EStellarAssetType.Native,
             },
             balance: accountDetails?.balance ?? '0',
             balanceParsed: accountDetails?.balanceParsed ?? '0',
@@ -1229,27 +1367,81 @@ export default class Vault extends VaultBase {
           return nativeItem;
         }
 
-        // Parse token contract address: assetCode:assetIssuer
-        const [assetCode, assetIssuer] = contract.split(':');
-        if (!assetCode || !assetIssuer) {
-          return undefined;
+        // Parse token address to determine type
+        const parsed = parseTokenAddress(contract);
+
+        if (parsed.type === EStellarAssetType.ContractToken) {
+          // Contract Token
+          const contractTokenInfo = await client.getContractTokenInfo(
+            parsed.contractId ?? '',
+          );
+          console.log('=====>>>>> contractTokenInfo: ', contractTokenInfo);
+          if (!contractTokenInfo) {
+            return undefined;
+          }
+          const { name, symbol, decimals, admin, type } = contractTokenInfo;
+          let balanceForAccount = '0';
+          let balanceParsedForAccount = '0';
+
+          if (hasAccountAddress) {
+            const contractBalance = balancesByContractId.get(
+              parsed.contractId ?? '',
+            );
+            if (contractBalance) {
+              balanceForAccount = contractBalance;
+              balanceParsedForAccount = new BigNumber(contractBalance)
+                .shiftedBy(-decimals)
+                .toFixed();
+            }
+          }
+
+          let contractAddress = parsed.contractId;
+          if (type === EStellarAssetType.StellarAssetContract) {
+            contractAddress = `${symbol}:${admin ?? ''}`;
+          }
+
+          let tokenName = name;
+          if (type === EStellarAssetType.StellarAssetContract) {
+            tokenName = symbol;
+          }
+
+          return {
+            info: {
+              decimals,
+              name: tokenName,
+              symbol,
+              address: contract,
+              networkId: network.id,
+              logoURI: '',
+              isNative: false,
+              stellarContractAddress: contractAddress,
+              stellarTokenType: type,
+            },
+            balance: balanceForAccount,
+            balanceParsed: balanceParsedForAccount,
+            fiatValue: '0',
+            price: 0,
+          };
         }
+
+        // Classic Asset
+        const assetCode = parsed.code!;
+        const assetIssuer = parsed.issuer!;
 
         let balanceForAccount = '0';
         let balanceParsedForAccount = '0';
 
         if (hasAccountAddress) {
-          const balances = await client.getTokenBalances(accountAddress ?? '');
-          const tokenBalance = balances.find(
-            (b) => b.asset_code === assetCode && b.asset_issuer === assetIssuer,
+          const tokenBalance = balancesByContract.get(
+            `${assetCode}:${assetIssuer}`,
           );
 
           if (tokenBalance) {
-            balanceForAccount = new BigNumber(tokenBalance.balance)
-              .shiftedBy(SAC_TOKEN_DECIMALS)
-              .decimalPlaces(0, BigNumber.ROUND_DOWN)
-              .toFixed(0);
-            balanceParsedForAccount = tokenBalance.balance;
+            // tokenBalance.balance is already in smallest unit (stroops) from HorizonTransport
+            balanceForAccount = tokenBalance.balance;
+            balanceParsedForAccount = new BigNumber(tokenBalance.balance)
+              .shiftedBy(-SAC_TOKEN_DECIMALS)
+              .toFixed();
           }
         }
 
@@ -1262,6 +1454,8 @@ export default class Vault extends VaultBase {
             networkId: network.id,
             logoURI: '',
             isNative: false,
+            stellarContractAddress: contract,
+            stellarTokenType: EStellarAssetType.StellarAsset,
           },
           balance: balanceForAccount,
           balanceParsed: balanceParsedForAccount,
@@ -1337,6 +1531,7 @@ export default class Vault extends VaultBase {
   override async fetchTokenListByRpc(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
+    console.log('=====>>>>> fetchTokenListByRpc: ', params);
     const client = await this.getCustomClient();
     if (!client) {
       throw new OneKeyInternalError('No RPC url');
@@ -1398,8 +1593,37 @@ export default class Vault extends VaultBase {
     }
 
     // Fetch additional token balances
-    const balances = await client.getTokenBalances(
+    const contractList = params.requestApiParams.contractList ?? [];
+    const classicAssetList: Array<{ assetCode: string; assetIssuer: string }> =
+      [];
+    const contractTokenList: string[] = [];
+
+    for (const contract of contractList) {
+      if (!contract || contract === networkInfo.nativeTokenAddress) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      try {
+        const parsed = parseTokenAddress(contract);
+        if (parsed.type === EStellarAssetType.ContractToken) {
+          if (parsed.contractId) {
+            contractTokenList.push(parsed.contractId);
+          }
+        } else if (parsed.type === EStellarAssetType.StellarAsset) {
+          if (parsed.code && parsed.issuer) {
+            classicAssetList.push({
+              assetCode: parsed.code,
+              assetIssuer: parsed.issuer,
+            });
+          }
+        }
+      } catch {
+        // Skip invalid token address format
+      }
+    }
+    const balances = await client.getStellarAssetBalances(
       params.requestApiParams.accountAddress ?? '',
+      classicAssetList.length ? classicAssetList : undefined,
     );
     for (const balance of balances) {
       if (SAC_TOKEN_ASSET_TYPES.includes(balance.asset_type)) {
@@ -1412,6 +1636,8 @@ export default class Vault extends VaultBase {
             address: contract,
             logoURI: '',
             isNative: false,
+            stellarContractAddress: contract,
+            stellarTokenType: EStellarAssetType.StellarAsset,
           },
           balance: balance.balance,
           balanceParsed: new BigNumber(balance.balance)
@@ -1422,6 +1648,68 @@ export default class Vault extends VaultBase {
           price24h: 0,
         });
       }
+    }
+
+    const contractBalances =
+      contractTokenList.length > 0
+        ? await client.getContractTokenBalances(
+            params.requestApiParams.accountAddress ?? '',
+            contractTokenList,
+          )
+        : [];
+    const balancesByContractId = new Map(
+      contractBalances.map((b) => [b.contractId, b.balance]),
+    );
+    const contractTokenInfos =
+      contractTokenList.length > 0
+        ? await Promise.all(
+            contractTokenList.map(async (contractId) => ({
+              contractId,
+              info: await client.getContractTokenInfo(contractId),
+            })),
+          )
+        : [];
+    const tokenInfoByContractId = new Map(
+      contractTokenInfos.map((item) => [item.contractId, item.info]),
+    );
+    for (const contractId of contractTokenList) {
+      const contractTokenInfo = tokenInfoByContractId.get(contractId);
+      if (!contractTokenInfo) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
+      const { name, symbol, decimals, admin, type } = contractTokenInfo;
+      const balance = balancesByContractId.get(contractId) ?? '0';
+      let balanceParsed = '0';
+      if (balance) {
+        balanceParsed = new BigNumber(balance).shiftedBy(-decimals).toFixed();
+      }
+
+      let contractAddress = contractId;
+      let tokenName = name;
+      if (type === EStellarAssetType.StellarAssetContract) {
+        contractAddress = `${symbol}:${admin ?? ''}`;
+        tokenName = symbol;
+      }
+
+      accountTokenArray.push({
+        info: {
+          decimals,
+          name: tokenName,
+          symbol,
+          address: contractId,
+          logoURI: '',
+          isNative: false,
+          stellarContractAddress: contractAddress,
+          stellarTokenType: type,
+        },
+        balance,
+        balanceParsed,
+        fiatValue: '0',
+        price: '0',
+        price24h: 0,
+      });
     }
 
     const hiddenTokenSet = new Set(params.requestApiParams.hiddenTokens ?? []);
@@ -1470,18 +1758,48 @@ export default class Vault extends VaultBase {
     const feeDecimals = network.decimals;
     const feeSymbol = network.symbol;
 
-    // Get suggested fee from network
+    // Get suggested fee (per op) from network
     const fee = await client.getSuggestedFee();
+    const encodedTx = _params.encodedTx as IEncodedTxStellar | undefined;
+    const operationCount = this._getOperationCountFromEncodedTx(encodedTx);
+    const safeOperationCount = Math.max(operationCount, 1);
+
+    // If RPC supports simulateTransaction, include minResourceFee for Soroban txs
+    let minResourceFee = new BigNumber(0);
+    if (encodedTx?.xdr) {
+      try {
+        const simulateResult = await client.transport.simulateTransaction(
+          encodedTx.xdr,
+        );
+        const minResourceFeeValue =
+          simulateResult?.minResourceFee ??
+          simulateResult?.result?.minResourceFee;
+        if (minResourceFeeValue) {
+          minResourceFee = new BigNumber(minResourceFeeValue).multipliedBy(1.1);
+        }
+      } catch (error) {
+        // Fall back to fee stats only if simulation is unavailable or fails
+        console.warn(
+          'simulateTransaction failed, fallback to fee stats',
+          error,
+        );
+      }
+    }
+
+    const feePerOp = new BigNumber(fee);
+    const totalFeeStroops = feePerOp
+      .multipliedBy(safeOperationCount)
+      .plus(minResourceFee);
+    const gasPriceStroops = totalFeeStroops
+      .dividedBy(safeOperationCount)
+      .decimalPlaces(0, BigNumber.ROUND_CEIL);
 
     // Convert fee from stroops to XLM for display
-    const gasPrice = new BigNumber(fee)
+    const gasPrice = gasPriceStroops
       .shiftedBy(-feeDecimals)
       .toFixed()
       .toString();
-    const operationCount = this._getOperationCountFromEncodedTx(
-      _params.encodedTx as IEncodedTxStellar,
-    );
-    const gasLimit = operationCount.toString();
+    const gasLimit = safeOperationCount.toString();
 
     return {
       data: {
@@ -1521,7 +1839,7 @@ export default class Vault extends VaultBase {
       );
       const operations =
         (stellarTx as any)?.innerTransaction?.operations ??
-        (stellarTx as any)?.operations;
+        stellarTx.operations;
       return operations?.length ?? 1;
     } catch (error) {
       console.error('Failed to parse Stellar operations count', error);

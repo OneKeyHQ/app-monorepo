@@ -6,11 +6,14 @@ import sdkStellar from '../sdkStellar';
  * Extract transaction hash from encoded transaction
  * This is what needs to be signed by hardware devices
  */
-export function extractTransactionHash(encodedTx: string): Buffer {
+export function extractTransactionHash(
+  encodedTx: string,
+  networkPassphrase: string,
+): Buffer {
   // Parse as Transaction to get hash
   const tx = new sdkStellar.StellarSdk.Transaction(
     encodedTx,
-    sdkStellar.Networks.PUBLIC,
+    networkPassphrase,
   );
   return tx.hash();
 }
@@ -28,15 +31,20 @@ export function extractSourcePublicKey(encodedTx: string): string {
 
 /**
  * Get network passphrase from transaction envelope
+ * Note: XDR doesn't contain the network passphrase directly,
+ * so this is a best-effort detection by trying to parse with known networks
  */
 export function getNetworkPassphrase(encodedTx: string): string {
+  // Try testnet first (as it's often used for development)
   try {
-    const tx = new sdkStellar.StellarSdk.Transaction(
+    // eslint-disable-next-line no-new
+    new sdkStellar.StellarSdk.Transaction(
       encodedTx,
-      sdkStellar.Networks.PUBLIC,
+      sdkStellar.Networks.TESTNET,
     );
-    return tx.networkPassphrase;
+    return sdkStellar.Networks.TESTNET;
   } catch {
+    // If testnet fails, assume public network
     return sdkStellar.Networks.PUBLIC;
   }
 }
