@@ -6,6 +6,7 @@ import { InputAccessoryView } from 'react-native';
 import {
   Badge,
   Button,
+  Dialog,
   Icon,
   Input,
   SizableText,
@@ -236,7 +237,10 @@ export const LeverageAdjustModal = memo(
         1;
       const maxLeverage = currentToken?.universe?.maxLeverage || 25;
 
-      dialog.show({
+      const DialogInstance =
+        platformEnv.isNativeAndroid || !dialog ? Dialog : dialog;
+
+      DialogInstance.show({
         title: intl.formatMessage({
           id: ETranslations.perp_trading_adjust_leverage,
         }),
