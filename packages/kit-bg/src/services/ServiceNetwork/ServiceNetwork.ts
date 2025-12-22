@@ -1531,6 +1531,7 @@ class ServiceNetwork extends ServiceBase {
     walletId,
     chainSelectorNetworks,
     accountNetworkValues,
+    localDeFiOverview,
   }: {
     walletId: string;
     chainSelectorNetworks: {
@@ -1541,11 +1542,18 @@ class ServiceNetwork extends ServiceBase {
       allNetworkItem?: IServerNetwork;
     };
     accountNetworkValues: Record<string, string>;
+    localDeFiOverview: Record<
+      string,
+      {
+        netWorth: number;
+      }
+    >;
   }) {
-    if (isEmpty(accountNetworkValues)) {
+    if (isEmpty(accountNetworkValues) && isEmpty(localDeFiOverview)) {
       return {
         chainSelectorNetworks,
         formattedAccountNetworkValues: {},
+        accountDeFiOverview: {},
       };
     }
 
@@ -1555,6 +1563,7 @@ class ServiceNetwork extends ServiceBase {
     > = {};
 
     const formattedAccountNetworkValues: Record<string, string> = {};
+    const allAccountValues: Record<string, string> = {};
 
     const deriveTypeRawData =
       await this.backgroundApi.simpleDb.accountSelector.getRawData();
@@ -1595,12 +1604,23 @@ class ServiceNetwork extends ServiceBase {
             deriveType.toLowerCase())
       ) {
         if (isNil(formattedAccountNetworkValues[networkId])) {
+          allAccountValues[networkId] = new BigNumber(
+            localDeFiOverview[networkId]?.netWorth ?? 0,
+          )
+            .plus(value)
+            .toFixed();
           formattedAccountNetworkValues[networkId] = value;
         } else {
           formattedAccountNetworkValues[networkId] = new BigNumber(
             formattedAccountNetworkValues[networkId],
           )
             .plus(value)
+            .toFixed();
+          allAccountValues[networkId] = new BigNumber(
+            allAccountValues[networkId],
+          )
+            .plus(value)
+            .plus(localDeFiOverview[networkId]?.netWorth ?? 0)
             .toFixed();
         }
       }
@@ -1609,7 +1629,7 @@ class ServiceNetwork extends ServiceBase {
     // if network in frequentlyUsedItems do not has value or value is less than 1 usd, remove it from frequentlyUsedItems
     let frequentlyUsedItems = chainSelectorNetworks.frequentlyUsedItems.filter(
       (item) => {
-        return new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(
+        return new BigNumber(allAccountValues[item.id] ?? '0').gt(
           NETWORK_SHOW_VALUE_THRESHOLD_USD,
         );
       },
@@ -1618,7 +1638,7 @@ class ServiceNetwork extends ServiceBase {
     // check if any network in mainnetItems has non-zero value, add it to frequentlyUsedItems
     for (const item of chainSelectorNetworks.mainnetItems) {
       if (
-        new BigNumber(formattedAccountNetworkValues[item.id] ?? '0').gt(
+        new BigNumber(allAccountValues[item.id] ?? '0').gt(
           NETWORK_SHOW_VALUE_THRESHOLD_USD,
         )
       ) {
@@ -1630,14 +1650,15 @@ class ServiceNetwork extends ServiceBase {
       return {
         chainSelectorNetworks,
         formattedAccountNetworkValues,
+        accountDeFiOverview: localDeFiOverview,
       };
     }
 
     // uniq frequentlyUsedItems and sort by value
     frequentlyUsedItems = uniqBy(frequentlyUsedItems, 'id').sort((a, b) => {
-      return new BigNumber(
-        formattedAccountNetworkValues[b.id] ?? '0',
-      ).comparedTo(new BigNumber(formattedAccountNetworkValues[a.id] ?? '0'));
+      return new BigNumber(allAccountValues[b.id] ?? '0').comparedTo(
+        new BigNumber(allAccountValues[a.id] ?? '0'),
+      );
     });
 
     return {
@@ -1646,6 +1667,7 @@ class ServiceNetwork extends ServiceBase {
         frequentlyUsedItems,
       },
       formattedAccountNetworkValues,
+      accountDeFiOverview: localDeFiOverview,
     };
   }
 

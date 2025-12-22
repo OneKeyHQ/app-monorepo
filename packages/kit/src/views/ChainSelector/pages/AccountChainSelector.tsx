@@ -75,57 +75,80 @@ const EditableAccountChainSelector = ({
       chainSelectorNetworks,
       accountNetworkValues,
       accountNetworkValueCurrency,
+      accountDeFiOverview,
     },
     run: refreshLocalData,
   } = usePromiseResult(
     async () => {
-      const [_accountsValue, _chainSelectorNetworks] = await Promise.all([
-        backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue({
-          accounts: [{ accountId: indexedAccount?.id ?? account?.id ?? '' }],
-        }),
-        backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          {
-            accountId: account?.id,
-            walletId: wallet?.id,
-            networkIds,
-            useDefaultPinnedNetworks: true,
-          },
-        ),
-      ]);
+      const [_accountsValue, _chainSelectorNetworks, _localDeFiOverview] =
+        await Promise.all([
+          backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue({
+            accounts: [{ accountId: indexedAccount?.id ?? account?.id ?? '' }],
+          }),
+          backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+            {
+              accountId: account?.id,
+              walletId: wallet?.id,
+              networkIds,
+              useDefaultPinnedNetworks: true,
+            },
+          ),
+          backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
+            accounts: [
+              {
+                accountId: indexedAccount?.id ?? account?.id ?? '',
+                accountAddress: account?.address,
+                networkId: network?.id ?? '',
+                indexedAccountId: indexedAccount?.id,
+              },
+            ],
+          }),
+        ]);
 
-      if (_accountsValue[0]) {
+      if (_accountsValue[0] || _localDeFiOverview[0]) {
         const {
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
-        } =
-          await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
-            {
-              walletId: accountUtils.getWalletIdFromAccountId({
-                accountId: _accountsValue[0].accountId,
-              }),
-              chainSelectorNetworks: _chainSelectorNetworks,
-              accountNetworkValues: _accountsValue[0].value ?? {},
-            },
-          );
+          accountDeFiOverview: _accountDeFiOverview,
+        } = await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
+          {
+            walletId: accountUtils.getWalletIdFromAccountId({
+              accountId: _accountsValue[0].accountId,
+            }),
+            chainSelectorNetworks: _chainSelectorNetworks,
+            accountNetworkValues: _accountsValue[0].value ?? {},
+            localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
+          },
+        );
 
         return {
           chainSelectorNetworks: sortedChainSelectorNetworks,
           accountNetworkValues: formattedAccountNetworkValues,
           accountNetworkValueCurrency: _accountsValue[0].currency,
+          accountDeFiOverview: _accountDeFiOverview,
         };
       }
 
       return {
         chainSelectorNetworks: _chainSelectorNetworks,
         accountNetworkValues: {},
+        accountDeFiOverview: {},
       };
     },
 
-    [account?.id, networkIds, wallet?.id, indexedAccount?.id],
+    [
+      account?.id,
+      networkIds,
+      wallet?.id,
+      indexedAccount?.id,
+      account?.address,
+      network?.id,
+    ],
     {
       initResult: {
         chainSelectorNetworks: defaultChainSelectorNetworks,
         accountNetworkValues: {},
+        accountDeFiOverview: {},
       },
     },
   );
@@ -151,6 +174,7 @@ const EditableAccountChainSelector = ({
       unavailableItems={chainSelectorNetworks.unavailableItems}
       frequentlyUsedItems={chainSelectorNetworks.frequentlyUsedItems}
       allNetworkItem={chainSelectorNetworks.allNetworkItem}
+      accountDeFiOverview={accountDeFiOverview}
       accountNetworkValues={accountNetworkValues}
       accountNetworkValueCurrency={accountNetworkValueCurrency}
       onPressItem={onPressItem}

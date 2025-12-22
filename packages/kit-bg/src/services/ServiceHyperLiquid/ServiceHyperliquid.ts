@@ -350,6 +350,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
   );
 
+  private _filterFills(fills: IFill[]) {
+    return fills.filter(
+      (fill) =>
+        !fill.coin.startsWith('@') && fill.dir !== 'Sell' && fill.dir !== 'Buy',
+    );
+  }
+
   _getUserFillsByTimeMemo = cacheUtils.memoizee(
     async (params: IUserFillsByTimeParameters) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -357,7 +364,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         ...params,
         aggregateByTime: true,
       });
-      return fills.filter((fill) => !fill.coin.startsWith('@'));
+      return this._filterFills(fills);
     },
     {
       max: 1,
@@ -375,7 +382,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       ...params,
       aggregateByTime: true,
     });
-    return fills.filter((fill) => !fill.coin.startsWith('@'));
+    return this._filterFills(fills);
   }
 
   @backgroundMethod()
@@ -437,8 +444,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
-    const filtered = newFills
-      .filter((f) => !f.coin.startsWith('@'))
+    const filtered = this._filterFills(newFills)
       .filter((f) => f.time > current.latestTime)
       .sort((a, b) => b.time - a.time);
 

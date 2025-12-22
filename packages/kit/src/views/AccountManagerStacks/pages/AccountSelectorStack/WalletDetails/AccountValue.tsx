@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil, map } from 'lodash';
+import { isNil, isUndefined, map } from 'lodash';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -17,6 +17,18 @@ function AccountValue(accountValue: {
   accountId: string;
   currency: string;
   value: Record<string, string> | string;
+  accountDeFiOverview?: {
+    overview: Record<
+      string,
+      {
+        totalValue: number;
+        totalDebt: number;
+        totalReward: number;
+        netWorth: number;
+        currency: string;
+      }
+    >;
+  };
   linkedAccountId?: string;
   linkedNetworkId?: string;
   indexedAccountId?: string;
@@ -42,6 +54,7 @@ function AccountValue(accountValue: {
     isSingleAddress,
     enabledNetworksCompatibleWithWalletId,
     networkInfoMap,
+    accountDeFiOverview,
   } = accountValue;
 
   const { currency, value } = useMemo(() => {
@@ -53,7 +66,12 @@ function AccountValue(accountValue: {
 
   const accountValueString = useMemo(() => {
     if (typeof value === 'string') {
-      return value;
+      return new BigNumber(value ?? '0')
+        .plus(
+          accountDeFiOverview?.overview?.[linkedNetworkId ?? '']?.netWorth ??
+            '0',
+        )
+        .toFixed();
     }
 
     if (linkedNetworkId && mergeDeriveAssetsEnabled && !isSingleAddress) {
@@ -88,15 +106,24 @@ function AccountValue(accountValue: {
       linkedNetworkId &&
       !networkUtils.isAllNetwork({ networkId: linkedNetworkId })
     ) {
-      return value[
-        accountUtils.buildAccountValueKey({
-          accountId: linkedAccountId,
-          networkId: linkedNetworkId,
-        })
-      ];
+      const tokensValue =
+        value[
+          accountUtils.buildAccountValueKey({
+            accountId: linkedAccountId,
+            networkId: linkedNetworkId,
+          })
+        ];
+      const accountDeFiValue =
+        accountDeFiOverview?.overview?.[linkedNetworkId]?.netWorth;
+      if (isUndefined(tokensValue) && isUndefined(accountDeFiValue)) {
+        return undefined;
+      }
+      return new BigNumber(tokensValue ?? '0')
+        .plus(accountDeFiValue ?? '0')
+        .toFixed();
     }
 
-    return Object.entries(value).reduce((acc, [k, v]) => {
+    const tokensValue = Object.entries(value).reduce((acc, [k, v]) => {
       const keyArray = k.split('_');
       const networkId = keyArray.pop() as string;
       const accountId = keyArray.join('_');
@@ -118,6 +145,19 @@ function AccountValue(accountValue: {
       }
       return acc;
     }, '0');
+
+    // plus all netWorth in accountDeFiOverview
+    const accountDeFiValue = Object.values(
+      accountDeFiOverview?.overview ?? {},
+    ).reduce((acc, curr) => {
+      return new BigNumber(acc ?? '0').plus(curr?.netWorth ?? '0').toFixed();
+    }, '0');
+    if (isUndefined(tokensValue) && isUndefined(accountDeFiValue)) {
+      return undefined;
+    }
+    return new BigNumber(tokensValue ?? '0')
+      .plus(accountDeFiValue ?? '0')
+      .toFixed();
   }, [
     value,
     linkedNetworkId,
@@ -126,6 +166,7 @@ function AccountValue(accountValue: {
     linkedAccountId,
     enabledNetworksCompatibleWithWalletId,
     networkInfoMap,
+    accountDeFiOverview,
   ]);
 
   return accountValueString ? (
@@ -161,6 +202,7 @@ function AccountValueWithSpotlight({
   isSingleAddress,
   enabledNetworksCompatibleWithWalletId,
   networkInfoMap,
+  accountDeFiOverview,
 }: {
   accountValue:
     | {
@@ -185,6 +227,18 @@ function AccountValueWithSpotlight({
       mergeDeriveAssetsEnabled: boolean;
     }
   >;
+  accountDeFiOverview?: {
+    overview: Record<
+      string,
+      {
+        totalValue: number;
+        totalDebt: number;
+        totalReward: number;
+        netWorth: number;
+        currency: string;
+      }
+    >;
+  };
 }) {
   return accountValue && accountValue.currency ? (
     <AccountValue
@@ -201,6 +255,7 @@ function AccountValueWithSpotlight({
         enabledNetworksCompatibleWithWalletId
       }
       networkInfoMap={networkInfoMap}
+      accountDeFiOverview={accountDeFiOverview}
     />
   ) : (
     <NumberSizeableTextWrapper

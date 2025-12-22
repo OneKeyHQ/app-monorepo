@@ -100,7 +100,10 @@ class ServiceAllNetwork extends ServiceBase {
     accountId: string;
     template: string | undefined;
     deriveInfoMap: Record<string, IAccountDeriveInfo>;
-  }): { deriveType: IAccountDeriveTypes; deriveInfo: IAccountDeriveInfo | undefined } {
+  }): {
+    deriveType: IAccountDeriveTypes;
+    deriveInfo: IAccountDeriveInfo | undefined;
+  } {
     if (!template) {
       return { deriveType: 'default', deriveInfo: undefined };
     }
@@ -110,7 +113,9 @@ class ServiceAllNetwork extends ServiceBase {
       return { deriveType: 'default', deriveInfo: undefined };
     }
 
-    const useAddressEncodingDerive = Boolean(entries[0]?.[1]?.useAddressEncodingDerive);
+    const useAddressEncodingDerive = Boolean(
+      entries[0]?.[1]?.useAddressEncodingDerive,
+    );
     const shouldMatchByEncoding =
       useAddressEncodingDerive && accountId.split('--').length > 2;
 
@@ -121,14 +126,20 @@ class ServiceAllNetwork extends ServiceBase {
           info.addressEncoding &&
           accountId.endsWith(info.addressEncoding)
         ) {
-          return { deriveType: deriveType as IAccountDeriveTypes, deriveInfo: info };
+          return {
+            deriveType: deriveType as IAccountDeriveTypes,
+            deriveInfo: info,
+          };
         }
       }
     }
 
     for (const [deriveType, info] of entries) {
       if (info.template === template) {
-        return { deriveType: deriveType as IAccountDeriveTypes, deriveInfo: info };
+        return {
+          deriveType: deriveType as IAccountDeriveTypes,
+          deriveInfo: info,
+        };
       }
     }
 
@@ -390,7 +401,9 @@ class ServiceAllNetwork extends ServiceBase {
             networkId: realNetworkId,
           });
 
-          let isMatched = isAllNetwork ? isCompatible : networkId === realNetworkId;
+          let isMatched = isAllNetwork
+            ? isCompatible
+            : networkId === realNetworkId;
 
           const { deriveType, deriveInfo } =
             this.getDeriveTypeByTemplateFromDeriveInfoMap({
@@ -399,7 +412,11 @@ class ServiceAllNetwork extends ServiceBase {
               deriveInfoMap,
             });
 
-          if (shouldFilterNotEqualGlobalDeriveTypeAccount && isMatched && a.template) {
+          if (
+            shouldFilterNotEqualGlobalDeriveTypeAccount &&
+            isMatched &&
+            a.template
+          ) {
             if (!globalDeriveTypePromise) {
               globalDeriveTypePromise =
                 this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
@@ -433,11 +450,12 @@ class ServiceAllNetwork extends ServiceBase {
 
             // TODO pass dbAccount for better performance
             perf.markStart('getAccountXpub');
-            accountXpub = await this.backgroundApi.serviceAccount.getAccountXpub({
-              dbAccount: a,
-              accountId: a.id,
-              networkId: realNetworkId,
-            });
+            accountXpub =
+              await this.backgroundApi.serviceAccount.getAccountXpub({
+                dbAccount: a,
+                accountId: a.id,
+                networkId: realNetworkId,
+              });
             perf.markEnd('getAccountXpub');
 
             const accountInfo: IAllNetworkAccountInfo = {

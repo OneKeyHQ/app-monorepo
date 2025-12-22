@@ -35,7 +35,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AllNetworksManagerTrigger } from '../../../components/AccountSelector/AllNetworksManagerTrigger';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
+import { useDebounce } from '../../../hooks/useDebounce';
 import {
+  useAccountDeFiOverviewAtom,
   useAccountOverviewActions,
   useAccountOverviewStateAtom,
   useAccountWorthAtom,
@@ -62,6 +64,7 @@ function HomeOverviewContainer() {
   const listRefreshKey = useRef('');
 
   const [accountWorth] = useAccountWorthAtom();
+  const [accountDeFiOverview] = useAccountDeFiOverviewAtom();
   const [overviewState] = useAccountOverviewStateAtom();
   const { updateAccountOverviewState, updateAccountWorth } =
     useAccountOverviewActions().current;
@@ -297,18 +300,25 @@ function HomeOverviewContainer() {
   }, [account?.id, network?.id]);
 
   const balanceString = useMemo(() => {
-    return calculateAccountTokensValue({
-      accountId: account?.id ?? '',
-      networkId: network?.id ?? '',
-      tokensWorth: accountWorth,
-      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
-    });
+    return new BigNumber(
+      calculateAccountTokensValue({
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+        tokensWorth: accountWorth,
+        mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+      }),
+    )
+      .plus(accountDeFiOverview.netWorth ?? 0)
+      .toFixed();
   }, [
     account?.id,
     network?.id,
     accountWorth,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    accountDeFiOverview.netWorth,
   ]);
+
+  const debouncedBalanceString = useDebounce(balanceString, 100);
 
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
     { length: 17, size: '$headingXl' },
@@ -371,14 +381,14 @@ function HomeOverviewContainer() {
                     ? balanceSizeList.find(
                         (item) =>
                           numberFormatAsRenderText(
-                            String(balanceString),
+                            String(debouncedBalanceString),
                             numberFormatter,
                           ).length >= item.length,
                       )?.size ?? defaultBalanceSize
                     : defaultBalanceSize
                 }
               >
-                {balanceString}
+                {debouncedBalanceString}
               </NumberSizeableTextWrapper>
             </XStack>
             {refreshButton}

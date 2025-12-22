@@ -74,3 +74,20 @@ export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
   }>({
     banners: [],
   });
+
+export const {
+  atom: accountDeFiOverviewAtom,
+  use: useAccountDeFiOverviewAtom,
+} = contextAtom<{
+  totalValue: number;
+  totalDebt: number;
+  totalReward: number;
+  netWorth: number;
+  currency: string;
+}>({
+  totalValue: 0,
+  totalDebt: 0,
+  totalReward: 0,
+  netWorth: 0,
+  currency: '',
+});

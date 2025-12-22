@@ -314,9 +314,10 @@ function transformDeFiData({
 function getEmptyDeFiData() {
   return {
     overview: {
-      totalValue: '0',
-      totalDebt: '0',
-      netWorth: '0',
+      totalValue: 0,
+      totalDebt: 0,
+      netWorth: 0,
+      totalReward: 0,
       chains: [],
       protocolCount: 0,
       positionCount: 0,
@@ -325,9 +326,10 @@ function getEmptyDeFiData() {
     protocolMap: {},
   } as {
     overview: {
-      totalValue: string;
-      totalDebt: string;
-      netWorth: string;
+      totalValue: number;
+      totalDebt: number;
+      netWorth: number;
+      totalReward: number;
       chains: string[];
       protocolCount: number;
       positionCount: number;

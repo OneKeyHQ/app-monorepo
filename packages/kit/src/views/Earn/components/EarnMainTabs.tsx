@@ -5,12 +5,15 @@ import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
-  RefreshControl,
   Tabs,
   YStack,
   rootNavigationRef,
   useTabContainerWidth,
 } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -55,11 +58,18 @@ const EarnMainTabsComponent = ({
     [intl],
   );
 
+  const getTabName = useCallback(
+    (tabName: 'assets' | 'portfolio' | 'faqs' | undefined) => {
+      if (tabName === 'portfolio') return tabNames.portfolio;
+      if (tabName === 'faqs') return tabNames.faqs;
+      return tabNames.assets;
+    },
+    [tabNames],
+  );
+
   const initialTabName = useMemo(() => {
-    if (defaultTab === 'portfolio') return tabNames.portfolio;
-    if (defaultTab === 'faqs') return tabNames.faqs;
-    return tabNames.assets;
-  }, [defaultTab, tabNames]);
+    return getTabName(defaultTab);
+  }, [defaultTab, getTabName]);
 
   const tabKeyByName = useMemo(() => {
     const map: Record<string, 'assets' | 'portfolio' | 'faqs'> = {};
@@ -99,6 +109,18 @@ const EarnMainTabsComponent = ({
       }
     }
   }, [defaultTab, initialTabName, isFocused]);
+
+  useEffect(() => {
+    const callback = ({ tab }: { tab: 'assets' | 'portfolio' | 'faqs' }) => {
+      if (tabsRef.current) {
+        tabsRef.current.jumpToTab(getTabName(tab));
+      }
+    };
+    appEventBus.on(EAppEventBusNames.SwitchEarnTab, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwitchEarnTab, callback);
+    };
+  }, [getTabName]);
 
   useEffect(
     () => () => {

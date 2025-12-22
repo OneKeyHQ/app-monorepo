@@ -1,10 +1,10 @@
 import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
-import { SizableText, styled } from '@onekeyhq/components/src/shared/tamagui';
+import { styled } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
-import { XStack, YStack } from '../../primitives';
+import { SizableText, XStack, YStack } from '../../primitives';
 
 import type { IXStackProps } from '../../primitives';
 
