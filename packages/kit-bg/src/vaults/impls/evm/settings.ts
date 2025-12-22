@@ -212,23 +212,6 @@ const stakingConfig: IStakingConfig = {
       },
     },
   },
-  [getNetworkIdsMap().holesky]: {
-    providers: {
-      [EEarnProviderEnum.Everstake]: {
-        supportedSymbols: ['ETH', 'POL'],
-        configs: {
-          ETH: commonStakeConfigs.ETH,
-          POL: commonStakeConfigs.POL,
-        },
-      },
-      [EEarnProviderEnum.Lido]: {
-        supportedSymbols: ['ETH'],
-        configs: {
-          ETH: lidoConfig.ETH,
-        },
-      },
-    },
-  },
   [getNetworkIdsMap().bsc]: {
     providers: {
       [EEarnProviderEnum.Lista]: {
