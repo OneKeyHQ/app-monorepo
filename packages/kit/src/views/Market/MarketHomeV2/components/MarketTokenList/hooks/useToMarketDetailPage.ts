@@ -73,7 +73,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           },
         });
       } else if (options?.useRootNavigation) {
-        // Use root navigation for other cases (expand tab, desktop, web, mobile)
+        // Use root navigation for cases that explicitly request it (e.g., from universal search on desktop/web)
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: ETabRoutes.Market,
           params: {
@@ -82,7 +82,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           },
         });
       } else {
-        // Regular navigation within current stack
+        // Regular navigation within current stack (desktop, web)
         // Always clear token detail when navigating
         tokenDetailActions.current.clearTokenDetail();
 
