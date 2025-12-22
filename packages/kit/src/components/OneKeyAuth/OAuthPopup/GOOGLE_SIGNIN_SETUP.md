@@ -54,17 +54,7 @@ cd apps/mobile/ios
 pod install
 ```
 
-### 3. Add GoogleService-Info.plist
-
-1. Go to [Firebase Console](https://console.firebase.google.com/) or [Google Cloud Console](https://console.cloud.google.com/)
-2. Download `GoogleService-Info.plist` for your iOS app
-3. Add it to the Xcode project:
-   - Open `apps/mobile/ios/OneKeyWallet.xcworkspace` in Xcode
-   - Drag `GoogleService-Info.plist` into the project navigator
-   - Ensure "Copy items if needed" is checked
-   - Add to target: `OneKeyWallet`
-
-### 4. Configure URL Scheme in Info.plist
+### 3. Configure URL Scheme in Info.plist (Required)
 
 Add the reversed client ID as a URL scheme in `apps/mobile/ios/OneKeyWallet/Info.plist`:
 
@@ -85,6 +75,17 @@ Add the reversed client ID as a URL scheme in `apps/mobile/ios/OneKeyWallet/Info
 ```
 
 > **Note**: The URL scheme is the iOS Client ID reversed. For `244450898872-1jvugg12bmstu8nfqfmcpf1o7tcsoltt.apps.googleusercontent.com`, use `com.googleusercontent.apps.244450898872-1jvugg12bmstu8nfqfmcpf1o7tcsoltt`.
+
+### 4. GoogleService-Info.plist (Optional)
+
+`GoogleService-Info.plist` is **NOT required** for Google Sign-In alone. It's only needed if you use other Firebase services (Analytics, Crashlytics, etc.).
+
+If you do need it:
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a project or select existing one
+3. Add an iOS app with your bundle ID
+4. Download `GoogleService-Info.plist`
+5. Add to Xcode project
 
 ### 5. Verify Configuration
 
