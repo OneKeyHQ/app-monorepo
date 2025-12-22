@@ -7,6 +7,7 @@ import { StyleSheet } from 'react-native';
 import type {
   IButtonProps,
   IIconButtonProps,
+  IKeyOfIcons,
   IStackProps,
   IStackStyle,
 } from '@onekeyhq/components';
@@ -242,27 +243,30 @@ function MoreActionContentHeader() {
         }),
         icon: 'HelpSupportOutline',
         onPress: handleCustomerSupport,
-        testID: 'customer-support',
         trackID: 'wallet-customer-support',
       },
       {
         title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
         icon: 'LockOutline' as const,
         onPress: handleLock,
-        testID: 'lock-now',
         trackID: 'wallet-lock-now',
       },
     ];
   }, [handleCustomerSupport, handleLock, intl, popupMenu]);
 
   return (
-    <XStack px="$5" pt="$3" ai="center" jc="space-between">
+    <XStack px="$5" pt="$3" my={1} ai="center" jc="space-between">
       <SizableText size="$headingXl">
         {intl.formatMessage({ id: ETranslations.address_book_menu_title })}
       </SizableText>
       <XStack jc="flex-end" gap="$6">
         {items.map((item) => (
-          <MoreActionContentHeaderItem key={item.title} {...item} />
+          <MoreActionContentHeaderItem
+            key={item.title}
+            icon={item.icon as IKeyOfIcons}
+            onPress={item.onPress}
+            trackID={item.trackID}
+          />
         ))}
       </XStack>
     </XStack>
@@ -951,11 +955,12 @@ function MoreActionButtonCmp() {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return isDesktopMode ? (
     <Tooltip
-      hovering
+      open
       contentProps={{
         maxWidth: 384,
         width: 384,
         height: 560,
+        p: 0,
       }}
       placement="right-end"
       renderTrigger={<MoreButtonWithDot />}
