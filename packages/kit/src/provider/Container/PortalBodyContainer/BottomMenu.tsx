@@ -88,6 +88,8 @@ function BaseBottomMenu({ isCollapse }: { isCollapse: boolean }) {
     <YStack
       px="$3"
       py="$1.5"
+      borderColor="$borderSubdued"
+      borderTopWidth={isCollapse ? 0 : StyleSheet.hairlineWidth}
       bg="$bgSidebar"
       gap="$2"
       alignItems={isCollapse ? 'center' : undefined}
@@ -95,15 +97,15 @@ function BaseBottomMenu({ isCollapse }: { isCollapse: boolean }) {
       <DesktopTabItem
         onPress={openSettingPage}
         selected={false}
-        icon="SettingsOutline"
+        icon="DotGridOutline"
         label={
           isCollapse
             ? ''
             : intl.formatMessage({
-                id: ETranslations.settings_settings,
+                id: ETranslations.address_book_menu_title,
               })
         }
-        shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
+        // shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
         testID="setting"
       />
     </YStack>
