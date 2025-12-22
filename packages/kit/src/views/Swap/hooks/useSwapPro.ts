@@ -16,7 +16,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   checkWrappedTokenPair,
@@ -808,23 +807,28 @@ export function useSwapProSupportNetworksTokenList(
     ];
   }
   const swapProLoadSupportNetworksTokenListRun = useCallback(async () => {
-    if (networkList.length > 0 && activeAccount) {
+    if (networkList.length > 0) {
       await swapProLoadSupportNetworksTokenList(
         networkList.map((item) => ({
           networkId: item.networkId,
           symbol: item.name,
           name: item.name,
         })),
-        activeAccount.indexedAccount?.id,
+        activeAccount?.indexedAccount?.id,
         !activeAccount?.indexedAccount?.id
           ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
           : undefined,
       );
     }
-  }, [networkList, activeAccount, swapProLoadSupportNetworksTokenList]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    networkList,
+    swapProLoadSupportNetworksTokenList,
+    activeAccount?.indexedAccount?.id,
+  ]);
   useEffect(() => {
     void swapProLoadSupportNetworksTokenListRun();
-  }, [swapProLoadSupportNetworksTokenListRun, activeAccount]);
+  }, [swapProLoadSupportNetworksTokenListRun]);
 
   const checkSyncOrderTokenBalance = useCallback(
     async ({
