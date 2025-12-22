@@ -35,6 +35,7 @@ function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
   const { tokenAddress, network, isNative, disableTrade } = route.params;
+
   // Convert shortcode back to full networkId if needed
   // network is a shortcode like 'bsc', convert it to 'evm--56'
   const networkId =
