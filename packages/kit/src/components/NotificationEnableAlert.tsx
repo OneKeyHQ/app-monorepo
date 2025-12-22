@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Alert, Stack } from '@onekeyhq/components';
@@ -43,14 +44,16 @@ function BasicNotificationEnableAlert({
 
   const dismissedKey = dismissedKeyMap[scene];
   const isDismissed = notificationsData[dismissedKey];
+  const { lastSettingsUpdateTime } = notificationsData;
 
   const { result } = usePromiseResult(async () => {
-    // Only check on supported platforms
     if (platformEnv.isWebDappMode) {
       return {
         shouldShow: false,
       };
     }
+
+    noop(lastSettingsUpdateTime);
 
     const [permission, serverSettings] = await Promise.all([
       backgroundApiProxy.serviceNotification.getPermission(),
@@ -62,15 +65,26 @@ function BasicNotificationEnableAlert({
       permission.isSupported &&
       permission.permission === ENotificationPermission.granted;
 
-    // Show alert if push is disabled OR permission is not granted
-    const shouldShow = !isPushEnabled || !isPermissionGranted;
+    let isSceneNotificationDisabled = false;
+    if (scene === 'txHistory' || scene === 'swapHistory') {
+      if (isPushEnabled && !serverSettings?.accountActivityPushEnabled) {
+        isSceneNotificationDisabled = true;
+      }
+    } else if (scene === 'perpHistory') {
+      if (isPushEnabled && !serverSettings?.perpsEnabled) {
+        isSceneNotificationDisabled = true;
+      }
+    }
+
+    const shouldShow =
+      !isSceneNotificationDisabled && (!isPushEnabled || !isPermissionGranted);
 
     return {
       shouldShow,
       isPushEnabled,
       isPermissionGranted,
     };
-  }, []);
+  }, [lastSettingsUpdateTime, scene]);
 
   const handleClose = useCallback(() => {
     setNotificationsData((v) => ({

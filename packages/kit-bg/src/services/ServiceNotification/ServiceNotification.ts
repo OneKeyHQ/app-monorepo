@@ -1320,14 +1320,13 @@ export default class ServiceNotification extends ServiceBase {
     if (result?.data?.data?.pushEnabled) {
       void this.registerClientWithOverrideAllAccounts();
     }
+    await this.clearServerSettingsCache();
     await notificationsAtom.set((v) =>
       perfUtils.buildNewValueIfChanged(v, {
         ...v,
         lastSettingsUpdateTime: Date.now(),
       }),
     );
-    // Clear cache so other components get fresh settings
-    await this.clearServerSettingsCache();
     return result?.data?.data;
   }
 
