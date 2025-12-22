@@ -72,7 +72,7 @@ export function TabPageHeader({
     [sceneName],
   );
 
-  const gtMd = useMedia();
+  const { gtMd } = useMedia();
   const theme = useTheme();
 
   const renderUniversalSearchInput = useCallback(
@@ -105,9 +105,12 @@ export function TabPageHeader({
   return (
     <>
       {tabRoute === ETabRoutes.Home || tabRoute === ETabRoutes.Discovery ? (
-        <XStack p="$5" bg="$bgApp" borderRadius="$4">
-          {hideHeaderLeft ? undefined : renderHeaderLeft()}
-        </XStack>
+        <Page.Header
+          headerTitleAlign="left"
+          headerTitle={renderHeaderTitle}
+          headerRight={renderHeaderRight}
+          headerLeft={renderHeaderLeft}
+        />
       ) : null}
 
       {!hideSearch ? (

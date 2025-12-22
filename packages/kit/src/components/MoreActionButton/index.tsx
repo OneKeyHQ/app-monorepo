@@ -51,6 +51,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalDeviceManagementRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EOnboardingPagesV2,
@@ -59,9 +60,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useOnLock } from '../../hooks/useOnLock';
@@ -82,7 +85,9 @@ import {
   useAppUpdateInfo,
 } from '../UpdateReminder/hooks';
 
+import type { IDeviceManagementListModalItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
+import { WalletAvatar } from '../WalletAvatar';
 
 function MoreActionProvider({ children }: PropsWithChildren) {
   return (
@@ -898,7 +903,88 @@ const MoreActionMoreGrid = () => {
   );
 };
 
+function MoreActionDevice() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { result: hwQrWalletList = [] } = usePromiseResult<
+    Array<IDeviceManagementListModalItem>
+  >(
+    async () => {
+      const r =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterHiddenWallet: true,
+          skipDuplicateDevice: true,
+        });
+      const devices: Array<IDeviceManagementListModalItem> = Object.values(r)
+        .filter(
+          (item): item is IHwQrWalletWithDevice =>
+            Boolean(item.device) && !item.wallet.deprecated,
+        )
+        .sort((a, b) => {
+          // Sort by walletOrder or fallback to walletNo
+          const orderA = a.wallet.walletOrder || a.wallet.walletNo;
+          const orderB = b.wallet.walletOrder || b.wallet.walletNo;
+          return orderA - orderB;
+        });
+
+      for (const item of devices) {
+        const firmwareTypeBadge = await deviceUtils.getFirmwareType({
+          features: item.device?.featuresInfo,
+        });
+        item.firmwareTypeBadge = firmwareTypeBadge;
+      }
+      return devices;
+    },
+    [],
+    {
+      checkIsFocused: false,
+    },
+  );
+  const handleDevice = useCallback(() => {
+    navigation.pushModal(EModalRoutes.DeviceManagementModal, {
+      screen: EModalDeviceManagementRoutes.DeviceListModal,
+    });
+  }, [navigation]);
+  return hwQrWalletList.length > 0 ? (
+    <YStack
+      bg="$bgSubdued"
+      mx="$5"
+      my="41"
+      px="$3"
+      py="$5"
+      gap="$3"
+      borderRadius="$4"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$neutral3"
+      onPress={handleDevice}
+    >
+      <SizableText
+        size="$headingMd"
+        color="$text"
+        numberOfLines={1}
+        ellipsizeMode="middle"
+      >
+        {`${intl.formatMessage({ id: ETranslations.global_device })} (3)`}
+      </SizableText>
+      <XStack>
+        <XStack>
+          {hwQrWalletList.map((item) => (
+            <WalletAvatar key={item.wallet.id} wallet={item.wallet} />
+          ))}
+        </XStack>
+        <IconButton
+          variant="tertiary"
+          icon="ChevronRightOutline"
+          size="small"
+          onPress={handleDevice}
+        />
+      </XStack>
+    </YStack>
+  ) : null;
+}
+
 function BaseMoreActionContent() {
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
   return (
     <ScrollView
       overflow="scroll"
@@ -909,6 +995,7 @@ function BaseMoreActionContent() {
     >
       <UpdateReminders />
       <MoreActionOneKeyId />
+      {isDesktopMode ? null : <MoreActionDevice />}
       <MoreActionDivider />
       <MoreActionGeneralGrid />
       <MoreActionDivider />
