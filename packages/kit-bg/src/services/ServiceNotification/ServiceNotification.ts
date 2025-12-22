@@ -1326,6 +1326,8 @@ export default class ServiceNotification extends ServiceBase {
         lastSettingsUpdateTime: Date.now(),
       }),
     );
+    // Clear cache so other components get fresh settings
+    await this.clearServerSettingsCache();
     return result?.data?.data;
   }
 
