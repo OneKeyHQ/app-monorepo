@@ -8,6 +8,7 @@ import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { ActionField } from './ActionField';
 import { AmountField } from './AmountField';
 import { AssetField } from './AssetField';
+import { AssetWithAmountField } from './AssetWithAmountField';
 import { BorrowAPYField } from './BorrowAPYField';
 import { BorrowListSkeleton } from './BorrowListSkeleton';
 import { FieldWrapper } from './FieldWrapper';
@@ -55,6 +56,7 @@ export {
   BorrowTableList,
   ActionField,
   AssetField,
+  AssetWithAmountField,
   AmountField,
   BorrowAPYField,
   FieldWrapper,

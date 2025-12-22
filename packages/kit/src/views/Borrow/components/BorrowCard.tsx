@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import { useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
@@ -8,12 +9,12 @@ import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
-import { useSupplyActions } from '../hooks/useSupplyActions';
 
 import {
   ActionField,
   AmountField,
   AssetField,
+  AssetWithAmountField,
   BorrowAPYField,
   BorrowTableList,
 } from './BorrowTableList';
@@ -25,6 +26,7 @@ export const BorrowCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { gtMd } = useMedia();
 
   const handleManageBorrow = useCallback(
     (item: IBorrowAsset) => {
@@ -48,6 +50,78 @@ export const BorrowCard = () => {
 
   const showLoading = !reserves && reservesLoading;
 
+  // Mobile columns - 2 columns only
+  const mobileColumns = useMemo(
+    () => [
+      {
+        label: 'Asset / Available',
+        key: 'asset',
+        render: (item: IBorrowAsset) => (
+          <AssetWithAmountField
+            token={item.token}
+            amountLabel="Available:"
+            amount={item.available.title}
+            amountDescription={item.available.description}
+          />
+        ),
+        flex: 1.5,
+      },
+      {
+        label: 'Supply APY',
+        align: 'flex-end' as const,
+        key: 'supplyApy',
+        render: BorrowAPYField,
+        flex: 1,
+      },
+    ],
+    [],
+  );
+
+  // Desktop columns - all columns
+  const desktopColumns = useMemo(
+    () => [
+      {
+        label: 'Asset', // FIXME[borrow]: i18n
+        key: 'asset',
+        render: AssetField,
+        flex: 1,
+      },
+      {
+        label: 'Available',
+        align: 'flex-end' as const,
+        key: 'available',
+        render: (item: IBorrowAsset) => (
+          <AmountField
+            title={item.available.title}
+            description={item.available.description}
+          />
+        ),
+        flex: 1,
+      },
+      {
+        label: 'Supply APY',
+        align: 'flex-end' as const,
+        key: 'supplyApy',
+        render: BorrowAPYField,
+        flex: 1,
+      },
+      {
+        label: '',
+        align: 'flex-end' as const,
+        key: 'actions',
+        render: (item: IBorrowAsset) => (
+          <ActionField
+            buttonText={<EarnText text={{ text: 'Borrow' }} />}
+            item={item}
+            onPress={() => handleManageBorrow(item)}
+          />
+        ),
+        flex: 1,
+      },
+    ],
+    [handleManageBorrow],
+  );
+
   // FIXME[borrow]: i18n
   return (
     <Card title="Assets to borrow">
@@ -55,46 +129,8 @@ export const BorrowCard = () => {
       <BorrowTableList<IBorrowAsset>
         data={reserves?.borrow.assets || []}
         isLoading={showLoading}
-        columns={[
-          {
-            label: 'Asset', // FIXME[borrow]: i18n
-            key: 'asset',
-            render: AssetField,
-            flex: 1,
-          },
-          {
-            label: 'Available',
-            align: 'flex-end',
-            key: 'available',
-            render: (item) => (
-              <AmountField
-                title={item.available.title}
-                description={item.available.description}
-              />
-            ),
-            flex: 1,
-          },
-          {
-            label: 'Supply APY',
-            align: 'flex-end',
-            key: 'supplyApy',
-            render: BorrowAPYField,
-            flex: 1,
-          },
-          {
-            label: '',
-            align: 'flex-end',
-            key: 'actions',
-            render: (item) => (
-              <ActionField
-                buttonText={<EarnText text={{ text: 'Borrow' }} />}
-                item={item}
-                onPress={() => handleManageBorrow(item)}
-              />
-            ),
-            flex: 1,
-          },
-        ]}
+        columns={gtMd ? desktopColumns : mobileColumns}
+        onPressRow={gtMd ? undefined : handleManageBorrow}
         emptyContent="Nothing supplied yet" // FIXME[borrow]: i18n
       />
     </Card>

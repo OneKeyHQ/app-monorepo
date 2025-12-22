@@ -1,13 +1,17 @@
 import { isValidElement, useCallback, useMemo } from 'react';
 
-import { Button, Divider, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type {
-  IEarnRewardsDetails,
-  IEarnText,
-  IEarnTooltip,
-} from '@onekeyhq/shared/types/staking';
+import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
 
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -181,8 +185,134 @@ export const Overview = () => {
     handleRefresh,
   ]);
 
+  const { gtMd } = useMedia();
+
   // FIXME[borrow]: i18n
 
+  // Mobile layout
+  if (!gtMd) {
+    return (
+      <YStack mt="$2" mb="$5" gap="$3">
+        {/* Row 1: Net worth + History */}
+        <XStack jc="space-between" ai="flex-start">
+          <YStack gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              Net worth
+            </SizableText>
+            <EarnText
+              text={
+                reserves?.overview?.netWorth ?? {
+                  text: amountPlaceholder,
+                  color: '$textDisabled',
+                }
+              }
+              size="$heading3xl"
+            />
+            <EarnText
+              text={
+                reserves?.overview?.netApy ?? {
+                  text: '-',
+                  color: '$textDisabled',
+                }
+              }
+              size="$bodyMd"
+              color="$textSubdued"
+            />
+          </YStack>
+          <XStack
+            ai="center"
+            gap="$1"
+            cursor="pointer"
+            onPress={handleHistoryPress}
+          >
+            <Icon
+              name="ClockTimeHistoryOutline"
+              size="$4"
+              color="$iconSubdued"
+            />
+            <SizableText size="$bodyMd" color="$textSubdued">
+              History
+            </SizableText>
+          </XStack>
+        </XStack>
+
+        {/* Row 2: Health factor + Platform bonus */}
+        <XStack gap="$6">
+          <YStack gap="$1" flex={1}>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              Health factor
+            </SizableText>
+            <XStack ai="center" gap="$1">
+              <EarnText
+                text={
+                  healthFactorData?.healthFactor?.text ?? {
+                    text: '-',
+                    color: '$textDisabled',
+                  }
+                }
+                size="$headingLg"
+                color="$textSuccess"
+              />
+              <BorrowHealthFactorTooltip
+                detail={
+                  healthFactorData?.healthFactor?.button?.data
+                    .healthFactorDetail
+                }
+              />
+            </XStack>
+          </YStack>
+          <YStack gap="$1" flex={1}>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              Platform bonus
+            </SizableText>
+            <XStack ai="center" gap="$1">
+              <EarnText
+                text={
+                  reserves?.overview?.platformBonus?.totalReceived
+                    .description ?? {
+                    text: amountPlaceholder,
+                    color: '$textDisabled',
+                  }
+                }
+                size="$headingLg"
+              />
+              <BorrowBonusTooltip
+                data={reserves?.overview?.platformBonus}
+                handleHistoryPress={handleHistoryPress}
+              />
+            </XStack>
+          </YStack>
+        </XStack>
+
+        {/* Row 3: Rewards */}
+        {borrowRewards ? (
+          <XStack ai="center" gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              Rewards
+            </SizableText>
+            <EarnText text={borrowRewards?.description} size="$bodyMd" />
+            <Button
+              p="0"
+              ai="center"
+              size="small"
+              variant="link"
+              cursor={borrowRewards.button.disabled ? 'not-allowed' : 'pointer'}
+              disabled={borrowRewards.button.disabled}
+              onPress={handleShowRewardsDialog}
+            >
+              <EarnText
+                size="$bodyMdMedium"
+                color="$textInfo"
+                text={borrowRewards.button.text}
+              />
+            </Button>
+          </XStack>
+        ) : null}
+      </YStack>
+    );
+  }
+
+  // Desktop layout
   return (
     <XStack mt="$2" mb="$10" ai="center">
       <OverviewItem

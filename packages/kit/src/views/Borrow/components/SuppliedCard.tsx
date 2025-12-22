@@ -1,6 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { XStack } from '@onekeyhq/components';
+import { XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
@@ -9,12 +9,12 @@ import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
-import { useSupplyActions } from '../hooks/useSupplyActions';
 
 import {
   ActionField,
   AmountField,
   AssetField,
+  AssetWithAmountField,
   BorrowAPYField,
   BorrowTableList,
 } from './BorrowTableList';
@@ -61,6 +61,7 @@ export const SuppliedCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { gtMd } = useMedia();
 
   const handleManageWithdraw = useCallback(
     (item: ISuppliedAsset) => {
@@ -84,54 +85,88 @@ export const SuppliedCard = () => {
 
   const showLoading = !reserves && reservesLoading;
 
+  // Mobile columns - 2 columns only
+  const mobileColumns = useMemo(
+    () => [
+      {
+        label: 'Asset / Supplied',
+        key: 'asset',
+        render: (item: ISuppliedAsset) => (
+          <AssetWithAmountField
+            token={item.token}
+            amountLabel="Supplied:"
+            amount={item.suppliedAmount.title}
+            amountDescription={item.suppliedAmount.description}
+          />
+        ),
+        flex: 1.5,
+      },
+      {
+        label: 'Supply APY',
+        align: 'flex-end' as const,
+        key: 'supplyApy',
+        render: BorrowAPYField,
+        flex: 1,
+      },
+    ],
+    [],
+  );
+
+  // Desktop columns - all columns
+  const desktopColumns = useMemo(
+    () => [
+      {
+        label: 'Asset',
+        key: 'asset',
+        render: AssetField,
+        flex: 1,
+      },
+      {
+        label: 'Supplied',
+        align: 'flex-end' as const,
+        key: 'supplied',
+        render: (item: ISuppliedAsset) => (
+          <AmountField
+            title={item.suppliedAmount.title}
+            description={item.suppliedAmount.description}
+          />
+        ),
+        flex: 1,
+      },
+      {
+        label: 'Supply APY',
+        align: 'flex-end' as const,
+        key: 'supplyApy',
+        render: BorrowAPYField,
+        flex: 1,
+      },
+      {
+        label: '',
+        align: 'flex-end' as const,
+        key: 'actions',
+        render: (item: ISuppliedAsset) => (
+          <ActionField
+            buttonText={<EarnText text={{ text: 'Withdraw' }} />}
+            item={item}
+            onPress={() => handleManageWithdraw(item)}
+          />
+        ),
+        flex: 1,
+      },
+    ],
+    [handleManageWithdraw],
+  );
+
   // FIXME[borrow]: i18n
   return (
-    <Card title="Your supplies">
+    <Card title="My supply">
       {/* FIXME[borrow]: i18n */}
       {!showLoading ? <SuppliedHeader data={reserves?.supplied} /> : null}
       <BorrowTableList<ISuppliedAsset>
         data={reserves?.supplied.assets || []}
         isLoading={showLoading}
-        columns={[
-          {
-            label: 'Asset', // FIXME[borrow]: i18n
-            key: 'asset',
-            render: AssetField,
-            flex: 1,
-          },
-          {
-            label: 'Supplied',
-            align: 'flex-end',
-            key: 'supplied',
-            render: (item) => (
-              <AmountField
-                title={item.suppliedAmount.title}
-                description={item.suppliedAmount.description}
-              />
-            ),
-            flex: 1,
-          },
-          {
-            label: 'Supply APY',
-            align: 'flex-end',
-            key: 'supplyApy',
-            render: BorrowAPYField,
-            flex: 1,
-          },
-          {
-            label: '',
-            align: 'flex-end',
-            key: 'actions',
-            render: (item) => (
-              <ActionField
-                buttonText={<EarnText text={{ text: 'Withdraw' }} />}
-                item={item}
-                onPress={() => handleManageWithdraw(item)}
-              />
-            ),
-            flex: 1,
-          },
-        ]}
+        columns={gtMd ? desktopColumns : mobileColumns}
+        onPressRow={gtMd ? undefined : handleManageWithdraw}
         emptyContent="Nothing supplied yet" // FIXME[borrow]: i18n
       />
     </Card>
