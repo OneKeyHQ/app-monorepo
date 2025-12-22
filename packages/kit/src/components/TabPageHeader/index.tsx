@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { Page, XStack, useMedia, useTheme } from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -94,9 +95,11 @@ export function TabPageHeader({
             headerTitle={renderUniversalSearchInput}
             headerRight={renderNotificationRightButton}
           />
-          <XStack p="$5" bg="$bgApp" borderRadius="$4">
-            {hideHeaderLeft ? undefined : renderHeaderLeft()}
-          </XStack>
+          {tabRoute === ETabRoutes.Home ? (
+            <XStack p="$5" bg="$bgApp" borderRadius="$4">
+              {hideHeaderLeft ? undefined : renderHeaderLeft()}
+            </XStack>
+          ) : null}
         </>
       ) : (
         <Page.Header
