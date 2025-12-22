@@ -5,4 +5,5 @@ export interface ITooltipProps extends TMTooltipProps {
   renderTrigger: React.ReactNode;
   renderContent: React.ReactNode;
   shortcutKey?: EShortcutEvents | string[];
+  hovering?: boolean;
 }
