@@ -30,6 +30,7 @@ import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
 
 interface ISwapProTradingPanelProps {
   swapProConfig: ISwapProSpeedConfig;
+  limitPriceUseMarketPrice: { value: string; change: boolean };
   balanceLoading: boolean;
   configLoading: boolean;
   isMev: boolean;
@@ -50,6 +51,7 @@ const SwapProTradingPanel = ({
   onSwapProActionClick,
   handleSelectAccountClick,
   onSelectPercentageStage,
+  limitPriceUseMarketPrice,
   hasEnoughBalance,
   cleanInputAmount,
 }: ISwapProTradingPanelProps) => {
@@ -108,7 +110,9 @@ const SwapProTradingPanel = ({
           selectItems={selectTradeTypeItems}
         />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
-          <SwapProLimitPriceValue />
+          <SwapProLimitPriceValue
+            externalTokenPrice={limitPriceUseMarketPrice}
+          />
         ) : null}
         <SwapProInputContainer
           isLoading={configLoading}

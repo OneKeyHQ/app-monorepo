@@ -10,7 +10,11 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
-const SwapProPriceInfo = () => {
+interface ISwapProPriceInfoProps {
+  onPricePress: (price: string) => void;
+}
+
+const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
   const [tokenMarketDetailInfo] = useSwapProTokenMarketDetailInfoAtom();
   const [swapProTokenTransactionPrice] = useSwapProTokenTransactionPriceAtom();
   const [swapProTimeRange] = useSwapProTimeRangeAtom();
@@ -64,7 +68,16 @@ const SwapProPriceInfo = () => {
     };
   }, [priceChange]);
   return (
-    <YStack>
+    <YStack
+      role="button"
+      userSelect="none"
+      cursor="pointer"
+      onPress={() => {
+        onPricePress(
+          swapProTokenTransactionPrice ?? tokenMarketDetailInfo?.price ?? '0',
+        );
+      }}
+    >
       <SizableText size="$headingLg" color={textColor} fontFamily="$monoMedium">
         {formattedPrice}
       </SizableText>
