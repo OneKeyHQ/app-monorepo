@@ -207,6 +207,7 @@ function MoreActionContentHeader() {
 function MoreActionContentFooter() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { closeTooltip } = useTooltipContext();
   const version = useMemo(() => {
     return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
   }, []);
@@ -219,14 +220,15 @@ function MoreActionContentFooter() {
     },
   );
 
-  const handleAbout = useCallback(() => {
+  const handleAbout = useCallback(async () => {
+    await closeTooltip();
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListSubModal,
       params: {
         name: ESettingsTabNames.About,
       },
     });
-  }, [navigation]);
+  }, [closeTooltip, navigation]);
   return (
     <XStack px="$5" py="$2" jc="space-between" onPress={handleAbout}>
       <XStack gap="$2" ai="center" jc="center">
