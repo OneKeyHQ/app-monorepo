@@ -2,8 +2,9 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Toast } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyLocalError,
@@ -30,6 +31,14 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
+
+export function useKeylessWalletFeatureIsEnabled(): boolean {
+  const [devSettings] = useDevSettingsPersistAtom();
+  return (
+    devSettings.enabled &&
+    devSettings.settings?.isKeylessWalletFeatureEnabled === true
+  );
+}
 
 export function useKeylessWalletMethods() {
   const { loginOneKeyId, sendEmailOTP } = useOneKeyAuth();
@@ -273,12 +282,10 @@ export function useKeylessWallet() {
   const intl = useIntl();
 
   const createKeylessWalletFn = useCallback(async () => {
-    const walletPacks =
-      await backgroundApiProxy.serviceKeylessWallet.generateKeylessWalletPacks();
-    //   walletPacks.authKeyPack
+    await backgroundApiProxy.serviceKeylessWallet.generateKeylessWalletPacks();
   }, []);
 
-  const enableKeylessWalletFn = useCallback(async () => {
+  const _enableKeylessWalletFn = useCallback(async () => {
     if (!isKeylessWalletCreated) {
       await createKeylessWalletFn();
     }
