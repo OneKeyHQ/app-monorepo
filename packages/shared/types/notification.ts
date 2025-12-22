@@ -136,17 +136,16 @@ export type INotificationPushRegisterParams = {
 export type INotificationPushSettings = {
   pushEnabled?: boolean;
   accountActivityPushEnabled?: boolean;
+  priceAlertsEnabled?: boolean;
+  perpsEnabled?: boolean;
   announcementEnabled?: boolean;
+  dailyUpdateEnabled?: boolean;
   maxAccount?: number;
   supportedNetworks?: {
     networkId: string;
     impl: string;
     chainId: string;
   }[];
-  // announcementEnabled?: boolean;
-  // coinPriceAlertEnabled?: boolean;
-  // coinVolatilityAlertEnabled?: boolean;
-  // presetCoinsVolatilityAlertEnabled?: boolean;
 };
 export type INotificationPushTopic =
   | {

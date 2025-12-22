@@ -303,6 +303,7 @@ export interface ICommonTableListViewProps {
   listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
   onViewAll?: () => void;
   onPullToRefresh?: () => Promise<void>;
+  ListHeaderComponent?: ReactElement | null;
 }
 
 export function CommonTableListView({
@@ -327,6 +328,7 @@ export function CommonTableListView({
   listViewDebugRenderTrackerProps,
   onViewAll,
   onPullToRefresh,
+  ListHeaderComponent,
 }: ICommonTableListViewProps) {
   // Use explicit prop if provided, otherwise default to true (for backward compatibility)
   // When used inside Tabs.Container, should be true; when used in standalone ScrollView, should be false
@@ -379,6 +381,7 @@ export function CommonTableListView({
           }
           scrollEnabled={shouldUseTabsList || !disableListScroll}
           data={paginatedData}
+          ListHeaderComponent={ListHeaderComponent}
           ListFooterComponent={
             enablePagination &&
             currentListPage &&
