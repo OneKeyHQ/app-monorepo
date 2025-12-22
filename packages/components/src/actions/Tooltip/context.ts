@@ -1,10 +1,10 @@
 import { createContext, useContext } from 'react';
 
 interface ITooltipContext {
-  closeTooltip: () => void;
+  closeTooltip: () => Promise<void>;
 }
 export const TooltipContext = createContext<ITooltipContext>({
-  closeTooltip: () => {},
+  closeTooltip: () => Promise.resolve(),
 });
 
 export function useTooltipContext() {

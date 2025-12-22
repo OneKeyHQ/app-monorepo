@@ -201,8 +201,8 @@ function MoreTabItemView({
           tabbarOnPress?: () => void;
         };
       };
-      const onPress = () => {
-        tooltipRef.current?.closeTooltip();
+      const onPress = async () => {
+        await tooltipRef.current?.closeTooltip();
         const event = navigation.emit({
           type: 'tabPress',
           target: route.key,

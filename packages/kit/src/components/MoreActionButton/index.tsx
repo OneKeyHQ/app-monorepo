@@ -27,6 +27,7 @@ import {
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { useTooltipContext } from '@onekeyhq/components/src/actions/Tooltip/context';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -96,7 +97,7 @@ function MoreActionProvider({ children }: PropsWithChildren) {
   );
 }
 
-function MoreActionContentHeader() {
+function _MoreActionContentHeader() {
   const intl = useIntl();
   const { user } = useOneKeyAuth();
 
@@ -156,6 +157,113 @@ function MoreActionContentHeader() {
             networkId={network?.id}
           />
         ) : null}
+      </XStack>
+    </XStack>
+  );
+}
+
+function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
+  const { closeTooltip } = useTooltipContext();
+  const handlePress = useCallback(
+    async (event: GestureResponderEvent) => {
+      await closeTooltip?.();
+      onPress?.(event);
+    },
+    [closeTooltip, onPress],
+  );
+  return <IconButton {...props} variant="tertiary" onPress={handlePress} />;
+}
+
+function MoreActionContentHeader() {
+  const intl = useIntl();
+  const onLock = useOnLock();
+  const handleLock = useCallback(async () => {
+    await onLock();
+  }, [onLock]);
+
+  const handleCustomerSupport = useCallback(() => {
+    void showIntercom();
+  }, []);
+
+  const popupMenu = useMemo(() => {
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      const routeInfo = {
+        routes: '',
+      };
+      return [
+        platformEnv.isExtensionUiPopup
+          ? {
+              title: intl.formatMessage({
+                id: ETranslations.open_as_sidebar,
+              }),
+              icon: 'LayoutRightOutline' as const,
+              onPress: async () => {
+                defaultLogger.account.wallet.openSidePanel();
+                await extUtils.openPanelOnActionClick(true);
+                await extUtils.openSidePanel(routeInfo);
+                window.close();
+              },
+              trackID: 'wallet-side-panel-mode',
+            }
+          : {
+              title: intl.formatMessage({
+                id: ETranslations.open_as_popup,
+              }),
+              icon: 'LayoutTopOutline' as const,
+              onPress: async () => {
+                await extUtils.openPanelOnActionClick(false);
+                window.close();
+              },
+            },
+        {
+          title: intl.formatMessage({
+            id: ETranslations.global_expand_view,
+          }),
+          icon: 'ExpandOutline' as const,
+          onPress: async () => {
+            defaultLogger.account.wallet.openExpandView();
+            window.close();
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab(
+              routeInfo,
+            );
+          },
+          trackID: 'wallet-expand-view',
+        },
+      ];
+    }
+    return [];
+  }, [intl]);
+  const items = useMemo(() => {
+    return [
+      ...popupMenu,
+      {
+        title: intl.formatMessage({
+          id: ETranslations.settings_contact_us,
+        }),
+        icon: 'HelpSupportOutline',
+        onPress: handleCustomerSupport,
+        testID: 'customer-support',
+        trackID: 'wallet-customer-support',
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
+        icon: 'LockOutline' as const,
+        onPress: handleLock,
+        testID: 'lock-now',
+        trackID: 'wallet-lock-now',
+      },
+    ];
+  }, [handleCustomerSupport, handleLock, intl, popupMenu]);
+
+  return (
+    <XStack px="$5" pt="$3" ai="center" jc="space-between">
+      <SizableText size="$headingXl">
+        {intl.formatMessage({ id: ETranslations.address_book_menu_title })}
+      </SizableText>
+      <XStack jc="flex-end" gap="$6">
+        {items.map((item) => (
+          <MoreActionContentHeaderItem key={item.title} {...item} />
+        ))}
       </XStack>
     </XStack>
   );

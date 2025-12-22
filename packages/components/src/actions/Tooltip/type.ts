@@ -5,8 +5,8 @@ import type {
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 export interface ITooltipRef {
-  closeTooltip: () => void;
-  openTooltip: () => void;
+  closeTooltip: () => Promise<void>;
+  openTooltip: () => Promise<void>;
 }
 
 export interface ITooltipProps extends TMTooltipProps {

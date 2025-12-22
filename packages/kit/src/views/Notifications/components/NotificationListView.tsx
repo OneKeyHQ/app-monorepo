@@ -76,8 +76,8 @@ function HeaderRight({
   const navigation = useAppNavigation();
   const { closeTooltip } = useTooltipContext();
 
-  const handleSettingsButtonPress = useCallback(() => {
-    closeTooltip();
+  const handleSettingsButtonPress = useCallback(async () => {
+    await closeTooltip();
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingNotifications,
     });
@@ -329,7 +329,7 @@ export function NotificationListView({
       !isFirstTimeGuideOpened.current
     ) {
       // showNotificationPermissionsDialog();
-      closeTooltip();
+      void closeTooltip();
       setTimeout(() => {
         navigation.pushModal(EModalRoutes.NotificationsModal, {
           screen: EModalNotificationsRoutes.NotificationIntroduction,
@@ -503,11 +503,11 @@ export function NotificationListView({
               <NotificationItemMemo
                 key={item.msgId || index}
                 item={item}
-                onPress={() => {
+                onPress={async () => {
                   if (
                     isVersionCompatible(item.body.extras?.miniBundlerVersion)
                   ) {
-                    closeTooltip();
+                    await closeTooltip();
                     void notificationsUtils.navigateToNotificationDetail({
                       topicType: item.topicType,
                       navigation,

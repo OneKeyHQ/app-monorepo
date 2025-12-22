@@ -221,12 +221,17 @@ export function Tooltip({
   }, [hovering, onContentHoverOut]);
 
   const closeTooltip = useCallback(() => {
-    setForceClose(true);
-    setIsShow(false);
-    setIsHovered(false);
-    setTimeout(() => {
-      setForceClose(false);
-    }, 150);
+    return new Promise<void>((resolve) => {
+      setForceClose(true);
+      setIsShow(false);
+      setIsHovered(false);
+      setTimeout(() => {
+        resolve();
+      }, 50);
+      setTimeout(() => {
+        setForceClose(false);
+      }, 150);
+    });
   }, [setIsHovered, setIsShow, setForceClose]);
 
   useImperativeHandle(
@@ -234,9 +239,13 @@ export function Tooltip({
     () => ({
       closeTooltip,
       openTooltip: () => {
-        setForceClose(false);
-        setIsShow(true);
-        setIsHovered(true);
+        return new Promise<void>((resolve) => {
+          setIsShow(true);
+          setIsHovered(true);
+          setTimeout(() => {
+            resolve();
+          }, 50);
+        });
       },
     }),
     [closeTooltip, setIsHovered],
