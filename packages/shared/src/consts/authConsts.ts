@@ -59,6 +59,18 @@ export enum EExtensionOAuthMethod {
   DIRECT_EXTENSION_SCHEME = 'DIRECT_EXTENSION_SCHEME',
 }
 
+export enum ENativeOAuthMethod {
+  // ✅ RECOMMENDED: Use @react-native-google-signin/google-signin with signInWithIdToken
+  // Uses native Google Sign-In UI for better UX
+  // Gets Google ID token and exchanges it for Supabase session
+  GOOGLE_SIGNIN = 'GOOGLE_SIGNIN',
+
+  // Fallback: Use expo-web-browser.openAuthSessionAsync
+  // Opens in-app browser for OAuth, uses deep link callback
+  // Redirect URL: onekey-wallet://auth/callback
+  WEB_BROWSER = 'WEB_BROWSER',
+}
+
 // 5 minutes OAuth timeout (used by web/desktop/ext flows)
 export const OAUTH_FLOW_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -106,6 +118,8 @@ export const DEFAULT_EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
   EExtensionOAuthMethod.CHROME_IDENTITY_API;
 export const DEFAULT_DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod =
   EDesktopOAuthMethod.LOCALHOST_SERVER;
+export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
+  ENativeOAuthMethod.GOOGLE_SIGNIN;
 
 // Google OAuth clients
 //  - https://console.cloud.google.com/auth/clients
@@ -114,9 +128,17 @@ export const DEFAULT_DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod =
 // - OAuth client: https://console.cloud.google.com/apis/credentials
 // - Authorized redirect URIs (for chrome.identity.launchWebAuthFlow):
 //   https://<extension-id>.chromiumapp.org  (no trailing slash)
-export const GOOGLE_CHROME_EXTENSION_CLIENT_ID =
-  '244450898872-d22ubafv8ca38s6fp0kflhdr6e3s386u.apps.googleusercontent.com'; // oauth web client, not extension client
+
 // TODO: Search for all occurrences of 'apps.googleusercontent.com' in the project and consolidate all discovered OAuth client IDs here for unified management.
+
+const GOOGLE_OAUTH_CLIENT_WEB =
+  '244450898872-d22ubafv8ca38s6fp0kflhdr6e3s386u.apps.googleusercontent.com';
+export const GOOGLE_OAUTH_CLIENT_IDS = {
+  WEB: GOOGLE_OAUTH_CLIENT_WEB,
+  EXTENSION: GOOGLE_OAUTH_CLIENT_WEB, // oauth web client, not extension client
+  ANDROID: GOOGLE_OAUTH_CLIENT_WEB,
+  IOS: '244450898872-1jvugg12bmstu8nfqfmcpf1o7tcsoltt.apps.googleusercontent.com',
+};
 
 // Supabase (OneKeyAuth)
 // Project URL at https://supabase.com/dashboard/project/_/settings/api

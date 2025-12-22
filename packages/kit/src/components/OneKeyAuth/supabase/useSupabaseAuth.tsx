@@ -4,38 +4,11 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  DEFAULT_DESKTOP_OAUTH_METHOD,
-  DEFAULT_EXTENSION_OAUTH_METHOD,
-  EDesktopOAuthMethod,
-  EExtensionOAuthMethod,
-  GOOGLE_CHROME_EXTENSION_CLIENT_ID,
-} from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { OAuthPopup } from '../OAuthPopup';
 import { ensureOneKeyOAuthState } from '../oauthUtils';
-import {
-  getOAuthRedirectUrlDesktop,
-  openOAuthPopupDesktopDeepLink,
-  openOAuthPopupDesktopLocalhost,
-  openOAuthPopupDesktopWebview,
-} from '../openOAuthPopupDesktop';
-import {
-  getOAuthRedirectUrlExt,
-  openOAuthPopupExtIdToken,
-  openOAuthPopupExtIdentity,
-  openOAuthPopupExtWindow,
-} from '../openOAuthPopupExt';
-import {
-  getOAuthRedirectUrlNative,
-  openOAuthPopupNative,
-} from '../openOAuthPopupNative';
-import {
-  getOAuthRedirectUrlWeb,
-  openOAuthPopupWeb,
-} from '../openOAuthPopupWeb';
 
 import {
   createTemporarySupabaseClient,
@@ -44,36 +17,6 @@ import {
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
 import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
-
-// Helper function to handle OAuth session persistence
-// This function is called after successfully extracting tokens from OAuth callback
-async function handleOAuthSessionPersistence({
-  accessToken,
-  refreshToken,
-  persistSession,
-  loginToPrime,
-}: {
-  accessToken: string;
-  refreshToken: string;
-  persistSession?: boolean;
-  // Whether to also login to Prime service
-  loginToPrime?: boolean;
-}): Promise<void> {
-  if (persistSession) {
-    // Persist session to Supabase client storage
-    await getSupabaseClient().client.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-
-    // Login to Prime service
-    if (loginToPrime) {
-      await backgroundApiProxy.servicePrime.apiLogin({
-        accessToken,
-      });
-    }
-  }
-}
 
 export function useSupabaseAuth() {
   const ctx = useSupabaseAuthContext();
@@ -105,37 +48,34 @@ export function useSupabaseAuth() {
       const { persistSession } = options ?? {};
       const clientTemp: SupabaseClient = createTemporarySupabaseClient();
 
-      // For extension with CHROME_IDENTITY_API or CHROME_GET_AUTH_TOKEN methods,
-      // we don't need Supabase OAuth URL - these methods build their own Google OAuth URL
-      // and use signInWithIdToken instead
-      if (platformEnv.isExtension) {
-        if (
-          DEFAULT_EXTENSION_OAUTH_METHOD ===
-          EExtensionOAuthMethod.CHROME_GET_AUTH_TOKEN
-        ) {
-          // Use getAuthToken (requires manifest oauth2 config)
-          // Chrome handles OAuth internally, no redirect URL needed
-          return openOAuthPopupExtIdToken({
-            handleSessionPersistence: handleOAuthSessionPersistence,
-            persistSession,
+      const handleOAuthSessionPersistence = async ({
+        accessToken,
+        refreshToken,
+      }: {
+        accessToken: string;
+        refreshToken: string;
+      }): Promise<void> => {
+        if (persistSession) {
+          // Persist session to Supabase client storage
+          await getSupabaseClient().client.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
           });
-        }
-      }
 
-      // For other platforms and DIRECT_EXTENSION_SCHEME, we need Supabase OAuth URL
-      // Build redirect URL based on platform
-      let redirectTo: string | undefined;
-      if (platformEnv.isNative) {
-        redirectTo = getOAuthRedirectUrlNative();
-      } else if (platformEnv.isDesktop) {
-        redirectTo = await getOAuthRedirectUrlDesktop(
-          DEFAULT_DESKTOP_OAUTH_METHOD,
-        );
-      } else if (platformEnv.isExtension) {
-        redirectTo = getOAuthRedirectUrlExt(DEFAULT_EXTENSION_OAUTH_METHOD);
-      } else {
-        redirectTo = getOAuthRedirectUrlWeb();
-      }
+          // Login to Prime service
+          // if (loginToPrime) {
+          //   await backgroundApiProxy.servicePrime.apiLogin({
+          //     accessToken,
+          //   });
+          // }
+        }
+      };
+
+      // Get platform-specific redirect URL
+      // Note: Some platforms return Promise<string> (e.g., desktop needs to start server)
+      let redirectTo: string | undefined = await Promise.resolve(
+        OAuthPopup.getRedirectUrl(),
+      );
 
       // Defense-in-depth: Supabase PKCE URL may not include `state`. We embed our own
       // nonce into redirectTo so the callback must carry it back to us.
@@ -143,6 +83,7 @@ export function useSupabaseAuth() {
         redirectTo = ensureOneKeyOAuthState(redirectTo);
       }
 
+      // Get Supabase OAuth URL
       const oauthUrlResult = await clientTemp.auth.signInWithOAuth({
         provider,
         options: {
@@ -167,73 +108,13 @@ export function useSupabaseAuth() {
         throw new OneKeyLocalError('Failed to get OAuth URL');
       }
 
-      // Open the OAuth URL based on platform
-      if (platformEnv.isNative) {
-        return openOAuthPopupNative({
-          authUrl,
-          redirectTo,
-          handleSessionPersistence: handleOAuthSessionPersistence,
-          persistSession,
-        });
-      }
-
-      // For desktop (Electron), handle OAuth based on configured method
-      if (platformEnv.isDesktop) {
-        if (
-          DEFAULT_DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.LOCALHOST_SERVER
-        ) {
-          return openOAuthPopupDesktopLocalhost({
-            authUrl,
-            client: clientTemp,
-            handleSessionPersistence: handleOAuthSessionPersistence,
-            persistSession,
-          });
-        }
-        if (DEFAULT_DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.WEBVIEW) {
-          return openOAuthPopupDesktopWebview({
-            authUrl,
-            handleSessionPersistence: handleOAuthSessionPersistence,
-            persistSession,
-          });
-        }
-        return openOAuthPopupDesktopDeepLink({
-          authUrl,
-          handleSessionPersistence: handleOAuthSessionPersistence,
-          persistSession,
-        });
-      }
-
-      // For extension with DIRECT_EXTENSION_SCHEME (does not work, kept for reference)
-      if (platformEnv.isExtension) {
-        if (
-          DEFAULT_EXTENSION_OAUTH_METHOD ===
-          EExtensionOAuthMethod.CHROME_IDENTITY_API
-        ) {
-          // Use launchWebAuthFlow + signInWithIdToken (Supabase recommended)
-          // Pass authUrl from external creation (similar to web version)
-          return openOAuthPopupExtIdentity({
-            client: clientTemp,
-            config: { googleClientId: GOOGLE_CHROME_EXTENSION_CLIENT_ID },
-            handleSessionPersistence: handleOAuthSessionPersistence,
-            persistSession,
-            authUrl,
-          });
-        }
-        return openOAuthPopupExtWindow({
-          authUrl,
-          handleSessionPersistence: handleOAuthSessionPersistence,
-          persistSession,
-        });
-      }
-
-      // Open OAuth popup window for web
-      const popupResult = await openOAuthPopupWeb({
+      // Open OAuth popup using platform-specific implementation
+      return OAuthPopup.open({
         authUrl,
+        redirectTo,
         client: clientTemp,
         handleSessionPersistence: handleOAuthSessionPersistence,
-        persistSession,
       });
-      return popupResult;
     },
     [],
   );

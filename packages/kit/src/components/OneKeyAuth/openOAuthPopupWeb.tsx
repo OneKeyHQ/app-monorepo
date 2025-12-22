@@ -182,8 +182,6 @@ export async function openOAuthPopupWeb(options: {
             await handleSessionPersistence({
               accessToken,
               refreshToken,
-              persistSession,
-              loginToPrime: false, // openOAuthPopupWeb doesn't handle Prime login
             });
 
             resolveOnce(
@@ -291,8 +289,6 @@ export async function openOAuthPopupWeb(options: {
             await handleSessionPersistence({
               accessToken,
               refreshToken,
-              persistSession,
-              loginToPrime: false, // openOAuthPopupWeb doesn't handle Prime login
             });
 
             resolveOnce(

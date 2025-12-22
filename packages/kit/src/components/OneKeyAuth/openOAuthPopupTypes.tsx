@@ -1,9 +1,6 @@
 export type IHandleOAuthSessionPersistenceParams = {
   accessToken: string;
   refreshToken: string;
-  persistSession?: boolean;
-  // Whether to also login to Prime service (default: true)
-  loginToPrime?: boolean;
 };
 
 export type IOAuthPopupResult = {
