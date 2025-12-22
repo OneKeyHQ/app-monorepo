@@ -532,7 +532,7 @@ function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
             <Button
               flex={1}
               minWidth="$40"
-              icon="BookOpenOutline"
+              icon="OpenOutline"
               onPress={() => {
                 void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
               }}
