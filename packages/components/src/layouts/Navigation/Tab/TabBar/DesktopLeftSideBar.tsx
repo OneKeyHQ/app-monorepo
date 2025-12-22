@@ -565,8 +565,8 @@ export function DesktopLeftSideBar({
             <YStack
               position="absolute"
               left={8}
-              top={0}
-              bottom={0}
+              top={64}
+              bottom={20}
               width={1.5}
               bg="$borderStrong"
               pointerEvents="none"
