@@ -31,6 +31,9 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'SENTRY_DSN_WINMS',
     'SENTRY_DSN_REACT_NATIVE',
     'SENTRY_DSN_WEB',
+    // Supabase (publishable)
+    'SUPABASE_PROJECT_URL',
+    'SUPABASE_PUBLIC_API_KEY',
   ];
   // ***        also update Inject Environment Variables at release-ios.yml, release-android      ***
 

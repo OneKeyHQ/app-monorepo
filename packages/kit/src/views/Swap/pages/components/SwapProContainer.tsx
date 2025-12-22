@@ -164,7 +164,7 @@ const SwapProContainer = ({
         paddingHorizontal: 20,
       }}
       showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[0, 2]}
+      stickyHeaderIndices={[0, 3]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       refreshControl={

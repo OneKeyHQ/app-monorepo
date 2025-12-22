@@ -65,6 +65,7 @@ export { default as Near } from './Near';
 export { default as Nexa } from './Nexa';
 export { default as NftPeg } from './NftPeg';
 export { default as OkxChain } from './OkxChain';
+export { default as OnekeyBrandingPillDark } from './OnekeyBrandingPillDark';
 export { default as OnekeyBrandingPill } from './OnekeyBrandingPill';
 export { default as OnekeyLogo } from './OnekeyLogo';
 export { default as OnekeyTextOnly } from './OnekeyTextOnly';

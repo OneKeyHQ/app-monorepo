@@ -1,4 +1,4 @@
-import { ScrollView, Stack, XStack, useMedia } from '@onekeyhq/components';
+import { ScrollView, XStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
@@ -6,36 +6,33 @@ import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
 import { useToMarketBannerDetail } from './useToMarketBannerDetail';
 
-const BANNER_ITEM_WIDTH = 128;
-const BANNER_GAP = 12;
-
-function MarketBannerListSkeleton({ compact }: { compact?: boolean }) {
-  if (compact) {
+function MarketBannerListSkeleton({
+  isSmallScreen,
+}: {
+  isSmallScreen: boolean;
+}) {
+  if (isSmallScreen) {
     return (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
-          py: '$2',
+          pb: '$2',
           px: '$4',
-          gap: BANNER_GAP,
+          gap: '$3',
         }}
       >
         {[0, 1, 2].map((i) => (
-          <Stack key={i} h={118} w={BANNER_ITEM_WIDTH}>
-            <MarketBannerItemSkeleton compact={compact} />
-          </Stack>
+          <MarketBannerItemSkeleton key={i} />
         ))}
       </ScrollView>
     );
   }
 
   return (
-    <XStack gap="$3" px="$4" py="$2">
+    <XStack pt="$4" pb="$2" px="$5" gap="$3" overflow="scroll">
       {[0, 1, 2].map((i) => (
-        <Stack key={i} flex={1}>
-          <MarketBannerItemSkeleton compact={compact} />
-        </Stack>
+        <MarketBannerItemSkeleton key={i} />
       ))}
     </XStack>
   );
@@ -43,7 +40,7 @@ function MarketBannerListSkeleton({ compact }: { compact?: boolean }) {
 
 export function MarketBannerList() {
   const toMarketBannerDetail = useToMarketBannerDetail();
-  const { sm, md } = useMedia();
+  const { md } = useMedia();
 
   const { result: bannerList, isLoading } = usePromiseResult(
     async () => {
@@ -57,57 +54,48 @@ export function MarketBannerList() {
     },
   );
 
-  const bannerLength = bannerList?.length ?? 0;
-  const isSmallScreen = bannerLength > 3 ? md : sm;
-  const useCompactLayout = isSmallScreen && bannerLength >= 3;
+  // md = true when screen width <= 767px (small screen)
+  const isSmallScreen = md;
 
   if (isLoading) {
-    return <MarketBannerListSkeleton compact={sm} />;
+    return <MarketBannerListSkeleton isSmallScreen={isSmallScreen} />;
   }
 
   if (!bannerList || bannerList.length === 0) {
     return null;
   }
 
-  const bannerCount = bannerList.length;
-  const useScrollView = isSmallScreen && bannerCount >= 3;
-  const itemWidth =
-    bannerCount === 1
-      ? '100%'
-      : `calc((100% - ${(bannerCount - 1) * BANNER_GAP}px) / ${bannerCount})`;
-
-  const bannerItems = bannerList.map((item) => (
-    <Stack
-      key={item._id}
-      {...(useScrollView ? { w: BANNER_ITEM_WIDTH } : { width: itemWidth })}
-    >
-      <MarketBannerItem
-        item={item}
-        onPress={toMarketBannerDetail}
-        compact={useCompactLayout}
-      />
-    </Stack>
-  ));
-
-  if (useScrollView) {
+  if (isSmallScreen) {
     return (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
-          pt: '$2',
+          pb: '$2',
           px: '$4',
-          gap: BANNER_GAP,
+          gap: '$3',
         }}
       >
-        {bannerItems}
+        {bannerList.map((item) => (
+          <MarketBannerItem
+            key={item._id}
+            item={item}
+            onPress={toMarketBannerDetail}
+          />
+        ))}
       </ScrollView>
     );
   }
 
   return (
-    <XStack pt="$2" px="$4" gap="$3" justifyContent="space-between">
-      {bannerItems}
+    <XStack pt="$4" pb="$2" px="$5" gap="$3" overflow="scroll">
+      {bannerList.map((item) => (
+        <MarketBannerItem
+          key={item._id}
+          item={item}
+          onPress={toMarketBannerDetail}
+        />
+      ))}
     </XStack>
   );
 }

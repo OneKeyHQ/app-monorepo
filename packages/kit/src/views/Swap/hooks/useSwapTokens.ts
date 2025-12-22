@@ -305,7 +305,7 @@ export function useSwapTokenList(
       return;
     }
     const queryLength = keywords.length;
-    if (queryLength < 1 || queryLength > 10) {
+    if (queryLength < 1) {
       searchLogStateRef.current = null;
       return;
     }

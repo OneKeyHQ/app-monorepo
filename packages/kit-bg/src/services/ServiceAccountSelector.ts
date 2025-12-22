@@ -847,6 +847,21 @@ class ServiceAccountSelector extends ServiceBase {
       value: Record<string, string> | string | undefined;
       currency: string | undefined;
     }[] = [];
+    let accountsDeFiOverview: Array<
+      | {
+          overview: Record<
+            string,
+            {
+              totalValue: number;
+              totalDebt: number;
+              totalReward: number;
+              netWorth: number;
+              currency: string;
+            }
+          >;
+        }
+      | undefined
+    > = [];
 
     let mergeDeriveAssetsEnabled = false;
     if (selectedNetworkId) {
@@ -861,6 +876,9 @@ class ServiceAccountSelector extends ServiceBase {
     try {
       const accountsForValuesQuery: {
         accountId: string;
+        networkId: string;
+        indexedAccountId?: string;
+        accountAddress?: string;
       }[] = [];
 
       sectionData?.forEach?.((s) => {
@@ -868,9 +886,25 @@ class ServiceAccountSelector extends ServiceBase {
           accountsCount += 1;
           accountsForValuesQuery.push({
             accountId: account.id,
+            networkId:
+              (account as IDBAccount).createAtNetwork ||
+              selectedNetworkId ||
+              '',
+            indexedAccountId: accountUtils.buildIndexedAccountId({
+              walletId: (account as IDBIndexedAccount).walletId ?? '',
+              index: (account as IDBIndexedAccount).index,
+            }),
+            accountAddress:
+              (account as IDBAccount).address ||
+              (account as IDBIndexedAccount).associateAccount?.address ||
+              '',
           });
         });
       });
+      accountsDeFiOverview =
+        await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+          accounts: accountsForValuesQuery,
+        });
       if (
         accountUtils.isOthersWallet({
           walletId: focusedWallet ?? '',
@@ -898,6 +932,7 @@ class ServiceAccountSelector extends ServiceBase {
       accountsCount,
       accountsValue,
       mergeDeriveAssetsEnabled,
+      accountsDeFiOverview,
     };
   }
 }

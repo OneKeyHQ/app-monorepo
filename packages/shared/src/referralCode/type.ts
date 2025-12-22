@@ -30,6 +30,7 @@ export interface IInviteSummary {
   }>;
   inviteUrl: string;
   inviteCode: string;
+  suspensionNotice?: string;
   withdrawAddresses: {
     networkId: string;
     address: string;

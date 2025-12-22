@@ -1167,6 +1167,15 @@ const BaseDevSettingsSection = () => {
               </SectionFieldItem>
 
               <SectionFieldItem
+                icon="CloudOutline"
+                name="isKeylessWalletFeatureEnabled"
+                title="启用 Keyless Wallet"
+                subtitle="启用无私钥钱包功能"
+              >
+                <Switch size={ESwitchSize.small} />
+              </SectionFieldItem>
+
+              <SectionFieldItem
                 icon="WalletOutline"
                 name="allowCreateKeylessWalletOnWeb"
                 title="允许网页端创建 Keyless 钱包"
