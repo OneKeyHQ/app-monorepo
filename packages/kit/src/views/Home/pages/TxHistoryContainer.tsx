@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty, uniqBy } from 'lodash';
 
@@ -28,6 +28,7 @@ import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -439,6 +440,8 @@ function TxHistoryListContainer(
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
 
+  const listHeaderComponent = useMemo(() => <NotificationEnableAlert />, []);
+
   return (
     <TxHistoryListView
       plainMode={plainMode}
@@ -466,6 +469,7 @@ function TxHistoryListContainer(
       tokenMap={allTokenListMap}
       emptyTitle={emptyTitle}
       emptyDescription={emptyDescription}
+      ListHeaderComponent={listHeaderComponent}
     />
   );
 }

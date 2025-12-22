@@ -1297,6 +1297,12 @@ export default class ServiceNotification extends ServiceBase {
     return result?.data?.data;
   }
 
+  @backgroundMethod()
+  async fetchServerNotificationSettingsWithCache(): Promise<INotificationPushSettings> {
+    const { serverSettings } = await this.getServerSettingsWithCache();
+    return serverSettings;
+  }
+
   updateNotificationSettingsAbortController: AbortController | undefined;
 
   @backgroundMethod()
