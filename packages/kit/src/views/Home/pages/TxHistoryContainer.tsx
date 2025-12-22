@@ -440,7 +440,10 @@ function TxHistoryListContainer(
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
 
-  const listHeaderComponent = useMemo(() => <NotificationEnableAlert />, []);
+  const listHeaderComponent = useMemo(
+    () => <NotificationEnableAlert scene="txHistory" />,
+    [],
+  );
 
   return (
     <TxHistoryListView

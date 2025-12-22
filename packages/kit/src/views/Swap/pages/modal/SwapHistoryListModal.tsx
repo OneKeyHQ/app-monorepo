@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -333,6 +334,9 @@ const SwapHistoryListModal = ({
                 </XStack>
               )}
               estimatedItemSize="$10"
+              ListHeaderComponent={
+                <NotificationEnableAlert scene="swapHistory" />
+              }
               ListEmptyComponent={
                 <Empty
                   icon="InboxOutline"

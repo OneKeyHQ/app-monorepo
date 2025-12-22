@@ -9,7 +9,10 @@ export type INotificationsPersistAtomData = {
   lastRegisterTime: number | undefined;
   maxAccountCount: number | undefined;
   lastSettingsUpdateTime: number | undefined;
-  historyAlertDismissed: boolean | undefined;
+  // Alert dismissed states for different history lists
+  txHistoryAlertDismissed: boolean | undefined;
+  swapHistoryAlertDismissed: boolean | undefined;
+  perpHistoryAlertDismissed: boolean | undefined;
 };
 export const {
   target: notificationsAtom, // persist
@@ -24,7 +27,9 @@ export const {
     lastRegisterTime: undefined,
     lastSettingsUpdateTime: undefined,
     maxAccountCount: undefined,
-    historyAlertDismissed: undefined,
+    txHistoryAlertDismissed: undefined,
+    swapHistoryAlertDismissed: undefined,
+    perpHistoryAlertDismissed: undefined,
   },
 });
 

@@ -11,10 +11,38 @@ import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
 
 import { usePromiseResult } from '../hooks/usePromiseResult';
 
-function BasicNotificationEnableAlert() {
+export type INotificationAlertScene =
+  | 'txHistory'
+  | 'swapHistory'
+  | 'perpHistory';
+
+const dismissedKeyMap: Record<
+  INotificationAlertScene,
+  | 'txHistoryAlertDismissed'
+  | 'swapHistoryAlertDismissed'
+  | 'perpHistoryAlertDismissed'
+> = {
+  txHistory: 'txHistoryAlertDismissed',
+  swapHistory: 'swapHistoryAlertDismissed',
+  perpHistory: 'perpHistoryAlertDismissed',
+};
+
+const i18nKeyMap: Record<INotificationAlertScene, ETranslations> = {
+  txHistory: ETranslations.global_wallet_history_notification_banner,
+  swapHistory: ETranslations.global_swap_history_notification_banner,
+  perpHistory: ETranslations.global_perp_history_notification_banner,
+};
+
+function BasicNotificationEnableAlert({
+  scene,
+}: {
+  scene: INotificationAlertScene;
+}) {
   const intl = useIntl();
-  const [{ historyAlertDismissed }, setNotificationsData] =
-    useNotificationsAtom();
+  const [notificationsData, setNotificationsData] = useNotificationsAtom();
+
+  const dismissedKey = dismissedKeyMap[scene];
+  const isDismissed = notificationsData[dismissedKey];
 
   const { result } = usePromiseResult(async () => {
     // Only check on supported platforms
@@ -47,13 +75,13 @@ function BasicNotificationEnableAlert() {
   const handleClose = useCallback(() => {
     setNotificationsData((v) => ({
       ...v,
-      historyAlertDismissed: true,
+      [dismissedKey]: true,
     }));
-  }, [setNotificationsData]);
+  }, [setNotificationsData, dismissedKey]);
 
   const shouldShowAlert = useMemo(
-    () => !historyAlertDismissed && result?.shouldShow,
-    [historyAlertDismissed, result?.shouldShow],
+    () => !isDismissed && result?.shouldShow,
+    [isDismissed, result?.shouldShow],
   );
 
   if (!shouldShowAlert) {
@@ -66,7 +94,7 @@ function BasicNotificationEnableAlert() {
         type="info"
         icon="InfoCircleOutline"
         title={intl.formatMessage({
-          id: ETranslations.global_wallet_history_notification_banner,
+          id: i18nKeyMap[scene],
         })}
         closable
         onClose={handleClose}

@@ -12,6 +12,7 @@ import {
 import { PageBody } from '@onekeyhq/components/src/layouts/Page/PageBody';
 import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpTradesHistoryViewAllUrl } from '../../hooks/usePerpOrderInfoPanel';
@@ -101,6 +102,7 @@ export function PerpTradersHistoryListModal() {
       />
       <PageBody>
         <YStack flex={1}>
+          <NotificationEnableAlert scene="perpHistory" />
           <TabHeader activeTab={activeTab} onTabChange={setActiveTab} />
           <YStack flex={1}>
             {activeTab === 'Trades' ? (
