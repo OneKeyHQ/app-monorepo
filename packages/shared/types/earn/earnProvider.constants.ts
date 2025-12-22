@@ -198,7 +198,6 @@ export function getImportFromToken({
       swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
       break;
     case networkIdsMap.eth:
-    case networkIdsMap.holesky:
     case networkIdsMap.sepolia: {
       if (
         [
