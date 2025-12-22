@@ -25,6 +25,7 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { useTooltipContext } from '@onekeyhq/components/src/actions/Tooltip/context';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import {
@@ -73,12 +74,14 @@ function HeaderRight({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { closeTooltip } = useTooltipContext();
 
   const handleSettingsButtonPress = useCallback(() => {
+    closeTooltip();
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingNotifications,
     });
-  }, [navigation]);
+  }, [closeTooltip, navigation]);
 
   return (
     <HeaderButtonGroup {...style}>
@@ -309,6 +312,7 @@ export function NotificationListView({
 }: {
   showPageHeader?: boolean;
 }) {
+  const { closeTooltip } = useTooltipContext();
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
@@ -325,6 +329,7 @@ export function NotificationListView({
       !isFirstTimeGuideOpened.current
     ) {
       // showNotificationPermissionsDialog();
+      closeTooltip();
       setTimeout(() => {
         navigation.pushModal(EModalRoutes.NotificationsModal, {
           screen: EModalNotificationsRoutes.NotificationIntroduction,
@@ -336,7 +341,7 @@ export function NotificationListView({
         firstTimeGuideOpened: true,
       }));
     }
-  }, [firstTimeGuideOpened, navigation, setNotificationsData]);
+  }, [closeTooltip, firstTimeGuideOpened, navigation, setNotificationsData]);
 
   const tabs = useMemo(
     () => [
@@ -502,6 +507,7 @@ export function NotificationListView({
                   if (
                     isVersionCompatible(item.body.extras?.miniBundlerVersion)
                   ) {
+                    closeTooltip();
                     void notificationsUtils.navigateToNotificationDetail({
                       topicType: item.topicType,
                       navigation,

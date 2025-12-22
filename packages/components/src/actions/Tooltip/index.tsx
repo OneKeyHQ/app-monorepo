@@ -23,6 +23,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { SizableText, XStack } from '../../primitives';
 import { Shortcut } from '../Shortcut';
 
+import { TooltipContext } from './context';
+
 import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
 
@@ -218,68 +220,80 @@ export function Tooltip({
     }
   }, [hovering, onContentHoverOut]);
 
+  const closeTooltip = useCallback(() => {
+    setForceClose(true);
+    setIsShow(false);
+    setIsHovered(false);
+    setTimeout(() => {
+      setForceClose(false);
+    }, 150);
+  }, [setIsHovered, setIsShow, setForceClose]);
+
   useImperativeHandle(
     ref,
     () => ({
-      closeTooltip: () => {
-        setForceClose(true);
-        setIsShow(false);
-        setIsHovered(false);
-        setTimeout(() => {
-          setForceClose(false);
-        }, 150);
-      },
+      closeTooltip,
       openTooltip: () => {
         setForceClose(false);
         setIsShow(true);
         setIsHovered(true);
       },
     }),
-    [setIsHovered],
+    [closeTooltip, setIsHovered],
   );
 
-  console.log('isOpen', isOpen, forceClose);
+  const contextValue = useMemo(
+    () => ({
+      closeTooltip,
+    }),
+    [closeTooltip],
+  );
   return (
-    <TMTooltip
-      ref={ref}
-      unstyled
-      disableAutoCloseOnScroll
-      delay={0}
-      offset={6}
-      open={isOpen}
-      onOpenChange={setIsShow}
-      allowFlip
-      placement={placement}
-      {...props}
-    >
-      <TMTooltip.Trigger onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
-        {renderTrigger}
-      </TMTooltip.Trigger>
-      <TMTooltip.Content
+    <TooltipContext.Provider value={contextValue}>
+      <TMTooltip
+        ref={ref}
         unstyled
-        maxWidth="$72"
-        bg="$bg"
-        borderRadius="$2"
-        py="$2"
-        px="$3"
-        outlineWidth="$px"
-        outlineStyle="solid"
-        outlineColor="$neutral3"
-        {...contentProps}
-        elevation={10}
-        style={contentStyle}
-        enterStyle={{
-          scale: 0.95,
-          opacity: 0,
-        }}
-        exitStyle={{ scale: 0.95, opacity: 0 }}
-        animation="quick"
-        onHoverIn={handleHoverIn}
-        onHoverOut={handleHoverOut}
+        disableAutoCloseOnScroll
+        delay={0}
+        offset={6}
+        open={isOpen}
+        onOpenChange={setIsShow}
+        allowFlip
+        placement={placement}
+        {...props}
       >
-        {renderTooltipContent}
-      </TMTooltip.Content>
-    </TMTooltip>
+        <TMTooltip.Trigger
+          onHoverIn={handleHoverIn}
+          onHoverOut={handleHoverOut}
+        >
+          {renderTrigger}
+        </TMTooltip.Trigger>
+        <TMTooltip.Content
+          unstyled
+          maxWidth="$72"
+          bg="$bg"
+          borderRadius="$2"
+          py="$2"
+          px="$3"
+          outlineWidth="$px"
+          outlineStyle="solid"
+          outlineColor="$neutral3"
+          {...contentProps}
+          elevation={10}
+          style={contentStyle}
+          enterStyle={{
+            scale: 0.95,
+            opacity: 0,
+          }}
+          exitStyle={{ scale: 0.95, opacity: 0 }}
+          animation="quick"
+          onHoverIn={handleHoverIn}
+          onHoverOut={handleHoverOut}
+        >
+          {renderTooltipContent}
+        </TMTooltip.Content>
+      </TMTooltip>
+    </TooltipContext.Provider>
   );
 }
 
