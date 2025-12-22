@@ -27,7 +27,10 @@ import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/Notificati
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useNotificationsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -70,6 +73,7 @@ const SwapHistoryListModal = ({
     type ?? EProtocolOfExchange.SWAP,
   );
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const [{ swapHistoryAlertDismissed }] = useNotificationsAtom();
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
       const histories =
@@ -308,6 +312,9 @@ const SwapHistoryListModal = ({
             ))
           ) : (
             <SectionList
+              key={`swap-history-${
+                swapHistoryAlertDismissed ? 'dismissed' : 'shown'
+              }`}
               renderItem={renderItem}
               sections={sectionData}
               py="$2"

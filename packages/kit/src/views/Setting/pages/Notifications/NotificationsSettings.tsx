@@ -21,6 +21,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useDevSettingsPersistAtom,
+  useNotificationsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -42,6 +43,7 @@ export default function NotificationsSettings() {
   >();
   const [devAppSettings] = useDevSettingsPersistAtom();
   const [appSettings] = useSettingsPersistAtom();
+  const [, setNotificationsData] = useNotificationsAtom();
   const navigation = useAppNavigation();
 
   const prevSettings = useRef<INotificationPushSettings>(undefined);
@@ -389,6 +391,18 @@ export default function NotificationsSettings() {
               }}
             >
               初次引导
+            </Button>
+            <Button
+              onPress={() => {
+                setNotificationsData((v) => ({
+                  ...v,
+                  txHistoryAlertDismissed: undefined,
+                  swapHistoryAlertDismissed: undefined,
+                  perpHistoryAlertDismissed: undefined,
+                }));
+              }}
+            >
+              重置所有 Alert 状态
             </Button>
             <SizableText>
               InstanceId: {appSettings?.instanceId?.slice(0, 8)}...

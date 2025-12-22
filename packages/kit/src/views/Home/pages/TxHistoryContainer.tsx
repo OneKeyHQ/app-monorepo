@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   useCurrencyPersistAtom,
+  useNotificationsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -93,6 +94,7 @@ function TxHistoryListContainer(
 
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [{ txHistoryAlertDismissed }] = useNotificationsAtom();
 
   const updateHistoryData = useCallback(
     (txs: IAccountHistoryTx[]) => {
@@ -447,6 +449,7 @@ function TxHistoryListContainer(
 
   return (
     <TxHistoryListView
+      key={`tx-history-${txHistoryAlertDismissed ? 'dismissed' : 'shown'}`}
       plainMode={plainMode}
       isTabFocused={isFocused}
       showIcon
