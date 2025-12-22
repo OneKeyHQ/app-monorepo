@@ -36,7 +36,7 @@ const DATA = [
       id: ETranslations.global_perps_alert,
     }),
     description: appLocale.intl.formatMessage({
-      id: ETranslations.global_lnstant_update_liquidation,
+      id: ETranslations.global_instant_update_liquidation,
     }),
     time: '1h ago',
   },

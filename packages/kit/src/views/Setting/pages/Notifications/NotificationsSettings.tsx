@@ -46,6 +46,9 @@ export default function NotificationsSettings() {
 
   const prevSettings = useRef<INotificationPushSettings>(undefined);
   const [shouldShowDevPanel, setShouldShowDevPanel] = useState(false);
+  const pendingSettings = useRef<INotificationPushSettings | undefined>(
+    undefined,
+  );
 
   const { result: pushClient } = usePromiseResult(() => {
     noop(devAppSettings.enabled);
@@ -64,32 +67,43 @@ export default function NotificationsSettings() {
   );
 
   const isUpdating = useRef(false);
-  const updateSettingsToServer = useDebouncedCallback(
-    async (partSettings: INotificationPushSettings) => {
-      if (isUpdating.current) {
-        return;
-      }
-      isUpdating.current = true;
-      let updated: INotificationPushSettings | undefined;
-      try {
-        updated =
-          await backgroundApiProxy.serviceNotification.updateServerNotificationSettings(
-            {
-              ...settings,
-              ...partSettings,
-            },
-          );
+
+  const doUpdateSettingsToServer = useCallback(async () => {
+    if (isUpdating.current || !pendingSettings.current) {
+      return;
+    }
+    isUpdating.current = true;
+    const settingsToUpdate = pendingSettings.current;
+    pendingSettings.current = undefined;
+
+    try {
+      const updated =
+        await backgroundApiProxy.serviceNotification.updateServerNotificationSettings(
+          settingsToUpdate,
+        );
+      // Check if there are new pending settings during the request
+      if (pendingSettings.current) {
+        // If there are new pending settings, continue updating
+        isUpdating.current = false;
+        void doUpdateSettingsToServer();
+      } else {
         await reloadSettings(updated);
-      } catch (e) {
-        if (prevSettings.current) {
-          setSettings(prevSettings.current);
-        }
-        throw e;
-      } finally {
         isUpdating.current = false;
       }
+    } catch (e) {
+      isUpdating.current = false;
+      if (prevSettings.current) {
+        setSettings(prevSettings.current);
+      }
+      throw e;
+    }
+  }, [reloadSettings]);
+
+  const updateSettingsToServer = useDebouncedCallback(
+    () => {
+      void doUpdateSettingsToServer();
     },
-    300,
+    2000,
     {
       leading: false,
       trailing: true,
@@ -97,13 +111,14 @@ export default function NotificationsSettings() {
   );
 
   const updateSettings = useCallback(
-    async (partSettings: INotificationPushSettings) => {
+    (partSettings: INotificationPushSettings) => {
       setSettings((v) => {
         const newValue = {
           ...v,
           ...partSettings,
         };
-        void updateSettingsToServer(newValue);
+        pendingSettings.current = newValue;
+        updateSettingsToServer();
         return newValue;
       });
     },
@@ -113,6 +128,16 @@ export default function NotificationsSettings() {
   useEffect(() => {
     void reloadSettings();
   }, [reloadSettings]);
+
+  // Flush pending settings when component unmount
+  useEffect(
+    () => () => {
+      if (pendingSettings.current) {
+        updateSettingsToServer.flush();
+      }
+    },
+    [updateSettingsToServer],
+  );
 
   return (
     <Page scrollEnabled>
@@ -133,9 +158,9 @@ export default function NotificationsSettings() {
                 primary={intl.formatMessage({
                   id: ETranslations.notifications_notifications_switch_label,
                 })}
-                // secondary={intl.formatMessage({
-                //   id: ETranslations.notifications_notifications_switch_desc,
-                // })}
+                secondary={intl.formatMessage({
+                  id: ETranslations.global_master_switch_all_notification,
+                })}
                 secondaryTextProps={{
                   maxWidth: '$96',
                 }}
