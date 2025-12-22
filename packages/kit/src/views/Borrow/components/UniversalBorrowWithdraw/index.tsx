@@ -374,6 +374,42 @@ export function UniversalBorrowWithdraw({
                 ) : null}
               </BorrowInfoItem>
             ) : null}
+            {transactionConfirmation?.healthFactor ? (
+              <BorrowInfoItem title="Health factor">
+                <YStack ai="flex-end">
+                  <XStack ai="center" gap="$1">
+                    <EarnText
+                      text={transactionConfirmation.healthFactor.current?.title}
+                      size="$headingLg"
+                    />
+                    {transactionConfirmation.healthFactor.latest ? (
+                      <>
+                        <Icon
+                          name="ArrowRightSolid"
+                          size="$4"
+                          color="$iconDisabled"
+                        />
+                        <EarnText
+                          text={
+                            transactionConfirmation.healthFactor.latest?.title
+                          }
+                          size="$headingLg"
+                        />
+                      </>
+                    ) : null}
+                  </XStack>
+                  <EarnText
+                    text={
+                      transactionConfirmation.liquidationAt?.description ?? {
+                        text: 'Liquidation at < 1.0',
+                      }
+                    }
+                    size="$bodySmMedium"
+                    color="$textSubdued"
+                  />
+                </YStack>
+              </BorrowInfoItem>
+            ) : null}
             {showApyDetail && transactionConfirmation?.apyDetail ? (
               <BorrowInfoItem title="Supply APY">
                 <YStack ai="flex-end">

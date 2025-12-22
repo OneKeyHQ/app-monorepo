@@ -4,8 +4,10 @@ import type { IBorrowToken } from '@onekeyhq/shared/types/staking';
 
 import { FieldWrapper } from './FieldWrapper';
 
+type IAssetFieldToken = Pick<IBorrowToken, 'logoURI' | 'symbol'>;
+
 type IAssetFieldProps = {
-  token: IBorrowToken;
+  token: IAssetFieldToken;
   canBeCollateral?: boolean;
 };
 

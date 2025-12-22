@@ -13,7 +13,6 @@ import {
   Stack,
   XStack,
   YStack,
-  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -38,6 +37,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
+  IBorrowAsset,
   IBorrowReserveItem,
   IEarnTokenInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -70,9 +70,7 @@ const isAmountInvalid = (amount: string) =>
   BigNumber(amount).isNaN() ||
   (typeof amount === 'string' && amount.endsWith('.'));
 
-type IBorrowSelectAsset =
-  | IBorrowReserveItem['supply']['assets'][number]
-  | IBorrowReserveItem['borrow']['assets'][number];
+type IBorrowSelectAsset = IBorrowAsset;
 
 export function UniversalBorrowBorrow({
   accountId,
@@ -86,7 +84,6 @@ export function UniversalBorrowBorrow({
   decimals,
   price: inputPrice,
   tokenInfo,
-  borrowReserves,
   isDisabled,
   beforeFooter,
   showApyDetail = false,
@@ -118,39 +115,6 @@ export function UniversalBorrowBorrow({
       }),
     [networkId],
   ).result;
-
-  const { result: fetchedReserves, isLoading: reservesLoading } =
-    usePromiseResult(
-      async () => {
-        if (borrowReserves) {
-          return borrowReserves;
-        }
-        if (!accountId || !networkId || !providerName || !borrowMarketAddress) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceStaking.getBorrowReserves({
-          accountId,
-          networkId,
-          provider: providerName,
-          marketAddress: borrowMarketAddress,
-        });
-      },
-      [borrowReserves, accountId, networkId, providerName, borrowMarketAddress],
-      { watchLoading: !borrowReserves },
-    );
-
-  const reserves = borrowReserves ?? fetchedReserves;
-  const isReservesLoading = borrowReserves ? false : Boolean(reservesLoading);
-
-  const borrowAssets = useMemo(
-    () => reserves?.borrow?.assets ?? [],
-    [reserves],
-  );
-
-  const borrowedAssets = useMemo(
-    () => reserves?.borrowed?.assets ?? [],
-    [reserves],
-  );
 
   const {
     transactionConfirmation,
@@ -275,28 +239,15 @@ export function UniversalBorrowBorrow({
     setAmountValue('');
   }, [borrowReserveAddress]);
 
-  useEffect(() => {
-    const currentRoute = rootNavigationRef.current?.getCurrentRoute();
-    if (currentRoute?.name !== EModalStakingRoutes.BorrowTokenSelect) {
-      return;
-    }
-    rootNavigationRef.current?.setParams?.({
-      assets: borrowAssets,
-      positionAssets: borrowedAssets,
-      isLoading: isReservesLoading,
-    });
-  }, [borrowAssets, borrowedAssets, isReservesLoading]);
-
   const handleOpenTokenSelector = useCallback(() => {
     if (tokenSelectorDisabled) return;
     navigation.push(EModalStakingRoutes.BorrowTokenSelect, {
       accountId,
       networkId,
+      provider: providerName,
+      marketAddress: borrowMarketAddress,
       action: 'borrow',
       currentReserveAddress: borrowReserveAddress,
-      assets: borrowAssets,
-      positionAssets: borrowedAssets,
-      isLoading: isReservesLoading,
       onSelect: (item: IBorrowSelectAsset) => {
         if (item.reserveAddress === borrowReserveAddress) return;
         navigation.setParams({
@@ -308,12 +259,11 @@ export function UniversalBorrowBorrow({
     });
   }, [
     accountId,
-    borrowAssets,
-    borrowedAssets,
+    borrowMarketAddress,
     borrowReserveAddress,
     navigation,
     networkId,
-    isReservesLoading,
+    providerName,
     tokenSelectorDisabled,
   ]);
 
@@ -408,6 +358,43 @@ export function UniversalBorrowBorrow({
           borderColor="$borderSubdued"
         >
           <YStack gap="$6">
+            {transactionConfirmation?.healthFactor ? (
+              <BorrowInfoItem title="Health factor">
+                <YStack ai="flex-end">
+                  <XStack ai="center" gap="$1">
+                    <EarnText
+                      text={transactionConfirmation.healthFactor.current?.title}
+                      color="$textText"
+                      size="$bodyLg"
+                    />
+                    {transactionConfirmation.healthFactor.latest ? (
+                      <>
+                        <Icon
+                          name="ArrowRightSolid"
+                          size="$4"
+                          color="$iconDisabled"
+                        />
+                        <EarnText
+                          text={
+                            transactionConfirmation.healthFactor.latest?.title
+                          }
+                          size="$headingLg"
+                        />
+                      </>
+                    ) : null}
+                  </XStack>
+                  <EarnText
+                    text={
+                      transactionConfirmation.liquidationAt?.description ?? {
+                        text: 'Liquidation at < 1.0',
+                      }
+                    }
+                    size="$bodySmMedium"
+                    color="$textSubdued"
+                  />
+                </YStack>
+              </BorrowInfoItem>
+            ) : null}
             {transactionConfirmation?.myBorrow ? (
               <BorrowInfoItem
                 title={
@@ -415,9 +402,6 @@ export function UniversalBorrowBorrow({
                     text={{ text: 'My Borrow' }}
                     color="$textText"
                     size="$bodyLg"
-                    boldTextProps={{
-                      size: '$bodyMdMedium',
-                    }}
                   />
                 }
               >

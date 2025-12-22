@@ -476,11 +476,47 @@ export function UniversalBorrowRepay({
           borderColor="$borderSubdued"
         >
           <YStack gap="$6">
-            {transactionConfirmation?.mySupply ? (
+            {transactionConfirmation?.healthFactor ? (
+              <BorrowInfoItem title="Health factor">
+                <YStack ai="flex-end">
+                  <XStack ai="center" gap="$1">
+                    <EarnText
+                      text={transactionConfirmation.healthFactor.current?.title}
+                      size="$headingLg"
+                    />
+                    {transactionConfirmation.healthFactor.latest ? (
+                      <>
+                        <Icon
+                          name="ArrowRightSolid"
+                          size="$4"
+                          color="$iconDisabled"
+                        />
+                        <EarnText
+                          text={
+                            transactionConfirmation.healthFactor.latest?.title
+                          }
+                          size="$headingLg"
+                        />
+                      </>
+                    ) : null}
+                  </XStack>
+                  <EarnText
+                    text={
+                      transactionConfirmation.liquidationAt?.description ?? {
+                        text: 'Liquidation at < 1.0',
+                      }
+                    }
+                    size="$bodySmMedium"
+                    color="$textSubdued"
+                  />
+                </YStack>
+              </BorrowInfoItem>
+            ) : null}
+            {transactionConfirmation?.myBorrow ? (
               <BorrowInfoItem
                 title={
                   <EarnText
-                    text={{ text: 'My Supply' }}
+                    text={{ text: 'My Borrow' }}
                     color="$textText"
                     size="$bodyLg"
                     boldTextProps={{
@@ -491,30 +527,30 @@ export function UniversalBorrowRepay({
               >
                 <YStack ai="flex-end">
                   <EarnText
-                    text={transactionConfirmation.mySupply.current?.title}
+                    text={transactionConfirmation.myBorrow.current?.title}
                     size="$headingLg"
                   />
                   <EarnText
-                    text={transactionConfirmation.mySupply.current?.description}
+                    text={transactionConfirmation.myBorrow.current?.description}
                     size="$bodySmMedium"
                   />
                 </YStack>
-                {transactionConfirmation.mySupply.latest ? (
+                {transactionConfirmation.myBorrow.latest ? (
                   <Icon
                     name="ArrowRightSolid"
                     size="$4"
                     color="$iconDisabled"
                   />
                 ) : null}
-                {transactionConfirmation.mySupply.latest ? (
+                {transactionConfirmation.myBorrow.latest ? (
                   <YStack ai="flex-end">
                     <EarnText
-                      text={transactionConfirmation.mySupply.latest?.title}
+                      text={transactionConfirmation.myBorrow.latest?.title}
                       size="$headingLg"
                     />
                     <EarnText
                       text={
-                        transactionConfirmation.mySupply.latest?.description
+                        transactionConfirmation.myBorrow.latest?.description
                       }
                       size="$bodySmMedium"
                     />

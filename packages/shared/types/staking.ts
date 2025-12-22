@@ -1220,6 +1220,13 @@ export enum EStakeProtocolGroupEnum {
   Unavailable = 'unavailable',
 }
 
+export enum EBorrowActionsEnum {
+  Supply = 'supply',
+  Withdraw = 'withdraw',
+  Borrow = 'borrow',
+  Repay = 'repay',
+}
+
 export type IStakeProtocolListItem = {
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
@@ -1781,6 +1788,31 @@ export interface IBorrowRewards {
   button: IEarnRewardsDetails;
 }
 
+export interface IBorrowAsset {
+  reserveAddress: string;
+  token: {
+    address: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+    logoURI: string;
+  };
+  canBeCollateral?: boolean;
+  balance: {
+    title: IEarnText;
+    description: IEarnText;
+  };
+  supplied: {
+    title: IEarnText;
+    description: IEarnText;
+  };
+  apyDetail: IBorrowApy;
+}
+
+export interface IBorrowAssetsList {
+  assets: IBorrowAsset[];
+}
+
 export interface IBorrowEstimateFee {
   feeFiatValue: string;
   coverFeeSeconds?: string;
@@ -2048,8 +2080,12 @@ export interface IBorrowTransactionConfirmation {
   liquidationRisk?: boolean;
   blockRepay?: boolean;
   healthFactor?: {
-    title: IEarnText;
-    description: IEarnText;
+    current?: {
+      title: IEarnText;
+    };
+    latest?: {
+      title: IEarnText;
+    };
   };
 }
 

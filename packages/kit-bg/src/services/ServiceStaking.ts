@@ -30,6 +30,7 @@ import type {
   IChangedPendingTxInfo,
 } from '@onekeyhq/shared/types/history';
 import type {
+  EBorrowActionsEnum,
   ECheckAmountActionType,
   EInternalDappEnum,
   EInternalStakingAction,
@@ -38,6 +39,7 @@ import type {
   IAvailableAsset,
   IBabylonPortfolioItem,
   IBorrowApyHistoryItem,
+  IBorrowAssetsList,
   IBorrowCheckAmount,
   IBorrowEstimateFee,
   IBorrowHealthFactor,
@@ -2383,6 +2385,34 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IBorrowRewards;
     }>('/earn/v1/borrow/rewards', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowAssetsList(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+    action: EBorrowActionsEnum;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowAssetsList;
+    }>('/earn/v1/borrow/asset-list', {
       params: {
         ...rest,
         accountAddress,

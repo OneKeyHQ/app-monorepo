@@ -13,14 +13,7 @@ export function BorrowInfoItem({
 }) {
   const titleContent =
     typeof title === 'string' ? (
-      <EarnText
-        text={{ text: title }}
-        color="$textSubdued"
-        size="$bodyLg"
-        boldTextProps={{
-          size: '$bodyMdMedium',
-        }}
-      />
+      <EarnText text={{ text: title }} color="$textSubdued" size="$bodyMd" />
     ) : (
       title
     );

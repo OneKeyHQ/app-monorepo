@@ -2,6 +2,7 @@ import type { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/
 
 import type {
   IBorrowReserveItem,
+  IBorrowAsset,
   IEarnAlert,
   IEarnTokenInfo,
   IProtocolInfo,
@@ -32,13 +33,6 @@ type IBaseRouteParams = {
   accountId: string;
   indexedAccountId?: string;
 };
-
-type IBorrowReserveAsset =
-  | IBorrowReserveItem['supply']['assets'][number]
-  | IBorrowReserveItem['borrow']['assets'][number];
-type IBorrowPositionAsset =
-  | IBorrowReserveItem['supplied']['assets'][number]
-  | IBorrowReserveItem['borrowed']['assets'][number];
 
 interface IDetailPageInfoParams extends IBaseRouteParams {
   protocolInfo?: IProtocolInfo;
@@ -87,14 +81,11 @@ export type IModalStakingParamList = {
     borrowReserves?: IBorrowReserveItem;
   };
   [EModalStakingRoutes.BorrowTokenSelect]: IBaseRouteParams & {
+    provider: string;
+    marketAddress: string;
     action: 'supply' | 'borrow';
     currentReserveAddress?: string;
-    assets?:
-      | IBorrowReserveItem['supply']['assets']
-      | IBorrowReserveItem['borrow']['assets'];
-    positionAssets?: IBorrowPositionAsset[];
-    isLoading?: boolean;
-    onSelect?: (asset: IBorrowReserveAsset) => void;
+    onSelect?: (asset: IBorrowAsset) => void;
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;

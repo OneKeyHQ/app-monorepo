@@ -3,17 +3,19 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page, Stack, useSafeAreaInsets } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import type {
-  IBorrowBalance,
-  IBorrowReserveItem,
-  IEarnText,
+  EBorrowActionsEnum,
+  IBorrowAsset,
+  IBorrowAssetsList,
 } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -23,21 +25,7 @@ import {
   BorrowTableList,
 } from '../../components/BorrowTableList';
 
-type IBorrowSelectAsset =
-  | IBorrowReserveItem['supply']['assets'][number]
-  | IBorrowReserveItem['borrow']['assets'][number];
-
-type IBorrowPositionAsset =
-  | IBorrowReserveItem['supplied']['assets'][number]
-  | IBorrowReserveItem['borrowed']['assets'][number];
-
-const emptyText: IEarnText = { text: '-' };
-const emptyBalance: IBorrowBalance = {
-  amount: '-',
-  fiatValue: '-',
-  title: emptyText,
-  description: emptyText,
-};
+type IBorrowSelectAsset = IBorrowAsset;
 
 export default function BorrowTokenSelectModal() {
   const navigation = useAppNavigation();
@@ -48,14 +36,37 @@ export default function BorrowTokenSelectModal() {
     EModalStakingRoutes.BorrowTokenSelect
   >();
   const {
+    accountId,
+    networkId,
+    provider,
+    marketAddress,
     action,
     currentReserveAddress,
-    assets = [],
-    positionAssets = [],
-    isLoading = false,
     onSelect,
   } = route.params;
   const [searchKeyword, setSearchKeyword] = useState('');
+
+  const { result: assetsList, isLoading } = usePromiseResult<IBorrowAssetsList>(
+    async () => {
+      if (!accountId || !networkId || !provider || !marketAddress) {
+        return { assets: [] };
+      }
+      return backgroundApiProxy.serviceStaking.getBorrowAssetsList({
+        accountId,
+        networkId,
+        provider,
+        marketAddress,
+        action: action as EBorrowActionsEnum,
+      });
+    },
+    [accountId, networkId, provider, marketAddress, action],
+    {
+      initResult: { assets: [] },
+      watchLoading: true,
+    },
+  );
+
+  const assets = assetsList.assets;
 
   const filteredAssets = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
@@ -71,16 +82,6 @@ export default function BorrowTokenSelectModal() {
       );
     });
   }, [assets, searchKeyword]);
-
-  const positionBalanceMap = useMemo(() => {
-    const map = new Map<string, IBorrowBalance>();
-    positionAssets?.forEach((item: IBorrowPositionAsset) => {
-      const balance =
-        'borrowedAmount' in item ? item.borrowedAmount : item.suppliedAmount;
-      map.set(item.reserveAddress, balance);
-    });
-    return map;
-  }, [positionAssets]);
 
   const isBorrowAction = action === 'borrow';
   const balanceLabel = isBorrowAction ? 'Available' : 'Wallet Balance';
@@ -112,18 +113,16 @@ export default function BorrowTokenSelectModal() {
       <Page.Body>
         <BorrowTableList<IBorrowSelectAsset>
           data={filteredAssets}
-          isLoading={isLoading}
+          isLoading={Boolean(isLoading)}
           columns={[
             {
               label: 'Asset',
               key: 'asset',
               render: (item) => {
-                const canBeCollateral =
-                  'canBeCollateral' in item ? item.canBeCollateral : undefined;
                 return (
                   <AssetField
                     token={item.token}
-                    canBeCollateral={canBeCollateral}
+                    canBeCollateral={item.canBeCollateral}
                   />
                 );
               },
@@ -134,11 +133,7 @@ export default function BorrowTokenSelectModal() {
               align: 'flex-end',
               key: 'walletBalance',
               render: (item) => {
-                const balance = isBorrowAction
-                  ? (item as IBorrowReserveItem['borrow']['assets'][number])
-                      .available
-                  : (item as IBorrowReserveItem['supply']['assets'][number])
-                      .walletBalance;
+                const balance = item.balance;
                 return (
                   <AmountField
                     title={balance.title}
@@ -153,8 +148,7 @@ export default function BorrowTokenSelectModal() {
               align: 'flex-end',
               key: 'position',
               render: (item) => {
-                const positionBalance =
-                  positionBalanceMap.get(item.reserveAddress) ?? emptyBalance;
+                const positionBalance = item.supplied;
                 return (
                   <AmountField
                     title={positionBalance.title}
