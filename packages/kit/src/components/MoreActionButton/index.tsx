@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -26,7 +26,6 @@ import {
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
   useMedia,
-  usePopoverContext,
 } from '@onekeyhq/components';
 import { useTooltipContext } from '@onekeyhq/components/src/actions/Tooltip/context';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
@@ -71,6 +70,7 @@ import { useOnPrimeButtonPressed } from '../../views/Prime/components/PrimeHeade
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId';
+import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { UpdateReminder } from '../UpdateReminder';
 import {
@@ -210,104 +210,55 @@ function MoreActionContentHeader() {
   );
 }
 
-function MoreActionContentFooterItem({ onPress, ...props }: IIconButtonProps) {
-  const { closePopover } = usePopoverContext();
-  const handlePress = useCallback(
-    async (event: GestureResponderEvent) => {
-      await closePopover?.();
-      onPress?.(event);
-    },
-    [closePopover, onPress],
-  );
-  return <IconButton {...props} variant="tertiary" onPress={handlePress} />;
-}
-
 function MoreActionContentFooter() {
   const intl = useIntl();
-  const onLock = useOnLock();
-  const handleLock = useCallback(async () => {
-    await onLock();
-  }, [onLock]);
+  const navigation = useAppNavigation();
+  const version = useMemo(() => {
+    return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
+  }, []);
+  const versionString = intl.formatMessage(
+    {
+      id: ETranslations.settings_version_versionnum,
+    },
+    {
+      'versionNum': version,
+    },
+  );
 
-  const popupMenu = useMemo(() => {
-    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      const routeInfo = {
-        routes: '',
-      };
-      return [
-        platformEnv.isExtensionUiPopup
-          ? {
-              title: intl.formatMessage({
-                id: ETranslations.open_as_sidebar,
-              }),
-              icon: 'LayoutRightOutline' as const,
-              onPress: async () => {
-                defaultLogger.account.wallet.openSidePanel();
-                await extUtils.openPanelOnActionClick(true);
-                await extUtils.openSidePanel(routeInfo);
-                window.close();
-              },
-              trackID: 'wallet-side-panel-mode',
-            }
-          : {
-              title: intl.formatMessage({
-                id: ETranslations.open_as_popup,
-              }),
-              icon: 'LayoutTopOutline' as const,
-              onPress: async () => {
-                await extUtils.openPanelOnActionClick(false);
-                window.close();
-              },
-            },
-        {
-          title: intl.formatMessage({
-            id: ETranslations.global_expand_view,
-          }),
-          icon: 'ExpandOutline' as const,
-          onPress: async () => {
-            defaultLogger.account.wallet.openExpandView();
-            window.close();
-            await backgroundApiProxy.serviceApp.openExtensionExpandTab(
-              routeInfo,
-            );
-          },
-          trackID: 'wallet-expand-view',
-        },
-      ];
-    }
-    return [];
-  }, [intl]);
-  const items = useMemo(() => {
-    return [
-      ...popupMenu,
-      {
-        title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
-        icon: 'LockOutline' as const,
-        onPress: handleLock,
-        testID: 'lock-now',
-        trackID: 'wallet-lock-now',
+  const handleAbout = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListSubModal,
+      params: {
+        name: ESettingsTabNames.About,
       },
-    ];
-  }, [handleLock, intl, popupMenu]);
+    });
+  }, [navigation]);
   return (
-    <XStack jc="flex-end" gap="$5">
-      {items.map((item) => (
-        <MoreActionContentFooterItem key={item.title} {...item} />
-      ))}
+    <XStack px="$5" py="$2" jc="space-between" onPress={handleAbout}>
+      <XStack gap="$2" ai="center" jc="center">
+        <Icon name="InfoCircleOutline" size="$4" />
+        <SizableText size="$bodySm">
+          {`${intl.formatMessage({ id: ETranslations.global_about })} OneKey`}
+        </SizableText>
+      </XStack>
+      <XStack gap="$2" ai="center" jc="center">
+        <SizableText size="$bodySm">{versionString}</SizableText>
+        <Icon name="ChevronRightSmallOutline" size="$4" />
+      </XStack>
     </XStack>
   );
 }
 
 interface IMoreActionContentGridItemProps {
   title: IIconButtonProps['title'];
-  icon: IIconButtonProps['icon'];
+  icon?: IIconButtonProps['icon'];
   testID?: string;
   trackID?: string;
   onPress: () => void;
   showRedDot?: boolean;
   showBadges?: boolean;
   badges?: number;
-  lottieSrc?: string;
+  lottieSrc?: any;
   isPrimeFeature?: boolean;
 }
 
@@ -323,18 +274,20 @@ function MoreActionContentGridItem({
   lottieSrc,
   isPrimeFeature,
 }: IMoreActionContentGridItemProps) {
-  const { closePopover } = usePopoverContext();
+  const { closeTooltip } = useTooltipContext();
   const { isPrimeAvailable } = usePrimeAvailable();
 
   const handlePress = useCallback(async () => {
-    await closePopover?.();
+    await closeTooltip?.();
+    setTimeout(() => {
+      if (trackID) {
+        defaultLogger.ui.button.click({
+          trackId: trackID,
+        });
+      }
+    });
     onPress();
-    if (trackID) {
-      defaultLogger.ui.button.click({
-        trackId: trackID,
-      });
-    }
-  }, [closePopover, onPress, trackID]);
+  }, [closeTooltip, onPress, trackID]);
 
   const { user } = useOneKeyAuth();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
@@ -352,7 +305,6 @@ function MoreActionContentGridItem({
       ai="center"
       jc="center"
       gap="$2"
-      m="$1"
       h={64}
       borderRadius="$2"
       hoverStyle={{
@@ -360,10 +312,10 @@ function MoreActionContentGridItem({
       }}
       userSelect="none"
     >
-      <YStack>
+      <YStack m="$1">
         {icon ? <Icon name={icon} /> : null}
         {lottieSrc ? (
-          <LottieView width={32} height={32} source={lottieSrc} />
+          <LottieView width={24} height={24} source={lottieSrc} />
         ) : null}
         {showRedDot ? (
           <Stack
@@ -464,7 +416,7 @@ function MoreActionContentGridRender({
 
 function MoreActionDivider() {
   return (
-    <XStack py="$2" mx="$-5">
+    <XStack py="$2">
       <Divider />
     </XStack>
   );
@@ -505,6 +457,7 @@ function MoreActionOneKeyId() {
     <XStack
       alignItems="center"
       py="$4"
+      px="$5"
       userSelect="none"
       justifyContent="space-between"
       onPress={handlePress}
@@ -855,7 +808,7 @@ const useIsShowAppUpdateDot = () => {
 function UpdateReminders() {
   const isShowUpgradeComponents = useIsShowAppUpdateDot();
   return isShowUpgradeComponents ? (
-    <YStack gap="$2">
+    <YStack gap="$2" mx="$5">
       <UpdateReminder />
       <HomeFirmwareUpdateReminder />
       <WalletXfpStatusReminder />
@@ -881,7 +834,6 @@ function BaseMoreActionGrid({
     }
     return items;
   }, [items]);
-  console.log('displayItems', displayItems);
   return (
     <YStack>
       <SizableText
@@ -889,13 +841,18 @@ function BaseMoreActionGrid({
         color="$text"
         numberOfLines={1}
         ellipsizeMode="middle"
+        px="$5"
       >
         {title}
       </SizableText>
-      <YStack gap="$2">
+      <YStack gap="$2" px="$4">
         {Array.from({ length: Math.ceil(displayItems.length / 4) }).map(
           (_, rowIndex) => (
-            <XStack key={rowIndex} justifyContent="space-between">
+            <XStack
+              key={rowIndex}
+              justifyContent="space-evenly"
+              flexWrap="nowrap"
+            >
               {displayItems
                 .slice(rowIndex * 4, (rowIndex + 1) * 4)
                 .map((item, colIndex) =>
@@ -924,9 +881,36 @@ function MoreActionGeneralGrid() {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [navigation]);
-  const handleCustomerSupport = useCallback(() => {
-    void showIntercom();
-  }, []);
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+  const scanQrCode = useScanQrCode();
+
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
+
+  const handleScan = useCallback(async () => {
+    await scanQrCode.start({
+      handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+      autoHandleResult: true,
+      account,
+      network,
+      tokens: {
+        data: allTokens.tokens,
+        keys: allTokens.keys,
+        map,
+      },
+    });
+  }, [scanQrCode, account, network, allTokens.tokens, allTokens.keys, map]);
+
+  const handlePrime = useCallback(() => {
+    navigation.pushFullModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeDashboard,
+      params: {
+        networkId: network?.id,
+      },
+    });
+  }, [navigation, network?.id]);
   const items = useMemo(() => {
     return [
       {
@@ -936,15 +920,212 @@ function MoreActionGeneralGrid() {
         trackID: 'wallet-settings',
       },
       {
-        title: intl.formatMessage({ id: ETranslations.settings_contact_us }),
-        icon: 'HelpSupportOutline' as const,
-        onPress: handleCustomerSupport,
-        trackID: 'wallet-customer-support',
+        title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
+        icon: 'ScanOutline' as const,
+        onPress: handleScan,
+        trackID: 'wallet-scan',
+      },
+      {
+        title: 'Prime',
+        icon: 'PrimeOutline' as const,
+        onPress: handlePrime,
+        trackID: 'wallet-prime',
       },
     ];
-  }, [handleCustomerSupport, handleSettings, intl]);
-  return <BaseMoreActionGrid title="General" items={items} />;
+  }, [handlePrime, handleScan, handleSettings, intl]);
+  return (
+    <BaseMoreActionGrid
+      title={intl.formatMessage({ id: ETranslations.global_general })}
+      items={items}
+    />
+  );
 }
+
+const MoreActionWalletGrid = () => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const handleBackup = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListSubModal,
+      params: {
+        name: ESettingsTabNames.Backup,
+      },
+    });
+  }, [navigation]);
+  const onPressAddressBook = useShowAddressBook({
+    useNewModal: true,
+  });
+  const handleAddressBook = useCallback(() => {
+    void onPressAddressBook(navigation);
+  }, [onPressAddressBook, navigation]);
+
+  const handleNetwork = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListSubModal,
+      params: {
+        name: ESettingsTabNames.Network,
+      },
+    });
+  }, [navigation]);
+
+  const handleSecurity = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListSubModal,
+      params: {
+        name: ESettingsTabNames.Security,
+      },
+    });
+  }, [navigation]);
+
+  const handlePreferences = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListSubModal,
+      params: {
+        name: ESettingsTabNames.Preferences,
+      },
+    });
+  }, [navigation]);
+
+  const { user } = useOneKeyAuth();
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const {
+    activeAccount: { wallet, network },
+  } = useActiveAccount({ num: 0 });
+  const checkIsPrimeUser = useCallback(
+    (showFeature: EPrimeFeatures) => {
+      if (user?.primeSubscription?.isActive && user?.onekeyUserId) {
+        return true;
+      }
+      navigation.pushFullModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeFeatures,
+        params: {
+          showAllFeatures: false,
+          selectedFeature: showFeature,
+          selectedSubscriptionPeriod: 'P1Y',
+          networkId: network?.id,
+        },
+      });
+      return false;
+    },
+    [navigation, user, network?.id],
+  );
+  const openBulkCopyAddressesModal = useCallback(async () => {
+    const networkId = networkUtils.toNetworkIdFallback({
+      networkId: network?.id,
+      allNetworkFallbackToBtc: true,
+    });
+
+    if (!networkId) return;
+
+    if (!checkIsPrimeUser(EPrimeFeatures.BulkCopyAddresses)) return;
+
+    navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
+      screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
+      params: {
+        walletId: wallet?.id,
+        networkId,
+      },
+    });
+  }, [network?.id, checkIsPrimeUser, navigation, wallet?.id]);
+
+  const items = useMemo(() => {
+    return [
+      {
+        title: intl.formatMessage({ id: ETranslations.global_backup }),
+        icon: 'CloudUploadOutline' as const,
+        onPress: handleBackup,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.settings_address_book }),
+        icon: 'ContactsOutline' as const,
+        onPress: handleAddressBook,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.global_network }),
+        icon: 'GlobusOutline' as const,
+        onPress: handleNetwork,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.global_preferences }),
+        icon: 'SliderThreeOutline' as const,
+        onPress: handlePreferences,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.global_security }),
+        icon: 'Shield2CheckOutline' as const,
+        onPress: handleSecurity,
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_bulk_copy_addresses,
+        }),
+        icon: 'Copy3Outline' as const,
+        onPress: () => {
+          if (!isPrimeUser) {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.BulkCopyAddresses,
+              entryPoint: 'moreActions',
+            });
+          }
+          void openBulkCopyAddressesModal();
+        },
+        trackID: 'bulk-copy-addresses-in-more-action',
+        isPrimeFeature: true,
+      },
+    ];
+  }, [
+    handleAddressBook,
+    handleBackup,
+    handleNetwork,
+    handlePreferences,
+    handleSecurity,
+    intl,
+    isPrimeUser,
+    openBulkCopyAddressesModal,
+  ]);
+  return (
+    <BaseMoreActionGrid
+      title={intl.formatMessage({ id: ETranslations.global_wallet })}
+      items={items}
+    />
+  );
+};
+
+const MoreActionMoreGrid = () => {
+  const intl = useIntl();
+  const handleHelpAndSupport = useCallback(() => {
+    void showIntercom();
+  }, []);
+  const themeVariant = useThemeVariant();
+  const { toReferFriendsPage } = useReferFriends();
+  const handleReferFriends = useCallback(() => {
+    void toReferFriendsPage();
+  }, [toReferFriendsPage]);
+  const items = useMemo(() => {
+    return [
+      {
+        title: intl.formatMessage({ id: ETranslations.settings_contact_us }),
+        icon: 'HelpSupportOutline' as const,
+        onPress: handleHelpAndSupport,
+        trackID: 'wallet-customer-support',
+      },
+
+      {
+        title: intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend }),
+        lottieSrc:
+          themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
+        testID: 'referral' as const,
+        onPress: handleReferFriends,
+      },
+    ];
+  }, [handleHelpAndSupport, intl, themeVariant, handleReferFriends]);
+  return (
+    <BaseMoreActionGrid
+      title={intl.formatMessage({ id: ETranslations.global_more })}
+      items={items}
+    />
+  );
+};
 
 function MoreActionContent() {
   return (
@@ -952,9 +1133,10 @@ function MoreActionContent() {
       <YStack>
         <MoreActionContentHeader />
         <ScrollView
+          overflow="scroll"
+          h={462}
           contentContainerStyle={{
             py: '$2',
-            px: '$5',
           }}
         >
           <UpdateReminders />
@@ -962,8 +1144,12 @@ function MoreActionContent() {
           <MoreActionDivider />
           <MoreActionGeneralGrid />
           <MoreActionDivider />
-          <MoreActionContentFooter />
+          <MoreActionWalletGrid />
+          <MoreActionDivider />
+          <MoreActionMoreGrid />
         </ScrollView>
+        <MoreActionDivider />
+        <MoreActionContentFooter />
       </YStack>
     </MoreActionProvider>
   );
