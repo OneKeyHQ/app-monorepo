@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
-import { Button } from '@onekeyhq/components';
+import { Button, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
 
 import { Layout } from './utils/Layout';
@@ -13,6 +14,7 @@ let lastNotificationId: string | undefined;
 function NotificationGallery() {
   console.log('NotificationGallery');
   const [icon, setIcon] = useState<string | undefined>(undefined);
+  const [, setNotificationsData] = useNotificationsAtom();
   return (
     <Layout
       getFilePath={() => __CURRENT_FILE_PATH__}
@@ -155,6 +157,22 @@ function NotificationGallery() {
                 }}
               >
                 clear Badge
+              </Button>
+
+              <Button
+                onPress={() => {
+                  setNotificationsData((v) => ({
+                    ...v,
+                    firstTimeGuideOpened: false,
+                  }));
+                  Toast.success({
+                    title: 'Reset Success',
+                    message:
+                      'firstTimeGuideOpened has been reset. Click the notification icon to trigger the intro guide.',
+                  });
+                }}
+              >
+                Reset firstTimeGuideOpened
               </Button>
             </>
           ),
