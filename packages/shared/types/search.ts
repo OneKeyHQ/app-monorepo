@@ -45,6 +45,18 @@ export type IUniversalSearchAddress = {
       currency: string | undefined;
     };
     isSearchedByAccountName?: boolean;
+    accountsDeFiOverview?: {
+      overview: Record<
+        string,
+        {
+          totalValue: number;
+          totalDebt: number;
+          totalReward: number;
+          netWorth: number;
+          currency: string;
+        }
+      >;
+    };
   };
 };
 

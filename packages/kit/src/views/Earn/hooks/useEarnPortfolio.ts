@@ -112,6 +112,17 @@ const hasAnyAssets = (
   );
 };
 
+const hasAnyAirdropAssets = (
+  assets: Array<{
+    airdropAssets?: Array<{ title: { text: string } }>;
+  }>,
+): boolean => {
+  if (assets.length === 0) return false;
+  return assets.some(
+    (asset) => asset.airdropAssets && asset.airdropAssets.length > 0,
+  );
+};
+
 const sortByFiatValueDesc = (
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] =>
@@ -125,7 +136,7 @@ const filterValidInvestments = (
   values: Iterable<IEarnPortfolioInvestment>,
 ): IEarnPortfolioInvestment[] =>
   Array.from(values).filter((inv) => {
-    if (inv.airdropAssets.length > 0) return true;
+    if (hasAnyAirdropAssets(inv.airdropAssets)) return true;
     // For testnet networks, check if there are any actual assets
     if (isEarnTestnetNetwork(inv.network.networkId)) {
       return hasAnyAssets(inv.assets);
