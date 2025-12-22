@@ -335,7 +335,9 @@ const SwapHistoryListModal = ({
               )}
               estimatedItemSize="$10"
               ListHeaderComponent={
-                <NotificationEnableAlert scene="swapHistory" />
+                sectionData.length > 0 ? (
+                  <NotificationEnableAlert scene="swapHistory" />
+                ) : null
               }
               ListEmptyComponent={
                 <Empty

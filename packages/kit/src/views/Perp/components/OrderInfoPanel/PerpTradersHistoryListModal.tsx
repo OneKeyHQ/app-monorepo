@@ -6,6 +6,7 @@ import {
   Button,
   Page,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -102,13 +103,20 @@ export function PerpTradersHistoryListModal() {
       />
       <PageBody>
         <YStack flex={1}>
-          <NotificationEnableAlert scene="perpHistory" />
           <TabHeader activeTab={activeTab} onTabChange={setActiveTab} />
           <YStack flex={1}>
             {activeTab === 'Trades' ? (
               <PerpTradesHistoryList isMobile useTabsList={false} />
             ) : (
-              <PerpAccountList isMobile useTabsList={false} />
+              <PerpAccountList
+                isMobile
+                useTabsList={false}
+                ListHeaderComponent={
+                  <Stack pt="$2">
+                    <NotificationEnableAlert scene="perpHistory" />
+                  </Stack>
+                }
+              />
             )}
           </YStack>
         </YStack>
