@@ -29,6 +29,11 @@ const BorrowManagePosition = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowManagePosition'),
 );
 
+const BorrowTokenSelectModal = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Borrow/pages/modal/BorrowTokenSelectModal'),
+);
+
 const Withdraw = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/Withdraw'),
 );
@@ -96,6 +101,10 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.BorrowManagePosition,
     component: BorrowManagePosition,
     exact: true,
+  },
+  {
+    name: EModalStakingRoutes.BorrowTokenSelect,
+    component: BorrowTokenSelectModal,
   },
   {
     name: EModalStakingRoutes.Stake,

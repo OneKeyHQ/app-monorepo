@@ -13,7 +13,7 @@ export const AssetField = ({ token, canBeCollateral }: IAssetFieldProps) => {
   return (
     <FieldWrapper flex={1}>
       <XStack ai="center">
-        <Token size="md" borderRadius="$2" tokenImageUri={token.logoURI} />
+        <Token size="md" tokenImageUri={token.logoURI} />
         <YStack>
           <SizableText ml="$3" flex={1} size="$bodyMdMedium" color="$text">
             {token.symbol}

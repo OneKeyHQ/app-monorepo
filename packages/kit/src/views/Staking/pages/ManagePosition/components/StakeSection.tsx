@@ -19,6 +19,7 @@ import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
+  IBorrowReserveItem,
   IEarnSelectField,
   IEarnTokenInfo,
   IProtocolInfo,
@@ -45,6 +46,7 @@ export const StakeSection = ({
   borrowMarketAddress,
   borrowReserveAddress,
   borrowAction,
+  borrowReserves,
 }: {
   accountId: string;
   networkId: string;
@@ -61,6 +63,7 @@ export const StakeSection = ({
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
+  borrowReserves?: IBorrowReserveItem;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -339,6 +342,7 @@ export const StakeSection = ({
           borrowMarketAddress={borrowMarketAddress}
           borrowReserveAddress={borrowReserveAddress}
           beforeFooter={beforeFooter}
+          borrowReserves={borrowReserves}
         />
       );
     }
@@ -386,6 +390,7 @@ export const StakeSection = ({
           }
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
+          borrowReserves={borrowReserves}
         />
       ) : (
         <UniversalStake

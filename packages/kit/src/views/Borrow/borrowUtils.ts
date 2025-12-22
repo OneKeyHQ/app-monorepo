@@ -12,6 +12,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/useManagePage';
@@ -96,6 +97,7 @@ export const BorrowNavigation = {
       symbol: string;
       logoURI?: string;
       type: EManagePositionType;
+      borrowReserves?: IBorrowReserveItem;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -109,6 +111,7 @@ export const BorrowNavigation = {
         symbol: params.symbol,
         logoURI: params.logoURI,
         type: params.type,
+        borrowReserves: params.borrowReserves,
       },
     });
   },

@@ -1,6 +1,7 @@
 import type { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 
 import type {
+  IBorrowReserveItem,
   IEarnAlert,
   IEarnTokenInfo,
   IProtocolInfo,
@@ -13,6 +14,7 @@ export enum EModalStakingRoutes {
   Withdraw = 'Withdraw',
   ManagePosition = 'ManagePosition',
   BorrowManagePosition = 'BorrowManagePosition',
+  BorrowTokenSelect = 'BorrowTokenSelect',
   Claim = 'Claim',
   ProtocolDetails = 'ProtocolDetails',
   ProtocolDetailsV2 = 'ProtocolDetailsV2',
@@ -30,6 +32,13 @@ type IBaseRouteParams = {
   accountId: string;
   indexedAccountId?: string;
 };
+
+type IBorrowReserveAsset =
+  | IBorrowReserveItem['supply']['assets'][number]
+  | IBorrowReserveItem['borrow']['assets'][number];
+type IBorrowPositionAsset =
+  | IBorrowReserveItem['supplied']['assets'][number]
+  | IBorrowReserveItem['borrowed']['assets'][number];
 
 interface IDetailPageInfoParams extends IBaseRouteParams {
   protocolInfo?: IProtocolInfo;
@@ -75,6 +84,17 @@ export type IModalStakingParamList = {
     symbol: string;
     logoURI?: string;
     type?: EManagePositionType;
+    borrowReserves?: IBorrowReserveItem;
+  };
+  [EModalStakingRoutes.BorrowTokenSelect]: IBaseRouteParams & {
+    action: 'supply' | 'borrow';
+    currentReserveAddress?: string;
+    assets?:
+      | IBorrowReserveItem['supply']['assets']
+      | IBorrowReserveItem['borrow']['assets'];
+    positionAssets?: IBorrowPositionAsset[];
+    isLoading?: boolean;
+    onSelect?: (asset: IBorrowReserveAsset) => void;
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;

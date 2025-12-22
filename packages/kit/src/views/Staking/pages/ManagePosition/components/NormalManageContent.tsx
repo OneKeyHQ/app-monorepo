@@ -8,6 +8,7 @@ import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
+  IBorrowReserveItem,
   IEarnHistoryActionIcon,
   IEarnManagePageResponse,
   IEarnSelectField,
@@ -57,6 +58,7 @@ interface INormalManageContentProps {
   ongoingValidator?: IEarnSelectField;
   managePageData?: IEarnManagePageResponse;
   type?: EManagePositionType;
+  borrowReserves?: IBorrowReserveItem;
 }
 
 export function NormalManageContent({
@@ -88,6 +90,7 @@ export function NormalManageContent({
   fallbackTokenImageUri,
   ongoingValidator,
   managePageData,
+  borrowReserves,
   type = EManagePositionType.Staking,
 }: INormalManageContentProps) {
   const intl = useIntl();
@@ -322,6 +325,7 @@ export function NormalManageContent({
           borrowMarketAddress={marketAddress}
           borrowReserveAddress={reserveAddress}
           borrowAction={borrowActionPrimary}
+          borrowReserves={borrowReserves}
         />
       ) : null}
       {selectedTabIndex === 1 ? (

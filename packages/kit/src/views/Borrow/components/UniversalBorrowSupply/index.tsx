@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,10 +11,11 @@ import {
   Icon,
   Page,
   Stack,
-  XStack,
   YStack,
+  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
@@ -33,7 +34,12 @@ import { TradeOrBuy } from '@onekeyhq/kit/src/views/Staking/components/TradeOrBu
 import { countDecimalPlaces } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IEarnTokenInfo } from '@onekeyhq/shared/types/staking';
+import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
+import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  IBorrowReserveItem,
+  IEarnTokenInfo,
+} from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
@@ -52,6 +58,7 @@ type IUniversalBorrowSupplyProps = {
   decimals?: number;
   price?: string;
   tokenInfo?: IEarnTokenInfo;
+  borrowReserves?: IBorrowReserveItem;
   isDisabled?: boolean;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
@@ -61,6 +68,10 @@ type IUniversalBorrowSupplyProps = {
 const isAmountInvalid = (amount: string) =>
   BigNumber(amount).isNaN() ||
   (typeof amount === 'string' && amount.endsWith('.'));
+
+type IBorrowSelectAsset =
+  | IBorrowReserveItem['supply']['assets'][number]
+  | IBorrowReserveItem['borrow']['assets'][number];
 
 export function UniversalBorrowSupply({
   accountId,
@@ -74,13 +85,15 @@ export function UniversalBorrowSupply({
   decimals,
   price: inputPrice,
   tokenInfo,
+  borrowReserves,
   isDisabled,
   beforeFooter,
   showApyDetail = false,
   onConfirm,
 }: IUniversalBorrowSupplyProps) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalStakingParamList>>();
   const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
   const [amountValue, setAmountValue] = useState('');
@@ -88,6 +101,8 @@ export function UniversalBorrowSupply({
 
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const amountInputDisabled = !!isDisabled;
+  const tokenSelectorDisabled =
+    !accountId || !networkId || !providerName || !borrowMarketAddress;
 
   const [
     {
@@ -102,6 +117,39 @@ export function UniversalBorrowSupply({
       }),
     [networkId],
   ).result;
+
+  const { result: fetchedReserves, isLoading: reservesLoading } =
+    usePromiseResult(
+      async () => {
+        if (borrowReserves) {
+          return borrowReserves;
+        }
+        if (!accountId || !networkId || !providerName || !borrowMarketAddress) {
+          return undefined;
+        }
+        return backgroundApiProxy.serviceStaking.getBorrowReserves({
+          accountId,
+          networkId,
+          provider: providerName,
+          marketAddress: borrowMarketAddress,
+        });
+      },
+      [borrowReserves, accountId, networkId, providerName, borrowMarketAddress],
+      { watchLoading: !borrowReserves },
+    );
+
+  const reserves = borrowReserves ?? fetchedReserves;
+  const isReservesLoading = borrowReserves ? false : Boolean(reservesLoading);
+
+  const supplyAssets = useMemo(
+    () => reserves?.supply?.assets ?? [],
+    [reserves],
+  );
+
+  const suppliedAssets = useMemo(
+    () => reserves?.supplied?.assets ?? [],
+    [reserves],
+  );
 
   const {
     transactionConfirmation,
@@ -235,6 +283,52 @@ export function UniversalBorrowSupply({
     [tokenInfo?.token],
   );
 
+  useEffect(() => {
+    setAmountValue('');
+  }, [borrowReserveAddress]);
+
+  useEffect(() => {
+    const currentRoute = rootNavigationRef.current?.getCurrentRoute();
+    if (currentRoute?.name !== EModalStakingRoutes.BorrowTokenSelect) {
+      return;
+    }
+    rootNavigationRef.current?.setParams?.({
+      assets: supplyAssets,
+      positionAssets: suppliedAssets,
+      isLoading: isReservesLoading,
+    });
+  }, [isReservesLoading, supplyAssets, suppliedAssets]);
+
+  const handleOpenTokenSelector = useCallback(() => {
+    if (tokenSelectorDisabled) return;
+    navigation.push(EModalStakingRoutes.BorrowTokenSelect, {
+      accountId,
+      networkId,
+      action: 'supply',
+      currentReserveAddress: borrowReserveAddress,
+      assets: supplyAssets,
+      positionAssets: suppliedAssets,
+      isLoading: isReservesLoading,
+      onSelect: (item: IBorrowSelectAsset) => {
+        if (item.reserveAddress === borrowReserveAddress) return;
+        navigation.setParams({
+          reserveAddress: item.reserveAddress,
+          symbol: item.token.symbol,
+          logoURI: item.token.logoURI,
+        });
+      },
+    });
+  }, [
+    accountId,
+    borrowReserveAddress,
+    navigation,
+    networkId,
+    isReservesLoading,
+    supplyAssets,
+    suppliedAssets,
+    tokenSelectorDisabled,
+  ]);
+
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
@@ -249,6 +343,8 @@ export function UniversalBorrowSupply({
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol?.toUpperCase(),
             selectedNetworkImageUri: network?.logoURI,
+            onPress: handleOpenTokenSelector,
+            disabled: tokenSelectorDisabled,
           }}
           inputProps={{
             placeholder: '0',
@@ -257,7 +353,7 @@ export function UniversalBorrowSupply({
           balanceProps={{
             value: balance,
             iconText: actionLabel,
-            onPress: onMax,
+            onPress: amountInputDisabled ? undefined : onMax,
           }}
           valueProps={{
             value: currentValue,
@@ -266,9 +362,6 @@ export function UniversalBorrowSupply({
           enableMaxAmount
           onSelectPercentageStage={onSelectPercentageStage}
         />
-        {amountInputDisabled ? (
-          <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-        ) : null}
       </Stack>
 
       {isCheckAmountMessageError ? (

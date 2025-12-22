@@ -198,6 +198,13 @@ function useAppNavigation<
     [reload],
   );
 
+  const setParams: typeof navigationRef.current.setParams = useCallback(
+    (params) => {
+      navigationRef.current.setParams(params);
+    },
+    [],
+  );
+
   const reset: typeof navigationRef.current.reset = useCallback((state) => {
     navigationRef.current.reset(state);
   }, []);
@@ -285,6 +292,7 @@ function useAppNavigation<
       pushFullModal,
       pushModal,
       reset,
+      setParams,
       setOptions,
       switchTab,
       popToTop,
@@ -302,6 +310,7 @@ function useAppNavigation<
       pushModal,
       replace,
       reset,
+      setParams,
       setOptions,
     ],
   );

@@ -39,9 +39,10 @@ export const BorrowedCard = () => {
         symbol: item.token.symbol,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Repay,
+        borrowReserves: reserves ?? undefined,
       });
     },
-    [navigation, market, activeAccount.account?.id],
+    [navigation, market, activeAccount.account?.id, reserves],
   );
 
   const showLoading = !reserves && reservesLoading;

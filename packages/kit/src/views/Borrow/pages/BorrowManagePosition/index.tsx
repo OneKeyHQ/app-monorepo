@@ -24,32 +24,7 @@ const BorrowManagePosition = () => {
   >();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
-  const resolvedParams = useMemo(() => {
-    const {
-      networkId,
-      symbol,
-      provider,
-      logoURI,
-      reserveAddress,
-      marketAddress,
-      type,
-    } = route.params;
-    return {
-      accountId: activeAccount.account?.id || '',
-      indexedAccountId: activeAccount.indexedAccount?.id,
-      networkId,
-      symbol,
-      provider,
-      logoURI,
-      reserveAddress,
-      marketAddress,
-      type,
-    };
-  }, [route.params, activeAccount]);
-
   const {
-    accountId,
-    indexedAccountId,
     networkId,
     symbol,
     provider,
@@ -57,7 +32,10 @@ const BorrowManagePosition = () => {
     reserveAddress,
     marketAddress,
     type,
-  } = resolvedParams;
+    borrowReserves,
+  } = route.params;
+  const accountId = activeAccount.account?.id || '';
+  const indexedAccountId = activeAccount.indexedAccount?.id;
   const defaultTab = useMemo(() => {
     if (type === 'withdraw' || type === 'repay') {
       return 'withdraw';
@@ -81,6 +59,7 @@ const BorrowManagePosition = () => {
           type={type as EManagePositionType}
           reserveAddress={reserveAddress}
           marketAddress={marketAddress}
+          borrowReserves={borrowReserves}
           defaultTab={defaultTab}
         />
       </Page.Body>
