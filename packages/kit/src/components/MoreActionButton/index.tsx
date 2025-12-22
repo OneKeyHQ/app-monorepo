@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -69,6 +69,7 @@ import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpSt
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
+import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { UpdateReminder } from '../UpdateReminder';
 import {
@@ -533,6 +534,59 @@ function MoreActionContentGridRender({
   );
 }
 
+function MoreActionOneKeyId() {
+  const intl = useIntl();
+  const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
+  const loginAttemptedRef = useRef(false);
+  const { closeTooltip } = useTooltipContext();
+
+  const displayName = useMemo(() => {
+    if (!isLoggedIn) {
+      return intl.formatMessage({ id: ETranslations.prime_signup_login });
+    }
+    return user?.displayEmail || 'OneKey ID';
+  }, [isLoggedIn, user?.displayEmail, intl]);
+
+  const handlePress = useCallback(async () => {
+    await closeTooltip();
+    if (!isLoggedIn) {
+      // Mark that login was attempted from this component
+      loginAttemptedRef.current = true;
+      // Trigger login flow directly
+      void loginOneKeyId();
+    } else {
+      // TODO
+    }
+  }, [closeTooltip, isLoggedIn, loginOneKeyId]);
+
+  return (
+    <XStack alignItems="center" py="$4" userSelect="none" onPress={handlePress}>
+      <XStack alignItems="center" gap="$3" flex={1}>
+        {/* Avatar */}
+        <OneKeyIdAvatar size="$16" />
+
+        {/* Username and Label */}
+        <YStack flex={1} gap="$0.5">
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            numberOfLines={1}
+            ellipsizeMode="middle"
+          >
+            {displayName}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            OneKey ID
+          </SizableText>
+        </YStack>
+      </XStack>
+      {/* {isLoggedIn ? (
+        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+      ) : null} */}
+    </XStack>
+  );
+}
+
 function MoreActionContentGrid() {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
@@ -849,11 +903,12 @@ function MoreActionContent() {
         <MoreActionContentHeader />
         <ScrollView
           contentContainerStyle={{
-            p: '$5',
-            gap: '$5',
+            py: '$2',
+            px: '$5',
           }}
         >
           <UpdateReminders />
+          <MoreActionOneKeyId />
           <MoreActionContentGrid />
           <MoreActionContentFooter />
         </ScrollView>
