@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
-  HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
@@ -126,13 +125,7 @@ export function HeaderRight({
 
     const fixedItems = (
       <>
-        {isHorizontal ? (
-          <HeaderNotificationIconButton testID="header-right-notification" />
-        ) : null}
         <MoreAction />
-        {isHorizontal ? (
-          <OneKeyIdButton testID="header-right-onekey-id" />
-        ) : null}
         {isHorizontal && platformEnv.isWebDappMode ? <DownloadButton /> : null}
         {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
           <LanguageButton />
