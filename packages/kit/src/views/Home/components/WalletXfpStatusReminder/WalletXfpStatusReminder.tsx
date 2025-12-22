@@ -155,7 +155,14 @@ function WalletXfpStatusReminderCmp() {
       );
     }
     return null;
-  }, [deprecated, walletId, hardwareWalletXfpStatus, intl, closePopover]);
+  }, [
+    deprecated,
+    walletId,
+    hardwareWalletXfpStatus,
+    intl,
+    closePopover,
+    closeTooltip,
+  ]);
 
   return <XStack>{updateButton}</XStack>;
 }

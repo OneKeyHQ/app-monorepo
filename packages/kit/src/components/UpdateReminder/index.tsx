@@ -316,14 +316,14 @@ function BasicUpdateReminder() {
 
   return (
     <XStack
-      pl="$3"
-      pr="$2"
+      px="$5"
       py="$1.5"
       gap="$3"
       justifyContent="space-between"
       alignItems="center"
-      borderRadius="$2"
       borderWidth={StyleSheet.hairlineWidth}
+      borderLeftWidth={0}
+      borderRightWidth={0}
       borderCurve="continuous"
       {...(style as IXStackProps)}
     >
