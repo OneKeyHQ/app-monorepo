@@ -410,7 +410,6 @@ module.exports = [
   'hmac',
   'Hmac',
   'hodl',
-  'holesky',
   'homescreen',
   'horz',
   'href',
