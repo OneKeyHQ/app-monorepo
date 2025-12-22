@@ -88,9 +88,6 @@ function BaseBottomMenu({ isCollapse }: { isCollapse: boolean }) {
     <YStack
       px="$3"
       py="$1.5"
-      borderColor="$borderSubdued"
-      borderTopWidth={StyleSheet.hairlineWidth}
-      borderRightWidth={StyleSheet.hairlineWidth}
       bg="$bgSidebar"
       gap="$2"
       alignItems={isCollapse ? 'center' : undefined}
