@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { debounce, isEmpty } from 'lodash';
 
 import {
   backgroundClass,
@@ -8,6 +8,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
@@ -16,6 +17,8 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
 
+import type { IDeFiDBStruct } from '../dbs/simple/entity/SimpleDbEntityDeFi';
+
 @backgroundClass()
 class ServiceDeFi extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -23,6 +26,40 @@ class ServiceDeFi extends ServiceBase {
   }
 
   _fetchAccountDeFiPositionsControllers: AbortController[] = [];
+
+  _localDeFiOverviewCache: Record<
+    string,
+    {
+      totalValue: number;
+      totalDebt: number;
+      totalReward: number;
+      netWorth: number;
+      currency: string;
+    }
+  > = {};
+
+  _updateAccountDeFiOverviewDebounced = debounce(
+    async ({
+      accountAddress,
+      xpub,
+    }: {
+      accountAddress?: string;
+      xpub?: string;
+    }) => {
+      await this.updateAccountsLocalDeFiOverview({
+        accountAddress,
+        xpub,
+        overview: this._localDeFiOverviewCache,
+        merge: true,
+      });
+      this._localDeFiOverviewCache = {};
+    },
+    3000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   @backgroundMethod()
   public async abortFetchAccountDeFiPositions() {
@@ -46,6 +83,7 @@ class ServiceDeFi extends ServiceBase {
       lowValueProtocolsThresholdUsd = 0.01,
       sourceCurrencyInfo,
       targetCurrencyInfo,
+      saveToLocal,
     } = params;
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
@@ -70,13 +108,21 @@ class ServiceDeFi extends ServiceBase {
     this._fetchAccountDeFiPositionsControllers.push(controller);
 
     let accountAddress = params.accountAddress;
+    let xpub = params.xpub;
 
-    if (!accountAddress) {
-      accountAddress =
-        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+    if (!accountAddress && !xpub) {
+      const [a, x] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
           accountId,
           networkId,
-        });
+        }),
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+      ]);
+      accountAddress = a;
+      xpub = x;
     }
 
     const resp = await client.post<{
@@ -103,16 +149,21 @@ class ServiceDeFi extends ServiceBase {
 
     if (excludeLowValueProtocols) {
       parsedData.protocols = parsedData.protocols.filter((protocol) => {
-        const sourceTotalValue = new BigNumber(
+        const sourceTotal =
           parsedData.protocolMap[
             defiUtils.buildProtocolMapKey({
               protocol: protocol.protocol,
               networkId: protocol.networkId,
             })
-          ]?.totalValue ?? 0,
-        );
+          ];
+
+        const sourceTotalValue = new BigNumber(sourceTotal?.totalValue ?? 0);
+        const sourceTotalDebt = new BigNumber(sourceTotal?.totalDebt ?? 0);
+        const sourceTotalReward = new BigNumber(sourceTotal?.totalReward ?? 0);
 
         let targetTotalValue = sourceTotalValue;
+        let targetTotalDebt = sourceTotalDebt;
+        let targetTotalReward = sourceTotalReward;
 
         if (
           sourceCurrencyInfo &&
@@ -122,9 +173,36 @@ class ServiceDeFi extends ServiceBase {
           targetTotalValue = sourceTotalValue
             .div(new BigNumber(sourceCurrencyInfo.value))
             .times(new BigNumber(targetCurrencyInfo.value));
+          targetTotalDebt = sourceTotalDebt
+            .div(new BigNumber(sourceCurrencyInfo.value))
+            .times(new BigNumber(targetCurrencyInfo.value));
+          targetTotalReward = sourceTotalReward
+            .div(new BigNumber(sourceCurrencyInfo.value))
+            .times(new BigNumber(targetCurrencyInfo.value));
         }
 
-        return targetTotalValue.gte(lowValueProtocolsThresholdUsd);
+        return (
+          targetTotalValue.gte(lowValueProtocolsThresholdUsd) ||
+          targetTotalDebt.gte(lowValueProtocolsThresholdUsd) ||
+          targetTotalReward.gte(lowValueProtocolsThresholdUsd)
+        );
+      });
+    }
+
+    if (saveToLocal) {
+      this._localDeFiOverviewCache = {
+        ...this._localDeFiOverviewCache,
+        [networkId]: {
+          totalValue: resp.data.data.data.totals.totalValue,
+          totalDebt: resp.data.data.data.totals.totalDebt,
+          totalReward: resp.data.data.data.totals.totalReward,
+          netWorth: resp.data.data.data.totals.netWorth,
+          currency: sourceCurrencyInfo?.id ?? '',
+        },
+      };
+      await this._updateAccountDeFiOverviewDebounced({
+        accountAddress,
+        xpub,
       });
     }
 
@@ -169,6 +247,117 @@ class ServiceDeFi extends ServiceBase {
   @backgroundMethod()
   public async getDeFiEnabledNetworksMap() {
     return this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap();
+  }
+
+  @backgroundMethod()
+  public async getAccountsLocalDeFiOverview({
+    accounts,
+    deFiRawData,
+  }: {
+    accounts: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[];
+    deFiRawData?: IDeFiDBStruct;
+  }) {
+    if (
+      accounts[0] &&
+      networkUtils.isAllNetwork({ networkId: accounts[0].networkId })
+    ) {
+      const result: Array<{
+        accountId: string;
+        networkId: string;
+        overview: Record<
+          string,
+          {
+            totalValue: number;
+            totalDebt: number;
+            totalReward: number;
+            netWorth: number;
+            currency: string;
+          }
+        >;
+      }> = [];
+      const rawData = await this.backgroundApi.simpleDb.deFi.getRawData();
+      for (let i = 0; i < accounts.length; i += 1) {
+        const account = accounts[i];
+        const { accountsInfo } =
+          await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+            accountId: account.accountId,
+            networkId: account.networkId,
+            indexedAccountId: account.indexedAccountId,
+            deriveType: undefined,
+            nftEnabledOnly: false,
+            DeFiEnabledOnly: true,
+            excludeTestNetwork: true,
+            networksEnabledOnly: !accountUtils.isOthersAccount({
+              accountId: account.accountId,
+            }),
+          });
+        for (const accountInfo of accountsInfo) {
+          const key = accountUtils.buildAccountLocalAssetsKey({
+            accountAddress: accountInfo.apiAddress,
+            xpub: accountInfo.accountXpub,
+          });
+          if (rawData?.overview?.[key]) {
+            if (!result[i]) {
+              result[i] = {
+                accountId: account.accountId,
+                networkId: account.networkId,
+                overview: {
+                  [accountInfo.networkId]:
+                    rawData.overview[key][accountInfo.networkId],
+                },
+              };
+            } else {
+              result[i].overview = {
+                ...(result[i].overview ?? {}),
+                [accountInfo.networkId]:
+                  rawData.overview[key][accountInfo.networkId],
+              };
+            }
+          }
+        }
+      }
+      return result;
+    }
+
+    return this.backgroundApi.simpleDb.deFi.getAccountsDeFiOverview({
+      accounts,
+      deFiRawData,
+    });
+  }
+
+  @backgroundMethod()
+  public async updateAccountsLocalDeFiOverview({
+    accountAddress,
+    xpub,
+    overview,
+    merge,
+  }: {
+    accountAddress?: string;
+    xpub?: string;
+    overview: Record<
+      string,
+      {
+        totalValue: number;
+        totalDebt: number;
+        totalReward: number;
+        netWorth: number;
+        currency: string;
+      }
+    >;
+    merge?: boolean;
+  }) {
+    return this.backgroundApi.simpleDb.deFi.updateAccountDeFiOverview({
+      accountAddress,
+      xpub,
+      overview,
+      merge,
+    });
   }
 }
 

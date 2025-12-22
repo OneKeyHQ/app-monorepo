@@ -36,7 +36,6 @@ export function TabBarItem({
       jc="center"
       ml={20}
       key={name}
-      cursor="pointer"
       onPress={handlePress}
       position="relative"
       {...tabItemStyle}
