@@ -4,10 +4,10 @@ import * as WebBrowser from 'expo-web-browser';
 import {
   DEFAULT_NATIVE_OAUTH_METHOD,
   ENativeOAuthMethod,
-  GOOGLE_OAUTH_CLIENT_IDS,
   OAUTH_CALLBACK_NATIVE_PATH,
   OAUTH_TOKEN_KEY_ACCESS_TOKEN,
   OAUTH_TOKEN_KEY_REFRESH_TOKEN,
+  ONEKEY_OAUTH_STATE_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { ONEKEY_APP_DEEP_LINK } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {
@@ -248,7 +248,7 @@ export class OAuthPopup extends OAuthPopupBase {
    * Open OAuth using expo-web-browser.openAuthSessionAsync.
    *
    * This is the fallback method that opens an in-app browser.
-   * Extracts tokens from the callback URL when authentication is complete.
+   * Uses PKCE flow: extracts authorization code and exchanges for session.
    */
   private static async openWithWebBrowser(
     options: IOAuthPopupOptions,
@@ -257,6 +257,7 @@ export class OAuthPopup extends OAuthPopupBase {
       authUrl,
       redirectTo: redirectToFromOptions,
       handleSessionPersistence,
+      client,
     } = options;
 
     if (!authUrl) {
@@ -269,7 +270,17 @@ export class OAuthPopup extends OAuthPopupBase {
       );
     }
 
+    if (!client) {
+      throw new OneKeyLocalError(
+        'Supabase client is required for WebBrowser method',
+      );
+    }
+
     const redirectTo = redirectToFromOptions;
+
+    // Parse expected states for validation
+    const { expectedState, expectedOneKeyState } =
+      OAuthPopup.parseExpectedStates(authUrl);
 
     // Open in-app browser for OAuth
     const browserResult = await WebBrowser.openAuthSessionAsync(
@@ -282,7 +293,42 @@ export class OAuthPopup extends OAuthPopupBase {
     );
 
     if (browserResult.type === 'success' && browserResult.url) {
-      // Extract tokens from the callback URL
+      const url = new URL(browserResult.url);
+
+      // Check for error in callback
+      const error =
+        url.searchParams.get('error') ||
+        url.searchParams.get('error_description');
+      if (error) {
+        throw new OneKeyLocalError(error);
+      }
+
+      // PKCE flow: extract authorization code
+      const code = url.searchParams.get('code');
+      const state = url.searchParams.get('state');
+      const oneKeyState = url.searchParams.get(ONEKEY_OAUTH_STATE_KEY);
+
+      if (code) {
+        // Validate states
+        OAuthPopup.validateOneKeyState(expectedOneKeyState, oneKeyState);
+        OAuthPopup.validateSupabaseState(expectedState, state);
+
+        // Exchange code for session using PKCE
+        const { accessToken, refreshToken } =
+          await OAuthPopup.exchangeCodeForSession(client, code);
+
+        await handleSessionPersistence({
+          accessToken,
+          refreshToken,
+        });
+
+        return {
+          success: true,
+          session: { accessToken, refreshToken },
+        };
+      }
+
+      // Fallback: try to extract tokens directly from URL (implicit flow)
       const { accessToken, refreshToken } = OAuthPopup.parseCallbackUrl(
         browserResult.url,
       );
