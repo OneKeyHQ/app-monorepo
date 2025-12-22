@@ -227,10 +227,10 @@ export function Tooltip({
       setIsHovered(false);
       setTimeout(() => {
         resolve();
-      }, 50);
+      }, 150);
       setTimeout(() => {
         setForceClose(false);
-      }, 150);
+      }, 200);
     });
   }, [setIsHovered, setIsShow, setForceClose]);
 
