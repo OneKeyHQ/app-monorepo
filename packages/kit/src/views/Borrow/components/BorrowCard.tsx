@@ -37,6 +37,7 @@ export const BorrowCard = () => {
         marketAddress: market.marketAddress,
         reserveAddress: item.reserveAddress,
         symbol: item.token.symbol,
+        providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Borrow,
         borrowReserves: reserves ?? undefined,

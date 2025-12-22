@@ -96,6 +96,7 @@ export const BorrowNavigation = {
       reserveAddress: string;
       symbol: string;
       logoURI?: string;
+      providerLogoURI?: string;
       type: EManagePositionType;
       borrowReserves?: IBorrowReserveItem;
     },
@@ -110,6 +111,7 @@ export const BorrowNavigation = {
         reserveAddress: params.reserveAddress,
         symbol: params.symbol,
         logoURI: params.logoURI,
+        providerLogoURI: params.providerLogoURI,
         type: params.type,
         borrowReserves: params.borrowReserves,
       },

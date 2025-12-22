@@ -16,6 +16,8 @@ import type {
   EBorrowActionsEnum,
   IBorrowAsset,
   IBorrowAssetsList,
+  IBorrowBalance,
+  IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -26,6 +28,14 @@ import {
 } from '../../components/BorrowTableList';
 
 type IBorrowSelectAsset = IBorrowAsset;
+
+const emptyText: IEarnText = { text: '-' };
+const emptyBalance: IBorrowBalance = {
+  amount: '-',
+  fiatValue: '-',
+  title: emptyText,
+  description: emptyText,
+};
 
 export default function BorrowTokenSelectModal() {
   const navigation = useAppNavigation();
@@ -133,7 +143,9 @@ export default function BorrowTokenSelectModal() {
               align: 'flex-end',
               key: 'walletBalance',
               render: (item) => {
-                const balance = item.balance;
+                const balance = isBorrowAction
+                  ? item.available ?? emptyBalance
+                  : item.walletBalance ?? item.balance ?? emptyBalance;
                 return (
                   <AmountField
                     title={balance.title}
@@ -148,7 +160,9 @@ export default function BorrowTokenSelectModal() {
               align: 'flex-end',
               key: 'position',
               render: (item) => {
-                const positionBalance = item.supplied;
+                const positionBalance = isBorrowAction
+                  ? item.borrowed ?? emptyBalance
+                  : item.supplied ?? emptyBalance;
                 return (
                   <AmountField
                     title={positionBalance.title}

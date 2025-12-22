@@ -29,6 +29,7 @@ const BorrowManagePosition = () => {
     symbol,
     provider,
     logoURI,
+    providerLogoURI,
     reserveAddress,
     marketAddress,
     type,
@@ -56,6 +57,7 @@ const BorrowManagePosition = () => {
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           fallbackTokenImageUri={logoURI}
+          providerLogoUri={providerLogoURI}
           type={type as EManagePositionType}
           reserveAddress={reserveAddress}
           marketAddress={marketAddress}

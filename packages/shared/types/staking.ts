@@ -1802,6 +1802,9 @@ export interface IBorrowAsset {
     title: IEarnText;
     description: IEarnText;
   };
+  walletBalance?: IBorrowBalance;
+  available?: IBorrowBalance;
+  borrowed?: IBorrowBalance;
   supplied: {
     title: IEarnText;
     description: IEarnText;

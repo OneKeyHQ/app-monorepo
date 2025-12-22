@@ -36,6 +36,7 @@ export const ManagePositionPart = ({
       reserveAddress,
       symbol,
       logoURI,
+      providerLogoURI: logoURI,
       type: EManagePositionType.Supply,
     });
   }, [

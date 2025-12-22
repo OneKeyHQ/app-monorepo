@@ -73,6 +73,7 @@ export const SuppliedCard = () => {
         marketAddress: market.marketAddress,
         reserveAddress: item.reserveAddress,
         symbol: item.token.symbol,
+        providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Withdraw,
         borrowReserves: reserves ?? undefined,

@@ -51,48 +51,13 @@ export const useManagePage = ({
     run,
   } = usePromiseResult(
     async () => {
-      // For Borrow type, use different API
-      if (
-        [
-          EManagePositionType.Supply,
-          EManagePositionType.Borrow,
-          EManagePositionType.Withdraw,
-          EManagePositionType.Repay,
-        ].includes(type)
-      ) {
-        const earnAccount =
-          await backgroundApiProxy.serviceStaking.getEarnAccount({
-            accountId,
-            networkId,
-            indexedAccountId,
-            btcOnlyTaproot: true,
-          });
+      const isBorrowType = [
+        EManagePositionType.Supply,
+        EManagePositionType.Borrow,
+        EManagePositionType.Withdraw,
+        EManagePositionType.Repay,
+      ].includes(type);
 
-        if (!earnAccount || !earnAccount.accountAddress) {
-          return undefined;
-        }
-
-        const managePageData =
-          await backgroundApiProxy.serviceStaking.getBorrowManagePage({
-            accountId,
-            networkId,
-            provider,
-            marketAddress: marketAddress || '',
-            reserveAddress: reserveAddress || '',
-            type: type as 'supply' | 'withdraw' | 'borrow' | 'repay',
-          });
-
-        const protocolList =
-          await backgroundApiProxy.serviceStaking.getProtocolList({
-            symbol,
-            filterNetworkId: networkId,
-            skipStakingConfigFilter: true,
-          });
-
-        return { managePageData, protocolList, earnAccount };
-      }
-
-      // Default: Staking type
       const earnAccount =
         await backgroundApiProxy.serviceStaking.getEarnAccount({
           accountId,
@@ -103,6 +68,20 @@ export const useManagePage = ({
 
       if (!earnAccount || !earnAccount.accountAddress) {
         return undefined;
+      }
+
+      if (isBorrowType) {
+        const managePageData =
+          await backgroundApiProxy.serviceStaking.getBorrowManagePage({
+            accountId,
+            networkId,
+            provider,
+            marketAddress: marketAddress || '',
+            reserveAddress: reserveAddress || '',
+            type: type as 'supply' | 'withdraw' | 'borrow' | 'repay',
+          });
+
+        return { managePageData, protocolList: undefined, earnAccount };
       }
 
       const managePageData =

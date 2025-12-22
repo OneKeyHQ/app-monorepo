@@ -42,6 +42,7 @@ export interface IManagePositionContentProps {
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
+  providerLogoUri?: string;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -104,6 +105,7 @@ export function ManagePositionContent({
   onTabChange,
   showApyDetail = false,
   fallbackTokenImageUri,
+  providerLogoUri,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
@@ -135,6 +137,25 @@ export function ManagePositionContent({
     reserveAddress,
     marketAddress,
   });
+
+  const resolvedProtocolInfo = useMemo(() => {
+    if (!protocolInfo) {
+      return undefined;
+    }
+    if (!providerLogoUri) {
+      return protocolInfo;
+    }
+    if (protocolInfo.providerDetail?.logoURI) {
+      return protocolInfo;
+    }
+    return {
+      ...protocolInfo,
+      providerDetail: {
+        ...protocolInfo.providerDetail,
+        logoURI: providerLogoUri,
+      },
+    };
+  }, [protocolInfo, providerLogoUri]);
 
   // Handle create address
   const handleCreateAddress = useCallback(async () => {
@@ -263,7 +284,7 @@ export function ManagePositionContent({
         networkId,
         symbol,
         provider,
-        stakeTag: protocolInfo?.stakeTag || '',
+        stakeTag: resolvedProtocolInfo?.stakeTag || '',
         protocolVault: vault,
         filterType,
       };
@@ -284,7 +305,7 @@ export function ManagePositionContent({
     appNavigation,
     earnAccount?.accountId,
     networkId,
-    protocolInfo?.stakeTag,
+    resolvedProtocolInfo?.stakeTag,
     provider,
     symbol,
     vault,
@@ -382,7 +403,7 @@ export function ManagePositionContent({
         vault={vault}
         onHistory={onHistory}
         indicatorAccountId={earnAccount?.accountId}
-        stakeTag={protocolInfo?.stakeTag}
+        stakeTag={resolvedProtocolInfo?.stakeTag}
         onIndicatorRefresh={refreshManageData}
         onRefreshPendingRef={refreshPendingRef}
         onActionSuccess={handleOperationSuccess}
@@ -410,10 +431,10 @@ export function ManagePositionContent({
         isInModalContext={isInModalContext}
         beforeFooter={specialBeforeFooter}
         fallbackTokenImageUri={fallbackTokenImageUri}
-        protocolInfo={protocolInfo}
+        protocolInfo={resolvedProtocolInfo}
         tokenInfo={resolvedTokenInfo}
         indicatorAccountId={earnAccount?.accountId}
-        stakeTag={protocolInfo?.stakeTag}
+        stakeTag={resolvedProtocolInfo?.stakeTag}
         onIndicatorRefresh={refreshManageData}
         onRefreshPendingRef={refreshPendingRef}
       />
@@ -432,7 +453,7 @@ export function ManagePositionContent({
       reserveAddress={reserveAddress}
       tokenInfo={resolvedTokenInfo}
       fallbackTokenImageUri={resolvedTokenImageUri}
-      protocolInfo={protocolInfo}
+      protocolInfo={resolvedProtocolInfo}
       earnAccount={earnAccount ?? undefined}
       borrowReserves={borrowReserves}
       depositDisabled={depositDisabled}
@@ -442,7 +463,7 @@ export function ManagePositionContent({
       historyAction={historyAction}
       onHistory={onHistory}
       indicatorAccountId={earnAccount?.accountId}
-      stakeTag={protocolInfo?.stakeTag}
+      stakeTag={resolvedProtocolInfo?.stakeTag}
       onIndicatorRefresh={refreshManageData}
       onRefreshPendingRef={refreshPendingRef}
       onSuccess={handleOperationSuccess}

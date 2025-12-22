@@ -51,6 +51,7 @@ export const SupplyCard = () => {
         marketAddress: market.marketAddress,
         reserveAddress: item.reserveAddress,
         symbol: item.token.symbol,
+        providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Supply,
         borrowReserves: reserves ?? undefined,
