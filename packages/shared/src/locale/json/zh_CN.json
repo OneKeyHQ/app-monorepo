@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "授权中...",
   "swap.btn_building": "创建订单中...",
   "swap.ch_status_hold": "联系客服",
+  "swap.limit_amount": "卖出 {num1} {fromToken} 购买 {num2} {toToken}",
   "swap.loading_content": "正在计算最佳价格...",
   "swap.native_token_max_tip": "请保留少量代币用于支付网络费用，否则交易将会失败。",
   "swap.native_token_max_tip_already": "{num_token} 已预留用于网络手续费。该金额可能会根据链上手续费而变化",

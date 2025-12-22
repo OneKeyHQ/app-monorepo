@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "অনুমোদন করা হচ্ছে...",
   "swap.btn_building": "অর্ডার তৈরি হচ্ছে...",
   "swap.ch_status_hold": "সহায়তার সাথে যোগাযোগ করুন",
+  "swap.limit_amount": "{num1} {fromToken} বিক্রি করে {num2} {toToken} নিন",
   "swap.loading_content": "সেরা মূল্য গণনা করা হচ্ছে...",
   "swap.native_token_max_tip": "অনুগ্রহ করে নেটওয়ার্ক ফি পরিশোধের জন্য কিছু পরিমাণ টোকেন সংরক্ষণ করুন, অন্যথায় লেনদেনটি ব্যর্থ হবে।",
   "swap.native_token_max_tip_already": "{num_token} নেটওয়ার্ক ফি-এর জন্য সংরক্ষিত। অন-চেইন ফি-এর ভিত্তিতে পরিমাণ পরিবর্তিত হতে পারে।",

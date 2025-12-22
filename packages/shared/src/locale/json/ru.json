@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "Одобрение...",
   "swap.btn_building": "Создание заказа...",
   "swap.ch_status_hold": "Связаться со службой поддержки",
+  "swap.limit_amount": "Продать {num1} {fromToken} за {num2} {toToken}",
   "swap.loading_content": "Вычисление лучшей цены...",
   "swap.native_token_max_tip": "Пожалуйста, оставьте небольшое количество токенов для оплаты сетевых комиссий, иначе транзакция не пройдет.",
   "swap.native_token_max_tip_already": "{num_token} зарезервировано для сетевых комиссий. Сумма может измениться в зависимости от комиссий в сети.",

@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "승인 중...",
   "swap.btn_building": "주문 생성 중...",
   "swap.ch_status_hold": "지원팀에 문의하세요",
+  "swap.limit_amount": "{num1} {fromToken}을(를) {num2} {toToken}에 판매",
   "swap.loading_content": "최적의 가격 계산 중...",
   "swap.native_token_max_tip": "네트워크 수수료를 지불할 수 있도록 소량의 토큰을 남겨두세요. 그렇지 않으면 거래가 실패할 수 있습니다.",
   "swap.native_token_max_tip_already": "{num_token}은 네트워크 수수료로 예약되어 있습니다. 온체인 수수료에 따라 금액이 변경될 수 있습니다.",

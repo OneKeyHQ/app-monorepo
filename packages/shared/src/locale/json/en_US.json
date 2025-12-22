@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "Approving...",
   "swap.btn_building": "Building order...",
   "swap.ch_status_hold": "Contact support",
+  "swap.limit_amount": "Sell {num1} {fromToken} for {num2} {toToken}",
   "swap.loading_content": "Calculating the best price...",
   "swap.native_token_max_tip": "Please reserve a small amount of tokens to pay for network fees, otherwise the transaction will fail.",
   "swap.native_token_max_tip_already": "{num_token} is reserved for network fees. The amount may change based on on-chain fees.",

@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "กำลังอนุมัติ...",
   "swap.btn_building": "กำลังสร้างคำสั่งซื้อ...",
   "swap.ch_status_hold": "ติดต่อฝ่ายสนับสนุน",
+  "swap.limit_amount": "ขาย {num1} {fromToken} เป็น {num2} {toToken}",
   "swap.loading_content": "กำลังคำนวณราคาที่ดีที่สุด...",
   "swap.native_token_max_tip": "กรุณาเผื่อโทเค็นจำนวนเล็กน้อยไว้สำหรับชำระค่าธรรมเนียมเครือข่าย มิฉะนั้นธุรกรรมจะล้มเหลว",
   "swap.native_token_max_tip_already": "{num_token} ถูกกันไว้สำหรับค่าธรรมเนียมเครือข่าย จำนวนอาจเปลี่ยนแปลงตามค่าธรรมเนียมบนเชน",

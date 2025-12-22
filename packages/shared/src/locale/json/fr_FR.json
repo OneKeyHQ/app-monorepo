@@ -3355,6 +3355,7 @@
   "swap.btn_approving": "Approbation...",
   "swap.btn_building": "Construction de la commande...",
   "swap.ch_status_hold": "Contacter le support",
+  "swap.limit_amount": "Vendre {num1} {fromToken} contre {num2} {toToken}",
   "swap.loading_content": "Calcul en cours du meilleur prix...",
   "swap.native_token_max_tip": "Veuillez réserver une petite quantité de jetons pour payer les frais de réseau, sinon la transaction échouera.",
   "swap.native_token_max_tip_already": "{num_token} est réservé pour les frais de réseau. Le montant peut changer en fonction des frais on-chain.",
