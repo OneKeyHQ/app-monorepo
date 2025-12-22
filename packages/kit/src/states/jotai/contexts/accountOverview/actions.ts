@@ -8,6 +8,7 @@ import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  accountDeFiOverviewAtom,
   accountOverviewStateAtom,
   accountWorthAtom,
   allNetworksStateAtom,
@@ -110,6 +111,49 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateAccountDeFiOverview = contextAtomMethod(
+    (
+      get,
+      set,
+      value: {
+        overview: {
+          totalValue: number;
+          totalDebt: number;
+          totalReward: number;
+          netWorth: number;
+        };
+        merge?: boolean;
+        currency?: string;
+      },
+    ) => {
+      const overview = get(accountDeFiOverviewAtom());
+
+      if (value.merge) {
+        const newOverview = {
+          totalValue: new BigNumber(overview.totalValue)
+            .plus(value.overview.totalValue)
+            .toNumber(),
+          totalDebt: new BigNumber(overview.totalDebt ?? 0)
+            .plus(value.overview.totalDebt ?? 0)
+            .toNumber(),
+          netWorth: new BigNumber(overview.netWorth ?? 0)
+            .plus(value.overview.netWorth ?? 0)
+            .toNumber(),
+          totalReward: new BigNumber(overview.totalReward ?? 0)
+            .plus(value.overview.totalReward ?? 0)
+            .toNumber(),
+          currency: overview.currency,
+        };
+        set(accountDeFiOverviewAtom(), newOverview);
+      } else {
+        set(accountDeFiOverviewAtom(), {
+          ...value.overview,
+          currency: value.currency ?? overview.currency,
+        });
+      }
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -126,6 +170,7 @@ export function useAccountOverviewActions() {
   const updateApprovalsInfo = actions.updateApprovalsInfo.use();
   const updateWalletStatus = actions.updateWalletStatus.use();
   const updateWalletTopBanners = actions.updateWalletTopBanners.use();
+  const updateAccountDeFiOverview = actions.updateAccountDeFiOverview.use();
 
   return useRef({
     updateAllNetworksState,
@@ -134,5 +179,6 @@ export function useAccountOverviewActions() {
     updateApprovalsInfo,
     updateWalletStatus,
     updateWalletTopBanners,
+    updateAccountDeFiOverview,
   });
 }

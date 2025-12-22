@@ -17,13 +17,17 @@ import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useAccountDeFiOverviewAtom,
+  useAccountOverviewActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useDeFiListActions,
-  useDeFiListOverviewAtom,
   useDeFiListProtocolsAtom,
   useDeFiListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
+import type { IDeFiDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityDeFi';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -62,17 +66,20 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const targetCurrencyInfo = useMemo(() => currencyMap.usd, [currencyMap]);
 
   const {
-    updateDeFiListOverview,
     updateDeFiListProtocols,
     updateDeFiListProtocolMap,
     updateDeFiListState,
   } = useDeFiListActions().current;
 
+  const { updateAccountDeFiOverview } = useAccountOverviewActions().current;
+
   const { isFocused, isHeaderRefreshing } = useTabIsRefreshingFocused();
 
-  const [overview] = useDeFiListOverviewAtom();
+  const [overview] = useAccountDeFiOverviewAtom();
   const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
   const [{ protocols }] = useDeFiListProtocolsAtom();
+
+  const deFiRawDataRef = useRef<IDeFiDBStruct | undefined>(undefined);
 
   const [overflowState, setOverflowState] = useState<{
     isOverflow: boolean;
@@ -122,8 +129,9 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
 
       if (!enabledNetworks[network.id]) {
         const emptyData = defiUtils.getEmptyDeFiData();
-        updateDeFiListOverview({
+        updateAccountDeFiOverview({
           overview: emptyData.overview,
+          currency: settings.currencyInfo.id,
         });
         updateDeFiListProtocols({
           protocols: emptyData.protocols,
@@ -149,15 +157,15 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
             excludeLowValueProtocols: true,
             sourceCurrencyInfo,
             targetCurrencyInfo,
+            saveToLocal: true,
           });
-        updateDeFiListOverview({
+        updateAccountDeFiOverview({
+          currency: settings.currencyInfo.id,
           overview: {
-            totalValue: new BigNumber(resp.overview.totalValue ?? 0).toFixed(),
-            totalDebt: new BigNumber(resp.overview.totalDebt ?? 0).toFixed(),
-            netWorth: new BigNumber(resp.overview.netWorth ?? 0).toFixed(),
-            chains: resp.overview.chains,
-            protocolCount: resp.overview.protocolCount,
-            positionCount: resp.overview.positionCount,
+            totalValue: resp.overview.totalValue ?? 0,
+            totalDebt: resp.overview.totalDebt ?? 0,
+            totalReward: resp.overview.totalReward ?? 0,
+            netWorth: resp.overview.netWorth ?? 0,
           },
         });
         updateDeFiListProtocols({
@@ -178,7 +186,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     [
       account,
       network,
-      updateDeFiListOverview,
+      settings.currencyInfo.id,
+      updateAccountDeFiOverview,
       updateDeFiListProtocols,
       updateDeFiListProtocolMap,
       updateDeFiListState,
@@ -195,9 +204,10 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
 
   const deFiDataRef = useRef<{
     overview: {
-      totalValue: string;
-      totalDebt: string;
-      netWorth: string;
+      totalValue: number;
+      totalDebt: number;
+      totalReward: number;
+      netWorth: number;
       chains: string[];
       protocolCount: number;
       positionCount: number;
@@ -206,7 +216,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   }>(defiUtils.getEmptyDeFiData());
 
   const updateAllNetworkData = useThrottledCallback(() => {
-    updateDeFiListOverview({
+    updateAccountDeFiOverview({
+      currency: settings.currencyInfo.id,
       overview: deFiDataRef.current.overview,
       merge: true,
     });
@@ -244,13 +255,16 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
           overview: {
             totalValue: new BigNumber(r.overview.totalValue ?? 0)
               .plus(deFiDataRef.current.overview.totalValue)
-              .toFixed(),
+              .toNumber(),
             totalDebt: new BigNumber(r.overview.totalDebt ?? 0)
               .plus(deFiDataRef.current.overview.totalDebt)
-              .toFixed(),
+              .toNumber(),
+            totalReward: new BigNumber(r.overview.totalReward ?? 0)
+              .plus(deFiDataRef.current.overview.totalReward)
+              .toNumber(),
             netWorth: new BigNumber(r.overview.netWorth ?? 0)
               .plus(deFiDataRef.current.overview.netWorth)
-              .toFixed(),
+              .toNumber(),
             chains: Array.from(
               new Set([
                 ...deFiDataRef.current.overview.chains,
@@ -291,11 +305,13 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   );
 
   const handleClearAllNetworkData = useCallback(() => {
-    updateDeFiListOverview({
+    updateAccountDeFiOverview({
+      currency: settings.currencyInfo.id,
       overview: {
-        totalValue: '0',
-        totalDebt: '0',
-        netWorth: '0',
+        totalValue: 0,
+        totalDebt: 0,
+        totalReward: 0,
+        netWorth: 0,
         chains: [],
         protocolCount: 0,
         positionCount: 0,
@@ -308,10 +324,122 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       protocolMap: {},
     });
   }, [
-    updateDeFiListOverview,
+    settings.currencyInfo.id,
+    updateAccountDeFiOverview,
     updateDeFiListProtocols,
     updateDeFiListProtocolMap,
   ]);
+
+  const handleAllNetworkRequestsStarted = useCallback(async () => {
+    deFiRawDataRef.current =
+      (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
+  }, []);
+
+  const handleAllNetworkCacheRequests = useCallback(
+    async ({
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+    }: {
+      accountId: string;
+      networkId: string;
+      accountAddress: string;
+      xpub?: string;
+    }) => {
+      const localDeFiOverview =
+        await backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
+          accounts: [
+            {
+              accountId,
+              networkId,
+              accountAddress,
+              xpub,
+            },
+          ],
+          deFiRawData: deFiRawDataRef.current,
+        });
+
+      const currentNetworkDeFiOverview =
+        localDeFiOverview?.[0]?.overview?.[networkId];
+
+      if (currentNetworkDeFiOverview) {
+        if (currentNetworkDeFiOverview.currency !== settings.currencyInfo.id) {
+          const _sourceCurrencyInfo =
+            currencyMap[currentNetworkDeFiOverview.currency];
+          const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
+          currentNetworkDeFiOverview.totalValue = new BigNumber(
+            currentNetworkDeFiOverview.totalValue,
+          )
+            .div(_sourceCurrencyInfo.value)
+            .times(_targetCurrencyInfo.value)
+            .toNumber();
+          currentNetworkDeFiOverview.totalDebt = new BigNumber(
+            currentNetworkDeFiOverview.totalDebt,
+          )
+            .div(_sourceCurrencyInfo.value)
+            .times(_targetCurrencyInfo.value)
+            .toNumber();
+          currentNetworkDeFiOverview.totalReward = new BigNumber(
+            currentNetworkDeFiOverview.totalReward,
+          )
+            .div(_sourceCurrencyInfo.value)
+            .times(_targetCurrencyInfo.value)
+            .toNumber();
+          currentNetworkDeFiOverview.netWorth = new BigNumber(
+            currentNetworkDeFiOverview.netWorth,
+          )
+            .div(_sourceCurrencyInfo.value)
+            .times(_targetCurrencyInfo.value)
+            .toNumber();
+        }
+      }
+
+      return {
+        overview: currentNetworkDeFiOverview,
+      };
+    },
+    [currencyMap, settings.currencyInfo.id],
+  );
+
+  const handleAllNetworkCacheData = useCallback(
+    async ({
+      data,
+    }: {
+      data: {
+        overview: {
+          totalValue: number;
+          totalDebt: number;
+          totalReward: number;
+          netWorth: number;
+          currency: string;
+        };
+      }[];
+    }) => {
+      const tempOverview: {
+        totalValue: number;
+        totalDebt: number;
+        totalReward: number;
+        netWorth: number;
+      } = {
+        totalValue: 0,
+        totalDebt: 0,
+        totalReward: 0,
+        netWorth: 0,
+      };
+      for (const d of data) {
+        tempOverview.totalValue += d.overview.totalValue;
+        tempOverview.totalDebt += d.overview.totalDebt;
+        tempOverview.totalReward += d.overview.totalReward;
+        tempOverview.netWorth += d.overview.netWorth;
+      }
+      updateAccountDeFiOverview({
+        currency: settings.currencyInfo.id,
+        overview: tempOverview,
+      });
+    },
+    [settings.currencyInfo.id, updateAccountDeFiOverview],
+  );
 
   const {
     run: runAllNetworkRequests,
@@ -328,6 +456,9 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     networkId: network?.id,
     walletId: wallet?.id,
     isAllNetworks: network?.isAllNetworks,
+    onStarted: handleAllNetworkRequestsStarted,
+    allNetworkCacheRequests: handleAllNetworkCacheRequests,
+    allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkRequests: handleAllNetworkRequests,
     clearAllNetworkData: handleClearAllNetworkData,
     isDeFiRequests: true,
@@ -343,11 +474,13 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         initialized: true,
         isRefreshing: false,
       });
-      updateDeFiListOverview({
+      updateAccountDeFiOverview({
+        currency: settings.currencyInfo.id,
         overview: {
-          totalValue: '0',
-          totalDebt: '0',
-          netWorth: '0',
+          totalValue: 0,
+          totalDebt: 0,
+          netWorth: 0,
+          totalReward: 0,
           chains: [],
           protocolCount: 0,
           positionCount: 0,
@@ -364,9 +497,10 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     isEmptyAccount,
     network?.isAllNetworks,
     updateDeFiListState,
-    updateDeFiListOverview,
+    updateAccountDeFiOverview,
     updateDeFiListProtocols,
     updateDeFiListProtocolMap,
+    settings.currencyInfo.id,
   ]);
 
   useEffect(() => {
@@ -390,6 +524,64 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         networkId,
         accountId,
       });
+
+      if (networkUtils.isAllNetwork({ networkId })) {
+        return;
+      }
+
+      const localDeFiOverview = (
+        await backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
+          accounts: [
+            {
+              accountId,
+              networkId,
+              accountAddress: account?.address,
+            },
+          ],
+        })
+      )[0];
+
+      if (localDeFiOverview) {
+        const currentNetworkDeFiOverview =
+          localDeFiOverview.overview[networkId];
+        if (currentNetworkDeFiOverview) {
+          if (
+            currentNetworkDeFiOverview.currency !== settings.currencyInfo.id
+          ) {
+            const _sourceCurrencyInfo =
+              currencyMap[currentNetworkDeFiOverview.currency];
+            const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
+            currentNetworkDeFiOverview.totalValue = new BigNumber(
+              currentNetworkDeFiOverview.totalValue,
+            )
+              .div(_sourceCurrencyInfo.value)
+              .times(_targetCurrencyInfo.value)
+              .toNumber();
+            currentNetworkDeFiOverview.totalDebt = new BigNumber(
+              currentNetworkDeFiOverview.totalDebt,
+            )
+              .div(_sourceCurrencyInfo.value)
+              .times(_targetCurrencyInfo.value)
+              .toNumber();
+            currentNetworkDeFiOverview.totalReward = new BigNumber(
+              currentNetworkDeFiOverview.totalReward,
+            )
+              .div(_sourceCurrencyInfo.value)
+              .times(_targetCurrencyInfo.value)
+              .toNumber();
+            currentNetworkDeFiOverview.netWorth = new BigNumber(
+              currentNetworkDeFiOverview.netWorth,
+            )
+              .div(_sourceCurrencyInfo.value)
+              .times(_targetCurrencyInfo.value)
+              .toNumber();
+          }
+          updateAccountDeFiOverview({
+            currency: settings.currencyInfo.id,
+            overview: currentNetworkDeFiOverview,
+          });
+        }
+      }
     };
     if (account?.id && network?.id) {
       void initDeFiData({
@@ -397,7 +589,14 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         networkId: network.id,
       });
     }
-  }, [account?.id, network?.id]);
+  }, [
+    account?.id,
+    network?.id,
+    account?.address,
+    updateAccountDeFiOverview,
+    settings.currencyInfo.id,
+    currencyMap,
+  ]);
 
   useEffect(() => {
     const refresh = () => {
@@ -419,9 +618,10 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   useEffect(() => {
     if (allNetworksResult) {
       const tempOverview = {
-        totalValue: '0',
-        totalDebt: '0',
-        netWorth: '0',
+        totalValue: 0,
+        totalDebt: 0,
+        totalReward: 0,
+        netWorth: 0,
         chains: [] as string[],
         protocolCount: 0,
         positionCount: 0,
@@ -432,13 +632,16 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       for (const r of allNetworksResult) {
         tempOverview.totalValue = new BigNumber(tempOverview.totalValue)
           .plus(r.overview.totalValue)
-          .toFixed();
+          .toNumber();
         tempOverview.totalDebt = new BigNumber(tempOverview.totalDebt)
           .plus(r.overview.totalDebt)
-          .toFixed();
+          .toNumber();
         tempOverview.netWorth = new BigNumber(tempOverview.netWorth)
           .plus(r.overview.netWorth)
-          .toFixed();
+          .toNumber();
+        tempOverview.totalReward = new BigNumber(tempOverview.totalReward)
+          .plus(r.overview.totalReward)
+          .toNumber();
         tempOverview.chains = Array.from(
           new Set([...tempOverview.chains, ...r.overview.chains]),
         );
@@ -450,7 +653,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
           ...r.protocolMap,
         };
       }
-      updateDeFiListOverview({
+      updateAccountDeFiOverview({
+        currency: settings.currencyInfo.id,
         overview: tempOverview,
       });
       updateDeFiListProtocols({
@@ -466,10 +670,11 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     }
   }, [
     allNetworksResult,
-    updateDeFiListOverview,
+    updateAccountDeFiOverview,
     updateDeFiListProtocols,
     updateDeFiListProtocolMap,
     updateDeFiListState,
+    settings.currencyInfo.id,
   ]);
 
   useEffect(() => {
