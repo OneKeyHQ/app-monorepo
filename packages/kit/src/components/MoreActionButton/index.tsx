@@ -80,12 +80,6 @@ import {
 
 import type { GestureResponderEvent } from 'react-native';
 
-const pressStyle = {
-  bg: '$bgActive',
-  borderRadius: '$2.5',
-} as const;
-const hoverStyle = { bg: '$bgHover', borderRadius: '$2.5' } as const;
-
 function MoreActionProvider({ children }: PropsWithChildren) {
   return (
     <AccountSelectorProviderMirror
@@ -385,35 +379,6 @@ function MoreActionContentGridItem({
   );
 }
 
-function MoreActionContentGridRender({
-  items,
-}: {
-  items: IMoreActionContentGridItemProps[];
-}) {
-  const displayItems = useMemo(() => {
-    const remainder = items.length % 4;
-    if (remainder !== 0) {
-      const paddingCount = 4 - remainder;
-      return [
-        ...items,
-        ...Array(paddingCount).fill(null),
-      ] as IMoreActionContentGridItemProps[];
-    }
-    return items;
-  }, [items]);
-  return (
-    <>
-      {displayItems.map((item, index) =>
-        item ? (
-          <MoreActionContentGridItem key={index} {...item} />
-        ) : (
-          <XStack key={index} />
-        ),
-      )}
-    </>
-  );
-}
-
 function MoreActionDivider() {
   return (
     <XStack py="$2">
@@ -504,220 +469,6 @@ function MoreActionOneKeyId() {
         <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
       ) : null}
     </XStack>
-  );
-}
-
-function MoreActionContentGrid() {
-  const intl = useIntl();
-  const themeVariant = useThemeVariant();
-
-  const openAddressBook = useShowAddressBook({
-    useNewModal: true,
-  });
-  const { gtMd } = useMedia();
-  const toMyOneKeyModal = useToMyOneKeyModal();
-  const { user } = useOneKeyAuth();
-
-  const handleDeviceManagement = useCallback(async () => {
-    await toMyOneKeyModal();
-  }, [toMyOneKeyModal]);
-
-  const navigation = useAppNavigation();
-  const {
-    activeAccount: { wallet, account, network },
-  } = useActiveAccount({ num: 0 });
-
-  const handleSettings = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListModal,
-    });
-  }, [navigation]);
-
-  const checkIsPrimeUser = useCallback(
-    (showFeature: EPrimeFeatures) => {
-      if (user?.primeSubscription?.isActive && user?.onekeyUserId) {
-        return true;
-      }
-      navigation.pushFullModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeFeatures,
-        params: {
-          showAllFeatures: false,
-          selectedFeature: showFeature,
-          selectedSubscriptionPeriod: 'P1Y',
-          networkId: network?.id,
-        },
-      });
-      return false;
-    },
-    [navigation, user, network?.id],
-  );
-
-  const handleCustomerSupport = useCallback(() => {
-    void showIntercom();
-  }, []);
-
-  const openNotificationsModal = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.NotificationsModal, {
-      screen: EModalNotificationsRoutes.NotificationList,
-    });
-  }, [navigation]);
-
-  const openBulkCopyAddressesModal = useCallback(async () => {
-    const networkId = networkUtils.toNetworkIdFallback({
-      networkId: network?.id,
-      allNetworkFallbackToBtc: true,
-    });
-
-    if (!networkId) return;
-
-    if (!checkIsPrimeUser(EPrimeFeatures.BulkCopyAddresses)) return;
-
-    navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
-      screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
-      params: {
-        walletId: wallet?.id,
-        networkId,
-      },
-    });
-  }, [network?.id, checkIsPrimeUser, navigation, wallet?.id]);
-
-  const { toReferFriendsPage } = useReferFriends();
-
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
-
-  const scanQrCode = useScanQrCode();
-
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
-
-  const handleScan = useCallback(async () => {
-    await scanQrCode.start({
-      handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-      autoHandleResult: true,
-      account,
-      network,
-      tokens: {
-        data: allTokens.tokens,
-        keys: allTokens.keys,
-        map,
-      },
-    });
-  }, [scanQrCode, account, network, allTokens.tokens, allTokens.keys, map]);
-
-  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
-  const items = useMemo(() => {
-    return [
-      platformEnv.isWebDappMode
-        ? undefined
-        : {
-            title: intl.formatMessage({
-              id: ETranslations.address_book_title,
-            }),
-            icon: 'ContactsOutline',
-            onPress: openAddressBook,
-            testID: 'address-book',
-            trackID: 'wallet-address-book',
-          },
-      platformEnv.isWebDappMode
-        ? undefined
-        : {
-            title: intl.formatMessage({
-              id: ETranslations.global_my_onekey,
-            }),
-            icon: 'OnekeyDeviceCustom',
-            onPress: handleDeviceManagement,
-            testID: 'my-onekey',
-          },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.settings_settings,
-        }),
-        icon: 'SettingsOutline',
-        onPress: handleSettings,
-        trackID: 'wallet-settings',
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.settings_contact_us,
-        }),
-        icon: 'HelpSupportOutline',
-        onPress: handleCustomerSupport,
-        testID: 'customer-support',
-        trackID: 'wallet-customer-support',
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend }),
-        lottieSrc:
-          themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
-        testID: 'referral',
-        onPress: toReferFriendsPage,
-      },
-      platformEnv.isWebDappMode
-        ? undefined
-        : {
-            title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
-            icon: 'ScanOutline' as const,
-            onPress: handleScan,
-            testID: 'scan-qr-code',
-            trackID: 'wallet-scan',
-          },
-      gtMd
-        ? undefined
-        : {
-            title: intl.formatMessage({
-              id: ETranslations.global_notifications,
-            }),
-            icon: 'BellOutline',
-            onPress: openNotificationsModal,
-            showRedDot: !firstTimeGuideOpened || badge,
-            showBadges: firstTimeGuideOpened,
-            badges: badge,
-            trackID: 'notification-in-more-action',
-          },
-      platformEnv.isWebDappMode
-        ? undefined
-        : {
-            title: intl.formatMessage({
-              id: ETranslations.global_bulk_copy_addresses,
-            }),
-            icon: 'Copy3Outline',
-            onPress: () => {
-              if (!isPrimeUser) {
-                defaultLogger.prime.subscription.primeEntryClick({
-                  featureName: EPrimeFeatures.BulkCopyAddresses,
-                  entryPoint: 'moreActions',
-                });
-              }
-              void openBulkCopyAddressesModal();
-            },
-            trackID: 'bulk-copy-addresses-in-more-action',
-            isPrimeFeature: true,
-          },
-    ].filter(Boolean) as IMoreActionContentGridItemProps[];
-  }, [
-    badge,
-    firstTimeGuideOpened,
-    gtMd,
-    handleCustomerSupport,
-    handleDeviceManagement,
-    handleScan,
-    handleSettings,
-    intl,
-    openAddressBook,
-    openNotificationsModal,
-    openBulkCopyAddressesModal,
-    themeVariant,
-    toReferFriendsPage,
-    isPrimeUser,
-  ]);
-
-  return (
-    <YStack gap="$5">
-      <XStack flexWrap="wrap" mx="$-3" my="$-2.5">
-        <MoreActionContentGridRender items={items} />
-      </XStack>
-      <Divider />
-    </YStack>
   );
 }
 
@@ -1248,7 +999,7 @@ function MoreActionButtonCmp() {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return isDesktopMode ? (
     <Tooltip
-      open
+      hovering
       contentProps={{
         maxWidth: 384,
         width: 384,
