@@ -8,22 +8,36 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 const DATA = [
   {
-    title: 'Sent',
-    description: 'Account 1 sent 10 MATIC',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.global_wallet_activity,
+    }),
+    description: appLocale.intl.formatMessage({
+      id: ETranslations.global_real_time_updates,
+    }),
     time: 'now',
     stacked: true,
   },
   {
-    title: 'Received',
-    description: 'Account 2 received 10 MATIC',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.global_market_moves,
+    }),
+    description: appLocale.intl.formatMessage({
+      id: ETranslations.global_daily_price_change,
+    }),
     time: '10m ago',
   },
   {
-    title: 'Approved USDC',
-    description: 'Account 3 • Polygon',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.global_perps_alert,
+    }),
+    description: appLocale.intl.formatMessage({
+      id: ETranslations.global_instant_update_liquidation,
+    }),
     time: '1h ago',
   },
 ];
