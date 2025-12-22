@@ -130,7 +130,9 @@ function ConnectWalletContent() {
             // Desktop: show full tabs
             renderTabs
           )}
-          {activeTabIndex === 2 ? null : <TermsAndPrivacy />}
+          {activeTabIndex === 2 ? null : (
+            <TermsAndPrivacy contentContainerProps={{ pb: '$6' }} />
+          )}
         </Stack>
       </Page.Body>
       {activeTabIndex === 2 ? (
