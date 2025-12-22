@@ -24,8 +24,8 @@ import {
   XStack,
   YStack,
   useSafeAreaInsets,
+  useTooltipContext,
 } from '@onekeyhq/components';
-import { useTooltipContext } from '@onekeyhq/components/src/actions/Tooltip/context';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import {

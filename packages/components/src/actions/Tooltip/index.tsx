@@ -308,4 +308,5 @@ export function Tooltip({
 
 Tooltip.Text = TooltipText;
 
+export * from './context';
 export * from './type';

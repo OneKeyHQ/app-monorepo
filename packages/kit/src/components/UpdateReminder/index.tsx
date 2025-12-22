@@ -14,6 +14,7 @@ import {
   SizableText,
   XStack,
   usePopoverContext,
+  useTooltipContext,
 } from '@onekeyhq/components';
 import {
   EAppUpdateStatus,
@@ -291,10 +292,12 @@ function BasicUpdateReminder() {
   const appUpdateInfo = useAppUpdateInfo(true);
   const { data, onUpdateAction } = appUpdateInfo;
   const { closePopover } = usePopoverContext();
+  const { closeTooltip } = useTooltipContext();
   const handlePress = useCallback(async () => {
     await closePopover?.();
+    await closeTooltip?.();
     onUpdateAction?.();
-  }, [closePopover, onUpdateAction]);
+  }, [closePopover, closeTooltip, onUpdateAction]);
 
   const showUpdateUI = useMemo(() => {
     return isShowAppUpdateUIWhenUpdating({

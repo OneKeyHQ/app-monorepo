@@ -63,6 +63,7 @@ export function BasicPage({ children }: IBasicPageProps) {
           borderColor: '$borderSubdued',
           mr: '$1',
           mb: '$1',
+          overflow: 'hidden' as const,
         }
       : undefined;
   }, [isDesktopLayout]);
