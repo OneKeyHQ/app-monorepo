@@ -1297,6 +1297,12 @@ export default class ServiceNotification extends ServiceBase {
     return result?.data?.data;
   }
 
+  @backgroundMethod()
+  async fetchServerNotificationSettingsWithCache(): Promise<INotificationPushSettings> {
+    const { serverSettings } = await this.getServerSettingsWithCache();
+    return serverSettings;
+  }
+
   updateNotificationSettingsAbortController: AbortController | undefined;
 
   @backgroundMethod()
@@ -1314,6 +1320,7 @@ export default class ServiceNotification extends ServiceBase {
     if (result?.data?.data?.pushEnabled) {
       void this.registerClientWithOverrideAllAccounts();
     }
+    await this.clearServerSettingsCache();
     await notificationsAtom.set((v) =>
       perfUtils.buildNewValueIfChanged(v, {
         ...v,
