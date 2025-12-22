@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { TMTooltip } from '@onekeyhq/components/src/shared/tamagui';
 import type { PopoverContentProps } from '@onekeyhq/components/src/shared/tamagui';
@@ -19,53 +26,42 @@ import { Shortcut } from '../Shortcut';
 import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
 
-const useHoverTooltip = platformEnv.isNative
-  ? () => {
-      return {
-        isHovered: false,
-        onContentHoverIn: () => {},
-        onContentHoverOut: () => {},
-      };
+const useHoverTooltip = () => {
+  const [isHovered, setIsHovered] = useState(false);
+  const showTooltipRef = useRef(isHovered);
+  showTooltipRef.current = isHovered;
+  const closeTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleHoverIn = useCallback(() => {
+    if (showTooltipRef.current) {
+      if (closeTooltipTimer.current) {
+        clearTimeout(closeTooltipTimer.current);
+      }
+    } else {
+      showTooltipTimer.current = setTimeout(() => {
+        setIsHovered(true);
+      }, 250);
     }
-  : () => {
-      const [isHovered, setIsHovered] = useState(false);
-      const showTooltipRef = useRef(isHovered);
-      showTooltipRef.current = isHovered;
-      const closeTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(
-        null,
-      );
-      const showTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(
-        null,
-      );
-      const handleHoverIn = useCallback(() => {
-        if (showTooltipRef.current) {
-          if (closeTooltipTimer.current) {
-            clearTimeout(closeTooltipTimer.current);
-          }
-        } else {
-          showTooltipTimer.current = setTimeout(() => {
-            setIsHovered(true);
-          }, 250);
-        }
-      }, []);
-      const dismissTooltip = useCallback(() => {
-        setIsHovered(false);
-      }, []);
-      const handleHoverOut = useCallback(() => {
-        if (showTooltipRef.current) {
-          closeTooltipTimer.current = setTimeout(() => {
-            dismissTooltip();
-          }, 300);
-        } else if (showTooltipTimer.current) {
-          clearTimeout(showTooltipTimer.current);
-        }
-      }, [dismissTooltip]);
-      return {
-        isHovered,
-        onContentHoverIn: handleHoverIn,
-        onContentHoverOut: handleHoverOut,
-      };
-    };
+  }, []);
+  const dismissTooltip = useCallback(() => {
+    setIsHovered(false);
+  }, []);
+  const handleHoverOut = useCallback(() => {
+    if (showTooltipRef.current) {
+      closeTooltipTimer.current = setTimeout(() => {
+        dismissTooltip();
+      }, 300);
+    } else if (showTooltipTimer.current) {
+      clearTimeout(showTooltipTimer.current);
+    }
+  }, [dismissTooltip]);
+  return {
+    setIsHovered,
+    isHovered,
+    onContentHoverIn: handleHoverIn,
+    onContentHoverOut: handleHoverOut,
+  };
+};
 
 export function TooltipText({
   children,
@@ -165,10 +161,10 @@ export function Tooltip({
   shortcutKey,
   hovering,
   contentProps,
+  ref,
   ...props
 }: ITooltipProps) {
   const transformOrigin = transformOriginMap[placement] || 'bottom center';
-
   const contentStyle = useMemo(
     () =>
       ({
@@ -178,9 +174,11 @@ export function Tooltip({
   );
 
   const [isShow, setIsShow] = useState(false);
+  const [forceClose, setForceClose] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
 
-  const { isHovered, onContentHoverIn, onContentHoverOut } = useHoverTooltip();
+  const { isHovered, setIsHovered, onContentHoverIn, onContentHoverOut } =
+    useHoverTooltip();
 
   const renderTooltipContent = useMemo(() => {
     if (typeof renderContent === 'string') {
@@ -199,11 +197,14 @@ export function Tooltip({
   }, [renderContent, shortcutKey]);
 
   const isOpen = useMemo(() => {
+    if (forceClose) {
+      return false;
+    }
     if (hovering) {
       return isHovered;
     }
     return isDisabled ? false : isShow;
-  }, [isDisabled, isShow, isHovered, hovering]);
+  }, [forceClose, hovering, isDisabled, isShow, isHovered]);
 
   const handleHoverIn = useCallback(() => {
     if (hovering) {
@@ -217,8 +218,30 @@ export function Tooltip({
     }
   }, [hovering, onContentHoverOut]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      closeTooltip: () => {
+        setForceClose(true);
+        setIsShow(false);
+        setIsHovered(false);
+        setTimeout(() => {
+          setForceClose(false);
+        }, 150);
+      },
+      openTooltip: () => {
+        setForceClose(false);
+        setIsShow(true);
+        setIsHovered(true);
+      },
+    }),
+    [setIsHovered],
+  );
+
+  console.log('isOpen', isOpen, forceClose);
   return (
     <TMTooltip
+      ref={ref}
       unstyled
       disableAutoCloseOnScroll
       delay={0}

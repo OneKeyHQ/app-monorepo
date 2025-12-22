@@ -4,7 +4,7 @@ import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 
 import { IconButton, Tooltip } from '@onekeyhq/components/src/actions';
-import type { IActionListSection } from '@onekeyhq/components/src/actions';
+import type { IActionListSection, ITooltipRef } from '@onekeyhq/components/src/actions';
 import {
   EPortalContainerConstantName,
   Portal,
@@ -188,6 +188,8 @@ function MoreTabItemView({
     return routeNames.includes(focusRouteName);
   }, [routeNames, focusRouteName]);
 
+  const tooltipRef = useRef<ITooltipRef>(null);
+
   const routesElements = useMemo(() => {
     return routes.map((route) => {
       const focus = focusRouteName === route.name;
@@ -197,6 +199,7 @@ function MoreTabItemView({
         };
       };
       const onPress = () => {
+        tooltipRef.current?.closeTooltip();
         const event = navigation.emit({
           type: 'tabPress',
           target: route.key,
@@ -227,6 +230,7 @@ function MoreTabItemView({
 
   return (
     <Tooltip
+      ref={tooltipRef as React.RefObject<ITooltipRef>}
       placement="right-start"
       offset={{ mainAxis: 6, crossAxis: -28 }}
       hovering
