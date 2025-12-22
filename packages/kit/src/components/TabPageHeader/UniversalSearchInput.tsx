@@ -36,27 +36,24 @@ export function UniversalSearchInput({
     });
   }, [navigation, initialTab]);
 
-  const isLarge = size === 'large';
   if (size === 'small') {
     return (
       <IconButton
         variant="tertiary"
         icon="SearchOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_search,
-        })}
+        title="Search everything"
         onPress={toUniversalSearchPage}
       />
     );
   }
   return (
     <XStack
-      $gtLg={{ maxWidth: 320 } as any}
+      $gtLg={{ minWidth: 320 } as any}
       width="100%"
       {...(containerProps as IXStackProps)}
     >
       <SearchBar
-        size={isLarge ? 'small' : 'medium'}
+        size="small"
         key="searchInput"
         placeholder={intl.formatMessage({
           id: ETranslations.global_universal_search_placeholder,

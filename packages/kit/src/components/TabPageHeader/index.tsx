@@ -1,11 +1,13 @@
 import { useCallback } from 'react';
 
 import { Page, XStack, useMedia, useTheme } from '@onekeyhq/components';
+import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
+import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight } from './HeaderRight';
@@ -72,11 +74,26 @@ export function TabPageHeader({
   const gtMd = useMedia();
   const theme = useTheme();
 
+  const renderUniversalSearchInput = useCallback(
+    () => <UniversalSearchInput />,
+    [],
+  );
+
+  const renderNotificationRightButton = useCallback(
+    () => <HeaderNotificationIconButton testID="header-right-notification" />,
+    [],
+  );
+
   return (
     <>
       {gtMd ? (
         <>
-          <Page.Header headerStyle={{ backgroundColor: theme.bgSubdued.val }} />
+          <Page.Header
+            headerTitleAlign="center"
+            headerStyle={{ backgroundColor: theme.bgSubdued.val }}
+            headerTitle={renderUniversalSearchInput}
+            headerRight={renderNotificationRightButton}
+          />
           <XStack p="$5" bg="$bgApp" borderRadius="$4">
             {hideHeaderLeft ? undefined : renderHeaderLeft()}
           </XStack>
