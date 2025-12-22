@@ -85,29 +85,30 @@ export function TabPageHeader({
     [],
   );
 
+  if (gtMd) {
+    return (
+      <>
+        <Page.Header
+          headerTitleAlign="center"
+          headerStyle={{ backgroundColor: theme.bgSubdued.val }}
+          headerTitle={renderUniversalSearchInput}
+          headerRight={renderNotificationRightButton}
+        />
+        {tabRoute === ETabRoutes.Home ? (
+          <XStack p="$5" bg="$bgApp" borderRadius="$4">
+            {hideHeaderLeft ? undefined : renderHeaderLeft()}
+          </XStack>
+        ) : null}
+      </>
+    );
+  }
   return (
     <>
-      {gtMd ? (
-        <>
-          <Page.Header
-            headerTitleAlign="center"
-            headerStyle={{ backgroundColor: theme.bgSubdued.val }}
-            headerTitle={renderUniversalSearchInput}
-            headerRight={renderNotificationRightButton}
-          />
-          {tabRoute === ETabRoutes.Home ? (
-            <XStack p="$5" bg="$bgApp" borderRadius="$4">
-              {hideHeaderLeft ? undefined : renderHeaderLeft()}
-            </XStack>
-          ) : null}
-        </>
-      ) : (
-        <Page.Header
-          headerTitle={renderHeaderTitle}
-          headerLeft={hideHeaderLeft ? undefined : renderHeaderLeft}
-          headerRight={renderHeaderRight}
-        />
-      )}
+      {tabRoute === ETabRoutes.Home || tabRoute === ETabRoutes.Discovery ? (
+        <XStack p="$5" bg="$bgApp" borderRadius="$4">
+          {hideHeaderLeft ? undefined : renderHeaderLeft()}
+        </XStack>
+      ) : null}
 
       {!hideSearch ? (
         <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />

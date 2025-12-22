@@ -17,12 +17,14 @@ import {
   Icon,
   IconButton,
   LottieView,
+  NavBackButton,
   ScrollView,
   SizableText,
   Stack,
   Tooltip,
   XStack,
   YStack,
+  rootNavigationRef,
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
   useTooltipContext,
@@ -48,7 +50,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
@@ -102,7 +110,11 @@ function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
   return <IconButton {...props} variant="tertiary" onPress={handlePress} />;
 }
 
-function MoreActionContentHeader() {
+function MoreActionContentHeader({
+  showBackButton,
+}: {
+  showBackButton?: boolean;
+}) {
   const intl = useIntl();
   const onLock = useOnLock();
   const handleLock = useCallback(async () => {
@@ -181,11 +193,21 @@ function MoreActionContentHeader() {
     ];
   }, [handleCustomerSupport, handleLock, intl, popupMenu]);
 
+  const handleBack = useCallback(() => {
+    if (rootNavigationRef.current?.canGoBack?.()) {
+      rootNavigationRef.current?.goBack();
+    }
+  }, []);
+
   return (
     <XStack px="$5" pt="$3" my={1} ai="center" jc="space-between">
-      <SizableText size="$headingXl">
-        {intl.formatMessage({ id: ETranslations.address_book_menu_title })}
-      </SizableText>
+      {showBackButton ? (
+        <NavBackButton onPress={handleBack} />
+      ) : (
+        <SizableText size="$headingXl">
+          {intl.formatMessage({ id: ETranslations.address_book_menu_title })}
+        </SizableText>
+      )}
       <XStack jc="flex-end" gap="$6">
         {items.map((item) => (
           <MoreActionContentHeaderItem
@@ -876,27 +898,42 @@ const MoreActionMoreGrid = () => {
   );
 };
 
+function BaseMoreActionContent() {
+  return (
+    <ScrollView
+      overflow="scroll"
+      h={462}
+      contentContainerStyle={{
+        py: '$2',
+      }}
+    >
+      <UpdateReminders />
+      <MoreActionOneKeyId />
+      <MoreActionDivider />
+      <MoreActionGeneralGrid />
+      <MoreActionDivider />
+      <MoreActionWalletGrid />
+      <MoreActionDivider />
+      <MoreActionMoreGrid />
+    </ScrollView>
+  );
+}
+
+export function MoreActionContentPage() {
+  return (
+    <MoreActionProvider>
+      <MoreActionContentHeader showBackButton />
+      <BaseMoreActionContent />
+    </MoreActionProvider>
+  );
+}
+
 function MoreActionContent() {
   return (
     <MoreActionProvider>
       <YStack>
         <MoreActionContentHeader />
-        <ScrollView
-          overflow="scroll"
-          h={462}
-          contentContainerStyle={{
-            py: '$2',
-          }}
-        >
-          <UpdateReminders />
-          <MoreActionOneKeyId />
-          <MoreActionDivider />
-          <MoreActionGeneralGrid />
-          <MoreActionDivider />
-          <MoreActionWalletGrid />
-          <MoreActionDivider />
-          <MoreActionMoreGrid />
-        </ScrollView>
+        <BaseMoreActionContent />
         <MoreActionDivider />
         <MoreActionContentFooter />
       </YStack>
@@ -957,6 +994,15 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
     }
     return isShowRedDot ? <Dot color="$bgCriticalStrong" /> : null;
   }, [isDesktopMode, isShowRedDot, isShowUpgradeDot]);
+
+  const handleMoreActionPage = useCallback(() => {
+    rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+      screen: EOnboardingV2Routes.OnboardingV2,
+      params: {
+        screen: EOnboardingPagesV2.MoreAction,
+      },
+    });
+  }, []);
   return isDesktopMode ? (
     <XStack userSelect="none" py="$1.5">
       <XStack gap="$0.5">
@@ -984,7 +1030,7 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
     <XStack>
       <HeaderIconButton
         testID="moreActions"
-        onPress={onPress}
+        onPress={handleMoreActionPage}
         title={intl.formatMessage({ id: ETranslations.explore_options })}
         icon="DotGridOutline"
       />
