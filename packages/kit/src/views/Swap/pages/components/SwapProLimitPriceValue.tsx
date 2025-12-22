@@ -43,10 +43,7 @@ const SwapProLimitPriceValue = ({
       : fromTokenInfo;
   }, [swapProDirection, fromTokenInfo, toTokenInfo]);
 
-  const currencySymbol = useMemo(
-    () => settings?.currencyInfo?.symbol ?? '$',
-    [settings?.currencyInfo?.symbol],
-  );
+  const currencySymbol = settings?.currencyInfo?.symbol ?? '$';
 
   // Calculate token price from limit price
   // limit price = fromToken price / toToken price (1 fromToken = rate toToken)

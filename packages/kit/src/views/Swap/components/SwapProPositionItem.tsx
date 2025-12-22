@@ -24,12 +24,8 @@ interface ISwapProPositionItemProps {
 const SwapProPositionItem = ({ token, onPress }: ISwapProPositionItemProps) => {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const formatBalance = useMemo(() => {
-    return token.balanceParsed;
-  }, [token.balanceParsed]);
-  const formatFiatValue = useMemo(() => {
-    return token.fiatValue;
-  }, [token.fiatValue]);
+  const formatBalance = token.balanceParsed;
+  const formatFiatValue = token.fiatValue;
 
   const tokenNetworkImageUri = useMemo(() => {
     if (token.networkLogoURI) {

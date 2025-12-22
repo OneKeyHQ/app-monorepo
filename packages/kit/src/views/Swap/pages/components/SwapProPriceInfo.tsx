@@ -33,9 +33,9 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
         return '0';
     }
   }, [swapProTimeRange.value, tokenMarketDetailInfo]);
-  const formattedPrice = useMemo(() => {
-    return swapProTokenTransactionPrice ?? tokenMarketDetailInfo?.price ?? '0';
-  }, [swapProTokenTransactionPrice, tokenMarketDetailInfo?.price]);
+  const unFormattedPrice =
+    swapProTokenTransactionPrice ?? tokenMarketDetailInfo?.price ?? '0';
+
   const { formattedPriceChange, textColor } = useMemo(() => {
     const priceChangeValue = Number(priceChange);
     const formattedPriceChangeValue = numberFormat(priceChange, {
@@ -61,7 +61,7 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
       userSelect="none"
       cursor="pointer"
       onPress={() => {
-        onPricePress(formattedPrice);
+        onPricePress(unFormattedPrice);
       }}
     >
       <NumberSizeableText
@@ -73,7 +73,7 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
           currency: settings?.currencyInfo.symbol,
         }}
       >
-        {formattedPrice}
+        {unFormattedPrice}
       </NumberSizeableText>
       <SizableText
         size="$bodySmMedium"

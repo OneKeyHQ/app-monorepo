@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import {
   useSwapLimitPriceUseRateAtom,
-  useSwapProDirectionAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSpeedQuoteFetchingAtom,
@@ -14,7 +13,6 @@ import {
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
