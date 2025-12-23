@@ -88,6 +88,7 @@ import { WalletAvatar } from '../WalletAvatar';
 
 import type { IDeviceManagementListModalItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
+import { showPrimeProfileDialog } from '../RenameDialog';
 
 function MoreActionProvider({ children }: PropsWithChildren) {
   return (
@@ -431,12 +432,8 @@ function MoreActionOneKeyId() {
 
   const handlePress = useCallback(async () => {
     await closeTooltip();
-    // Trigger login flow directly
-    void loginOneKeyId();
-    await loginOneKeyId({
-      toOneKeyIdPageOnLoginSuccess: true,
-    });
-  }, [closeTooltip, loginOneKeyId]);
+    await showPrimeProfileDialog();
+  }, [closeTooltip]);
 
   const { icon, onPrimeButtonPressed } = useOnPrimeButtonPressed({
     onPress: closeTooltip,

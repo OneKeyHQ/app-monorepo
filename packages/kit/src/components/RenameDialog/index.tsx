@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
-import type { ISelectItem } from '@onekeyhq/components';
+import type { ISelectItem, UseFormReturn } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -12,6 +12,9 @@ import {
   Select,
   Stack,
   Toast,
+  XStack,
+  YStack,
+  useForm,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -26,6 +29,7 @@ import type {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId/OneKeyIdAvatar';
 import { buildChangeHistoryInputAddon } from '../ChangeHistoryDialog/ChangeHistoryDialog';
 import { NetworkAvatar } from '../NetworkAvatar';
 
@@ -242,3 +246,84 @@ export const showRenameDialog = (
     },
     ...dialogProps,
   });
+
+interface IPrimeProfileFormValues {
+  imgUrl: string | undefined;
+  label: string | undefined;
+}
+
+function PrimeProfileDialogContent() {
+  const formOption = useMemo(
+    () => ({
+      defaultValues: {
+        imgUrl: '',
+        label: '',
+      },
+      onSubmit: async (form: UseFormReturn<IPrimeProfileFormValues>) => {
+        const values = form.getValues();
+        // onConfirm({
+        //   passphrase,
+        //   save: true,
+        //   hideImmediately: values.hideImmediately,
+        // });
+      },
+    }),
+    [],
+  );
+  const form = useForm<IPrimeProfileFormValues>(formOption);
+  return (
+    <>
+      <Form form={form}>
+        <YStack gap="$4">
+          <XStack ai="center">
+            <OneKeyIdAvatar size="$20" />
+          </XStack>
+          <Form.Field
+            label="Nickname"
+            name="name"
+            rules={{
+              required: {
+                value: true,
+                message: appLocale.intl.formatMessage({
+                  id: ETranslations.form_rename_error_empty,
+                }),
+              },
+              validate: (value: string) => {
+                if (!value?.trim()) {
+                  return appLocale.intl.formatMessage({
+                    id: ETranslations.form_rename_error_empty,
+                  });
+                }
+                return true;
+              },
+            }}
+          >
+            <Input
+              size="large"
+              $gtMd={{ size: 'medium' }}
+              maxLength={20}
+              autoFocus
+              flex={1}
+              addOns={[
+                {
+                  label: `${form.watch('label')?.length || 0}/20`,
+                },
+              ]}
+            />
+          </Form.Field>
+        </YStack>
+      </Form>
+      <Dialog.Footer showCancelButton={false} onConfirm={form.submit} />
+    </>
+  );
+}
+
+export const showPrimeProfileDialog = () => {
+  return new Promise<void>((resolve) => {
+    Dialog.confirm({
+      onClose: () => resolve(),
+      title: 'Edit prifle',
+      renderContent: <PrimeProfileDialogContent />,
+    });
+  });
+};
