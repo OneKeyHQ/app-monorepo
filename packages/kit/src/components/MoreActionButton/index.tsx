@@ -453,6 +453,17 @@ function MoreActionOneKeyId() {
     networkId: network?.id,
   });
 
+  const handlePrimeButtonPressed = useCallback(
+    (e: { stopPropagation?: () => void; preventDefault?: () => void }) => {
+      if (e) {
+        e.stopPropagation?.();
+        e.preventDefault?.();
+      }
+      void onPrimeButtonPressed();
+    },
+    [onPrimeButtonPressed],
+  );
+
   return (
     <XStack
       alignItems="center"
@@ -488,7 +499,7 @@ function MoreActionOneKeyId() {
                 borderRadius="$full"
                 borderWidth={StyleSheet.hairlineWidth}
                 borderColor="rgba(22, 67, 30, 0.09)"
-                onPress={onPrimeButtonPressed}
+                onPress={handlePrimeButtonPressed}
               >
                 <Icon name={icon} size="$4" />
                 <SizableText size="$bodyMdMedium">Prime</SizableText>
