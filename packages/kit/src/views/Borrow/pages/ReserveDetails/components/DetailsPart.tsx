@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { YStack } from '@onekeyhq/components';
+import { Divider, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -77,6 +77,7 @@ const DetailsPartComponent = ({
                 utilizationRatio={details.utilizationRatio}
                 platformBonus={details.platformBonus}
               />
+              <Divider mb="$8" />
               <ChartSection
                 networkId={networkId}
                 provider={provider}

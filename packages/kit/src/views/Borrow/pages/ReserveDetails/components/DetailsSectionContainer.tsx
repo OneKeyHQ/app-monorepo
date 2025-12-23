@@ -16,8 +16,12 @@ export function DetailsSectionContainer({
 }) {
   return (
     <YStack gap="$6">
-      <XStack ai="center" gap="$2" flexWrap="wrap">
-        <EarnText text={{ text: title }} size="$headingLg" />
+      <XStack ai="center" gap="$3" flexWrap="wrap">
+        <EarnText
+          text={{ text: title }}
+          size="$bodyLgMedium"
+          color="$textSubdued"
+        />
         {titleAfter ? (
           <XStack ai="center" gap="$2">
             {titleAfter}
