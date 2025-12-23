@@ -1089,10 +1089,16 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const isShowUpgradeDot = useIsShowAppUpdateDot();
   const dot = useMemo(() => {
     if (isShowUpgradeDot) {
-      return <Dot color="$blue8" top={isDesktopMode ? 0 : '$-2'} />;
+      return (
+        <Dot
+          color="$blue8"
+          top={isDesktopMode ? 0 : '$-2'}
+          right={isCollapsed ? undefined : '$-2.5'}
+        />
+      );
     }
     return null;
-  }, [isDesktopMode, isShowUpgradeDot]);
+  }, [isCollapsed, isDesktopMode, isShowUpgradeDot]);
 
   const handleMoreActionPage = useCallback(() => {
     rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
@@ -1104,7 +1110,7 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   }, []);
   return isDesktopMode ? (
     <XStack userSelect="none" py="$1.5">
-      <XStack gap="$0.5" ai="center">
+      <XStack gap="$0.5" ai="center" position="relative">
         <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
           <Icon name="DotGridOutline" size="$5" />
         </YStack>
@@ -1122,8 +1128,8 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
             })}
           </SizableText>
         )}
+        {dot}
       </XStack>
-      {dot}
     </XStack>
   ) : (
     <XStack>
