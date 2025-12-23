@@ -8,9 +8,14 @@ import {
   useMedia,
   useShare,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ETabEarnRoutes,
@@ -35,6 +40,7 @@ const ReserveDetailsPage = () => {
   const { gtMd } = useMedia();
   const { shareText } = useShare();
   const [devSettings] = useDevSettingsPersistAtom();
+  const navigation = useAppNavigation();
 
   const {
     networkId,
@@ -47,6 +53,23 @@ const ReserveDetailsPage = () => {
 
   const { earnAccount } = useEarnAccount({ networkId });
   const accountId = earnAccount?.account?.id || '';
+
+  const { result: details } = usePromiseResult(
+    async () => {
+      if (!accountId) return undefined;
+      return backgroundApiProxy.serviceStaking.getBorrowReserveDetails({
+        networkId,
+        provider,
+        marketAddress,
+        reserveAddress,
+        accountId,
+      });
+    },
+    [networkId, provider, marketAddress, reserveAddress, accountId],
+    { revalidateOnFocus: true },
+  );
+
+  const userInfo = details?.userInfo;
 
   const shareUrl = useMemo(() => {
     if (!symbol || !provider || !networkId || !marketAddress || !reserveAddress)
@@ -90,27 +113,105 @@ const ReserveDetailsPage = () => {
     [symbol, logoURI],
   );
 
+  const handleSupply = useCallback(() => {
+    BorrowNavigation.pushToBorrowManagePosition(navigation, {
+      accountId,
+      networkId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      symbol,
+      logoURI,
+      providerLogoURI: logoURI,
+      type: EManagePositionType.Supply,
+    });
+  }, [
+    navigation,
+    accountId,
+    networkId,
+    provider,
+    marketAddress,
+    reserveAddress,
+    symbol,
+    logoURI,
+  ]);
+
+  const handleBorrow = useCallback(() => {
+    BorrowNavigation.pushToBorrowManagePosition(navigation, {
+      accountId,
+      networkId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      symbol,
+      logoURI,
+      providerLogoURI: logoURI,
+      type: EManagePositionType.Borrow,
+    });
+  }, [
+    navigation,
+    accountId,
+    networkId,
+    provider,
+    marketAddress,
+    reserveAddress,
+    symbol,
+    logoURI,
+  ]);
+
   const pageFooter = useMemo(() => {
     if (gtMd) return null;
-    // TODO: Add footer buttons for mobile (Supply / Borrow)
+
+    const supplyButton = userInfo?.walletBalance?.button;
+    const borrowButton = userInfo?.availableBorrowBalance?.button;
+
+    // If no buttons available, don't show footer
+    if (!supplyButton && !borrowButton) return null;
+
+    // If only one button, show it as primary
+    if (supplyButton && !borrowButton) {
+      return (
+        <Page.Footer
+          onConfirmText={supplyButton?.text?.text}
+          confirmButtonProps={{
+            variant: 'primary',
+            disabled: supplyButton.disabled,
+            onPress: handleSupply,
+          }}
+        />
+      );
+    }
+
+    if (borrowButton && !supplyButton) {
+      return (
+        <Page.Footer
+          onConfirmText={borrowButton?.text?.text}
+          confirmButtonProps={{
+            variant: 'primary',
+            disabled: borrowButton.disabled,
+            onPress: handleBorrow,
+          }}
+        />
+      );
+    }
+
+    // If both buttons available, show both
     return (
       <Page.Footer
-        onConfirmText="Supply"
+        onConfirmText={supplyButton?.text?.text}
         confirmButtonProps={{
           variant: 'primary',
-          onPress: () => {
-            // TODO: Navigate to supply page
-          },
+          disabled: supplyButton?.disabled,
+          onPress: handleSupply,
         }}
-        onCancelText="Borrow"
+        onCancelText={borrowButton?.text?.text}
         cancelButtonProps={{
-          onPress: () => {
-            // TODO: Navigate to borrow page
-          },
+          disabled: borrowButton?.disabled,
+          onPress: handleBorrow,
         }}
       />
     );
-  }, [gtMd]);
+  }, [gtMd, userInfo, handleSupply, handleBorrow]);
 
   return (
     <EarnPageContainer

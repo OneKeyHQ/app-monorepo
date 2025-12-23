@@ -171,7 +171,7 @@ export const SupplyCard = () => {
         data={filteredAssets}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
-        onPressRow={gtMd ? handlePressRow : handleManageSupply}
+        onPressRow={handlePressRow}
         emptyContent="Nothing supplied yet"
       />
     </Card>

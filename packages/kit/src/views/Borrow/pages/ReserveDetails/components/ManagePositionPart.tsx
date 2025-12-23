@@ -104,130 +104,123 @@ export const ManagePositionPart = ({
   return (
     <YStack flex={4}>
       <YStack gap="$1.5" flex={1} p="$5">
-        <YStack
-          p="$4"
-          borderRadius="$3"
-          borderWidth={1}
-          borderColor="$borderSubdued"
-        >
-          {/* My info header */}
-          <SizableText size="$headingMd" mb="$5">
-            My info
+        {/* My info header */}
+        <SizableText size="$headingMd" mb="$5">
+          My info
+        </SizableText>
+
+        {/* Wallet balance section */}
+        <XStack jc="space-between" ai="flex-start">
+          <YStack gap="$1">
+            <XStack ai="center" gap="$1">
+              <Icon name="WalletOutline" size="$4" color="$iconSubdued" />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Wallet balance
+              </SizableText>
+            </XStack>
+            <EarnText
+              text={userInfo?.walletBalance?.title}
+              size="$headingXl"
+              color="$text"
+            />
+            <EarnText
+              text={userInfo?.walletBalance?.description}
+              size="$bodyMd"
+              color="$textSubdued"
+            />
+          </YStack>
+          {userInfo?.walletBalance?.button ? (
+            <Button
+              variant="primary"
+              size="medium"
+              disabled={userInfo.walletBalance.button.disabled}
+              onPress={handleSupply}
+            >
+              <EarnText
+                text={userInfo.walletBalance.button.text}
+                color="$textInverse"
+              />
+            </Button>
+          ) : null}
+        </XStack>
+
+        {/* Gap between sections */}
+        <YStack h="$4" />
+
+        {/* Available to borrow section */}
+        <XStack jc="space-between" ai="flex-start">
+          <YStack gap="$1">
+            <XStack ai="center" gap="$1">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Available to borrow
+              </SizableText>
+              <EarnTooltip
+                title="Available to borrow"
+                tooltip={userInfo?.availableBorrowBalance?.tooltip}
+              />
+            </XStack>
+            <EarnText
+              text={userInfo?.availableBorrowBalance?.title}
+              size="$headingXl"
+              color="$text"
+            />
+            <EarnText
+              text={userInfo?.availableBorrowBalance?.description}
+              size="$bodyMd"
+              color="$textSubdued"
+            />
+          </YStack>
+          {userInfo?.availableBorrowBalance?.button ? (
+            <Button
+              variant="primary"
+              size="medium"
+              disabled={userInfo.availableBorrowBalance.button.disabled}
+              onPress={handleBorrow}
+            >
+              <EarnText
+                text={userInfo.availableBorrowBalance.button.text}
+                color="$textInverse"
+              />
+            </Button>
+          ) : null}
+        </XStack>
+
+        {/* Divider */}
+        <Divider my="$5" />
+
+        {/* Supplied balance */}
+        <XStack ai="center" gap="$1" mb="$2">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            Supplied balance
           </SizableText>
-
-          {/* Wallet balance section */}
-          <XStack jc="space-between" ai="flex-start">
-            <YStack gap="$1">
-              <XStack ai="center" gap="$1">
-                <Icon name="WalletOutline" size="$4" color="$iconSubdued" />
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  Wallet balance
-                </SizableText>
-              </XStack>
-              <EarnText
-                text={userInfo?.walletBalance?.title}
-                size="$headingXl"
-                color="$text"
-              />
-              <EarnText
-                text={userInfo?.walletBalance?.description}
-                size="$bodyMd"
-                color="$textSubdued"
-              />
-            </YStack>
-            {userInfo?.walletBalance?.button ? (
-              <Button
-                variant="primary"
-                size="medium"
-                disabled={userInfo.walletBalance.button.disabled}
-                onPress={handleSupply}
-              >
-                <EarnText
-                  text={userInfo.walletBalance.button.text}
-                  color="$textInverse"
-                />
-              </Button>
-            ) : null}
-          </XStack>
-
-          {/* Gap between sections */}
-          <YStack h="$4" />
-
-          {/* Available to borrow section */}
-          <XStack jc="space-between" ai="flex-start">
-            <YStack gap="$1">
-              <XStack ai="center" gap="$1">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  Available to borrow
-                </SizableText>
-                <EarnTooltip
-                  title="Available to borrow"
-                  tooltip={userInfo?.availableBorrowBalance?.tooltip}
-                />
-              </XStack>
-              <EarnText
-                text={userInfo?.availableBorrowBalance?.title}
-                size="$headingXl"
-                color="$text"
-              />
-              <EarnText
-                text={userInfo?.availableBorrowBalance?.description}
-                size="$bodyMd"
-                color="$textSubdued"
-              />
-            </YStack>
-            {userInfo?.availableBorrowBalance?.button ? (
-              <Button
-                variant="primary"
-                size="medium"
-                disabled={userInfo.availableBorrowBalance.button.disabled}
-                onPress={handleBorrow}
-              >
-                <EarnText
-                  text={userInfo.availableBorrowBalance.button.text}
-                  color="$textInverse"
-                />
-              </Button>
-            ) : null}
-          </XStack>
-
-          {/* Divider */}
-          <Divider my="$5" />
-
-          {/* Supplied balance */}
-          <XStack ai="center" gap="$1" mb="$2">
+          <EarnText
+            text={userInfo?.suppliedBalance?.title}
+            size="$bodyMdMedium"
+            color="$text"
+          />
+          {userInfo?.suppliedBalance?.description?.text ? (
             <SizableText size="$bodyMd" color="$textSubdued">
-              Supplied balance
+              ({userInfo.suppliedBalance.description.text})
             </SizableText>
-            <EarnText
-              text={userInfo?.suppliedBalance?.title}
-              size="$bodyMdMedium"
-              color="$text"
-            />
-            {userInfo?.suppliedBalance?.description?.text ? (
-              <SizableText size="$bodyMd" color="$textSubdued">
-                ({userInfo.suppliedBalance.description.text})
-              </SizableText>
-            ) : null}
-          </XStack>
+          ) : null}
+        </XStack>
 
-          {/* Borrowed balance */}
-          <XStack ai="center" gap="$1">
+        {/* Borrowed balance */}
+        <XStack ai="center" gap="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            Borrowed balance
+          </SizableText>
+          <EarnText
+            text={userInfo?.borrowedBalance?.title}
+            size="$bodyMdMedium"
+            color="$text"
+          />
+          {userInfo?.borrowedBalance?.description?.text ? (
             <SizableText size="$bodyMd" color="$textSubdued">
-              Borrowed balance
+              ({userInfo.borrowedBalance.description.text})
             </SizableText>
-            <EarnText
-              text={userInfo?.borrowedBalance?.title}
-              size="$bodyMdMedium"
-              color="$text"
-            />
-            {userInfo?.borrowedBalance?.description?.text ? (
-              <SizableText size="$bodyMd" color="$textSubdued">
-                ({userInfo.borrowedBalance.description.text})
-              </SizableText>
-            ) : null}
-          </XStack>
-        </YStack>
+          ) : null}
+        </XStack>
       </YStack>
     </YStack>
   );

@@ -208,16 +208,22 @@ export const Overview = () => {
               }
               size="$heading3xl"
             />
-            <EarnText
-              text={
-                reserves?.overview?.netApy ?? {
-                  text: '-',
-                  color: '$textDisabled',
-                }
-              }
-              size="$bodyMd"
-              color="$textSubdued"
-            />
+            {reserves?.overview?.netApy ? (
+              <XStack ai="center" gap="$1">
+                <EarnText
+                  text={reserves.overview.netApy}
+                  size="$bodyMd"
+                  color="$textSubdued"
+                />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  Net APY
+                </SizableText>
+              </XStack>
+            ) : (
+              <SizableText size="$bodyMd" color="$textDisabled">
+                -
+              </SizableText>
+            )}
           </YStack>
           <XStack
             ai="center"
@@ -286,27 +292,37 @@ export const Overview = () => {
 
         {/* Row 3: Rewards */}
         {borrowRewards ? (
-          <XStack ai="center" gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              Rewards
-            </SizableText>
-            <EarnText text={borrowRewards?.description} size="$bodyMd" />
-            <Button
-              p="0"
-              ai="center"
-              size="small"
-              variant="link"
-              cursor={borrowRewards.button.disabled ? 'not-allowed' : 'pointer'}
-              disabled={borrowRewards.button.disabled}
-              onPress={handleShowRewardsDialog}
-            >
+          <YStack gap="$1">
+            <EarnText
+              text={borrowRewards.title}
+              size="$bodyMd"
+              color="$textSubdued"
+            />
+            <XStack ai="center" gap="$1">
               <EarnText
-                size="$bodyMdMedium"
-                color="$textInfo"
-                text={borrowRewards.button.text}
+                text={borrowRewards.description}
+                size="$bodyMd"
+                color="$textSubdued"
               />
-            </Button>
-          </XStack>
+              <Button
+                p="0"
+                ai="center"
+                size="small"
+                variant="link"
+                cursor={
+                  borrowRewards.button.disabled ? 'not-allowed' : 'pointer'
+                }
+                disabled={borrowRewards.button.disabled}
+                onPress={handleShowRewardsDialog}
+              >
+                <EarnText
+                  size="$bodyMdMedium"
+                  color="$textInfo"
+                  text={borrowRewards.button.text}
+                />
+              </Button>
+            </XStack>
+          </YStack>
         ) : null}
       </YStack>
     );

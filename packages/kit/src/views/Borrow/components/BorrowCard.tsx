@@ -28,6 +28,21 @@ export const BorrowCard = () => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { gtMd } = useMedia();
 
+  const handlePressRow = useCallback(
+    (item: IBorrowAsset) => {
+      if (!market) return;
+      BorrowNavigation.pushToBorrowReserveDetails(navigation, {
+        networkId: market.networkId,
+        provider: market.provider,
+        marketAddress: market.marketAddress,
+        reserveAddress: item.reserveAddress,
+        symbol: item.token.symbol,
+        logoURI: item.token.logoURI,
+      });
+    },
+    [navigation, market],
+  );
+
   const handleManageBorrow = useCallback(
     (item: IBorrowAsset) => {
       if (!market) return;
@@ -130,7 +145,7 @@ export const BorrowCard = () => {
         data={reserves?.borrow.assets || []}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
-        onPressRow={gtMd ? undefined : handleManageBorrow}
+        onPressRow={handlePressRow}
         emptyContent="Nothing supplied yet" // FIXME[borrow]: i18n
       />
     </Card>
