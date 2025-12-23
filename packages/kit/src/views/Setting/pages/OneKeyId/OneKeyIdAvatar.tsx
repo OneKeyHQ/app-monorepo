@@ -9,6 +9,20 @@ interface IOneKeyIdAvatarProps {
   size?: IImageProps['width'];
 }
 
+export function OneKeyIdFallbackAvatar({ size = '$10', ...rest }: IImageProps) {
+  return (
+    <Image.Fallback
+      width={size}
+      height={size}
+      borderRadius="$full"
+      overflow="hidden"
+      {...rest}
+    >
+      <Image size={size} source={avatarFallback} />
+    </Image.Fallback>
+  );
+}
+
 function BasicOneKeyIdAvatar({
   size = '$10',
   ...rest
