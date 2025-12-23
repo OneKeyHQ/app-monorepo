@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
@@ -20,7 +20,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
-import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 import { perpRouters } from '../../views/Perp/router';
@@ -78,7 +77,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   );
 
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
-  const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
   const isGtMdNonNative = useIsGtMdNonNative();
   const shouldShowMarketTab = !(
     platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel
@@ -106,10 +104,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     };
   }, []);
 
-  const handleReferFriendsEntry = useCallback(() => {
-    void toReferFriendsPage();
-  }, [toReferFriendsPage]);
-
   const referFriendsTabConfig = useMemo(() => {
     return {
       name: ETabRoutes.ReferFriends,
@@ -120,9 +114,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       children: referFriendsRouters,
       trackId: 'global-referral',
       freezeOnBlur: Boolean(params?.freezeOnBlur),
-      tabbarOnPress: handleReferFriendsEntry,
     };
-  }, [handleReferFriendsEntry, params?.freezeOnBlur]);
+  }, [params?.freezeOnBlur]);
 
   return useMemo(() => {
     const tabs = [
