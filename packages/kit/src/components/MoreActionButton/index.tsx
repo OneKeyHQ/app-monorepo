@@ -1085,14 +1085,13 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const intl = useIntl();
   const [{ isCollapsed }] = useAppSideBarStatusAtom();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
-  const isShowRedDot = useIsShowRedDot();
   const isShowUpgradeDot = useIsShowAppUpdateDot();
   const dot = useMemo(() => {
     if (isShowUpgradeDot) {
       return <Dot color="$blue8" top={isDesktopMode ? 0 : '$-2'} />;
     }
-    return isShowRedDot ? <Dot color="$bgCriticalStrong" /> : null;
-  }, [isDesktopMode, isShowRedDot, isShowUpgradeDot]);
+    return null;
+  }, [isDesktopMode, isShowUpgradeDot]);
 
   const handleMoreActionPage = useCallback(() => {
     rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
