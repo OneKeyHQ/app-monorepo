@@ -428,7 +428,7 @@ const InAppNotification = () => {
           ENotificationPushTopicTypes.system
             ? remotePushMessageInfo?.extras?.image
             : undefined,
-        duration: 5000,
+        duration: 10 * 1000,
         imageUri: remotePushMessageInfo?.extras?.image,
         onPress: async () => {
           setTimeout(async () => {
@@ -443,6 +443,7 @@ const InAppNotification = () => {
               navigation,
               mode: remotePushMessageInfo?.extras?.mode,
               payload: remotePushMessageInfo?.extras?.payload,
+              isRead: false,
             });
           }, 80);
           toast.close();
