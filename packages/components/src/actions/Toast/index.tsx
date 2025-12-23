@@ -56,6 +56,10 @@ export interface IToastBaseProps extends IToastProps {
   position?: IToastMessageOptions['position'];
 }
 
+export interface IToastNotificationProps extends IToastBaseProps {
+  onPress?: () => void;
+}
+
 const iconMap = {
   success: <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />,
   error: <Icon name="ErrorSolid" color="$iconCritical" size="$5" />,
@@ -270,14 +274,19 @@ function ToastNotificationContent({
   icon,
   imageUri,
   onClose,
-}: IToastBaseProps) {
+  onPress,
+}: IToastBaseProps & {
+  onPress?: () => void;
+}) {
   useEffect(
     () => () => {
       onClose?.();
     },
     [onClose],
   );
-  const handlePress = () => {};
+  const handlePress = () => {
+    onPress?.();
+  };
   return (
     <XStack gap="$2" cursor="pointer" onPress={handlePress}>
       <XStack
@@ -322,8 +331,11 @@ function toastNotification({
   actions,
   actionsAlign = 'right',
   position,
+  onPress,
   onClose,
-}: IToastBaseProps) {
+}: IToastBaseProps & {
+  onPress: () => void;
+}) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   return showMessage({
     renderContent: (props) => (
@@ -335,6 +347,7 @@ function toastNotification({
         icon={icon}
         actions={actions}
         actionsAlign={actionsAlign}
+        onPress={onPress}
       />
     ),
     duration,
@@ -365,7 +378,7 @@ export const Toast = {
   loading: (props: IToastProps) => {
     return toastMessage({ haptic: 'loading', ...props });
   },
-  notification: (props: IToastProps) => {
+  notification: (props: IToastNotificationProps) => {
     return toastNotification({ haptic: 'info', preset: 'none', ...props });
   },
   /* show custom view on Toast */

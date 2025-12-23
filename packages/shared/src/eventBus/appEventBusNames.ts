@@ -132,4 +132,5 @@ export enum EAppEventBusNames {
   MarketWatchListV2Changed = 'MarketWatchListV2Changed',
   SwapLimitOrderBuildSuccess = 'SwapLimitOrderBuildSuccess',
   RefreshNativeTokenInfo = 'RefreshNativeTokenInfo',
+  ShowInAppPushNotification = 'ShowInAppPushNotification',
 }

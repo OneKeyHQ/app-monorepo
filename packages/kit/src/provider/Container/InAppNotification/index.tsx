@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
   SizableText,
@@ -18,7 +19,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
+import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
 import {
   ESwapApproveTransactionStatus,
   ESwapSource,
@@ -396,6 +399,44 @@ const InAppNotification = () => {
       }
     }
   }, [intl, setInAppNotificationAtom, speedSwapApprovingTransaction?.status]);
+
+  useEffect(() => {
+    const callback = ({
+      notificationId,
+      title,
+      description,
+      icon,
+      remotePushMessageInfo,
+    }: {
+      notificationId: string | undefined;
+      title: string;
+      description: string;
+      icon: string | undefined;
+      remotePushMessageInfo: INotificationPushMessageInfo;
+    }) => {
+      Toast.notification({
+        title,
+        message: description,
+        icon: icon as IKeyOfIcons,
+        duration: 5000,
+        onPress: async () => {
+          await notificationsUtils.navigateToNotificationDetail({
+            message: remotePushMessageInfo,
+            isFromNotificationClick: true,
+            notificationId: notificationId || '',
+            notificationAccountId:
+              remotePushMessageInfo?.extras?.params?.accountId,
+            mode: remotePushMessageInfo?.extras?.mode,
+            payload: remotePushMessageInfo?.extras?.payload,
+          });
+        },
+      });
+    };
+    appEventBus.on(EAppEventBusNames.ShowInAppPushNotification, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ShowInAppPushNotification, callback);
+    };
+  }, []);
 
   return null;
 };
