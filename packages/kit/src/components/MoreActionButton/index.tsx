@@ -1093,7 +1093,7 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
         <Dot
           color="$blue8"
           top={isDesktopMode ? 0 : '$-2'}
-          right={isCollapsed ? undefined : '$-2.5'}
+          right={isDesktopMode && isCollapsed ? undefined : '$-2.5'}
         />
       );
     }
