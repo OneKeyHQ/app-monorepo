@@ -483,16 +483,6 @@ export function HomePageView({
             <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
           )}
           <NetworkAlert />
-          {/* {
-            // The upgrade reminder does not need to be displayed on the Url Account page
-            sceneName === EAccountSelectorSceneName.home ? (
-              <>
-                <UpdateReminder />
-                <HomeFirmwareUpdateReminder />
-                <WalletXfpStatusReminder />
-              </>
-            ) : null
-          } */}
           {content}
           {platformEnv.isNative ? (
             <YStack

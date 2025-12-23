@@ -1,4 +1,4 @@
-import { IconButton, Tooltip, XStack } from '@onekeyhq/components';
+import { IconButton, Tooltip, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -52,6 +52,24 @@ const TooltipGallery = () => (
             <Tooltip
               renderTrigger={<IconButton icon="EditOutline" />}
               renderContent="Excepteur cillum laboris ea sint esse reprehenderit. Culpa fugiat aliqua elit sit deserunt cupidatat adipisicing velit non ad. Magna qui aute eiusmod deserunt elit commodo culpa nostrud aute veniam esse elit eu."
+            />
+          </XStack>
+        ),
+      },
+      {
+        title: 'Hovering',
+        element: (
+          <XStack gap="$4">
+            <Tooltip
+              hovering
+              placement="bottom-end"
+              renderTrigger={<IconButton icon="InfoCircleOutline" />}
+              renderContent={
+                <YStack gap="$2" p="$2">
+                  <XStack>Hover over trigger to show tooltip</XStack>
+                  <XStack>Tooltip stays open when hovering over content</XStack>
+                </YStack>
+              }
             />
           </XStack>
         ),
