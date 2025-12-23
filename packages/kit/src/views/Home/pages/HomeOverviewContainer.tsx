@@ -66,8 +66,11 @@ function HomeOverviewContainer() {
   const [accountWorth] = useAccountWorthAtom();
   const [accountDeFiOverview] = useAccountDeFiOverviewAtom();
   const [overviewState] = useAccountOverviewStateAtom();
-  const { updateAccountOverviewState, updateAccountWorth } =
-    useAccountOverviewActions().current;
+  const {
+    updateAccountOverviewState,
+    updateAccountWorth,
+    updateAccountDeFiOverview,
+  } = useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
 
@@ -89,12 +92,21 @@ function HomeOverviewContainer() {
           worth: {},
           initialized: false,
         });
+        updateAccountDeFiOverview({
+          overview: {
+            totalValue: 0,
+            totalDebt: 0,
+            totalReward: 0,
+            netWorth: 0,
+          },
+        });
       }
     }
   }, [
     account?.id,
     network?.id,
     network?.isAllNetworks,
+    updateAccountDeFiOverview,
     updateAccountOverviewState,
     updateAccountWorth,
     wallet?.backuped,
