@@ -9,7 +9,7 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsModalPage } from '../../hocs';
+import { useIsOverlayPage } from '../../hocs';
 import { Spinner, Stack, View } from '../../primitives';
 
 import { useTabBarHeight } from './hooks';
@@ -27,7 +27,7 @@ function Loading() {
 // On iOS, in the tab container, when initializing the page,
 //  the elements cannot fill the container space, so a minimum height needs to be set
 const useMinHeight = (isFullPage: boolean) => {
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const tabHeight = useTabBarHeight();
   return useMemo(() => {
     if (!platformEnv.isNativeIOS) {
@@ -57,7 +57,7 @@ const useMinHeight = (isFullPage: boolean) => {
  * Uses a light content style for dark themes or modal pages, and a dark content style otherwise.
  */
 function PageStatusBar() {
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const themeName: 'light' | 'dark' = useThemeName();
 
   if (themeName === 'dark') {
