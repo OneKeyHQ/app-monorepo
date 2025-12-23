@@ -16,6 +16,8 @@ export type IPrimeUserInfo = {
   email: string | undefined; // update by local supabase sdk
   keylessWalletId: string | undefined; // packSetId
   displayEmail: string | undefined; // update by server api
+  nickname: string | undefined; // update by server api
+  avatar: string | undefined; // update by server api
   onekeyUserId: string | undefined;
   subscriptionManageUrl: string | undefined; // update by local revenuecat sdk: Purchases.getCustomerInfo()
   primeSubscription: IPrimeSubscriptionInfo | undefined;
@@ -31,6 +33,8 @@ export type IPrimeDeviceInfo = {
 };
 
 export type IPrimeServerUserInfo = {
+  avatar: string | undefined; // update by server api
+  nickname: string | undefined; // update by server api
   createdAt: string;
   updatedAt: string;
 

@@ -111,6 +111,8 @@ function PageFirmwareUpdateInstallV2() {
       stepInfo.step === EFirmwareUpdateSteps.installing ||
       stepInfo.step ===
         EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice ||
+      stepInfo.step ===
+        EFirmwareUpdateSteps.requestDeviceForSwitchFirmwareWebDevice ||
       stepInfo.step === EFirmwareUpdateSteps.updateDone
     ) {
       return (

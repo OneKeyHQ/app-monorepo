@@ -28,8 +28,7 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
   const { width: screenWidth } = useWindowDimensions();
-  const isDesktopImage =
-    !platformEnv.isNative && (gtSm || platformEnv.isExtensionUiPopup);
+  const isDesktopImage = gtSm || platformEnv.isExtensionUiPopup;
 
   // Image mapping for steps and responsive versions
   const imageMap = {
@@ -48,7 +47,7 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
 
   // Calculate image width based on platform and screen size
   const imageWidth = useMemo(() => {
-    if (!platformEnv.isNative && gtSm) return 640; // Desktop: fixed width
+    if (gtSm) return 540; // Desktop: fixed width
     return screenWidth; // Native / popup: screen width minus padding
   }, [gtSm, screenWidth]);
 
