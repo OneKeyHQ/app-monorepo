@@ -1735,8 +1735,7 @@ export interface IApyHistoryItem {
 
 export interface IBorrowApyHistoryItem {
   timestamp: number;
-  borrowApy: string;
-  supplyApy: string;
+  apy: string;
 }
 
 export interface IApyHistoryResponse {

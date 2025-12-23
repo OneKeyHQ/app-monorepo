@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
 
-import { isEmpty } from 'lodash';
-
 import {
   Badge,
   SegmentControl,
@@ -13,10 +11,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ApyChartBase } from '@onekeyhq/kit/src/views/Staking/components/ApyChartBase';
 import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/GridItemV2';
-import type {
-  IApyHistoryItem,
-  IBorrowReserveDetail,
-} from '@onekeyhq/shared/types/staking';
+import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { CapUsageChart } from '../../../components/CapUsageChart';
 
@@ -39,60 +34,59 @@ export function ChartSection({
   reserveAddress,
   details,
 }: IChartSectionProps) {
-  const [timePeriod, setTimePeriod] = useState<ITimePeriod>('week');
+  const [supplyTimePeriod, setSupplyTimePeriod] = useState<ITimePeriod>('week');
+  const [borrowTimePeriod, setBorrowTimePeriod] = useState<ITimePeriod>('week');
   const supplyLineColor = '#008347D6';
   const borrowLineColor = '#DA8A00C9';
   const lineWidth = 2;
 
-  const { result: apyHistory = [], isLoading } = usePromiseResult(
-    async () => {
-      const apyHistoryItems =
-        await backgroundApiProxy.serviceStaking.getBorrowApyHistory({
-          networkId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          days: timePeriod,
-        });
+  const { result: supplyHistory = [], isLoading: isSupplyLoading } =
+    usePromiseResult(
+      async () => {
+        const apyHistoryItems =
+          await backgroundApiProxy.serviceStaking.getBorrowApyHistory({
+            networkId,
+            provider,
+            marketAddress,
+            reserveAddress,
+            action: 'supply',
+            days: supplyTimePeriod,
+          });
 
-      return apyHistoryItems.items ?? [];
-    },
-    [networkId, provider, marketAddress, reserveAddress, timePeriod],
-    { watchLoading: true, undefinedResultIfReRun: true },
-  );
+        return apyHistoryItems.items ?? [];
+      },
+      [networkId, provider, marketAddress, reserveAddress, supplyTimePeriod],
+      { watchLoading: true, undefinedResultIfReRun: true },
+    );
 
-  const { supplyHistory, borrowHistory, latestSupplyApy, latestBorrowApy } =
-    useMemo(() => {
-      if (isEmpty(apyHistory)) {
-        return {
-          supplyHistory: [],
-          borrowHistory: [],
-          latestSupplyApy: '0',
-          latestBorrowApy: '0',
-        };
-      }
-      const supply: IApyHistoryItem[] = [];
-      const borrow: IApyHistoryItem[] = [];
-      apyHistory?.forEach((item) => {
-        supply.push({
-          apy: item.supplyApy,
-          timestamp: item.timestamp,
-        });
-        borrow.push({
-          apy: item.borrowApy,
-          timestamp: item.timestamp,
-        });
-      });
+  const { result: borrowHistory = [], isLoading: isBorrowLoading } =
+    usePromiseResult(
+      async () => {
+        const apyHistoryItems =
+          await backgroundApiProxy.serviceStaking.getBorrowApyHistory({
+            networkId,
+            provider,
+            marketAddress,
+            reserveAddress,
+            action: 'borrow',
+            days: borrowTimePeriod,
+          });
 
-      const latest = apyHistory[apyHistory.length - 1];
+        return apyHistoryItems.items ?? [];
+      },
+      [networkId, provider, marketAddress, reserveAddress, borrowTimePeriod],
+      { watchLoading: true, undefinedResultIfReRun: true },
+    );
 
-      return {
-        supplyHistory: supply,
-        borrowHistory: borrow,
-        latestSupplyApy: latest?.supplyApy ?? '0',
-        latestBorrowApy: latest?.borrowApy ?? '0',
-      };
-    }, [apyHistory]);
+  const { latestSupplyApy, latestBorrowApy } = useMemo(() => {
+    const latestSupply = supplyHistory[supplyHistory.length - 1];
+    const latestBorrow = borrowHistory[borrowHistory.length - 1];
+
+    return {
+      latestSupplyApy: latestSupply?.apy ?? '0',
+      latestBorrowApy: latestBorrow?.apy ?? '0',
+    };
+  }, [supplyHistory, borrowHistory]);
 
   const timePeriodOptions = useMemo(
     () => [
@@ -143,14 +137,14 @@ export function ChartSection({
                 {Number(latestSupplyApy).toFixed(2)}% Supply APY
               </SizableText>
               <SegmentControl
-                value={timePeriod}
+                value={supplyTimePeriod}
                 options={timePeriodOptions}
-                onChange={(value) => setTimePeriod(value as ITimePeriod)}
+                onChange={(value) => setSupplyTimePeriod(value as ITimePeriod)}
               />
             </XStack>
             <ApyChartBase
               data={supplyHistory}
-              isLoading={isLoading}
+              isLoading={isSupplyLoading}
               lineColor={supplyLineColor}
               topColor="#42FFA426"
               bottomColor="#42FFA400"
@@ -197,12 +191,19 @@ export function ChartSection({
 
           {/* Borrow APY Chart */}
           <YStack gap="$3">
-            <SizableText size="$headingLg">
-              {Number(latestBorrowApy).toFixed(2)}% Borrow APY
-            </SizableText>
+            <XStack jc="space-between" ai="center">
+              <SizableText size="$headingLg">
+                {Number(latestBorrowApy).toFixed(2)}% Borrow APY
+              </SizableText>
+              <SegmentControl
+                value={borrowTimePeriod}
+                options={timePeriodOptions}
+                onChange={(value) => setBorrowTimePeriod(value as ITimePeriod)}
+              />
+            </XStack>
             <ApyChartBase
               data={borrowHistory}
-              isLoading={isLoading}
+              isLoading={isBorrowLoading}
               lineColor={borrowLineColor}
               topColor="#BF700026"
               bottomColor="#BF700000"

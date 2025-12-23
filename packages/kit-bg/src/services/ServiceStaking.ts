@@ -2030,6 +2030,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     marketAddress: string;
     reserveAddress: string;
+    action: 'supply' | 'borrow';
     days: 'week' | 'month' | 'quarter' | 'half-year' | 'year';
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
