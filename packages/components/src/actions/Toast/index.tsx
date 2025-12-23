@@ -3,7 +3,6 @@ import { createRef, useEffect, useMemo } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
-import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { ToastProvider } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -127,7 +126,6 @@ export function ToastContent({
   actionsAlign?: 'left' | 'right';
 }) {
   const { height, width } = useWindowDimensions();
-  const media = useMedia();
   useEffect(
     () => () => {
       onClose?.();
@@ -141,7 +139,7 @@ export function ToastContent({
       maxHeight={height - 100}
       $platform-native={{
         maxHeight: height - 200,
-        width: media.md ? width - 64 : 640,
+        width: Math.min(width, 640) - 64,
       }}
       $platform-web={{
         overflow: 'hidden',
@@ -279,7 +277,6 @@ function ToastNotificationContent({
   onPress,
 }: IToastNotificationProps) {
   const { width } = useWindowDimensions();
-  const media = useMedia();
   useEffect(
     () => () => {
       onClose?.();
@@ -303,7 +300,7 @@ function ToastNotificationContent({
       cursor="pointer"
       onPress={handlePress}
       $platform-native={{
-        width: media.md ? width - 64 : 640,
+        width: Math.min(width, 640) - 64,
       }}
     >
       <XStack
