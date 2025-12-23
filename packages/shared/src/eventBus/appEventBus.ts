@@ -321,6 +321,7 @@ export interface IAppEventBusPayload {
     uiRequestType: EHardwareUiStateAction;
   };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
+  [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
   [EAppEventBusNames.EnabledNetworksChanged]: undefined;
   [EAppEventBusNames.CheckWalletBackupStatus]: {
     promiseId: number;
