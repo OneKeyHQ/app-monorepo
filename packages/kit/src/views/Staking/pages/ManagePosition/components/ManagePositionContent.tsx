@@ -2,10 +2,20 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
 
-import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
@@ -111,6 +121,7 @@ export function ManagePositionContent({
   isInModalContext = false,
 }: IManagePositionContentProps) {
   const appNavigation = useAppNavigation();
+  const { gtMd } = useMedia();
 
   const {
     tokenInfo,
@@ -330,39 +341,121 @@ export function ManagePositionContent({
     appNavigation,
   ]);
 
+  // Create "View Reserve Details" button for borrow type in mobile modal
+  const viewReserveDetailsButton = useMemo(() => {
+    const isBorrowType =
+      type === EManagePositionType.Supply ||
+      type === EManagePositionType.Withdraw ||
+      type === EManagePositionType.Borrow ||
+      type === EManagePositionType.Repay;
+
+    // Only show on mobile (not desktop)
+    if (
+      !isBorrowType ||
+      !isInModalContext ||
+      gtMd ||
+      !reserveAddress ||
+      !marketAddress
+    ) {
+      return null;
+    }
+
+    const handleViewReserveDetails = () => {
+      BorrowNavigation.pushToBorrowReserveDetails(appNavigation, {
+        networkId,
+        provider,
+        marketAddress,
+        reserveAddress,
+        symbol,
+        logoURI: fallbackTokenImageUri,
+      });
+    };
+
+    return (
+      <Button mt="$4" onPress={handleViewReserveDetails}>
+        <XStack gap="$3" ai="center" flex={1} my="$2">
+          <SizableText size="$bodyMdMedium" color="$text">
+            View Reserve Details
+          </SizableText>
+          <Icon
+            ml="auto"
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+          />
+        </XStack>
+      </Button>
+    );
+  }, [
+    type,
+    isInModalContext,
+    reserveAddress,
+    marketAddress,
+    networkId,
+    provider,
+    symbol,
+    fallbackTokenImageUri,
+    appNavigation,
+    gtMd,
+  ]);
+
   // Create beforeFooter content for stake section
   const stakeBeforeFooter = useMemo(() => {
     // If should show warning (no address or BTC-only firmware), return the warning element
     if (shouldShowWarning) {
-      return warningElement;
+      return (
+        <YStack>
+          {warningElement}
+          {viewReserveDetailsButton}
+        </YStack>
+      );
     }
     if (!isEmpty(alertsStake) || !isEmpty(alerts)) {
       return (
         <YStack>
           <EarnAlert alerts={alerts} />
           <EarnAlert alerts={alertsStake} />
+          {viewReserveDetailsButton}
         </YStack>
       );
     }
-    return null;
-  }, [shouldShowWarning, warningElement, alertsStake, alerts]);
+    return viewReserveDetailsButton;
+  }, [
+    shouldShowWarning,
+    warningElement,
+    alertsStake,
+    alerts,
+    viewReserveDetailsButton,
+  ]);
 
   // Create beforeFooter content for withdraw section
   const withdrawBeforeFooter = useMemo(() => {
     // If should show warning (no address or BTC-only firmware), return the warning element
     if (shouldShowWarning) {
-      return warningElement;
+      return (
+        <YStack>
+          {warningElement}
+          {viewReserveDetailsButton}
+        </YStack>
+      );
     }
     if (!isEmpty(alertsWithdraw) || !isEmpty(alerts)) {
       return (
         <YStack>
           <EarnAlert alerts={alerts} />
           <EarnAlert alerts={alertsWithdraw} />
+          {viewReserveDetailsButton}
         </YStack>
       );
     }
-    return null;
-  }, [shouldShowWarning, warningElement, alertsWithdraw, alerts]);
+    return viewReserveDetailsButton;
+  }, [
+    shouldShowWarning,
+    warningElement,
+    alertsWithdraw,
+    alerts,
+    viewReserveDetailsButton,
+  ]);
 
   // Create beforeFooter content for special layout (USDe, ADA)
   const specialBeforeFooter = useMemo(() => {

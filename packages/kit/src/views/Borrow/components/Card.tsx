@@ -9,6 +9,8 @@ import {
   XStack,
 } from '@onekeyhq/components';
 
+const CARD_ACCORDION_VALUE = 'card';
+
 export const Card = ({
   title,
   children,
@@ -25,13 +27,13 @@ export const Card = ({
         width="100%"
         type="single"
         collapsible
-        defaultValue=""
+        defaultValue={CARD_ACCORDION_VALUE}
         borderRadius="$4"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         backgroundColor="transparent"
       >
-        <Accordion.Item value="a1">
+        <Accordion.Item value={CARD_ACCORDION_VALUE}>
           <Accordion.Trigger
             flexDirection="row"
             justifyContent="space-between"

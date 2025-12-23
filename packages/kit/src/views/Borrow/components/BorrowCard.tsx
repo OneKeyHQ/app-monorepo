@@ -28,21 +28,6 @@ export const BorrowCard = () => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { gtMd } = useMedia();
 
-  const handlePressRow = useCallback(
-    (item: IBorrowAsset) => {
-      if (!market) return;
-      BorrowNavigation.pushToBorrowReserveDetails(navigation, {
-        networkId: market.networkId,
-        provider: market.provider,
-        marketAddress: market.marketAddress,
-        reserveAddress: item.reserveAddress,
-        symbol: item.token.symbol,
-        logoURI: item.token.logoURI,
-      });
-    },
-    [navigation, market],
-  );
-
   const handleManageBorrow = useCallback(
     (item: IBorrowAsset) => {
       if (!market) return;
@@ -61,6 +46,27 @@ export const BorrowCard = () => {
       });
     },
     [navigation, market, activeAccount.account?.id, reserves],
+  );
+
+  const handlePressRow = useCallback(
+    (item: IBorrowAsset) => {
+      if (!market) return;
+      if (gtMd) {
+        // Desktop: navigate to details page
+        BorrowNavigation.pushToBorrowReserveDetails(navigation, {
+          networkId: market.networkId,
+          provider: market.provider,
+          marketAddress: market.marketAddress,
+          reserveAddress: item.reserveAddress,
+          symbol: item.token.symbol,
+          logoURI: item.token.logoURI,
+        });
+      } else {
+        // Mobile: open Borrow dialog
+        handleManageBorrow(item);
+      }
+    },
+    [navigation, market, gtMd, handleManageBorrow],
   );
 
   const showLoading = !reserves && reservesLoading;

@@ -159,59 +159,6 @@ const ReserveDetailsPage = () => {
     logoURI,
   ]);
 
-  const pageFooter = useMemo(() => {
-    if (gtMd) return null;
-
-    const supplyButton = userInfo?.walletBalance?.button;
-    const borrowButton = userInfo?.availableBorrowBalance?.button;
-
-    if (!supplyButton && !borrowButton) return null;
-
-    // If only one button, show it as primary
-    if (supplyButton && !borrowButton) {
-      return (
-        <Page.Footer
-          onConfirmText={supplyButton.text.text}
-          confirmButtonProps={{
-            variant: 'primary',
-            disabled: supplyButton.disabled,
-            onPress: handleSupply,
-          }}
-        />
-      );
-    }
-
-    if (borrowButton && !supplyButton) {
-      return (
-        <Page.Footer
-          onConfirmText={borrowButton.text.text}
-          confirmButtonProps={{
-            variant: 'primary',
-            disabled: borrowButton.disabled,
-            onPress: handleBorrow,
-          }}
-        />
-      );
-    }
-
-    // Both buttons available
-    return (
-      <Page.Footer
-        onConfirmText={supplyButton?.text.text}
-        confirmButtonProps={{
-          variant: 'primary',
-          disabled: supplyButton?.disabled,
-          onPress: handleSupply,
-        }}
-        onCancelText={borrowButton?.text.text}
-        cancelButtonProps={{
-          disabled: borrowButton?.disabled,
-          onPress: handleBorrow,
-        }}
-      />
-    );
-  }, [gtMd, userInfo, handleSupply, handleBorrow]);
-
   return (
     <EarnPageContainer
       pageTitle={pageTitle}
@@ -219,7 +166,6 @@ const ReserveDetailsPage = () => {
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       showBackButton
-      footer={pageFooter}
     >
       <XStack flexDirection={gtMd ? 'row' : 'column'}>
         <Stack w="100%" width={gtMd ? '65%' : undefined}>

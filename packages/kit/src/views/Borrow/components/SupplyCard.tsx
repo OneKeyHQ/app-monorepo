@@ -29,21 +29,6 @@ export const SupplyCard = () => {
   const { gtMd } = useMedia();
   const [showZeroBalance, setShowZeroBalance] = useState(false);
 
-  const handlePressRow = useCallback(
-    (item: ISupplyAsset) => {
-      if (!market) return;
-      BorrowNavigation.pushToBorrowReserveDetails(navigation, {
-        networkId: market.networkId,
-        provider: market.provider,
-        marketAddress: market.marketAddress,
-        reserveAddress: item.reserveAddress,
-        symbol: item.token.symbol,
-        logoURI: item.token.logoURI,
-      });
-    },
-    [navigation, market],
-  );
-
   const handleManageSupply = useCallback(
     (item: ISupplyAsset) => {
       if (!market) return;
@@ -62,6 +47,27 @@ export const SupplyCard = () => {
       });
     },
     [navigation, market, activeAccount.account?.id, reserves],
+  );
+
+  const handlePressRow = useCallback(
+    (item: ISupplyAsset) => {
+      if (!market) return;
+      if (gtMd) {
+        // Desktop: navigate to details page
+        BorrowNavigation.pushToBorrowReserveDetails(navigation, {
+          networkId: market.networkId,
+          provider: market.provider,
+          marketAddress: market.marketAddress,
+          reserveAddress: item.reserveAddress,
+          symbol: item.token.symbol,
+          logoURI: item.token.logoURI,
+        });
+      } else {
+        // Mobile: open Supply dialog
+        handleManageSupply(item);
+      }
+    },
+    [navigation, market, gtMd, handleManageSupply],
   );
 
   const showLoading = !reserves && reservesLoading;
