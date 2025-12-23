@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -83,7 +83,7 @@ function ReceiveSelectorContent() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveSelector>
     >();
 
-  const { accountId, networkId, walletId, indexedAccountId, token } =
+  const { accountId, networkId, walletId, indexedAccountId, token, onClose } =
     route.params ?? {};
 
   const navigation = useAppNavigation();
@@ -143,6 +143,8 @@ function ReceiveSelectorContent() {
     },
     [token, isSupported, url],
   );
+
+  useEffect(() => () => void onClose?.(), [onClose]);
 
   return (
     <Page>
