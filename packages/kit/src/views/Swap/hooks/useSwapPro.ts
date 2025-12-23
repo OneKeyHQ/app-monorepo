@@ -803,19 +803,8 @@ export function useSwapProTokenTransactionList(
   enableWebSocket: boolean,
 ) {
   const currencyInfo = useCurrency();
-  const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [, setSwapProTokenTransactionPrice] =
     useSwapProTokenTransactionPriceAtom();
-  const transactionListPageSize = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return 10;
-    }
-    return 4;
-  }, [swapProTradeType]);
-  const transactionListPageSizeRef = useRef(transactionListPageSize);
-  if (transactionListPageSizeRef.current !== transactionListPageSize) {
-    transactionListPageSizeRef.current = transactionListPageSize;
-  }
   const [swapProTokenTransactionList, setSwapProTokenTransactionList] =
     useState<IMarketTokenTransaction[]>([]);
   const swapProTokenTransactionListRef = useRef<IMarketTokenTransaction[]>(
@@ -837,11 +826,11 @@ export function useSwapProTokenTransactionList(
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
           tokenAddress,
           networkId,
-          limit: transactionListPageSize,
+          limit: 10,
         });
       return response;
     },
-    [tokenAddress, networkId, transactionListPageSize],
+    [tokenAddress, networkId],
     {
       watchLoading: true,
     },
@@ -869,9 +858,9 @@ export function useSwapProTokenTransactionList(
       }
 
       // Add new transaction at the beginning and sort by timestamp
-      const updatedTransactions = [newTransaction, ...prev]
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, transactionListPageSizeRef.current);
+      const updatedTransactions = [newTransaction, ...prev].sort(
+        (a, b) => b.timestamp - a.timestamp,
+      );
       setSwapProTokenTransactionList(updatedTransactions);
       setSwapProTokenTransactionPrice(updatedTransactions[0].to.price ?? '');
     },

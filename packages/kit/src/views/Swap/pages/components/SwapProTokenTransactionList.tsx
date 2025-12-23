@@ -35,6 +35,13 @@ const SwapProTokenTransactionList = () => {
       swapProSelectToken?.networkId ?? '',
       Boolean(enableWebSocket),
     );
+
+  const finallyTransactionList = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.LIMIT) {
+      return swapProTokenTransactionList?.slice(0, 10) ?? [];
+    }
+    return swapProTokenTransactionList?.slice(0, 4) ?? [];
+  }, [swapProTokenTransactionList, swapProTradeType]);
   return (
     <YStack>
       <XStack justifyContent="space-between" py="$1">
@@ -61,8 +68,8 @@ const SwapProTokenTransactionList = () => {
       ) : (
         <>
           {isRefreshing ||
-          !swapProTokenTransactionList ||
-          swapProTokenTransactionList.length === 0 ? (
+          !finallyTransactionList ||
+          finallyTransactionList.length === 0 ? (
             <YStack>
               {swapProTradeType === ESwapProTradeType.MARKET
                 ? Array.from({ length: 4 }).map((_, index) => (
@@ -86,7 +93,7 @@ const SwapProTokenTransactionList = () => {
             </YStack>
           ) : (
             <YStack>
-              {swapProTokenTransactionList.map((item, index) => (
+              {finallyTransactionList.map((item, index) => (
                 <SwapProTokenTransactionItem
                   key={`${item.hash}-${index}`}
                   item={item}

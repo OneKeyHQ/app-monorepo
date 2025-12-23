@@ -208,7 +208,24 @@ const SwapProContainer = ({
         title={swapProErrorAlert?.title}
         message={swapProErrorAlert?.message}
       />
-      {shouldRenderHeavyComponents ? (
+      <SwapProTabListContainer
+        onTokenPress={(token: ISwapToken) => {
+          onTokenPress(token);
+          scrollViewRef.current?.scrollTo({
+            y: 0,
+            animated: true,
+          });
+        }}
+        onOpenOrdersClick={onOpenOrdersClick}
+        onSearchClick={() => {
+          onProSelectToken(true);
+          scrollViewRef.current?.scrollTo({
+            y: 0,
+            animated: false,
+          });
+        }}
+      />
+      {/* {shouldRenderHeavyComponents ? (
         <SwapProTabListContainer
           onTokenPress={(token: ISwapToken) => {
             onTokenPress(token);
@@ -226,7 +243,7 @@ const SwapProContainer = ({
             });
           }}
         />
-      ) : null}
+      ) : null} */}
     </ScrollView>
   );
 };

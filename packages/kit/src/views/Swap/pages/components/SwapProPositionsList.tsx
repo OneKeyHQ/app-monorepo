@@ -33,8 +33,6 @@ interface ISwapProPositionsListProps {
   onSearchClick?: () => void;
 }
 
-const ItemSeparatorComponent = () => <Divider />;
-
 const SwapProPositionsList = ({
   onTokenPress,
   onSearchClick,
@@ -49,25 +47,10 @@ const SwapProPositionsList = ({
   }, [swapTypeSwitch]);
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
-  const renderItem = useCallback(
-    ({ item }: { item: ISwapToken }) => (
-      <SwapProPositionItem
-        token={item}
-        onPress={onTokenPress}
-        disabled={Boolean(
-          !focusSwapPro &&
-            equalTokenNoCaseSensitive({
-              token1: item,
-              token2: swapToToken,
-            }),
-        )}
-      />
-    ),
-    [onTokenPress, focusSwapPro, swapToToken],
-  );
+
   if (swapProSupportNetworksTokenListLoading) {
     return (
-      <YStack gap="$2" p="$4">
+      <YStack gap="$2" p="$2">
         <XStack>
           <Skeleton w="$20" h="$8" radius="round" />
         </XStack>
@@ -79,22 +62,35 @@ const SwapProPositionsList = ({
     );
   }
   return (
-    <ListView
-      data={finallyTokenList}
-      renderItem={renderItem}
-      ItemSeparatorComponent={ItemSeparatorComponent}
-      ListEmptyComponent={
+    <YStack>
+      {finallyTokenList.length > 0 ? (
+        finallyTokenList.map((item, index) => (
+          <>
+            <SwapProPositionItem
+              key={item.contractAddress}
+              token={item}
+              onPress={onTokenPress}
+              disabled={Boolean(
+                !focusSwapPro &&
+                  equalTokenNoCaseSensitive({
+                    token1: item,
+                    token2: swapToToken,
+                  }),
+              )}
+            />
+            {index < finallyTokenList.length - 1 ? <Divider /> : null}
+          </>
+        ))
+      ) : (
         <Empty
           icon="SearchOutline"
           title={intl.formatMessage({ id: ETranslations.global_no_results })}
         />
-      }
-      ListFooterComponent={
-        SwapProCurrentSymbolEnable || !onSearchClick ? undefined : (
-          <SwapProPositionListFooter onSearchClick={onSearchClick} />
-        )
-      }
-    />
+      )}
+      {SwapProCurrentSymbolEnable || !onSearchClick ? undefined : (
+        <SwapProPositionListFooter onSearchClick={onSearchClick} />
+      )}
+    </YStack>
   );
 };
 

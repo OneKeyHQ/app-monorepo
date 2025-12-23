@@ -24,9 +24,9 @@ const SwapProErrorAlert = ({
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const handleAlertAction = useCallback(
     (actionName: string) => {
-      if (actionName === 'Swap') {
+      if (actionName === 'swap_action') {
         void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-      } else if (actionName === 'Bridge') {
+      } else if (actionName === 'bridge_action') {
         void setSwapTypeSwitch(ESwapTabSwitchType.BRIDGE);
       }
     },
@@ -50,27 +50,11 @@ const SwapProErrorAlert = ({
           onAction={(actionName) => {
             void handleAlertAction(actionName);
           }}
-          values={{
-            Swap: (
-              <SizableText size="$bodyMd">
-                {intl.formatMessage({
-                  id: ETranslations.global_swap,
-                })}
-              </SizableText>
-            ),
-            Bridge: (
-              <SizableText size="$bodyMd">
-                {intl.formatMessage({
-                  id: ETranslations.swap_page_bridge,
-                })}
-              </SizableText>
-            ),
-          }}
         />
       );
     }
     return undefined;
-  }, [isNative, intl, handleAlertAction]);
+  }, [isNative, handleAlertAction]);
 
   if (!titleValue && !message) {
     return null;
