@@ -11,6 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../hocs';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
+import { useMedia } from '../../hooks/useStyle';
 import {
   Icon,
   Image,
@@ -28,7 +29,6 @@ import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IToastMessageOptions } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
-import { useMedia } from '../../hooks';
 
 export interface IToastProps {
   toastId?: string;

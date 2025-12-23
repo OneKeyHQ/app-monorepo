@@ -454,7 +454,7 @@ const InAppNotification = () => {
     return () => {
       appEventBus.off(EAppEventBusNames.ShowInAppPushNotification, callback);
     };
-  }, []);
+  }, [navigation]);
 
   return null;
 };
