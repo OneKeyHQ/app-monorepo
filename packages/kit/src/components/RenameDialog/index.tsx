@@ -19,6 +19,7 @@ import {
   XStack,
   YStack,
   useForm,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import type {
   IDialogInstance,
@@ -392,12 +393,15 @@ function PrimeProfileDialogContentNotLoggedIn() {
   return isLoggedIn ? <PrimeProfileDialogContent user={user} /> : null;
 }
 
-export const showPrimeProfileDialog = () => {
-  return new Promise<void>((resolve) => {
-    Dialog.confirm({
-      onClose: () => resolve(),
-      title: 'Edit prifle',
-      renderContent: <PrimeProfileDialogContentNotLoggedIn />,
+export const useEditPrimeProfileDialog = () => {
+  const dialog = useInPageDialog();
+  return useCallback(async () => {
+    return new Promise<void>((resolve) => {
+      dialog.confirm({
+        onClose: () => resolve(),
+        title: 'Edit prifle',
+        renderContent: <PrimeProfileDialogContentNotLoggedIn />,
+      });
     });
-  });
+  }, [dialog]);
 };
