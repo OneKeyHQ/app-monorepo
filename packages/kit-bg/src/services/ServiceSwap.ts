@@ -2160,7 +2160,7 @@ export default class ServiceSwap extends ServiceBase {
     fromToken: ISwapTokenBase;
     toToken: ISwapTokenBase;
   }) {
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const fromTokenFetchPromise = client.get<{ data: IMarketTokenDetailData }>(
       `/utility/v2/market/token/detail`,
       {

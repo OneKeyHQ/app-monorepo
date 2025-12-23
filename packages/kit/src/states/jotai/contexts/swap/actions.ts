@@ -705,6 +705,41 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
+  resetQuoteAction = contextAtomMethod(async (get, set) => {
+    let fromToken = get(swapSelectFromTokenAtom());
+    let toToken = get(swapSelectToTokenAtom());
+    const swapProTradeType = get(swapProTradeTypeAtom());
+    const swapProDirection = get(swapProDirectionAtom());
+    if (swapProTradeType === ESwapProTradeType.LIMIT) {
+      if (swapProDirection === ESwapDirection.BUY) {
+        fromToken = get(swapProUseSelectBuyTokenAtom());
+        toToken = get(swapProSelectTokenAtom());
+      } else {
+        fromToken = get(swapProSelectTokenAtom());
+        toToken = get(swapProSellToTokenAtom());
+      }
+    }
+    const fromTokenAmount = get(swapFromTokenAmountAtom());
+    const toTokenAmount = get(swapToTokenAmountAtom());
+    set(swapQuoteFetchingAtom(), false);
+    set(swapQuoteEventTotalCountAtom(), {
+      count: 0,
+    });
+    set(swapQuoteListAtom(), []);
+    set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
+    if (!fromToken) {
+      set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+    }
+    if (!toToken) {
+      set(swapToTokenAmountAtom(), { value: '', isInput: false });
+    }
+    if (!fromTokenAmount.value && fromTokenAmount.isInput) {
+      set(swapToTokenAmountAtom(), { value: '', isInput: false });
+    } else if (!toTokenAmount.value && toTokenAmount.isInput) {
+      set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+    }
+  });
+
   quoteAction = contextAtomMethod(
     async (
       get,
@@ -737,6 +772,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         swapTabSwitchType === ESwapTabSwitchType.LIMIT &&
         platformEnv.isNative
       ) {
+        void this.resetQuoteAction.call(set);
         return;
       }
       // check limit zero
@@ -805,23 +841,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           receivingAddress,
         );
       } else {
-        set(swapQuoteFetchingAtom(), false);
-        set(swapQuoteEventTotalCountAtom(), {
-          count: 0,
-        });
-        set(swapQuoteListAtom(), []);
-        set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-        if (!fromToken) {
-          set(swapFromTokenAmountAtom(), { value: '', isInput: false });
-        }
-        if (!toToken) {
-          set(swapToTokenAmountAtom(), { value: '', isInput: false });
-        }
-        if (!fromTokenAmount.value && fromTokenAmount.isInput) {
-          set(swapToTokenAmountAtom(), { value: '', isInput: false });
-        } else if (!toTokenAmount.value && toTokenAmount.isInput) {
-          set(swapFromTokenAmountAtom(), { value: '', isInput: false });
-        }
+        void this.resetQuoteAction.call(set);
       }
     },
   );
@@ -1828,7 +1848,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const sortedResult = result
           .filter(Boolean)
           .flat()
-          .filter((item) => !item.isNative)
           .sort((a, b) => {
             return new BigNumber(b.fiatValue ?? '0').comparedTo(
               new BigNumber(a.fiatValue ?? '0'),

@@ -19,9 +19,14 @@ import { Token } from '../../../components/Token';
 interface ISwapProPositionItemProps {
   token: ISwapToken;
   onPress: (token: ISwapToken) => void;
+  disabled?: boolean;
 }
 
-const SwapProPositionItem = ({ token, onPress }: ISwapProPositionItemProps) => {
+const SwapProPositionItem = ({
+  token,
+  onPress,
+  disabled,
+}: ISwapProPositionItemProps) => {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const formatBalance = token.balanceParsed;
@@ -39,7 +44,12 @@ const SwapProPositionItem = ({ token, onPress }: ISwapProPositionItemProps) => {
   }, [token.networkLogoURI, token.networkId]);
 
   return (
-    <YStack py="$3" gap="$4" onPress={() => onPress(token)}>
+    <YStack
+      py="$3"
+      gap="$4"
+      onPress={disabled ? undefined : () => onPress(token)}
+      opacity={disabled ? 0.5 : 1}
+    >
       <XStack alignItems="center" gap="$2">
         <Token
           size="sm"

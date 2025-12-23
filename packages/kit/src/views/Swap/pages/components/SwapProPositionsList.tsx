@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,9 +13,16 @@ import {
 import {
   useSwapProEnableCurrentSymbolAtom,
   useSwapProSupportNetworksTokenListLoadingAtom,
+  useSwapSelectToTokenAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  ESwapTabSwitchType,
+  type ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
 import SwapProPositionListFooter from '../../components/SwapProPositionListFooter';
@@ -23,7 +30,7 @@ import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 
 interface ISwapProPositionsListProps {
   onTokenPress: (token: ISwapToken) => void;
-  onSearchClick: () => void;
+  onSearchClick?: () => void;
 }
 
 const ItemSeparatorComponent = () => <Divider />;
@@ -36,13 +43,27 @@ const SwapProPositionsList = ({
   const { finallyTokenList } = useSwapProPositionsListFilter();
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const focusSwapPro = useMemo(() => {
+    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  }, [swapTypeSwitch]);
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
-
+  const [swapToToken] = useSwapSelectToTokenAtom();
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => (
-      <SwapProPositionItem token={item} onPress={onTokenPress} />
+      <SwapProPositionItem
+        token={item}
+        onPress={onTokenPress}
+        disabled={Boolean(
+          !focusSwapPro &&
+            equalTokenNoCaseSensitive({
+              token1: item,
+              token2: swapToToken,
+            }),
+        )}
+      />
     ),
-    [onTokenPress],
+    [onTokenPress, focusSwapPro, swapToToken],
   );
   if (swapProSupportNetworksTokenListLoading) {
     return (
@@ -69,7 +90,7 @@ const SwapProPositionsList = ({
         />
       }
       ListFooterComponent={
-        SwapProCurrentSymbolEnable ? undefined : (
+        SwapProCurrentSymbolEnable || !onSearchClick ? undefined : (
           <SwapProPositionListFooter onSearchClick={onSearchClick} />
         )
       }
