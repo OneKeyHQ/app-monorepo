@@ -1,6 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { useMedia } from '@onekeyhq/components';
+import { SizableText, Switch, XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
@@ -27,6 +27,7 @@ export const SupplyCard = () => {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { gtMd } = useMedia();
+  const [showZeroBalance, setShowZeroBalance] = useState(false);
 
   const handlePressRow = useCallback(
     (item: ISupplyAsset) => {
@@ -64,6 +65,31 @@ export const SupplyCard = () => {
   );
 
   const showLoading = !reserves && reservesLoading;
+
+  // Filter data based on showZeroBalance
+  const filteredAssets = useMemo(() => {
+    if (!reserves?.supply.assets) return [];
+    if (showZeroBalance) return reserves.supply.assets;
+    return reserves.supply.assets.filter((asset) => {
+      return parseFloat(asset?.walletBalance?.title?.text) > 0;
+    });
+  }, [reserves?.supply.assets, showZeroBalance]);
+
+  const filterUI = useMemo(
+    () => (
+      <XStack ai="center" gap="$3">
+        <Switch
+          value={showZeroBalance}
+          onChange={setShowZeroBalance}
+          size="small"
+        />
+        <SizableText size="$bodyMd" color="$text">
+          Show assets with 0 balance
+        </SizableText>
+      </XStack>
+    ),
+    [showZeroBalance],
+  );
 
   // Mobile columns - 2 columns only
   const mobileColumns = useMemo(
@@ -140,9 +166,9 @@ export const SupplyCard = () => {
   );
 
   return (
-    <Card title="Assets to supply">
+    <Card title="Assets to supply" renderFilter={filterUI}>
       <BorrowTableList<ISupplyAsset>
-        data={reserves?.supply.assets || []}
+        data={filteredAssets}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={gtMd ? handlePressRow : handleManageSupply}

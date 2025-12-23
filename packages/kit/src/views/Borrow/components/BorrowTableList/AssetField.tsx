@@ -28,6 +28,9 @@ export const AssetField = ({ token, canBeCollateral }: IAssetFieldProps) => {
             ml="$2"
             name="Checkmark2SmallOutline"
             size="$5"
+            w="$5"
+            h="$5"
+            flexShrink={0}
             color="$iconSuccess"
           />
         ) : null}

@@ -38,7 +38,10 @@ export const AssetWithAmountField = ({
                 br="$1"
                 bg="$bgSuccess"
                 name="Checkmark2SmallOutline"
-                size="$4"
+                size="$5"
+                w="$5"
+                h="$5"
+                flexShrink={0}
                 color="$iconSuccess"
               />
             ) : null}

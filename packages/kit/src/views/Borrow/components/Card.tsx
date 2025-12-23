@@ -12,9 +12,11 @@ import {
 export const Card = ({
   title,
   children,
+  renderFilter,
 }: {
   title: string;
   children: React.ReactNode;
+  renderFilter?: React.ReactNode;
 }) => {
   return (
     <Stack bg="$bgApp" overflow="hidden">
@@ -68,6 +70,11 @@ export const Card = ({
               px="0"
               py="$2"
             >
+              {renderFilter ? (
+                <Stack mt="$3" mb="$5" px="$5">
+                  {renderFilter}
+                </Stack>
+              ) : null}
               {children}
             </Accordion.Content>
           </Accordion.HeightAnimator>

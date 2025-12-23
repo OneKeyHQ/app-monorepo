@@ -351,7 +351,7 @@ export const Overview = () => {
         }
       />
       <OverviewItem
-        needDivider
+        needDivider={!!borrowRewards}
         title={
           reserves?.overview?.platformBonus?.data?.title ?? {
             text: 'Platform bonus',
