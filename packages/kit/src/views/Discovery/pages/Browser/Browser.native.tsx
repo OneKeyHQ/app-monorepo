@@ -379,15 +379,14 @@ function MobileBrowser() {
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
 
   const isShowContent = useMemo(() => {
-    if (!isDualScreen) {
-      return true;
+    if (platformEnv.isNativeAndroid) {
+      return !isDualScreen;
     }
     if (isTabletMainView && isLandscape) {
       return true;
     }
     return isTabletDetailView && !isLandscape;
   }, [isDualScreen, isTabletMainView, isLandscape, isTabletDetailView]);
-
   if (isTabletDetailView && isLandscape && displayHomePage) {
     return <TabletHomeContainer />;
   }
