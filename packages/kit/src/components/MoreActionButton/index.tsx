@@ -80,7 +80,7 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId';
 import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
-import { showPrimeProfileDialog } from '../RenameDialog';
+import { useEditPrimeProfileDialog } from '../RenameDialog';
 import { UpdateReminder } from '../UpdateReminder';
 import {
   isShowAppUpdateUIWhenUpdating,
@@ -437,10 +437,17 @@ function MoreActionOneKeyId() {
     return user?.displayEmail || 'OneKey ID';
   }, [isLoggedIn, user?.displayEmail, intl]);
 
+  const showPrimeProfileDialog = useEditPrimeProfileDialog();
   const handlePress = useCallback(async () => {
-    await closeTooltip();
-    await showPrimeProfileDialog();
-  }, [closeTooltip]);
+    if (isLoggedIn) {
+      await closeTooltip();
+      await showPrimeProfileDialog();
+    } else {
+      await loginOneKeyId({
+        toOneKeyIdPageOnLoginSuccess: false,
+      });
+    }
+  }, [isLoggedIn, closeTooltip, showPrimeProfileDialog, loginOneKeyId]);
 
   const { icon, onPrimeButtonPressed } = useOnPrimeButtonPressed({
     onPress: closeTooltip,
