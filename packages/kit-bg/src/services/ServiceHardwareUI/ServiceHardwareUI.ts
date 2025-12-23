@@ -240,6 +240,21 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
+  async sendRequestDeviceForSwitchFirmwareWebDevice({
+    deviceId,
+  }: {
+    deviceId: string;
+  }) {
+    const { UI_RESPONSE } = await CoreSDKLoader();
+    await this.sendUiResponse({
+      type: UI_RESPONSE.SELECT_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE,
+      payload: {
+        deviceId,
+      },
+    });
+  }
+
+  @backgroundMethod()
   async cleanHardwareUiState({
     hardClose,
   }: {

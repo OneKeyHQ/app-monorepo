@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
-import { BackHandler } from 'react-native';
+import { BackHandler, type LayoutChangeEvent } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import {
@@ -356,12 +356,17 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
-  const [tabPageHeight] = useState(platformEnv.isNativeIOS ? 153 : 92);
-  // const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-  //   // Use the actual measured height without arbitrary adjustments
-  //   const height = e.nativeEvent.layout.height - 20;
-  //   setTabPageHeight(height);
-  // }, []);
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 153 : 100,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    if (platformEnv.isNativeIOS) {
+      return;
+    }
+    // Use the actual measured height without arbitrary adjustments
+    const height = e.nativeEvent.layout.height;
+    setTabPageHeight(height);
+  }, []);
 
   const showDiscoveryPage = useMemo(() => {
     if (isTabletMainView) {
@@ -491,7 +496,7 @@ function MobileBrowser() {
           bg="$bgApp"
           pt="$12"
           width="100%"
-          // onLayout={handleTabPageLayout}
+          onLayout={handleTabPageLayout}
         >
           <Stack position="absolute" top={top} px="$5">
             <UniversalSearchInput size="medium" initialTab={searchInitialTab} />

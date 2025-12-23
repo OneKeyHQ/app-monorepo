@@ -38,6 +38,8 @@ export const DOWNLOAD_MOBILE_APP_URL =
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
 export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';
+export const HARDWARE_TROUBLESHOOTING_URL =
+  'https://help.onekey.so/articles/13183743';
 
 export const FRESH_ADDRESS_LEARN_MORE_URL =
   'https://help.onekey.so/articles/12620219';
