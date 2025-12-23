@@ -10,13 +10,11 @@ import { Linking, StyleSheet } from 'react-native';
 
 import type { IPageScreenProps, IYStackProps } from '@onekeyhq/components';
 import {
-  Accordion,
   Button,
   Dialog,
   EVideoResizeMode,
   Empty,
   HeightTransition,
-  Icon,
   IconButton,
   Image,
   LottieView,
@@ -34,7 +32,10 @@ import {
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  HARDWARE_BRIDGE_DOWNLOAD_URL,
+  HARDWARE_TROUBLESHOOTING_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
   BridgeTimeoutError,
@@ -53,6 +54,7 @@ import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -71,7 +73,6 @@ import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { ConnectionTroubleShootingAccordion } from '../../../components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
@@ -519,60 +520,36 @@ function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
           borderRadius="$2.5"
           borderCurve="continuous"
           overflow="hidden"
+          p="$4"
+          gap="$4"
         >
-          <Accordion type="single" collapsible>
-            <Accordion.Item value="0">
-              <Accordion.Trigger
-                unstyled
-                flexDirection="row"
-                alignItems="center"
-                borderWidth={0}
-                m="0"
-                px="$5"
-                py="$2"
-                bg="$transparent"
-                hoverStyle={{
-                  bg: '$bgHover',
-                }}
-                focusVisibleStyle={{
-                  outlineColor: '$focusRing',
-                  outlineStyle: 'solid',
-                  outlineWidth: 2,
-                  outlineOffset: 2,
-                }}
-              >
-                {({ open }: { open: boolean }) => (
-                  <>
-                    <SizableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      flex={1}
-                      textAlign="left"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.troubleshooting_show_helper_cta_label,
-                      })}
-                    </SizableText>
-                    <Icon
-                      name={open ? 'MinusSmallOutline' : 'PlusSmallOutline'}
-                      size="$5"
-                      color="$iconSubdued"
-                    />
-                  </>
-                )}
-              </Accordion.Trigger>
-              <Accordion.HeightAnimator animation="quick">
-                <Accordion.Content
-                  unstyled
-                  animation="quick"
-                  enterStyle={{ opacity: 0, filter: 'blur(4px)' }}
-                  exitStyle={{ opacity: 0, filter: 'blur(4px)' }}
-                >
-                  <ConnectionTroubleShootingAccordion connectionType={type} />
-                </Accordion.Content>
-              </Accordion.HeightAnimator>
-            </Accordion.Item>
-          </Accordion>
+          <SizableText size="$bodyMd" color="$textSubdued" textAlign="left">
+            {intl.formatMessage({
+              id: ETranslations.troubleshooting_show_helper_cta_label,
+            })}
+          </SizableText>
+          <XStack gap="$2" flexWrap="wrap">
+            <Button
+              flex={1}
+              minWidth="$40"
+              icon="OpenOutline"
+              onPress={() => {
+                void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.self_troubleshooting })}
+            </Button>
+            <Button
+              flex={1}
+              minWidth="$40"
+              icon="HelpSupportOutline"
+              onPress={() => {
+                void showIntercom();
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.settings_contact_us })}
+            </Button>
+          </XStack>
         </YStack>
       ) : null}
     </>

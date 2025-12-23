@@ -175,7 +175,7 @@ export function makeOnboardingScreenOptions(): IStackNavigationOptions {
     presentation: 'card',
     gestureEnabled: false,
     gestureDirection: 'horizontal',
-    animation: 'slide_from_left',
+    animation: 'slide_from_right',
   };
   if (platformEnv.isNativeAndroid) {
     options.animation = 'none';

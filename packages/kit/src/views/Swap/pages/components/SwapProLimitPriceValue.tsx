@@ -14,7 +14,12 @@ import { useSwapLimitRate } from '../../hooks/useSwapLimitRate';
 
 // import SwapProLimitPriceSlider from './SwapProLimitPriceSlider';
 
-const SwapProLimitPriceValue = () => {
+interface ISwapProLimitPriceValueProps {
+  externalTokenPrice?: { value: string; change: boolean };
+}
+const SwapProLimitPriceValue = ({
+  externalTokenPrice,
+}: ISwapProLimitPriceValueProps) => {
   const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [settings] = useSettingsPersistAtom();
@@ -28,6 +33,7 @@ const SwapProLimitPriceValue = () => {
   } = useSwapLimitRate();
   const isInitializedRef = useRef(false);
   const [inputValue, setInputValue] = useState('');
+  const prevExternalChangeRef = useRef<boolean | undefined>(undefined);
 
   // Determine which token's price to display based on buy/sell direction
   // BUY: show toToken price, SELL: show fromToken price
@@ -37,10 +43,7 @@ const SwapProLimitPriceValue = () => {
       : fromTokenInfo;
   }, [swapProDirection, fromTokenInfo, toTokenInfo]);
 
-  const currencySymbol = useMemo(
-    () => settings?.currencyInfo?.symbol ?? '$',
-    [settings?.currencyInfo?.symbol],
-  );
+  const currencySymbol = settings?.currencyInfo?.symbol ?? '$';
 
   // Calculate token price from limit price
   // limit price = fromToken price / toToken price (1 fromToken = rate toToken)
@@ -186,6 +189,75 @@ const SwapProLimitPriceValue = () => {
     setInputValue(text);
   }, []);
 
+  // Handle external token price change - convert to limit price
+  const handleExternalTokenPrice = useCallback(
+    (tokenPriceValue: string) => {
+      if (!targetToken || !fromTokenInfo || !toTokenInfo) {
+        return;
+      }
+
+      const text = tokenPriceValue.trim();
+
+      // Allow empty string or just decimal point
+      if (text === '' || text === '.') {
+        return;
+      }
+
+      const tokenPriceBN = new BigNumber(text);
+      // Check if the number is valid and not zero
+      if (tokenPriceBN.isNaN() || tokenPriceBN.isZero()) {
+        // If invalid or zero, set limit price to 0
+        onLimitRateChange('0');
+        setInputValue('');
+        return;
+      }
+
+      if (swapProDirection === ESwapDirection.BUY) {
+        // BUY: user modifies toToken price
+        // limit price = fromToken price / toToken price
+        const fromTokenPriceBN = new BigNumber(
+          limitPriceMarketPrice.fromTokenMarketPrice ?? '0',
+        );
+        if (fromTokenPriceBN.isZero()) {
+          return;
+        }
+        const newLimitRate = fromTokenPriceBN.dividedBy(tokenPriceBN);
+        const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+        const formattedRate = newLimitRate
+          .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
+          .toFixed();
+        onLimitRateChange(formattedRate);
+        setInputValue(text);
+        return;
+      }
+      // SELL: user modifies fromToken price
+      // limit price = fromToken price / toToken price
+      const toTokenPriceBN = new BigNumber(
+        limitPriceMarketPrice.toTokenMarketPrice ?? '0',
+      );
+      if (toTokenPriceBN.isZero()) {
+        return;
+      }
+      const newLimitRate = tokenPriceBN.dividedBy(toTokenPriceBN);
+      const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+      const formattedRate = newLimitRate
+        .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
+        .toFixed();
+      onLimitRateChange(formattedRate);
+      setInputValue(text);
+    },
+    [
+      targetToken,
+      fromTokenInfo,
+      toTokenInfo,
+      swapProDirection,
+      onLimitRateChange,
+      limitPriceMarketPrice.toToken?.decimals,
+      limitPriceMarketPrice.fromTokenMarketPrice,
+      limitPriceMarketPrice.toTokenMarketPrice,
+    ],
+  );
+
   // Handle token price change on blur - convert to limit price
   const onTokenPriceBlur = useCallback(() => {
     if (!targetToken || !fromTokenInfo || !toTokenInfo) {
@@ -314,6 +386,27 @@ const SwapProLimitPriceValue = () => {
     swapLimitPriceUseRate.rate,
     onSetMarketPrice,
   ]);
+
+  // Handle external token price change when change prop changes
+  useEffect(() => {
+    if (!externalTokenPrice) {
+      return;
+    }
+
+    const prevChange = prevExternalChangeRef.current;
+    const currentChange = externalTokenPrice.change;
+
+    // Check if change has changed (true -> false or false -> true)
+    if (prevChange !== undefined && prevChange !== currentChange) {
+      // If value exists, apply it as token price
+      if (externalTokenPrice.value && externalTokenPrice.value.trim() !== '') {
+        handleExternalTokenPrice(externalTokenPrice.value);
+      }
+    }
+
+    // Update ref for next comparison
+    prevExternalChangeRef.current = currentChange;
+  }, [externalTokenPrice, handleExternalTokenPrice]);
 
   return (
     <>

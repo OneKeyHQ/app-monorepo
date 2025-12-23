@@ -168,16 +168,6 @@ export function HeaderLeft({
       ) : null;
     }
 
-    if (tabRoute === ETabRoutes.WebviewPerpTrade) {
-      return (
-        <SizableText size="$headingLg">
-          {/* {intl.formatMessage({
-            id: ETranslations.global_browser,
-          })} */}
-        </SizableText>
-      );
-    }
-
     // For web platform, only show WebHeaderNavigation (logo + navigation)
     // Account selector will be moved to HeaderRight
     if (platformEnv.isWebDappMode && gtMd) {

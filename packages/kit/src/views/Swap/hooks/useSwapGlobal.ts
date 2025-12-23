@@ -39,6 +39,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
+import { useSwapProInputToken } from './useSwapPro';
 
 /**
  * Initializes and manages state and side effects for the token swap feature, including networks, tokens, providers, and related UI state.
@@ -50,7 +51,8 @@ import { useSwapAddressInfo } from './useSwapAccount';
  */
 export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
-  const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
+  const [swapFromToken, setSwapFromToken] = useSwapSelectFromTokenAtom();
+  const swapProFromToken = useSwapProInputToken();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
   const [, setSwapMevConfig] = useSwapMevConfigAtom();
   const { syncNetworksSort, needChangeToken } = useSwapActions().current;
@@ -67,6 +69,12 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [, setSwapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [, setSwapTips] = useSwapTipsAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
+  const fromToken = useMemo(() => {
+    if (platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      return swapProFromToken;
+    }
+    return swapFromToken;
+  }, [swapProFromToken, swapTypeSwitch, swapFromToken]);
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
@@ -78,8 +86,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapNetworksRef.current = swapNetworks;
   }
   const fromTokenRef = useRef<ISwapToken>(undefined);
-  if (fromTokenRef.current !== fromToken) {
-    fromTokenRef.current = fromToken;
+  if (fromTokenRef.current !== swapFromToken) {
+    fromTokenRef.current = swapFromToken;
   }
   const toTokenRef = useRef<ISwapToken>(undefined);
   if (toTokenRef.current !== toToken) {
@@ -444,7 +452,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           params?.swapTabSwitchType &&
           fromTokenSupportTypes.includes(params?.swapTabSwitchType)
         ) {
-          setFromToken(params?.importFromToken);
+          setSwapFromToken(params?.importFromToken);
         }
       }
       if (params?.importToToken) {
@@ -517,7 +525,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         const defaultFromToken = swapDefaultSetTokens[netId]?.fromToken;
         const defaultToToken = swapDefaultSetTokens[netId]?.toToken;
         if (defaultFromToken) {
-          setFromToken({
+          setSwapFromToken({
             ...defaultFromToken,
             networkLogoURI: isAllNet
               ? defaultFromToken.networkLogoURI
@@ -547,7 +555,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     skipSyncDefaultSelectedToken,
     syncNetworksSort,
     checkSupportTokenSwapType,
-    setFromToken,
+    setSwapFromToken,
     setToToken,
     needChangeToken,
   ]);
