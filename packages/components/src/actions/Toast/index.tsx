@@ -278,6 +278,8 @@ function ToastNotificationContent({
   onClose,
   onPress,
 }: IToastNotificationProps) {
+  const { width } = useWindowDimensions();
+  const media = useMedia();
   useEffect(
     () => () => {
       onClose?.();
@@ -296,7 +298,14 @@ function ToastNotificationContent({
     );
   }, [iconImageUri, icon]);
   return (
-    <XStack gap="$2" cursor="pointer" onPress={handlePress}>
+    <XStack
+      gap="$2"
+      cursor="pointer"
+      onPress={handlePress}
+      $platform-native={{
+        width: media.md ? width - 64 : 640,
+      }}
+    >
       <XStack
         bg="$bgStrong"
         borderRadius="$full"
