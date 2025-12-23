@@ -42,6 +42,7 @@ import type {
   IBorrowAssetsList,
   IBorrowCheckAmount,
   IBorrowEstimateFee,
+  IBorrowFaqList,
   IBorrowHealthFactor,
   IBorrowHistory,
   IBorrowManagePage,
@@ -2418,6 +2419,42 @@ class ServiceStaking extends ServiceBase {
         ...rest,
         accountAddress,
       },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowFaqList(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowFaqList;
+    }>('/earn/v1/borrow/faq/list', {
+      params,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowInterestRateCurve(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    days: 'week' | 'month' | 'quarter' | 'half-year' | 'year';
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: {
+        borrowCurve: [number, string][];
+        supplyCurve: [number, string][];
+      };
+    }>('/earn/v1/borrow/interest-rate/curve', {
+      params,
     });
     return response.data.data;
   }

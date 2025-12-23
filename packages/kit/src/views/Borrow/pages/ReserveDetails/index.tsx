@@ -165,14 +165,13 @@ const ReserveDetailsPage = () => {
     const supplyButton = userInfo?.walletBalance?.button;
     const borrowButton = userInfo?.availableBorrowBalance?.button;
 
-    // If no buttons available, don't show footer
     if (!supplyButton && !borrowButton) return null;
 
     // If only one button, show it as primary
     if (supplyButton && !borrowButton) {
       return (
         <Page.Footer
-          onConfirmText={supplyButton?.text?.text}
+          onConfirmText={supplyButton.text.text}
           confirmButtonProps={{
             variant: 'primary',
             disabled: supplyButton.disabled,
@@ -185,7 +184,7 @@ const ReserveDetailsPage = () => {
     if (borrowButton && !supplyButton) {
       return (
         <Page.Footer
-          onConfirmText={borrowButton?.text?.text}
+          onConfirmText={borrowButton.text.text}
           confirmButtonProps={{
             variant: 'primary',
             disabled: borrowButton.disabled,
@@ -195,16 +194,16 @@ const ReserveDetailsPage = () => {
       );
     }
 
-    // If both buttons available, show both
+    // Both buttons available
     return (
       <Page.Footer
-        onConfirmText={supplyButton?.text?.text}
+        onConfirmText={supplyButton?.text.text}
         confirmButtonProps={{
           variant: 'primary',
           disabled: supplyButton?.disabled,
           onPress: handleSupply,
         }}
-        onCancelText={borrowButton?.text?.text}
+        onCancelText={borrowButton?.text.text}
         cancelButtonProps={{
           disabled: borrowButton?.disabled,
           onPress: handleBorrow,

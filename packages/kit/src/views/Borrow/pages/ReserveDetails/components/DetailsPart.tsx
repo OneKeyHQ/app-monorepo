@@ -83,11 +83,17 @@ const DetailsPartComponent = ({
                 marketAddress={marketAddress}
                 reserveAddress={reserveAddress}
                 details={details}
+                utilizationRatio={details.utilizationRatio}
               />
             </YStack>
             <DailyCapsSection details={details} />
             <ProductSection details={details} />
-            <BorrowFAQSection provider={provider} symbol={symbol} />
+            <BorrowFAQSection
+              networkId={networkId}
+              provider={provider}
+              marketAddress={marketAddress}
+              reserveAddress={reserveAddress}
+            />
           </YStack>
         ) : null}
       </PageFrame>

@@ -1815,6 +1815,10 @@ export interface IBorrowAssetsList {
   assets: IBorrowAsset[];
 }
 
+export interface IBorrowFaqList {
+  list: IEarnFAQList;
+}
+
 export interface IBorrowEstimateFee {
   feeFiatValue: string;
   coverFeeSeconds?: string;

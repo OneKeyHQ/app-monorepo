@@ -5,25 +5,33 @@ import { FAQContent } from '@onekeyhq/kit/src/views/Earn/components/FAQContent';
 import { DetailsSectionContainer } from './DetailsSectionContainer';
 
 export function BorrowFAQSection({
+  networkId,
   provider,
-  symbol,
+  marketAddress,
+  reserveAddress,
 }: {
+  networkId: string;
   provider: string;
-  symbol: string;
+  marketAddress: string;
+  reserveAddress: string;
 }) {
-  const { result: faqList, isLoading } = usePromiseResult(
+  const { result: faqData, isLoading } = usePromiseResult(
     async () => {
-      if (!provider || !symbol) {
+      if (!networkId || !provider || !marketAddress || !reserveAddress) {
         return undefined;
       }
-      return backgroundApiProxy.serviceStaking.getFAQList({
+      return backgroundApiProxy.serviceStaking.getBorrowFaqList({
+        networkId,
         provider,
-        symbol,
+        marketAddress,
+        reserveAddress,
       });
     },
-    [provider, symbol],
+    [networkId, provider, marketAddress, reserveAddress],
     { watchLoading: true, revalidateOnFocus: true },
   );
+
+  const faqList = faqData?.list;
 
   if (!isLoading && !faqList?.length) {
     return null;

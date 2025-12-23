@@ -16,6 +16,7 @@ import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 import { CapUsageChart } from '../../../components/CapUsageChart';
 
 import { DetailsSectionContainer } from './DetailsSectionContainer';
+import { InterestRateModelSection } from './InterestRateModelSection';
 
 type ITimePeriod = 'week' | 'month' | 'quarter' | 'year';
 
@@ -25,6 +26,7 @@ interface IChartSectionProps {
   marketAddress: string;
   reserveAddress: string;
   details?: IBorrowReserveDetail;
+  utilizationRatio: string;
 }
 
 export function ChartSection({
@@ -33,6 +35,7 @@ export function ChartSection({
   marketAddress,
   reserveAddress,
   details,
+  utilizationRatio,
 }: IChartSectionProps) {
   const [supplyTimePeriod, setSupplyTimePeriod] = useState<ITimePeriod>('week');
   const [borrowTimePeriod, setBorrowTimePeriod] = useState<ITimePeriod>('week');
@@ -213,6 +216,14 @@ export function ChartSection({
           </YStack>
         </YStack>
       </DetailsSectionContainer>
+
+      <InterestRateModelSection
+        networkId={networkId}
+        provider={provider}
+        marketAddress={marketAddress}
+        reserveAddress={reserveAddress}
+        utilizationRatio={utilizationRatio}
+      />
     </YStack>
   );
 }
