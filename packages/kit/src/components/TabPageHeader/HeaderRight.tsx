@@ -13,10 +13,7 @@ import {
   useIsWebHorizontalLayout,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  HeaderButtonGroup,
-  HeaderIconButton,
-} from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,6 +24,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
+import { MoreActionButton } from '../MoreActionButton';
 
 import {
   DownloadButton,
@@ -37,7 +35,6 @@ import {
   ThemeButton,
   WalletConnectionForWeb,
 } from './components';
-import { MoreActionButton } from './MoreActionButton';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function MoreAction() {
@@ -126,13 +123,8 @@ export function HeaderRight({
 
     const fixedItems = (
       <>
-        {isHorizontal ? (
-          <HeaderNotificationIconButton testID="header-right-notification" />
-        ) : null}
+        <HeaderNotificationIconButton testID="header-right-notification" />
         <MoreAction />
-        {isHorizontal ? (
-          <OneKeyIdButton testID="header-right-onekey-id" />
-        ) : null}
         {isHorizontal && platformEnv.isWebDappMode ? <DownloadButton /> : null}
         {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
           <LanguageButton />

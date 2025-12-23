@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { TMTooltip } from '@onekeyhq/components/src/shared/tamagui';
 import type { PopoverContentProps } from '@onekeyhq/components/src/shared/tamagui';
@@ -16,8 +23,47 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { SizableText, XStack } from '../../primitives';
 import { Shortcut } from '../Shortcut';
 
+import { TooltipContext } from './context';
+
 import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
+
+const useHoverTooltip = () => {
+  const [isHovered, setIsHovered] = useState(false);
+  const showTooltipRef = useRef(isHovered);
+  showTooltipRef.current = isHovered;
+  const closeTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleHoverIn = useCallback(() => {
+    if (showTooltipRef.current) {
+      if (closeTooltipTimer.current) {
+        clearTimeout(closeTooltipTimer.current);
+      }
+    } else {
+      showTooltipTimer.current = setTimeout(() => {
+        setIsHovered(true);
+      }, 250);
+    }
+  }, []);
+  const dismissTooltip = useCallback(() => {
+    setIsHovered(false);
+  }, []);
+  const handleHoverOut = useCallback(() => {
+    if (showTooltipRef.current) {
+      closeTooltipTimer.current = setTimeout(() => {
+        dismissTooltip();
+      }, 300);
+    } else if (showTooltipTimer.current) {
+      clearTimeout(showTooltipTimer.current);
+    }
+  }, [dismissTooltip]);
+  return {
+    setIsHovered,
+    isHovered,
+    onContentHoverIn: handleHoverIn,
+    onContentHoverOut: handleHoverOut,
+  };
+};
 
 export function TooltipText({
   children,
@@ -115,10 +161,12 @@ export function Tooltip({
   renderContent,
   placement = 'bottom',
   shortcutKey,
+  hovering,
+  contentProps,
+  ref,
   ...props
 }: ITooltipProps) {
   const transformOrigin = transformOriginMap[placement] || 'bottom center';
-
   const contentStyle = useMemo(
     () =>
       ({
@@ -128,7 +176,11 @@ export function Tooltip({
   );
 
   const [isShow, setIsShow] = useState(false);
+  const [forceClose, setForceClose] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
+
+  const { isHovered, setIsHovered, onContentHoverIn, onContentHoverOut } =
+    useHoverTooltip();
 
   const renderTooltipContent = useMemo(() => {
     if (typeof renderContent === 'string') {
@@ -146,44 +198,115 @@ export function Tooltip({
     return renderContent;
   }, [renderContent, shortcutKey]);
 
+  const isOpen = useMemo(() => {
+    if (forceClose) {
+      return false;
+    }
+    if (hovering) {
+      return isHovered;
+    }
+    return isDisabled ? false : isShow;
+  }, [forceClose, hovering, isDisabled, isShow, isHovered]);
+
+  const handleHoverIn = useCallback(() => {
+    if (hovering) {
+      onContentHoverIn();
+    }
+  }, [hovering, onContentHoverIn]);
+
+  const handleHoverOut = useCallback(() => {
+    if (hovering) {
+      onContentHoverOut();
+    }
+  }, [hovering, onContentHoverOut]);
+
+  const closeTooltip = useCallback(() => {
+    return new Promise<void>((resolve) => {
+      setForceClose(true);
+      setIsShow(false);
+      setIsHovered(false);
+      setTimeout(() => {
+        resolve();
+      }, 150);
+      setTimeout(() => {
+        setForceClose(false);
+      }, 200);
+    });
+  }, [setIsHovered, setIsShow, setForceClose]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      closeTooltip,
+      openTooltip: () => {
+        return new Promise<void>((resolve) => {
+          setIsShow(true);
+          setIsHovered(true);
+          setTimeout(() => {
+            resolve();
+          }, 50);
+        });
+      },
+    }),
+    [closeTooltip, setIsHovered],
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      closeTooltip,
+    }),
+    [closeTooltip],
+  );
   return (
-    <TMTooltip
-      unstyled
-      disableAutoCloseOnScroll
-      delay={0}
-      offset={6}
-      open={isDisabled ? false : isShow}
-      onOpenChange={setIsShow}
-      allowFlip
-      placement={placement}
-      {...props}
-    >
-      <TMTooltip.Trigger>{renderTrigger}</TMTooltip.Trigger>
-      <TMTooltip.Content
+    <TooltipContext.Provider value={contextValue}>
+      <TMTooltip
+        ref={ref}
         unstyled
-        maxWidth="$72"
-        bg="$bg"
-        borderRadius="$2"
-        py="$2"
-        px="$3"
-        outlineWidth="$px"
-        outlineStyle="solid"
-        outlineColor="$neutral3"
-        elevation={10}
-        style={contentStyle}
-        enterStyle={{
-          scale: 0.95,
-          opacity: 0,
-        }}
-        exitStyle={{ scale: 0.95, opacity: 0 }}
-        animation="quick"
+        disableAutoCloseOnScroll
+        delay={0}
+        offset={6}
+        open={isOpen}
+        onOpenChange={setIsShow}
+        allowFlip
+        placement={placement}
+        {...props}
       >
-        {renderTooltipContent}
-      </TMTooltip.Content>
-    </TMTooltip>
+        <TMTooltip.Trigger
+          onHoverIn={handleHoverIn}
+          onHoverOut={handleHoverOut}
+        >
+          {renderTrigger}
+        </TMTooltip.Trigger>
+        <TMTooltip.Content
+          unstyled
+          maxWidth="$72"
+          bg="$bg"
+          borderRadius="$2"
+          py="$2"
+          px="$3"
+          outlineWidth="$px"
+          outlineStyle="solid"
+          outlineColor="$neutral3"
+          {...contentProps}
+          elevation={10}
+          style={contentStyle}
+          enterStyle={{
+            scale: 0.95,
+            opacity: 0,
+          }}
+          exitStyle={{ scale: 0.95, opacity: 0 }}
+          animation="quick"
+          onHoverIn={handleHoverIn}
+          onHoverOut={handleHoverOut}
+        >
+          {renderTooltipContent}
+        </TMTooltip.Content>
+      </TMTooltip>
+    </TooltipContext.Provider>
   );
 }
 
 Tooltip.Text = TooltipText;
 
+export * from './context';
 export * from './type';

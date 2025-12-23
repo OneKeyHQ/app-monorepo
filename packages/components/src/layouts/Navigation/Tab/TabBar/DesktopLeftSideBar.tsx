@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import { IconButton, Tooltip } from '@onekeyhq/components/src/actions';
-import type { IActionListSection } from '@onekeyhq/components/src/actions';
+import type {
+  IActionListSection,
+  ITooltipRef,
+} from '@onekeyhq/components/src/actions';
 import {
   EPortalContainerConstantName,
   Portal,
@@ -176,34 +178,6 @@ function MoreTabItemView({
   descriptors: BottomTabBarProps['descriptors'];
 }) {
   const intl = useIntl();
-  const [isHovered, setIsHovered] = useState(false);
-  const showTooltipRef = useRef(isHovered);
-  showTooltipRef.current = isHovered;
-  const closeTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleHoverIn = useCallback(() => {
-    if (showTooltipRef.current) {
-      if (closeTooltipTimer.current) {
-        clearTimeout(closeTooltipTimer.current);
-      }
-    } else {
-      showTooltipTimer.current = setTimeout(() => {
-        setIsHovered(true);
-      }, 250);
-    }
-  }, []);
-  const dismissTooltip = useCallback(() => {
-    setIsHovered(false);
-  }, []);
-  const handleHoverOut = useCallback(() => {
-    if (showTooltipRef.current) {
-      closeTooltipTimer.current = setTimeout(() => {
-        dismissTooltip();
-      }, 300);
-    } else if (showTooltipTimer.current) {
-      clearTimeout(showTooltipTimer.current);
-    }
-  }, [dismissTooltip]);
 
   const routeNames = useMemo(() => {
     return routes.map((route) => route.name);
@@ -217,6 +191,8 @@ function MoreTabItemView({
     return routeNames.includes(focusRouteName);
   }, [routeNames, focusRouteName]);
 
+  const tooltipRef = useRef<ITooltipRef>(null);
+
   const routesElements = useMemo(() => {
     return routes.map((route) => {
       const focus = focusRouteName === route.name;
@@ -225,7 +201,8 @@ function MoreTabItemView({
           tabbarOnPress?: () => void;
         };
       };
-      const onPress = () => {
+      const onPress = async () => {
+        await tooltipRef.current?.closeTooltip();
         const event = navigation.emit({
           type: 'tabPress',
           target: route.key,
@@ -246,28 +223,22 @@ function MoreTabItemView({
           key={route.key}
           route={route}
           onPress={onPress}
-          onPressOut={dismissTooltip}
           isActive={focus}
           options={options}
           isCollapse={false}
         />
       );
     });
-  }, [routes, focusRouteName, descriptors, dismissTooltip, navigation]);
+  }, [routes, focusRouteName, descriptors, navigation]);
 
   return (
     <Tooltip
-      open={isHovered}
+      ref={tooltipRef as React.RefObject<ITooltipRef>}
       placement="right-start"
       offset={{ mainAxis: 6, crossAxis: -28 }}
+      hovering
       renderTrigger={
-        <YStack
-          userSelect="none"
-          gap="$0.5"
-          py="$1.5"
-          onHoverIn={handleHoverIn}
-          onHoverOut={handleHoverOut}
-        >
+        <YStack userSelect="none" gap="$0.5" py="$1.5">
           <YStack
             p="$2"
             borderRadius="$2"
@@ -295,12 +266,7 @@ function MoreTabItemView({
         </YStack>
       }
       renderContent={
-        <YStack
-          minWidth={180}
-          onHoverIn={handleHoverIn}
-          onHoverOut={handleHoverOut}
-          pb="$1"
-        >
+        <YStack minWidth={180} pb="$1">
           <SizableText size="$headingSm" pb="$1" pl="$2.5">
             {intl.formatMessage({
               id: ETranslations.global_more,
@@ -484,8 +450,6 @@ export function DesktopLeftSideBar({
       style={{
         backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
-        borderRightColor: theme.neutral4.val,
-        borderRightWidth: StyleSheet.hairlineWidth,
         zIndex: 2,
       }}
     >
@@ -601,8 +565,8 @@ export function DesktopLeftSideBar({
             <YStack
               position="absolute"
               left={8}
-              top={0}
-              bottom={0}
+              top={64}
+              bottom={20}
               width={1.5}
               bg="$borderStrong"
               pointerEvents="none"

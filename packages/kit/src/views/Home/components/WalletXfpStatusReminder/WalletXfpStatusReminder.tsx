@@ -12,6 +12,7 @@ import {
   SizableText,
   XStack,
   usePopoverContext,
+  useTooltipContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -113,7 +114,7 @@ function WalletXfpStatusReminderCmp() {
   const walletId = activeAccount?.wallet?.id;
   const deprecated = activeAccount?.wallet?.deprecated;
   const { closePopover } = usePopoverContext();
-
+  const { closeTooltip } = useTooltipContext();
   const [hardwareWalletXfpStatus] = useHardwareWalletXfpStatusAtom();
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -147,13 +148,21 @@ function WalletXfpStatusReminderCmp() {
           message={message}
           onPress={async () => {
             await closePopover?.();
+            await closeTooltip?.();
             await showUpdateHardwareWalletLegacyXfpDialog({ walletId });
           }}
         />
       );
     }
     return null;
-  }, [deprecated, walletId, hardwareWalletXfpStatus, intl, closePopover]);
+  }, [
+    deprecated,
+    walletId,
+    hardwareWalletXfpStatus,
+    intl,
+    closePopover,
+    closeTooltip,
+  ]);
 
   return <XStack>{updateButton}</XStack>;
 }

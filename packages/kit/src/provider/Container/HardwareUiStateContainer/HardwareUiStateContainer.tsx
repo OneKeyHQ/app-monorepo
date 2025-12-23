@@ -756,14 +756,11 @@ function HardwareUiStateContainerCmpControlled() {
           title: intl.formatMessage({
             id: ETranslations.communication_timeout,
           }),
+          description: intl.formatMessage({
+            id: ETranslations.troubleshooting_show_helper_cta_label,
+          }),
           showFooter: false,
-          renderContent: (
-            <DeviceNotFoundDialogContent
-              connectId={payload?.connectId as string | undefined}
-              // @ts-expect-error
-              inBluetoothCommunication={payload?.inBluetoothCommunication}
-            />
-          ),
+          renderContent: <DeviceNotFoundDialogContent />,
         });
       },
       2500, // Same throttle duration as other hardware dialog instances

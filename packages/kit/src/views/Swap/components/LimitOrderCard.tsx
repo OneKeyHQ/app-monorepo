@@ -81,11 +81,7 @@ const LimitOrderCard = ({
       dateStr = formatDistanceStrict(new Date(date), now);
     }
     return (
-      <YStack
-        gap="$1.5"
-        justifyContent="flex-start"
-        minWidth={gtMd ? 150 : 180}
-      >
+      <YStack gap="$1.5" justifyContent="flex-start" minWidth={gtMd ? 100 : 80}>
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status_expired })}
         </SizableText>
@@ -100,12 +96,6 @@ const LimitOrderCard = ({
   }, [item]);
 
   const tokenInfo = useCallback(() => {
-    const fromAmountFormatted = new BigNumber(fromAmount).shiftedBy(
-      -(fromTokenInfo?.decimals ?? 0),
-    );
-    const toAmountFormatted = new BigNumber(toAmount).shiftedBy(
-      -(toTokenInfo?.decimals ?? 0),
-    );
     return (
       <XStack gap="$8" alignItems="center">
         <SwapTxHistoryAvatar
@@ -114,20 +104,11 @@ const LimitOrderCard = ({
         />
         <YStack>
           <XStack alignItems="center" gap="$1" flex={1}>
-            {gtMd ? (
-              <NumberSizeableText size="$bodyMd" formatter="balance">
-                {fromAmountFormatted.toFixed()}
-              </NumberSizeableText>
-            ) : null}
             <SizableText size="$bodyMd" numberOfLines={1}>
               {fromTokenInfo?.symbol ?? '-'}
             </SizableText>
             <SizableText size="$bodyMd">→</SizableText>
-            {gtMd ? (
-              <NumberSizeableText size="$bodyMd" formatter="balance">
-                {toAmountFormatted.toFixed()}
-              </NumberSizeableText>
-            ) : null}
+
             <SizableText size="$bodyMd" numberOfLines={1}>
               {toTokenInfo?.symbol ?? '-'}
             </SizableText>
@@ -139,16 +120,11 @@ const LimitOrderCard = ({
       </XStack>
     );
   }, [
-    fromAmount,
-    fromTokenInfo?.decimals,
     fromTokenInfo?.logoURI,
     fromTokenInfo?.symbol,
-    toAmount,
-    toTokenInfo?.decimals,
     toTokenInfo?.logoURI,
     toTokenInfo?.symbol,
     networkName,
-    gtMd,
   ]);
   const decimalsAmount = useMemo(
     () => ({
@@ -179,13 +155,37 @@ const LimitOrderCard = ({
     const limitPriceFormat = formatBalance(calculateLimitPrice);
     return limitPriceFormat.formattedValue;
   }, [decimalsAmount, fromTokenInfo?.decimals]);
+  const renderAmount = useCallback(() => {
+    const fromAmountFormatted = formatBalance(
+      decimalsAmount.fromAmount.toFixed(),
+    );
+    const toAmountFormatted = formatBalance(decimalsAmount.toAmount.toFixed());
+
+    return (
+      <YStack gap="$1.5" w={gtMd ? 200 : 240} justifyContent="flex-start">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.wallet_defi_portfolio_column_amount,
+          })}
+        </SizableText>
+        <SizableText size="$bodySm" numberOfLines={2}>
+          {intl.formatMessage(
+            { id: ETranslations.swap_limit_amount },
+            {
+              num1: fromAmountFormatted.formattedValue,
+              fromToken: item?.fromTokenInfo?.symbol ?? '-',
+              num2: toAmountFormatted.formattedValue,
+              toToken: item?.toTokenInfo?.symbol ?? '-',
+            },
+          )}
+        </SizableText>
+      </YStack>
+    );
+  }, [decimalsAmount, item, gtMd, intl]);
+
   const renderLimitOrderPrice = useCallback(
     () => (
-      <YStack
-        gap="$1.5"
-        minWidth={gtMd ? 200 : 180}
-        justifyContent="flex-start"
-      >
+      <YStack gap="$1.5" width={gtMd ? 200 : 240} justifyContent="flex-start">
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_limit_price })}
         </SizableText>
@@ -275,7 +275,7 @@ const LimitOrderCard = ({
             {label}
           </SizableText>
           <Progress
-            w={progressWidth}
+            w={gtMd ? progressWidth : 120}
             h="$1"
             progressColor="$neutral5"
             indicatorColor="$textSuccess"
@@ -295,6 +295,7 @@ const LimitOrderCard = ({
     fromTokenInfo?.decimals,
     toAmount,
     toTokenInfo?.decimals,
+    gtMd,
   ]);
 
   return (
@@ -354,7 +355,12 @@ const LimitOrderCard = ({
         ) : null}
       </XStack>
       <Divider />
-      <XStack gap="$3" flexWrap="wrap" justifyContent="flex-start">
+      <XStack
+        gap={gtMd ? '$4' : '$3'}
+        flexWrap="wrap"
+        justifyContent="flex-start"
+      >
+        {renderAmount()}
         {renderLimitOrderPrice()}
         {expirationTitle}
         {renderLimitOrderStatus()}
