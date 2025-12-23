@@ -10,14 +10,16 @@ import {
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSliderValueAtom,
+  useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
-import type {
-  IFetchLimitOrderRes,
-  ISwapProSpeedConfig,
-  ISwapToken,
+import {
+  ESwapProTradeType,
+  type IFetchLimitOrderRes,
+  type ISwapProSpeedConfig,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
@@ -41,6 +43,8 @@ interface ISwapProContainerProps {
   onSwapProActionClick: () => void;
   handleSelectAccountClick: () => void;
   onProMarketDetail: () => void;
+  onSelectPercentageStage: (stage: number) => void;
+  onBalanceMaxPress: () => void;
   config: {
     isLoading: boolean;
     speedConfig: ISwapProSpeedConfig;
@@ -57,6 +61,8 @@ const SwapProContainer = ({
   onSwapProActionClick,
   handleSelectAccountClick,
   onProMarketDetail,
+  onBalanceMaxPress,
+  onSelectPercentageStage,
   config,
 }: ISwapProContainerProps) => {
   const {
@@ -68,6 +74,10 @@ const SwapProContainer = ({
     networkList,
   } = config;
   const [refreshing, setRefreshing] = useState(false);
+  const [limitPriceUseMarketPrice, setLimitPriceUseMarketPrice] = useState({
+    value: '',
+    change: false,
+  });
   const [activeTab, setActiveTab] = useState<ETabName | string>(
     ETabName.Positions,
   );
@@ -79,6 +89,7 @@ const SwapProContainer = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
     useSwapProTokenInfoSync();
@@ -194,14 +205,26 @@ const SwapProContainer = ({
       </XStack>
       <XStack mt="$2" gap="$4" pb="$4" alignItems="stretch">
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
-          <SwapProTradeInfoPanel />
+          <SwapProTradeInfoPanel
+            onPricePress={(price) => {
+              if (swapProTradeType === ESwapProTradeType.LIMIT) {
+                setLimitPriceUseMarketPrice((prev) => ({
+                  value: price,
+                  change: !prev.change,
+                }));
+              }
+            }}
+          />
         </YStack>
         <YStack flexBasis="60%" flexShrink={1} alignSelf="stretch">
           <SwapProTradingPanel
             swapProConfig={speedConfig}
             configLoading={isLoading}
             balanceLoading={balanceLoading}
+            limitPriceUseMarketPrice={limitPriceUseMarketPrice}
             isMev={isMEV}
+            onBalanceMax={onBalanceMaxPress}
+            onSelectPercentageStage={onSelectPercentageStage}
             onSwapProActionClick={onSwapProActionClick}
             hasEnoughBalance={hasEnoughBalance}
             handleSelectAccountClick={handleSelectAccountClick}

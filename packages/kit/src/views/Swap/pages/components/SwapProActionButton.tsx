@@ -177,7 +177,7 @@ const SwapProActionButton = ({
       if (quoteToAmountBN.isNaN() || quoteToAmountBN.isZero()) {
         return '';
       }
-      return quoteToAmountBN.dividedBy(toPrice).toFixed();
+      return quoteToAmountBN.multipliedBy(toPrice).toFixed();
     }
     if (inputPrice.isNaN() || inputPrice.isZero()) {
       return '';

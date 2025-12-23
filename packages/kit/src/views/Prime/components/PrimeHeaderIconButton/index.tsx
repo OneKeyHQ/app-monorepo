@@ -14,6 +14,7 @@ export function PrimeHeaderIconButtonLazy({
   visible: boolean;
   onPress?: () => void;
   networkId?: string;
+  size?: 'small' | 'medium';
 }) {
   if (!visible) {
     return null;

@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
@@ -140,12 +141,16 @@ export function showMarginModeDialog(
     id: ETranslations.perp_trade_margin_type,
   })}`;
 
-  const DialogInstance = dialog || Dialog;
+  const DialogInstance =
+    platformEnv.isNativeAndroid || !dialog ? Dialog : dialog;
+
   const dialogInstance = DialogInstance.show({
     title,
-    floatingPanelProps: {
-      width: 400,
-    },
+    floatingPanelProps: platformEnv.isNativeAndroid
+      ? undefined
+      : {
+          width: 400,
+        },
     renderContent: (
       <PerpsProviderMirror>
         <MarginModeContent
