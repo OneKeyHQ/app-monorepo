@@ -10,7 +10,6 @@ export { OAuthPopup } from './OAuthPopup';
 // Re-export types
 export type {
   IHandleOAuthSessionPersistenceParams,
-  INativeOAuthConfig,
   IOAuthPopupOptions,
   IOAuthPopupResult,
   IOpenOAuthPopupOptions,

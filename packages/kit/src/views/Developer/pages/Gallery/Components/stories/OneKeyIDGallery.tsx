@@ -17,6 +17,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import {
+  SUPABASE_PROJECT_URL,
+  SUPABASE_PUBLIC_API_KEY,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -128,6 +132,33 @@ function OneKeyIDApiTests() {
       </XStack>
 
       <SizableText size="$headingMd" mt="$2">
+        Supabase Config (Debug)
+      </SizableText>
+      <YStack
+        gap="$2"
+        padding="$3"
+        backgroundColor="$bgSubdued"
+        borderRadius="$2"
+      >
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            PROJECT_URL:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {SUPABASE_PROJECT_URL || '(empty)'}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            PUBLIC_API_KEY:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {SUPABASE_PUBLIC_API_KEY || '(empty)'}
+          </SizableText>
+        </XStack>
+      </YStack>
+
+      <SizableText size="$headingMd" mt="$2">
         OAuth Sign In
       </SizableText>
 
@@ -177,7 +208,14 @@ function OneKeyIDApiTests() {
             try {
               setLoading('apple');
               const result = await signInWithApple({ persistSession });
-              if (result.success) {
+              if (result.success && result.session?.accessToken) {
+                // Set access token
+                setAccessToken(result.session.accessToken);
+                // Decode JWT token
+                const decoded = stringUtils.decodeJWT(
+                  result.session.accessToken,
+                );
+                setDecodedToken(decoded);
                 Toast.success({
                   title: 'Apple Sign In Success',
                   message: 'You are now signed in with Apple',

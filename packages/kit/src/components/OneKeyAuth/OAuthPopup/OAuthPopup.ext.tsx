@@ -207,9 +207,24 @@ export class OAuthPopup extends OAuthPopupBase {
         }
 
         const url = new URL(callbackUrl);
+        const expectedUrl = new URL(redirectUrl);
 
-        if (!callbackUrl.startsWith(redirectUrl)) {
-          throw new OneKeyLocalError('Invalid OAuth redirect URL');
+        // Extract onekey_oauth_state from both URLs for comparison
+        const oneKeyState = url.searchParams.get(ONEKEY_OAUTH_STATE_KEY);
+        const expectedOneKeyState = expectedUrl.searchParams.get(
+          ONEKEY_OAUTH_STATE_KEY,
+        );
+
+        // Compare origin, pathname, and onekey_oauth_state
+        // Query params order may differ, so we compare them separately
+        if (
+          url.origin !== expectedUrl.origin ||
+          url.pathname !== expectedUrl.pathname ||
+          oneKeyState !== expectedOneKeyState
+        ) {
+          throw new OneKeyLocalError(
+            'OAuth callback URL does not match expected redirect URL',
+          );
         }
 
         const error =
@@ -221,7 +236,6 @@ export class OAuthPopup extends OAuthPopupBase {
 
         const code = url.searchParams.get('code');
         const state = url.searchParams.get('state');
-        const oneKeyState = url.searchParams.get(ONEKEY_OAUTH_STATE_KEY);
 
         if (!code) {
           throw new OneKeyLocalError('Authorization code is missing');

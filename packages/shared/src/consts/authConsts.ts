@@ -166,3 +166,4 @@ export const SUPABASE_PUBLIC_API_KEY = IS_DEV
 
 // Supabase DOCS
 // - https://supabase.com/docs/guides/auth/social-login/auth-google
+// - https://react-native-google-signin.github.io/docs/setting-up/ios

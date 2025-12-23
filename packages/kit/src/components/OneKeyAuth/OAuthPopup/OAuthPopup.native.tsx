@@ -1,4 +1,5 @@
 /* eslint-disable spellcheck/spell-checker */
+import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 
 import {
@@ -100,6 +101,23 @@ export class OAuthPopup extends OAuthPopupBase {
   // ============ Private Methods - GoogleSignin ============
 
   /**
+   * Generate a random nonce and its SHA-256 hash.
+   * The hash is passed to Google Sign-In, and the raw nonce to Supabase.
+   * This is required for iOS where the ID token contains a nonce.
+   */
+  private static async generateNonce(): Promise<{
+    rawNonce: string;
+    hashedNonce: string;
+  }> {
+    const rawNonce = Crypto.randomUUID();
+    const hashedNonce = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      rawNonce,
+    );
+    return { rawNonce, hashedNonce };
+  }
+
+  /**
    * Check if error indicates GoogleSignin is not properly configured
    * and we should fall back to WebBrowser.
    */
@@ -157,6 +175,10 @@ export class OAuthPopup extends OAuthPopupBase {
     // Configure GoogleSignin (lazy loaded)
     const GoogleSignin = await OAuthPopup.configureGoogleSignin();
 
+    // Generate nonce for security validation (required for iOS)
+    // The hashed nonce is passed to Google, raw nonce is passed to Supabase
+    const { rawNonce, hashedNonce } = await OAuthPopup.generateNonce();
+
     try {
       // Check if Google Play Services is available (Android only)
       if (platformEnv.isNativeAndroid) {
@@ -165,12 +187,15 @@ export class OAuthPopup extends OAuthPopupBase {
         });
       }
 
-      // Perform Google Sign-In
+      // Perform Google Sign-In with hashed nonce
       // The signIn() method returns different types based on library version:
       // - v9+: SignInResponse with { type: 'success' | 'cancelled', data?: User }
       // - older: User directly
       // We handle both cases for compatibility
-      const signInResult = await GoogleSignin.signIn();
+      // Note: nonce is supported by the native SDK but not typed in current library version
+      const signInResult = await GoogleSignin.signIn({
+        nonce: hashedNonce,
+      } as Parameters<typeof GoogleSignin.signIn>[0]);
 
       // Extract idToken - handle both v9+ and older API
       // v9+: signInResult may have .type and .data properties
@@ -205,9 +230,11 @@ export class OAuthPopup extends OAuthPopupBase {
 
       // Exchange Google ID token for Supabase session
       // Per Supabase docs: https://supabase.com/docs/guides/auth/social-login/auth-google
+      // The raw nonce must be passed to Supabase to validate against the hashed nonce in the ID token
       const { data, error } = await client.auth.signInWithIdToken({
         provider: 'google',
         token: idToken,
+        nonce: rawNonce,
       });
 
       if (error) {
