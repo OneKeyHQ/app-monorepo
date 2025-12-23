@@ -721,16 +721,24 @@ export const Dialog = {
 export enum EInPageDialogType {
   inTabPages = 'inTabPages',
   inModalPage = 'inModalPage',
+  inOnboardingPage = 'inOnboardingPage',
 }
 export const useInPageDialog = (dialogType?: EInPageDialogType) => {
   const navigatorPortalId = useModalNavigatorContextPortalId();
   const { pagePortalId } = usePageContext();
   const pageType = usePageType();
-  const type =
-    dialogType ||
-    (pageType === EPageType.modal
-      ? EInPageDialogType.inModalPage
-      : EInPageDialogType.inTabPages);
+  const type = useMemo(() => {
+    if (dialogType) {
+      return dialogType;
+    }
+    if (pageType === EPageType.modal) {
+      return EInPageDialogType.inModalPage;
+    }
+    if (pageType === EPageType.onboarding) {
+      return EInPageDialogType.inOnboardingPage;
+    }
+    return EInPageDialogType.inTabPages;
+  }, [dialogType, pageType]);
   const portalId = useMemo(() => {
     if (type === EInPageDialogType.inTabPages) {
       return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;
