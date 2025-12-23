@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { ISelectItem, UseFormReturn } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Form,
+  Icon,
   Input,
   Select,
   Stack,
@@ -277,6 +279,23 @@ function PrimeProfileDialogContent() {
         <YStack gap="$4">
           <XStack jc="center">
             <OneKeyIdAvatar size="$20" />
+            <XStack position="relative">
+              <XStack
+                bg="$bg"
+                w={30}
+                h={30}
+                jc="center"
+                ai="center"
+                borderRadius="$full"
+                position="absolute"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$bgApp"
+                right={0}
+                bottom={0}
+              >
+                <Icon name="EditOutline" size="$4" color="$icon" />
+              </XStack>
+            </XStack>
           </XStack>
           <Form.Field
             label="Nickname"
