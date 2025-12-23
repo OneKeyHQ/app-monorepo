@@ -1149,7 +1149,7 @@ function MoreActionButtonCmp() {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return isDesktopMode ? (
     <Tooltip
-      open
+      hovering
       contentProps={{
         maxWidth: 384,
         width: 384,
