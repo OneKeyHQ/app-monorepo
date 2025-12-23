@@ -123,7 +123,7 @@ const ApyChartBaseComponent = ({
     <YStack gap="$2">
       {title ? <SizableText size="$bodyMdMedium">{title}</SizableText> : null}
 
-      {isLoading && !chartData ? (
+      {isLoading ? (
         <Stack
           $gtMd={{ height: 200 }}
           $md={{ height: 180 }}

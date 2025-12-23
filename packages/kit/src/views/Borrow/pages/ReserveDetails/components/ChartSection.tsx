@@ -58,7 +58,7 @@ export function ChartSection({
       return apyHistoryItems.items ?? [];
     },
     [networkId, provider, marketAddress, reserveAddress, timePeriod],
-    { watchLoading: true },
+    { watchLoading: true, undefinedResultIfReRun: true },
   );
 
   const { supplyHistory, borrowHistory, latestSupplyApy, latestBorrowApy } =
