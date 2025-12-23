@@ -10,6 +10,7 @@ import {
   Dialog,
   Form,
   Icon,
+  Image,
   ImageCrop,
   Input,
   Select,
@@ -19,7 +20,10 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
-import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import type {
+  IDialogInstance,
+  IDialogShowProps,
+} from '@onekeyhq/components/src/composite/Dialog/type';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4CoinTypeToNetworkId } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
@@ -29,16 +33,19 @@ import type {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId/OneKeyIdAvatar';
+import {
+  OneKeyIdAvatar,
+  OneKeyIdFallbackAvatar,
+} from '../../views/Setting/pages/OneKeyId/OneKeyIdAvatar';
 import { buildChangeHistoryInputAddon } from '../ChangeHistoryDialog/ChangeHistoryDialog';
 import { NetworkAvatar } from '../NetworkAvatar';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
-import { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 function V4AccountNameSelector({
   onChange,
@@ -287,12 +294,35 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
       form.setValue('avatar', image.data);
     }
   }, [form]);
+  const userAvatar = form.watch('avatar');
+  const handleSubmit = useCallback(
+    async ({
+      preventClose,
+      close,
+    }: {
+      preventClose: () => void;
+      close: IDialogInstance['close'];
+    }) => {
+      preventClose();
+      await form.trigger();
+      await form.submit?.();
+      await close();
+    },
+    [form],
+  );
   return (
     <>
       <Form form={form}>
         <YStack gap="$4">
           <XStack jc="center" onPress={handlePickAvatar} cursor="pointer">
-            <OneKeyIdAvatar size="$20" />
+            <Image
+              size="$20"
+              borderRadius="$full"
+              borderWidth={1}
+              borderColor="$neutral3"
+              source={userAvatar ? { uri: userAvatar } : undefined}
+              fallback={<OneKeyIdFallbackAvatar size="$20" />}
+            />
             <XStack position="relative">
               <XStack
                 bg="$bg"
@@ -348,7 +378,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
       </Form>
       <Dialog.Footer
         showCancelButton={false}
-        onConfirm={form.submit}
+        onConfirm={handleSubmit}
         confirmButtonProps={{
           loading: form.formState.isSubmitting,
         }}
