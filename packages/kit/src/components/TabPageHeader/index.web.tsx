@@ -76,16 +76,6 @@ export function TabPageHeader({
   const { gtMd } = useMedia();
   const theme = useTheme();
 
-  const renderUniversalSearchInput = useCallback(
-    () => <UniversalSearchInput />,
-    [],
-  );
-
-  const renderNotificationRightButton = useCallback(
-    () => <HeaderNotificationIconButton testID="header-right-notification" />,
-    [],
-  );
-
   if (gtMd) {
     return (
       <Page.Header
