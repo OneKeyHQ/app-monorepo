@@ -1104,7 +1104,7 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   }, []);
   return isDesktopMode ? (
     <XStack userSelect="none" py="$1.5">
-      <XStack gap="$0.5">
+      <XStack gap="$0.5" ai="center">
         <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
           <Icon name="DotGridOutline" size="$5" />
         </YStack>
@@ -1115,7 +1115,7 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
             cursor="default"
             color="$text"
             textAlign="center"
-            size="$bodyXsMedium"
+            size="$bodyMd"
           >
             {intl.formatMessage({
               id: ETranslations.global_more,
