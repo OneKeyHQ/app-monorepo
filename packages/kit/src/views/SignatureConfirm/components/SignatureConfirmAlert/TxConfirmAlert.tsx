@@ -159,6 +159,12 @@ function TxConfirmAlert(props: IProps) {
                 accountId,
                 walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
                 token: nativeTokenInfo.info,
+                onClose: () => {
+                  appEventBus.emit(
+                    EAppEventBusNames.RefreshNativeTokenInfo,
+                    undefined,
+                  );
+                },
               },
             });
           },

@@ -11,7 +11,7 @@ import {
   Stack,
   XStack,
   rootNavigationRef,
-  useIsModalPage,
+  useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -113,7 +113,7 @@ const SwapActionsState = ({
   const themeVariant = useThemeVariant();
   const quoting = useSwapQuoteEventFetching();
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
 
   const onActionHandlerBefore = useCallback(async () => {

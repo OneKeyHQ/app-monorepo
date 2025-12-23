@@ -126,6 +126,7 @@ const LeverageContent = memo(
                 }}
                 InputComponentStyle={{
                   p: 0,
+                  h: platformEnv.isNativeAndroid ? 54 : undefined,
                 }}
                 fontSize={
                   platformEnv.isNativeAndroid ? 34 : getFontSize('$heading5xl')
@@ -140,7 +141,11 @@ const LeverageContent = memo(
                 addOns={[
                   {
                     renderContent: (
-                      <XStack alignItems="center" pr="$1">
+                      <XStack
+                        alignItems="center"
+                        pr="$1"
+                        h={platformEnv.isNativeAndroid ? 36 : undefined}
+                      >
                         <Icon name="CrossedSmallOutline" size="$5" />
                       </XStack>
                     ),

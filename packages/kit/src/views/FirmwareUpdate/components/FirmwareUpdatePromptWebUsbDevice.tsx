@@ -9,10 +9,12 @@ import type { IFirmwareUpdateStepInfo } from '@onekeyhq/kit-bg/src/states/jotai/
 import { useFirmwareUpdateStepInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-export function FirmwareUpdatePromptBootloaderWebDevice({
+export function FirmwareUpdatePromptWebUsbDevice({
   previousStepInfo,
+  requestType = 'bootloader',
 }: {
   previousStepInfo: IFirmwareUpdateStepInfo | undefined;
+  requestType?: 'bootloader' | 'switchFirmware';
 }) {
   const intl = useIntl();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -24,11 +26,19 @@ export function FirmwareUpdatePromptBootloaderWebDevice({
     setIsConnecting(true);
     try {
       const device = await promptWebUsbDeviceAccess();
-      await backgroundApiProxy.serviceHardwareUI.sendRequestDeviceInBootloaderForWebDevice(
-        {
-          deviceId: device.serialNumber ?? '',
-        },
-      );
+      if (requestType === 'switchFirmware') {
+        await backgroundApiProxy.serviceHardwareUI.sendRequestDeviceForSwitchFirmwareWebDevice(
+          {
+            deviceId: device.serialNumber ?? '',
+          },
+        );
+      } else {
+        await backgroundApiProxy.serviceHardwareUI.sendRequestDeviceInBootloaderForWebDevice(
+          {
+            deviceId: device.serialNumber ?? '',
+          },
+        );
+      }
       if (previousStepInfo) {
         setStepInfo({
           ...previousStepInfo,
@@ -39,7 +49,7 @@ export function FirmwareUpdatePromptBootloaderWebDevice({
     } finally {
       setIsConnecting(false);
     }
-  }, [promptWebUsbDeviceAccess, setStepInfo, previousStepInfo]);
+  }, [promptWebUsbDeviceAccess, requestType, setStepInfo, previousStepInfo]);
 
   return (
     <Stack alignItems="center" justifyContent="flex-start">

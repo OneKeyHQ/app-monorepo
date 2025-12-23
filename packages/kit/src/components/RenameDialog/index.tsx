@@ -1,19 +1,30 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import type { ISelectItem } from '@onekeyhq/components';
+import type { ISelectItem, UseFormReturn } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Form,
+  Icon,
+  Image,
+  ImageCrop,
   Input,
   Select,
   Stack,
   Toast,
+  XStack,
+  YStack,
+  useForm,
+  useInPageDialog,
 } from '@onekeyhq/components';
-import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import type {
+  IDialogInstance,
+  IDialogShowProps,
+} from '@onekeyhq/components/src/composite/Dialog/type';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4CoinTypeToNetworkId } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
@@ -23,11 +34,17 @@ import type {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import {
+  OneKeyIdAvatar,
+  OneKeyIdFallbackAvatar,
+} from '../../views/Setting/pages/OneKeyId/OneKeyIdAvatar';
 import { buildChangeHistoryInputAddon } from '../ChangeHistoryDialog/ChangeHistoryDialog';
 import { NetworkAvatar } from '../NetworkAvatar';
+import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
 
@@ -242,3 +259,149 @@ export const showRenameDialog = (
     },
     ...dialogProps,
   });
+
+interface IPrimeProfileFormValues {
+  avatar: string | undefined;
+  nickname: string | undefined;
+}
+
+function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
+  const formOption = useMemo(
+    () => ({
+      defaultValues: {
+        avatar: user?.avatar,
+        nickname: user?.nickname,
+      },
+      onSubmit: async (form: UseFormReturn<IPrimeProfileFormValues>) => {
+        const values = form.getValues();
+        if (values.avatar && values.nickname) {
+          await backgroundApiProxy.servicePrime.updatePrimeUserProfile({
+            avatar: values.avatar,
+            nickname: values.nickname,
+          });
+        }
+      },
+    }),
+    [user?.avatar, user?.nickname],
+  );
+  const form = useForm<IPrimeProfileFormValues>(formOption);
+  const handlePickAvatar = useCallback(async () => {
+    const image = await ImageCrop.openPicker({
+      width: 240,
+      height: 240,
+      compressImageQuality: 0.8,
+    });
+    if (image.data) {
+      form.setValue('avatar', image.data);
+    }
+  }, [form]);
+  const userAvatar = form.watch('avatar');
+  const handleSubmit = useCallback(
+    async ({
+      preventClose,
+      close,
+    }: {
+      preventClose: () => void;
+      close: IDialogInstance['close'];
+    }) => {
+      preventClose();
+      await form.trigger();
+      await form.submit?.();
+      await close();
+    },
+    [form],
+  );
+  return (
+    <>
+      <Form form={form}>
+        <YStack gap="$4">
+          <XStack jc="center" onPress={handlePickAvatar} cursor="pointer">
+            <Image
+              size="$20"
+              borderRadius="$full"
+              borderWidth={1}
+              borderColor="$neutral3"
+              source={userAvatar ? { uri: userAvatar } : undefined}
+              fallback={<OneKeyIdFallbackAvatar size="$20" />}
+            />
+            <XStack position="relative">
+              <XStack
+                bg="$bg"
+                w={30}
+                h={30}
+                jc="center"
+                ai="center"
+                borderRadius="$full"
+                position="absolute"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$bgApp"
+                right={0}
+                bottom={0}
+              >
+                <Icon name="EditOutline" size="$4" color="$icon" />
+              </XStack>
+            </XStack>
+          </XStack>
+          <Form.Field
+            label="Nickname"
+            name="nickname"
+            rules={{
+              required: {
+                value: true,
+                message: appLocale.intl.formatMessage({
+                  id: ETranslations.form_rename_error_empty,
+                }),
+              },
+              validate: (value: string) => {
+                if (!value?.trim()) {
+                  return appLocale.intl.formatMessage({
+                    id: ETranslations.form_rename_error_empty,
+                  });
+                }
+                return true;
+              },
+            }}
+          >
+            <Input
+              size="large"
+              $gtMd={{ size: 'medium' }}
+              maxLength={20}
+              autoFocus
+              flex={1}
+              addOns={[
+                {
+                  label: `${form.watch('nickname')?.length || 0}/20`,
+                },
+              ]}
+            />
+          </Form.Field>
+        </YStack>
+      </Form>
+      <Dialog.Footer
+        showCancelButton={false}
+        onConfirm={handleSubmit}
+        confirmButtonProps={{
+          loading: form.formState.isSubmitting,
+        }}
+      />
+    </>
+  );
+}
+
+function PrimeProfileDialogContentNotLoggedIn() {
+  const { user, isLoggedIn } = useOneKeyAuth();
+  return isLoggedIn ? <PrimeProfileDialogContent user={user} /> : null;
+}
+
+export const useEditPrimeProfileDialog = () => {
+  const dialog = useInPageDialog();
+  return useCallback(async () => {
+    return new Promise<void>((resolve) => {
+      dialog.confirm({
+        onClose: () => resolve(),
+        title: 'Edit prifle',
+        renderContent: <PrimeProfileDialogContentNotLoggedIn />,
+      });
+    });
+  }, [dialog]);
+};

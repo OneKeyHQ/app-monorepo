@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -38,6 +39,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   } = useActiveAccount({ num: 0 });
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const navigation = useAppNavigation();
+  const [popularTrading, setPopularTrading] = useState<IPopularTrading[]>([]);
 
   const initializedRef = useRef(false);
 
@@ -183,17 +185,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     ];
   }, [intl, currencyInfo?.symbol, tableLayout]);
 
-  const { result: popularTrading, isLoading } = usePromiseResult(
+  const { isLoading } = usePromiseResult(
     async () => {
       const result = await backgroundApiProxy.serviceSwap.fetchPopularTrading({
         limit: 3,
+        saveToLocal: true,
       });
+      setPopularTrading(result);
       initializedRef.current = true;
-      return result;
     },
     [],
     {
-      initResult: [],
       watchLoading: true,
       debounced: POLLING_DEBOUNCE_INTERVAL,
     },
@@ -272,6 +274,24 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     wallet?.type,
     tableLayout,
   ]);
+
+  const initPopularTrading = useCallback(async () => {
+    const result =
+      await backgroundApiProxy.serviceSwap.getLocalPopularTrading();
+
+    if (result && result.length > 0) {
+      setPopularTrading(result);
+      initializedRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    void initPopularTrading();
+  }, [initPopularTrading]);
+
+  if (initializedRef.current && isEmpty(popularTrading)) {
+    return null;
+  }
 
   return (
     <RichBlock

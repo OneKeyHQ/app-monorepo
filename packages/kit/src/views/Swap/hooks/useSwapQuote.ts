@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsModalPage } from '@onekeyhq/components';
+import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useSettingsAtom,
@@ -695,7 +695,7 @@ export function useSwapQuote() {
     swapQuoteMixEventAction,
   ]);
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {

@@ -147,8 +147,16 @@ export function Welcome({
   );
 
   // Extract both platform and media conditions into the showDefaultTitle variable
-  const showDefaultTitle =
-    media.gtSm || platformEnv.isExtension || platformEnv.isWeb;
+  const showDefaultTitle = useMemo(
+    () => media.gtSm || platformEnv.isExtension || platformEnv.isWeb,
+    [media.gtSm],
+  );
+
+  // Hide center content when no banner and md size
+  const showCenterContent = useMemo(
+    () => !!banner || showDefaultTitle,
+    [banner, showDefaultTitle],
+  );
 
   return (
     <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
@@ -163,25 +171,27 @@ export function Welcome({
         </ReviewControl>
       ) : null}
 
-      {/* Center content */}
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        width="auto"
-        position="relative"
-        gap="$5"
-        px="$5"
-        py="$6"
-        $gtMd={{
-          minHeight: '$60',
-        }}
-        $sm={{
-          width: '100%',
-        }}
-      >
-        {banner || (showDefaultTitle && <DefaultTitle />)}
-        {!platformEnv.isNative ? <SearchInput /> : null}
-      </Stack>
+      {/* Center content - hidden when no banner and md size */}
+      {showCenterContent ? (
+        <Stack
+          alignItems="center"
+          justifyContent="center"
+          width="auto"
+          position="relative"
+          gap="$5"
+          px="$5"
+          py="$6"
+          $gtMd={{
+            minHeight: '$60',
+          }}
+          $sm={{
+            width: '100%',
+          }}
+        >
+          {banner || (showDefaultTitle && <DefaultTitle />)}
+          {!platformEnv.isNative ? <SearchInput /> : null}
+        </Stack>
+      ) : null}
 
       {/* Right side with logo items */}
       {!platformEnv.isNative ? (

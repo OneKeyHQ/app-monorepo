@@ -256,13 +256,13 @@ function BasicEarnHome({
     [showContent, refreshEarnData, isLoading, banners],
   );
 
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 143 : 92,
-  );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    const height = e.nativeEvent.layout.height - 20;
-    setTabPageHeight(height);
-  }, []);
+  // const [tabPageHeight, setTabPageHeight] = useState(
+  //   platformEnv.isNativeIOS ? 143 : 92,
+  // );
+  // const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+  //   const height = e.nativeEvent.layout.height - 20;
+  //   setTabPageHeight(height);
+  // }, []);
 
   if (!isFetchingBlockResult && blockResult?.blockData) {
     return (
@@ -285,9 +285,9 @@ function BasicEarnHome({
         onModeChange={handleModeChange}
         earn={
           <YStack flex={1}>
-            {showHeader && showContent && media.md ? (
+            {/* {showHeader && showContent && media.md ? (
               <Stack h={tabPageHeight} />
-            ) : null}
+            ) : null} */}
             <EarnMainTabs
               faqList={faqList || []}
               isFaqLoading={isFaqLoading}
@@ -304,7 +304,7 @@ function BasicEarnHome({
                 bg="$bgApp"
                 pt="$5"
                 width="100%"
-                onLayout={handleTabPageLayout}
+                // onLayout={handleTabPageLayout}
               >
                 <TabPageHeader
                   sceneName={EAccountSelectorSceneName.home}

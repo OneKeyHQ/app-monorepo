@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { Page, XStack, useMedia, useTheme } from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
@@ -87,33 +88,23 @@ export function TabPageHeader({
 
   if (gtMd) {
     return (
-      <>
-        <Page.Header
-          headerTitleAlign="center"
-          headerStyle={{ backgroundColor: theme.bgSubdued.val }}
-          headerTitle={renderUniversalSearchInput}
-          headerRight={renderNotificationRightButton}
-        />
-        {tabRoute === ETabRoutes.Home ? (
-          <XStack p="$5" bg="$bgApp" borderRadius="$4">
-            {hideHeaderLeft ? undefined : renderHeaderLeft()}
-          </XStack>
-        ) : null}
-      </>
+      <Page.Header
+        headerTitleAlign="center"
+        headerStyle={{ backgroundColor: theme.bgSubdued.val }}
+        headerTitle={renderHeaderTitle}
+        headerRight={renderHeaderRight}
+        headerLeft={renderHeaderLeft}
+      />
     );
   }
   return (
     <>
-      {tabRoute === ETabRoutes.Home || tabRoute === ETabRoutes.Discovery ? (
-        <Page.Header
-          headerTitleAlign="left"
-          headerTitle={renderHeaderTitle}
-          headerRight={renderHeaderRight}
-          headerLeft={renderHeaderLeft}
-        />
-      ) : (
-        <Page.Header headerShown={false} />
-      )}
+      <Page.Header
+        headerTitleAlign="left"
+        headerTitle={renderHeaderTitle}
+        headerRight={renderHeaderRight}
+        headerLeft={renderHeaderLeft}
+      />
       {!hideSearch ? (
         <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
       ) : null}
