@@ -966,7 +966,7 @@ function MoreActionDevice() {
       >
         {`${intl.formatMessage({ id: ETranslations.global_device })} (3)`}
       </SizableText>
-      <XStack>
+      <XStack jc="space-between">
         <XStack>
           {hwQrWalletList.map((item) => (
             <WalletAvatar key={item.wallet.id} wallet={item.wallet} />
