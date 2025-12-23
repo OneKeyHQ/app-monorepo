@@ -14,8 +14,7 @@ function BasicOneKeyIdAvatar({
   ...rest
 }: IOneKeyIdAvatarProps & IImageProps) {
   const { user, isLoggedIn } = useOneKeyAuth();
-
-  const avatarUrl = (user as { avatarUrl?: string })?.avatarUrl;
+  const avatarUrl = user.avatar;
   const source = isLoggedIn && avatarUrl ? { uri: avatarUrl } : avatarFallback;
 
   return (

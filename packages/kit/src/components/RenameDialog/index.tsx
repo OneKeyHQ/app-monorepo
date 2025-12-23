@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
@@ -10,6 +10,7 @@ import {
   Dialog,
   Form,
   Icon,
+  ImageCrop,
   Input,
   Select,
   Stack,
@@ -34,8 +35,10 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId/OneKeyIdAvatar';
 import { buildChangeHistoryInputAddon } from '../ChangeHistoryDialog/ChangeHistoryDialog';
 import { NetworkAvatar } from '../NetworkAvatar';
+import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
+import { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 function V4AccountNameSelector({
   onChange,
@@ -250,34 +253,45 @@ export const showRenameDialog = (
   });
 
 interface IPrimeProfileFormValues {
-  imgUrl: string | undefined;
-  label: string | undefined;
+  avatar: string | undefined;
+  nickname: string | undefined;
 }
 
-function PrimeProfileDialogContent() {
+function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
   const formOption = useMemo(
     () => ({
       defaultValues: {
-        imgUrl: '',
-        label: '',
+        avatar: user?.avatar,
+        nickname: user?.nickname,
       },
       onSubmit: async (form: UseFormReturn<IPrimeProfileFormValues>) => {
         const values = form.getValues();
-        // onConfirm({
-        //   passphrase,
-        //   save: true,
-        //   hideImmediately: values.hideImmediately,
-        // });
+        if (values.avatar && values.nickname) {
+          await backgroundApiProxy.servicePrime.updatePrimeUserProfile({
+            avatar: values.avatar,
+            nickname: values.nickname,
+          });
+        }
       },
     }),
-    [],
+    [user?.avatar, user?.nickname],
   );
   const form = useForm<IPrimeProfileFormValues>(formOption);
+  const handlePickAvatar = useCallback(async () => {
+    const image = await ImageCrop.openPicker({
+      width: 240,
+      height: 240,
+      compressImageQuality: 0.8,
+    });
+    if (image.data) {
+      form.setValue('avatar', image.data);
+    }
+  }, [form]);
   return (
     <>
       <Form form={form}>
         <YStack gap="$4">
-          <XStack jc="center">
+          <XStack jc="center" onPress={handlePickAvatar} cursor="pointer">
             <OneKeyIdAvatar size="$20" />
             <XStack position="relative">
               <XStack
@@ -299,7 +313,7 @@ function PrimeProfileDialogContent() {
           </XStack>
           <Form.Field
             label="Nickname"
-            name="name"
+            name="nickname"
             rules={{
               required: {
                 value: true,
@@ -325,16 +339,27 @@ function PrimeProfileDialogContent() {
               flex={1}
               addOns={[
                 {
-                  label: `${form.watch('label')?.length || 0}/20`,
+                  label: `${form.watch('nickname')?.length || 0}/20`,
                 },
               ]}
             />
           </Form.Field>
         </YStack>
       </Form>
-      <Dialog.Footer showCancelButton={false} onConfirm={form.submit} />
+      <Dialog.Footer
+        showCancelButton={false}
+        onConfirm={form.submit}
+        confirmButtonProps={{
+          loading: form.formState.isSubmitting,
+        }}
+      />
     </>
   );
+}
+
+function PrimeProfileDialogContentNotLoggedIn() {
+  const { user, isLoggedIn } = useOneKeyAuth();
+  return isLoggedIn ? <PrimeProfileDialogContent user={user} /> : null;
 }
 
 export const showPrimeProfileDialog = () => {
@@ -342,7 +367,7 @@ export const showPrimeProfileDialog = () => {
     Dialog.confirm({
       onClose: () => resolve(),
       title: 'Edit prifle',
-      renderContent: <PrimeProfileDialogContent />,
+      renderContent: <PrimeProfileDialogContentNotLoggedIn />,
     });
   });
 };

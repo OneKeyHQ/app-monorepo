@@ -45,6 +45,7 @@ import {
   useFirmwareUpdatesDetectStatusPersistAtom,
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
+  usePrimePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -79,6 +80,7 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId';
 import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { showPrimeProfileDialog } from '../RenameDialog';
 import { UpdateReminder } from '../UpdateReminder';
 import {
   isShowAppUpdateUIWhenUpdating,
@@ -88,7 +90,6 @@ import { WalletAvatar } from '../WalletAvatar';
 
 import type { IDeviceManagementListModalItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
-import { showPrimeProfileDialog } from '../RenameDialog';
 
 function MoreActionProvider({ children }: PropsWithChildren) {
   return (
@@ -427,6 +428,12 @@ function MoreActionOneKeyId() {
     if (!isLoggedIn) {
       return intl.formatMessage({ id: ETranslations.prime_signup_login });
     }
+    return user?.nickname || 'OneKey ID';
+  }, [isLoggedIn, user?.nickname, intl]);
+  const email = useMemo(() => {
+    if (!isLoggedIn) {
+      return intl.formatMessage({ id: ETranslations.prime_signup_login });
+    }
     return user?.displayEmail || 'OneKey ID';
   }, [isLoggedIn, user?.displayEmail, intl]);
 
@@ -462,7 +469,7 @@ function MoreActionOneKeyId() {
               numberOfLines={1}
               ellipsizeMode="tail"
             >
-              OneKey ID
+              {displayName}
             </SizableText>
             {isPrimeAvailable ? (
               <XStack
@@ -483,7 +490,7 @@ function MoreActionOneKeyId() {
             ) : null}
           </XStack>
           <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-            {displayName}
+            {email}
           </SizableText>
         </YStack>
       </XStack>
