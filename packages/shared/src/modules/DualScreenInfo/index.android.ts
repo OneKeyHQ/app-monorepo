@@ -20,6 +20,9 @@ export const useIsSpanningInDualScreen = () => {
     ReactNativeDeviceUtils.isSpanning(),
   );
   useEffect(() => {
+    if (!isDualScreenDevice()) {
+      return;
+    }
     const listenerId = ReactNativeDeviceUtils.addSpanningChangedListener(
       (result) => {
         const screenWidth = Dimensions.get('window').width;
