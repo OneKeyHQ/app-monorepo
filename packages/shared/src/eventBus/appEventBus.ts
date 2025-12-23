@@ -321,6 +321,7 @@ export interface IAppEventBusPayload {
     uiRequestType: EHardwareUiStateAction;
   };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
+  [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
   [EAppEventBusNames.EnabledNetworksChanged]: undefined;
   [EAppEventBusNames.CheckWalletBackupStatus]: {
     promiseId: number;
@@ -426,6 +427,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
   [EAppEventBusNames.SwapLimitOrderBuildSuccess]: undefined;
+  [EAppEventBusNames.RefreshNativeTokenInfo]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

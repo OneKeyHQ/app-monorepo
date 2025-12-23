@@ -92,6 +92,7 @@ export enum EAppEventBusNames {
   HideTabBar = 'HideTabBar',
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
   RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
+  RequestDeviceForSwitchFirmwareWebDevice = 'RequestDeviceForSwitchFirmwareWebDevice',
   EnabledNetworksChanged = 'EnabledNetworksChanged',
   CheckWalletBackupStatus = 'CheckWalletBackupStatus',
   doubleConfirmTxFeeInfo = 'doubleConfirmTxFeeInfo',
@@ -130,4 +131,5 @@ export enum EAppEventBusNames {
   MarketHomePageEnter = 'MarketHomePageEnter',
   MarketWatchListV2Changed = 'MarketWatchListV2Changed',
   SwapLimitOrderBuildSuccess = 'SwapLimitOrderBuildSuccess',
+  RefreshNativeTokenInfo = 'RefreshNativeTokenInfo',
 }

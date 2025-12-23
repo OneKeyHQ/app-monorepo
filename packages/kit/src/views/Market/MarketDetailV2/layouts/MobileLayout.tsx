@@ -13,7 +13,7 @@ import {
   Tabs,
   YStack,
   useInPageDialog,
-  useIsModalPage,
+  useIsOverlayPage,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -60,7 +60,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     ],
     [intl],
   );
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const inPageDialog = useInPageDialog(
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
   );

@@ -1070,6 +1070,7 @@
   firmware_update_error_connection = 'firmware_update.error_connection',
   firmware_update_error_transfer_interrupted = 'firmware_update.error_transfer_interrupted',
   firmware_update_grant_usb_instruction = 'firmware_update.grant_usb_instruction',
+  firmware_update_switch_firmware_reconnect_device = 'firmware_update.switch_firmware_reconnect_device',
   firmware_update_status_completed = 'firmware_update.status_completed',
   firmware_update_status_transferring_data = 'firmware_update.status_transferring_data',
   firmware_update_status_validating = 'firmware_update.status_validating',

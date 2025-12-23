@@ -27,9 +27,12 @@ export function ReferralBenefitsList({
       {/* Title and Subtitle Container */}
       <YStack gap="$1">
         <SizableText size="$heading2xl">{title}</SizableText>
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {subtitle}
-        </SizableText>
+
+        {subtitle ? (
+          <SizableText size="$bodyLg" color="$textSubdued">
+            {subtitle}
+          </SizableText>
+        ) : null}
       </YStack>
 
       {/* Benefits List */}
