@@ -84,10 +84,10 @@ import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
 } from '../UpdateReminder/hooks';
+import { WalletAvatar } from '../WalletAvatar';
 
 import type { IDeviceManagementListModalItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
-import { WalletAvatar } from '../WalletAvatar';
 
 function MoreActionProvider({ children }: PropsWithChildren) {
   return (
