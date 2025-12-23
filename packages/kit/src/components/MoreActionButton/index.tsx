@@ -969,7 +969,7 @@ function MoreActionDevice() {
       borderColor="$neutral3"
       onPress={handleDevice}
     >
-      <YStack gap="$3">
+      <YStack gap="$3" flexShrink={1}>
         <SizableText
           size="$headingMd"
           color="$text"
