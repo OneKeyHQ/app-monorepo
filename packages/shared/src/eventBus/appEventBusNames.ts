@@ -131,4 +131,5 @@ export enum EAppEventBusNames {
   MarketHomePageEnter = 'MarketHomePageEnter',
   MarketWatchListV2Changed = 'MarketWatchListV2Changed',
   SwapLimitOrderBuildSuccess = 'SwapLimitOrderBuildSuccess',
+  RefreshNativeTokenInfo = 'RefreshNativeTokenInfo',
 }
