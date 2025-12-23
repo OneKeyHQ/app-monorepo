@@ -28,6 +28,7 @@ import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IToastMessageOptions } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
+import { useMedia } from '../../hooks';
 
 export interface IToastProps {
   toastId?: string;
@@ -126,6 +127,7 @@ export function ToastContent({
   actionsAlign?: 'left' | 'right';
 }) {
   const { height, width } = useWindowDimensions();
+  const media = useMedia();
   useEffect(
     () => () => {
       onClose?.();
@@ -168,7 +170,7 @@ export function ToastContent({
           {message ? (
             <RenderLines
               color="$textSubdued"
-              size={media.md ? '$bodySm' : '$bodyMd'}
+              size={media.gtMd ? '$bodyMd' : '$bodySm'}
             >
               {message}
             </RenderLines>
