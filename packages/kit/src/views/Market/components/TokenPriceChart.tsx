@@ -10,7 +10,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useIsModalPage,
+  useIsOverlayPage,
   useMedia,
   useSafeAreaInsets,
   useTabBarHeight,
@@ -68,7 +68,7 @@ function NativeTokenPriceChart({
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { md: mdMedia } = useMedia();
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const md = isModalPage ? true : mdMedia;
 
   const options = useMemo(
@@ -162,7 +162,7 @@ function NativeTokenPriceChart({
 }
 
 const useHeight = () => {
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const { height: windowHeight } = useWindowDimensions();
   const { top } = useSafeAreaInsets();
   const { gtMd: gtMdMedia } = useMedia();
@@ -212,7 +212,7 @@ function TradingViewChart({
     defer.resolve(null);
   }, [defer]);
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
 
   return (
     <TradingView

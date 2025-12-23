@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { useIsModalPage } from '@onekeyhq/components';
+import { useIsOverlayPage } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -631,7 +631,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importNetworkId,
   ]);
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
