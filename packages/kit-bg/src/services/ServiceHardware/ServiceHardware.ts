@@ -487,6 +487,14 @@ class ServiceHardware extends ServiceBase {
               EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
               undefined,
             );
+          } else if (
+            newUiRequestType ===
+            EHardwareUiStateAction.REQUEST_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE
+          ) {
+            appEventBus.emit(
+              EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
+              undefined,
+            );
           } else {
             if (newUiRequestType === ('ui-device_progress' as any)) {
               console.log('ui-device_progress', originEvent);
