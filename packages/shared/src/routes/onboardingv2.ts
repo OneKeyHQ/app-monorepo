@@ -41,6 +41,7 @@ export enum EOnboardingPagesV2 {
   ImportKeyTag = 'ImportKeyTag',
   KeylessWalletRecovery = 'KeylessWalletRecovery',
   KeylessWalletCreation = 'KeylessWalletCreation',
+  MoreAction = 'MoreAction',
 }
 interface IVerifyRecoveryPhraseParams {
   mnemonic: string;
@@ -111,4 +112,5 @@ export type IOnboardingParamListV2 = {
     email?: string;
     mode?: EOnboardingV2KeylessWalletCreationMode;
   };
+  [EOnboardingPagesV2.MoreAction]: undefined;
 };

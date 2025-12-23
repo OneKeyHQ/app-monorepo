@@ -59,6 +59,7 @@ export enum EFirmwareUpdateSteps {
   installing = 'installing', // installingPhase: 1 boot, 2 fw res, 3 ble
   updateDone = 'updateDone', // updateDone
   requestDeviceInBootloaderForWebDevice = 'requestDeviceInBootloaderForWebDevice', // web-usb should requestDevice for bootloader mode device, cause pid was changed
+  requestDeviceForSwitchFirmwareWebDevice = 'requestDeviceForSwitchFirmwareWebDevice', // switch firmware need to re-select device.
 }
 export type IFirmwareUpdateStepInfo =
   | {
@@ -112,6 +113,10 @@ export type IFirmwareUpdateStepInfo =
     }
   | {
       step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice;
+      payload: undefined;
+    }
+  | {
+      step: EFirmwareUpdateSteps.requestDeviceForSwitchFirmwareWebDevice;
       payload: undefined;
     };
 

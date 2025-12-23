@@ -19,6 +19,12 @@ export type IEditableChainSelectorContext = {
   setRecentNetworksHeight?: (height: number) => void;
   accountNetworkValues: Record<string, string>;
   accountNetworkValueCurrency?: string;
+  accountDeFiOverview: Record<
+    string,
+    {
+      netWorth: number;
+    }
+  >;
 };
 
 export type IEditableChainSelectorSection = {

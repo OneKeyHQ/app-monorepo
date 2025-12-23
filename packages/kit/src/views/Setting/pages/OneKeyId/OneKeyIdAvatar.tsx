@@ -9,7 +9,6 @@ interface IOneKeyIdAvatarProps {
   size?: IImageProps['width'];
 }
 
-// TODO: @zuo
 function BasicOneKeyIdAvatar({
   size = '$10',
   ...rest

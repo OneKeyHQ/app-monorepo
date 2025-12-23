@@ -6,6 +6,7 @@ import { InputAccessoryView } from 'react-native';
 import {
   Badge,
   Button,
+  Dialog,
   Icon,
   Input,
   SizableText,
@@ -125,6 +126,7 @@ const LeverageContent = memo(
                 }}
                 InputComponentStyle={{
                   p: 0,
+                  h: platformEnv.isNativeAndroid ? 54 : undefined,
                 }}
                 fontSize={
                   platformEnv.isNativeAndroid ? 34 : getFontSize('$heading5xl')
@@ -139,7 +141,11 @@ const LeverageContent = memo(
                 addOns={[
                   {
                     renderContent: (
-                      <XStack alignItems="center" pr="$1">
+                      <XStack
+                        alignItems="center"
+                        pr="$1"
+                        h={platformEnv.isNativeAndroid ? 36 : undefined}
+                      >
                         <Icon name="CrossedSmallOutline" size="$5" />
                       </XStack>
                     ),
@@ -236,7 +242,10 @@ export const LeverageAdjustModal = memo(
         1;
       const maxLeverage = currentToken?.universe?.maxLeverage || 25;
 
-      dialog.show({
+      const DialogInstance =
+        platformEnv.isNativeAndroid || !dialog ? Dialog : dialog;
+
+      DialogInstance.show({
         title: intl.formatMessage({
           id: ETranslations.perp_trading_adjust_leverage,
         }),

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Page,
   ScrollView,
   Spinner,
@@ -49,10 +50,17 @@ function InviteRewardContent({
     rebateLevels,
     rebateConfig,
     withdrawAddresses,
+    suspensionNotice,
   } = summaryInfo;
 
   return (
     <>
+      {suspensionNotice ? (
+        <YStack px="$5" pt="$5">
+          <Alert type="critical" title={suspensionNotice} closable />
+        </YStack>
+      ) : null}
+
       <XStack px="$5" pt="$5" pb="$4" jc="space-between" ai="center">
         <SectionHeader translationId={ETranslations.global_overview} />
 

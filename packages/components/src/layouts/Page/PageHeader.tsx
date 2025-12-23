@@ -10,8 +10,6 @@ import { useIsModalPage } from '../../hocs';
 import { useThemeValue } from '../../hooks';
 import HeaderSearchBar from '../Navigation/Header/HeaderSearchBar';
 
-import { PageHeaderDivider } from './PageHeaderDivider';
-
 import type {
   IModalNavigationOptions,
   IStackNavigationOptions,
@@ -88,28 +86,22 @@ function PageHeader(props: IPageHeaderProps) {
     return null;
   }
   // Android & Web HeaderSearchBar in packages/components/src/layouts/Navigation/Header/HeaderView.tsx
-  return (
-    <>
-      {platformEnv.isNativeIOS && headerSearchBarOptions ? (
-        <HeaderSearchBar
-          autoFocus={headerSearchBarOptions?.autoFocus}
-          placeholder={headerSearchBarOptions?.placeholder}
-          onChangeText={headerSearchBarOptions?.onChangeText}
-          onSearchTextChange={headerSearchBarOptions?.onSearchTextChange}
-          onBlur={headerSearchBarOptions?.onBlur}
-          onFocus={headerSearchBarOptions?.onFocus}
-          isModalScreen={isModal}
-          onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
-          addOns={headerSearchBarOptions?.addOns}
-          searchBarInputValue={headerSearchBarOptions?.searchBarInputValue}
-        />
-      ) : null}
-      {isModal || platformEnv.isNativeIOSPad ? null : <PageHeaderDivider />}
-    </>
-  );
+  return platformEnv.isNativeIOS && headerSearchBarOptions ? (
+    <HeaderSearchBar
+      autoFocus={headerSearchBarOptions?.autoFocus}
+      placeholder={headerSearchBarOptions?.placeholder}
+      onChangeText={headerSearchBarOptions?.onChangeText}
+      onSearchTextChange={headerSearchBarOptions?.onSearchTextChange}
+      onBlur={headerSearchBarOptions?.onBlur}
+      onFocus={headerSearchBarOptions?.onFocus}
+      isModalScreen={isModal}
+      onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
+      addOns={headerSearchBarOptions?.addOns}
+      searchBarInputValue={headerSearchBarOptions?.searchBarInputValue}
+    />
+  ) : null;
 }
 
 PageHeader.usePageHeaderReloadOptions = usePageHeaderReloadOptions;
 
 export { PageHeader };
-export * from './PageHeaderDivider';

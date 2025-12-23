@@ -1,43 +1,36 @@
-import { Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { Skeleton, Stack, YStack } from '@onekeyhq/components';
 import { TokenGroupSkeleton } from '@onekeyhq/kit/src/components/Token';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export function MarketBannerItemSkeleton({ compact }: { compact?: boolean }) {
-  // Compact layout: Native or md screens
-  if (platformEnv.isNative || compact) {
-    return (
-      <YStack
-        bg="$bgSubdued"
-        borderRadius="$3"
-        p="$2.5"
-        flex={1}
-        justifyContent="space-between"
-      >
-        <YStack gap="$1">
-          <Skeleton w="$16" h="$3" />
-          <Skeleton w="$10" h="$3" />
-        </YStack>
-        <TokenGroupSkeleton size="xs" count={3} overlapOffset="$-3" />
-      </YStack>
-    );
-  }
-
-  // Desktop layout
+export function MarketBannerItemSkeleton() {
   return (
-    <XStack
+    <Stack
+      flexDirection="column"
       bg="$bgSubdued"
       borderRadius="$3"
-      p="$3"
-      gap="$4"
-      alignItems="center"
+      px="$3"
+      py="$4"
+      width="$32"
+      alignItems="flex-start"
       justifyContent="space-between"
-      flex={1}
+      h={118}
+      $gtMd={{
+        flexDirection: 'row',
+        flex: 1,
+        flexBasis: 0,
+        minWidth: 180,
+        maxWidth: 256,
+        width: 'auto',
+        h: '100%',
+        p: '$4',
+        gap: '$3',
+        alignItems: 'center',
+      }}
     >
-      <YStack gap="$1">
-        <Skeleton w="$20" h="$4" />
-        <Skeleton w="$12" h="$3" />
+      <YStack gap="$0.5" flex={1} $gtMd={{ flex: 1 }}>
+        <Skeleton w="$16" h="$3" $gtMd={{ w: '$20', h: '$4' }} />
+        <Skeleton w="$10" h="$3" $gtMd={{ w: '$12' }} />
       </YStack>
-      <TokenGroupSkeleton size="xs" count={3} overlapOffset="$-3" />
-    </XStack>
+      <TokenGroupSkeleton size="xs" overlapOffset="$-1.5" wrapperStyle="none" />
+    </Stack>
   );
 }

@@ -733,6 +733,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromToken = get(swapProSelectTokenAtom());
           toToken = get(swapProSellToTokenAtom());
         }
+      } else if (
+        swapTabSwitchType === ESwapTabSwitchType.LIMIT &&
+        platformEnv.isNative
+      ) {
+        return;
       }
       // check limit zero
       set(swapQuoteActionLockAtom(), (v) => ({
@@ -856,7 +861,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           const quoteResult = res[0];
           const quoteResultFromAmount = quoteResult.fromAmount;
           const fromTokenCurrentAmount = get(swapProInputAmountAtom());
-          if (quoteResultFromAmount !== fromTokenCurrentAmount) {
+          if (
+            !quoteResult.errorMessage &&
+            quoteResultFromAmount !== fromTokenCurrentAmount
+          ) {
             return;
           }
           set(swapSpeedQuoteResultAtom(), quoteResult);
@@ -1841,13 +1849,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       type: ESwapTabSwitchType,
       swapAccountNetworkId?: string,
     ) => {
-      const oldType = get(swapTypeSwitchAtom());
       set(swapTypeSwitchAtom(), type);
-      if (
-        platformEnv.isNative &&
-        (type === ESwapTabSwitchType.LIMIT ||
-          oldType === ESwapTabSwitchType.LIMIT)
-      ) {
+      if (platformEnv.isNative && type === ESwapTabSwitchType.LIMIT) {
         return;
       }
       const fromTokenAmount = get(swapFromTokenAmountAtom());

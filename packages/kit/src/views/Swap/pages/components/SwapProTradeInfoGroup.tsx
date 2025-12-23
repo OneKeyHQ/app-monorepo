@@ -3,8 +3,9 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { NumberSizeableText, YStack } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import {
+  useSwapLimitPriceUseRateAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSpeedQuoteFetchingAtom,
@@ -12,7 +13,6 @@ import {
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
@@ -26,10 +26,12 @@ import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
 
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
+  onBalanceMax: () => void;
 }
 
 const SwapProTradeInfoGroup = ({
   balanceLoading,
+  onBalanceMax,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
@@ -40,10 +42,24 @@ const SwapProTradeInfoGroup = ({
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
+  const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
+  const limitPriceValue = useMemo(() => {
+    const displayLimitRate = new BigNumber(swapLimitPriceUseRate.rate || 0);
+    if (displayLimitRate.isZero() || displayLimitRate.isNaN()) {
+      return {
+        fromValue: '-',
+        toValue: '-',
+      };
+    }
+    return {
+      fromValue: `1 ${inputToken?.symbol ?? '-'} = `,
+      toValue: displayLimitRate.toFixed(),
+    };
+  }, [swapLimitPriceUseRate.rate, inputToken?.symbol]);
   const balanceValue = useMemo(() => {
     const balanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
     if (balanceBN.isZero() || balanceBN.isNaN()) {
-      return `0 ${inputToken?.symbol ?? '-'}`;
+      return '0';
     }
     return balanceBN.toFixed();
   }, [inputToken]);
@@ -66,31 +82,14 @@ const SwapProTradeInfoGroup = ({
       const toAmountBN = new BigNumber(
         toTokenAmount?.value ? toTokenAmount.value : '0',
       );
-      const formattedToTokenValue = numberFormat(toAmountBN.toFixed(), {
-        formatter: 'balance',
-        formatterOptions: {
-          tokenSymbol: toToken?.symbol ?? '-',
-        },
-      });
-      return formattedToTokenValue;
+      return toAmountBN.toFixed();
     }
     if (swapProQuoteResult?.toAmount) {
       const toAmountBN = new BigNumber(swapProQuoteResult.toAmount);
-      const formattedToTokenValue = numberFormat(toAmountBN.toFixed(), {
-        formatter: 'balance',
-        formatterOptions: {
-          tokenSymbol: toToken?.symbol ?? '-',
-        },
-      });
-      return formattedToTokenValue;
+      return toAmountBN.toFixed();
     }
-    return `-- ${toToken?.symbol ?? '-'}`;
-  }, [
-    toTokenAmount?.value,
-    swapProQuoteResult?.toAmount,
-    swapProTradeType,
-    toToken?.symbol,
-  ]);
+    return '';
+  }, [toTokenAmount?.value, swapProQuoteResult?.toAmount, swapProTradeType]);
   const tradingFeeValue = useMemo(() => {
     const tradingFee = swapProQuoteResult?.fee?.percentageFee;
     if (!tradingFee) {
@@ -108,6 +107,9 @@ const SwapProTradeInfoGroup = ({
             size="$bodySmMedium"
             formatter="balance"
             formatterOptions={{ tokenSymbol: inputToken?.symbol ?? '-' }}
+            onPress={onBalanceMax}
+            numberOfLines={1}
+            maxWidth="$36"
           >
             {balanceValue}
           </NumberSizeableText>
@@ -119,11 +121,61 @@ const SwapProTradeInfoGroup = ({
           py: '$1',
         }}
       />
+      {swapProTradeType === ESwapProTradeType.LIMIT ? (
+        <SwapCommonInfoItem
+          title={intl.formatMessage({
+            id: ETranslations.dexmarket_pro_trigger_price,
+          })}
+          valueComponent={
+            <YStack>
+              <SizableText
+                size="$bodySmMedium"
+                numberOfLines={1}
+                textAlign="right"
+                maxWidth="$36"
+              >
+                {limitPriceValue.fromValue}
+              </SizableText>
+              <NumberSizeableText
+                size="$bodySmMedium"
+                numberOfLines={1}
+                textAlign="right"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol: toToken?.symbol ?? '-' }}
+                maxWidth="$36"
+              >
+                {limitPriceValue.toValue}
+              </NumberSizeableText>
+            </YStack>
+          }
+          titleProps={ITEM_TITLE_PROPS}
+          valueProps={ITEM_VALUE_PROPS}
+          isLoading={false}
+          containerProps={{
+            py: '$1',
+            alignItems: 'flex-start',
+            minHeight: '$10',
+          }}
+        />
+      ) : null}
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
-        value={receiveValue}
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
+        value={receiveValue ? undefined : `-- ${toToken?.symbol ?? '-'}`}
+        valueComponent={
+          receiveValue ? (
+            <NumberSizeableText
+              size="$bodySmMedium"
+              formatter="balance"
+              formatterOptions={{ tokenSymbol: toToken?.symbol ?? '-' }}
+              numberOfLines={1}
+              maxWidth="$36"
+            >
+              {receiveValue}
+            </NumberSizeableText>
+          ) : undefined
+        }
         isLoading={
           swapProTradeType === ESwapProTradeType.LIMIT
             ? false
@@ -135,7 +187,7 @@ const SwapProTradeInfoGroup = ({
       />
       <SwapCommonInfoItem
         title={intl.formatMessage({
-          id: ETranslations.swap_history_detail_service_fee,
+          id: ETranslations.provider_ios_popover_wallet_fee,
         })}
         value={tradingFeeValue}
         titleProps={ITEM_TITLE_PROPS}

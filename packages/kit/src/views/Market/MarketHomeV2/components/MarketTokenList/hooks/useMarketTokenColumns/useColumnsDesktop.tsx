@@ -76,6 +76,7 @@ export const useColumnsDesktop = (
         <TokenIdentityItem
           tokenLogoURI={record.tokenImageUri}
           networkLogoURI={record.networkLogoUri}
+          networkId={record.networkId}
           symbol={record.symbol}
           address={record.address}
           showCopyButton

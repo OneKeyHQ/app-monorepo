@@ -1,6 +1,12 @@
 import { useCallback, useMemo } from 'react';
 
-import { Select, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Select,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { ISelectItem } from '@onekeyhq/components/src/forms/Select/type';
 import type { IEarnSelectField } from '@onekeyhq/shared/types/staking';
 
@@ -79,9 +85,11 @@ export function EarnValidatorSelect({
               hoverStyle={disabled ? undefined : { opacity: 0.8 }}
             >
               <SizableText size="$bodyMdMedium">{selectedLabel}</SizableText>
-              <SizableText size="$bodyMd" color="$iconSubdued">
-                ›
-              </SizableText>
+              <Icon
+                name="ChevronRightSmallOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
             </XStack>
           )}
         />

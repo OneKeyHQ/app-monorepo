@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Heading, Page, SizableText, Stack } from '@onekeyhq/components';
+import { Heading, Page, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INotificationPermissionDetail } from '@onekeyhq/shared/types/notification';
@@ -66,12 +66,9 @@ function NotificationIntroduction() {
         <Stack gap="$2" w="100%" maxWidth="$96" mx="auto">
           <Heading size="$heading2xl" textAlign="center">
             {intl.formatMessage({
-              id: ETranslations.notifications_intro_title,
+              id: ETranslations.global_never_miss_notifications,
             })}
           </Heading>
-          <SizableText color="$textSubdued" textAlign="center">
-            {intl.formatMessage({ id: ETranslations.notifications_intro_desc })}
-          </SizableText>
         </Stack>
         <NotificationIntroIllustration />
         <EnablePushNotificationsTutorial />
