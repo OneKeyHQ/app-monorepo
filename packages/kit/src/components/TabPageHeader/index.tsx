@@ -85,6 +85,33 @@ export function TabPageHeader({
     [],
   );
 
+  if (platformEnv.isWeb) {
+    if (gtMd) {
+      return (
+        <Page.Header
+          headerTitleAlign="center"
+          headerStyle={{ backgroundColor: theme.bgSubdued.val }}
+          headerTitle={renderHeaderTitle}
+          headerRight={renderHeaderRight}
+          headerLeft={renderHeaderLeft}
+        />
+      );
+    }
+    return (
+      <>
+        <Page.Header
+          headerTitleAlign="left"
+          headerTitle={renderHeaderTitle}
+          headerRight={renderHeaderRight}
+          headerLeft={renderHeaderLeft}
+        />
+        {!hideSearch ? (
+          <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+        ) : null}
+      </>
+    );
+  }
+
   if (gtMd) {
     return (
       <>
