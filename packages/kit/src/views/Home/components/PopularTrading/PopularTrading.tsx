@@ -287,7 +287,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   useEffect(() => {
     void initPopularTrading();
-  }, [initPopularTrading, popularTrading]);
+  }, [initPopularTrading]);
 
   if (initializedRef.current && isEmpty(popularTrading)) {
     return null;
