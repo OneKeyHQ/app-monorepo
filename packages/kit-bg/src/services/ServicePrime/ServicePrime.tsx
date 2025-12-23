@@ -233,6 +233,8 @@ class ServicePrime extends ServiceBase {
       const userEmail = serverUserInfo?.emails?.[0] || undefined;
       return {
         ...v,
+        avatar: serverUserInfo?.avatar,
+        nickname: serverUserInfo?.nickname,
         email: userEmail, // TODO update from PrimeGlobalEffect
         displayEmail: userEmail,
         keylessWalletId: serverUserInfo?.keylessWalletId,
@@ -789,6 +791,28 @@ class ServicePrime extends ServiceBase {
   @backgroundMethod()
   async getLocalUserInfo() {
     return primePersistAtom.get();
+  }
+
+  @backgroundMethod()
+  async updatePrimeUserProfile({
+    avatar,
+    nickname,
+  }: {
+    avatar: string;
+    nickname: string;
+  }) {
+    const client = await this.getPrimeClient();
+    const result = await client.put<IApiClientResponse<{ success: boolean }>>(
+      `/prime/v1/user/info`,
+      {
+        avatar,
+        nickname,
+      },
+    );
+    setTimeout(() => {
+      void this.apiFetchPrimeUserInfo();
+    });
+    return result.data.code === 0;
   }
 }
 

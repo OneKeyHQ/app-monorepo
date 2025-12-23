@@ -1,9 +1,10 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SizableText, Stack } from '../../../primitives';
 
 import HeaderIconButton from './HeaderIconButton';
 
 import type { IIconButtonProps } from '../../../actions';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export interface IHeaderNotificationButtonProps {
   size?: IIconButtonProps['size'];
