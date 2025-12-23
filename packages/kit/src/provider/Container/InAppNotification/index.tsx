@@ -35,6 +35,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useDebouncedCallback } from '../../../hooks/useDebounce';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
 
 const InAppNotification = () => {
@@ -431,12 +432,17 @@ const InAppNotification = () => {
         imageUri: remotePushMessageInfo?.extras?.image,
         onPress: async () => {
           setTimeout(async () => {
+            await whenAppUnlocked();
             await notificationsUtils.navigateToNotificationDetail({
               message: remotePushMessageInfo,
               isFromNotificationClick: true,
               notificationId: notificationId || '',
               notificationAccountId:
                 remotePushMessageInfo?.extras?.params?.accountId,
+              topicType: topicType as ENotificationPushTopicTypes,
+              navigation,
+              mode: remotePushMessageInfo?.extras?.mode,
+              payload: remotePushMessageInfo?.extras?.payload,
             });
           }, 80);
           toast.close();
