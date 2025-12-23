@@ -7,17 +7,17 @@ import { CircleProgress } from './CircleProgress';
 
 interface ICapUsageChartProps {
   percentage: string;
+  label: string;
   title: IEarnText;
   description: IEarnText;
-  fiatDescription?: string;
   tooltip?: IEarnTooltip;
 }
 
 export function CapUsageChart({
   percentage,
+  label,
   title,
   description,
-  fiatDescription,
   tooltip,
 }: ICapUsageChartProps) {
   const percentageValue = parseFloat(percentage) || 0;
@@ -25,17 +25,17 @@ export function CapUsageChart({
   return (
     <XStack gap="$3" ai="center">
       <CircleProgress percentage={percentageValue} size={64} strokeWidth={4} />
-      <YStack gap="$0.5">
-        <XStack ai="center" gap="$1">
-          <EarnText text={title} size="$bodyMd" color="$textSubdued" />
-          <EarnTooltip title={title.text} tooltip={tooltip} />
-        </XStack>
-        <EarnText text={description} size="$bodyLgMedium" />
-        {fiatDescription ? (
-          <SizableText size="$bodySm" color="$textSubdued">
-            {fiatDescription}
+      <YStack gap="$1.5" flex={1}>
+        <XStack ai="center" gap="$1.5">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {label}
           </SizableText>
-        ) : null}
+          {tooltip ? <EarnTooltip title={label} tooltip={tooltip} /> : null}
+        </XStack>
+        <XStack ai="center" gap="$3">
+          <EarnText text={title} size="$bodyLgMedium" />
+          <EarnText text={description} size="$bodySm" color="$textSubdued" />
+        </XStack>
       </YStack>
     </XStack>
   );

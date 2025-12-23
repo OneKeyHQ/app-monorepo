@@ -127,6 +127,7 @@ export function ChartSection({
           {details?.supply.usage ? (
             <CapUsageChart
               percentage={details.supply.usage.percentage}
+              label="Supply cap usage"
               title={details.supply.usage.title}
               description={details.supply.usage.description}
               tooltip={details.supply.usage.tooltip}
@@ -180,12 +181,17 @@ export function ChartSection({
         </YStack>
       </DetailsSectionContainer>
 
-      <DetailsSectionContainer title="Borrow info" titleAfter={borrowBadge}>
+      <DetailsSectionContainer
+        title="Borrow info"
+        titleAfter={borrowBadge}
+        showDivider={false}
+      >
         <YStack gap="$6" pt="$4">
           {/* Borrow Cap Usage */}
           {details?.borrow.usage ? (
             <CapUsageChart
               percentage={details.borrow.usage.percentage}
+              label="Borrow cap usage"
               title={details.borrow.usage.title}
               description={details.borrow.usage.description}
               tooltip={details.borrow.usage.tooltip}

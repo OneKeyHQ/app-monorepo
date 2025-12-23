@@ -13,8 +13,8 @@ import { OverviewSkeleton } from '@onekeyhq/kit/src/views/Staking/components/Sta
 import { BorrowFAQSection } from './BorrowFAQSection';
 import { ChartSection } from './ChartSection';
 import { DailyCapsSection } from './DailyCapsSection';
-import { ProductSection } from './ProductSection';
 import { ReserveProtocolHeader } from './ReserveProtocolHeader';
+import { RiskSection } from './RiskSection';
 
 interface IDetailsPartProps {
   accountId: string;
@@ -87,7 +87,7 @@ const DetailsPartComponent = ({
               />
             </YStack>
             <DailyCapsSection details={details} />
-            <ProductSection details={details} />
+            <RiskSection risk={details.risk} />
             <BorrowFAQSection
               networkId={networkId}
               provider={provider}

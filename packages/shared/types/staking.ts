@@ -1953,17 +1953,11 @@ export interface IBorrowReserveDetailDailyInfo {
 
 export interface IBorrowReserveDetailRiskItem {
   icon: {
-    icon: string;
+    icon: IKeyOfIcons;
   };
   title: IEarnText;
   description: IEarnText;
-  actionButton: {
-    type: 'link';
-    disabled: boolean;
-    data: {
-      link: string;
-    };
-  };
+  actionButton: IEarnLinkActionIcon;
 }
 
 export interface IBorrowReserveDetailRisk {
