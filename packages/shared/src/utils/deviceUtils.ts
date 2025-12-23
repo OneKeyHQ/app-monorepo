@@ -49,6 +49,7 @@ export enum EHardwareUiStateAction {
   REQUEST_PASSPHRASE = 'ui-request_passphrase',
   REQUEST_PASSPHRASE_ON_DEVICE = 'ui-request_passphrase_on_device',
   REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE = 'ui-request_select_device_in_bootloader_for_web_device',
+  REQUEST_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE = 'ui-request_select_device_for_switch_firmware_web_device',
 
   CLOSE_UI_WINDOW = 'ui-close_window',
   CLOSE_UI_PIN_WINDOW = 'ui-close_pin_window',

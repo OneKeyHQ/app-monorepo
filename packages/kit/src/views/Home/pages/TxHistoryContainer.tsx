@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty, uniqBy } from 'lodash';
 
@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   useCurrencyPersistAtom,
+  useNotificationsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -28,6 +29,7 @@ import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -92,6 +94,7 @@ function TxHistoryListContainer(
 
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [{ txHistoryAlertDismissed }] = useNotificationsAtom();
 
   const updateHistoryData = useCallback(
     (txs: IAccountHistoryTx[]) => {
@@ -439,8 +442,14 @@ function TxHistoryListContainer(
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
 
+  const listHeaderComponent = useMemo(
+    () => <NotificationEnableAlert scene="txHistory" />,
+    [],
+  );
+
   return (
     <TxHistoryListView
+      key={`tx-history-${txHistoryAlertDismissed ? 'dismissed' : 'shown'}`}
       plainMode={plainMode}
       isTabFocused={isFocused}
       showIcon
@@ -466,6 +475,7 @@ function TxHistoryListContainer(
       tokenMap={allTokenListMap}
       emptyTitle={emptyTitle}
       emptyDescription={emptyDescription}
+      ListHeaderComponent={listHeaderComponent}
     />
   );
 }

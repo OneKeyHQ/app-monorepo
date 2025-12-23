@@ -92,6 +92,7 @@ export enum EAppEventBusNames {
   HideTabBar = 'HideTabBar',
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
   RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
+  RequestDeviceForSwitchFirmwareWebDevice = 'RequestDeviceForSwitchFirmwareWebDevice',
   EnabledNetworksChanged = 'EnabledNetworksChanged',
   CheckWalletBackupStatus = 'CheckWalletBackupStatus',
   doubleConfirmTxFeeInfo = 'doubleConfirmTxFeeInfo',

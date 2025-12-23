@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
-import { PageHeaderDivider } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
@@ -47,32 +47,36 @@ export function TabPageHeader({
   return (
     <>
       <Page.Header headerShown={false} />
-      <XStack
-        alignItems="center"
-        justifyContent="space-between"
-        px="$5"
-        h="$11"
-        {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
-      >
-        <View>
-          <HeaderLeft
-            selectedHeaderTab={selectedHeaderTab}
-            sceneName={sceneName}
-            tabRoute={tabRoute}
-            customHeaderLeftItems={customHeaderLeftItems}
-          />
-        </View>
-        <View>
-          <HeaderTitle sceneName={sceneName} />
-        </View>
-        {headerRight}
-      </XStack>
+      {tabRoute === ETabRoutes.Home || tabRoute === ETabRoutes.Discovery ? (
+        <>
+          <XStack
+            alignItems="center"
+            justifyContent="space-between"
+            px="$5"
+            h="$11"
+            {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
+          >
+            <View>
+              <HeaderLeft
+                selectedHeaderTab={selectedHeaderTab}
+                sceneName={sceneName}
+                tabRoute={tabRoute}
+                customHeaderLeftItems={customHeaderLeftItems}
+              />
+            </View>
+            <View>
+              <HeaderTitle sceneName={sceneName} />
+            </View>
+            {headerRight}
+          </XStack>
 
-      {!hideSearch ? (
-        <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
-      ) : null}
-
-      <PageHeaderDivider mt="$3" />
+          {!hideSearch ? (
+            <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+          ) : null}
+        </>
+      ) : (
+        <XStack h={top || '$2'} bg="$bgApp" />
+      )}
     </>
   );
 }

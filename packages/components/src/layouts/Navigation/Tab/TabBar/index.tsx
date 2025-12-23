@@ -14,7 +14,7 @@ const useShowMobileBottomTabBar = platformEnv.isNative
       return media.md;
     };
 
-export default function TabBar({
+export default function NavigationBar({
   ...props
 }: BottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
