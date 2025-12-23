@@ -247,6 +247,55 @@ function CreateOrImportWallet() {
                       color="$iconSubdued"
                     />
                   </Card.Header>
+                  <Card.Body>
+                    <XStack gap="$2" flexWrap="wrap">
+                      {[
+                        {
+                          title: intl.formatMessage({
+                            id: ETranslations.highest_security,
+                          }),
+                          badge: 'success' as const,
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: ETranslations.for_large_assets,
+                          }),
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: ETranslations.private_key_staty_on_device,
+                          }),
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: ETranslations.ideal_for_long_term_storage,
+                          }),
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: ETranslations.protects_against_malware,
+                          }),
+                        },
+                      ].map((item, index) => (
+                        <Badge
+                          key={index}
+                          {...(item.badge && { badgeType: item.badge })}
+                        >
+                          <Badge.Text size="$bodySm">{item.title}</Badge.Text>
+                        </Badge>
+                      ))}
+                      <Badge>
+                        <Badge.Text size="$bodySm">
+                          {intl.formatMessage({
+                            id: ETranslations.global_supports,
+                          })}
+                        </Badge.Text>
+                        <XStack gap="$1" ml="$1">
+                          <Icon name="OnekeyLogoIllus" size="$3" />
+                        </XStack>
+                      </Badge>
+                    </XStack>
+                  </Card.Body>
                 </Card>
               </>
             ) : null}
@@ -403,7 +452,13 @@ function CreateOrImportWallet() {
                   <Icon name="PlusLargeOutline" color="$iconOnColor" />
                 </YStack>
                 <YStack gap="$0.5" flex={1} alignItems="flex-start">
-                  <Card.Title>Seed phrase wallet</Card.Title>
+                  <Card.Title>
+                    {isKeylessWalletEnabled
+                      ? 'Seed phrase wallet'
+                      : intl.formatMessage({
+                          id: ETranslations.onboarding_create_new_wallet,
+                        })}
+                  </Card.Title>
                   <Button
                     px="$1"
                     py="$0.5"

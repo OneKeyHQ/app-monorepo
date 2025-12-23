@@ -26,6 +26,7 @@ import {
   useMedia,
   useThemeValue,
 } from '@onekeyhq/components';
+import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -306,6 +307,7 @@ export default function GetStarted() {
   };
   const { gtMd } = useMedia();
   const intl = useIntl();
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
 
   const handleCreateOrImportWallet = () => {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
@@ -421,33 +423,55 @@ export default function GetStarted() {
                     </SizableText>
                   </XStack>
                 </Button>
-                <XStack gap="$2">
+                {isKeylessWalletEnabled ? (
+                  <XStack gap="$2">
+                    <Button
+                      flex={1}
+                      bg="$gray3"
+                      hoverStyle={{ bg: '$gray4' }}
+                      pressStyle={{ bg: '$gray5' }}
+                      size="large"
+                      childrenAsText={false}
+                      onPress={handleCreateOrImportWallet}
+                    >
+                      <XStack gap="$2" alignItems="center">
+                        <Icon name="GoogleIllus" size="$5" />
+                        <SizableText size="$bodyLgMedium">
+                          Continue with Google
+                        </SizableText>
+                      </XStack>
+                    </Button>
+                    <Button
+                      bg="$gray3"
+                      hoverStyle={{ bg: '$gray4' }}
+                      pressStyle={{ bg: '$gray5' }}
+                      size="large"
+                      childrenAsText={false}
+                      onPress={handleCreateOrImportWallet}
+                    >
+                      <Icon name="DotHorOutline" size="$5" />
+                    </Button>
+                  </XStack>
+                ) : (
                   <Button
-                    flex={1}
                     bg="$gray3"
                     hoverStyle={{ bg: '$gray4' }}
                     pressStyle={{ bg: '$gray5' }}
                     size="large"
-                    childrenAsText={false}
-                  >
-                    <XStack gap="$2" alignItems="center">
-                      <Icon name="GoogleIllus" size="$5" />
-                      <SizableText size="$bodyLgMedium">
-                        Continue with Google
-                      </SizableText>
-                    </XStack>
-                  </Button>
-                  <Button
-                    bg="$gray3"
-                    hoverStyle={{ bg: '$gray4' }}
-                    pressStyle={{ bg: '$gray5' }}
-                    size="large"
+                    alignSelf="stretch"
                     childrenAsText={false}
                     onPress={handleCreateOrImportWallet}
                   >
-                    <Icon name="DotHorOutline" size="$5" />
+                    <XStack gap="$2" alignItems="center">
+                      <Icon name="PlusLargeOutline" size="$5" />
+                      <SizableText size="$bodyLgMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.onboarding_create_or_import_wallet,
+                        })}
+                      </SizableText>
+                    </XStack>
                   </Button>
-                </XStack>
+                )}
               </Stack>
             </YStack>
           </YStack>
