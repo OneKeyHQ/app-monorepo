@@ -12,7 +12,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../hocs';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
-import { Icon, View, XStack, YStack } from '../../primitives';
+import {
+  Icon,
+  Image,
+  SizableText,
+  View,
+  XStack,
+  YStack,
+} from '../../primitives';
 import { Spinner } from '../../primitives/Spinner/Spinner';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
@@ -21,12 +28,14 @@ import { showMessage } from './showMessage';
 import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IToastMessageOptions } from './type';
 import type { IPortalManager } from '../../hocs';
-import type { ISizableTextProps } from '../../primitives';
+import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
 
 export interface IToastProps {
   toastId?: string;
   title: string;
   message?: string;
+  icon?: IKeyOfIcons;
+  imageUri?: string;
   duration?: number;
   actionsAlign?: 'left' | 'right';
   actions?: JSX.Element | JSX.Element[];
@@ -182,18 +191,19 @@ export function ToastContent({
 }
 
 const toastIdMap = new Map<string, [number, number]>();
-function toastMessage({
-  toastId,
+
+const handleToastId = ({
   title,
-  message,
-  duration = 5000,
-  haptic,
-  preset = 'custom',
-  actions,
-  actionsAlign = 'right',
-  position,
+  toastId,
+  duration = 0,
   onClose,
-}: IToastBaseProps) {
+}: {
+  toastId?: string;
+  title: string;
+  message?: string;
+  duration?: number;
+  onClose?: () => void;
+}) => {
   const handleClose = () => {
     if (toastId) {
       toastIdMap.delete(toastId);
@@ -220,6 +230,21 @@ function toastMessage({
     }
     toastIdMap.set(toastId, [Date.now(), duration + 500]);
   }
+  return handleClose;
+};
+function toastMessage({
+  toastId,
+  title,
+  message,
+  duration = 5000,
+  haptic,
+  preset = 'custom',
+  actions,
+  actionsAlign = 'right',
+  position,
+  onClose,
+}: IToastBaseProps) {
+  const handleClose = handleToastId({ title, toastId, duration, onClose });
   return showMessage({
     renderContent: (props) => (
       <ToastContent
@@ -228,6 +253,86 @@ function toastMessage({
         maxWidth={props?.width}
         message={message}
         icon={iconMap[haptic as keyof typeof iconMap]}
+        actions={actions}
+        actionsAlign={actionsAlign}
+      />
+    ),
+    duration,
+    haptic,
+    preset,
+    position,
+  });
+}
+
+function ToastNotificationContent({
+  title,
+  message,
+  icon,
+  imageUri,
+  onClose,
+}: IToastBaseProps) {
+  useEffect(
+    () => () => {
+      onClose?.();
+    },
+    [onClose],
+  );
+  const handlePress = () => {};
+  return (
+    <XStack gap="$2" cursor="pointer" onPress={handlePress}>
+      <XStack
+        bg="$bgStrong"
+        borderRadius="$full"
+        ai="center"
+        jc="center"
+        w={28}
+        h={28}
+      >
+        <Icon size={18} name={icon} color="$icon" />
+      </XStack>
+      <YStack flex={1} gap={2} flexShrink={1} maxWidth={220}>
+        <SizableText size="$headingSm" numberOfLines={2} flexShrink={1}>
+          {title}
+        </SizableText>
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={3}
+          flexShrink={1}
+        >
+          {message}
+        </SizableText>
+      </YStack>
+      {imageUri ? (
+        <Image borderRadius="$1" size="$12" source={{ uri: imageUri }} />
+      ) : null}
+    </XStack>
+  );
+}
+
+function toastNotification({
+  toastId,
+  title,
+  message,
+  icon,
+  imageUri,
+  duration = 5000,
+  haptic,
+  preset = 'custom',
+  actions,
+  actionsAlign = 'right',
+  position,
+  onClose,
+}: IToastBaseProps) {
+  const handleClose = handleToastId({ title, toastId, duration, onClose });
+  return showMessage({
+    renderContent: (props) => (
+      <ToastNotificationContent
+        onClose={handleClose}
+        title={title}
+        imageUri={imageUri}
+        message={message}
+        icon={icon}
         actions={actions}
         actionsAlign={actionsAlign}
       />
@@ -259,6 +364,9 @@ export const Toast = {
   },
   loading: (props: IToastProps) => {
     return toastMessage({ haptic: 'loading', ...props });
+  },
+  notification: (props: IToastProps) => {
+    return toastNotification({ haptic: 'info', preset: 'none', ...props });
   },
   /* show custom view on Toast */
   show: ({
