@@ -28,7 +28,10 @@ import { EAppEventBusNames } from './appEventBusNames';
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
-import type { INotificationViewDialogPayload } from '../../types/notification';
+import type {
+  INotificationPushMessageInfo,
+  INotificationViewDialogPayload,
+} from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
 import type {
   ESwapCrossChainStatus,
@@ -428,6 +431,13 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
   [EAppEventBusNames.SwapLimitOrderBuildSuccess]: undefined;
   [EAppEventBusNames.RefreshNativeTokenInfo]: undefined;
+  [EAppEventBusNames.ShowInAppPushNotification]: {
+    notificationId: string | undefined;
+    title: string;
+    description: string;
+    icon: string | undefined;
+    remotePushMessageInfo: INotificationPushMessageInfo;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
