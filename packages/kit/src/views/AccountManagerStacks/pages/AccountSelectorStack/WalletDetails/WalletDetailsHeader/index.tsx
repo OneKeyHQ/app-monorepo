@@ -126,7 +126,7 @@ export function WalletDetailsHeader({
             </SizableText>
           ) : null}
           {!platformEnv.isWebDappMode && wallet ? (
-            <WalletRenameButton wallet={wallet} editable={editable} />
+            <WalletRenameButton wallet={wallet} editable={editable} mr="$1.5" />
           ) : null}
         </XStack>
 
