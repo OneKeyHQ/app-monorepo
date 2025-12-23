@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
+import { Dimensions } from 'react-native';
 
 let isDualScreen: boolean | undefined;
 export const isDualScreenDevice = () => {
@@ -21,7 +22,8 @@ export const useIsSpanningInDualScreen = () => {
   useEffect(() => {
     const listenerId = ReactNativeDeviceUtils.addSpanningChangedListener(
       (result) => {
-        setIsSpanningInDualScreen(result);
+        const screenWidth = Dimensions.get('window').width;
+        setIsSpanningInDualScreen(result && screenWidth > 800);
       },
     );
     return () => {
