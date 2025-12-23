@@ -1000,6 +1000,7 @@ function BaseMoreActionContent() {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return (
     <ScrollView
+      showsVerticalScrollIndicator
       overflow="scroll"
       h={462}
       contentContainerStyle={{
@@ -1031,7 +1032,7 @@ export function MoreActionContentPage() {
 function MoreActionContent() {
   return (
     <MoreActionProvider>
-      <YStack>
+      <YStack className="show-scrollbar">
         <MoreActionContentHeader />
         <BaseMoreActionContent />
         <MoreActionDivider />
@@ -1148,7 +1149,7 @@ function MoreActionButtonCmp() {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return isDesktopMode ? (
     <Tooltip
-      hovering
+      open
       contentProps={{
         maxWidth: 384,
         width: 384,
