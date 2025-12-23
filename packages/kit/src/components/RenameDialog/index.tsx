@@ -275,7 +275,7 @@ function PrimeProfileDialogContent() {
     <>
       <Form form={form}>
         <YStack gap="$4">
-          <XStack ai="center">
+          <XStack jc="center">
             <OneKeyIdAvatar size="$20" />
           </XStack>
           <Form.Field
