@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 
 import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
-import { PageHeaderDivider } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface ITabPageHeaderContainerProps {
@@ -25,7 +24,6 @@ export function TabPageHeaderContainer({
       >
         {children}
       </XStack>
-      <PageHeaderDivider mt="$3" />
     </>
   );
 }

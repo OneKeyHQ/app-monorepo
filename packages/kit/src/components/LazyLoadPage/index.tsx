@@ -33,7 +33,18 @@ export function LazyLoadPage<
     }
 
     return (
-      <Stack flex={1} className="LazyLoadPageContainer" bg="$bgApp">
+      <Stack
+        flex={1}
+        className="LazyLoadPageContainer"
+        bg={
+          platformEnv.isNative ||
+          platformEnv.isExtensionUiPopup ||
+          platformEnv.isExtensionUiSidePanel ||
+          platformEnv.isExtensionBackground
+            ? '$bgApp'
+            : '$bgSubdued'
+        }
+      >
         <LazyLoadComponent {...props} />
       </Stack>
     );
