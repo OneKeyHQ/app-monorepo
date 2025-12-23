@@ -946,40 +946,41 @@ function MoreActionDevice() {
     });
   }, [navigation]);
   return hwQrWalletList.length > 0 ? (
-    <YStack
+    <XStack
+      jc="space-between"
+      ai="center"
       bg="$bgSubdued"
       mx="$5"
       my="41"
       px="$3"
       py="$5"
-      gap="$3"
       borderRadius="$4"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
       onPress={handleDevice}
     >
-      <SizableText
-        size="$headingMd"
-        color="$text"
-        numberOfLines={1}
-        ellipsizeMode="middle"
-      >
-        {`${intl.formatMessage({ id: ETranslations.global_device })} (3)`}
-      </SizableText>
-      <XStack jc="space-between">
+      <YStack gap="$3">
+        <SizableText
+          size="$headingMd"
+          color="$text"
+          numberOfLines={1}
+          ellipsizeMode="middle"
+        >
+          {`${intl.formatMessage({ id: ETranslations.global_device })} (3)`}
+        </SizableText>
         <XStack>
           {hwQrWalletList.map((item) => (
-            <WalletAvatar key={item.wallet.id} wallet={item.wallet} />
+            <WalletAvatar size={44} key={item.wallet.id} wallet={item.wallet} />
           ))}
         </XStack>
-        <IconButton
-          variant="tertiary"
-          icon="ChevronRightOutline"
-          size="small"
-          onPress={handleDevice}
-        />
-      </XStack>
-    </YStack>
+      </YStack>
+      <IconButton
+        variant="tertiary"
+        icon="ChevronRightSmallOutline"
+        size="small"
+        onPress={handleDevice}
+      />
+    </XStack>
   ) : null;
 }
 
