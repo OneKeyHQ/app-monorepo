@@ -45,7 +45,6 @@ import {
   useFirmwareUpdatesDetectStatusPersistAtom,
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
-  usePrimePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -977,7 +976,9 @@ function MoreActionDevice() {
           numberOfLines={1}
           ellipsizeMode="middle"
         >
-          {`${intl.formatMessage({ id: ETranslations.global_device })} (3)`}
+          {`${intl.formatMessage({ id: ETranslations.global_device })} (${
+            hwQrWalletList.length
+          })`}
         </SizableText>
         <XStack>
           {hwQrWalletList.map((item) => (
