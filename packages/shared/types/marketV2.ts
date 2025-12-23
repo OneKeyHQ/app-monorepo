@@ -233,6 +233,7 @@ export interface IMarketTokenTransactionsResponse {
 export interface IMarketAccountTokenTransactionParty {
   amount: string;
   address: string;
+  symbol: string;
 }
 
 export interface IMarketAccountTokenTransaction {
