@@ -170,7 +170,8 @@ export function showPositionShareDialog(
   data: IShareData,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
-  const DialogInstance = dialog || Dialog;
+  const DialogInstance =
+    platformEnv.isNativeAndroid || !dialog ? Dialog : dialog;
 
   const dialogInstance = DialogInstance.show({
     title: appLocale.intl.formatMessage({
