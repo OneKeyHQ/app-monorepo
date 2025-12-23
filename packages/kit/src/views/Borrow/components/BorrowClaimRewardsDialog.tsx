@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { Button, Dialog, XStack, YStack } from '@onekeyhq/components';
+import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type {
   IEarnRewardClaimGroup,
@@ -13,15 +14,16 @@ import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 type IClaimItemProps = {
   item: IEarnRewardClaimItem;
   onClaim: (item: IEarnRewardClaimItem) => void;
-  loading?: boolean;
+  claimingItemId: string | null;
 };
 
-function ClaimItem({ item, onClaim, loading }: IClaimItemProps) {
+function ClaimItem({ item, onClaim, claimingItemId }: IClaimItemProps) {
   const handlePress = useCallback(() => {
     onClaim(item);
   }, [item, onClaim]);
 
-  const disabled = item.button.disabled || loading;
+  const isLoading = claimingItemId === item.id;
+  const disabled = item.button.disabled || isLoading;
 
   return (
     <XStack alignItems="center" gap="$3" py="$2">
@@ -40,6 +42,7 @@ function ClaimItem({ item, onClaim, loading }: IClaimItemProps) {
         size="small"
         variant="secondary"
         disabled={disabled}
+        loading={isLoading}
         onPress={handlePress}
       >
         <EarnText text={item.button.text} size="$bodyMdMedium" />
@@ -51,10 +54,10 @@ function ClaimItem({ item, onClaim, loading }: IClaimItemProps) {
 type IClaimGroupProps = {
   group: IEarnRewardClaimGroup;
   onClaim: (item: IEarnRewardClaimItem) => void;
-  loading?: boolean;
+  claimingItemId: string | null;
 };
 
-function ClaimGroup({ group, onClaim, loading }: IClaimGroupProps) {
+function ClaimGroup({ group, onClaim, claimingItemId }: IClaimGroupProps) {
   return (
     <YStack>
       {group.title ? (
@@ -70,7 +73,7 @@ function ClaimGroup({ group, onClaim, loading }: IClaimGroupProps) {
           key={item.id}
           item={item}
           onClaim={onClaim}
-          loading={loading}
+          claimingItemId={claimingItemId}
         />
       ))}
     </YStack>
@@ -90,6 +93,7 @@ function BorrowClaimRewardsDialogContent({
 }: IBorrowClaimRewardsDialogContentProps) {
   const [loading, setLoading] = useState(false);
   const [claimingItemId, setClaimingItemId] = useState<string | null>(null);
+  const dialogInstance = useDialogInstance();
 
   const claimableGroups = rewardsDetails.data.rewardsDetail.claimable;
 
@@ -98,11 +102,12 @@ function BorrowClaimRewardsDialogContent({
       setClaimingItemId(item.id);
       try {
         await onClaimItem(item);
+        void dialogInstance.close();
       } finally {
         setClaimingItemId(null);
       }
     },
-    [onClaimItem],
+    [onClaimItem, dialogInstance],
   );
 
   const handleClaimAll = useCallback(async () => {
@@ -126,7 +131,7 @@ function BorrowClaimRewardsDialogContent({
             key={index}
             group={group}
             onClaim={handleClaimItem}
-            loading={claimingItemId !== null}
+            claimingItemId={claimingItemId}
           />
         ))}
       </YStack>
