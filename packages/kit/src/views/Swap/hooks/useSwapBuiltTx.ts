@@ -11,7 +11,11 @@ import { ethers } from 'ethers';
 import { cloneDeep, isEqual, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Toast, rootNavigationRef, useIsOverlayPage } from '@onekeyhq/components';
+import {
+  Toast,
+  rootNavigationRef,
+  useIsOverlayPage,
+} from '@onekeyhq/components';
 import type {
   IEncodedTx,
   ISignedTxPro,
