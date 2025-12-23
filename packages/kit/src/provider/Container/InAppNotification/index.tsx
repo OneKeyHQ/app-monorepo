@@ -21,7 +21,10 @@ import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
+import {
+  ENotificationPushTopicTypes,
+  type INotificationPushMessageInfo,
+} from '@onekeyhq/shared/types/notification';
 import {
   ESwapApproveTransactionStatus,
   ESwapSource,
@@ -414,21 +417,29 @@ const InAppNotification = () => {
       icon: string | undefined;
       remotePushMessageInfo: INotificationPushMessageInfo;
     }) => {
-      Toast.notification({
+      const topicType = remotePushMessageInfo?.extras?.topic;
+      const toast = Toast.notification({
         title,
         message: description,
         icon: icon as IKeyOfIcons,
+        iconImageUri:
+          (topicType as ENotificationPushTopicTypes) !==
+          ENotificationPushTopicTypes.system
+            ? remotePushMessageInfo?.extras?.image
+            : undefined,
         duration: 5000,
+        imageUri: remotePushMessageInfo?.extras?.image,
         onPress: async () => {
-          await notificationsUtils.navigateToNotificationDetail({
-            message: remotePushMessageInfo,
-            isFromNotificationClick: true,
-            notificationId: notificationId || '',
-            notificationAccountId:
-              remotePushMessageInfo?.extras?.params?.accountId,
-            mode: remotePushMessageInfo?.extras?.mode,
-            payload: remotePushMessageInfo?.extras?.payload,
-          });
+          setTimeout(async () => {
+            await notificationsUtils.navigateToNotificationDetail({
+              message: remotePushMessageInfo,
+              isFromNotificationClick: true,
+              notificationId: notificationId || '',
+              notificationAccountId:
+                remotePushMessageInfo?.extras?.params?.accountId,
+            });
+          }, 80);
+          toast.close();
         },
       });
     };

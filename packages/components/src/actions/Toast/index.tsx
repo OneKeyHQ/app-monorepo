@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { createRef, useEffect } from 'react';
+import { createRef, useEffect, useMemo } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
@@ -58,6 +58,7 @@ export interface IToastBaseProps extends IToastProps {
 
 export interface IToastNotificationProps extends IToastBaseProps {
   onPress?: () => void;
+  iconImageUri?: string;
 }
 
 const iconMap = {
@@ -272,12 +273,11 @@ function ToastNotificationContent({
   title,
   message,
   icon,
+  iconImageUri,
   imageUri,
   onClose,
   onPress,
-}: IToastBaseProps & {
-  onPress?: () => void;
-}) {
+}: IToastNotificationProps) {
   useEffect(
     () => () => {
       onClose?.();
@@ -287,6 +287,14 @@ function ToastNotificationContent({
   const handlePress = () => {
     onPress?.();
   };
+  const IconElement = useMemo(() => {
+    if (iconImageUri) {
+      return <Image source={{ uri: iconImageUri }} size={18} />;
+    }
+    return (
+      <Icon size={18} name={icon || 'SpeakerPromoteOutline'} color="$icon" />
+    );
+  }, [iconImageUri, icon]);
   return (
     <XStack gap="$2" cursor="pointer" onPress={handlePress}>
       <XStack
@@ -297,7 +305,7 @@ function ToastNotificationContent({
         w={28}
         h={28}
       >
-        <Icon size={18} name={icon} color="$icon" />
+        {IconElement}
       </XStack>
       <YStack flex={1} gap={2} flexShrink={1} maxWidth={220}>
         <SizableText size="$headingSm" numberOfLines={2} flexShrink={1}>
@@ -324,6 +332,7 @@ function toastNotification({
   title,
   message,
   icon,
+  iconImageUri,
   imageUri,
   duration = 5000,
   haptic,
@@ -333,9 +342,7 @@ function toastNotification({
   position,
   onPress,
   onClose,
-}: IToastBaseProps & {
-  onPress: () => void;
-}) {
+}: IToastNotificationProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   return showMessage({
     renderContent: (props) => (
@@ -345,6 +352,7 @@ function toastNotification({
         imageUri={imageUri}
         message={message}
         icon={icon}
+        iconImageUri={iconImageUri}
         actions={actions}
         actionsAlign={actionsAlign}
         onPress={onPress}
