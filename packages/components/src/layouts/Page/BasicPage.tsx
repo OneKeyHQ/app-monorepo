@@ -58,11 +58,10 @@ export function BasicPage({ children }: IBasicPageProps) {
   const desktopProps = useMemo(() => {
     return isDesktopLayout
       ? {
-          borderRadius: '$4' as const,
+          borderTopLeftRadius: '$4' as const,
+          borderTopRightRadius: '$4' as const,
           borderWidth: 1,
           borderColor: '$borderSubdued',
-          mr: '$1',
-          mb: '$1',
           overflow: 'hidden' as const,
         }
       : undefined;

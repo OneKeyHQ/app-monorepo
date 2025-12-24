@@ -16,5 +16,6 @@ export const { target: appUpdatePersistAtom, use: useAppUpdatePersistAtom } =
       updateAt: 0,
       status: EAppUpdateStatus.done,
       updateStrategy: EUpdateStrategy.manual,
+      lastUpdateDialogShownAt: undefined,
     },
   });

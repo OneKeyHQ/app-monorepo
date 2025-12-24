@@ -343,7 +343,9 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
             </XStack>
           </XStack>
           <Form.Field
-            label="Nickname"
+            label={appLocale.intl.formatMessage({
+              id: ETranslations.settings_nickname,
+            })}
             name="nickname"
             rules={{
               required: {
@@ -394,14 +396,15 @@ function PrimeProfileDialogContentNotLoggedIn() {
 }
 
 export const useEditPrimeProfileDialog = () => {
+  const intl = useIntl();
   const dialog = useInPageDialog();
   return useCallback(async () => {
     return new Promise<void>((resolve) => {
       dialog.confirm({
         onClose: () => resolve(),
-        title: 'Edit prifle',
+        title: intl.formatMessage({ id: ETranslations.settings_edit_profile }),
         renderContent: <PrimeProfileDialogContentNotLoggedIn />,
       });
     });
-  }, [dialog]);
+  }, [dialog, intl]);
 };

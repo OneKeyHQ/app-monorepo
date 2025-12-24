@@ -36,8 +36,8 @@ function BasicOneKeyIdAvatar({
       width={size}
       height={size}
       borderRadius="$full"
-      borderWidth={1}
-      borderColor="$neutral3"
+      outlineWidth={1}
+      outlineColor="$neutral3"
       source={source}
       fallback={
         <Image.Fallback

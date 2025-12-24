@@ -485,7 +485,7 @@ async function createMainWindow() {
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
     titleBarOverlay: !isMac,
-    trafficLightPosition: { x: 6, y: 18 }, // OK-45416 After the Top nav is adjusted, adjust the parameter synchronously
+    trafficLightPosition: { x: 20, y: 20 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,

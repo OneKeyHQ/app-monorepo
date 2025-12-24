@@ -78,6 +78,13 @@ const TabMe = () => {
           >
             V4 迁移（断点恢复模式）
           </Button>
+          <Button
+            onPress={() => {
+              void backgroundApiProxy.serviceAppUpdate.clearLastDialogShownAt();
+            }}
+          >
+            清除更新弹窗时间限制
+          </Button>
         </YStack>
       </Page.Body>
     </Page>
