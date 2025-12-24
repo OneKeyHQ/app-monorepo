@@ -50,7 +50,7 @@ export function SelectorTrigger() {
   );
 }
 
-function DepositAction() {
+export function DepositAction() {
   const { gtMd } = useMedia();
   const intl = useIntl();
   return gtMd ? null : (
