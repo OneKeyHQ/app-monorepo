@@ -243,7 +243,6 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         <SwapPanel
           swapToken={toSwapPanelToken}
           portfolioData={portfolioData}
-          isPortRefreshing={isRefreshing}
           disableTrade={disableTrade}
           onShowSwapDialog={showSwapDialog}
         />

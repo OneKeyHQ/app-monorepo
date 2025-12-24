@@ -102,6 +102,7 @@ import {
   useSwapProErrorAlert,
   useSwapProInit,
   useSwapProInputToken,
+  useSwapProSupportNetworksTokenList,
   useSwapProToToken,
   useSwapProTokenInit,
 } from '../../hooks/useSwapPro';
@@ -123,9 +124,12 @@ import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapProContainer from './SwapProContainer';
+import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 import SwapTipsContainer from './SwapTipsContainer';
+
+import type { ScrollView as ScrollViewNative } from 'react-native';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
@@ -169,7 +173,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapStepData] = useSwapStepsAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProSelectToken, setSwapProSelectToken] =
+    useSwapProSelectTokenAtom();
   const swapProFromToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const [swapProInputAmount, setSwapProInputAmount] =
@@ -247,12 +252,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }
 
   const onSelectToken = useCallback(
-    (type: ESwapDirectionType) => {
+    (type: ESwapDirectionType, autoSearch?: boolean) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapTokenSelect,
         params: {
           type,
           storeName,
+          autoSearch,
         },
       });
     },
@@ -1055,6 +1061,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     },
     [navigation, storeName],
   );
+  const scrollViewRef = useRef<ScrollViewNative>(null);
+  const onTokenPress = useCallback(
+    (token: ISwapToken) => {
+      if (focusSwapPro) {
+        void setSwapProSelectToken(token);
+      } else {
+        void selectFromToken(token);
+        scrollViewRef.current?.scrollTo({
+          y: 0,
+          animated: true,
+        });
+      }
+    },
+    [focusSwapPro, selectFromToken, setSwapProSelectToken],
+  );
 
   const { networkList } = useSwapProInit();
   const {
@@ -1065,6 +1086,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     hasEnoughBalance,
     supportSpeedSwap,
   } = useSwapProTokenInit();
+
+  const { swapProLoadSupportNetworksTokenListRun } =
+    useSwapProSupportNetworksTokenList(networkList);
   useSwapProErrorAlert(!supportSpeedSwap);
   useSwapQuote();
 
@@ -1096,19 +1120,23 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           onBalanceMaxPress={onBalanceMaxPress}
           handleSelectAccountClick={handleSelectAccountClick}
           onProMarketDetail={onProMarketDetail}
+          onTokenPress={onTokenPress}
+          swapProLoadSupportNetworksTokenListRun={
+            swapProLoadSupportNetworksTokenListRun
+          }
           config={{
             isLoading,
             speedConfig,
             balanceLoading,
             isMEV,
             hasEnoughBalance,
-            networkList,
           }}
         />
       ) : (
         <ScrollView
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          ref={scrollViewRef}
         >
           <YStack
             pt="$2.5"
@@ -1154,6 +1182,19 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               fromTokenAmount={fromTokenAmount.value}
             />
             <SwapPendingHistoryListComponent pageType={pageType} />
+            {platformEnv.isNative && !fromTokenAmount.value ? (
+              <SwapProTabListContainer
+                onTokenPress={onTokenPress}
+                onOpenOrdersClick={onOpenOrdersClick}
+                onSearchClick={() => {
+                  onSelectToken(ESwapDirectionType.FROM);
+                  scrollViewRef.current?.scrollTo({
+                    y: 0,
+                    animated: false,
+                  });
+                }}
+              />
+            ) : null}
           </YStack>
         </ScrollView>
       )}
