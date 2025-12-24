@@ -1,14 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { RefreshControl, ScrollView } from 'react-native';
-
-import { IconButton, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { Skeleton, XStack, YStack } from '@onekeyhq/components';
 import {
-  useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
-  useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
-  useSwapProSliderValueAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type {
@@ -19,13 +14,7 @@ import type {
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProErrorAlert from '../../components/SwapProErrorAlert';
-import {
-  useSwapProTokenDetailInfo,
-  useSwapProTokenInfoSync,
-} from '../../hooks/useSwapPro';
 
-import SwapProTabListContainer from './SwapProTabListContainer';
-import SwapProTokenSelector from './SwapProTokenSelect';
 import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
 import SwapProTradingPanel from './SwapProTradingPanel';
 
@@ -37,6 +26,7 @@ interface ISwapProContainerProps {
   onProMarketDetail: () => void;
   onSelectPercentageStage: (stage: number) => void;
   onBalanceMaxPress: () => void;
+  cleanProInputAmount: () => void;
   onTokenPress: (token: ISwapToken) => void;
   swapProLoadSupportNetworksTokenListRun: () => void;
   config: {
@@ -49,66 +39,25 @@ interface ISwapProContainerProps {
 }
 
 const SwapProContainer = ({
-  onProSelectToken,
-  onOpenOrdersClick,
   onSwapProActionClick,
   handleSelectAccountClick,
-  onProMarketDetail,
   onBalanceMaxPress,
   onSelectPercentageStage,
-  swapProLoadSupportNetworksTokenListRun,
-  onTokenPress,
+  cleanProInputAmount,
   config,
 }: ISwapProContainerProps) => {
   const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
     config;
-  const [refreshing, setRefreshing] = useState(false);
   const [limitPriceUseMarketPrice, setLimitPriceUseMarketPrice] = useState({
     value: '',
     change: false,
   });
-  const [, setSwapProInputAmount] = useSwapProInputAmountAtom();
-  const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [, setSwapProSliderValue] = useSwapProSliderValueAtom();
-  const scrollViewRef = useRef<ScrollView>(null);
-  const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
-    useSwapProTokenInfoSync();
   // Delay rendering heavy components to improve initial render performance
   const [shouldRenderHeavyComponents, setShouldRenderHeavyComponents] =
     useState(false);
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([
-      fetchTokenMarketDetailInfo(),
-      swapProLoadSupportNetworksTokenListRun(),
-      syncInputTokenBalance(),
-      syncToTokenPrice(),
-    ]);
-    setRefreshing(false);
-  }, [
-    fetchTokenMarketDetailInfo,
-    swapProLoadSupportNetworksTokenListRun,
-    syncInputTokenBalance,
-    syncToTokenPrice,
-  ]);
-  const cleanInputAmount = useCallback(() => {
-    setSwapProInputAmount('');
-    setFromInputAmount({
-      value: '',
-      isInput: true,
-    });
-    setSwapProSliderValue(0);
-  }, [setSwapProInputAmount, setFromInputAmount, setSwapProSliderValue]);
-
-  const netAccountAddress = netAccountRes.result?.addressDetail.address;
-  useEffect(() => {
-    cleanInputAmount();
-  }, [netAccountAddress, cleanInputAmount]);
-
   // Delay rendering heavy components after initial render
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -120,42 +69,7 @@ const SwapProContainer = ({
   }, []);
 
   return (
-    <ScrollView
-      style={{ flex: 1 }}
-      ref={scrollViewRef}
-      contentContainerStyle={{
-        flexGrow: 1,
-        paddingHorizontal: 20,
-      }}
-      showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[0]}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-      }
-    >
-      <XStack
-        justifyContent="space-between"
-        pb="$2"
-        pt="$2"
-        alignItems="center"
-        bg="$bgApp"
-      >
-        <SwapProTokenSelector
-          onSelectTokenClick={() => {
-            cleanInputAmount();
-            onProSelectToken();
-          }}
-          configLoading={isLoading}
-        />
-        <IconButton
-          icon="TradingViewCandlesOutline"
-          variant="tertiary"
-          flexShrink={0}
-          onPress={onProMarketDetail}
-        />
-      </XStack>
+    <YStack px="$5">
       <XStack mt="$2" gap="$4" pb="$4" alignItems="stretch">
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
           {shouldRenderHeavyComponents ? (
@@ -190,7 +104,7 @@ const SwapProContainer = ({
               onSwapProActionClick={onSwapProActionClick}
               hasEnoughBalance={hasEnoughBalance}
               handleSelectAccountClick={handleSelectAccountClick}
-              cleanInputAmount={cleanInputAmount}
+              cleanInputAmount={cleanProInputAmount}
             />
           ) : (
             <YStack gap="$6" flex={1} p="$3">
@@ -208,26 +122,7 @@ const SwapProContainer = ({
         title={swapProErrorAlert?.title}
         message={swapProErrorAlert?.message}
       />
-      {shouldRenderHeavyComponents ? (
-        <SwapProTabListContainer
-          onTokenPress={(token: ISwapToken) => {
-            onTokenPress(token);
-            scrollViewRef.current?.scrollTo({
-              y: 0,
-              animated: true,
-            });
-          }}
-          onOpenOrdersClick={onOpenOrdersClick}
-          onSearchClick={() => {
-            onProSelectToken(true);
-            scrollViewRef.current?.scrollTo({
-              y: 0,
-              animated: false,
-            });
-          }}
-        />
-      ) : null}
-    </ScrollView>
+    </YStack>
   );
 };
 

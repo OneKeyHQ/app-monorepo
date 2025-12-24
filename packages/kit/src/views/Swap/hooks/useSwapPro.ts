@@ -55,7 +55,6 @@ import {
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapProDirectionAtom,
-  useSwapProEnableCurrentSymbolAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
@@ -1055,7 +1054,6 @@ export function useSwapProSupportNetworksTokenList(
 export function useSwapProPositionsListFilter() {
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
-  const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
   const [swapProTokenSelect] = useSwapProSelectTokenAtom();
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -1087,25 +1085,19 @@ export function useSwapProPositionsListFilter() {
     return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
   }, [focusSwapPro, swapProSupportNetworksTokenList]);
 
-  const finallyTokenList = useMemo(
+  const filterTokenList = useMemo(
     () =>
-      swapProEnableCurrentSymbol
-        ? swapProSupportNetworksTokenList.filter((token) =>
-            equalTokenNoCaseSensitive({
-              token1: token,
-              token2: filterToken,
-            }),
-          )
-        : filterDefaultTokenList,
-    [
-      filterDefaultTokenList,
-      swapProEnableCurrentSymbol,
-      swapProSupportNetworksTokenList,
-      filterToken,
-    ],
+      swapProSupportNetworksTokenList.filter((token) =>
+        equalTokenNoCaseSensitive({
+          token1: token,
+          token2: filterToken,
+        }),
+      ),
+    [swapProSupportNetworksTokenList, filterToken],
   );
   return {
-    finallyTokenList,
+    normTokenList: filterDefaultTokenList,
+    filterTokenList,
   };
 }
 

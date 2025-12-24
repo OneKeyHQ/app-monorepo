@@ -75,12 +75,14 @@ interface ISwapHeaderContainerProps {
   pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
   showSwapPro?: boolean;
+  changeSwapType: (swapType: ESwapTabSwitchType) => void;
 }
 
 const SwapHeaderContainer = ({
   pageType,
   defaultSwapType,
   showSwapPro,
+  changeSwapType,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -129,6 +131,7 @@ const SwapHeaderContainer = ({
               if (fromToken?.networkId && fromToken?.networkId !== networkId) {
                 await updateSelectedAccountNetworkAction(fromToken?.networkId);
               }
+              changeSwapType(ESwapTabSwitchType.SWAP);
               void swapTypeSwitchAction(
                 ESwapTabSwitchType.SWAP,
                 fromToken?.networkId || networkId,
@@ -146,6 +149,7 @@ const SwapHeaderContainer = ({
               if (fromToken?.networkId && fromToken?.networkId !== networkId) {
                 await updateSelectedAccountNetworkAction(fromToken?.networkId);
               }
+              changeSwapType(ESwapTabSwitchType.BRIDGE);
               void swapTypeSwitchAction(
                 ESwapTabSwitchType.BRIDGE,
                 fromToken?.networkId || networkId,
@@ -159,6 +163,7 @@ const SwapHeaderContainer = ({
           isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
           onPress={() => {
             if (swapTypeSwitch !== ESwapTabSwitchType.LIMIT) {
+              changeSwapType(ESwapTabSwitchType.LIMIT);
               void swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, networkId);
             }
           }}

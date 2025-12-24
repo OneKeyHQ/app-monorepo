@@ -1,7 +1,12 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import {
+  RefreshControl,
+  ScrollView,
+  type ScrollView as ScrollViewNative,
+} from 'react-native';
 
 import type {
   IDialogInstance,
@@ -12,8 +17,10 @@ import {
   Button,
   Dialog,
   EPageType,
-  ScrollView,
+  IconButton,
+  // ScrollView,
   Toast,
+  XStack,
   YStack,
   useInModalDialog,
   useInTabDialog,
@@ -31,6 +38,7 @@ import {
   useSwapNativeTokenReserveGasAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
+  useSwapProSliderValueAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -104,6 +112,8 @@ import {
   useSwapProInputToken,
   useSwapProSupportNetworksTokenList,
   useSwapProToToken,
+  useSwapProTokenDetailInfo,
+  useSwapProTokenInfoSync,
   useSwapProTokenInit,
 } from '../../hooks/useSwapPro';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
@@ -125,11 +135,10 @@ import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapProContainer from './SwapProContainer';
 import SwapProTabListContainer from './SwapProTabListContainer';
+import SwapProTokenSelector from './SwapProTokenSelect';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 import SwapTipsContainer from './SwapTipsContainer';
-
-import type { ScrollView as ScrollViewNative } from 'react-native';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
@@ -141,6 +150,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx();
   const intl = useIntl();
   const { fetchLoading } = useSwapInit(swapInitParams);
+  const [refreshing, setRefreshing] = useState(false);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
@@ -164,7 +174,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
-  const [toSelectTokenAtom] = useSwapSelectToTokenAtom();
+  const [toSelectTokenAtom, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [currentQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapSteps] = useSwapStepsAtom();
@@ -221,6 +231,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
+  }
+  const swapFromTokenRef = useRef<ISwapToken>(undefined);
+  if (swapFromTokenRef.current !== fromSelectTokenAtom) {
+    swapFromTokenRef.current = fromSelectTokenAtom;
+  }
+  const swapToTokenRef = useRef<ISwapToken>(undefined);
+  if (swapToTokenRef.current !== toSelectTokenAtom) {
+    swapToTokenRef.current = toSelectTokenAtom;
   }
   const dialogRef = useRef<IDialogInstance>(null);
   const InTabDialog = useInTabDialog();
@@ -1067,6 +1085,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       if (focusSwapPro) {
         void setSwapProSelectToken(token);
       } else {
+        if (
+          equalTokenNoCaseSensitive({
+            token1: swapToTokenRef.current,
+            token2: token,
+          })
+        ) {
+          setSwapSelectToToken(swapFromTokenRef.current);
+        }
         void selectFromToken(token);
         scrollViewRef.current?.scrollTo({
           y: 0,
@@ -1074,7 +1100,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         });
       }
     },
-    [focusSwapPro, selectFromToken, setSwapProSelectToken],
+    [
+      focusSwapPro,
+      selectFromToken,
+      setSwapProSelectToken,
+      setSwapSelectToToken,
+    ],
   );
 
   const { networkList } = useSwapProInit();
@@ -1087,10 +1118,48 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     supportSpeedSwap,
   } = useSwapProTokenInit();
 
+  const [, setSwapProSliderValue] = useSwapProSliderValueAtom();
+  const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
+  const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
+    useSwapProTokenInfoSync();
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapProSupportNetworksTokenList(networkList);
   useSwapProErrorAlert(!supportSpeedSwap);
   useSwapQuote();
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      swapProLoadSupportNetworksTokenListRun(),
+      ...(focusSwapPro
+        ? [
+            fetchTokenMarketDetailInfo(),
+            syncInputTokenBalance(),
+            syncToTokenPrice(),
+          ]
+        : []),
+    ]);
+    setRefreshing(false);
+  }, [
+    fetchTokenMarketDetailInfo,
+    focusSwapPro,
+    swapProLoadSupportNetworksTokenListRun,
+    syncInputTokenBalance,
+    syncToTokenPrice,
+  ]);
+
+  const cleanProInputAmount = useCallback(() => {
+    setSwapProInputAmount('');
+    setFromInputAmount({
+      value: '',
+      isInput: true,
+    });
+    setSwapProSliderValue(0);
+  }, [setSwapProInputAmount, setFromInputAmount, setSwapProSliderValue]);
+
+  const netAccountAddress = netAccountRes.result?.addressDetail.address;
+  useEffect(() => {
+    cleanProInputAmount();
+  }, [netAccountAddress, cleanProInputAmount]);
 
   return (
     <YStack
@@ -1110,39 +1179,78 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         pageType={pageType}
         defaultSwapType={swapInitParams?.swapTabSwitchType}
         showSwapPro={platformEnv.isNative}
+        changeSwapType={() => {
+          scrollViewRef.current?.scrollTo({
+            y: 0,
+            animated: true,
+          });
+        }}
       />
-      {focusSwapPro ? (
-        <SwapProContainer
-          onProSelectToken={onProSelectToken}
-          onOpenOrdersClick={onOpenOrdersClick}
-          onSwapProActionClick={onPreSwap}
-          onSelectPercentageStage={onSelectPercentageStage}
-          onBalanceMaxPress={onBalanceMaxPress}
-          handleSelectAccountClick={handleSelectAccountClick}
-          onProMarketDetail={onProMarketDetail}
-          onTokenPress={onTokenPress}
-          swapProLoadSupportNetworksTokenListRun={
-            swapProLoadSupportNetworksTokenListRun
-          }
-          config={{
-            isLoading,
-            speedConfig,
-            balanceLoading,
-            isMEV,
-            hasEnoughBalance,
-          }}
-        />
-      ) : (
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          ref={scrollViewRef}
-        >
+      <ScrollView
+        style={{ flex: 1 }}
+        ref={scrollViewRef}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={{
+          flexGrow: 1,
+        }}
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={focusSwapPro ? [0] : undefined}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        {focusSwapPro ? (
+          <XStack
+            justifyContent="space-between"
+            pb="$2"
+            pt="$2"
+            px="$5"
+            alignItems="center"
+            bg="$bgApp"
+          >
+            <SwapProTokenSelector
+              onSelectTokenClick={() => {
+                cleanProInputAmount();
+                onProSelectToken();
+              }}
+              configLoading={isLoading}
+            />
+            <IconButton
+              icon="TradingViewCandlesOutline"
+              variant="tertiary"
+              flexShrink={0}
+              onPress={onProMarketDetail}
+            />
+          </XStack>
+        ) : null}
+        {focusSwapPro ? (
+          <SwapProContainer
+            onProSelectToken={onProSelectToken}
+            onOpenOrdersClick={onOpenOrdersClick}
+            onSwapProActionClick={onPreSwap}
+            onSelectPercentageStage={onSelectPercentageStage}
+            onBalanceMaxPress={onBalanceMaxPress}
+            handleSelectAccountClick={handleSelectAccountClick}
+            onProMarketDetail={onProMarketDetail}
+            onTokenPress={onTokenPress}
+            swapProLoadSupportNetworksTokenListRun={
+              swapProLoadSupportNetworksTokenListRun
+            }
+            cleanProInputAmount={cleanProInputAmount}
+            config={{
+              isLoading,
+              speedConfig,
+              balanceLoading,
+              isMEV,
+              hasEnoughBalance,
+            }}
+          />
+        ) : (
           <YStack
             pt="$2.5"
             px="$5"
             gap="$5"
-            flex={1}
             $gtMd={{
               flex: 'unset',
               pt: pageType === EPageType.modal ? '$2.5' : '$5',
@@ -1182,22 +1290,30 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               fromTokenAmount={fromTokenAmount.value}
             />
             <SwapPendingHistoryListComponent pageType={pageType} />
-            {platformEnv.isNative && !fromTokenAmount.value ? (
-              <SwapProTabListContainer
-                onTokenPress={onTokenPress}
-                onOpenOrdersClick={onOpenOrdersClick}
-                onSearchClick={() => {
-                  onSelectToken(ESwapDirectionType.FROM);
-                  scrollViewRef.current?.scrollTo({
-                    y: 0,
-                    animated: false,
-                  });
-                }}
-              />
-            ) : null}
           </YStack>
-        </ScrollView>
-      )}
+        )}
+        {platformEnv.isNative ? (
+          <YStack
+            display={
+              focusSwapPro || (!focusSwapPro && !fromTokenAmount.value)
+                ? 'flex'
+                : 'none'
+            }
+          >
+            <SwapProTabListContainer
+              onTokenPress={onTokenPress}
+              onOpenOrdersClick={onOpenOrdersClick}
+              onSearchClick={() => {
+                onSelectToken(ESwapDirectionType.FROM);
+                scrollViewRef.current?.scrollTo({
+                  y: 0,
+                  animated: false,
+                });
+              }}
+            />
+          </YStack>
+        ) : null}
+      </ScrollView>
     </YStack>
   );
 };

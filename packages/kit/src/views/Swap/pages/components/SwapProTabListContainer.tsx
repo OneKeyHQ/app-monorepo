@@ -75,7 +75,7 @@ const SwapProTabListContainer = memo(
     }, [changeTabToLimitOrderList]);
 
     return (
-      <YStack>
+      <YStack px="$5">
         <XStack
           bg="$bgApp"
           borderBottomWidth="$0.5"
@@ -97,27 +97,31 @@ const SwapProTabListContainer = memo(
           </XStack>
         </XStack>
         <YStack flex={1}>
-          <YStack
-            display={activeTab === ETabName.Positions ? 'flex' : 'none'}
-            flex={1}
-          >
-            <SwapProCurrentSymbolEnable />
-            <SwapProPositionsList
-              onTokenPress={onTokenPress}
-              onSearchClick={onSearchClick}
-            />
-          </YStack>
-          <YStack
-            display={activeTab === ETabName.SwapProOpenOrders ? 'flex' : 'none'}
-            flex={1}
-          >
-            <SwapProCurrentSymbolEnable />
-            <LimitOrderList
-              onClickCell={onOpenOrdersClick}
-              type="open"
-              filterToken={swapCurrentSymbolEnable ? filterToken : undefined}
-            />
-          </YStack>
+          <>
+            <YStack
+              display={activeTab === ETabName.Positions ? 'flex' : 'none'}
+              flex={1}
+            >
+              <SwapProCurrentSymbolEnable />
+              <SwapProPositionsList
+                onTokenPress={onTokenPress}
+                onSearchClick={onSearchClick}
+              />
+            </YStack>
+            <YStack
+              display={
+                activeTab === ETabName.SwapProOpenOrders ? 'flex' : 'none'
+              }
+              flex={1}
+            >
+              <SwapProCurrentSymbolEnable />
+              <LimitOrderList
+                onClickCell={onOpenOrdersClick}
+                type="open"
+                filterToken={swapCurrentSymbolEnable ? filterToken : undefined}
+              />
+            </YStack>
+          </>
         </YStack>
       </YStack>
     );
