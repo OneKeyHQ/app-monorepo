@@ -13,19 +13,18 @@ import {
 } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  AccountSelectorProviderMirror,
-  AccountSelectorTriggerHome,
-} from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
+import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ECopyFrom,
   EEnterWay,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
@@ -54,9 +53,10 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const { tokenListId } = route.params;
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
   const navigation = useAppNavigation();
-  const { config } = useAccountSelectorContextData();
   const { top } = useSafeAreaInsets();
   const { gtMd } = useMedia();
+
+  const isWebDesktop = (platformEnv.isWeb || platformEnv.isDesktop) && gtMd;
 
   const renderHeaderLeft = useCallback(
     () => <NavBackButton onPress={() => navigation.pop()} />,
@@ -65,23 +65,25 @@ function MarketBannerDetailContent({ title }: { title: string }) {
 
   const renderHeaderTitle = useCallback(
     () => (
-      <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
+      <SizableText size="$heading2xl" numberOfLines={1} flexShrink={1}>
         {title}
       </SizableText>
     ),
     [title],
   );
 
-  const renderHeaderRight = useCallback(
-    () =>
-      config ? (
-        <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-          <HeaderButtonGroup>
-            <AccountSelectorTriggerHome num={0} />
-          </HeaderButtonGroup>
-        </AccountSelectorProviderMirror>
-      ) : null,
-    [config],
+  const renderUniversalSearchInput = useCallback(
+    () => <UniversalSearchInput />,
+    [],
+  );
+
+  const renderNotificationButton = useCallback(
+    () => (
+      <HeaderButtonGroup>
+        <HeaderNotificationIconButton testID="market-banner-detail-notification" />
+      </HeaderButtonGroup>
+    ),
+    [],
   );
 
   const { result, isLoading } = usePromiseResult(
@@ -133,24 +135,61 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     [transformedData, isLoading],
   );
 
-  return (
-    <Page>
-      {gtMd ? (
+  const renderPageHeader = useMemo(() => {
+    if (isWebDesktop) {
+      return (
+        <Page.Header
+          headerTitleAlign="center"
+          headerTitle={renderUniversalSearchInput}
+          headerLeft={renderHeaderLeft}
+          headerRight={renderNotificationButton}
+        />
+      );
+    }
+    if (gtMd) {
+      return (
         <Page.Header
           headerTitle={renderHeaderTitle}
           headerLeft={renderHeaderLeft}
-          headerRight={renderHeaderRight}
+          headerRight={renderNotificationButton}
         />
-      ) : null}
+      );
+    }
+    return null;
+  }, [
+    isWebDesktop,
+    gtMd,
+    renderUniversalSearchInput,
+    renderHeaderLeft,
+    renderNotificationButton,
+    renderHeaderTitle,
+  ]);
 
+  const renderTitleSection = useMemo(() => {
+    if (isWebDesktop) {
+      return (
+        <XStack ai="center" px="$2" pt="$6">
+          {renderHeaderTitle()}
+        </XStack>
+      );
+    }
+    if (!gtMd) {
+      return (
+        <XStack ai="center" gap="$4" px="$4">
+          {renderHeaderLeft()}
+          {renderHeaderTitle()}
+        </XStack>
+      );
+    }
+    return null;
+  }, [isWebDesktop, gtMd, renderHeaderTitle, renderHeaderLeft]);
+
+  return (
+    <Page>
+      {renderPageHeader}
       <Page.Body>
         <Stack flex={1} pt={gtMd ? 0 : top} px={gtMd ? '$4' : 0} gap="$4">
-          {gtMd ? null : (
-            <XStack ai="center" gap="$4" px="$4">
-              {renderHeaderLeft()}
-              {renderHeaderTitle()}
-            </XStack>
-          )}
+          {renderTitleSection}
           <MarketTokenListBase
             result={listResult}
             onItemPress={handleItemPress}
