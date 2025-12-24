@@ -85,11 +85,6 @@ function SupportHub() {
           blockContainerProps={{
             flex: 1,
           }}
-          $gtMd={{
-            blockContainerProps: {
-              flexBasis: 0,
-            },
-          }}
           content={
             <YStack
               height={151}
