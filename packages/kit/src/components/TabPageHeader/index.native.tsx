@@ -49,7 +49,8 @@ export function TabPageHeader({
       <Page.Header headerShown={false} />
       {tabRoute === ETabRoutes.Home ||
       tabRoute === ETabRoutes.Discovery ||
-      tabRoute === ETabRoutes.Earn ? (
+      tabRoute === ETabRoutes.Earn ||
+      tabRoute === ETabRoutes.Perp ? (
         <>
           <XStack
             alignItems="center"
