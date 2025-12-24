@@ -49,6 +49,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -392,10 +393,12 @@ function DepositWithdrawContent({
 
   const accountResult = usePerpsAccountResult(selectedAccount);
 
-  const handleBuyPress = useCallback(() => {
+  const handleBuyPress = useCallback(async () => {
     if (!currentPerpsDepositSelectedToken || !accountResult) {
       return;
     }
+
+    await dismissKeyboardWithDelay();
 
     defaultLogger.wallet.walletActions.buyOnLowBalance({
       source: 'perp',

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { Page, XStack, useMedia, useTheme } from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
@@ -85,6 +86,33 @@ export function TabPageHeader({
     [],
   );
 
+  if (platformEnv.isWeb) {
+    if (gtMd) {
+      return (
+        <Page.Header
+          headerTitleAlign="center"
+          headerStyle={{ backgroundColor: theme.bgSubdued.val }}
+          headerTitle={renderHeaderTitle}
+          headerRight={renderHeaderRight}
+          headerLeft={renderHeaderLeft}
+        />
+      );
+    }
+    return (
+      <>
+        <Page.Header
+          headerTitleAlign="left"
+          headerTitle={renderHeaderTitle}
+          headerRight={renderHeaderRight}
+          headerLeft={renderHeaderLeft}
+        />
+        {!hideSearch ? (
+          <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+        ) : null}
+      </>
+    );
+  }
+
   if (gtMd) {
     return (
       <>
@@ -95,7 +123,7 @@ export function TabPageHeader({
           headerRight={renderNotificationRightButton}
         />
         {tabRoute === ETabRoutes.Home ? (
-          <XStack p="$5" bg="$bgApp" borderRadius="$4">
+          <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
             {hideHeaderLeft ? undefined : renderHeaderLeft()}
           </XStack>
         ) : null}

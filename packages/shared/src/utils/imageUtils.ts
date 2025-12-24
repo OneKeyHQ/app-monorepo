@@ -1123,6 +1123,24 @@ async function processImageBlur({
   }
 }
 
+function base64ImageToBlob(base64String: string) {
+  const arr = base64String.split(',');
+  if (!arr[0] || !arr[1]) {
+    throw new OneKeyLocalError('Invalid base64 string');
+  }
+  const mime = arr[0].match(/:(.*?);/)?.[1];
+  if (!mime) {
+    throw new OneKeyLocalError('Invalid mime type');
+  }
+  const data = atob(arr[1]);
+  let n = data.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = data.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+}
+
 export default {
   resizeImage,
   processImageBlur,
@@ -1137,4 +1155,5 @@ export default {
   getBase64ImageFromUrl,
   applyRoundedCorners,
   prepareImageForCrop,
+  base64ImageToBlob,
 };

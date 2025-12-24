@@ -1,13 +1,16 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IIconButtonProps } from '@onekeyhq/components';
 import {
+  Popover,
   Tooltip,
-  YStack,
   useIsDesktopModeUIInTabPages,
 } from '@onekeyhq/components';
 import { HeaderNotificationButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 
@@ -25,6 +28,7 @@ export function HeaderNotificationIconButton({
   iconSize,
   testID,
 }: IHeaderNotificationIconButtonProps) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
 
@@ -45,24 +49,34 @@ export function HeaderNotificationIconButton({
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
 
   return isDesktopModeUI ? (
-    <Tooltip
-      hovering
+    <Popover
+      title=""
+      showHeader={false}
       placement="bottom-end"
-      offset={{ mainAxis: 6, crossAxis: -28 }}
+      offset={6}
       renderTrigger={
-        <HeaderNotificationButton
-          size={size}
-          iconSize={iconSize}
-          showBadge={notificationBadge.show}
-          badgeCount={notificationBadge.count}
-          testID={testID ?? 'dex-notification-button'}
+        <Tooltip
+          placement="bottom"
+          renderTrigger={
+            <HeaderNotificationButton
+              size={size}
+              iconSize={iconSize}
+              showBadge={notificationBadge.show}
+              badgeCount={notificationBadge.count}
+              testID={testID ?? 'dex-notification-button'}
+            />
+          }
+          renderContent={intl.formatMessage({
+            id: ETranslations.global_notifications,
+          })}
         />
       }
-      contentProps={{
+      floatingPanelProps={{
         width: 434,
         maxWidth: 434,
         height: 592,
         px: 0,
+        overflow: 'hidden',
       }}
       renderContent={<NotificationListView showPageHeader={false} />}
     />

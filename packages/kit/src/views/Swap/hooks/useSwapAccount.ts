@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 
-import { useIsModalPage } from '@onekeyhq/components';
+import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -135,7 +135,7 @@ export function useSwapFromAccountNetworkSync() {
     [setSettings, updateSelectedAccountNetwork],
   );
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     async (isFocus: boolean, isHideByModal: boolean) => {

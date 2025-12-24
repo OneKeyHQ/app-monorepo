@@ -125,7 +125,11 @@ export function Token({
         </Stack>
       }
       skeleton={
-        <Skeleton w={tokenImageSize} h={tokenImageSize} radius="round" />
+        <Skeleton
+          w={rest.w ?? tokenImageSize}
+          h={rest.h ?? tokenImageSize}
+          radius="round"
+        />
       }
       {...rest}
     />
