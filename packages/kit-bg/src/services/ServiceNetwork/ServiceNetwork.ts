@@ -1,6 +1,7 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniq, uniqBy } from 'lodash';
+import pLimit from 'p-limit';
 
 import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
 import { getCoreChainApiScopeByImpl } from '@onekeyhq/core/src/instance/coreChainApi';
@@ -801,17 +802,21 @@ class ServiceNetwork extends ServiceBase {
   private _getNetworkVaultSettings = memoizee(
     async () => {
       const { networks } = await this.getAllNetworks();
+      const limit = pLimit(8);
       const result = await Promise.all(
-        networks.map(async (network) => {
-          const vault = await vaultFactory.getChainOnlyVault({
-            networkId: network.id,
-          });
-          const vaultSetting = await vault.getVaultSettings();
-          return {
-            network,
-            vaultSetting,
-          };
-        }),
+        networks.map((network) =>
+          limit(async () => {
+            // `vault.getVaultSettings()` ultimately reads from `getVaultSettings({ networkId })`,
+            // so avoid creating/destroying dozens of vault instances just to fetch static settings.
+            const vaultSetting = await getVaultSettings({
+              networkId: network.id,
+            });
+            return {
+              network,
+              vaultSetting,
+            };
+          }),
+        ),
       );
       return result;
     },

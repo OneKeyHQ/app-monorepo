@@ -152,6 +152,10 @@ function HomeFirmwareUpdateReminderCmp() {
     connectId,
   ]);
 
+  if (!updateButton) {
+    return null;
+  }
+
   return (
     <XStack>
       <HomeFirmwareUpdateDetect />

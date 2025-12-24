@@ -164,7 +164,7 @@ function WalletXfpStatusReminderCmp() {
     closeTooltip,
   ]);
 
-  return <XStack>{updateButton}</XStack>;
+  return updateButton;
 }
 
 export function WalletXfpStatusReminder() {

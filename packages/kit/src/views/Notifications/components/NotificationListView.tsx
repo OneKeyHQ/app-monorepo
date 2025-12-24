@@ -23,8 +23,8 @@ import {
   Tabs,
   XStack,
   YStack,
+  usePopoverContext,
   useSafeAreaInsets,
-  useTooltipContext,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -68,20 +68,40 @@ const canShowNotificationSettings = (() => {
 function HeaderRight({
   onClearUnread,
   style,
+  closePopover,
 }: {
   onClearUnread: () => void;
   style?: IXStackProps;
+  closePopover?: () => Promise<void>;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { closeTooltip } = useTooltipContext();
 
   const handleSettingsButtonPress = useCallback(async () => {
-    await closeTooltip();
+    await closePopover?.();
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingNotifications,
     });
-  }, [closeTooltip, navigation]);
+  }, [closePopover, navigation]);
+
+  const handleMarkAllReadPress = useCallback(async () => {
+    await closePopover?.();
+    Dialog.show({
+      icon: 'CheckRadioOutline',
+      title: intl.formatMessage({
+        id: ETranslations.global_mark_all_as_confirmation_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.global_mark_all_as_confirmation_desc,
+      }),
+      onConfirm: async () => {
+        await backgroundApiProxy.serviceNotification.markNotificationReadAll();
+        setTimeout(() => {
+          onClearUnread();
+        }, 100);
+      },
+    });
+  }, [closePopover, intl, onClearUnread]);
 
   return (
     <HeaderButtonGroup {...style}>
@@ -90,23 +110,7 @@ function HeaderRight({
         title={intl.formatMessage({
           id: ETranslations.global_mark_all_as_confirmation_title_tooltip,
         })}
-        onPress={() => {
-          Dialog.show({
-            icon: 'CheckRadioOutline',
-            title: intl.formatMessage({
-              id: ETranslations.global_mark_all_as_confirmation_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.global_mark_all_as_confirmation_desc,
-            }),
-            onConfirm: async () => {
-              await backgroundApiProxy.serviceNotification.markNotificationReadAll();
-              setTimeout(() => {
-                onClearUnread();
-              }, 100);
-            },
-          });
-        }}
+        onPress={handleMarkAllReadPress}
       />
       {canShowNotificationSettings ? (
         <HeaderIconButton
@@ -312,7 +316,7 @@ export function NotificationListView({
 }: {
   showPageHeader?: boolean;
 }) {
-  const { closeTooltip } = useTooltipContext();
+  const { closePopover } = usePopoverContext();
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
@@ -329,7 +333,7 @@ export function NotificationListView({
       !isFirstTimeGuideOpened.current
     ) {
       // showNotificationPermissionsDialog();
-      void closeTooltip();
+      void closePopover?.();
       setTimeout(() => {
         navigation.pushModal(EModalRoutes.NotificationsModal, {
           screen: EModalNotificationsRoutes.NotificationIntroduction,
@@ -341,7 +345,7 @@ export function NotificationListView({
         firstTimeGuideOpened: true,
       }));
     }
-  }, [closeTooltip, firstTimeGuideOpened, navigation, setNotificationsData]);
+  }, [closePopover, firstTimeGuideOpened, navigation, setNotificationsData]);
 
   const tabs = useMemo(
     () => [
@@ -459,8 +463,13 @@ export function NotificationListView({
   }, [setUnreadMap]);
 
   const renderHeaderRight = useCallback(
-    () => <HeaderRight onClearUnread={handleClearUnread} />,
-    [handleClearUnread],
+    () => (
+      <HeaderRight
+        onClearUnread={handleClearUnread}
+        closePopover={closePopover}
+      />
+    ),
+    [handleClearUnread, closePopover],
   );
 
   useEffect(() => {
@@ -507,7 +516,7 @@ export function NotificationListView({
                   if (
                     isVersionCompatible(item.body.extras?.miniBundlerVersion)
                   ) {
-                    await closeTooltip();
+                    await closePopover?.();
                     void notificationsUtils.navigateToNotificationDetail({
                       topicType: item.topicType,
                       navigation,
@@ -573,7 +582,7 @@ export function NotificationListView({
     );
   }, [
     bottom,
-    closeTooltip,
+    closePopover,
     intl,
     isLoading,
     isVersionCompatible,
@@ -637,25 +646,44 @@ export function NotificationListView({
           headerRight={renderHeaderRight}
         />
       ) : (
-        <XStack h={52} alignItems="center" px="$5" gap="$2">
-          <SizableText size="$headingXl">
-            {intl.formatMessage({ id: ETranslations.global_notifications })}
-          </SizableText>
-          <HeaderRight
-            style={{ flex: 1, justifyContent: 'space-between' }}
-            onClearUnread={handleClearUnread}
+        <YStack
+          zIndex={10}
+          bg="$bg"
+          $platform-web={{
+            position: 'sticky',
+            top: 0,
+          }}
+        >
+          <XStack alignItems="center" px="$5" gap="$2" pt="$4" pb="$2">
+            <SizableText size="$headingXl" color="$text" userSelect="none">
+              {intl.formatMessage({ id: ETranslations.global_notifications })}
+            </SizableText>
+            <HeaderRight
+              style={{ flex: 1, justifyContent: 'space-between' }}
+              onClearUnread={handleClearUnread}
+              closePopover={closePopover}
+            />
+          </XStack>
+          <Tabs.TabBar
+            tabNames={tabTitles}
+            onTabPress={handleTabPress}
+            focusedTab={focusedTab}
+            renderItem={handleRenderItem}
+            containerStyle={{ bg: 'transparent' }}
           />
-        </XStack>
+        </YStack>
       )}
-      <Tabs.TabBar
-        tabNames={tabTitles}
-        onTabPress={handleTabPress}
-        focusedTab={focusedTab}
-        renderItem={handleRenderItem}
-        tabItemStyle={{
-          h: 44,
-        }}
-      />
+      {showPageHeader ? (
+        <Tabs.TabBar
+          tabNames={tabTitles}
+          onTabPress={handleTabPress}
+          focusedTab={focusedTab}
+          renderItem={handleRenderItem}
+          tabItemStyle={{
+            h: 44,
+          }}
+        />
+      ) : null}
       <YStack pt="$2" flex={1}>
         {shouldShowMaxAccountLimitWarning ? <MaxAccountLimitWarning /> : null}
         {contentView}

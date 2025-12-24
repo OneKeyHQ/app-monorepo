@@ -2,10 +2,10 @@ import { Page, useSafeAreaInsets } from '@onekeyhq/components';
 import { MoreActionContentPage } from '@onekeyhq/kit/src/components/MoreActionButton';
 
 export default function MoreAction() {
-  const { top, bottom } = useSafeAreaInsets();
+  const { top } = useSafeAreaInsets();
   return (
     <Page>
-      <Page.Body mt={top} pb={bottom}>
+      <Page.Body mt={top}>
         <MoreActionContentPage />
       </Page.Body>
     </Page>
