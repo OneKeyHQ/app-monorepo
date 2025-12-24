@@ -78,4 +78,5 @@ export interface ITabNavigatorProps<RouteName extends string> {
   extraConfig?: ITabNavigatorExtraConfig<RouteName>;
   showTabBar?: boolean;
   bottomMenu: ReactElement;
+  webPageTabBar: ReactElement;
 }

@@ -9,7 +9,6 @@ import type {
   IActionListSection,
   ITooltipRef,
 } from '@onekeyhq/components/src/actions';
-import { Portal } from '@onekeyhq/components/src/hocs';
 import {
   useSafeAreaInsets,
   useShortcuts,
@@ -283,9 +282,11 @@ export function DesktopLeftSideBar({
   descriptors,
   extraConfig,
   bottomMenu,
+  webPageTabBar,
 }: BottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
   bottomMenu: ReactElement;
+  webPageTabBar: ReactElement;
 }) {
   const intl = useIntl();
   const { routes } = state;
@@ -358,7 +359,7 @@ export function DesktopLeftSideBar({
       if (isShowWebTabBar && route.name === extraConfig?.name) {
         return (
           <YStack flex={1} key={route.key}>
-            <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
+            {webPageTabBar}
           </YStack>
         );
       }

@@ -91,6 +91,7 @@ export function TabStackNavigator<RouteName extends string>({
   extraConfig,
   showTabBar = true,
   bottomMenu,
+  webPageTabBar,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const tabBarCallback = useCallback(
@@ -99,9 +100,10 @@ export function TabStackNavigator<RouteName extends string>({
         {...props}
         extraConfig={extraConfig}
         bottomMenu={bottomMenu}
+        webPageTabBar={webPageTabBar}
       />
     ),
-    [bottomMenu, extraConfig],
+    [webPageTabBar, bottomMenu, extraConfig],
   );
 
   const tabComponents = useMemo(

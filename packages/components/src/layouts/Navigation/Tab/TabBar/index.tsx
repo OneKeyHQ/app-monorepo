@@ -21,6 +21,7 @@ export default function NavigationBar({
 }: BottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
   bottomMenu: ReactElement;
+  webPageTabBar: ReactElement;
 }) {
   const isShowMobileBottomTabBar = useShowMobileBottomTabBar();
   const { gtMd } = useMedia();

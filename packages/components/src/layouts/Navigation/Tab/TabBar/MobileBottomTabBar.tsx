@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo } from 'react';
 
 import { Animated, StyleSheet } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
@@ -43,6 +43,8 @@ export default function MobileBottomTabBar({
   descriptors,
   extraConfig,
 }: IMobileBottomTabBarProps & {
+  webPageTabBar: ReactElement;
+  bottomMenu: ReactElement;
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
