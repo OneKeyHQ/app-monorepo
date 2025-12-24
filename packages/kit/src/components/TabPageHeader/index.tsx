@@ -123,7 +123,7 @@ export function TabPageHeader({
           headerRight={renderNotificationRightButton}
         />
         {tabRoute === ETabRoutes.Home ? (
-          <XStack p="$5" bg="$bgApp" borderRadius="$4">
+          <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
             {hideHeaderLeft ? undefined : renderHeaderLeft()}
           </XStack>
         ) : null}

@@ -16,8 +16,10 @@ import {
   HeaderIconButton,
   Icon,
   IconButton,
+  Image,
   LottieView,
   NavBackButton,
+  Popover,
   ScrollView,
   SizableText,
   Stack,
@@ -27,7 +29,8 @@ import {
   rootNavigationRef,
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
-  useTooltipContext,
+  useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
@@ -105,15 +108,22 @@ function MoreActionProvider({ children }: PropsWithChildren) {
 }
 
 function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
-  const { closeTooltip } = useTooltipContext();
+  const { closePopover } = usePopoverContext();
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
-      await closeTooltip?.();
+      await closePopover?.();
       onPress?.(event);
     },
-    [closeTooltip, onPress],
+    [closePopover, onPress],
   );
-  return <IconButton {...props} variant="tertiary" onPress={handlePress} />;
+  return (
+    <IconButton
+      {...props}
+      variant="tertiary"
+      size="medium"
+      onPress={handlePress}
+    />
+  );
 }
 
 function MoreActionContentHeader({
@@ -122,7 +132,9 @@ function MoreActionContentHeader({
   showBackButton?: boolean;
 }) {
   const intl = useIntl();
+  const media = useMedia();
   const onLock = useOnLock();
+
   const handleLock = useCallback(async () => {
     await onLock();
   }, [onLock]);
@@ -130,6 +142,37 @@ function MoreActionContentHeader({
   const handleCustomerSupport = useCallback(() => {
     void showIntercom();
   }, []);
+
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
+  const scanQrCode = useScanQrCode();
+  const { closePopover } = usePopoverContext();
+
+  const handleScan = useCallback(async () => {
+    await closePopover?.();
+    await scanQrCode.start({
+      handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+      autoHandleResult: true,
+      account,
+      network,
+      tokens: {
+        data: allTokens.tokens,
+        keys: allTokens.keys,
+        map,
+      },
+    });
+  }, [
+    closePopover,
+    scanQrCode,
+    account,
+    network,
+    allTokens.tokens,
+    allTokens.keys,
+    map,
+  ]);
 
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
@@ -179,6 +222,25 @@ function MoreActionContentHeader({
     }
     return [];
   }, [intl]);
+
+  // Desktop (>= gtMd): show lock; Mobile (< gtMd): show scan
+  const firstActionItem = useMemo(() => {
+    if (media.gtMd) {
+      return {
+        title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
+        icon: 'LockOutline' as const,
+        onPress: handleLock,
+        trackID: 'wallet-lock-now',
+      };
+    }
+    return {
+      title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
+      icon: 'ScanOutline' as const,
+      onPress: handleScan,
+      trackID: 'wallet-scan',
+    };
+  }, [media.gtMd, intl, handleLock, handleScan]);
+
   const items = useMemo(() => {
     return [
       ...popupMenu,
@@ -190,14 +252,9 @@ function MoreActionContentHeader({
         onPress: handleCustomerSupport,
         trackID: 'wallet-customer-support',
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
-        icon: 'LockOutline' as const,
-        onPress: handleLock,
-        trackID: 'wallet-lock-now',
-      },
+      firstActionItem,
     ];
-  }, [handleCustomerSupport, handleLock, intl, popupMenu]);
+  }, [handleCustomerSupport, intl, popupMenu, firstActionItem]);
 
   const handleBack = useCallback(() => {
     if (rootNavigationRef.current?.canGoBack?.()) {
@@ -206,15 +263,29 @@ function MoreActionContentHeader({
   }, []);
 
   return (
-    <XStack px="$5" pt="$3" my={1} ai="center" jc="space-between">
+    <XStack
+      px="$5"
+      pt="$4"
+      pb="$2"
+      ai="center"
+      jc="space-between"
+      bg="$bgApp"
+      zIndex={10}
+      borderTopLeftRadius="$3"
+      borderTopRightRadius="$3"
+      $platform-web={{
+        position: 'sticky',
+        top: 0,
+      }}
+    >
       {showBackButton ? (
         <NavBackButton onPress={handleBack} />
       ) : (
-        <SizableText size="$headingXl">
+        <SizableText size="$headingXl" color="$text" userSelect="none">
           {intl.formatMessage({ id: ETranslations.address_book_menu_title })}
         </SizableText>
       )}
-      <XStack jc="flex-end" gap="$6">
+      <XStack jc="flex-end" gap="$5">
         {items.map((item) => (
           <MoreActionContentHeaderItem
             key={item.title}
@@ -231,7 +302,7 @@ function MoreActionContentHeader({
 function MoreActionContentFooter() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { closeTooltip } = useTooltipContext();
+  const { closePopover } = usePopoverContext();
   const version = useMemo(() => {
     return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
   }, []);
@@ -245,25 +316,42 @@ function MoreActionContentFooter() {
   );
 
   const handleAbout = useCallback(async () => {
-    await closeTooltip();
+    await closePopover?.();
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListSubModal,
       params: {
         name: ESettingsTabNames.About,
       },
     });
-  }, [closeTooltip, navigation]);
+  }, [closePopover, navigation]);
+
   return (
-    <XStack px="$5" py="$2" jc="space-between" onPress={handleAbout}>
-      <XStack gap="$2" ai="center" jc="center">
-        <Icon name="InfoCircleOutline" size="$4" />
-        <SizableText size="$bodySm">
+    <XStack
+      px="$5"
+      pt="$1"
+      pb="$3"
+      jc="space-between"
+      onPress={handleAbout}
+      bg="$bgApp"
+      borderBottomLeftRadius="$3"
+      borderBottomRightRadius="$3"
+      $platform-web={{
+        position: 'sticky',
+        bottom: 0,
+      }}
+      userSelect="none"
+    >
+      <XStack gap="$1" ai="center" jc="center">
+        <Icon name="InfoCircleOutline" color="$icon" size="$4" />
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
           {`${intl.formatMessage({ id: ETranslations.global_about })} OneKey`}
         </SizableText>
       </XStack>
-      <XStack gap="$2" ai="center" jc="center">
-        <SizableText size="$bodySm">{versionString}</SizableText>
-        <Icon name="ChevronRightSmallOutline" size="$4" />
+      <XStack gap="$1" ai="center" jc="center">
+        <SizableText size="$bodyMdMedium" color="$textDisabled">
+          {versionString}
+        </SizableText>
+        <Icon name="ChevronRightSmallOutline" color="$iconSubdued" size="$4" />
       </XStack>
     </XStack>
   );
@@ -294,11 +382,11 @@ function MoreActionContentGridItem({
   lottieSrc,
   isPrimeFeature,
 }: IMoreActionContentGridItemProps) {
-  const { closeTooltip } = useTooltipContext();
+  const { closePopover } = usePopoverContext();
   const { isPrimeAvailable } = usePrimeAvailable();
 
   const handlePress = useCallback(async () => {
-    await closeTooltip?.();
+    await closePopover?.();
     setTimeout(() => {
       if (trackID) {
         defaultLogger.ui.button.click({
@@ -307,10 +395,11 @@ function MoreActionContentGridItem({
       }
     });
     onPress();
-  }, [closeTooltip, onPress, trackID]);
+  }, [closePopover, onPress, trackID]);
 
   const { user } = useOneKeyAuth();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const themeVariant = useThemeVariant();
 
   if (isPrimeFeature && !isPrimeAvailable) {
     return null;
@@ -322,20 +411,25 @@ function MoreActionContentGridItem({
       onPress={handlePress}
       group
       flexBasis="25%"
+      py="$2.5"
       ai="center"
-      jc="center"
-      gap="$2"
-      h={64}
+      jc="flex-start"
+      gap="$1"
       borderRadius="$2"
       hoverStyle={{
         bg: '$bgHover',
       }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
       userSelect="none"
     >
-      <YStack m="$1">
-        {icon ? <Icon name={icon} /> : null}
+      <YStack>
+        {icon ? <Icon size="$6" color="$icon" name={icon} /> : null}
         {lottieSrc ? (
-          <LottieView width={24} height={24} source={lottieSrc} />
+          <Stack w="$6" h="$6" ai="center" jc="center">
+            <LottieView width={32} height={32} source={lottieSrc} />
+          </Stack>
         ) : null}
         {showRedDot ? (
           <Stack
@@ -381,24 +475,24 @@ function MoreActionContentGridItem({
         {isPrimeFeature && !isPrimeUser ? (
           <Stack
             position="absolute"
-            left={-1}
-            top={-1}
-            backgroundColor="$bgStrong"
-            paddingLeft={5}
-            paddingRight={4}
-            py={1.5}
-            borderBottomRightRadius="$2"
+            right={-10}
+            top={-4}
+            backgroundColor={themeVariant === 'light' ? '#F1F1F1' : '#3A3A3A'}
+            px="$1"
+            borderRadius="$full"
+            borderWidth="$px"
+            borderColor="$bgApp"
           >
-            <Icon
-              color="$iconDisabled"
-              width={10}
-              height={10}
-              name="PrimeOutline"
-            />
+            <Icon color="$iconSubdued" size="$3" name="PrimeOutline" />
           </Stack>
         ) : null}
       </YStack>
-      <SizableText size="$bodySm" textAlign="center">
+      <SizableText
+        size="$bodySmMedium"
+        color="$textSubdued"
+        numberOfLines={2}
+        textAlign="center"
+      >
         {title}
       </SizableText>
     </YStack>
@@ -406,9 +500,10 @@ function MoreActionContentGridItem({
 }
 
 function MoreActionDivider() {
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
   return (
     <XStack py="$2">
-      <Divider />
+      <Divider borderColor={isDesktopMode ? '$neutral3' : '$borderSubdued'} />
     </XStack>
   );
 }
@@ -421,13 +516,13 @@ function MoreActionOneKeyId() {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
 
-  const { closeTooltip } = useTooltipContext();
+  const { closePopover } = usePopoverContext();
 
   const displayName = useMemo(() => {
     if (!isLoggedIn) {
       return intl.formatMessage({ id: ETranslations.prime_signup_login });
     }
-    return user?.nickname || 'OneKey ID';
+    return user?.nickname ?? 'OneKey ID';
   }, [isLoggedIn, user?.nickname, intl]);
   const email = useMemo(() => {
     if (!isLoggedIn) {
@@ -436,55 +531,105 @@ function MoreActionOneKeyId() {
     return user?.displayEmail || 'OneKey ID';
   }, [isLoggedIn, user?.displayEmail, intl]);
 
+  const navigation = useAppNavigation();
   const showPrimeProfileDialog = useEditPrimeProfileDialog();
+
+  const handleAvatarPress = useCallback(
+    async (e: GestureResponderEvent) => {
+      e.stopPropagation();
+      await closePopover?.();
+      await showPrimeProfileDialog();
+    },
+    [closePopover, showPrimeProfileDialog],
+  );
+
+  const handleNavigateToOneKeyId = useCallback(async () => {
+    await closePopover?.();
+    navigation.pushModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.OneKeyId,
+    });
+  }, [closePopover, navigation]);
+
   const handlePress = useCallback(async () => {
     if (isLoggedIn) {
-      await closeTooltip();
-      await showPrimeProfileDialog();
+      await handleNavigateToOneKeyId();
     } else {
+      await closePopover?.();
       await loginOneKeyId({
         toOneKeyIdPageOnLoginSuccess: false,
       });
     }
-  }, [isLoggedIn, closeTooltip, showPrimeProfileDialog, loginOneKeyId]);
+  }, [isLoggedIn, handleNavigateToOneKeyId, closePopover, loginOneKeyId]);
 
   const { icon, onPrimeButtonPressed } = useOnPrimeButtonPressed({
-    onPress: closeTooltip,
+    onPress: closePopover,
     networkId: network?.id,
   });
 
-  const handlePrimeButtonPressed = useCallback(
-    (e: { stopPropagation?: () => void; preventDefault?: () => void }) => {
-      if (e) {
-        e.stopPropagation?.();
-        e.preventDefault?.();
-      }
-      void onPrimeButtonPressed();
-    },
-    [onPrimeButtonPressed],
-  );
+  if (!isLoggedIn) {
+    return (
+      <XStack
+        alignItems="center"
+        py="$4"
+        px="$5"
+        userSelect="none"
+        justifyContent="space-between"
+        onPress={handlePress}
+      >
+        <XStack alignItems="center" gap="$3" flex={1}>
+          <OneKeyIdAvatar size="$10" />
+          <SizableText
+            size="$headingLg"
+            color="$text"
+            numberOfLines={1}
+            userSelect="none"
+          >
+            OneKey ID
+          </SizableText>
+        </XStack>
+        <XStack
+          alignItems="center"
+          gap="$0.5"
+          pl="$3"
+          pr="$1.5"
+          py="$1.5"
+          borderRadius="$full"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$border"
+          hoverStyle={{ borderColor: '$borderHover' }}
+        >
+          <SizableText size="$bodyMdMedium" color="$text" userSelect="none">
+            {intl.formatMessage({ id: ETranslations.prime_signup_login })}
+          </SizableText>
+          <Icon name="ChevronRightSmallOutline" size="$4" color="$icon" />
+        </XStack>
+      </XStack>
+    );
+  }
 
   return (
     <XStack
       alignItems="center"
       py="$4"
       px="$5"
+      gap="$6"
       userSelect="none"
       justifyContent="space-between"
-      onPress={handlePress}
+      onPress={handleNavigateToOneKeyId}
     >
       <XStack alignItems="center" gap="$3" flex={1}>
-        {/* Avatar */}
-        <OneKeyIdAvatar size="$16" />
+        <Stack onPress={handleAvatarPress}>
+          <OneKeyIdAvatar size="$14" />
+        </Stack>
 
-        {/* Username and Label */}
-        <YStack flex={1} gap="$0.5">
-          <XStack alignItems="center" gap="$2.5">
+        <YStack flex={1} gap="$1">
+          <XStack alignItems="center" gap="$2">
             <SizableText
-              size="$headingXl"
+              size="$headingLg"
               color="$text"
               numberOfLines={1}
               ellipsizeMode="tail"
+              userSelect="none"
             >
               {displayName}
             </SizableText>
@@ -495,25 +640,30 @@ function MoreActionOneKeyId() {
                 gap="$1"
                 px="$2"
                 h={22}
-                bg="rgba(1, 239, 13, 0.06)"
+                bg="$brand2"
                 borderRadius="$full"
                 borderWidth={StyleSheet.hairlineWidth}
-                borderColor="rgba(22, 67, 30, 0.09)"
-                onPress={handlePrimeButtonPressed}
+                borderColor="$brand4"
+                onPress={onPrimeButtonPressed}
               >
                 <Icon name={icon} size="$4" />
-                <SizableText size="$bodyMdMedium">Prime</SizableText>
+                <SizableText size="$bodyMdMedium" color="$brand12">
+                  Prime
+                </SizableText>
               </XStack>
             ) : null}
           </XStack>
-          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+            userSelect="none"
+          >
             {email}
           </SizableText>
         </YStack>
       </XStack>
-      {isLoggedIn ? (
-        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
-      ) : null}
+      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
 }
@@ -639,6 +789,8 @@ function BaseMoreActionGrid({
         numberOfLines={1}
         ellipsizeMode="middle"
         px="$5"
+        pb="$1"
+        userSelect="none"
       >
         {title}
       </SizableText>
@@ -961,91 +1113,142 @@ function MoreActionDevice() {
       checkIsFocused: false,
     },
   );
+
   const handleDevice = useCallback(() => {
     navigation.pushModal(EModalRoutes.DeviceManagementModal, {
       screen: EModalDeviceManagementRoutes.DeviceListModal,
     });
   }, [navigation]);
-  return hwQrWalletList.length > 0 ? (
-    <XStack
-      jc="space-between"
-      ai="center"
+  return (
+    <YStack
       bg="$bgSubdued"
-      mx="$5"
-      my="41"
-      px="$3"
-      py="$5"
       borderRadius="$4"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
+      mx="$5"
+      mt="$1"
+      mb="$2"
+      px="$4"
       onPress={handleDevice}
     >
-      <YStack gap="$3" flexShrink={1}>
-        <SizableText
-          size="$headingMd"
-          color="$text"
-          numberOfLines={1}
-          ellipsizeMode="middle"
-        >
-          {`${intl.formatMessage({ id: ETranslations.global_device })} (${
-            hwQrWalletList.length
-          })`}
-        </SizableText>
-        <XStack>
-          {hwQrWalletList.map((item) => (
-            <WalletAvatar size={44} key={item.wallet.id} wallet={item.wallet} />
-          ))}
+      {hwQrWalletList.length > 0 ? (
+        <>
+          {/* Header */}
+          <XStack jc="space-between" ai="center" py="$3">
+            <XStack ai="center" gap="$1">
+              <SizableText size="$headingSm" color="$text">
+                {intl.formatMessage({ id: ETranslations.global_device })}
+              </SizableText>
+              <SizableText size="$headingSm" color="$textSubdued">
+                ({hwQrWalletList.length})
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_manage })}
+            </SizableText>
+          </XStack>
+          {/* Avatars */}
+          <XStack gap="$1" pb="$4" pt="$0.5" ai="center">
+            {hwQrWalletList.slice(0, 5).map((item) => (
+              <WalletAvatar
+                size={44}
+                key={item.wallet.id}
+                wallet={item.wallet}
+              />
+            ))}
+            {hwQrWalletList.length > 5 ? (
+              <Stack
+                w={32}
+                h={44}
+                bg="$bgStrong"
+                borderRadius="$2"
+                ai="center"
+                jc="center"
+                ml="$2"
+              >
+                <SizableText size="$bodyMdMedium" color="$textDisabled">
+                  +{hwQrWalletList.length - 5}
+                </SizableText>
+              </Stack>
+            ) : null}
+          </XStack>
+        </>
+      ) : (
+        <XStack jc="space-between" ai="center" gap="$6" py="$3">
+          <XStack ai="center" gap="$2" flex={1}>
+            <Image
+              w="$11"
+              h="$11"
+              source={require('@onekeyhq/kit/assets/hardwallet_together_logo.png')}
+            />
+            <SizableText
+              size="$headingSm"
+              numberOfLines={1}
+              color="$text"
+              flex={1}
+            >
+              {intl.formatMessage({
+                id: ETranslations.wallet_connect_hardware_wallet,
+              })}
+            </SizableText>
+          </XStack>
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_add })}
+          </SizableText>
         </XStack>
-      </YStack>
-      <IconButton
-        variant="tertiary"
-        icon="ChevronRightSmallOutline"
-        size="small"
-        onPress={handleDevice}
-      />
-    </XStack>
-  ) : null;
+      )}
+    </YStack>
+  );
 }
 
 function BaseMoreActionContent() {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return (
-    <ScrollView
-      showsVerticalScrollIndicator
-      overflow="scroll"
-      h={462}
-      contentContainerStyle={{
-        py: '$2',
-      }}
-    >
-      <UpdateReminders />
-      <MoreActionOneKeyId />
-      {isDesktopMode ? null : <MoreActionDevice />}
+    <YStack flex={1}>
+      <ScrollView overflow="scroll" flex={1}>
+        <UpdateReminders />
+        <MoreActionOneKeyId />
+        {isDesktopMode ? null : <MoreActionDevice />}
+        <MoreActionDivider />
+        <MoreActionGeneralGrid />
+        <MoreActionDivider />
+        <MoreActionWalletGrid />
+        <MoreActionDivider />
+        <MoreActionMoreGrid />
+      </ScrollView>
       <MoreActionDivider />
-      <MoreActionGeneralGrid />
-      <MoreActionDivider />
-      <MoreActionWalletGrid />
-      <MoreActionDivider />
-      <MoreActionMoreGrid />
-    </ScrollView>
+      <MoreActionContentFooter />
+    </YStack>
   );
 }
 
 export function MoreActionContentPage() {
   return (
     <MoreActionProvider>
-      <MoreActionContentHeader showBackButton />
-      <BaseMoreActionContent />
+      <YStack flex={1}>
+        <MoreActionContentHeader showBackButton />
+        <BaseMoreActionContent />
+      </YStack>
     </MoreActionProvider>
   );
 }
 
 function MoreActionContent() {
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
   return (
     <MoreActionProvider>
-      <YStack className="show-scrollbar">
+      <YStack minHeight={560}>
         <MoreActionContentHeader />
-        <BaseMoreActionContent />
+        <UpdateReminders />
+        <MoreActionOneKeyId />
+        {isDesktopMode ? null : <MoreActionDevice />}
+        <MoreActionDivider />
+        <MoreActionGeneralGrid />
+        <MoreActionDivider />
+        <MoreActionWalletGrid />
+        <MoreActionDivider />
+        <MoreActionMoreGrid />
+        <YStack flex={1} />
         <MoreActionDivider />
         <MoreActionContentFooter />
       </YStack>
@@ -1099,6 +1302,9 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const [{ isCollapsed }] = useAppSideBarStatusAtom();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const isShowUpgradeDot = useIsShowAppUpdateDot();
+  const isShowRedDot = useIsShowRedDot();
+
+  // Large dot for mobile
   const dot = useMemo(() => {
     if (isShowUpgradeDot) {
       return (
@@ -1112,6 +1318,24 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
     return null;
   }, [isCollapsed, isDesktopMode, isShowUpgradeDot]);
 
+  // Small dot for desktop (similar to DesktopTabItem)
+  const desktopDot = useMemo(() => {
+    if (!isShowUpgradeDot && !isShowRedDot) return null;
+    return (
+      <Stack
+        width="$3"
+        height="$3"
+        bg={isShowUpgradeDot ? '$iconInfo' : '$bgCriticalStrong'}
+        borderRadius="$full"
+        position="absolute"
+        right={-4}
+        top={-3}
+        borderWidth="$0.5"
+        borderColor="$bgSidebar"
+      />
+    );
+  }, [isShowUpgradeDot, isShowRedDot]);
+
   const handleMoreActionPage = useCallback(() => {
     rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
       screen: EOnboardingV2Routes.OnboardingV2,
@@ -1120,30 +1344,50 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
       },
     });
   }, []);
-  return isDesktopMode ? (
-    <XStack userSelect="none" py="$1.5">
-      <XStack gap="$0.5" ai="center" position="relative">
+
+  if (isDesktopMode) {
+    // Collapsed: icon only (no text below)
+    if (isCollapsed) {
+      return (
         <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
-          <Icon name="DotGridOutline" size="$5" />
+          <Stack position="relative">
+            <Icon name="DotGridOutline" size="$5" />
+            {desktopDot}
+          </Stack>
         </YStack>
-        {isCollapsed ? null : (
-          <SizableText
-            flex={1}
-            numberOfLines={1}
-            cursor="default"
-            color="$text"
-            textAlign="center"
-            size="$bodyMd"
-          >
-            {intl.formatMessage({
-              id: ETranslations.global_more,
-            })}
-          </SizableText>
-        )}
-        {dot}
-      </XStack>
-    </XStack>
-  ) : (
+      );
+    }
+
+    // Expanded: horizontal layout (icon + text)
+    return (
+      <YStack
+        userSelect="none"
+        flexDirection="row"
+        alignItems="center"
+        px="$2"
+        py="$2"
+        borderRadius="$2"
+        hoverStyle={{ bg: '$bgHover' }}
+      >
+        <Stack position="relative">
+          <Icon name="DotGridOutline" size="$5" />
+          {desktopDot}
+        </Stack>
+        <SizableText
+          flex={1}
+          numberOfLines={1}
+          mx="$2"
+          cursor="default"
+          color="$text"
+          size="$bodyMd"
+        >
+          {intl.formatMessage({ id: ETranslations.address_book_menu_title })}
+        </SizableText>
+      </YStack>
+    );
+  }
+
+  return (
     <XStack>
       <HeaderIconButton
         testID="moreActions"
@@ -1157,22 +1401,43 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
 }
 
 function MoreActionButtonCmp() {
+  const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
-  return isDesktopMode ? (
+  const [{ isCollapsed }] = useAppSideBarStatusAtom();
+
+  if (!isDesktopMode) {
+    return <MoreButtonWithDot />;
+  }
+
+  // Collapsed: show tooltip; Expanded: no tooltip (text is visible)
+  const trigger = isCollapsed ? (
     <Tooltip
-      hovering
-      contentProps={{
+      placement="right"
+      renderTrigger={<MoreButtonWithDot />}
+      renderContent={intl.formatMessage({
+        id: ETranslations.address_book_menu_title,
+      })}
+    />
+  ) : (
+    <MoreButtonWithDot />
+  );
+
+  return (
+    <Popover
+      title={intl.formatMessage({ id: ETranslations.address_book_menu_title })}
+      showHeader={false}
+      floatingPanelProps={{
         maxWidth: 384,
         width: 384,
         height: 560,
         p: 0,
+        overflow: 'hidden',
+        style: { transformOrigin: 'bottom left' },
       }}
       placement="right-end"
-      renderTrigger={<MoreButtonWithDot />}
+      renderTrigger={trigger}
       renderContent={<MoreActionContent />}
     />
-  ) : (
-    <MoreButtonWithDot />
   );
 }
 
