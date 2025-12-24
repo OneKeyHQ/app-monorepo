@@ -711,6 +711,8 @@ export const useEarnPortfolio = ({
           }
           investmentMapRef.current = new Map(requestMap);
 
+          finishLoadingNewAccount();
+
           const latestInvestments = updateInvestments(
             new Map(requestMap),
             true,
@@ -721,8 +723,6 @@ export const useEarnPortfolio = ({
               [earnAccountKey]: latestInvestments,
             }));
           }
-
-          finishLoadingNewAccount();
 
           if (!isPartialRefresh) {
             if (isMountedRef.current) {
