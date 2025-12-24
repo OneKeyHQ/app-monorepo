@@ -11,11 +11,15 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  DEFAULT_PERPS_LAYOUT_STATE,
+  usePerpsLayoutStateAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpCandles } from '../components/PerpCandles';
-import { PerpOrderBookResizable } from '../components/PerpOrderBookResizable';
+import { PerpOrderBookResizable } from '../components/PerpOrderBookResizable.web';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import {
@@ -26,34 +30,17 @@ import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
 import type { AllotmentHandle } from 'allotment';
 
-const LAYOUT_CONFIG = {
-  enableAutoCollapse: false,
-  main: {
-    marketMinWidth: 400,
-    tradingMinWidth: 300,
-    tradingMaxWidth: 800,
-  },
-  leftPanel: {
-    charts: {
-      minHeight: 400,
-      collapseThreshold: 350,
-    },
-    infoPanel: {
-      minHeight: 200,
-      collapseThreshold: 180,
-    },
-  },
-  orderBook: {
-    width: 250,
-  },
-} as const;
-
 function PerpDesktopLayout() {
   const { gtXl } = useMedia();
+  const mainAllotmentRef = useRef<AllotmentHandle>(null);
   const leftPanelAllotmentRef = useRef<AllotmentHandle>(null);
   const isInitializedRef = useRef(false);
+  const lastResetAtRef = useRef<number | undefined>(undefined);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
+  const setLayoutStateRef = useRef(setLayoutState);
+  setLayoutStateRef.current = setLayoutState;
 
   const mainSizes = useMemo(
     () => [layoutState.main.marketRatio, 100 - layoutState.main.marketRatio],
@@ -68,55 +55,45 @@ function PerpDesktopLayout() {
     [layoutState.leftPanel.chartsRatio],
   );
 
-  const handleMainChange = useCallback(
-    (sizes: number[]) => {
-      if (!isInitializedRef.current) {
-        return;
-      }
-
-      const totalSize = sizes[0] + sizes[1];
-      const marketRatioPercent = (sizes[0] / totalSize) * 100;
-
-      setLayoutState((prev) => ({
-        ...prev,
-        main: { marketRatio: marketRatioPercent },
-      }));
-    },
-    [setLayoutState],
-  );
-
   const handleMainChangeDebounced = useMemo(
-    () => debounce(handleMainChange, 500),
-    [handleMainChange],
-  );
+    () =>
+      debounce((sizes: number[]) => {
+        if (!isInitializedRef.current) return;
 
-  const handleLeftPanelChangeCore = useCallback(
-    (sizes: number[]) => {
-      if (!isInitializedRef.current) {
-        return;
-      }
+        const totalSize = sizes[0] + sizes[1];
+        const marketRatioPercent = (sizes[0] / totalSize) * 100;
 
-      const totalSize = sizes[0] + sizes[1];
-      const chartsRatioPercent = (sizes[0] / totalSize) * 100;
-
-      setLayoutState((prev) => ({
-        ...prev,
-        leftPanel: { chartsRatio: chartsRatioPercent },
-      }));
-    },
-    [setLayoutState],
+        setLayoutStateRef.current((prev) => ({
+          ...prev,
+          main: { marketRatio: marketRatioPercent },
+        }));
+      }, 500),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
 
   const handleLeftPanelChangeDebounced = useMemo(
-    () => debounce(handleLeftPanelChangeCore, 500),
-    [handleLeftPanelChangeCore],
+    () =>
+      debounce((sizes: number[]) => {
+        if (!isInitializedRef.current) return;
+
+        const totalSize = sizes[0] + sizes[1];
+        const chartsRatioPercent = (sizes[0] / totalSize) * 100;
+
+        setLayoutStateRef.current((prev) => ({
+          ...prev,
+          leftPanel: { chartsRatio: chartsRatioPercent },
+        }));
+      }, 500),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
 
   const handleLeftPanelChange = useCallback(
     (sizes: number[]) => {
       handleLeftPanelChangeDebounced(sizes);
 
-      if (!LAYOUT_CONFIG.enableAutoCollapse) return;
+      if (!PERP_LAYOUT_CONFIG.enableAutoCollapse) return;
 
       const chartsSize = sizes[0];
       const infoPanelSize = sizes[1];
@@ -127,7 +104,7 @@ function PerpDesktopLayout() {
 
       if (
         chartsSize > 0 &&
-        chartsSize < LAYOUT_CONFIG.leftPanel.charts.collapseThreshold
+        chartsSize < PERP_LAYOUT_CONFIG.leftPanel.charts.collapseThreshold
       ) {
         newChartsSize = 0;
         newInfoPanelSize = chartsSize + infoPanelSize;
@@ -136,7 +113,7 @@ function PerpDesktopLayout() {
 
       if (
         infoPanelSize > 0 &&
-        infoPanelSize < LAYOUT_CONFIG.leftPanel.infoPanel.collapseThreshold
+        infoPanelSize < PERP_LAYOUT_CONFIG.leftPanel.infoPanel.collapseThreshold
       ) {
         newChartsSize = chartsSize + infoPanelSize;
         newInfoPanelSize = 0;
@@ -160,6 +137,33 @@ function PerpDesktopLayout() {
     }));
   }, [setLayoutState]);
 
+  const applyDefaultLayout = useCallback(() => {
+    if (!mainAllotmentRef.current || !containerRef.current) return;
+
+    requestAnimationFrame(() => {
+      if (!mainAllotmentRef.current || !containerRef.current) return;
+
+      const containerWidth = containerRef.current.offsetWidth;
+      if (containerWidth === 0) return;
+
+      const tradingWidth = gtXl
+        ? PERP_LAYOUT_CONFIG.main.tradingDefaultWidthXl
+        : PERP_LAYOUT_CONFIG.main.tradingDefaultWidth;
+      const marketWidth = containerWidth - tradingWidth;
+
+      mainAllotmentRef.current.resize([marketWidth, tradingWidth]);
+
+      if (leftPanelAllotmentRef.current) {
+        leftPanelAllotmentRef.current.reset();
+      }
+
+      setLayoutStateRef.current((prev) => {
+        const { resetAt, ...rest } = prev;
+        return rest;
+      });
+    });
+  }, [gtXl]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       isInitializedRef.current = true;
@@ -172,6 +176,34 @@ function PerpDesktopLayout() {
     };
   }, [handleMainChangeDebounced, handleLeftPanelChangeDebounced]);
 
+  useEffect(() => {
+    if (!isInitializedRef.current) return;
+
+    if (
+      layoutState.resetAt !== undefined &&
+      layoutState.resetAt !== lastResetAtRef.current
+    ) {
+      lastResetAtRef.current = layoutState.resetAt;
+      applyDefaultLayout();
+    }
+  }, [layoutState.resetAt, applyDefaultLayout]);
+
+  useEffect(() => {
+    // Check if this is first load and if layout is still at default values
+    // This initializes resetAt to allow future reset detection
+    const state = layoutState; // Capture initial state
+    if (
+      state.resetAt === undefined &&
+      state.main.marketRatio === DEFAULT_PERPS_LAYOUT_STATE.main.marketRatio &&
+      state.leftPanel.chartsRatio ===
+        DEFAULT_PERPS_LAYOUT_STATE.leftPanel.chartsRatio
+    ) {
+      setLayoutStateRef.current((prev) => ({ ...prev, resetAt: 0 }));
+    }
+    // Only run on mount - layoutState is captured, not tracked
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <YStack flex={1} bg="$bgApp">
       <YStack>
@@ -179,12 +211,13 @@ function PerpDesktopLayout() {
         <PerpTickerBar />
       </YStack>
 
-      <Stack flex={1} display="flex">
+      <Stack ref={containerRef} flex={1} display="flex">
         <Allotment
+          ref={mainAllotmentRef}
           defaultSizes={mainSizes}
           onChange={handleMainChangeDebounced}
         >
-          <Allotment.Pane minSize={LAYOUT_CONFIG.main.marketMinWidth}>
+          <Allotment.Pane minSize={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
             <YStack
               height="100%"
               borderRightWidth="$px"
@@ -198,11 +231,12 @@ function PerpDesktopLayout() {
               >
                 <Allotment.Pane
                   minSize={
-                    LAYOUT_CONFIG.enableAutoCollapse
+                    PERP_LAYOUT_CONFIG.enableAutoCollapse
                       ? 0
-                      : LAYOUT_CONFIG.leftPanel.charts.minHeight
+                      : PERP_LAYOUT_CONFIG.leftPanel.charts.minHeight
                   }
-                  snap={LAYOUT_CONFIG.enableAutoCollapse}
+                  snap={PERP_LAYOUT_CONFIG.enableAutoCollapse}
+                  preferredSize={`${PERP_LAYOUT_CONFIG.leftPanel.charts.defaultRatio}%`}
                 >
                   <XStack
                     height="100%"
@@ -251,7 +285,7 @@ function PerpDesktopLayout() {
                       <YStack
                         borderLeftWidth="$px"
                         borderLeftColor="$borderSubdued"
-                        w={LAYOUT_CONFIG.orderBook.width}
+                        w={PERP_LAYOUT_CONFIG.orderBook.width}
                         height="100%"
                         overflow="hidden"
                       >
@@ -263,11 +297,11 @@ function PerpDesktopLayout() {
 
                 <Allotment.Pane
                   minSize={
-                    LAYOUT_CONFIG.enableAutoCollapse
+                    PERP_LAYOUT_CONFIG.enableAutoCollapse
                       ? 0
-                      : LAYOUT_CONFIG.leftPanel.infoPanel.minHeight
+                      : PERP_LAYOUT_CONFIG.leftPanel.infoPanel.minHeight
                   }
-                  snap={LAYOUT_CONFIG.enableAutoCollapse}
+                  snap={PERP_LAYOUT_CONFIG.enableAutoCollapse}
                 >
                   <YStack height="100%">
                     <PerpOrderInfoPanel />
@@ -278,12 +312,12 @@ function PerpDesktopLayout() {
           </Allotment.Pane>
 
           <Allotment.Pane
-            minSize={LAYOUT_CONFIG.main.tradingMinWidth}
-            maxSize={LAYOUT_CONFIG.main.tradingMaxWidth}
+            minSize={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
+            maxSize={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
           >
             <YStack
               height="100%"
-              minWidth={LAYOUT_CONFIG.main.tradingMinWidth}
+              minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
               overflow="scroll"
               gap="$4"
             >

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { debounce } from 'lodash';
+
 import { YStack } from '@onekeyhq/components';
 
 import { PerpOrderBook } from './PerpOrderBook';
@@ -32,22 +34,32 @@ function PerpOrderBookResizable() {
   const containerRef = useRef<HTMLElement | null>(null);
   const [containerHeight, setContainerHeight] = useState(0);
 
+  const debouncedSetHeight = useMemo(
+    () =>
+      debounce((height: number) => {
+        setContainerHeight(height);
+      }, 100),
+    [],
+  );
+
   useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return;
     if (!containerRef.current) return;
 
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
-        setContainerHeight(entry.contentRect.height);
+        debouncedSetHeight(entry.contentRect.height);
       }
     });
 
     resizeObserver.observe(containerRef.current);
 
     return () => {
+      debouncedSetHeight.cancel();
       resizeObserver.disconnect();
     };
-  }, []);
+  }, [debouncedSetHeight]);
 
   const maxLevelsPerSide = useMemo(
     () => calculateMaxLevelsPerSide(containerHeight),

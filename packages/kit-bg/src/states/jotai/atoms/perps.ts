@@ -523,15 +523,18 @@ export interface IPerpsLayoutState {
   orderBook: {
     visible: boolean;
   };
+  resetAt?: number;
 }
+
+export const DEFAULT_PERPS_LAYOUT_STATE: Omit<IPerpsLayoutState, 'resetAt'> = {
+  main: { marketRatio: 90 },
+  leftPanel: { chartsRatio: 60 },
+  orderBook: { visible: true },
+};
 
 export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
   globalAtom<IPerpsLayoutState>({
     name: EAtomNames.perpsLayoutStateAtom,
     persist: true,
-    initialValue: {
-      main: { marketRatio: 75 },
-      leftPanel: { chartsRatio: 60 },
-      orderBook: { visible: true },
-    },
+    initialValue: DEFAULT_PERPS_LAYOUT_STATE,
   });
