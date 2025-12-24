@@ -34,6 +34,8 @@ interface IPerpSettingsPopoverContentProps {
   closePopover: () => void;
 }
 
+const SHOW_RESET_LAYOUT = platformEnv.isWeb || platformEnv.isDesktop;
+
 function PerpSettingsPopoverContent({
   closePopover,
 }: IPerpSettingsPopoverContentProps) {
@@ -43,11 +45,6 @@ function PerpSettingsPopoverContent({
   const intl = useIntl();
   const { showInviteeRewardModal } = useShowInviteeRewardModal();
   const [selectedAccount] = usePerpsActiveAccountAtom();
-
-  const showResetLayout = useMemo(
-    () => platformEnv.isWeb || platformEnv.isDesktop,
-    [],
-  );
 
   const walletId = useMemo(() => {
     if (!selectedAccount?.accountId) return undefined;
@@ -106,8 +103,7 @@ function PerpSettingsPopoverContent({
           }}
         />
       </ListItem>
-      {/* Only show reset layout on web/desktop where layout customization is supported */}
-      {showResetLayout ? (
+      {SHOW_RESET_LAYOUT ? (
         <ListItem mx="$0" p="$0" title="Reset Layout">
           <Button
             size="small"

@@ -318,7 +318,7 @@ function PerpDesktopLayout() {
             <YStack
               height="100%"
               minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
-              overflow="scroll"
+              overflow="auto"
               gap="$4"
             >
               <PerpTradingPanel />
