@@ -9,7 +9,7 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsModalPage } from '../../hocs';
+import { useIsModalPage, useIsOverlayPage } from '../../hocs';
 import { Spinner, Stack, View } from '../../primitives';
 
 import { useTabBarHeight } from './hooks';
@@ -27,7 +27,7 @@ function Loading() {
 // On iOS, in the tab container, when initializing the page,
 //  the elements cannot fill the container space, so a minimum height needs to be set
 const useMinHeight = (isFullPage: boolean) => {
-  const isModalPage = useIsModalPage();
+  const isOverlayPage = useIsOverlayPage();
   const tabHeight = useTabBarHeight();
   return useMemo(() => {
     if (!platformEnv.isNativeIOS) {
@@ -36,7 +36,7 @@ const useMinHeight = (isFullPage: boolean) => {
     if (!isFullPage) {
       return undefined;
     }
-    if (!isModalPage) {
+    if (!isOverlayPage) {
       if (platformEnv.isNativeIOSPad) {
         return (
           Math.max(
@@ -48,7 +48,7 @@ const useMinHeight = (isFullPage: boolean) => {
       return Dimensions.get('window').height - tabHeight;
     }
     return undefined;
-  }, [isFullPage, isModalPage, tabHeight]);
+  }, [isFullPage, isOverlayPage, tabHeight]);
 };
 
 /**

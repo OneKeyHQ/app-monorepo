@@ -9,16 +9,20 @@ import {
 } from '@onekeyhq/components';
 import type { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
+import { defaultTimeRangeItem } from '../../../states/jotai/contexts/swap';
+
 interface ISwapProTimeRangeSelectorProps {
   items: { label: string; value: ESwapProTimeRange }[];
   selectedValue: { label: string; value: ESwapProTimeRange };
   onChange: (value: ESwapProTimeRange) => void;
+  isNative?: boolean;
 }
 
 const SwapProTimeRangeSelector = ({
   items,
   selectedValue,
   onChange,
+  isNative,
 }: ISwapProTimeRangeSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -32,7 +36,12 @@ const SwapProTimeRangeSelector = ({
       title=""
       showHeader={false}
       open={isOpen}
-      onOpenChange={setIsOpen}
+      onOpenChange={(open) => {
+        if (isNative) {
+          return;
+        }
+        setIsOpen(open);
+      }}
       renderTrigger={
         <XStack
           px="$3"
@@ -54,8 +63,16 @@ const SwapProTimeRangeSelector = ({
             bg: '$bgStrongActive',
           }}
         >
-          <SizableText size="$bodyMd">{selectedValue.label}</SizableText>
-          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+          <SizableText size="$bodyMd">
+            {isNative ? defaultTimeRangeItem.label : selectedValue.label}
+          </SizableText>
+          {isNative ? null : (
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$4"
+              color="$iconSubdued"
+            />
+          )}
         </XStack>
       }
       renderContent={({ closePopover }) => (

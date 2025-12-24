@@ -33,6 +33,7 @@ export type IModalReceiveParamList = {
         walletId: string;
         indexedAccountId: string | undefined;
         token: IToken;
+        onClose?: () => void;
       }
     | undefined;
   [EModalReceiveRoutes.CreateInvoice]: {

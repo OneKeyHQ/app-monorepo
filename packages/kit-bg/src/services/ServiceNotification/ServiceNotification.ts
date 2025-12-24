@@ -211,13 +211,18 @@ export default class ServiceNotification extends ServiceBase {
         const prefix = showMessagePushSource ? '[wss:] ' : '';
         // jpush will show notification automatically
         // websocket should show notification by ourselves
-        await this.showNotification({
+        const notificationParams = {
           notificationId: msgId,
           title: prefix + messageInfo.title,
           description: messageInfo.content,
           icon: messageInfo.extras?.image,
           remotePushMessageInfo: messageInfo,
-        });
+        };
+        await this.showNotification(notificationParams);
+        appEventBus.emit(
+          EAppEventBusNames.ShowInAppPushNotification,
+          notificationParams,
+        );
       }
     }
 
