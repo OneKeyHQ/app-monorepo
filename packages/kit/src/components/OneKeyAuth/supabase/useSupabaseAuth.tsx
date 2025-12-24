@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -107,9 +108,36 @@ export function useSupabaseAuth() {
       if (!authUrl) {
         throw new OneKeyLocalError('Failed to get OAuth URL');
       }
+      /*
+        iOS: 
+        {
+            "authUrl": "https://wtspqckturkzhstyjabx.supabase.co/auth/v1/authorize?provider=apple&redirect_to=https%3A%2F%2Foauth-callback.onekey.so%2Foauth_callback_native%3Fonekey_oauth_state%3D3af5c82abbfb19da14a00f6035828bdf&code_challenge=xxxx&code_challenge_method=plain&prompt=select_account",
+            "provider": "apple",
+            "redirectTo": "https://oauth-callback.onekey.so/oauth_callback_native?onekey_oauth_state=3af5c82abbfb19da14a00f6035828bdf"
+        }
+        https://oauth-callback.onekey.so/oauth_callback_native?code=xxxx&onekey_oauth_state=3af5c82abbfb19da14a00f6035828bdf
+
+        Desktop:
+        {
+            "authUrl": "https://wtspqckturkzhstyjabx.supabase.co/auth/v1/authorize?provider=apple&redirect_to=http%3A%2F%2F127.0.0.1%3A62416%2Foauth_callback_desktop%3Fonekey_oauth_state%3D2fd6480e3004ad6aef7d6a72dc37455b&code_challenge=xxxx&code_challenge_method=s256&prompt=select_account",
+            "provider": "apple",
+            "redirectTo": "http://127.0.0.1:62416/oauth_callback_desktop?onekey_oauth_state=2fd6480e3004ad6aef7d6a72dc37455b"
+        }
+        http://127.0.0.1:62416/oauth_callback_desktop?code=xxxx&onekey_oauth_state=2fd6480e3004ad6aef7d6a72dc37455b
+      */
+
+      Dialog.debugMessage({
+        title: 'performOAuthSignIn',
+        debugMessage: {
+          provider,
+          redirectTo,
+          authUrl,
+        },
+      });
 
       // Open OAuth popup using platform-specific implementation
       return OAuthPopup.open({
+        provider,
         authUrl,
         redirectTo,
         client: clientTemp,

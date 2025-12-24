@@ -65,10 +65,8 @@ export enum EExtensionOAuthMethod {
 }
 
 export enum ENativeOAuthMethod {
-  // ✅ RECOMMENDED: Use @react-native-google-signin/google-signin with signInWithIdToken
-  // Uses native Google Sign-In UI for better UX
-  // Gets Google ID token and exchanges it for Supabase session
-  GOOGLE_SIGNIN = 'GOOGLE_SIGNIN',
+  // ✅ RECOMMENDED: Use @react-native-google-signin/google-signin or expo-apple-authentication with signInWithIdToken
+  NATIVE_SDK = 'NATIVE_SDK',
 
   // Fallback: Use expo-web-browser.openAuthSessionAsync
   // Opens in-app browser for OAuth, uses deep link callback
@@ -115,6 +113,11 @@ export const GOOGLE_OAUTH_DEFAULT_SCOPES = [
 
 export const EXTENSION_OAUTH_USE_PKCE_FLOW = true;
 
+// Apple Sign-In nonce support
+// When enabled, a nonce will be generated and passed to Apple Sign-In for replay attack protection
+// Reference: https://developer.apple.com/documentation/authenticationservices/asauthorizationopenidrequest/nonce
+export const APPLE_SIGNIN_USE_NONCE = true;
+
 // Email OTP
 export const EMAIL_OTP_COUNTDOWN_SECONDS = 60;
 
@@ -124,7 +127,7 @@ export const DEFAULT_EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
 export const DEFAULT_DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod =
   EDesktopOAuthMethod.LOCALHOST_SERVER;
 export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
-  ENativeOAuthMethod.GOOGLE_SIGNIN;
+  ENativeOAuthMethod.WEB_BROWSER;
 
 // Google OAuth clients
 //  - https://console.cloud.google.com/auth/clients

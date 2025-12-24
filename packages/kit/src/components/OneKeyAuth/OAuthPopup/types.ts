@@ -35,6 +35,8 @@ export type IOpenOAuthPopupOptions = {
  * Unified OAuth popup options for all platforms
  */
 export interface IOAuthPopupOptions {
+  // The OAuth provider (google, apple, etc.)
+  provider?: 'google' | 'apple';
   // The OAuth authorization URL to open
   authUrl?: string;
   // The OAuth redirect URL (with onekey_oauth_state if needed)
