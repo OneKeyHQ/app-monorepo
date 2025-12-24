@@ -92,7 +92,7 @@ export const EXT_RATE_URL = {
 };
 
 export const APP_STORE_LINK = `itms-apps://apps.apple.com/app/id1609559473?action=write-review`;
-export const PLAY_STORE_LINK = `market://details?id=so.onekey.app.wallet`;
+export const PLAY_STORE_LINK = `https://play.google.com/store/apps/details?id=so.onekey.app.wallet`;
 
 export const ONEKEY_KEY_TAG_PURCHASE_URL =
   'https://onekey.so/products/onekey-keytag/';
