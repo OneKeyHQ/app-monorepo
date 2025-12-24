@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
 import { BackHandler, type LayoutChangeEvent } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -18,7 +19,6 @@ import {
   useOrientation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import * ExpoDevice from 'expo-device';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
@@ -380,7 +380,10 @@ function MobileBrowser() {
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
 
   const isShowContent = useMemo(() => {
-    if (ExpoDevice.deviceType !== ExpoDevice.DeviceType.TABLET && !isDualScreen) {
+    if (
+      ExpoDevice.deviceType !== ExpoDevice.DeviceType.TABLET &&
+      !isDualScreen
+    ) {
       return true;
     }
     if (isTabletMainView && isLandscape) {
