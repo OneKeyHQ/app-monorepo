@@ -512,3 +512,29 @@ export const {
   name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
   initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
 });
+
+export interface IPerpsLayoutState {
+  main: {
+    marketRatio: number;
+  };
+  leftPanel: {
+    chartsRatio: number;
+  };
+  orderBook: {
+    visible: boolean;
+  };
+  resetAt?: number;
+}
+
+export const DEFAULT_PERPS_LAYOUT_STATE: Omit<IPerpsLayoutState, 'resetAt'> = {
+  main: { marketRatio: 90 },
+  leftPanel: { chartsRatio: 60 },
+  orderBook: { visible: true },
+};
+
+export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
+  globalAtom<IPerpsLayoutState>({
+    name: EAtomNames.perpsLayoutStateAtom,
+    persist: true,
+    initialValue: DEFAULT_PERPS_LAYOUT_STATE,
+  });

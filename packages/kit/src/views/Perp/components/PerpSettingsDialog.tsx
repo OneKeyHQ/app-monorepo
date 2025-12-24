@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   ESwitchSize,
   Icon,
   Popover,
@@ -16,10 +17,13 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useCheckWalletReferralCodeBound } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useCheckWalletReferralCodeBound';
 import {
+  DEFAULT_PERPS_LAYOUT_STATE,
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
+  usePerpsLayoutStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
@@ -30,11 +34,14 @@ interface IPerpSettingsPopoverContentProps {
   closePopover: () => void;
 }
 
+const SHOW_RESET_LAYOUT = platformEnv.isWeb || platformEnv.isDesktop;
+
 function PerpSettingsPopoverContent({
   closePopover,
 }: IPerpSettingsPopoverContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
+  const [, setPerpsLayoutState] = usePerpsLayoutStateAtom();
   const intl = useIntl();
   const { showInviteeRewardModal } = useShowInviteeRewardModal();
   const [selectedAccount] = usePerpsActiveAccountAtom();
@@ -96,6 +103,22 @@ function PerpSettingsPopoverContent({
           }}
         />
       </ListItem>
+      {SHOW_RESET_LAYOUT ? (
+        <ListItem mx="$0" p="$0" title="Reset Layout">
+          <Button
+            size="small"
+            onPress={() => {
+              setPerpsLayoutState({
+                ...DEFAULT_PERPS_LAYOUT_STATE,
+                resetAt: Date.now(),
+              });
+              closePopover();
+            }}
+          >
+            Reset
+          </Button>
+        </ListItem>
+      ) : null}
       {/* Only show referral menu item if wallet type is supported */}
       {isWalletSupported ? (
         <ListItem
