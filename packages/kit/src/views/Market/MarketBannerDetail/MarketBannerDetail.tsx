@@ -16,7 +16,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -31,6 +30,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import {
@@ -52,15 +52,15 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
   const { tokenListId } = route.params;
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
-  const navigation = useAppNavigation();
+  const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
   const { gtMd } = useMedia();
 
   const isWebDesktop = (platformEnv.isWeb || platformEnv.isDesktop) && gtMd;
 
   const renderHeaderLeft = useCallback(
-    () => <NavBackButton onPress={() => navigation.pop()} />,
-    [navigation],
+    () => <NavBackButton onPress={handleBackPress} />,
+    [handleBackPress],
   );
 
   const renderHeaderTitle = useCallback(
