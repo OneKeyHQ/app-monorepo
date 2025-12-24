@@ -14,7 +14,12 @@ import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsNativeTablet, useOrientation } from '../../hooks';
-import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
+import {
+  DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
+  DESKTOP_MODE_UI_PAGE_MARGIN,
+  MAX_SIDEBAR_WIDTH,
+  MIN_SIDEBAR_WIDTH,
+} from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';
@@ -98,6 +103,10 @@ export const useTabContainerWidth = platformEnv.isNative
         const sideBarWidth = leftSidebarCollapsed
           ? MIN_SIDEBAR_WIDTH
           : MAX_SIDEBAR_WIDTH;
-        return `calc(100vw - ${sideBarWidth}px)`;
+        return `calc(100vw - ${
+          sideBarWidth +
+          DESKTOP_MODE_UI_PAGE_MARGIN +
+          DESKTOP_MODE_UI_PAGE_BORDER_WIDTH * 2
+        }px)`;
       }, [leftSidebarCollapsed, md]);
     };

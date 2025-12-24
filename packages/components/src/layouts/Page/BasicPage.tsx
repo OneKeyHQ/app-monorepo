@@ -7,6 +7,11 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 
 import { useIsDesktopModeUIInTabPages } from '../../hooks';
 import { Stack } from '../../primitives';
+import {
+  DESKTOP_MODE_UI_HEADER_HEIGHT,
+  DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
+  DESKTOP_MODE_UI_PAGE_MARGIN,
+} from '../../utils';
 
 import type { IBasicPageProps } from './type';
 
@@ -26,7 +31,9 @@ const useHeightStyle = () => {
     };
   }
   return {
-    maxHeight: '100%',
+    height: `calc(100vh - ${
+      DESKTOP_MODE_UI_PAGE_MARGIN + DESKTOP_MODE_UI_HEADER_HEIGHT
+    }px)`,
   };
 };
 
@@ -43,9 +50,10 @@ export function BasicPage({ children }: IBasicPageProps) {
   const desktopProps = useMemo(() => {
     return isDesktopLayout
       ? {
-          borderTopLeftRadius: '$4' as const,
-          borderTopRightRadius: '$4' as const,
-          borderWidth: 1,
+          borderRadius: '$4' as const,
+          borderWidth: DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
+          mr: DESKTOP_MODE_UI_PAGE_MARGIN,
+          mb: DESKTOP_MODE_UI_PAGE_MARGIN,
           borderColor: '$neutral3',
           overflow: 'hidden' as const,
         }
