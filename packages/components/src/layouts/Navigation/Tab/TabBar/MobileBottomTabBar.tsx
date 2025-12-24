@@ -1,4 +1,5 @@
-import { ReactElement, useCallback, useEffect, useMemo } from 'react';
+import type { ReactElement } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { Animated, StyleSheet } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';

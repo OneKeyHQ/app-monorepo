@@ -15,9 +15,7 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  ITabDeveloperParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDAppConnectionModal,
   EModalRoutes,
