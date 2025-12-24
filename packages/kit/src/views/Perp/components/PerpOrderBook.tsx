@@ -214,8 +214,10 @@ const MobileHeaderMemo = memo(MobileHeader);
 
 export function PerpOrderBook({
   entry,
+  maxLevelsPerSide: propMaxLevelsPerSide,
 }: {
   entry?: 'perpTab' | 'perpMobileMarket';
+  maxLevelsPerSide?: number;
 }) {
   const { gtMd } = useMedia();
   const actionsRef = useHyperliquidActions();
@@ -282,6 +284,11 @@ export function PerpOrderBook({
     if (formData.hasTpsl) return 9;
     return 7;
   }, [formData.hasTpsl, shouldShowEnableTradingButton]);
+
+  const desktopMaxLevelsPerSide = useMemo(
+    () => propMaxLevelsPerSide ?? 11,
+    [propMaxLevelsPerSide],
+  );
 
   const mobileOrderBook = useMemo(() => {
     if (!hasOrderBook || !l2Book) return null;
@@ -365,7 +372,7 @@ export function PerpOrderBook({
           horizontal={false}
           bids={l2Book.bids}
           asks={l2Book.asks}
-          maxLevelsPerSide={11}
+          maxLevelsPerSide={desktopMaxLevelsPerSide}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptions}

@@ -11,14 +11,8 @@ export function PerpCandles() {
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
 
-  console.log('PerpCandles__render', {
-    reloadHook,
-    address: currentAccount?.accountAddress,
-    coin: currentToken.coin,
-  });
-
   const content = (
-    <Stack w="100%" h="100%">
+    <Stack w="100%" h="100%" flex={1} pr={6}>
       {reloadHook > 0 ? (
         <TradingViewPerpsV2
           webviewKey={reloadHook.toString()}
