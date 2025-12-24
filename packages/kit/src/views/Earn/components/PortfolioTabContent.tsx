@@ -460,7 +460,7 @@ const ProtocolAirdrop = ({
         airdropAssets?.every((airdrop) =>
           isEmpty(airdrop.airdropAssets),
         ) ? null : (
-          <YStack w="100%">
+          <YStack w="100%" gap={isDesktopLayout ? '$0' : '$2'}>
             {airdropAssets?.map((airdropGroup, groupIndex) => {
               const Layout = isDesktopLayout ? XStack : YStack;
 
