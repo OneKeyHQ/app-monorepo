@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
 import { BackHandler, type LayoutChangeEvent } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -379,8 +380,11 @@ function MobileBrowser() {
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
 
   const isShowContent = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
-      return !isDualScreen;
+    if (
+      ExpoDevice.deviceType !== ExpoDevice.DeviceType.TABLET &&
+      !isDualScreen
+    ) {
+      return true;
     }
     if (isTabletMainView && isLandscape) {
       return true;
