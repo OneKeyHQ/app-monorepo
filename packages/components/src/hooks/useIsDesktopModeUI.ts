@@ -11,6 +11,7 @@ export const useIsDesktopModeUIInTabPages = platformEnv.isNative
       const pageType = usePageType();
       return (
         gtMd &&
+        !platformEnv.isWebDappMode &&
         pageType !== EPageType.modal &&
         pageType !== EPageType.fullScreen &&
         pageType !== EPageType.onboarding
