@@ -499,6 +499,20 @@ const ToastGallery = () => (
             >
               Loading with Auto Complete
             </Button>
+            <Button
+              onPress={() => {
+                Toast.notification({
+                  title:
+                    'TRON Energy Rental Service Now Live - Instant & Affordable Energy',
+                  message:
+                    'Rent TRON energy instantly for TRC20 transfers and smart contracts. Save up to 70% vs staking.',
+                  icon: 'SpeakerPromoteOutline',
+                  imageUri: 'https://uni.onekey-asset.com/static/chain/btc.png',
+                });
+              }}
+            >
+              toast notification
+            </Button>
           </YStack>
         ),
       },
