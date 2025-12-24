@@ -179,15 +179,17 @@ export function TabPageHeader({
             <View>
               <HeaderTitle sceneName={sceneName} />
             </View>
-            <HomeTokenListProviderMirror>
-              <HeaderRight
-                selectedHeaderTab={selectedHeaderTab}
-                sceneName={sceneName}
-                tabRoute={tabRoute}
-                customHeaderRightItems={customHeaderRightItems}
-                renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-              />
-            </HomeTokenListProviderMirror>
+            <XStack flexShrink={1}>
+              <HomeTokenListProviderMirror>
+                <HeaderRight
+                  selectedHeaderTab={selectedHeaderTab}
+                  sceneName={sceneName}
+                  tabRoute={tabRoute}
+                  customHeaderRightItems={customHeaderRightItems}
+                  renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+                />
+              </HomeTokenListProviderMirror>
+            </XStack>
           </XStack>
 
           {!hideSearch ? (
