@@ -1,6 +1,13 @@
 import { useCallback } from 'react';
 
-import { Page, XStack, YStack, useMedia, useTheme } from '@onekeyhq/components';
+import {
+  Page,
+  View,
+  XStack,
+  YStack,
+  useMedia,
+  useTheme,
+} from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -149,21 +156,44 @@ export function TabPageHeader({
   }
   return (
     <>
+      <Page.Header headerShown={false} />
       {tabRoute === ETabRoutes.Home ||
       tabRoute === ETabRoutes.Discovery ||
       tabRoute === ETabRoutes.Earn ||
       tabRoute === ETabRoutes.Perp ? (
-        <Page.Header
-          headerTitleAlign="left"
-          headerTitle={renderHeaderTitle}
-          headerRight={renderHeaderRight}
-          headerLeft={renderHeaderLeft}
-        />
-      ) : (
-        <Page.Header headerShown={false} />
-      )}
-      {!hideSearch ? (
-        <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+        <>
+          <XStack
+            alignItems="center"
+            justifyContent="space-between"
+            px="$5"
+            h="$11"
+          >
+            <View>
+              <HeaderLeft
+                selectedHeaderTab={selectedHeaderTab}
+                sceneName={sceneName}
+                tabRoute={tabRoute}
+                customHeaderLeftItems={customHeaderLeftItems}
+              />
+            </View>
+            <View>
+              <HeaderTitle sceneName={sceneName} />
+            </View>
+            <HomeTokenListProviderMirror>
+              <HeaderRight
+                selectedHeaderTab={selectedHeaderTab}
+                sceneName={sceneName}
+                tabRoute={tabRoute}
+                customHeaderRightItems={customHeaderRightItems}
+                renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+              />
+            </HomeTokenListProviderMirror>
+          </XStack>
+
+          {!hideSearch ? (
+            <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+          ) : null}
+        </>
       ) : null}
     </>
   );
