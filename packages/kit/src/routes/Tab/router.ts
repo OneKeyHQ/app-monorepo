@@ -2,11 +2,7 @@ import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
-import {
-  getTokenValue,
-  rootNavigationRef,
-  useMedia,
-} from '@onekeyhq/components';
+import { getTokenValue, rootNavigationRef } from '@onekeyhq/components';
 import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
@@ -28,7 +24,6 @@ import { perpTradeRouters as perpWebviewRouters } from '../../views/PerpTrade/ro
 import { discoveryRouters } from './Discovery/router';
 import { earnRouters } from './Earn/router';
 import { marketRouters } from './Marktet/router';
-import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { referFriendsRouters } from './ReferFriends/router';
 import { swapRouters } from './Swap/router';
@@ -221,19 +216,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             hideOnTabBar: !isGtMdNonNative,
           },
       isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
-      platformEnv.isDev
-        ? {
-            name: ETabRoutes.Me,
-            rewrite: '/me',
-            exact: true,
-            tabBarIcon: (focused?: boolean) =>
-              focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
-            translationId: ETranslations.global_more,
-            freezeOnBlur: Boolean(params?.freezeOnBlur),
-            children: meRouters,
-            trackId: 'global-me',
-          }
-        : undefined,
       platformEnv.isDev
         ? {
             name: ETabRoutes.Developer,
