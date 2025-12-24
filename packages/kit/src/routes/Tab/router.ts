@@ -194,7 +194,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         exact: true,
         children: earnRouters,
         trackId: 'global-earn',
-        hideOnTabBar: platformEnv.isNative,
+        hideOnTabBar:
+          platformEnv.isNative ||
+          platformEnv.isExtensionUiPopup ||
+          platformEnv.isExtensionUiSidePanel,
       },
       !platformEnv.isNative && isWebDappMode
         ? referFriendsTabConfig

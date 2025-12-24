@@ -1,15 +1,9 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
-import {
-  Page,
-  Stack,
-  rootNavigationRef,
-  useOrientation,
-} from '@onekeyhq/components';
+import { Page, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -17,12 +11,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  ETabDiscoveryRoutes,
-  ITabDiscoveryParamList,
+import {
+  ETabRoutes,
+  type ETabDiscoveryRoutes,
+  type ITabDiscoveryParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
@@ -33,38 +26,14 @@ import { showTabBar } from '../../utils/tabBarUtils';
 import { withBrowserProvider } from './WithBrowserProvider';
 
 import type { RouteProp } from '@react-navigation/core';
-
-const popToDiscoveryHomePage = () => {
-  const rootState = rootNavigationRef.current?.getState();
-  const currentIndex = rootState?.index || 0;
-  const routes = rootState?.routes || [];
-  const currentRoute = routes[currentIndex];
-  if (currentRoute?.name === ERootRoutes.Main) {
-    if (currentRoute.state) {
-      const tabIndex = currentRoute.state.index || 0;
-      const discoveryRoute = currentRoute.state.routes[tabIndex];
-      if (discoveryRoute?.name === ETabRoutes.Discovery) {
-        const discoveryState = discoveryRoute?.state;
-        if (
-          discoveryState?.index !== 0 &&
-          rootNavigationRef.current?.canGoBack()
-        ) {
-          rootNavigationRef.current?.goBack();
-          setTimeout(() => {
-            popToDiscoveryHomePage();
-          });
-        }
-      }
-    }
-  }
-};
+import { TabPageHeader } from '../../../../components/TabPageHeader';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 function MobileBrowser() {
   const route =
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
-  const isLandscape = useOrientation();
   const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
   const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
@@ -109,21 +78,6 @@ function MobileBrowser() {
       : Promise.resolve();
   }, [activeTabId, closeWebTab]);
 
-  useEffect(() => {
-    const listener = (event: { tab: ETranslations; openUrl?: boolean }) => {
-      void handleChangeHeaderTab(event.tab);
-      if (event.tab === ETranslations.global_browser && event.openUrl) {
-        setTimeout(() => {
-          popToDiscoveryHomePage();
-        }, 50);
-      }
-    };
-    appEventBus.on(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
-    return () => {
-      appEventBus.off(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
-    };
-  }, [handleChangeHeaderTab]);
-
   // For risk detection
   useEffect(() => {
     const listener = () => {
@@ -135,6 +89,7 @@ function MobileBrowser() {
     };
   }, [closeCurrentWebTab]);
 
+  console.log('selectedHeaderTab', selectedHeaderTab);
   return (
     <Page fullPage>
       {/* custom header */}
