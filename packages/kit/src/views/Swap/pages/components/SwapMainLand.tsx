@@ -12,7 +12,6 @@ import {
   Button,
   Dialog,
   EPageType,
-  ScrollView,
   Toast,
   YStack,
   useInModalDialog,
@@ -92,7 +91,6 @@ import {
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
-import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
@@ -116,17 +114,12 @@ import {
 } from '../../hooks/useSwapState';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
-import LimitInfoContainer from './LimitInfoContainer';
-import LimitOrderOpenItem from './LimitOrderOpenItem';
 import PreSwapDialogContent from './PreSwapDialogContent';
-import SwapActionsState from './SwapActionsState';
-import SwapAlertContainer from './SwapAlertContainer';
+import SwapBridgeMdContainer from './SwapBridgeMdContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
-import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
+import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
-import SwapProTabListContainer from './SwapProTabListContainer';
-import SwapQuoteInput from './SwapQuoteInput';
-import SwapQuoteResult from './SwapQuoteResult';
+import SwapSwapMbContainer from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
@@ -164,7 +157,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
-  const [toSelectTokenAtom] = useSwapSelectToTokenAtom();
+  const [toSelectTokenAtom, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [currentQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapSteps] = useSwapStepsAtom();
@@ -181,6 +174,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     useSwapProInputAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const swapProAccount = useSwapProAccount();
+
+  const swapFromTokenRef = useRef<ISwapToken | undefined>(undefined);
+  if (swapFromTokenRef.current !== fromSelectTokenAtom) {
+    swapFromTokenRef.current = fromSelectTokenAtom;
+  }
+  const swapToTokenRef = useRef<ISwapToken | undefined>(undefined);
+  if (swapToTokenRef.current !== toSelectTokenAtom) {
+    swapToTokenRef.current = toSelectTokenAtom;
+  }
+
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
@@ -1067,6 +1070,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       if (focusSwapPro) {
         void setSwapProSelectToken(token);
       } else {
+        if (
+          equalTokenNoCaseSensitive({
+            token1: swapToTokenRef.current,
+            token2: token,
+          })
+        ) {
+          setSwapSelectToToken(swapFromTokenRef.current);
+        }
         void selectFromToken(token);
         scrollViewRef.current?.scrollTo({
           y: 0,
@@ -1074,7 +1085,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         });
       }
     },
-    [focusSwapPro, selectFromToken, setSwapProSelectToken],
+    [
+      focusSwapPro,
+      selectFromToken,
+      setSwapProSelectToken,
+      setSwapSelectToToken,
+    ],
   );
 
   const { networkList } = useSwapProInit();
@@ -1091,6 +1107,102 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     useSwapProSupportNetworksTokenList(networkList);
   useSwapProErrorAlert(!supportSpeedSwap);
   useSwapQuote();
+
+  const renderSwapSwapBridgeContainer = useCallback(() => {
+    if (!platformEnv.isNative) {
+      return (
+        <SwapOldSwapBridgeLimitContainer
+          pageType={pageType ?? EPageType.modal}
+          storeName={storeName}
+          onSelectToken={onSelectToken}
+          fetchLoading={fetchLoading}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onPreSwap={onPreSwap}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+          onOpenProviderList={onOpenProviderList}
+          refreshAction={refreshAction}
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          swapTypeSwitch={swapTypeSwitch}
+          alerts={alerts}
+          isWrapped={!!isWrapped}
+          onSelectRecentTokenPairs={onSelectRecentTokenPairs}
+          fromTokenAmountValue={fromTokenAmount.value}
+          swapRecentTokenPairs={swapRecentTokenPairs}
+        />
+      );
+    }
+    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+      return (
+        <SwapSwapMbContainer
+          pageType={pageType ?? EPageType.modal}
+          onSelectToken={onSelectToken}
+          fetchLoading={fetchLoading}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onPreSwap={onPreSwap}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+          onOpenProviderList={onOpenProviderList}
+          refreshAction={refreshAction}
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          alerts={alerts}
+          onTokenPress={onTokenPress}
+          onSelectRecentTokenPairs={onSelectRecentTokenPairs}
+          onOpenOrdersClick={onOpenOrdersClick}
+          fromTokenAmountValue={fromTokenAmount.value}
+          swapRecentTokenPairs={swapRecentTokenPairs}
+        />
+      );
+    }
+    return (
+      <SwapBridgeMdContainer
+        pageType={pageType ?? EPageType.modal}
+        onSelectToken={onSelectToken}
+        fetchLoading={fetchLoading}
+        onSelectPercentageStage={onSelectPercentageStage}
+        onBalanceMaxPress={onBalanceMaxPress}
+        onPreSwap={onPreSwap}
+        onToAnotherAddressModal={onToAnotherAddressModal}
+        onOpenProviderList={onOpenProviderList}
+        refreshAction={refreshAction}
+        quoteResult={quoteResult}
+        quoteLoading={quoteLoading}
+        quoteEventFetching={quoteEventFetching}
+        alerts={alerts}
+        onTokenPress={onTokenPress}
+        onSelectRecentTokenPairs={onSelectRecentTokenPairs}
+        onOpenOrdersClick={onOpenOrdersClick}
+        fromTokenAmountValue={fromTokenAmount.value}
+        swapRecentTokenPairs={swapRecentTokenPairs}
+      />
+    );
+  }, [
+    pageType,
+    storeName,
+    onSelectToken,
+    fetchLoading,
+    onSelectPercentageStage,
+    onBalanceMaxPress,
+    onPreSwap,
+    onToAnotherAddressModal,
+    onOpenProviderList,
+    refreshAction,
+    quoteResult,
+    quoteLoading,
+    quoteEventFetching,
+    swapTypeSwitch,
+    alerts,
+    isWrapped,
+    onTokenPress,
+    onSelectRecentTokenPairs,
+    onOpenOrdersClick,
+    fromTokenAmount.value,
+    swapRecentTokenPairs,
+  ]);
 
   return (
     <YStack
@@ -1133,70 +1245,71 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           }}
         />
       ) : (
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          ref={scrollViewRef}
-        >
-          <YStack
-            pt="$2.5"
-            px="$5"
-            gap="$5"
-            flex={1}
-            $gtMd={{
-              flex: 'unset',
-              pt: pageType === EPageType.modal ? '$2.5' : '$5',
-            }}
-            pb="$5"
-          >
-            <LimitOrderOpenItem storeName={storeName} />
-            <SwapQuoteInput
-              onSelectToken={onSelectToken}
-              selectLoading={fetchLoading}
-              onSelectPercentageStage={onSelectPercentageStage}
-              onBalanceMaxPress={onBalanceMaxPress}
-            />
-            {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
-              <LimitInfoContainer />
-            ) : null}
-            <SwapActionsState
-              onPreSwap={onPreSwap}
-              onOpenRecipientAddress={onToAnotherAddressModal}
-              onSelectPercentageStage={onSelectPercentageStage}
-            />
-            <SwapQuoteResult
-              refreshAction={refreshAction}
-              onOpenProviderList={onOpenProviderList}
-              quoteResult={quoteResult}
-              onOpenRecipient={onToAnotherAddressModal}
-            />
-            {alerts.states.length > 0 &&
-            !quoteLoading &&
-            !quoteEventFetching &&
-            alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
-              <SwapAlertContainer alerts={alerts.states} />
-            ) : null}
-            <SwapRecentTokenPairsGroup
-              onSelectTokenPairs={onSelectRecentTokenPairs}
-              tokenPairs={swapRecentTokenPairs}
-              fromTokenAmount={fromTokenAmount.value}
-            />
-            <SwapPendingHistoryListComponent pageType={pageType} />
-            {platformEnv.isNative && !fromTokenAmount.value ? (
-              <SwapProTabListContainer
-                onTokenPress={onTokenPress}
-                onOpenOrdersClick={onOpenOrdersClick}
-                onSearchClick={() => {
-                  onSelectToken(ESwapDirectionType.FROM);
-                  scrollViewRef.current?.scrollTo({
-                    y: 0,
-                    animated: false,
-                  });
-                }}
-              />
-            ) : null}
-          </YStack>
-        </ScrollView>
+        renderSwapSwapBridgeContainer()
+        // <ScrollView
+        //   keyboardShouldPersistTaps="handled"
+        //   keyboardDismissMode="on-drag"
+        //   ref={scrollViewRef}
+        // >
+        //   <YStack
+        //     pt="$2.5"
+        //     px="$5"
+        //     gap="$5"
+        //     flex={1}
+        //     $gtMd={{
+        //       flex: 'unset',
+        //       pt: pageType === EPageType.modal ? '$2.5' : '$5',
+        //     }}
+        //     pb="$5"
+        //   >
+        //     <LimitOrderOpenItem storeName={storeName} />
+        //     <SwapQuoteInput
+        //       onSelectToken={onSelectToken}
+        //       selectLoading={fetchLoading}
+        //       onSelectPercentageStage={onSelectPercentageStage}
+        //       onBalanceMaxPress={onBalanceMaxPress}
+        //     />
+        //     {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
+        //       <LimitInfoContainer />
+        //     ) : null}
+        //     <SwapActionsState
+        //       onPreSwap={onPreSwap}
+        //       onOpenRecipientAddress={onToAnotherAddressModal}
+        //       onSelectPercentageStage={onSelectPercentageStage}
+        //     />
+        //     <SwapQuoteResult
+        //       refreshAction={refreshAction}
+        //       onOpenProviderList={onOpenProviderList}
+        //       quoteResult={quoteResult}
+        //       onOpenRecipient={onToAnotherAddressModal}
+        //     />
+        //     {alerts.states.length > 0 &&
+        //     !quoteLoading &&
+        //     !quoteEventFetching &&
+        //     alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
+        //       <SwapAlertContainer alerts={alerts.states} />
+        //     ) : null}
+        //     <SwapRecentTokenPairsGroup
+        //       onSelectTokenPairs={onSelectRecentTokenPairs}
+        //       tokenPairs={swapRecentTokenPairs}
+        //       fromTokenAmount={fromTokenAmount.value}
+        //     />
+        //     <SwapPendingHistoryListComponent pageType={pageType} />
+        //     {platformEnv.isNative && !fromTokenAmount.value ? (
+        //       <SwapProTabListContainer
+        //         onTokenPress={onTokenPress}
+        //         onOpenOrdersClick={onOpenOrdersClick}
+        //         onSearchClick={() => {
+        //           onSelectToken(ESwapDirectionType.FROM);
+        //           scrollViewRef.current?.scrollTo({
+        //             y: 0,
+        //             animated: false,
+        //           });
+        //         }}
+        //       />
+        //     ) : null}
+        //   </YStack>
+        // </ScrollView>
       )}
     </YStack>
   );

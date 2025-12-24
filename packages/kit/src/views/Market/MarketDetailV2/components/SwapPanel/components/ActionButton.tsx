@@ -60,7 +60,6 @@ export function ActionButton({
   const { tokenDetail } = useTokenDetail();
   const [settingsValue] = useSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const navigation = useAppNavigation();
   const { createAddress } = useAccountSelectorCreateAddress();
   // Get payment token price for buy orders
   const { price: paymentTokenPrice } = usePaymentTokenPrice(

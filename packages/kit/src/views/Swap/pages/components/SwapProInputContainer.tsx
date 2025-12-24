@@ -9,7 +9,6 @@ import {
   Icon,
   Image,
   Input,
-  Page,
   SizableText,
   Skeleton,
   XStack,
@@ -258,13 +257,6 @@ const SwapProInputContainer = ({
             onSelectPercentageStage={onSelectPercentageStage}
           />
         </InputAccessoryView>
-      ) : null}
-      {!platformEnv.isNativeIOS ? (
-        <Page.Footer>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
-        </Page.Footer>
       ) : null}
     </YStack>
   );

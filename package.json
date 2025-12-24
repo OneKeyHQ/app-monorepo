@@ -100,6 +100,7 @@
     "@wagmi/core": "2.21.0",
     "@walletconnect/sign-client": "2.21.7",
     "@walletconnect/universal-provider": "2.21.7",
+    "allotment": "^1.20.5",
     "bech32": "^2.0.0",
     "biginteger": "^1.0.3",
     "bignumber.js": "9.1.2",

@@ -70,7 +70,7 @@ const formatAmountWithLimit = (amount: string, maxChars: number): string => {
 
   const amountBN = new BigNumber(amount);
   if (amountBN.isNaN() || amountBN.isZero()) {
-    return '0';
+    return '';
   }
 
   // Get full precision string

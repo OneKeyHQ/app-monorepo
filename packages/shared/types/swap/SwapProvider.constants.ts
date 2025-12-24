@@ -191,7 +191,7 @@ export const swapProBuyInputSegmentItems = [
 ];
 
 export const swapProPositionsListMinValue = 1;
-export const swapProPositionsListMaxCount = 50;
+export const swapProPositionsListMaxCount = 20;
 
 export const swapDefaultSetTokens: Record<
   string,

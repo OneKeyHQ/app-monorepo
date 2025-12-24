@@ -61,7 +61,7 @@ export function BasicPage({ children }: IBasicPageProps) {
           borderTopLeftRadius: '$4' as const,
           borderTopRightRadius: '$4' as const,
           borderWidth: 1,
-          borderColor: '$borderSubdued',
+          borderColor: '$neutral3',
           overflow: 'hidden' as const,
         }
       : undefined;
