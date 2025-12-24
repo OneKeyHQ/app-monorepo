@@ -9,5 +9,5 @@ const useShowWebBars = () => {
 
 export const WebPageTabBar = () => {
   const isShowWebBars = useShowWebBars();
-  return isShowWebBars ? DesktopCustomTabBar : null;
+  return isShowWebBars ? <DesktopCustomTabBar /> : null;
 };
