@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MotiView } from 'moti';
@@ -8,10 +9,7 @@ import type {
   IActionListSection,
   ITooltipRef,
 } from '@onekeyhq/components/src/actions';
-import {
-  EPortalContainerConstantName,
-  Portal,
-} from '@onekeyhq/components/src/hocs';
+import { Portal } from '@onekeyhq/components/src/hocs';
 import {
   useSafeAreaInsets,
   useShortcuts,
@@ -284,8 +282,10 @@ export function DesktopLeftSideBar({
   state,
   descriptors,
   extraConfig,
+  bottomMenu,
 }: BottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
+  bottomMenu: ReactElement;
 }) {
   const intl = useIntl();
   const { routes } = state;
@@ -543,7 +543,7 @@ export function DesktopLeftSideBar({
             >
               {tabs}
             </YStack>
-            <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
+            {bottomMenu}
           </YStack>
         </MotiView>
       </YStack>

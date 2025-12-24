@@ -86,6 +86,7 @@ export function TabNavigator() {
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
         showTabBar={!(isTabletDetailView && isLandscape)}
+        bottomMenu={BottomMenu}
       />
       {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
       <InPageTabContainer />

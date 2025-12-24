@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -89,13 +90,18 @@ export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
   showTabBar = true,
+  bottomMenu,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => (
-      <NavigationBar {...props} extraConfig={extraConfig} />
+      <NavigationBar
+        {...props}
+        extraConfig={extraConfig}
+        bottomMenu={bottomMenu}
+      />
     ),
-    [extraConfig],
+    [bottomMenu, extraConfig],
   );
 
   const tabComponents = useMemo(

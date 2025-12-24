@@ -8,7 +8,6 @@ import {
   NavBackButton,
   Page,
   SizableText,
-  Stack,
   XStack,
   rootNavigationRef,
   useMedia,
@@ -75,7 +74,7 @@ function SegmentText({
   );
 }
 
-function DiscoveryHeaderSegment({
+export function DiscoveryHeaderSegment({
   selectedHeaderTab,
 }: {
   selectedHeaderTab?: ETranslations;
