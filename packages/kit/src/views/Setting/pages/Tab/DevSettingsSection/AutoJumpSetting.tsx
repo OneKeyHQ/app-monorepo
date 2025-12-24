@@ -77,9 +77,7 @@ export const AutoJumpSetting = memo(() => {
                     { label: 'Swap', value: ETabRoutes.Swap },
                     { label: 'Market', value: ETabRoutes.Market },
                     ...(platformEnv.isDev
-                      ? [
-                          { label: 'Developer', value: ETabRoutes.Developer },
-                        ]
+                      ? [{ label: 'Developer', value: ETabRoutes.Developer }]
                       : []),
                   ]}
                   onChange={(value) => {
