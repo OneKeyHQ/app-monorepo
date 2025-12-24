@@ -149,7 +149,10 @@ export function TabPageHeader({
   }
   return (
     <>
-      {tabRoute === ETabRoutes.Home || tabRoute === ETabRoutes.Discovery ? (
+      {tabRoute === ETabRoutes.Home ||
+      tabRoute === ETabRoutes.Discovery ||
+      tabRoute === ETabRoutes.Earn ||
+      tabRoute === ETabRoutes.Perp ? (
         <Page.Header
           headerTitleAlign="left"
           headerTitle={renderHeaderTitle}
