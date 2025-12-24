@@ -158,10 +158,12 @@ class ServiceAccountProfile extends ServiceBase {
     networkId,
     fromAddress,
     toAddress,
+    checkInteraction,
   }: {
     fromAddress?: string;
     networkId: string;
     toAddress: string;
+    checkInteraction?: boolean;
   }): Promise<{
     isScam: boolean;
     isContract: boolean;
@@ -192,6 +194,7 @@ class ServiceAccountProfile extends ServiceBase {
           networkId,
           fromAddress,
           toAddress,
+          checkInteraction,
         },
       });
       const {
@@ -253,11 +256,22 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
+    // For BTC network with fresh address enabled, skip interaction check
+    let checkInteraction: boolean | undefined;
+    if (networkUtils.isBTCNetwork(networkId)) {
+      const enableBTCFreshAddress =
+        await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+      if (enableBTCFreshAddress) {
+        checkInteraction = false;
+      }
+    }
+
     const { isContract, interacted, addressLabel, isScam, isCex, badges } =
       await this.getAddressAccountBadge({
         networkId,
         fromAddress,
         toAddress,
+        checkInteraction,
       });
     if (
       checkInteractionStatus &&

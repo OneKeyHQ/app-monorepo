@@ -167,6 +167,19 @@ const ResetPin = LazyLoadPage(
   false,
   <OnboardingLayoutFallback />,
 );
+const NewPinCreated = LazyLoadPage(
+  () => import('../pages/NewPinCreatedPage'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
+
+const MoreAction = LazyLoadPage(
+  () => import('../pages/MoreAction'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
 
 const hiddenHeaderOptions = {
   headerShown: false,
@@ -309,6 +322,16 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ResetPin,
     component: ResetPin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.NewPinCreated,
+    component: NewPinCreated,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.MoreAction,
+    component: MoreAction,
     options: hiddenHeaderOptions,
   },
 ];

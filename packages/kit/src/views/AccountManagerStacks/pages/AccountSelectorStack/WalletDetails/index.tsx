@@ -44,6 +44,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { HiddenWalletRememberSwitch } from '../../../components/WalletEdit/HiddenWalletRememberSwitch';
@@ -186,6 +187,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const accountsValue = useMemo(
     () => listDataResult?.accountsValue || [],
     [listDataResult?.accountsValue],
+  );
+  const accountsDeFiOverview = useMemo(
+    () => listDataResult?.accountsDeFiOverview || [],
+    [listDataResult?.accountsDeFiOverview],
   );
   const accountsCount = useMemo(
     () => listDataResult?.accountsCount ?? 0,
@@ -543,6 +548,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               isOthersUniversal={isOthersUniversal}
               selectedAccount={selectedAccount}
               accountsValue={accountsValue}
+              accountsDeFiOverview={accountsDeFiOverview}
               linkNetwork={linkNetwork}
               editable={editable}
               accountsCount={accountsCount}
@@ -601,6 +607,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     );
   }, [
     accountsCount,
+    accountsDeFiOverview,
     accountsValue,
     actions,
     allowSelectEmptyAccount,
@@ -703,7 +710,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />
       ) : null}
 
-      {!isMockedStandardHwWallet &&
+      {!platformEnv.isWebDappMode &&
+      !isMockedStandardHwWallet &&
       sectionDataOriginal?.length &&
       focusedWalletInfo?.wallet?.id ? (
         <AccountSearchBar

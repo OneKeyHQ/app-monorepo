@@ -38,6 +38,7 @@ import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
   USDC_TOKEN_INFO,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IMarketTokenDetailData } from '@onekeyhq/shared/types/marketV2';
 import type { ESigningScheme } from '@onekeyhq/shared/types/message';
 import type {
   ISwapProviderManager,
@@ -57,7 +58,6 @@ import type {
   ESwapQuoteKind,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
-  IFetchLimitMarketPrice,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IFetchQuotesParams,
@@ -68,7 +68,6 @@ import type {
   IFetchTokenListParams,
   IFetchTokensParams,
   IOKXTransactionObject,
-  IPerpDepositQuoteRes,
   IPerpDepositQuoteResponse,
   IPopularTrading,
   ISpeedSwapConfig,
@@ -2161,9 +2160,9 @@ export default class ServiceSwap extends ServiceBase {
     fromToken: ISwapTokenBase;
     toToken: ISwapTokenBase;
   }) {
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const fromTokenFetchPromise = client.get<{ data: IFetchLimitMarketPrice }>(
-      `/swap/v1/limit-market-price`,
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const fromTokenFetchPromise = client.get<{ data: IMarketTokenDetailData }>(
+      `/utility/v2/market/token/detail`,
       {
         params: {
           tokenAddress: params.fromToken.contractAddress,
@@ -2171,8 +2170,8 @@ export default class ServiceSwap extends ServiceBase {
         },
       },
     );
-    const toTokenFetchPromise = client.get<{ data: IFetchLimitMarketPrice }>(
-      `/swap/v1/limit-market-price`,
+    const toTokenFetchPromise = client.get<{ data: IMarketTokenDetailData }>(
+      `/utility/v2/market/token/detail`,
       {
         params: {
           tokenAddress: params.toToken.contractAddress,
@@ -2186,8 +2185,8 @@ export default class ServiceSwap extends ServiceBase {
         toTokenFetchPromise,
       ]);
       return {
-        fromTokenPrice: fromTokenRes.data?.price,
-        toTokenPrice: toTokenRes.data?.price,
+        fromTokenPrice: fromTokenRes.data?.token?.price,
+        toTokenPrice: toTokenRes.data?.token?.price,
       };
     } catch (error) {
       console.error(error);
@@ -2217,6 +2216,7 @@ export default class ServiceSwap extends ServiceBase {
           slippage: 0.5,
           spenderAddress: '',
           defaultTokens: [],
+          defaultLimitTokens: [],
           swapMevNetConfig: mevSwapNetworks,
         },
         supportSpeedSwap: false,
@@ -2597,20 +2597,39 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchPopularTrading(params: { limit?: number } | undefined) {
+  async fetchPopularTrading(
+    params: { limit?: number; saveToLocal?: boolean } | undefined,
+  ) {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.get<IFetchResponse<IPopularTrading[]>>(
         '/swap/v1/popular/tokens',
       );
 
+      let result = data?.data ?? [];
+
       if (params?.limit) {
-        return data?.data?.slice(0, params.limit) ?? [];
+        result = result.slice(0, params.limit);
       }
-      return data?.data ?? [];
+      if (params?.saveToLocal) {
+        void this.updateLocalPopularTrading(result);
+      }
+      return result;
     } catch (e) {
       console.error(e);
       return [];
     }
+  }
+
+  @backgroundMethod()
+  async updateLocalPopularTrading(popularTrading: IPopularTrading[]) {
+    await this.backgroundApi.simpleDb.swapConfigs.updatePopularTrading(
+      popularTrading,
+    );
+  }
+
+  @backgroundMethod()
+  async getLocalPopularTrading() {
+    return this.backgroundApi.simpleDb.swapConfigs.getPopularTrading();
   }
 }

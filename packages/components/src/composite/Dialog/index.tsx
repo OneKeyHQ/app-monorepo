@@ -21,7 +21,6 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   AnimatePresence,
   Sheet,
-  SizableText,
   TMDialog,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -46,7 +45,7 @@ import {
 } from '../../hooks';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
-import { Spinner, Stack } from '../../primitives';
+import { SizableText, Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
@@ -722,16 +721,24 @@ export const Dialog = {
 export enum EInPageDialogType {
   inTabPages = 'inTabPages',
   inModalPage = 'inModalPage',
+  inOnboardingPage = 'inOnboardingPage',
 }
 export const useInPageDialog = (dialogType?: EInPageDialogType) => {
   const navigatorPortalId = useModalNavigatorContextPortalId();
   const { pagePortalId } = usePageContext();
   const pageType = usePageType();
-  const type =
-    dialogType ||
-    (pageType === EPageType.modal
-      ? EInPageDialogType.inModalPage
-      : EInPageDialogType.inTabPages);
+  const type = useMemo(() => {
+    if (dialogType) {
+      return dialogType;
+    }
+    if (pageType === EPageType.modal) {
+      return EInPageDialogType.inModalPage;
+    }
+    if (pageType === EPageType.onboarding) {
+      return EInPageDialogType.inOnboardingPage;
+    }
+    return EInPageDialogType.inTabPages;
+  }, [dialogType, pageType]);
   const portalId = useMemo(() => {
     if (type === EInPageDialogType.inTabPages) {
       return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;

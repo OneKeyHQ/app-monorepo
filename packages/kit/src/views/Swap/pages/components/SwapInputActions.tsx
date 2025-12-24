@@ -103,7 +103,7 @@ const SwapInputActions = ({
                   mt={platformEnv.isNative ? 2 : undefined}
                 />
                 <SizableText size="$bodySmMedium" color="$textSubdued">
-                  {intl.formatMessage({ id: ETranslations.global_buy })}
+                  {intl.formatMessage({ id: ETranslations.global_top_up })}
                 </SizableText>
               </XStack>
             </Button>

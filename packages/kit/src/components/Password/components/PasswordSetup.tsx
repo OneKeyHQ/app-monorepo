@@ -45,6 +45,26 @@ interface IPasswordSetupProps {
   pageMode?: boolean;
   onStepChange?: (step: 'create' | 'confirm') => void;
 }
+const useHandleEnterKey = platformEnv.isNative
+  ? () => {}
+  : (onSubmitCallback: () => void) => {
+      const handleKeyPress = useCallback(
+        (event: KeyboardEvent) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            onSubmitCallback();
+          }
+        },
+        [onSubmitCallback],
+      );
+
+      useEffect(() => {
+        globalThis.addEventListener('keypress', handleKeyPress);
+        return () => {
+          globalThis.removeEventListener('keypress', handleKeyPress);
+        };
+      }, [handleKeyPress]);
+    };
 
 const PasswordSetup = ({
   loading,
@@ -88,13 +108,13 @@ const PasswordSetup = ({
       intl.formatMessage({ id: ETranslations.auth_set_passcode })
     );
   }, [confirmBtnText, intl, passCodeFirstStep]);
-  const onPassCodeNext = () => {
+  const onPassCodeNext = useCallback(() => {
     setPassCodeConfirm(true);
     onStepChange?.('confirm');
     setTimeout(() => {
       form.setFocus('confirmPassCode');
     }, 150);
-  };
+  }, [form]);
 
   const clearPasscodeTimeOut = useCallback(() => {
     setPassCodeConfirmClear(false);
@@ -103,6 +123,14 @@ const PasswordSetup = ({
       setPassCodeConfirmClear(true);
     }, 200);
   }, [form]);
+
+  const handleSubmit = useCallback(() => {
+    void form.handleSubmit(
+      passCodeFirstStep ? onPassCodeNext : onSetupPassword,
+    )();
+  }, [form, passCodeFirstStep, onPassCodeNext, onSetupPassword]);
+
+  useHandleEnterKey(handleSubmit);
 
   return (
     <>
@@ -359,9 +387,7 @@ const PasswordSetup = ({
             })}
             variant="primary"
             loading={loading}
-            onPress={form.handleSubmit(
-              passCodeFirstStep ? onPassCodeNext : onSetupPassword,
-            )}
+            onPress={handleSubmit}
             testID="set-password"
           >
             {confirmBtnTextMemo}

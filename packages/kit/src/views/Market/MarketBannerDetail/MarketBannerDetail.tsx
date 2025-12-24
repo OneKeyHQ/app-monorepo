@@ -7,7 +7,9 @@ import {
   Page,
   SizableText,
   Stack,
+  XStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -19,6 +21,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  ECopyFrom,
+  EEnterWay,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
@@ -45,10 +52,11 @@ type IMarketBannerDetailRouteParams = RouteProp<
 function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
   const { tokenListId } = route.params;
-  const toDetailPage = useToDetailPage();
+  const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
   const navigation = useAppNavigation();
   const { config } = useAccountSelectorContextData();
-  const { md } = useMedia();
+  const { top } = useSafeAreaInsets();
+  const { gtMd } = useMedia();
 
   const renderHeaderLeft = useCallback(
     () => <NavBackButton onPress={() => navigation.pop()} />,
@@ -56,7 +64,11 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   );
 
   const renderHeaderTitle = useCallback(
-    () => <SizableText size="$headingLg">{title}</SizableText>,
+    () => (
+      <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
+        {title}
+      </SizableText>
+    ),
     [title],
   );
 
@@ -123,22 +135,28 @@ function MarketBannerDetailContent({ title }: { title: string }) {
 
   return (
     <Page>
-      {md ? (
-        <Page.Header title={title} />
-      ) : (
+      {gtMd ? (
         <Page.Header
           headerTitle={renderHeaderTitle}
           headerLeft={renderHeaderLeft}
           headerRight={renderHeaderRight}
         />
-      )}
+      ) : null}
 
       <Page.Body>
-        <Stack flex={1} px={md ? '$0' : '$4'}>
+        <Stack flex={1} pt={gtMd ? 0 : top} px={gtMd ? '$4' : 0} gap="$4">
+          {gtMd ? null : (
+            <XStack ai="center" gap="$4" px="$4">
+              {renderHeaderLeft()}
+              {renderHeaderTitle()}
+            </XStack>
+          )}
           <MarketTokenListBase
             result={listResult}
             onItemPress={handleItemPress}
             hideTokenAge
+            watchlistFrom={EWatchlistFrom.BannerList}
+            copyFrom={ECopyFrom.BannerList}
           />
         </Stack>
       </Page.Body>

@@ -49,7 +49,11 @@ function extractParenthesizedContent(input: string) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (cleanedInside.length > 0) {
+  if (
+    cleanedInside.length > 0 &&
+    cleanedInside.toLowerCase() !== 'yes' &&
+    cleanedInside.toLowerCase() !== 'no'
+  ) {
     return { originalString: input, targetString: cleanedInside };
   }
   const partBefore = input.substring(0, startIndex);
@@ -106,7 +110,10 @@ function transferPositionMap(
 ) {
   const positions = Array.from(positionMap.entries())
     .map(([_, position]) => ({
-      ...position,
+      groupId: position.groupId,
+      poolName: position.poolName,
+      poolFullName: position.poolFullName,
+      category: position.category,
       assets: mergeAssets(position.assets).sort((a, b) =>
         new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
@@ -270,7 +277,9 @@ function transformDeFiData({
 
   const protocols: IDeFiProtocol[] = Array.from(protocolPositionsMap.values())
     .map((value) => ({
-      ...value,
+      networkId: value.networkId,
+      owner: value.owner,
+      protocol: value.protocol,
       positions: transferPositionMap(value.positionMap),
       categories: Array.from(value.categorySet),
     }))
@@ -305,9 +314,10 @@ function transformDeFiData({
 function getEmptyDeFiData() {
   return {
     overview: {
-      totalValue: '0',
-      totalDebt: '0',
-      netWorth: '0',
+      totalValue: 0,
+      totalDebt: 0,
+      netWorth: 0,
+      totalReward: 0,
       chains: [],
       protocolCount: 0,
       positionCount: 0,
@@ -316,9 +326,10 @@ function getEmptyDeFiData() {
     protocolMap: {},
   } as {
     overview: {
-      totalValue: string;
-      totalDebt: string;
-      netWorth: string;
+      totalValue: number;
+      totalDebt: number;
+      netWorth: number;
+      totalReward: number;
       chains: string[];
       protocolCount: number;
       positionCount: number;

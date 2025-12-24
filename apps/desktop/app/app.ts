@@ -55,6 +55,7 @@ import {
 } from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
+import { setMainWindow } from './service/oauthLocalServer/oauthLocalServer';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -484,7 +485,7 @@ async function createMainWindow() {
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
     titleBarOverlay: !isMac,
-    trafficLightPosition: { x: 6, y: 18 }, // OK-45416 After the Top nav is adjusted, adjust the parameter synchronously
+    trafficLightPosition: { x: 20, y: 20 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
@@ -561,6 +562,9 @@ async function createMainWindow() {
       });
 
   void browserWindow.loadURL(src);
+
+  // Set main window reference for OAuth server
+  setMainWindow(browserWindow);
 
   // Protocol handler for win32
   if (isWin || isMac) {

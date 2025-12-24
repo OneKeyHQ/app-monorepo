@@ -9,14 +9,26 @@ interface IOneKeyIdAvatarProps {
   size?: IImageProps['width'];
 }
 
-// TODO: @zuo
+export function OneKeyIdFallbackAvatar({ size = '$10', ...rest }: IImageProps) {
+  return (
+    <Image.Fallback
+      width={size}
+      height={size}
+      borderRadius="$full"
+      overflow="hidden"
+      {...rest}
+    >
+      <Image size={size} source={avatarFallback} />
+    </Image.Fallback>
+  );
+}
+
 function BasicOneKeyIdAvatar({
   size = '$10',
   ...rest
 }: IOneKeyIdAvatarProps & IImageProps) {
   const { user, isLoggedIn } = useOneKeyAuth();
-
-  const avatarUrl = (user as { avatarUrl?: string })?.avatarUrl;
+  const avatarUrl = user.avatar;
   const source = isLoggedIn && avatarUrl ? { uri: avatarUrl } : avatarFallback;
 
   return (
@@ -24,8 +36,8 @@ function BasicOneKeyIdAvatar({
       width={size}
       height={size}
       borderRadius="$full"
-      borderWidth={1}
-      borderColor="$neutral3"
+      outlineWidth={1}
+      outlineColor="$neutral3"
       source={source}
       fallback={
         <Image.Fallback

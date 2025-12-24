@@ -2,35 +2,29 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { RefreshControl, ScrollView } from 'react-native';
 
-import { IconButton, XStack, YStack } from '@onekeyhq/components';
+import { IconButton, Skeleton, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapFromTokenAmountAtom,
-  useSwapProEnableCurrentSymbolAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProSliderValueAtom,
+  useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type {
   IFetchLimitOrderRes,
   ISwapProSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
-import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import SwapProErrorAlert from '../../components/SwapProErrorAlert';
 import {
-  useSwapProErrorAlert,
-  useSwapProSupportNetworksTokenList,
   useSwapProTokenDetailInfo,
   useSwapProTokenInfoSync,
 } from '../../hooks/useSwapPro';
 
-import LimitOrderList from './LimitOrderList';
-import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
-import SwapProPositionsList from './SwapProPositionsList';
+import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
 import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
 import SwapProTradingPanel from './SwapProTradingPanel';
@@ -41,6 +35,10 @@ interface ISwapProContainerProps {
   onSwapProActionClick: () => void;
   handleSelectAccountClick: () => void;
   onProMarketDetail: () => void;
+  onSelectPercentageStage: (stage: number) => void;
+  onBalanceMaxPress: () => void;
+  onTokenPress: (token: ISwapToken) => void;
+  swapProLoadSupportNetworksTokenListRun: () => void;
   config: {
     isLoading: boolean;
     speedConfig: ISwapProSpeedConfig;
@@ -56,25 +54,32 @@ const SwapProContainer = ({
   onSwapProActionClick,
   handleSelectAccountClick,
   onProMarketDetail,
+  onBalanceMaxPress,
+  onSelectPercentageStage,
+  swapProLoadSupportNetworksTokenListRun,
+  onTokenPress,
   config,
 }: ISwapProContainerProps) => {
+  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
+    config;
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<ETabName | string>(
-    ETabName.Positions,
-  );
-  const [swapProTokenSelect, setSwapProSelectToken] =
-    useSwapProSelectTokenAtom();
+  const [limitPriceUseMarketPrice, setLimitPriceUseMarketPrice] = useState({
+    value: '',
+    change: false,
+  });
   const [, setSwapProInputAmount] = useSwapProInputAmountAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapProSliderValue] = useSwapProSliderValueAtom();
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
-  const [swapCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
     useSwapProTokenInfoSync();
-  const { swapProLoadSupportNetworksTokenListRun, networkNotSupported } =
-    useSwapProSupportNetworksTokenList();
+  // Delay rendering heavy components to improve initial render performance
+  const [shouldRenderHeavyComponents, setShouldRenderHeavyComponents] =
+    useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
@@ -90,9 +95,6 @@ const SwapProContainer = ({
     syncInputTokenBalance,
     syncToTokenPrice,
   ]);
-  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
-    config;
-  useSwapProErrorAlert(!!networkNotSupported);
   const cleanInputAmount = useCallback(() => {
     setSwapProInputAmount('');
     setFromInputAmount({
@@ -107,47 +109,15 @@ const SwapProContainer = ({
     cleanInputAmount();
   }, [netAccountAddress, cleanInputAmount]);
 
-  const onTokenPress = useCallback(
-    (token: ISwapToken) => {
-      setSwapProSelectToken({
-        networkId: token.networkId,
-        contractAddress: token.contractAddress,
-        decimals: token.decimals,
-        symbol: token.symbol,
-        logoURI: token.logoURI,
-        networkLogoURI: token.networkLogoURI,
-        name: token.name,
-        isNative: token.isNative,
-        price: token.price?.toString(),
-      });
-      scrollViewRef.current?.scrollTo({
-        y: 0,
-        animated: true,
-      });
-    },
-    [setSwapProSelectToken],
-  );
-
-  const changeTabToLimitOrderList = useCallback(() => {
-    setActiveTab(ETabName.SwapProOpenOrders);
-  }, [setActiveTab]);
-
+  // Delay rendering heavy components after initial render
   useEffect(() => {
-    appEventBus.off(
-      EAppEventBusNames.SwapLimitOrderBuildSuccess,
-      changeTabToLimitOrderList,
-    );
-    appEventBus.on(
-      EAppEventBusNames.SwapLimitOrderBuildSuccess,
-      changeTabToLimitOrderList,
-    );
+    const timer = setTimeout(() => {
+      setShouldRenderHeavyComponents(true);
+    }, 100);
     return () => {
-      appEventBus.off(
-        EAppEventBusNames.SwapLimitOrderBuildSuccess,
-        changeTabToLimitOrderList,
-      );
+      clearTimeout(timer);
     };
-  }, [changeTabToLimitOrderList]);
+  }, []);
 
   return (
     <ScrollView
@@ -155,18 +125,23 @@ const SwapProContainer = ({
       ref={scrollViewRef}
       contentContainerStyle={{
         flexGrow: 1,
-        paddingTop: 10,
         paddingHorizontal: 20,
       }}
       showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[0, 2]}
+      stickyHeaderIndices={[0]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
-      <XStack justifyContent="space-between" pb="$4" pt="$1" bg="$bgApp">
+      <XStack
+        justifyContent="space-between"
+        pb="$2"
+        pt="$2"
+        alignItems="center"
+        bg="$bgApp"
+      >
         <SwapProTokenSelector
           onSelectTokenClick={() => {
             cleanInputAmount();
@@ -175,79 +150,83 @@ const SwapProContainer = ({
           configLoading={isLoading}
         />
         <IconButton
-          icon="ChartTrendingUp2Outline"
-          w="$6"
-          h="$6"
+          icon="TradingViewCandlesOutline"
+          variant="tertiary"
+          flexShrink={0}
           onPress={onProMarketDetail}
-          backgroundColor="$bgApp"
         />
       </XStack>
-      <XStack gap="$2.5" pb="$4" alignItems="stretch">
+      <XStack mt="$2" gap="$4" pb="$4" alignItems="stretch">
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
-          <SwapProTradeInfoPanel />
+          {shouldRenderHeavyComponents ? (
+            <SwapProTradeInfoPanel
+              onPricePress={(price) => {
+                if (swapProTradeType === ESwapProTradeType.LIMIT) {
+                  setLimitPriceUseMarketPrice((prev) => ({
+                    value: price,
+                    change: !prev.change,
+                  }));
+                }
+              }}
+            />
+          ) : (
+            <YStack gap="$6" flex={1} p="$3">
+              <Skeleton w="100%" h="$20" borderRadius="$2" />
+              <Skeleton w="100%" h="$32" borderRadius="$2" />
+              <Skeleton w="100%" h="$20" borderRadius="$2" />
+            </YStack>
+          )}
         </YStack>
         <YStack flexBasis="60%" flexShrink={1} alignSelf="stretch">
-          <SwapProTradingPanel
-            swapProConfig={speedConfig}
-            configLoading={isLoading}
-            balanceLoading={balanceLoading}
-            isMev={isMEV}
-            onSwapProActionClick={onSwapProActionClick}
-            hasEnoughBalance={hasEnoughBalance}
-            handleSelectAccountClick={handleSelectAccountClick}
-            cleanInputAmount={cleanInputAmount}
-          />
+          {shouldRenderHeavyComponents ? (
+            <SwapProTradingPanel
+              swapProConfig={speedConfig}
+              configLoading={isLoading}
+              balanceLoading={balanceLoading}
+              limitPriceUseMarketPrice={limitPriceUseMarketPrice}
+              isMev={isMEV}
+              onBalanceMax={onBalanceMaxPress}
+              onSelectPercentageStage={onSelectPercentageStage}
+              onSwapProActionClick={onSwapProActionClick}
+              hasEnoughBalance={hasEnoughBalance}
+              handleSelectAccountClick={handleSelectAccountClick}
+              cleanInputAmount={cleanInputAmount}
+            />
+          ) : (
+            <YStack gap="$6" flex={1} p="$3">
+              <Skeleton w="100%" h="$8" borderRadius="$2" />
+              <Skeleton w="100%" h="$8" borderRadius="$2" />
+              <Skeleton w="100%" h="$18" borderRadius="$2" />
+              <Skeleton w="100%" h="$28" borderRadius="$2" />
+              <Skeleton w="100%" h="$8" borderRadius="$2" />
+            </YStack>
+          )}
         </YStack>
       </XStack>
       <SwapProErrorAlert
+        isNative={swapProSelectToken?.isNative}
         title={swapProErrorAlert?.title}
         message={swapProErrorAlert?.message}
       />
-      <XStack
-        bg="$bgApp"
-        borderBottomWidth="$0.5"
-        borderBottomColor="$borderSubdued"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <XStack gap="$5" bg="$bgApp">
-          <TabBarItem
-            name={ETabName.Positions}
-            isFocused={activeTab === ETabName.Positions}
-            onPress={setActiveTab}
-          />
-          <TabBarItem
-            name={ETabName.SwapProOpenOrders}
-            isFocused={activeTab === ETabName.SwapProOpenOrders}
-            onPress={setActiveTab}
-          />
-        </XStack>
-      </XStack>
-      <YStack flex={1}>
-        <YStack
-          display={activeTab === ETabName.Positions ? 'flex' : 'none'}
-          flex={1}
-        >
-          <SwapProCurrentSymbolEnable />
-          <SwapProPositionsList
-            onTokenPress={onTokenPress}
-            onSearchClick={() => onProSelectToken(true)}
-          />
-        </YStack>
-        <YStack
-          display={activeTab === ETabName.SwapProOpenOrders ? 'flex' : 'none'}
-          flex={1}
-        >
-          <SwapProCurrentSymbolEnable />
-          <LimitOrderList
-            onClickCell={onOpenOrdersClick}
-            type="open"
-            filterToken={
-              swapCurrentSymbolEnable ? swapProTokenSelect : undefined
-            }
-          />
-        </YStack>
-      </YStack>
+      {shouldRenderHeavyComponents ? (
+        <SwapProTabListContainer
+          onTokenPress={(token: ISwapToken) => {
+            onTokenPress(token);
+            scrollViewRef.current?.scrollTo({
+              y: 0,
+              animated: true,
+            });
+          }}
+          onOpenOrdersClick={onOpenOrdersClick}
+          onSearchClick={() => {
+            onProSelectToken(true);
+            scrollViewRef.current?.scrollTo({
+              y: 0,
+              animated: false,
+            });
+          }}
+        />
+      ) : null}
     </ScrollView>
   );
 };

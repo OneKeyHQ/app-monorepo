@@ -879,7 +879,15 @@ class ServicePrimeTransfer extends ServiceBase {
 
     const { wallets } = await serviceAccount.getWallets();
 
-    const walletAccountMap = wallets.reduce((summary, current) => {
+    // Filter out keyless wallets
+    const filteredWallets = wallets.filter(
+      (wallet) =>
+        !accountUtils.isKeylessWallet({
+          walletId: wallet.id,
+        }),
+    );
+
+    const walletAccountMap = filteredWallets.reduce((summary, current) => {
       summary[current.id] = current;
       return summary;
     }, {} as Record<string, IDBWallet>);
@@ -990,6 +998,15 @@ class ServicePrimeTransfer extends ServiceBase {
         accountId: account.id,
       }).walletId;
       if (!walletId) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      // Skip accounts belonging to keyless wallets
+      if (
+        accountUtils.isKeylessWallet({
+          walletId,
+        })
+      ) {
         // eslint-disable-next-line no-continue
         continue;
       }

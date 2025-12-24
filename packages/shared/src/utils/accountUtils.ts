@@ -581,7 +581,7 @@ function buildAccountLocalAssetsKey({
   accountAddress,
   xpub,
 }: {
-  networkId: string;
+  networkId?: string;
   accountAddress?: string;
   xpub?: string;
 }): string {
@@ -589,7 +589,11 @@ function buildAccountLocalAssetsKey({
     throw new OneKeyInternalError('accountAddress or xpub is required');
   }
 
-  return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
+  if (networkId) {
+    return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
+  }
+
+  return `${(xpub || accountAddress) ?? ''}`.toLowerCase();
 }
 
 function isAccountCompatibleWithNetwork({

@@ -18,7 +18,6 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import SupabaseAuthProvider from '../components/OneKeyAuth/supabase/SupabaseAuthProvider';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
-import { ScreenshotBranding } from '../components/ScreenshotBranding';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
 import { Container } from './Container';
@@ -72,7 +71,6 @@ export function KitProvider(props: any = {}) {
                 <SplashProvider>
                   <Container />
                 </SplashProvider>
-                <ScreenshotBranding />
                 <PasswordVerifyPromptMount />
                 <WebViewWebEmbedProvider />
                 <LastActivityTracker />

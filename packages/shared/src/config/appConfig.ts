@@ -38,6 +38,8 @@ export const DOWNLOAD_MOBILE_APP_URL =
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
 export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';
+export const HARDWARE_TROUBLESHOOTING_URL =
+  'https://help.onekey.so/articles/13183743';
 
 export const FRESH_ADDRESS_LEARN_MORE_URL =
   'https://help.onekey.so/articles/12620219';
@@ -90,7 +92,7 @@ export const EXT_RATE_URL = {
 };
 
 export const APP_STORE_LINK = `itms-apps://apps.apple.com/app/id1609559473?action=write-review`;
-export const PLAY_STORE_LINK = `market://details?id=so.onekey.app.wallet`;
+export const PLAY_STORE_LINK = `https://play.google.com/store/apps/details?id=so.onekey.app.wallet`;
 
 export const ONEKEY_KEY_TAG_PURCHASE_URL =
   'https://onekey.so/products/onekey-keytag/';

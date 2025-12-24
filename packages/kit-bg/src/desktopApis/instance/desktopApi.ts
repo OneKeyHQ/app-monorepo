@@ -12,6 +12,7 @@ import DesktopApiDev from '../DesktopApiDev';
 import DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import DesktopApiKeychain from '../DesktopApiKeychain';
 import DesktopApiNotification from '../DesktopApiNotification';
+import DesktopApiOAuthLocalServer from '../DesktopApiOAuthLocalServer';
 import DesktopApiSecurity from '../DesktopApiSecurity';
 import DesktopApiSniRequest from '../DesktopApiSniRequest';
 import DesktopApiStorage from '../DesktopApiStorage';
@@ -76,6 +77,12 @@ class DesktopApi implements IDesktopApi {
   sniRequest: DesktopApiSniRequest = new DesktopApiSniRequest({
     desktopApi: this,
   });
+
+  oauthLocalServer: DesktopApiOAuthLocalServer = new DesktopApiOAuthLocalServer(
+    {
+      desktopApi: this,
+    },
+  );
 }
 
 const desktopApi = new DesktopApi();

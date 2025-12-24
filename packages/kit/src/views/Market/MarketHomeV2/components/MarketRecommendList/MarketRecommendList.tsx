@@ -159,17 +159,15 @@ export function MarketRecommendList({
               size={
                 platformEnv.isExtensionUiPopup ? '$headingXl' : '$heading3xl'
               }
+              color="$text"
             >
               {intl.formatMessage({
                 id: ETranslations.market_favorites_empty,
               })}
             </SizableText>
             <SizableText
-              size={
-                platformEnv.isExtensionUiPopup
-                  ? '$bodyMdMedium'
-                  : '$bodyLgMedium'
-              }
+              color="$textSubdued"
+              size={platformEnv.isExtensionUiPopup ? '$bodyMd' : '$bodyLg'}
               pt="$2"
             >
               {intl.formatMessage({
@@ -220,13 +218,9 @@ export function MarketRecommendList({
               })}
             </XStack>
           ))}
-          {gtMd && confirmButton ? (
-            <YStack pt="$8">{confirmButton}</YStack>
-          ) : null}
+          <YStack pt="$8">{confirmButton}</YStack>
         </YStack>
       </ScrollView>
-
-      {!gtMd && confirmButton ? <YStack p="$5">{confirmButton}</YStack> : null}
     </Stack>
   );
 }

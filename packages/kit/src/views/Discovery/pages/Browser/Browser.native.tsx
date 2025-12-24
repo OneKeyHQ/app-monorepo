@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
-import { BackHandler } from 'react-native';
+import { BackHandler, type LayoutChangeEvent } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import {
@@ -33,6 +34,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabDiscoveryRoutes,
@@ -163,6 +165,7 @@ function MobileBrowser() {
   const isTabletDevice = useIsNativeTablet();
   const isTabletMainView = useIsTabletMainView();
   const isTabletDetailView = useIsTabletDetailView();
+  const isDualScreen = isDualScreenDevice();
   const route =
     useRoute<
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
@@ -354,12 +357,17 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
-  const [tabPageHeight] = useState(platformEnv.isNativeIOS ? 153 : 92);
-  // const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-  //   // Use the actual measured height without arbitrary adjustments
-  //   const height = e.nativeEvent.layout.height - 20;
-  //   setTabPageHeight(height);
-  // }, []);
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 153 : 100,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    if (platformEnv.isNativeIOS) {
+      return;
+    }
+    // Use the actual measured height without arbitrary adjustments
+    const height = e.nativeEvent.layout.height;
+    setTabPageHeight(height);
+  }, []);
 
   const showDiscoveryPage = useMemo(() => {
     if (isTabletMainView) {
@@ -371,6 +379,18 @@ function MobileBrowser() {
     return displayHomePage;
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
 
+  const isShowContent = useMemo(() => {
+    if (
+      ExpoDevice.deviceType !== ExpoDevice.DeviceType.TABLET &&
+      !isDualScreen
+    ) {
+      return true;
+    }
+    if (isTabletMainView && isLandscape) {
+      return true;
+    }
+    return isTabletDetailView && !isLandscape;
+  }, [isDualScreen, isTabletMainView, isLandscape, isTabletDetailView]);
   if (isTabletDetailView && isLandscape && displayHomePage) {
     return <TabletHomeContainer />;
   }
@@ -401,7 +421,7 @@ function MobileBrowser() {
       )}
       <Page.Body>
         {/* Market Tab */}
-        {!isTabletDetailView || (isTabletDetailView && !isLandscape) ? (
+        {isShowContent ? (
           <Stack
             flex={1}
             display={
@@ -411,8 +431,7 @@ function MobileBrowser() {
             }
           >
             <MarketHomeWithProvider
-              showHeader={false}
-              showContent={selectedHeaderTab === ETranslations.global_market}
+              isFocused={selectedHeaderTab === ETranslations.global_market}
             />
           </Stack>
         ) : null}
@@ -455,7 +474,7 @@ function MobileBrowser() {
             </Animated.View>
           </Freeze>
         </Stack>
-        {!isTabletDetailView || (isTabletDetailView && !isLandscape) ? (
+        {isShowContent ? (
           <Stack
             flex={1}
             display={
@@ -480,7 +499,7 @@ function MobileBrowser() {
           bg="$bgApp"
           pt="$12"
           width="100%"
-          // onLayout={handleTabPageLayout}
+          onLayout={handleTabPageLayout}
         >
           <Stack position="absolute" top={top} px="$5">
             <UniversalSearchInput size="medium" initialTab={searchInitialTab} />

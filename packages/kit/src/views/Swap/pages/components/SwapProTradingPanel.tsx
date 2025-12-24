@@ -26,10 +26,7 @@ import SwapProActionButton from './SwapProActionButton';
 import SwapProInputContainer from './SwapProInputContainer';
 import SwapProLimitPriceValue from './SwapProLimitPriceValue';
 import { SwapProSlippageSetting } from './SwapProSlippageSetting';
-import SwapProToTotalValue from './SwapProToTotalValue';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
-
-import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 
 interface ISwapProTradingPanelProps {
   swapProConfig: ISwapProSpeedConfig;
@@ -40,6 +37,9 @@ interface ISwapProTradingPanelProps {
   hasEnoughBalance: boolean;
   handleSelectAccountClick: () => void;
   cleanInputAmount: () => void;
+  onBalanceMax: () => void;
+  onSelectPercentageStage: (stage: number) => void;
+  limitPriceUseMarketPrice: { value: string; change: boolean };
 }
 
 const SwapProTradingPanel = ({
@@ -47,8 +47,11 @@ const SwapProTradingPanel = ({
   balanceLoading,
   isMev,
   configLoading,
+  onBalanceMax,
   onSwapProActionClick,
   handleSelectAccountClick,
+  onSelectPercentageStage,
+  limitPriceUseMarketPrice,
   hasEnoughBalance,
   cleanInputAmount,
 }: ISwapProTradingPanelProps) => {
@@ -85,17 +88,18 @@ const SwapProTradingPanel = ({
   useSwapProActionsQuote();
 
   return (
-    <YStack gap="$2" flex={1} justifyContent="space-between">
+    <YStack gap="$2.5" flex={1} justifyContent="space-between">
+      <TradeTypeSelector
+        value={swapProDirection}
+        size="small"
+        onChange={(value) => {
+          if (value) {
+            cleanInputAmount();
+            setSwapProDirection(value);
+          }
+        }}
+      />
       <YStack gap="$2">
-        <TradeTypeSelector
-          value={swapProDirection}
-          onChange={(value) => {
-            if (value) {
-              cleanInputAmount();
-              setSwapProDirection(value);
-            }
-          }}
-        />
         <SwapProTradeTypeSelector
           currentSelect={swapProTradeType}
           onSelectTradeType={(value) => {
@@ -106,15 +110,23 @@ const SwapProTradingPanel = ({
           selectItems={selectTradeTypeItems}
         />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
-          <SwapProLimitPriceValue />
+          <SwapProLimitPriceValue
+            externalTokenPrice={limitPriceUseMarketPrice}
+          />
         ) : null}
         <SwapProInputContainer
           isLoading={configLoading}
-          defaultTokens={swapProConfig.defaultTokens as IToken[]}
+          defaultTokens={swapProConfig.defaultTokens}
+          defaultLimitTokens={swapProConfig.defaultLimitTokens}
           cleanInputAmount={cleanInputAmount}
+          onSelectPercentageStage={onSelectPercentageStage}
         />
-        <SwapProToTotalValue />
-        <SwapProTradeInfoGroup balanceLoading={balanceLoading} />
+      </YStack>
+      <YStack>
+        <SwapProTradeInfoGroup
+          balanceLoading={balanceLoading}
+          onBalanceMax={onBalanceMax}
+        />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
         <SwapProSlippageSetting isMEV={isMev} />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (

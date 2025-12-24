@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
-import { useIsModalPage } from '@onekeyhq/components';
+import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -11,6 +11,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -18,6 +19,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ESwapCrossChainStatus,
+  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -41,6 +43,7 @@ export function useSwapTokenList(
   selectTokenModalType: ESwapDirectionType,
   currentNetworkId?: string,
   keywords?: string,
+  from?: ESwapTabSwitchType,
 ) {
   const [currentTokens, setCurrentTokens] = useState<
     (ISwapToken | IFuseResult<ISwapToken>)[]
@@ -55,6 +58,10 @@ export function useSwapTokenList(
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [swapTokenFetching] = useSwapTokenFetchingAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
+  const searchLogStateRef = useRef<{
+    key: string;
+    phase: 'idle' | 'fetching' | 'done';
+  } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -293,6 +300,63 @@ export function useSwapTokenList(
   ]);
 
   useEffect(() => {
+    if (!keywords) {
+      searchLogStateRef.current = null;
+      return;
+    }
+    const queryLength = keywords.length;
+    if (queryLength < 1) {
+      searchLogStateRef.current = null;
+      return;
+    }
+
+    const networkId = currentSelectNetwork?.networkId ?? '';
+    const key = `${keywords}__${networkId}__${selectTokenModalType}`;
+
+    if (!searchLogStateRef.current || searchLogStateRef.current.key !== key) {
+      searchLogStateRef.current = { key, phase: 'idle' };
+    }
+
+    const state = searchLogStateRef.current;
+    if (!state) {
+      return;
+    }
+
+    if (swapTokenFetching) {
+      if (state.phase !== 'fetching') {
+        searchLogStateRef.current = { key, phase: 'fetching' };
+      }
+      return;
+    }
+
+    if (state.phase === 'fetching') {
+      const resultCount =
+        fuseRemoteTokensSearchRef.current?.search(keywords)?.length ?? 0;
+
+      defaultLogger.swap.tokenSelectorSearch.swapTokenSelectorSearch({
+        query: keywords,
+        resultCount,
+        networkId,
+        networkName: currentSelectNetwork?.isAllNetworks
+          ? 'All Networks'
+          : currentSelectNetwork?.name ?? '',
+        direction: selectTokenModalType,
+        from,
+      });
+
+      searchLogStateRef.current = { key, phase: 'done' };
+    }
+  }, [
+    keywords,
+    currentSelectNetwork?.networkId,
+    currentSelectNetwork?.name,
+    currentSelectNetwork?.isAllNetworks,
+    from,
+    selectTokenModalType,
+    swapTokenFetching,
+  ]);
+
+  useEffect(() => {
     if (keywords && fuseRemoteTokensSearchRef.current) {
       setCurrentTokens(fuseRemoteTokensSearchRef.current.search(keywords));
     } else {
@@ -410,7 +474,7 @@ export function useSwapSelectedTokenInfo({
     },
     [type, loadSwapSelectTokenDetailDeb],
   );
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   useEffect(() => {
     if (isFocused && isModalPage) {
       appEventBus.off(

@@ -1,6 +1,5 @@
 import {
   Button,
-  ButtonFrame,
   Divider,
   Icon,
   SizableText,
@@ -43,17 +42,17 @@ export function ReferralCodeCardMobile({
       <Divider />
 
       {/* Referral Link row */}
-      <ButtonFrame
-        flexDirection="row"
+      <XStack
+        role="button"
         gap="$2"
         ai="center"
         jc="space-between"
-        borderWidth={0}
         onPress={copyLink}
         borderRadius="$2"
         p="$2"
         mx="$-2"
         userSelect="none"
+        cursor="pointer"
         hoverStyle={{
           bg: '$bgHover',
         }}
@@ -81,7 +80,7 @@ export function ReferralCodeCardMobile({
           flexShrink={0}
         />
         <ReferralLinkDropdown inviteUrl={inviteUrl} />
-      </ButtonFrame>
+      </XStack>
     </YStack>
   );
 }

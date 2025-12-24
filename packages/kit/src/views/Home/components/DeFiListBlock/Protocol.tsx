@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -8,8 +9,6 @@ import {
   Badge,
   Divider,
   Icon,
-  IconButton,
-  NumberSizeableText,
   Popover,
   SizableText,
   Stack,
@@ -19,6 +18,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
@@ -32,6 +32,8 @@ import type { IDeFiAsset, IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 import { EDeFiAssetType } from '@onekeyhq/shared/types/defi';
 
 import { RichTable } from '../RichTable';
+
+import type { GestureResponderEvent } from 'react-native';
 
 function Protocol({
   protocol,
@@ -76,29 +78,37 @@ function Protocol({
           record: IDeFiAsset & { type: EDeFiAssetType },
         ) => {
           let type = '';
-          let badgeType = 'info';
+          let typeColor = '$blue10';
           if (record.type === EDeFiAssetType.DEBT) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_asset_type_borrowed,
             });
-            badgeType = 'warning';
+            typeColor = '$orange10';
           } else if (record.type === EDeFiAssetType.REWARD) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_position_module_rewards,
             });
-            badgeType = 'success';
+            typeColor = '$teal10';
           } else if (record.type === EDeFiAssetType.ASSET) {
             type = intl.formatMessage({
               id: ETranslations.wallet_defi_asset_type_supplied,
             });
-            badgeType = 'info';
+            typeColor = '$blue10';
           } else {
             type = category;
           }
           return (
-            <Badge badgeType={badgeType} badgeSize="lg">
-              <Badge.Text textTransform="capitalize">{type}</Badge.Text>
-            </Badge>
+            <XStack gap="$1" alignItems="center">
+              <Stack
+                width={7}
+                height={7}
+                borderRadius="$full"
+                backgroundColor={typeColor}
+              />
+              <SizableText size="$bodyMdMedium" textTransform="capitalize">
+                {type}
+              </SizableText>
+            </XStack>
           );
         },
       },
@@ -108,23 +118,50 @@ function Protocol({
         }),
         dataIndex: 'amount',
         render: (amount: string) => (
-          <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+          <NumberSizeableTextWrapper
+            hideValue
+            size="$bodyMdMedium"
+            formatter="balance"
+          >
             {amount}
-          </NumberSizeableText>
+          </NumberSizeableTextWrapper>
         ),
       },
       {
         title: intl.formatMessage({ id: ETranslations.global_value }),
         dataIndex: 'value',
-        render: (value: string) => (
-          <NumberSizeableText
-            size="$bodyMdMedium"
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-          >
-            {value}
-          </NumberSizeableText>
-        ),
+        render: (value: string) => {
+          const valueBN = new BigNumber(value);
+          const isValueUnavailable = valueBN.isNaN() || valueBN.isZero();
+          return (
+            <XStack alignItems="center" gap="$1">
+              {isValueUnavailable ? (
+                <Stack width="$4" height="$4">
+                  <Tooltip
+                    renderContent={intl.formatMessage({
+                      id: ETranslations.wallet_price_unavailable,
+                    })}
+                    renderTrigger={
+                      <Icon
+                        name="ErrorOutline"
+                        size="$4"
+                        color="$iconCritical"
+                      />
+                    }
+                  />
+                </Stack>
+              ) : null}
+              <NumberSizeableTextWrapper
+                hideValue
+                size="$bodyMdMedium"
+                formatter="value"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              >
+                {isValueUnavailable ? '--' : valueBN.toFixed()}
+              </NumberSizeableTextWrapper>
+            </XStack>
+          );
+        },
       },
     ];
   }, [settings.currencyInfo.symbol, intl]);
@@ -149,6 +186,7 @@ function Protocol({
                   </Badge.Text>
                 </Badge>
                 <Popover
+                  hoverable
                   placement="top"
                   title={intl.formatMessage({
                     id: ETranslations.wallet_defi_position_name_popover_title,
@@ -174,13 +212,14 @@ function Protocol({
                   }
                 />
               </XStack>
-              <NumberSizeableText
+              <NumberSizeableTextWrapper
+                hideValue
                 size="$headingSm"
                 formatter="value"
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
               >
                 {position.value}
-              </NumberSizeableText>
+              </NumberSizeableTextWrapper>
             </XStack>
             <RichTable<IDeFiAsset & { type: EDeFiAssetType }>
               dataSource={[
@@ -197,7 +236,7 @@ function Protocol({
             />
           </Stack>
           {index !== protocol.positions.length - 1 ? (
-            <Divider key={index} my="$2" />
+            <Divider borderColor="$neutral3" mx="$2" key={index} my="$2" />
           ) : null}
         </>
       );
@@ -255,13 +294,14 @@ function Protocol({
         <ListItem.Text
           align="right"
           primary={
-            <NumberSizeableText
+            <NumberSizeableTextWrapper
+              hideValue
               size="$bodyLgMedium"
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
             >
               {protocolInfo?.netWorth ?? '0'}
-            </NumberSizeableText>
+            </NumberSizeableTextWrapper>
           }
         />
       </ListItem>
@@ -320,24 +360,33 @@ function Protocol({
                 <SizableText size="$headingMd">
                   {protocolInfo?.protocolName ?? protocol.protocol}
                 </SizableText>
-                <IconButton
-                  title={intl.formatMessage({
-                    id: ETranslations.global_view_in_blockchain_explorer,
-                  })}
-                  variant="tertiary"
-                  icon="OpenOutline"
-                  size="small"
-                  onPress={() => openUrlExternal(protocolInfo?.protocolUrl)}
-                />
+                <XStack
+                  onPress={(event: GestureResponderEvent) => {
+                    event.stopPropagation();
+                    openUrlExternal(protocolInfo?.protocolUrl);
+                  }}
+                  cursor="pointer"
+                  borderRadius="$full"
+                  p="$1"
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
+                >
+                  <Icon name="OpenOutline" size="$5" color="$iconSubdued" />
+                </XStack>
               </XStack>
               <XStack alignItems="center" gap="$3">
-                <NumberSizeableText
+                <NumberSizeableTextWrapper
+                  hideValue
                   size="$headingMd"
                   formatter="value"
                   formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 >
                   {protocolInfo?.netWorth ?? '0'}
-                </NumberSizeableText>
+                </NumberSizeableTextWrapper>
                 <View
                   animation="quick"
                   rotate={open ? '180deg' : '0deg'}

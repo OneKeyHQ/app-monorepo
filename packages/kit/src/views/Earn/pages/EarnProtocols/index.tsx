@@ -164,7 +164,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                     </Badge>
                   ))}
                 </XStack>
-                {item?.provider?.description ? (
+                {!isDesktopLayout && item?.provider?.description ? (
                   <SizableText size="$bodySmMedium" color="$textSubdued">
                     {item.provider.description}
                   </SizableText>
@@ -203,7 +203,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       },
       {
         key: 'yield',
-        label: intl.formatMessage({ id: ETranslations.earn_yield }),
+        label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
         flex: 2,
         align: 'flex-end',
         render: (item) => (

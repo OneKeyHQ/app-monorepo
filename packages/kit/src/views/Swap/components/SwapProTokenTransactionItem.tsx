@@ -37,7 +37,7 @@ const SwapProTokenTransactionItem = ({
     let formatPriceValue = FALLBACK_DISPLAY;
     if (isPriceValid) {
       formatPriceValue = numberFormat(rawTokenPrice, {
-        formatter: 'price',
+        formatter: 'marketCap',
         formatterOptions: {
           currency: currencyInfo.symbol,
         },
@@ -50,7 +50,7 @@ const SwapProTokenTransactionItem = ({
         .multipliedBy(rawTokenPrice)
         .toFixed();
       formatTokenValueValue = numberFormat(tokenValue, {
-        formatter: 'value',
+        formatter: 'marketCap',
         formatterOptions: {
           currency: currencyInfo.symbol,
         },
@@ -73,11 +73,11 @@ const SwapProTokenTransactionItem = ({
     item.type,
   ]);
   return (
-    <XStack alignItems="center" justifyContent="space-between">
-      <SizableText size="$bodySm" color={textColor}>
+    <XStack alignItems="center" justifyContent="space-between" py="$1">
+      <SizableText size="$bodySm" color={textColor} fontFamily="$monoRegular">
         {formatPrice}
       </SizableText>
-      <SizableText size="$bodySm" color={textColor}>
+      <SizableText size="$bodySm" color={textColor} fontFamily="$monoRegular">
         {formatTokenValue}
       </SizableText>
     </XStack>

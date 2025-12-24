@@ -1,4 +1,12 @@
-import { Image, SizableText, XStack, useMedia } from '@onekeyhq/components';
+import { useMemo } from 'react';
+
+import {
+  Icon,
+  Image,
+  SizableText,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 
 export type INetworksFilterItemProps = {
@@ -6,6 +14,7 @@ export type INetworksFilterItemProps = {
   networkName?: string;
   isSelected?: boolean;
   disabled?: boolean;
+  isAllNetworks?: boolean;
 } & IXStackProps;
 
 export function NetworksFilterItem({
@@ -13,9 +22,39 @@ export function NetworksFilterItem({
   networkName,
   isSelected,
   disabled,
+  isAllNetworks,
   ...rest
 }: INetworksFilterItemProps) {
   const { md } = useMedia();
+
+  const iconElement = useMemo(() => {
+    // Don't show icon on mobile unless selected
+    if (md && !isSelected) {
+      return null;
+    }
+
+    // Show AllNetworksSolid icon for "All Networks"
+    if (isAllNetworks) {
+      return <Icon name="AllNetworksSolid" size="$4.5" color="$iconActive" />;
+    }
+
+    // Show network logo for other networks
+    if (networkImageUri) {
+      return (
+        <Image
+          size="$4.5"
+          width="$4.5"
+          borderRadius="$full"
+          source={{
+            uri: networkImageUri,
+          }}
+        />
+      );
+    }
+
+    return null;
+  }, [md, isSelected, isAllNetworks, networkImageUri]);
+
   return (
     <XStack
       alignItems="center"
@@ -46,16 +85,7 @@ export function NetworksFilterItem({
       })}
       {...rest}
     >
-      {networkImageUri && (!md || isSelected) ? (
-        <Image
-          size="$4.5"
-          width="$4.5"
-          borderRadius="$full"
-          source={{
-            uri: networkImageUri,
-          }}
-        />
-      ) : null}
+      {iconElement}
       {networkName ? (
         <SizableText
           numberOfLines={1}

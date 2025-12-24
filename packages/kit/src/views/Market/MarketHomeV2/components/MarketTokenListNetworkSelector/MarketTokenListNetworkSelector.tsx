@@ -45,11 +45,16 @@ function MarketTokenListNetworkSelector({
   // When the list of networks changes, ensure the parent gets an initial networkId if none provided.
   useEffect(() => {
     if (marketNetworks.length === 0) return;
-    if (!selectedNetworkId && !startListSelect) {
+    if (!currentSelectNetwork && !startListSelect) {
       onSelectNetworkId?.(marketNetworks[0].id);
     }
-  }, [marketNetworks, selectedNetworkId, onSelectNetworkId, startListSelect]);
-
+  }, [
+    marketNetworks,
+    selectedNetworkId,
+    onSelectNetworkId,
+    startListSelect,
+    currentSelectNetwork,
+  ]);
   const onSelectCurrentNetwork = useCallback(
     (network: IServerNetwork) => {
       onSelectNetworkId?.(network.id);

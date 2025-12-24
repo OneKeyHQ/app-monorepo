@@ -1006,6 +1006,7 @@ export interface ISwapProSpeedConfig {
   slippage: number;
   spenderAddress: string;
   defaultTokens: ISwapTokenBase[];
+  defaultLimitTokens: ISwapTokenBase[];
   swapMevNetConfig: string[];
 }
 export interface ISpeedSwapConfig {
@@ -1108,7 +1109,7 @@ export type IPopularTrading = {
   symbol: string;
   address: string;
   marketCap: number;
-  tokenDetail: {
+  tokenDetail?: {
     info: IToken;
     price: number;
     price24h: number;

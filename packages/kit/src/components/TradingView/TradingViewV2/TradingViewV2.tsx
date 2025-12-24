@@ -113,7 +113,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         networkId,
         from: now - 86_400,
         to: now,
-        tokenSymbol: symbol,
         webRef,
       });
     };
@@ -166,7 +165,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         handleSwapSuccess,
       );
     };
-  }, [isVisible, accountAddress, tokenAddress, networkId, symbol, webRef]);
+  }, [isVisible, accountAddress, tokenAddress, networkId, webRef]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),

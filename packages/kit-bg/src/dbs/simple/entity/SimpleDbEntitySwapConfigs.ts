@@ -5,7 +5,10 @@ import type {
   ISwapProviderManager,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IPopularTrading,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -15,6 +18,7 @@ export interface ISwapConfigs {
   swapProviderManager?: ISwapProviderManager[];
   bridgeProviderManager?: ISwapProviderManager[];
   swapUserCloseTips?: string[];
+  popularTrading?: IPopularTrading[];
 }
 
 export class SimpleDbEntitySwapConfigs extends SimpleDbEntityBase<ISwapConfigs> {
@@ -134,5 +138,20 @@ export class SimpleDbEntitySwapConfigs extends SimpleDbEntityBase<ISwapConfigs> 
       ...data,
       swapUserCloseTips: [...(data?.swapUserCloseTips ?? []), tipsId],
     });
+  }
+
+  @backgroundMethod()
+  async updatePopularTrading(popularTrading: IPopularTrading[]) {
+    const data = await this.getRawData();
+    await this.setRawData({
+      ...data,
+      popularTrading,
+    });
+  }
+
+  @backgroundMethod()
+  async getPopularTrading() {
+    const data = await this.getRawData();
+    return data?.popularTrading ?? [];
   }
 }

@@ -211,13 +211,18 @@ export default class ServiceNotification extends ServiceBase {
         const prefix = showMessagePushSource ? '[wss:] ' : '';
         // jpush will show notification automatically
         // websocket should show notification by ourselves
-        await this.showNotification({
+        const notificationParams = {
           notificationId: msgId,
           title: prefix + messageInfo.title,
           description: messageInfo.content,
           icon: messageInfo.extras?.image,
           remotePushMessageInfo: messageInfo,
-        });
+        };
+        await this.showNotification(notificationParams);
+        appEventBus.emit(
+          EAppEventBusNames.ShowInAppPushNotification,
+          notificationParams,
+        );
       }
     }
 
@@ -1297,6 +1302,12 @@ export default class ServiceNotification extends ServiceBase {
     return result?.data?.data;
   }
 
+  @backgroundMethod()
+  async fetchServerNotificationSettingsWithCache(): Promise<INotificationPushSettings> {
+    const { serverSettings } = await this.getServerSettingsWithCache();
+    return serverSettings;
+  }
+
   updateNotificationSettingsAbortController: AbortController | undefined;
 
   @backgroundMethod()
@@ -1314,6 +1325,7 @@ export default class ServiceNotification extends ServiceBase {
     if (result?.data?.data?.pushEnabled) {
       void this.registerClientWithOverrideAllAccounts();
     }
+    await this.clearServerSettingsCache();
     await notificationsAtom.set((v) =>
       perfUtils.buildNewValueIfChanged(v, {
         ...v,

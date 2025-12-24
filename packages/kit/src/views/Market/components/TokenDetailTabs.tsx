@@ -7,7 +7,7 @@ import {
   Stack,
   Tabs,
   YStack,
-  useIsModalPage,
+  useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
 import type { IDeferredPromise } from '@onekeyhq/components';
@@ -46,7 +46,7 @@ function BasicTokenDetailTabs({
   coinGeckoId: string;
 }) {
   const intl = useIntl();
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const { md: mdMedia, gtMd: gtMdMedia } = useMedia();
   const md = isModalPage ? true : mdMedia;
 

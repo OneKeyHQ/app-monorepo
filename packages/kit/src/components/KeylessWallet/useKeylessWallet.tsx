@@ -2,8 +2,9 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Toast } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyLocalError,
@@ -30,6 +31,14 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
+
+export function useKeylessWalletFeatureIsEnabled(): boolean {
+  const [devSettings] = useDevSettingsPersistAtom();
+  return (
+    devSettings.enabled &&
+    devSettings.settings?.isKeylessWalletFeatureEnabled === true
+  );
+}
 
 export function useKeylessWalletMethods() {
   const { loginOneKeyId, sendEmailOTP } = useOneKeyAuth();
@@ -69,7 +78,7 @@ export function useKeylessWalletMethods() {
       cloudPack: ICloudKeyPack;
     }): Promise<{
       success: boolean;
-      packSetInFromCloudPack: string;
+      packSetIdFromCloudPack: string;
     }> => {
       // TODO cloud login check
       const { recordID } =
@@ -81,7 +90,7 @@ export function useKeylessWalletMethods() {
         });
       return {
         success: !!recordID,
-        packSetInFromCloudPack: cloudPack.packSetId,
+        packSetIdFromCloudPack: cloudPack.packSetId,
       };
     },
     [],
@@ -164,9 +173,6 @@ export function useKeylessWalletMethods() {
     }, []);
 
   const getAuthPackFromServer = useCallback(async (): Promise<IAuthKeyPack> => {
-    Toast.success({
-      title: 'getAuthPackFromServer',
-    });
     await loginOneKeyId();
     const user = await primePersistAtom.get();
     const packSetId = user?.keylessWalletId;
@@ -276,12 +282,10 @@ export function useKeylessWallet() {
   const intl = useIntl();
 
   const createKeylessWalletFn = useCallback(async () => {
-    const walletPacks =
-      await backgroundApiProxy.serviceKeylessWallet.generateKeylessWalletPacks();
-    //   walletPacks.authKeyPack
+    await backgroundApiProxy.serviceKeylessWallet.generateKeylessWalletPacks();
   }, []);
 
-  const enableKeylessWalletFn = useCallback(async () => {
+  const _enableKeylessWalletFn = useCallback(async () => {
     if (!isKeylessWalletCreated) {
       await createKeylessWalletFn();
     }

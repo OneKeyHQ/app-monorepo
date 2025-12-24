@@ -12,12 +12,13 @@ import { useCurrency } from '../../../components/Currency';
 interface ISwapProBuySellInfoProps {
   tokenDetailInfo?: IMarketTokenDetail;
   timeRange: ESwapProTimeRange;
+  isNative?: boolean;
 }
 
 const getCountByTimeRange = (
   detail: IMarketTokenDetail | undefined,
   timeRange: ESwapProTimeRange,
-  type: 'buy' | 'sell' | 'volume',
+  type: 'buy' | 'sell' | 'vBuy' | 'vSell',
   endString: string,
 ) => {
   const key = `${type}${timeRange}${endString}` as keyof IMarketTokenDetail;
@@ -27,59 +28,66 @@ const getCountByTimeRange = (
 const SwapProBuySellInfo = ({
   tokenDetailInfo,
   timeRange,
+  isNative,
 }: ISwapProBuySellInfoProps) => {
   const currencyInfo = useCurrency();
-  const buyCount = useMemo(() => {
-    return getCountByTimeRange(tokenDetailInfo, timeRange, 'buy', 'Count');
-  }, [timeRange, tokenDetailInfo]);
-  const sellCount = useMemo(() => {
-    return getCountByTimeRange(tokenDetailInfo, timeRange, 'sell', 'Count');
-  }, [timeRange, tokenDetailInfo]);
-  const totalCount = useMemo(() => {
-    return new BigNumber(buyCount ?? 0).plus(sellCount ?? 0).toNumber();
-  }, [buyCount, sellCount]);
-  const buyPercentage = useMemo(() => {
-    if (!totalCount || totalCount === 0) return 0;
-    return new BigNumber(buyCount ?? 0)
-      .dividedBy(totalCount ?? 0)
-      .multipliedBy(100)
-      .toNumber();
-  }, [buyCount, totalCount]);
-  const sellPercentage = useMemo(() => {
-    if (!totalCount || totalCount === 0) return 0;
-    return new BigNumber(sellCount ?? 0)
-      .dividedBy(totalCount ?? 0)
-      .multipliedBy(100)
-      .toNumber();
-  }, [sellCount, totalCount]);
   const buyVolume = useMemo(() => {
     const buyVolumeValue = getCountByTimeRange(
       tokenDetailInfo,
       timeRange,
-      'volume',
+      'vBuy',
       '',
     );
-    return numberFormat(buyVolumeValue.toString(), {
+    const formattedBuyVolume = numberFormat(buyVolumeValue.toString(), {
       formatter: 'marketCap',
       formatterOptions: {
         currency: currencyInfo.symbol,
       },
     });
+    return {
+      value: buyVolumeValue,
+      formattedValue: formattedBuyVolume,
+    };
   }, [tokenDetailInfo, timeRange, currencyInfo.symbol]);
   const sellVolume = useMemo(() => {
     const sellVolumeValue = getCountByTimeRange(
       tokenDetailInfo,
       timeRange,
-      'volume',
+      'vSell',
       '',
     );
-    return numberFormat(sellVolumeValue.toString(), {
+    const formattedSellVolume = numberFormat(sellVolumeValue.toString(), {
       formatter: 'marketCap',
       formatterOptions: {
         currency: currencyInfo.symbol,
       },
     });
+    return {
+      value: sellVolumeValue,
+      formattedValue: formattedSellVolume,
+    };
   }, [tokenDetailInfo, timeRange, currencyInfo.symbol]);
+  const totalVolume = useMemo(() => {
+    const buyVBN = new BigNumber(buyVolume.value);
+    const sellVBN = new BigNumber(sellVolume.value);
+    if (buyVBN.isNaN() || sellVBN.isNaN()) return '';
+    return buyVBN.plus(sellVBN).toFixed();
+  }, [buyVolume, sellVolume]);
+
+  const buyPercentage = useMemo(() => {
+    if (!totalVolume || totalVolume === '0') return 0;
+    return new BigNumber(buyVolume.value || 0)
+      .dividedBy(totalVolume ?? 0)
+      .multipliedBy(100)
+      .toNumber();
+  }, [buyVolume, totalVolume]);
+  const sellPercentage = useMemo(() => {
+    if (!totalVolume || totalVolume === '0') return 0;
+    return new BigNumber(sellVolume.value || 0)
+      .dividedBy(totalVolume ?? 0)
+      .multipliedBy(100)
+      .toNumber();
+  }, [sellVolume, totalVolume]);
   return (
     <YStack gap="$2" mt="$2" flex={1}>
       <XStack position="relative" borderRadius="$1" overflow="hidden">
@@ -119,12 +127,17 @@ const SwapProBuySellInfo = ({
             borderWidth={1}
             borderRadius="$1"
           >
-            <SizableText size="$bodySm" color="$textSuccess">
+            <SizableText size="$bodySmMedium" color="$textSuccess">
               B
             </SizableText>
           </Stack>
-          <SizableText size="$bodySm" color="$textSuccess" ml="$0.5">
-            {buyPercentage.toFixed(2)}%
+          <SizableText
+            size="$bodyXs"
+            color="$textSuccess"
+            ml="$0.5"
+            fontFamily="$monoRegular"
+          >
+            {isNative ? '--' : buyPercentage.toFixed(2)}%
           </SizableText>
         </XStack>
         <XStack
@@ -134,8 +147,13 @@ const SwapProBuySellInfo = ({
           position="relative"
           zIndex={1}
         >
-          <SizableText size="$bodySm" color="$textCritical" mr="$0.5">
-            {sellPercentage.toFixed(2)}%
+          <SizableText
+            size="$bodyXs"
+            color="$textCritical"
+            mr="$0.5"
+            fontFamily="$monoRegular"
+          >
+            {isNative ? '--' : sellPercentage.toFixed(2)}%
           </SizableText>
           <Stack
             w="$4.5"
@@ -153,11 +171,19 @@ const SwapProBuySellInfo = ({
         </XStack>
       </XStack>
       <XStack justifyContent="space-between">
-        <SizableText size="$bodySm" color="$textSuccess">
-          {buyVolume}
+        <SizableText
+          size="$bodySm"
+          color="$textSuccess"
+          fontFamily="$monoRegular"
+        >
+          {isNative ? '--' : buyVolume.formattedValue}
         </SizableText>
-        <SizableText size="$bodySm" color="$textCritical">
-          {sellVolume}
+        <SizableText
+          size="$bodySm"
+          color="$textCritical"
+          fontFamily="$monoRegular"
+        >
+          {isNative ? '--' : sellVolume.formattedValue}
         </SizableText>
       </XStack>
     </YStack>

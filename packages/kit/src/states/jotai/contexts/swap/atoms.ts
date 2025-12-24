@@ -691,7 +691,7 @@ export const {
 } = contextAtom<boolean>(false);
 
 const DEFAULT_TIME_RANGE = ESwapProTimeRange.TWENTY_FOUR_HOURS;
-const defaultTimeRangeItem =
+export const defaultTimeRangeItem =
   swapProTimeRangeItems.find((item) => item.value === DEFAULT_TIME_RANGE) ??
   swapProTimeRangeItems[swapProTimeRangeItems.length - 1];
 
@@ -717,12 +717,7 @@ export const { atom: swapProTokenValueAtom, use: useSwapProTokenValueAtom } =
 export const {
   atom: swapProEnableCurrentSymbolAtom,
   use: useSwapProEnableCurrentSymbolAtom,
-} = contextAtom<boolean>(true);
-
-export const {
-  atom: swapProToTotalValueAtom,
-  use: useSwapProToTotalValueAtom,
-} = contextAtom<string>('');
+} = contextAtom<boolean>(false);
 
 export const {
   atom: swapProLimitPriceValueAtom,

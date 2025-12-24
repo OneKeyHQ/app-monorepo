@@ -49,8 +49,10 @@ const SwapProSelectTokenPage = ({
     setSelectedNetworkId(networkId);
   };
   const searchValueDebounce = useDebounce(searchValue, 500, { leading: true });
-  const { searchLoading, searchTokenList } =
-    useSwapProTokenSearch(searchValueDebounce);
+  const { searchLoading, searchTokenList } = useSwapProTokenSearch(
+    searchValueDebounce,
+    selectedNetworkId,
+  );
   const navigation = useAppNavigation();
   const handleTokenSelect = (token: IMarketToken) => {
     setSwapProSelectToken({
@@ -97,7 +99,6 @@ const SwapProSelectTokenPage = ({
               id: ETranslations.token_selector_search_placeholder,
             })}
             zIndex={20}
-            selectTextOnFocus
             value={searchValue}
             onSearchTextChange={setSearchValue}
           />

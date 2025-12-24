@@ -14,6 +14,7 @@ import {
   useUpdateEffect,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -39,6 +40,7 @@ function OneKeyIdPage() {
   const { isLoggedIn, logout } = useOneKeyAuth();
   const logoutRef = useRef<() => Promise<void>>(logout);
   const isFocused = useRouteIsFocused();
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
 
   const toPrimePage = useCallback(async () => {
     if (isPrimeAvailable) {
@@ -166,25 +168,27 @@ function OneKeyIdPage() {
               onPress={toInviteRewardPage}
             />
 
-            <ListItem
-              drillIn
-              userSelect="none"
-              renderAvatar={
-                <XStack
-                  borderRadius="$3"
-                  bg="$blue8"
-                  w="$12"
-                  h="$12"
-                  ai="center"
-                  jc="center"
-                >
-                  <Icon name="WalletCryptoSolid" color="$blue12" size="$6" />
-                </XStack>
-              }
-              title="Keyless Wallet"
-              subtitle="View your keyless wallet shares"
-              onPress={toKeylessWalletPage}
-            />
+            {platformEnv.isWebDappMode || !isKeylessWalletEnabled ? null : (
+              <ListItem
+                drillIn
+                userSelect="none"
+                renderAvatar={
+                  <XStack
+                    borderRadius="$3"
+                    bg="$blue8"
+                    w="$12"
+                    h="$12"
+                    ai="center"
+                    jc="center"
+                  >
+                    <Icon name="WalletCryptoSolid" color="$blue12" size="$6" />
+                  </XStack>
+                }
+                title="Keyless Wallet"
+                subtitle="View your keyless wallet shares"
+                onPress={toKeylessWalletPage}
+              />
+            )}
           </YStack>
         </YStack>
       </Page.Body>

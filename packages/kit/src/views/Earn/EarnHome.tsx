@@ -16,6 +16,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -77,7 +81,7 @@ function BasicEarnHome({
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
 
-  const { earnBanners, refetchBanners } = useBannerInfo();
+  const { earnBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
   const [isEarnTabFocused, setIsEarnTabFocused] = useState(true);
   const wasFocusedRef = useRef(false);
@@ -148,10 +152,9 @@ function BasicEarnHome({
         actions.current.triggerRefresh();
       }
 
-      void refetchBanners();
       void refetchFAQ();
     },
-    [actions, refetchBanners, refetchFAQ],
+    [actions, refetchFAQ],
   );
 
   useListenTabFocusState(
@@ -239,13 +242,13 @@ function BasicEarnHome({
     [showContent, refreshEarnData, isLoading, banners],
   );
 
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 143 : 92,
-  );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    const height = e.nativeEvent.layout.height - 20;
-    setTabPageHeight(height);
-  }, []);
+  // const [tabPageHeight, setTabPageHeight] = useState(
+  //   platformEnv.isNativeIOS ? 143 : 92,
+  // );
+  // const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+  //   const height = e.nativeEvent.layout.height - 20;
+  //   setTabPageHeight(height);
+  // }, []);
 
   if (!isFetchingBlockResult && blockResult?.blockData) {
     return (
@@ -264,9 +267,6 @@ function BasicEarnHome({
   if (platformEnv.isNative) {
     return (
       <YStack flex={1}>
-        {showHeader && showContent && media.md ? (
-          <Stack h={tabPageHeight} />
-        ) : null}
         <EarnMainTabs
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
@@ -274,23 +274,6 @@ function BasicEarnHome({
           portfolioData={portfolioData}
           containerProps={mobileContainerProps}
         />
-
-        {showHeader && showContent && media.md ? (
-          <YStack
-            position="absolute"
-            top={-20}
-            left={0}
-            bg="$bgApp"
-            pt="$5"
-            width="100%"
-            onLayout={handleTabPageLayout}
-          >
-            <TabPageHeader
-              sceneName={EAccountSelectorSceneName.home}
-              tabRoute={ETabRoutes.Earn}
-            />
-          </YStack>
-        ) : null}
       </YStack>
     );
   }
@@ -299,6 +282,7 @@ function BasicEarnHome({
     <EarnPageContainer
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
+      disableMaxWidth
       refreshControl={
         <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
       }

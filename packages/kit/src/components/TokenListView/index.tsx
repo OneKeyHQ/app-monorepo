@@ -298,10 +298,6 @@ function TokenListViewCmp(props: IProps) {
       }
     }
 
-    if (overFlowState.isOverflow && overFlowState.isSliced) {
-      resp = resp.slice(0, limit);
-    }
-
     return resp;
   }, [
     tokens,
@@ -313,14 +309,18 @@ function TokenListViewCmp(props: IProps) {
     searchTokenList.tokens,
     allAggregateTokenMap,
     searchKeyLengthThreshold,
-    overFlowState.isOverflow,
-    overFlowState.isSliced,
     sortType,
     sortDirection,
     tokenListMap,
     aggregateTokenMap,
-    limit,
   ]);
+
+  const limitedTokens = useMemo(() => {
+    if (overFlowState.isOverflow && overFlowState.isSliced) {
+      return filteredTokens.slice(0, limit);
+    }
+    return filteredTokens;
+  }, [filteredTokens, overFlowState.isOverflow, overFlowState.isSliced, limit]);
 
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const addPaddingOnListFooter = useMemo(
@@ -455,10 +455,10 @@ function TokenListViewCmp(props: IProps) {
   ]);
 
   useEffect(() => {
-    if (limit && filteredTokens.length > limit) {
+    if (limit) {
       setOverFlowState((prev) => ({
         ...prev,
-        isOverflow: true,
+        isOverflow: filteredTokens.length > limit,
       }));
     }
   }, [filteredTokens.length, limit]);
@@ -559,11 +559,22 @@ function TokenListViewCmp(props: IProps) {
       );
     }
 
+    if (!limitedTokens || limitedTokens.length === 0) {
+      return searchKey ? (
+        <EmptySearch
+          onManageToken={onManageToken}
+          manageTokenEnabled={manageTokenEnabled}
+          {...emptyProps}
+        />
+      ) : (
+        <EmptyToken {...emptyProps} />
+      );
+    }
+
     return (
       <YStack>
         {withHeader ? (
           <TokenListHeader
-            filteredTokens={filteredTokens}
             onManageToken={onManageToken}
             manageTokenEnabled={manageTokenEnabled}
             {...(tokens.length > 0 && {
@@ -571,7 +582,7 @@ function TokenListViewCmp(props: IProps) {
             })}
           />
         ) : null}
-        {filteredTokens.map((item) => (
+        {limitedTokens.map((item) => (
           <TokenListItem
             hideValue={hideValue}
             token={item}
@@ -605,15 +616,14 @@ function TokenListViewCmp(props: IProps) {
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
-      extraData={filteredTokens.length}
-      data={filteredTokens}
+      extraData={limitedTokens.length}
+      data={limitedTokens}
       contentContainerStyle={resolvedContentContainerStyle as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListHeaderComponent={
         withHeader ? (
           <TokenListHeader
-            filteredTokens={filteredTokens}
             onManageToken={onManageToken}
             manageTokenEnabled={manageTokenEnabled}
             {...(tokens.length > 0 && {
@@ -641,7 +651,7 @@ function TokenListViewCmp(props: IProps) {
           />
           {isTokenSelector &&
           tokenSelectorSearchTokenState.isSearching &&
-          index === filteredTokens.length - 1 ? (
+          index === limitedTokens.length - 1 ? (
             <ListLoading isTokenSelectorView={!tableLayout} />
           ) : null}
         </>

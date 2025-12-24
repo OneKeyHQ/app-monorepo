@@ -2,12 +2,14 @@ import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
 
 import {
   Divider,
   Icon,
   Image,
   Input,
+  Page,
   SizableText,
   Skeleton,
   XStack,
@@ -23,14 +25,18 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   swapProBuyInputSegmentItems,
   swapProSellInputSegmentItems,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
+  SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { TokenSelectorPopover } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenSelectorPopover';
@@ -42,18 +48,24 @@ import {
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
 
+import { PercentageStageOnKeyboard } from './SwapInputContainer';
+
 import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 
 interface ISwapProInputContainerProps {
-  defaultTokens: IToken[];
+  defaultTokens: ISwapTokenBase[];
+  defaultLimitTokens: ISwapTokenBase[];
   isLoading?: boolean;
   cleanInputAmount: () => void;
+  onSelectPercentageStage: (stage: number) => void;
 }
 
 const SwapProInputContainer = ({
   defaultTokens,
+  defaultLimitTokens,
   isLoading,
   cleanInputAmount,
+  onSelectPercentageStage,
 }: ISwapProInputContainerProps) => {
   const intl = useIntl();
   const [swapProDirection] = useSwapProDirectionAtom();
@@ -68,6 +80,12 @@ const SwapProInputContainer = ({
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
+  const defaultTokensFromType = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      return defaultTokens;
+    }
+    return defaultLimitTokens;
+  }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
   const handleInputChange = useCallback(
     (text: string) => {
       if (validateAmountInput(text, inputToken?.decimals)) {
@@ -97,7 +115,7 @@ const SwapProInputContainer = ({
     [setSwapProUseSelectBuyToken, cleanInputAmount],
   );
   const isTokenSelectorVisible =
-    swapProDirection === ESwapDirection.BUY && defaultTokens.length > 1;
+    swapProDirection === ESwapDirection.BUY && defaultTokensFromType.length > 1;
 
   const inputSegmentItems = useMemo(() => {
     if (swapProDirection === ESwapDirection.SELL) {
@@ -137,6 +155,20 @@ const SwapProInputContainer = ({
       inputToken?.decimals,
     ],
   );
+  const [, setInAppNotification] = useInAppNotificationAtom();
+  const onInputFocus = useCallback(() => {
+    setInAppNotification((v) => ({
+      ...v,
+      swapPercentageInputStageShowForNative: true,
+    }));
+  }, [setInAppNotification]);
+
+  const onInputBlur = useCallback(() => {
+    setInAppNotification((v) => ({
+      ...v,
+      swapPercentageInputStageShowForNative: false,
+    }));
+  }, [setInAppNotification]);
 
   useSwapLimitPriceCheck(inputToken, toToken);
 
@@ -144,10 +176,11 @@ const SwapProInputContainer = ({
     <YStack borderRadius="$2" bg="$bgStrong" mb="$2">
       <XStack borderTopLeftRadius="$2" borderTopRightRadius="$2">
         <Input
-          size="medium"
+          size="small"
           containerProps={{
             flex: 1,
             borderWidth: 0,
+            py: '$1',
           }}
           keyboardType="decimal-pad"
           value={
@@ -155,6 +188,8 @@ const SwapProInputContainer = ({
               ? swapProInputAmount
               : fromInputAmount.value
           }
+          onFocus={onInputFocus}
+          onBlur={onInputBlur}
           onChangeText={handleInputChange}
           placeholder={intl.formatMessage({
             id: ETranslations.content__amount,
@@ -181,12 +216,13 @@ const SwapProInputContainer = ({
                   {inputToken?.logoURI ? (
                     <Image
                       src={inputToken.logoURI}
-                      width="$5"
-                      height="$5"
+                      size="$4.5"
                       borderRadius="$full"
                     />
                   ) : null}
-                  <SizableText size="$bodyLg">{inputToken?.symbol}</SizableText>
+                  <SizableText size="$bodyMd" maxWidth="$16" numberOfLines={1}>
+                    {inputToken?.symbol}
+                  </SizableText>
                   {isTokenSelectorVisible ? (
                     <Icon
                       name="ChevronDownSmallOutline"
@@ -203,7 +239,7 @@ const SwapProInputContainer = ({
           currentSelectToken={swapProSelectToken}
           isOpen={isPopoverOpen}
           onOpenChange={setIsPopoverOpen}
-          tokens={defaultTokens}
+          tokens={defaultTokensFromType as IToken[]}
           onTokenPress={handleTokenSelect}
           onTradePress={() => {
             setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
@@ -216,6 +252,20 @@ const SwapProInputContainer = ({
         items={inputSegmentItems}
         onSelect={onSelectInputSegment}
       />
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        </InputAccessoryView>
+      ) : null}
+      {!platformEnv.isNativeIOS ? (
+        <Page.Footer>
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        </Page.Footer>
+      ) : null}
     </YStack>
   );
 };

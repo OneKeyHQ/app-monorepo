@@ -9,6 +9,7 @@ export enum EEnterWay {
   ExtensionPopup = 'ExtensionPopup',
   ExtensionSidePanel = 'ExtensionSidePanel',
   SwapPro = 'SwapPro',
+  BannerList = 'BannerList',
 }
 
 export enum EDexListName {
@@ -28,6 +29,7 @@ export enum ECopyFrom {
   Detail = 'Detail',
   Search = 'Search',
   Others = 'Others',
+  BannerList = 'BannerList',
 }
 
 export enum EVisitTarget {
@@ -60,6 +62,7 @@ export enum EWatchlistFrom {
   Search = 'Search',
   Recommend = 'Recommend',
   Others = 'Others',
+  BannerList = 'BannerList',
 }
 
 export enum ERouter {
@@ -171,4 +174,8 @@ export interface IDexTVPriceMCParams {
 
 export interface IDexTVTimeframeParams {
   tvTimeframeSelect: string;
+}
+
+export interface IDexBannerEnterParams {
+  bannerId: string;
 }

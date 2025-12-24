@@ -85,6 +85,14 @@ body {
   border-radius: 3px;
 }
 
+.show-scrollbar ::-webkit-scrollbar {
+  width: 8px;
+  height: unset;
+}
+.show-scrollbar ::-webkit-scrollbar-track {
+  background: unset;
+}
+
 input {
   outline: none;
   min-width: 0;
@@ -293,5 +301,33 @@ w3m-modal {
   }
   100% {
     clip-path: inset(0 0 0 0);
+  }
+}
+
+.ok-skeleton-light {
+  animation: ok-skeleton-light-loading 1.5s linear infinite alternate;
+  color: transparent;
+}
+
+@keyframes ok-skeleton-light-loading {
+  0% {
+      background-color: #fafafa;
+  }
+  100% {
+      background-color: #cdcdcd;
+  }
+}
+
+.ok-skeleton-dark {
+  animation: ok-skeleton-dark-loading 1.5s linear infinite alternate;
+  color: transparent;
+}
+
+@keyframes ok-skeleton-dark-loading {
+  0% {
+      background-color: #111111;
+  }
+  100% {
+      background-color: #333333;
   }
 }
