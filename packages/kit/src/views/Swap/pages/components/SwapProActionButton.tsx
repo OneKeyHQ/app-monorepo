@@ -318,7 +318,7 @@ const SwapProActionButton = ({
           : '$bgCriticalStrong'
       }
     >
-      <SizableText size="$bodyMdMedium" color="$textWhite" textAlign="center">
+      <SizableText size="$bodyMdMedium" color="$textOnColor" textAlign="center">
         {actionButtonText}
       </SizableText>
     </Button>
