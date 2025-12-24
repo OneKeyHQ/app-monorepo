@@ -84,12 +84,14 @@ export function EarnPageContainer({
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={sceneName}
-        tabRoute={tabRoute}
-        customHeaderLeftItems={customHeaderLeft}
-        customHeaderRightItems={customHeaderRightItems}
-      />
+      {media.gtMd ? (
+        <TabPageHeader
+          sceneName={sceneName}
+          tabRoute={tabRoute}
+          customHeaderLeftItems={customHeaderLeft}
+          customHeaderRightItems={customHeaderRightItems}
+        />
+      ) : null}
       <Page.Body>
         <ScrollView
           contentContainerStyle={{ py: '$6' }}
