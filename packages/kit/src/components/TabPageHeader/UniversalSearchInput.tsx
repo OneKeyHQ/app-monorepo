@@ -56,7 +56,7 @@ export function UniversalSearchInput({
         size="small"
         key="searchInput"
         placeholder={intl.formatMessage({
-          id: ETranslations.global_universal_search_placeholder,
+          id: ETranslations.global_search_everything,
         })}
         addOns={[
           {
