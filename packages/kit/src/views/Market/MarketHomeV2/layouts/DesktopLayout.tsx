@@ -63,10 +63,10 @@ export function DesktopLayout({
   const { height, containerStyle } = useMemo(() => {
     const computedHeight = platformEnv.isNative
       ? undefined
-      : 'calc(100vh - 96px)';
+      : 'calc(100vh - 167px)';
     const style: Record<string, any> = { height: computedHeight };
     if (platformEnv.isWebDappMode) {
-      style.paddingBottom = 60;
+      style.paddingBottom = 100;
     }
     return { height: computedHeight, containerStyle: style };
   }, []);
