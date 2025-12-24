@@ -571,6 +571,8 @@ function MoreActionOneKeyId() {
     await onPrimeButtonPressed();
   }, [closePopover, onPrimeButtonPressed]);
 
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+
   if (!isLoggedIn) {
     return (
       <XStack
@@ -638,7 +640,7 @@ function MoreActionOneKeyId() {
             >
               {displayName}
             </SizableText>
-            {isPrimeAvailable ? (
+            {isPrimeUser ? (
               <XStack
                 ai="center"
                 jc="center"
