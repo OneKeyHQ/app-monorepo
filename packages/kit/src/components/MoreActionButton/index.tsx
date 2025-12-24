@@ -327,11 +327,8 @@ function MoreActionContentFooter() {
 
   return (
     <XStack
-      px="$5"
-      pt="$1"
-      pb="$3"
-      jc="space-between"
-      onPress={handleAbout}
+      px="$1"
+      pb="$1"
       bg="$bgApp"
       borderBottomLeftRadius="$3"
       borderBottomRightRadius="$3"
@@ -339,19 +336,38 @@ function MoreActionContentFooter() {
         position: 'sticky',
         bottom: 0,
       }}
-      userSelect="none"
     >
-      <XStack gap="$1" ai="center" jc="center">
-        <Icon name="InfoCircleOutline" color="$icon" size="$4" />
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
-          {`${intl.formatMessage({ id: ETranslations.global_about })} OneKey`}
-        </SizableText>
-      </XStack>
-      <XStack gap="$1" ai="center" jc="center">
-        <SizableText size="$bodyMdMedium" color="$textDisabled">
-          {versionString}
-        </SizableText>
-        <Icon name="ChevronRightSmallOutline" color="$iconSubdued" size="$4" />
+      <XStack
+        flex={1}
+        px="$4"
+        py="$2"
+        jc="space-between"
+        onPress={handleAbout}
+        borderRadius="$2"
+        userSelect="none"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+      >
+        <XStack gap="$1" ai="center" jc="center">
+          <Icon name="InfoCircleOutline" color="$icon" size="$4" />
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {`${intl.formatMessage({ id: ETranslations.global_about })} OneKey`}
+          </SizableText>
+        </XStack>
+        <XStack gap="$1" ai="center" jc="center">
+          <SizableText size="$bodyMdMedium" color="$textDisabled">
+            {versionString}
+          </SizableText>
+          <Icon
+            name="ChevronRightSmallOutline"
+            color="$iconSubdued"
+            size="$4"
+          />
+        </XStack>
       </XStack>
     </XStack>
   );
@@ -578,10 +594,18 @@ function MoreActionOneKeyId() {
       <XStack
         alignItems="center"
         py="$4"
-        px="$5"
+        px="$4"
+        mx="$1"
         userSelect="none"
         justifyContent="space-between"
         onPress={handlePress}
+        borderRadius="$2"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
       >
         <XStack alignItems="center" gap="$3" flex={1}>
           <OneKeyIdAvatar size="$10" />
@@ -618,11 +642,19 @@ function MoreActionOneKeyId() {
     <XStack
       alignItems="center"
       py="$4"
-      px="$5"
+      px="$4"
+      mx="$1"
       gap="$6"
       userSelect="none"
       justifyContent="space-between"
       onPress={handleNavigateToOneKeyId}
+      borderRadius="$2"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
     >
       <XStack alignItems="center" gap="$3" flex={1}>
         <Stack onPress={handleAvatarPress}>
