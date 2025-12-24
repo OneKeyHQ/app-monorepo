@@ -7,56 +7,36 @@ import {
   ActionList,
   Button,
   Dialog,
-  Empty,
-  Heading,
-  type IPageNavigationProp,
   Icon,
   Page,
-  SectionList,
   Select,
   SizableText,
-  Skeleton,
-  Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  useInAppNotificationAtom,
-  useNotificationsAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
+import type {
   EModalSwapRoutes,
-  type IModalSwapParamList,
+  IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
   ESwapTxHistoryStatus,
-  type ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
-import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import SwapMarketHistoryList from '../components/SwapMarketHistoryList';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import LimitOrderListModalWithAllProvider from './LimitOrderListModal';
 
 import type { RouteProp } from '@react-navigation/core';
-
-interface ISectionData {
-  title: string;
-  status?: ESwapTxHistoryStatus;
-  data: ISwapTxHistory[];
-}
 
 const SwapHistoryListModal = ({
   storeName,
@@ -73,8 +53,7 @@ const SwapHistoryListModal = ({
     type ?? EProtocolOfExchange.SWAP,
   );
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
-  const [{ swapHistoryAlertDismissed }] = useNotificationsAtom();
-  const { result: swapTxHistoryList, isLoading } = usePromiseResult(
+  const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
       const histories =
         await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
@@ -84,60 +63,6 @@ const SwapHistoryListModal = ({
     [swapHistoryPendingList],
     { watchLoading: true },
   );
-
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const sectionData = useMemo(() => {
-    const pendingData =
-      swapTxHistoryList?.filter(
-        (item) =>
-          item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.CANCELING,
-      ) ?? [];
-    const otherData =
-      swapTxHistoryList?.filter(
-        (item) =>
-          item.status !== ESwapTxHistoryStatus.PENDING &&
-          item.status !== ESwapTxHistoryStatus.CANCELING,
-      ) ?? [];
-    const groupByDay = otherData.reduce<Record<string, ISwapTxHistory[]>>(
-      (acc, item) => {
-        const date = new Date(item.date.created);
-        const monthDay = formatDate(date, {
-          formatTemplate: 'yyyy-LL-dd',
-        });
-
-        if (!acc[monthDay]) {
-          acc[monthDay] = [];
-        }
-
-        acc[monthDay].push(item);
-
-        return acc;
-      },
-      {},
-    );
-
-    let result: ISectionData[] = Object.entries(groupByDay).map(
-      ([title, data]) => ({
-        title,
-        data,
-      }),
-    );
-    if (pendingData.length > 0) {
-      result = [
-        {
-          title: intl.formatMessage({
-            id: ETranslations.swap_history_status_pending,
-          }),
-          status: ESwapTxHistoryStatus.PENDING,
-          data: pendingData,
-        },
-        ...result,
-      ];
-    }
-    return result;
-  }, [intl, swapTxHistoryList]);
 
   const onDeleteHistory = useCallback(() => {
     // dialog
@@ -230,21 +155,6 @@ const SwapHistoryListModal = ({
     [intl, onDeleteHistory, onDeletePendingHistory],
   );
 
-  const renderItem = useCallback(
-    ({ item }: { item: ISwapTxHistory }) => (
-      <SwapTxHistoryListCell
-        item={item}
-        onClickCell={() => {
-          navigation.push(EModalSwapRoutes.SwapHistoryDetail, {
-            txHistoryOrderId: item.swapInfo.orderId,
-            txHistoryList: [...(swapTxHistoryList ?? [])],
-          });
-        }}
-      />
-    ),
-    [navigation, swapTxHistoryList],
-  );
-
   const headerSelectType = useMemo(() => {
     const title =
       historyType === EProtocolOfExchange.LIMIT
@@ -296,66 +206,7 @@ const SwapHistoryListModal = ({
       />
       {historyType !== EProtocolOfExchange.LIMIT ? (
         <YStack flex={1}>
-          {isLoading ? (
-            Array.from({ length: 5 }).map((_, index) => (
-              <ListItem key={index}>
-                <Skeleton w="$10" h="$10" radius="round" />
-                <YStack>
-                  <YStack py="$1">
-                    <Skeleton h="$4" w="$32" />
-                  </YStack>
-                  <YStack py="$1">
-                    <Skeleton h="$3" w="$24" />
-                  </YStack>
-                </YStack>
-              </ListItem>
-            ))
-          ) : (
-            <SectionList
-              key={`swap-history-${
-                swapHistoryAlertDismissed ? 'dismissed' : 'shown'
-              }`}
-              renderItem={renderItem}
-              sections={sectionData}
-              py="$2"
-              renderSectionHeader={({ section: { title, status } }) => (
-                <XStack px="$6" py="$2" gap="$3" alignItems="center">
-                  {status === ESwapTxHistoryStatus.PENDING ? (
-                    <Stack
-                      w="$2"
-                      h="$2"
-                      backgroundColor="$textInfo"
-                      borderRadius="$full"
-                    />
-                  ) : null}
-                  <Heading
-                    size="$headingXs"
-                    color={
-                      status === ESwapTxHistoryStatus.PENDING
-                        ? '$textInfo'
-                        : '$textSubdued'
-                    }
-                  >
-                    {title}
-                  </Heading>
-                </XStack>
-              )}
-              estimatedItemSize="$10"
-              ListHeaderComponent={
-                sectionData.length > 0 ? (
-                  <NotificationEnableAlert scene="swapHistory" />
-                ) : null
-              }
-              ListEmptyComponent={
-                <Empty
-                  icon="InboxOutline"
-                  title={intl.formatMessage({
-                    id: ETranslations.global_no_results,
-                  })}
-                />
-              }
-            />
-          )}
+          <SwapMarketHistoryList />
         </YStack>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />
