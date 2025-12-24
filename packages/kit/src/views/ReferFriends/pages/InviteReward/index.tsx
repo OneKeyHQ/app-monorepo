@@ -3,7 +3,6 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Page,
   ScrollView,
   Spinner,
@@ -24,6 +23,7 @@ import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/Inv
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
 import { SectionHeader } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SectionHeader';
 import { ResponsiveTwoColumnLayout } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared';
+import { SuspensionAlert } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SuspensionAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
@@ -51,15 +51,15 @@ function InviteRewardContent({
     rebateConfig,
     withdrawAddresses,
     suspensionNotice,
+    suspensionContactLabel,
   } = summaryInfo;
 
   return (
     <>
-      {suspensionNotice ? (
-        <YStack px="$5" pt="$5">
-          <Alert type="critical" title={suspensionNotice} closable />
-        </YStack>
-      ) : null}
+      <SuspensionAlert
+        suspensionNotice={suspensionNotice}
+        suspensionContactLabel={suspensionContactLabel}
+      />
 
       <XStack px="$5" pt="$5" pb="$4" jc="space-between" ai="center">
         <SectionHeader translationId={ETranslations.global_overview} />

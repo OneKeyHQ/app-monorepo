@@ -303,6 +303,7 @@ function MoreActionContentFooter() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
   const version = useMemo(() => {
     return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
   }, []);
@@ -332,6 +333,8 @@ function MoreActionContentFooter() {
       bg="$bgApp"
       borderBottomLeftRadius="$3"
       borderBottomRightRadius="$3"
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor={isDesktopMode ? '$neutral3' : '$borderSubdued'}
       $platform-web={{
         position: 'sticky',
         bottom: 0,
@@ -341,6 +344,7 @@ function MoreActionContentFooter() {
         flex={1}
         px="$4"
         py="$2"
+        mt="$1"
         jc="space-between"
         onPress={handleAbout}
         borderRadius="$2"
@@ -596,6 +600,7 @@ function MoreActionOneKeyId() {
         py="$4"
         px="$4"
         mx="$1"
+        mt="$1"
         userSelect="none"
         justifyContent="space-between"
         onPress={handlePress}
@@ -644,6 +649,7 @@ function MoreActionOneKeyId() {
       py="$4"
       px="$4"
       mx="$1"
+      mt="$1"
       gap="$6"
       userSelect="none"
       justifyContent="space-between"
@@ -1265,7 +1271,6 @@ function BaseMoreActionContent() {
         <MoreActionDivider />
         <MoreActionMoreGrid />
       </ScrollView>
-      <MoreActionDivider />
       <MoreActionContentFooter />
     </YStack>
   );
@@ -1298,7 +1303,6 @@ function MoreActionContent() {
         <MoreActionDivider />
         <MoreActionMoreGrid />
         <YStack flex={1} />
-        <MoreActionDivider />
         <MoreActionContentFooter />
       </YStack>
     </MoreActionProvider>
