@@ -269,7 +269,7 @@ function MoreActionContentHeader({
       pb="$2"
       ai="center"
       jc="space-between"
-      bg="$bgApp"
+      bg="$bg"
       zIndex={10}
       borderTopLeftRadius="$3"
       borderTopRightRadius="$3"
@@ -329,7 +329,7 @@ function MoreActionContentFooter() {
     <XStack
       px="$1"
       pb="$1"
-      bg="$bgApp"
+      bg="$bg"
       borderBottomLeftRadius="$3"
       borderBottomRightRadius="$3"
       $platform-web={{
@@ -1018,14 +1018,14 @@ const MoreActionWalletGrid = () => {
 
   const items = useMemo(() => {
     return [
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_backup }),
             icon: 'CloudUploadOutline' as const,
             onPress: handleBackup,
           },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({
@@ -1034,7 +1034,7 @@ const MoreActionWalletGrid = () => {
             icon: 'ContactsOutline' as const,
             onPress: handleAddressBook,
           },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_network }),
@@ -1051,7 +1051,7 @@ const MoreActionWalletGrid = () => {
         icon: 'Shield2CheckOutline' as const,
         onPress: handleSecurity,
       },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({

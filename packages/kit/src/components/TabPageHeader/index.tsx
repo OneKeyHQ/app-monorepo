@@ -13,7 +13,7 @@ import { WalletConnectionForWeb } from './components';
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
-import { DepositAction, HeaderRight } from './HeaderRight';
+import { HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
@@ -103,7 +103,7 @@ export function TabPageHeader({
     );
   }, [customHeaderRightItems, tabRoute]);
 
-  if (platformEnv.isWeb) {
+  if (platformEnv.isWebDappMode) {
     if (gtMd) {
       return (
         <Page.Header
