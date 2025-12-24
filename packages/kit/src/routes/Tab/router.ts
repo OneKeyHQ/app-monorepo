@@ -63,17 +63,11 @@ const getDiscoverRouterConfig = (
 };
 
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
-  const { md } = useMedia();
-
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
   const isWebDappMode = platformEnv.isWebDappMode;
   const isShowMDDiscover = useMemo(
-    () =>
-      !isShowDesktopDiscover &&
-      !platformEnv.isWebDappMode &&
-      !platformEnv.isExtensionUiPopup &&
-      !(platformEnv.isExtensionUiSidePanel && md),
-    [isShowDesktopDiscover, md],
+    () => !isShowDesktopDiscover && !platformEnv.isWebDappMode,
+    [isShowDesktopDiscover],
   );
 
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
