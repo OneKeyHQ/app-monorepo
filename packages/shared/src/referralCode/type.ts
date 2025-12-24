@@ -23,6 +23,16 @@ interface IReward {
   perp?: IRewardBalance[];
 }
 
+export interface IWithdrawAddress {
+  _id: string;
+  networkId: string;
+  userId: string;
+  __v: number;
+  address: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface IInviteSummary {
   faqs: Array<{
     q: string;
@@ -30,11 +40,10 @@ export interface IInviteSummary {
   }>;
   inviteUrl: string;
   inviteCode: string;
+  isSuspended?: boolean;
   suspensionNotice?: string;
-  withdrawAddresses: {
-    networkId: string;
-    address: string;
-  }[];
+  suspensionContactLabel?: string;
+  withdrawAddresses: IWithdrawAddress[];
   enabledNetworks: string[];
   totalRewards: string;
   levelPercent: string;
