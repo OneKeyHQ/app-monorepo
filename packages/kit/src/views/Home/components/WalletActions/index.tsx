@@ -85,21 +85,40 @@ function WalletActionSend({
         deriveInfoItems.length > 1 &&
         !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
       ) {
-        const defaultDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: network.id,
-          });
-        const { accounts } =
-          await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
-            indexedAccountIds: [indexedAccount?.id ?? ''],
-            networkId: network.id,
-            deriveType: defaultDeriveType,
-          });
+        let availableAccountId;
+        try {
+          const defaultDeriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              {
+                networkId: network.id,
+              },
+            );
+          const { accounts } =
+            await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+              {
+                indexedAccountIds: [indexedAccount?.id ?? ''],
+                networkId: network.id,
+                deriveType: defaultDeriveType,
+              },
+            );
+          availableAccountId = accounts?.[0]?.id;
+        } catch (e) {
+          const { networkAccounts } =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId: network.id,
+                indexedAccountId: indexedAccount?.id ?? '',
+                excludeEmptyAccount: true,
+              },
+            );
+          availableAccountId = networkAccounts.find((item) => item.account)
+            ?.account?.id;
+        }
 
         navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
           screen: EModalSignatureConfirmRoutes.TxDataInput,
           params: {
-            accountId: accounts?.[0]?.id ?? account?.id ?? '',
+            accountId: availableAccountId ?? account?.id ?? '',
             networkId: network.id,
             isNFT: false,
             token: nativeToken,
