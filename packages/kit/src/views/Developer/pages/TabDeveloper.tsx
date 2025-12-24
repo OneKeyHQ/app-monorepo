@@ -17,7 +17,6 @@ import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeCont
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ITabDeveloperParamList,
-  ITabMeParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
   EDAppConnectionModal,
@@ -101,7 +100,7 @@ function ConnectWalletConnectDapp() {
 }
 
 function TestButtons() {
-  const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
+  const navigation = useAppNavigation<IPageNavigationProp<any>>();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
