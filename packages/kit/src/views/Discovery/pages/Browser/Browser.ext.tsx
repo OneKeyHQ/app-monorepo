@@ -5,6 +5,7 @@ import { useRoute } from '@react-navigation/core';
 import { Page, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -18,7 +19,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
 
