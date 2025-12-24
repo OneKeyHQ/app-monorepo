@@ -134,6 +134,7 @@ function MoreActionContentHeader({
   const intl = useIntl();
   const media = useMedia();
   const onLock = useOnLock();
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
 
   const handleLock = useCallback(async () => {
     await onLock();
@@ -269,7 +270,7 @@ function MoreActionContentHeader({
       pb="$2"
       ai="center"
       jc="space-between"
-      bg="$bgApp"
+      bg={isDesktopMode ? '$bg' : '$bgApp'}
       zIndex={10}
       borderTopLeftRadius="$3"
       borderTopRightRadius="$3"
@@ -330,7 +331,7 @@ function MoreActionContentFooter() {
     <XStack
       px="$1"
       pb="$1"
-      bg="$bgApp"
+      bg={isDesktopMode ? '$bg' : '$bgApp'}
       borderBottomLeftRadius="$3"
       borderBottomRightRadius="$3"
       borderTopWidth={StyleSheet.hairlineWidth}
@@ -668,13 +669,15 @@ function MoreActionOneKeyId() {
         </Stack>
 
         <YStack flex={1} gap="$1">
-          <XStack alignItems="center" gap="$2">
+          <XStack alignItems="center" gap="$2" flex={1}>
             <SizableText
               size="$headingLg"
               color="$text"
               numberOfLines={1}
               ellipsizeMode="tail"
               userSelect="none"
+              flex={1}
+              flexShrink={1}
             >
               {displayName}
             </SizableText>
@@ -689,6 +692,7 @@ function MoreActionOneKeyId() {
                 borderRadius="$full"
                 borderWidth={StyleSheet.hairlineWidth}
                 borderColor="$brand4"
+                flexShrink={0}
                 onPress={handlePrimeButtonPressed}
               >
                 <Icon name={icon} size="$4" />
