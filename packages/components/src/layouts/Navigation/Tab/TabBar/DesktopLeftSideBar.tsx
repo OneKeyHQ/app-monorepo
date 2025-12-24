@@ -398,6 +398,7 @@ export function DesktopLeftSideBar({
     isShowWebTabBar,
     extraConfig?.name,
     navigation,
+    webPageTabBar,
   ]);
 
   const handleHoverIn = useCallback(() => {
