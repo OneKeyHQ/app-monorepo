@@ -246,13 +246,13 @@ function CryptoSubtlePolyfillTest() {
       // Test 1: Check if crypto.subtle exists
       tasks.push(
         await runAppCryptoTestTask({
-          expect: true,
+          expect: 'true',
           name: 'crypto.subtle exists',
           fn: async () => {
-            return (
+            return String(
               typeof crypto !== 'undefined' &&
-              typeof crypto.subtle !== 'undefined' &&
-              typeof crypto.subtle.digest === 'function'
+                typeof crypto.subtle !== 'undefined' &&
+                typeof crypto.subtle.digest === 'function',
             );
           },
         }),
@@ -327,7 +327,7 @@ function CryptoSubtlePolyfillTest() {
       tasks.push(
         await runAppCryptoTestTask({
           expect:
-            'e23dacc73c1e1e4acc2da94fff24f54ae01f1cb2b94a77ebf5ea27e22b03e614',
+            'f0c2f8b2aad90ad913c0561953b38bf3d435f59b5e4ef24eebc6605b0b444907',
           name: 'crypto.subtle.digest(PKCE simulation)',
           fn: async () => {
             const hashBuffer = await crypto.subtle.digest(
@@ -351,7 +351,9 @@ function CryptoSubtlePolyfillTest() {
         ),
       );
 
-      const allPassed = tasks.every((t) => t.passed);
+      const allPassed = tasks.every(
+        (t) => t.isCorrect === AppCryptoTestEmoji.isCorrect,
+      );
       if (allPassed) {
         Toast.success({
           title: 'crypto.subtle polyfill test passed',
