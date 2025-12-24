@@ -18,7 +18,7 @@ export function InterestRateModelSection({
   provider,
   marketAddress,
   reserveAddress,
-  utilizationRatio: _utilizationRatio,
+  utilizationRatio,
 }: IInterestRateModelSectionProps) {
   const { result: curveData, isLoading } = usePromiseResult(
     async () => {
@@ -42,6 +42,7 @@ export function InterestRateModelSection({
         <InterestRateModelChart
           borrowCurve={curveData?.borrowCurve ?? []}
           supplyCurve={curveData?.supplyCurve ?? []}
+          utilizationRatio={utilizationRatio}
           isLoading={isLoading}
         />
       </YStack>

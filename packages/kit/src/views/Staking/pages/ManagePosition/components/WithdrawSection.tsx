@@ -134,6 +134,7 @@ export const WithdrawSection = ({
       token,
       protocolInfo?.stakeTag,
       symbol,
+      borrowApiCtx.isBorrow,
     ],
   );
 
@@ -238,7 +239,9 @@ export const WithdrawSection = ({
           onConfirm={onBorrowConfirm}
           tokenInfo={tokenInfo}
           isDisabled={isDisabled}
-          borrowMarketAddress={borrowApiCtx.borrowApiParams?.marketAddress ?? ''}
+          borrowMarketAddress={
+            borrowApiCtx.borrowApiParams?.marketAddress ?? ''
+          }
           borrowReserveAddress={
             borrowApiCtx.borrowApiParams?.reserveAddress ?? ''
           }

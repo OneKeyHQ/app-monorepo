@@ -4,6 +4,7 @@ import { useTheme } from '@tamagui/core';
 import { createChart } from 'lightweight-charts';
 
 import {
+  Icon,
   SizableText,
   Skeleton,
   Stack,
@@ -16,11 +17,13 @@ import {
   createChartOptions,
 } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartOptions';
 
+import type { ColorTokens } from '@tamagui/core';
 import type { BusinessDay, IChartApi, UTCTimestamp } from 'lightweight-charts';
 
 interface IInterestRateModelChartProps {
   borrowCurve: [number, string][];
   supplyCurve: [number, string][];
+  utilizationRatio?: string;
   isLoading?: boolean;
 }
 
@@ -50,6 +53,7 @@ const convertTimeToUtilization = (time: UTCTimestamp | BusinessDay): number => {
 export function InterestRateModelChart({
   borrowCurve,
   supplyCurve,
+  utilizationRatio,
   isLoading,
 }: IInterestRateModelChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -154,6 +158,35 @@ export function InterestRateModelChart({
     );
     borrowSeries.setData(chartData.borrowData);
 
+    // Add current utilization vertical line marker if available
+    if (utilizationRatio) {
+      const currentUtilRatio = parseFloat(utilizationRatio);
+      const currentUtilTime = convertUtilizationToTime(currentUtilRatio);
+      const iconSubduedColor = theme.iconSubdued?.val || '#8C8CA1';
+
+      // Find the max value to draw the line from bottom to top
+      const maxValue = Math.max(
+        ...chartData.supplyData.map((d) => d.value),
+        ...chartData.borrowData.map((d) => d.value),
+      );
+
+      // Add a vertical line series at the current utilization position
+      const verticalLineSeries = chart.addLineSeries({
+        color: iconSubduedColor,
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        lineStyle: 0, // Solid line
+      });
+
+      // Draw vertical line by adding two points at the same time but different values
+      verticalLineSeries.setData([
+        { time: currentUtilTime, value: 0 },
+        { time: currentUtilTime, value: maxValue * 1.1 },
+      ]);
+    }
+
     chartRef.current = chart;
 
     chart.timeScale().fitContent();
@@ -172,7 +205,13 @@ export function InterestRateModelChart({
       chart.remove();
       chartRef.current = null;
     };
-  }, [chartData, supplyTheme, borrowTheme]);
+  }, [
+    chartData,
+    supplyTheme,
+    borrowTheme,
+    utilizationRatio,
+    theme.iconSubdued?.val,
+  ]);
 
   if (isLoading) {
     return (
@@ -186,25 +225,52 @@ export function InterestRateModelChart({
     return null;
   }
 
+  const utilizationPercentage = utilizationRatio
+    ? `${parseFloat(utilizationRatio).toFixed(2)}%`
+    : '0.00%';
+
   return (
-    <YStack>
-      <Stack ref={chartContainerRef} width="100%" height={CHART_HEIGHT} />
+    <YStack gap="$3">
+      {/* Header showing current utilization */}
+      <SizableText size="$headingLg">
+        {utilizationPercentage} Utilization ratio
+      </SizableText>
 
       {/* Legend */}
-      <XStack gap="$6" jc="center" mt="$4">
+      <XStack mt="$3" gap="$6" ai="center">
         <XStack ai="center" gap="$2">
-          <Stack w="$4" h="$0.5" bg="#008347D6" />
+          <Icon
+            name="CirclePlaceholderOnSolid"
+            size="$1.5"
+            color={'#DA8A00C9' as ColorTokens}
+          />
+          <SizableText size="$bodySm" color="$textSubdued">
+            Borrow APY
+          </SizableText>
+        </XStack>
+        <XStack ai="center" gap="$2">
+          <Icon
+            name="CirclePlaceholderOnSolid"
+            size="$1.5"
+            color={'#008347D6' as ColorTokens}
+          />
           <SizableText size="$bodySm" color="$textSubdued">
             Supply APY
           </SizableText>
         </XStack>
         <XStack ai="center" gap="$2">
-          <Stack w="$4" h="$0.5" bg="#DA8A00C9" />
+          <Icon
+            name="CirclePlaceholderOnSolid"
+            size="$1.5"
+            color="$iconSubdued"
+          />
           <SizableText size="$bodySm" color="$textSubdued">
-            Borrow APY
+            Current utilization
           </SizableText>
         </XStack>
       </XStack>
+
+      <Stack ref={chartContainerRef} width="100%" height={CHART_HEIGHT} />
     </YStack>
   );
 }

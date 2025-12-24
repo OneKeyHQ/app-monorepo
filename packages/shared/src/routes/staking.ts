@@ -1,8 +1,8 @@
 import type { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 
 import type {
-  IBorrowReserveItem,
   IBorrowAsset,
+  IBorrowReserveItem,
   IEarnAlert,
   IEarnTokenInfo,
   IProtocolInfo,
