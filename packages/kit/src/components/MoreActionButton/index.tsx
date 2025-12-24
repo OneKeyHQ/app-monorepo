@@ -1491,7 +1491,7 @@ function MoreActionButtonCmp() {
         overflow: 'hidden',
         style: { transformOrigin: 'bottom left' },
       }}
-      placement="right-end"
+      placement={platformEnv.isWebDappMode ? 'bottom-end' : 'right-end'}
       renderTrigger={trigger}
       renderContent={<MoreActionContent />}
     />

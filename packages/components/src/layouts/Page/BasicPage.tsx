@@ -14,6 +14,7 @@ import {
 } from '../../utils';
 
 import type { IBasicPageProps } from './type';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const useMaxHeight = () => {
   const headerHeight = useHeaderHeight();
@@ -48,7 +49,7 @@ export function BasicPage({ children }: IBasicPageProps) {
     setIsLayoutMount(true);
   }, []);
   const desktopProps = useMemo(() => {
-    return isDesktopLayout
+    return isDesktopLayout && !platformEnv.isWebDappMode
       ? {
           borderRadius: '$4' as const,
           borderWidth: DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
