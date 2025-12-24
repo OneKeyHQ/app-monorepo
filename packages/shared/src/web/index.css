@@ -85,6 +85,14 @@ body {
   border-radius: 3px;
 }
 
+.show-scrollbar ::-webkit-scrollbar {
+  width: 8px;
+  height: unset;
+}
+.show-scrollbar ::-webkit-scrollbar-track {
+  background: unset;
+}
+
 input {
   outline: none;
   min-width: 0;

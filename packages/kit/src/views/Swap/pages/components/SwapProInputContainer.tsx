@@ -115,7 +115,7 @@ const SwapProInputContainer = ({
     [setSwapProUseSelectBuyToken, cleanInputAmount],
   );
   const isTokenSelectorVisible =
-    swapProDirection === ESwapDirection.BUY && defaultTokens.length > 1;
+    swapProDirection === ESwapDirection.BUY && defaultTokensFromType.length > 1;
 
   const inputSegmentItems = useMemo(() => {
     if (swapProDirection === ESwapDirection.SELL) {

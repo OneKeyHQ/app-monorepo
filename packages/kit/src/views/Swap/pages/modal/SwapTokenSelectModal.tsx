@@ -73,7 +73,11 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 import type { RouteProp } from '@react-navigation/core';
 import type { FlatList } from 'react-native';
 
-const SwapTokenSelectPage = () => {
+const SwapTokenSelectPage = ({
+  autoSearch = false,
+}: {
+  autoSearch?: boolean;
+}) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const route =
@@ -526,6 +530,7 @@ const SwapTokenSelectPage = () => {
             const afterTrim = nativeEvent.text.trim();
             setSearchKeyword(afterTrim);
           },
+          ...(autoSearch ? { autoFocus: true } : {}),
           searchBarInputValue: searchKeyword,
           ...(searchKeyword?.length === 0 && !platformEnv.isExtension
             ? {
@@ -650,10 +655,10 @@ const SwapTokenSelectPageWithProvider = () => {
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
     >();
-  const { storeName } = route.params;
+  const { storeName, autoSearch = false } = route.params;
   return (
     <SwapProviderMirror storeName={storeName}>
-      <SwapTokenSelectPage />
+      <SwapTokenSelectPage autoSearch={autoSearch} />
     </SwapProviderMirror>
   );
 };

@@ -27,8 +27,10 @@ const SwapProTradeTypeSelector = ({
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
   const handleItemPress = (value: ESwapProTradeType) => {
-    onSelectTradeType(value);
     setIsOpen(false);
+    setTimeout(() => {
+      onSelectTradeType(value);
+    }, 100);
   };
 
   return (

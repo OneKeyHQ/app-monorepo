@@ -164,7 +164,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                     </Badge>
                   ))}
                 </XStack>
-                {item?.provider?.description ? (
+                {!isDesktopLayout && item?.provider?.description ? (
                   <SizableText size="$bodySmMedium" color="$textSubdued">
                     {item.provider.description}
                   </SizableText>

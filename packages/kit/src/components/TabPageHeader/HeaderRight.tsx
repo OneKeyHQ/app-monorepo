@@ -31,7 +31,6 @@ import {
   GiftAction,
   HeaderNotificationIconButton,
   LanguageButton,
-  OneKeyIdButton,
   ThemeButton,
   WalletConnectionForWeb,
 } from './components';

@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
+  NumberSizeableText,
   SizableText,
   Skeleton,
   Spinner,
@@ -26,7 +27,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
@@ -40,13 +40,11 @@ export function SwapPanel({
   swapToken,
   disableTrade,
   portfolioData,
-  isPortRefreshing,
   onShowSwapDialog,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioItem[];
-  isPortRefreshing?: boolean;
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
 }) {
   const intl = useIntl();
@@ -60,31 +58,19 @@ export function SwapPanel({
     if (!positionInfo) {
       return {
         formattedValue: '0.00',
-        formattedAmount: numberFormat('0.00', {
-          formatter: 'value',
-          formatterOptions: {
-            currency: currencyInfo.symbol,
-          },
-        }),
+        formattedAmount: '0.00',
       };
     }
     const tokenPriceBN = new BigNumber(positionInfo?.tokenPrice || '0');
     const amountBN = new BigNumber(positionInfo?.amount || '0');
-    const valueBN = tokenPriceBN.multipliedBy(amountBN).toFixed();
-    const formattedValue = numberFormat(valueBN, {
-      formatter: 'value',
-      formatterOptions: {
-        currency: currencyInfo.symbol,
-      },
-    });
-    const formattedAmount = numberFormat(amountBN.toFixed(), {
-      formatter: 'balance',
-    });
+    const valueBN = tokenPriceBN.multipliedBy(amountBN);
+    const formattedValue = valueBN.toFixed();
+    const formattedAmount = amountBN.toFixed();
     return {
       formattedValue,
       formattedAmount,
     };
-  }, [currencyInfo.symbol, portfolioData, swapToken.contractAddress]);
+  }, [portfolioData, swapToken.contractAddress]);
 
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
   if (!swapToken) {
@@ -116,12 +102,17 @@ export function SwapPanel({
                     id: ETranslations.dexmarket_details_myposition,
                   })}
                 </SizableText>
-                <SizableText size="$bodySmMedium">
+                <NumberSizeableText size="$bodySmMedium" formatter="balance">
                   {myPositionInfo.formattedAmount}
-                </SizableText>
-                <SizableText size="$bodySm" color="$textSubdued">
+                </NumberSizeableText>
+                <NumberSizeableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  formatter="value"
+                  formatterOptions={{ currency: currencyInfo.symbol }}
+                >
                   {myPositionInfo.formattedValue}
-                </SizableText>
+                </NumberSizeableText>
               </>
             ) : null}
           </YStack>

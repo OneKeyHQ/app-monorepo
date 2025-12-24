@@ -45,7 +45,6 @@ import {
   useFirmwareUpdatesDetectStatusPersistAtom,
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
-  usePrimePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -454,6 +453,17 @@ function MoreActionOneKeyId() {
     networkId: network?.id,
   });
 
+  const handlePrimeButtonPressed = useCallback(
+    (e: { stopPropagation?: () => void; preventDefault?: () => void }) => {
+      if (e) {
+        e.stopPropagation?.();
+        e.preventDefault?.();
+      }
+      void onPrimeButtonPressed();
+    },
+    [onPrimeButtonPressed],
+  );
+
   return (
     <XStack
       alignItems="center"
@@ -489,7 +499,7 @@ function MoreActionOneKeyId() {
                 borderRadius="$full"
                 borderWidth={StyleSheet.hairlineWidth}
                 borderColor="rgba(22, 67, 30, 0.09)"
-                onPress={onPrimeButtonPressed}
+                onPress={handlePrimeButtonPressed}
               >
                 <Icon name={icon} size="$4" />
                 <SizableText size="$bodyMdMedium">Prime</SizableText>
@@ -970,14 +980,16 @@ function MoreActionDevice() {
       borderColor="$neutral3"
       onPress={handleDevice}
     >
-      <YStack gap="$3">
+      <YStack gap="$3" flexShrink={1}>
         <SizableText
           size="$headingMd"
           color="$text"
           numberOfLines={1}
           ellipsizeMode="middle"
         >
-          {`${intl.formatMessage({ id: ETranslations.global_device })} (3)`}
+          {`${intl.formatMessage({ id: ETranslations.global_device })} (${
+            hwQrWalletList.length
+          })`}
         </SizableText>
         <XStack>
           {hwQrWalletList.map((item) => (
@@ -999,6 +1011,7 @@ function BaseMoreActionContent() {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return (
     <ScrollView
+      showsVerticalScrollIndicator
       overflow="scroll"
       h={462}
       contentContainerStyle={{
@@ -1030,7 +1043,7 @@ export function MoreActionContentPage() {
 function MoreActionContent() {
   return (
     <MoreActionProvider>
-      <YStack>
+      <YStack className="show-scrollbar">
         <MoreActionContentHeader />
         <BaseMoreActionContent />
         <MoreActionDivider />
@@ -1085,14 +1098,19 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const intl = useIntl();
   const [{ isCollapsed }] = useAppSideBarStatusAtom();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
-  const isShowRedDot = useIsShowRedDot();
   const isShowUpgradeDot = useIsShowAppUpdateDot();
   const dot = useMemo(() => {
     if (isShowUpgradeDot) {
-      return <Dot color="$blue8" top={isDesktopMode ? 0 : '$-2'} />;
+      return (
+        <Dot
+          color="$blue8"
+          top={isDesktopMode ? 0 : '$-2'}
+          right={isDesktopMode && isCollapsed ? undefined : '$-2.5'}
+        />
+      );
     }
-    return isShowRedDot ? <Dot color="$bgCriticalStrong" /> : null;
-  }, [isDesktopMode, isShowRedDot, isShowUpgradeDot]);
+    return null;
+  }, [isCollapsed, isDesktopMode, isShowUpgradeDot]);
 
   const handleMoreActionPage = useCallback(() => {
     rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
@@ -1104,7 +1122,7 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   }, []);
   return isDesktopMode ? (
     <XStack userSelect="none" py="$1.5">
-      <XStack gap="$0.5">
+      <XStack gap="$0.5" ai="center" position="relative">
         <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
           <Icon name="DotGridOutline" size="$5" />
         </YStack>
@@ -1115,15 +1133,15 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
             cursor="default"
             color="$text"
             textAlign="center"
-            size="$bodyXsMedium"
+            size="$bodyMd"
           >
             {intl.formatMessage({
               id: ETranslations.global_more,
             })}
           </SizableText>
         )}
+        {dot}
       </XStack>
-      {dot}
     </XStack>
   ) : (
     <XStack>

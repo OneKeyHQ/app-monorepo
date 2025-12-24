@@ -30,7 +30,6 @@ export function TokenSelectorPopover({
   currentSelectToken,
 }: ITokenSelectorPopoverProps) {
   const intl = useIntl();
-
   return (
     <Popover
       floatingPanelProps={{
@@ -42,7 +41,7 @@ export function TokenSelectorPopover({
       renderContent={
         <AccountSelectorProviderMirror
           config={{
-            sceneName: EAccountSelectorSceneName.home,
+            sceneName: EAccountSelectorSceneName.swap,
             sceneUrl: '',
           }}
           enabledNum={[0]}
