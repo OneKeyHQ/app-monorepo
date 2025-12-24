@@ -375,18 +375,11 @@ export const useEarnPortfolio = ({
   const earnAccountKey = useMemo(
     () =>
       actions.current.buildEarnAccountsKey({
-        accountId: accountIdValue || undefined,
-        indexAccountId:
-          accountIndexedAccountIdValue || indexedAccountIdValue || undefined,
+        accountId: account?.id,
+        indexAccountId: indexedAccount?.id,
         networkId: allNetworkId,
       }),
-    [
-      actions,
-      accountIdValue,
-      accountIndexedAccountIdValue,
-      indexedAccountIdValue,
-      allNetworkId,
-    ],
+    [actions, account?.id, indexedAccount?.id, allNetworkId],
   );
   const currentOverviewData =
     earnAccountKey && earnAccount ? earnAccount[earnAccountKey] : undefined;
@@ -810,8 +803,9 @@ export const useEarnPortfolio = ({
 
   const debouncedUpdateGlobalState = useMemo(() => {
     const fn = debounce((key: string, fiatValue: string, earnings: string) => {
+      if (key !== earnAccountKey) return;
+
       const latestAccount = actions.current.getEarnAccount(key);
-      if (!latestAccount) return;
 
       // Prevent unnecessary updates if values haven't actually changed
       if (
@@ -830,6 +824,8 @@ export const useEarnPortfolio = ({
       actions.current.updateEarnAccounts({
         key,
         earnAccount: {
+          accounts: [],
+          isOverviewLoaded: true,
           ...latestAccount,
           totalFiatValue: fiatValue,
           earnings24h: earnings,
@@ -842,7 +838,7 @@ export const useEarnPortfolio = ({
       }, 100);
     }, 500);
     return fn;
-  }, [actions]);
+  }, [actions, earnAccountKey]);
 
   useEffect(
     () => () => {
