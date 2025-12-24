@@ -552,7 +552,7 @@ export function CommonTableListView({
             <ListView
               debugRenderTrackerProps={listViewDebugRenderTrackerProps}
               style={{
-                height: 400,
+                flex: 1,
               }}
               data={paginatedData}
               renderItem={({ item, index }) => {
