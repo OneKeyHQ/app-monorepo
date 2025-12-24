@@ -26,7 +26,7 @@ export const SupplyCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { gtMd } = useMedia();
+  const { gtMd, gtLg } = useMedia();
   const [showZeroBalance, setShowZeroBalance] = useState(false);
 
   const handleManageSupply = useCallback(
@@ -162,13 +162,13 @@ export const SupplyCard = () => {
             buttonText={<EarnText text={{ text: 'Supply' }} />}
             item={item}
             onPress={() => handleManageSupply(item)}
-            needAdditionButton
+            needAdditionButton={gtLg}
           />
         ),
         flex: 1,
       },
     ],
-    [handleManageSupply],
+    [handleManageSupply, gtLg],
   );
 
   return (
