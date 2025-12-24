@@ -553,15 +553,15 @@ function MoreActionOneKeyId() {
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const navigation = useAppNavigation();
-  const showPrimeProfileDialog = useEditPrimeProfileDialog();
+  const showEditPrimeProfileDialog = useEditPrimeProfileDialog();
 
   const handleAvatarPress = useCallback(
     async (e: GestureResponderEvent) => {
       e.stopPropagation();
       await closePopover?.();
-      await showPrimeProfileDialog();
+      await showEditPrimeProfileDialog();
     },
-    [closePopover, showPrimeProfileDialog],
+    [closePopover, showEditPrimeProfileDialog],
   );
 
   const handleNavigateToOneKeyId = useCallback(async () => {
