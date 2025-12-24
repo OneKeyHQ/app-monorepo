@@ -95,7 +95,7 @@ export const isSupportStaking = (symbol: string) =>
     'BTC',
     'SBTC',
     'ETH',
-    'ADA',
+    // 'ADA',
     'SOL',
     'APT',
     'ATOM',

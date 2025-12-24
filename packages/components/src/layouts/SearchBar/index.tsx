@@ -57,21 +57,20 @@ export function SearchBar({
   const onChangeTextCallback = useCallback(
     (text: string) => {
       onChangeText?.(text);
-      // This is a simple solution to support pinyin composition on iOS.
       if (platformEnv.isNative) {
         onSearchTextChange?.(text.replaceAll(NATIVE_COMPOSITION_SPACE, ''));
       } else {
-        // on Web
         if (compositionLockRef.current) {
-          // During composition, skip search callback to avoid multiple triggers
-          // The final value will be handled in compositionEnd
+          if (controlledValue !== undefined && !onChangeText) {
+            onSearchTextChange?.(text);
+          }
           return;
         }
         searchTextRef.current = text;
         onSearchTextChange?.(text);
       }
     },
-    [onChangeText, onSearchTextChange],
+    [onChangeText, onSearchTextChange, controlledValue],
   );
   const onChangeTextDebounced = useDebouncedCallback(
     onChangeTextCallback,
@@ -88,7 +87,6 @@ export function SearchBar({
       if (controlledValue === undefined) {
         setInternalValue(text);
         if (!text) {
-          // onChangeTextCallback('');
           onChangeTextDebounced('');
         } else {
           onChangeTextDebounced(text);
@@ -113,12 +111,10 @@ export function SearchBar({
       compositionLockRef.current = false;
       const target = e.target as HTMLInputElement;
       const finalValue = target?.value || '';
-      // Update ref to maintain state consistency
       searchTextRef.current = finalValue;
       onSearchTextChange?.(finalValue);
-      onChangeText?.(finalValue);
     },
-    [onSearchTextChange, onChangeText],
+    [onSearchTextChange],
   );
   const intl = useIntl();
   return (
