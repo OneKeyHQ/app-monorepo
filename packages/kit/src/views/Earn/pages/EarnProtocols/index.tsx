@@ -148,9 +148,9 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   networkId={item.network.networkId}
                 />
               </Stack>
-              <YStack mr="$2">
-                <XStack ai="center" gap="$2">
-                  <SizableText size="$bodyLgMedium">
+              <YStack mr="$2" flex={1} minWidth={0}>
+                <XStack ai="center" gap="$2" minWidth={0}>
+                  <SizableText size="$bodyLgMedium" flexShrink={0}>
                     {normalizeToEarnProvider(item.provider.name)}
                   </SizableText>
                   {item.provider.badges?.map((badge) => (
@@ -159,6 +159,8 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                       key={badge.tag}
                       badgeType={badge.badgeType}
                       badgeSize="sm"
+                      flexShrink={1}
+                      minWidth={0}
                     >
                       <Badge.Text>{badge.tag}</Badge.Text>
                     </Badge>
