@@ -18,6 +18,7 @@ import {
   useOrientation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import * ExpoDevice from 'expo-device';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
@@ -379,8 +380,8 @@ function MobileBrowser() {
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
 
   const isShowContent = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
-      return !isDualScreen;
+    if (ExpoDevice.deviceType !== ExpoDevice.DeviceType.TABLET && !isDualScreen) {
+      return true;
     }
     if (isTabletMainView && isLandscape) {
       return true;
