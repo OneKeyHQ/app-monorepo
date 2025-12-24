@@ -134,6 +134,7 @@ function MoreActionContentHeader({
   const intl = useIntl();
   const media = useMedia();
   const onLock = useOnLock();
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
 
   const handleLock = useCallback(async () => {
     await onLock();
@@ -269,7 +270,7 @@ function MoreActionContentHeader({
       pb="$2"
       ai="center"
       jc="space-between"
-      bg="$bgApp"
+      bg={isDesktopMode ? '$bg' : '$bgApp'}
       zIndex={10}
       borderTopLeftRadius="$3"
       borderTopRightRadius="$3"
@@ -303,6 +304,7 @@ function MoreActionContentFooter() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
   const version = useMemo(() => {
     return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
   }, []);
@@ -329,9 +331,11 @@ function MoreActionContentFooter() {
     <XStack
       px="$1"
       pb="$1"
-      bg="$bgApp"
+      bg={isDesktopMode ? '$bg' : '$bgApp'}
       borderBottomLeftRadius="$3"
       borderBottomRightRadius="$3"
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor={isDesktopMode ? '$neutral3' : '$borderSubdued'}
       $platform-web={{
         position: 'sticky',
         bottom: 0,
@@ -341,6 +345,7 @@ function MoreActionContentFooter() {
         flex={1}
         px="$4"
         py="$2"
+        mt="$1"
         jc="space-between"
         onPress={handleAbout}
         borderRadius="$2"
@@ -596,6 +601,7 @@ function MoreActionOneKeyId() {
         py="$4"
         px="$4"
         mx="$1"
+        mt="$1"
         userSelect="none"
         justifyContent="space-between"
         onPress={handlePress}
@@ -644,6 +650,7 @@ function MoreActionOneKeyId() {
       py="$4"
       px="$4"
       mx="$1"
+      mt="$1"
       gap="$6"
       userSelect="none"
       justifyContent="space-between"
@@ -662,13 +669,15 @@ function MoreActionOneKeyId() {
         </Stack>
 
         <YStack flex={1} gap="$1">
-          <XStack alignItems="center" gap="$2">
+          <XStack alignItems="center" gap="$2" flex={1}>
             <SizableText
               size="$headingLg"
               color="$text"
               numberOfLines={1}
               ellipsizeMode="tail"
               userSelect="none"
+              flex={1}
+              flexShrink={1}
             >
               {displayName}
             </SizableText>
@@ -683,6 +692,7 @@ function MoreActionOneKeyId() {
                 borderRadius="$full"
                 borderWidth={StyleSheet.hairlineWidth}
                 borderColor="$brand4"
+                flexShrink={0}
                 onPress={handlePrimeButtonPressed}
               >
                 <Icon name={icon} size="$4" />
@@ -1265,7 +1275,6 @@ function BaseMoreActionContent() {
         <MoreActionDivider />
         <MoreActionMoreGrid />
       </ScrollView>
-      <MoreActionDivider />
       <MoreActionContentFooter />
     </YStack>
   );
@@ -1298,7 +1307,6 @@ function MoreActionContent() {
         <MoreActionDivider />
         <MoreActionMoreGrid />
         <YStack flex={1} />
-        <MoreActionDivider />
         <MoreActionContentFooter />
       </YStack>
     </MoreActionProvider>

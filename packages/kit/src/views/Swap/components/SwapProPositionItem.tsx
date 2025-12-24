@@ -29,8 +29,6 @@ const SwapProPositionItem = ({
 }: ISwapProPositionItemProps) => {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const formatBalance = token.balanceParsed;
-  const formatFiatValue = token.fiatValue;
 
   const tokenNetworkImageUri = useMemo(() => {
     if (token.networkLogoURI) {
@@ -65,7 +63,7 @@ const SwapProPositionItem = ({
         </SizableText>
         <XStack>
           <NumberSizeableText size="$bodyMdMedium" formatter="balance">
-            {formatBalance}
+            {token.balanceParsed}
           </NumberSizeableText>
           <SizableText size="$bodyMdMedium">(</SizableText>
           <NumberSizeableText
@@ -73,7 +71,7 @@ const SwapProPositionItem = ({
             formatter="value"
             formatterOptions={{ currency: currencyInfo.symbol }}
           >
-            {formatFiatValue}
+            {token.fiatValue}
           </NumberSizeableText>
           <SizableText size="$bodyMdMedium">)</SizableText>
         </XStack>
