@@ -4,9 +4,7 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, usePageType } from '../../hocs';
 import { useIsDesktopModeUIInTabPages } from '../../hooks';
 import { Stack } from '../../primitives';
 
@@ -18,32 +16,19 @@ const useMaxHeight = () => {
   return windowHeight - headerHeight;
 };
 
-const useHeightStyle = platformEnv.isNative
-  ? () => {
-      const { md } = useMedia();
-      const maxHeight = useMaxHeight();
-      if (md) {
-        return {
-          maxHeight,
-        };
-      }
-      return {
-        maxHeight: '100%',
-      };
-    }
-  : () => {
-      const { md } = useMedia();
-      const maxHeight = useMaxHeight();
-      if (md) {
-        return {
-          height: maxHeight,
-          maxHeight: '100%',
-        };
-      }
-      return {
-        maxHeight: '100%',
-      };
+const useHeightStyle = () => {
+  const { md } = useMedia();
+  const maxHeight = useMaxHeight();
+  if (md) {
+    return {
+      height: maxHeight,
+      maxHeight: '100%',
     };
+  }
+  return {
+    maxHeight: '100%',
+  };
+};
 
 export function BasicPage({ children }: IBasicPageProps) {
   // fix scrolling issues on md Web
