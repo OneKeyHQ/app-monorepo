@@ -12,6 +12,7 @@ import { useCurrency } from '../../../components/Currency';
 interface ISwapProBuySellInfoProps {
   tokenDetailInfo?: IMarketTokenDetail;
   timeRange: ESwapProTimeRange;
+  isNative?: boolean;
 }
 
 const getCountByTimeRange = (
@@ -27,6 +28,7 @@ const getCountByTimeRange = (
 const SwapProBuySellInfo = ({
   tokenDetailInfo,
   timeRange,
+  isNative,
 }: ISwapProBuySellInfoProps) => {
   const currencyInfo = useCurrency();
   const buyVolume = useMemo(() => {
@@ -135,7 +137,7 @@ const SwapProBuySellInfo = ({
             ml="$0.5"
             fontFamily="$monoRegular"
           >
-            {buyPercentage.toFixed(2)}%
+            {isNative ? '--' : buyPercentage.toFixed(2)}%
           </SizableText>
         </XStack>
         <XStack
@@ -151,7 +153,7 @@ const SwapProBuySellInfo = ({
             mr="$0.5"
             fontFamily="$monoRegular"
           >
-            {sellPercentage.toFixed(2)}%
+            {isNative ? '--' : sellPercentage.toFixed(2)}%
           </SizableText>
           <Stack
             w="$4.5"
@@ -174,14 +176,14 @@ const SwapProBuySellInfo = ({
           color="$textSuccess"
           fontFamily="$monoRegular"
         >
-          {buyVolume.formattedValue}
+          {isNative ? '--' : buyVolume.formattedValue}
         </SizableText>
         <SizableText
           size="$bodySm"
           color="$textCritical"
           fontFamily="$monoRegular"
         >
-          {sellVolume.formattedValue}
+          {isNative ? '--' : sellVolume.formattedValue}
         </SizableText>
       </XStack>
     </YStack>

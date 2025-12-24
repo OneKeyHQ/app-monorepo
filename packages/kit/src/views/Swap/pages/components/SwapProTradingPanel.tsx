@@ -30,7 +30,6 @@ import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
 
 interface ISwapProTradingPanelProps {
   swapProConfig: ISwapProSpeedConfig;
-  limitPriceUseMarketPrice: { value: string; change: boolean };
   balanceLoading: boolean;
   configLoading: boolean;
   isMev: boolean;
@@ -40,6 +39,7 @@ interface ISwapProTradingPanelProps {
   cleanInputAmount: () => void;
   onBalanceMax: () => void;
   onSelectPercentageStage: (stage: number) => void;
+  limitPriceUseMarketPrice: { value: string; change: boolean };
 }
 
 const SwapProTradingPanel = ({
@@ -123,7 +123,6 @@ const SwapProTradingPanel = ({
         />
       </YStack>
       <YStack>
-        {/* <SwapProToTotalValue /> */}
         <SwapProTradeInfoGroup
           balanceLoading={balanceLoading}
           onBalanceMax={onBalanceMax}

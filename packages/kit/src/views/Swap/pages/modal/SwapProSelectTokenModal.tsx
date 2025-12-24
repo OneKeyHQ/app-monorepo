@@ -99,7 +99,6 @@ const SwapProSelectTokenPage = ({
               id: ETranslations.token_selector_search_placeholder,
             })}
             zIndex={20}
-            selectTextOnFocus
             value={searchValue}
             onSearchTextChange={setSearchValue}
           />

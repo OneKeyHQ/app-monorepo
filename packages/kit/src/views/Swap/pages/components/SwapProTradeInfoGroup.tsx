@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import {
   useSwapLimitPriceUseRateAtom,
+  useSwapProDirectionAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSpeedQuoteFetchingAtom,
@@ -15,6 +16,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
+import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import {
   useSwapProInputToken,
@@ -41,10 +43,32 @@ const SwapProTradeInfoGroup = ({
   const [swapCurrentQuoteResult] = useSwapQuoteCurrentSelectAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const limitPriceValue = useMemo(() => {
-    const displayLimitRate = new BigNumber(swapLimitPriceUseRate.rate || 0);
+    const swapLimitPriceUseRateBN = new BigNumber(
+      swapLimitPriceUseRate.rate || 0,
+    );
+    if (swapLimitPriceUseRateBN.isZero() || swapLimitPriceUseRateBN.isNaN()) {
+      return {
+        fromValue: '-',
+        toValue: '-',
+        toSymbol: '-',
+      };
+    }
+    const displayLimitRate =
+      swapProDirection === ESwapDirection.BUY
+        ? new BigNumber(1).dividedBy(swapLimitPriceUseRateBN)
+        : swapLimitPriceUseRateBN;
+    const fromSymbol =
+      swapProDirection === ESwapDirection.BUY
+        ? toToken?.symbol
+        : inputToken?.symbol;
+    const toSymbol =
+      swapProDirection === ESwapDirection.BUY
+        ? inputToken?.symbol
+        : toToken?.symbol;
     if (displayLimitRate.isZero() || displayLimitRate.isNaN()) {
       return {
         fromValue: '-',
@@ -52,10 +76,16 @@ const SwapProTradeInfoGroup = ({
       };
     }
     return {
-      fromValue: `1 ${inputToken?.symbol ?? '-'} = `,
+      fromValue: `1 ${fromSymbol ?? '-'} = `,
       toValue: displayLimitRate.toFixed(),
+      toSymbol: toSymbol ?? '-',
     };
-  }, [swapLimitPriceUseRate.rate, inputToken?.symbol]);
+  }, [
+    swapLimitPriceUseRate.rate,
+    swapProDirection,
+    toToken?.symbol,
+    inputToken?.symbol,
+  ]);
   const balanceValue = useMemo(() => {
     const balanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
     if (balanceBN.isZero() || balanceBN.isNaN()) {
@@ -141,7 +171,9 @@ const SwapProTradeInfoGroup = ({
                 numberOfLines={1}
                 textAlign="right"
                 formatter="balance"
-                formatterOptions={{ tokenSymbol: toToken?.symbol ?? '-' }}
+                formatterOptions={{
+                  tokenSymbol: limitPriceValue.toSymbol,
+                }}
                 maxWidth="$36"
               >
                 {limitPriceValue.toValue}
