@@ -502,7 +502,10 @@ function MobileBrowser() {
           onLayout={handleTabPageLayout}
         >
           <Stack position="absolute" top={top} px="$5">
-            <LegacyUniversalSearchInput size="medium" initialTab={searchInitialTab} />
+            <LegacyUniversalSearchInput
+              size="medium"
+              initialTab={searchInitialTab}
+            />
           </Stack>
           <TabPageHeader
             sceneName={EAccountSelectorSceneName.home}
