@@ -566,6 +566,11 @@ function MoreActionOneKeyId() {
     networkId: network?.id,
   });
 
+  const handlePrimeButtonPressed = useCallback(async () => {
+    await closePopover?.();
+    await onPrimeButtonPressed();
+  }, [closePopover, onPrimeButtonPressed]);
+
   if (!isLoggedIn) {
     return (
       <XStack
@@ -644,7 +649,7 @@ function MoreActionOneKeyId() {
                 borderRadius="$full"
                 borderWidth={StyleSheet.hairlineWidth}
                 borderColor="$brand4"
-                onPress={onPrimeButtonPressed}
+                onPress={handlePrimeButtonPressed}
               >
                 <Icon name={icon} size="$4" />
                 <SizableText size="$bodyMdMedium" color="$brand12">
