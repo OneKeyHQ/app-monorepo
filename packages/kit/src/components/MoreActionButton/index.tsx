@@ -587,6 +587,8 @@ function MoreActionOneKeyId() {
     await onPrimeButtonPressed();
   }, [closePopover, onPrimeButtonPressed]);
 
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+
   if (!isLoggedIn) {
     return (
       <XStack
@@ -670,7 +672,7 @@ function MoreActionOneKeyId() {
             >
               {displayName}
             </SizableText>
-            {isPrimeAvailable ? (
+            {isPrimeUser ? (
               <XStack
                 ai="center"
                 jc="center"
@@ -1016,21 +1018,29 @@ const MoreActionWalletGrid = () => {
 
   const items = useMemo(() => {
     return [
-      {
-        title: intl.formatMessage({ id: ETranslations.global_backup }),
-        icon: 'CloudUploadOutline' as const,
-        onPress: handleBackup,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.settings_address_book }),
-        icon: 'ContactsOutline' as const,
-        onPress: handleAddressBook,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_network }),
-        icon: 'GlobusOutline' as const,
-        onPress: handleNetwork,
-      },
+      platformEnv.isWeb
+        ? undefined
+        : {
+            title: intl.formatMessage({ id: ETranslations.global_backup }),
+            icon: 'CloudUploadOutline' as const,
+            onPress: handleBackup,
+          },
+      platformEnv.isWeb
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.settings_address_book,
+            }),
+            icon: 'ContactsOutline' as const,
+            onPress: handleAddressBook,
+          },
+      platformEnv.isWeb
+        ? undefined
+        : {
+            title: intl.formatMessage({ id: ETranslations.global_network }),
+            icon: 'GlobusOutline' as const,
+            onPress: handleNetwork,
+          },
       {
         title: intl.formatMessage({ id: ETranslations.global_preferences }),
         icon: 'SliderThreeOutline' as const,
@@ -1041,24 +1051,26 @@ const MoreActionWalletGrid = () => {
         icon: 'Shield2CheckOutline' as const,
         onPress: handleSecurity,
       },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_bulk_copy_addresses,
-        }),
-        icon: 'Copy3Outline' as const,
-        onPress: () => {
-          if (!isPrimeUser) {
-            defaultLogger.prime.subscription.primeEntryClick({
-              featureName: EPrimeFeatures.BulkCopyAddresses,
-              entryPoint: 'moreActions',
-            });
-          }
-          void openBulkCopyAddressesModal();
-        },
-        trackID: 'bulk-copy-addresses-in-more-action',
-        isPrimeFeature: true,
-      },
-    ];
+      platformEnv.isWeb
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.global_bulk_copy_addresses,
+            }),
+            icon: 'Copy3Outline' as const,
+            onPress: () => {
+              if (!isPrimeUser) {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.BulkCopyAddresses,
+                  entryPoint: 'moreActions',
+                });
+              }
+              void openBulkCopyAddressesModal();
+            },
+            trackID: 'bulk-copy-addresses-in-more-action',
+            isPrimeFeature: true,
+          },
+    ].filter(Boolean);
   }, [
     handleAddressBook,
     handleBackup,

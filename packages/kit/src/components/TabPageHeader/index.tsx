@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Page, XStack, useMedia, useTheme } from '@onekeyhq/components';
+import { Page, XStack, YStack, useMedia, useTheme } from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -9,10 +9,11 @@ import { useAccountSelectorContextData } from '../../states/jotai/contexts/accou
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
+import { WalletConnectionForWeb } from './components';
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
-import { HeaderRight } from './HeaderRight';
+import { DepositAction, HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
@@ -81,10 +82,26 @@ export function TabPageHeader({
     [],
   );
 
-  const renderNotificationRightButton = useCallback(
-    () => <HeaderNotificationIconButton testID="header-right-notification" />,
-    [],
-  );
+  const renderDesktopModeRightButtons = useCallback(() => {
+    if (tabRoute === ETabRoutes.Perp && customHeaderRightItems) {
+      return (
+        <>
+          {customHeaderRightItems}
+          <YStack pl="$5">
+            <HeaderNotificationIconButton testID="header-right-notification" />
+          </YStack>
+        </>
+      );
+    }
+    return (
+      <>
+        {tabRoute === ETabRoutes.WebviewPerpTrade ? (
+          <WalletConnectionForWeb tabRoute={tabRoute} />
+        ) : null}
+        <HeaderNotificationIconButton testID="header-right-notification" />
+      </>
+    );
+  }, [customHeaderRightItems, tabRoute]);
 
   if (platformEnv.isWeb) {
     if (gtMd) {
@@ -120,7 +137,7 @@ export function TabPageHeader({
           headerTitleAlign="center"
           headerStyle={{ backgroundColor: theme.bgSubdued.val }}
           headerTitle={renderUniversalSearchInput}
-          headerRight={renderNotificationRightButton}
+          headerRight={renderDesktopModeRightButtons}
         />
         {tabRoute === ETabRoutes.Home ? (
           <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
