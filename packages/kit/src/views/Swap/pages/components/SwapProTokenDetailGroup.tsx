@@ -87,15 +87,13 @@ const SwapProTokenDetailGroup = () => {
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
       />
-      {!swapProSelectToken?.isNative ? (
-        <SwapCommonInfoItem
-          title={intl.formatMessage({ id: ETranslations.dexmarket_holders })}
-          value={holders}
-          titleProps={ITEM_TITLE_PROPS}
-          valueProps={ITEM_VALUE_PROPS}
-          containerProps={ITEM_CONTAINER_PROPS}
-        />
-      ) : null}
+      <SwapCommonInfoItem
+        title={intl.formatMessage({ id: ETranslations.dexmarket_holders })}
+        value={swapProSelectToken?.isNative ? '-' : holders}
+        titleProps={ITEM_TITLE_PROPS}
+        valueProps={ITEM_VALUE_PROPS}
+        containerProps={ITEM_CONTAINER_PROPS}
+      />
     </YStack>
   );
 };

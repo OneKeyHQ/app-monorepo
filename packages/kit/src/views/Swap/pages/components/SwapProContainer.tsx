@@ -104,6 +104,25 @@ const SwapProContainer = ({
     setSwapProSliderValue(0);
   }, [setSwapProInputAmount, setFromInputAmount, setSwapProSliderValue]);
 
+  const onSearchClickCallback = useCallback(() => {
+    onProSelectToken(true);
+    scrollViewRef.current?.scrollTo({
+      y: 0,
+      animated: false,
+    });
+  }, [onProSelectToken]);
+
+  const onTokenPressCallback = useCallback(
+    (token: ISwapToken) => {
+      onTokenPress(token);
+      scrollViewRef.current?.scrollTo({
+        y: 0,
+        animated: true,
+      });
+    },
+    [onTokenPress],
+  );
+
   const netAccountAddress = netAccountRes.result?.addressDetail.address;
   useEffect(() => {
     cleanInputAmount();
@@ -210,21 +229,9 @@ const SwapProContainer = ({
       />
       {shouldRenderHeavyComponents ? (
         <SwapProTabListContainer
-          onTokenPress={(token: ISwapToken) => {
-            onTokenPress(token);
-            scrollViewRef.current?.scrollTo({
-              y: 0,
-              animated: true,
-            });
-          }}
+          onTokenPress={onTokenPressCallback}
           onOpenOrdersClick={onOpenOrdersClick}
-          onSearchClick={() => {
-            onProSelectToken(true);
-            scrollViewRef.current?.scrollTo({
-              y: 0,
-              animated: false,
-            });
-          }}
+          onSearchClick={onSearchClickCallback}
         />
       ) : null}
     </ScrollView>

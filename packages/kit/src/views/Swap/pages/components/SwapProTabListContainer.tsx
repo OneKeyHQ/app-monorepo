@@ -19,6 +19,7 @@ import {
 import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 
 import LimitOrderList from './LimitOrderList';
+import SwapMarketHistoryList from './SwapMarketHistoryList';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
 
@@ -112,11 +113,27 @@ const SwapProTabListContainer = memo(
             flex={1}
           >
             <SwapProCurrentSymbolEnable />
-            <LimitOrderList
-              onClickCell={onOpenOrdersClick}
-              type="open"
-              filterToken={swapCurrentSymbolEnable ? filterToken : undefined}
-            />
+            {focusSwapPro ? (
+              <LimitOrderList
+                onClickCell={onOpenOrdersClick}
+                type="open"
+                filterToken={swapCurrentSymbolEnable ? filterToken : undefined}
+              />
+            ) : (
+              <XStack mx="$-6">
+                <SwapMarketHistoryList
+                  showType={
+                    swapTypeSwitch === ESwapTabSwitchType.SWAP
+                      ? 'swap'
+                      : 'bridge'
+                  }
+                  filterToken={
+                    swapCurrentSymbolEnable ? filterToken : undefined
+                  }
+                  isPushModal
+                />
+              </XStack>
+            )}
           </YStack>
         </YStack>
       </YStack>
