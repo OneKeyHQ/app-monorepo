@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Divider,
+  IconButton,
   NumberSizeableText,
   Progress,
   SizableText,
@@ -142,19 +143,40 @@ const LimitOrderCard = ({
       item?.toTokenInfo?.decimals,
     ],
   );
+
+  const [limitPriceReverse, setLimitPriceReverse] = useState(false);
   const limitPrice = useMemo(() => {
     const fromAmountNum = decimalsAmount.fromAmount;
     const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum
-      .div(fromAmountNum)
-      .decimalPlaces(
-        fromTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
+    const calculateLimitPrice = limitPriceReverse
+      ? fromAmountNum
+          .div(toAmountNum)
+          .decimalPlaces(
+            toTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+            BigNumber.ROUND_HALF_UP,
+          )
+          .toFixed()
+      : toAmountNum
+          .div(fromAmountNum)
+          .decimalPlaces(
+            fromTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+            BigNumber.ROUND_HALF_UP,
+          )
+          .toFixed();
     const limitPriceFormat = formatBalance(calculateLimitPrice);
     return limitPriceFormat.formattedValue;
-  }, [decimalsAmount, fromTokenInfo?.decimals]);
+  }, [
+    decimalsAmount.fromAmount,
+    decimalsAmount.toAmount,
+    fromTokenInfo?.decimals,
+    limitPriceReverse,
+    toTokenInfo?.decimals,
+  ]);
+
+  const onReverseLimitPrice = useCallback(() => {
+    setLimitPriceReverse((pre) => !pre);
+  }, []);
+
   const renderAmount = useCallback(() => {
     const fromAmountFormatted = formatBalance(
       decimalsAmount.fromAmount.toFixed(),
@@ -186,17 +208,39 @@ const LimitOrderCard = ({
   const renderLimitOrderPrice = useCallback(
     () => (
       <YStack gap="$1.5" width={gtMd ? 200 : 240} justifyContent="flex-start">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.Limit_limit_price })}
-        </SizableText>
+        <XStack gap="$3" alignItems="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.Limit_limit_price })}
+          </SizableText>
+          <IconButton
+            icon="RepeatOutline"
+            variant="tertiary"
+            iconSize="$3.5"
+            onPress={onReverseLimitPrice}
+          />
+        </XStack>
         <SizableText size="$bodySm">
-          {`1 ${item?.fromTokenInfo?.symbol ?? '-'} = ${limitPrice ?? '-'} ${
-            item?.toTokenInfo?.symbol ?? '-'
+          {`1 ${
+            limitPriceReverse
+              ? item?.toTokenInfo?.symbol ?? '-'
+              : item?.fromTokenInfo?.symbol ?? '-'
+          } = ${limitPrice ?? '-'} ${
+            limitPriceReverse
+              ? item?.fromTokenInfo?.symbol ?? '-'
+              : item?.toTokenInfo?.symbol ?? '-'
           }`}
         </SizableText>
       </YStack>
     ),
-    [item, limitPrice, intl, gtMd],
+    [
+      gtMd,
+      intl,
+      onReverseLimitPrice,
+      limitPriceReverse,
+      item?.toTokenInfo?.symbol,
+      item?.fromTokenInfo?.symbol,
+      limitPrice,
+    ],
   );
   const renderLimitOrderStatus = useCallback(() => {
     const { status, executedSellAmount, executedBuyAmount, kind } = item ?? {};

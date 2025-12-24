@@ -691,7 +691,7 @@ export const {
 } = contextAtom<boolean>(false);
 
 const DEFAULT_TIME_RANGE = ESwapProTimeRange.TWENTY_FOUR_HOURS;
-const defaultTimeRangeItem =
+export const defaultTimeRangeItem =
   swapProTimeRangeItems.find((item) => item.value === DEFAULT_TIME_RANGE) ??
   swapProTimeRangeItems[swapProTimeRangeItems.length - 1];
 
