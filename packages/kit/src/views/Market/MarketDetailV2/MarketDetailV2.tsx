@@ -33,8 +33,19 @@ import { MobileLayout } from './layouts/MobileLayout';
 
 function MarketDetail({
   route,
-}: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
-  const { tokenAddress, network, isNative, disableTrade } = route.params;
+}: IPageScreenProps<
+  ITabMarketParamList,
+  ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
+>) {
+  const params = route.params as
+    | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
+    | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
+
+  const network = params.network;
+  const isNative = params.isNative;
+  const disableTrade = params.disableTrade;
+  // For MarketNativeDetail route, tokenAddress is undefined, use empty string
+  const tokenAddress = 'tokenAddress' in params ? params.tokenAddress : '';
 
   // Convert shortcode back to full networkId if needed
   // network is a shortcode like 'bsc', convert it to 'evm--56'
@@ -72,7 +83,10 @@ function MarketDetail({
 }
 
 function MarketDetailV2(
-  props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
+  props: IPageScreenProps<
+    ITabMarketParamList,
+    ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
+  >,
 ) {
   const isLandscape = useOrientation();
   const isTablet = useIsNativeTablet();
