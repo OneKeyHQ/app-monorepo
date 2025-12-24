@@ -84,7 +84,11 @@ function SupportHub() {
         <RichBlock
           blockContainerProps={{
             flex: 1,
-            flexBasis: 0,
+          }}
+          $gtMd={{
+            blockContainerProps: {
+              flexBasis: 0,
+            },
           }}
           content={
             <YStack
@@ -133,7 +137,12 @@ function SupportHub() {
             outlineColor: '$neutral2',
           }}
         />
-        <Stack flexDirection="column" gap="$3" flex={1} flexBasis={0}>
+        <Stack
+          flexDirection="column"
+          gap="$3"
+          flex={1}
+          $gtMd={{ flexBasis: 0 }}
+        >
           <RichBlock
             blockContainerProps={{
               flex: 1,
