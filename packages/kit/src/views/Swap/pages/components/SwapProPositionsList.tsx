@@ -1,28 +1,12 @@
-import { useCallback, useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
-import {
-  Divider,
-  Empty,
-  ListView,
-  Skeleton,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Divider, Empty, Skeleton, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapProEnableCurrentSymbolAtom,
   useSwapProSupportNetworksTokenListLoadingAtom,
-  useSwapSelectToTokenAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  ESwapTabSwitchType,
-  type ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+import { type ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
 import SwapProPositionListFooter from '../../components/SwapProPositionListFooter';
@@ -41,12 +25,7 @@ const SwapProPositionsList = ({
   const { finallyTokenList } = useSwapProPositionsListFilter();
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const focusSwapPro = useMemo(() => {
-    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
-  }, [swapTypeSwitch]);
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
-  const [swapToToken] = useSwapSelectToTokenAtom();
 
   if (swapProSupportNetworksTokenListLoading) {
     return (
@@ -70,13 +49,6 @@ const SwapProPositionsList = ({
               key={item.contractAddress}
               token={item}
               onPress={onTokenPress}
-              disabled={Boolean(
-                !focusSwapPro &&
-                  equalTokenNoCaseSensitive({
-                    token1: item,
-                    token2: swapToToken,
-                  }),
-              )}
             />
             {index < finallyTokenList.length - 1 ? <Divider /> : null}
           </>
