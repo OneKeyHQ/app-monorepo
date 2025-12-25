@@ -10,14 +10,10 @@ export const useBannerInfo = () => {
   const actions = useEarnActions();
   const [earnData] = useEarnAtom();
 
-  const themeVariant = useThemeVariant();
-
   const refetchBanners = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearEarnHomePageBannerListCache();
     const bannerResult =
-      await backgroundApiProxy.serviceStaking.fetchEarnHomePageBannerList({
-        theme: themeVariant,
-      });
+      await backgroundApiProxy.serviceStaking.fetchEarnHomePageBannerList();
     const transformedBanners =
       bannerResult?.map((i) => ({
         ...i,
@@ -29,7 +25,9 @@ export const useBannerInfo = () => {
       })) || [];
 
     actions.current.updateBanners(transformedBanners);
-  }, [actions, themeVariant]);
+  }, [actions]);
+
+  const themeVariant = useThemeVariant();
 
   useEffect(() => {
     void refetchBanners();

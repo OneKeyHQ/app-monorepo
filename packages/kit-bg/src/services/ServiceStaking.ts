@@ -1480,8 +1480,8 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  fetchEarnHomePageBannerList({ theme }: { theme?: string } = {}) {
-    return this._fetchEarnHomePageBannerList({ theme });
+  fetchEarnHomePageBannerList() {
+    return this._fetchEarnHomePageBannerList();
   }
 
   @backgroundMethod()
@@ -1490,13 +1490,10 @@ class ServiceStaking extends ServiceBase {
   }
 
   _fetchEarnHomePageBannerList = memoizee(
-    async ({ theme }: { theme?: string } = {}) => {
+    async () => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const res = await client.get<{ data: IDiscoveryBanner[] }>(
         '/utility/v1/earn-banner/list',
-        {
-          headers: theme ? { 'X-Onekey-Request-Theme': theme } : {},
-        },
       );
       return res.data.data;
     },
