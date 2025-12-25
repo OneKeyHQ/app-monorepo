@@ -1,6 +1,8 @@
 import { Dialog } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
+import type { IAppleSignInResult } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiAppleAuth';
 import {
+  MAC_DESKTOP_USE_NATIVE_APPLE_SIGNIN,
   OAUTH_CALLBACK_DESKTOP_CHANNEL,
   OAUTH_CALLBACK_DESKTOP_PATH,
   OAUTH_FLOW_TIMEOUT_MS,
@@ -19,10 +21,11 @@ import type { IOAuthPopupOptions, IOAuthPopupResult } from './types';
 /**
  * OAuth popup implementation for Desktop (Electron) platform.
  *
- * Uses localhost HTTP server for OAuth callback (primary method).
- * Opens OAuth URL in system browser and listens for callback via IPC.
+ * Supports two methods:
+ * - Native Apple Sign-In (macOS only): Uses ASAuthorizationController for native UI
+ * - Browser OAuth (default): Opens system browser with localhost callback
  *
- * Flow:
+ * Flow (Browser method):
  * 1. Start localhost HTTP server on system-assigned port
  * 2. Open Supabase OAuth URL in system browser
  * 3. User completes OAuth in browser
@@ -67,11 +70,156 @@ export class OAuthPopup extends OAuthPopupBase {
   }
 
   /**
-   * Open OAuth using localhost HTTP server.
+   * Open OAuth popup.
    *
-   * Opens OAuth URL in system browser and listens for callback via IPC.
+   * Routes to the appropriate sign-in method based on provider and platform:
+   * - Apple on macOS: Uses native Apple Sign-In via DesktopApiAppleAuth (if available)
+   * - Other providers: Uses browser OAuth with localhost callback
    */
   static override async open(
+    options: IOAuthPopupOptions,
+  ): Promise<IOAuthPopupResult> {
+    const { provider, client } = options;
+
+    if (!client) {
+      throw new OneKeyLocalError('Supabase client is required');
+    }
+
+    // Apple Sign-In on macOS: Try native method first (if enabled)
+    if (
+      provider === 'apple' &&
+      platformEnv.isDesktopMac &&
+      MAC_DESKTOP_USE_NATIVE_APPLE_SIGNIN
+    ) {
+      try {
+        // TODO: macOS Native Apple Sign-In requirements:
+        // 1. Build native module: cd apps/desktop/native-modules/apple-auth-macos && npx node-gyp rebuild
+        // 2. Add entitlement to apps/desktop/entitlements.mac.plist and entitlements.mas.plist:
+        //    <key>com.apple.developer.applesignin</key>
+        //    <array><string>Default</string></array>
+        // 3. App must be code signed with proper provisioning profile
+        // 4. Apple Developer account must have "Sign in with Apple" capability enabled
+        // 5. Supabase Apple provider must include the app's bundle ID in "Client IDs"
+
+        return await OAuthPopup.openWithNativeAppleSignIn(options);
+      } catch (error) {
+        // If native Apple Sign-In fails due to module not available, fall back to browser
+        if (OAuthPopup.shouldFallbackToBrowser(error)) {
+          console.warn(
+            'Native Apple Sign-In not available, falling back to browser:',
+            error instanceof Error ? error.message : error,
+          );
+          // Fall through to browser method
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    // Browser OAuth method
+    return OAuthPopup.openWithBrowser(options);
+  }
+
+  // ============ Private Methods - Native Apple Sign-In ============
+
+  /**
+   * Check if error indicates native Apple Sign-In is not available
+   * and we should fall back to browser.
+   */
+  private static shouldFallbackToBrowser(error: unknown): boolean {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      return (
+        message.includes('not available') ||
+        message.includes('not loaded') ||
+        message.includes('native module')
+      );
+    }
+    return false;
+  }
+
+  /**
+   * Open OAuth using native Apple Sign-In (macOS only).
+   *
+   * Uses DesktopApiAppleAuth to perform native Apple Sign-In
+   * with ASAuthorizationController (system UI, no browser).
+   */
+  private static async openWithNativeAppleSignIn(
+    options: IOAuthPopupOptions,
+  ): Promise<IOAuthPopupResult> {
+    const { client, handleSessionPersistence } = options;
+
+    if (!client) {
+      throw new OneKeyLocalError('Supabase client is required');
+    }
+
+    if (!globalThis.desktopApiProxy?.appleAuth) {
+      throw new OneKeyLocalError(
+        'Desktop Apple Auth API is not available. Native module may not be built.',
+      );
+    }
+
+    // Check if native Apple Sign-In is available
+    const appleAuth = globalThis.desktopApiProxy.appleAuth as {
+      isAvailable: () => boolean;
+      signIn: () => Promise<IAppleSignInResult>;
+    };
+
+    const isAvailable = appleAuth.isAvailable();
+    if (!isAvailable) {
+      throw new OneKeyLocalError(
+        'Native Apple Sign-In requires macOS 10.15 or later and the native module to be built.',
+      );
+    }
+
+    // Perform native Apple Sign-In
+    const result: IAppleSignInResult = await appleAuth.signIn();
+
+    if (!result.identityToken) {
+      throw new OneKeyLocalError(
+        'No identity token received from Apple Sign-In',
+      );
+    }
+
+    // Exchange Apple ID token for Supabase session
+    // The raw nonce is passed to Supabase to validate against the hashed nonce in the ID token
+    const { data, error } = await client.auth.signInWithIdToken({
+      provider: 'apple',
+      token: result.identityToken,
+      nonce: result.rawNonce,
+    });
+
+    if (error) {
+      throw new OneKeyLocalError(error.message);
+    }
+
+    if (!data.session) {
+      throw new OneKeyLocalError(
+        'Failed to exchange Apple ID token for session',
+      );
+    }
+
+    const accessToken = data.session.access_token;
+    const refreshToken = data.session.refresh_token;
+
+    // Handle session persistence
+    await handleSessionPersistence({
+      accessToken,
+      refreshToken,
+    });
+
+    return {
+      success: true,
+      session: { accessToken, refreshToken },
+    };
+  }
+
+  // ============ Private Methods - Browser OAuth ============
+
+  /**
+   * Open OAuth using localhost HTTP server and system browser.
+   */
+  private static async openWithBrowser(
     options: IOAuthPopupOptions,
   ): Promise<IOAuthPopupResult> {
     const { authUrl, client, handleSessionPersistence } = options;

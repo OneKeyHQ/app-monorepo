@@ -118,6 +118,12 @@ export const EXTENSION_OAUTH_USE_PKCE_FLOW = true;
 // Reference: https://developer.apple.com/documentation/authenticationservices/asauthorizationopenidrequest/nonce
 export const APPLE_SIGNIN_USE_NONCE = true;
 
+// Desktop native Apple Sign-In (macOS only)
+// When enabled, macOS will use native ASAuthorizationController for Apple Sign-In
+// instead of opening the browser. Provides better UX with system UI and Touch ID.
+// Set to false to always use browser OAuth flow.
+export const MAC_DESKTOP_USE_NATIVE_APPLE_SIGNIN = false;
+
 // Email OTP
 export const EMAIL_OTP_COUNTDOWN_SECONDS = 60;
 
