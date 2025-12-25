@@ -139,7 +139,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
         tokenImageUri={getTokenImageUri()}
-        networkImageUri={address ? effectiveNetworkLogoUri : undefined}
+        networkImageUri={effectiveNetworkLogoUri}
         fallbackIcon="CryptoCoinOutline"
         size="md"
       />

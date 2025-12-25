@@ -12,6 +12,7 @@ import {
   useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -56,7 +57,9 @@ export function UniversalSearchInput({
         size="small"
         key="searchInput"
         placeholder={intl.formatMessage({
-          id: ETranslations.global_universal_search_placeholder,
+          id: platformEnv.isWebDappMode
+            ? ETranslations.global_search
+            : ETranslations.global_search_everything,
         })}
         addOns={[
           {
