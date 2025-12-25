@@ -1,3 +1,5 @@
+import { memo, useCallback } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -35,7 +37,7 @@ function convertThemeToken(token: string, defaultValue: string): string {
   return token.startsWith('$') ? token : `$${token}`;
 }
 
-function BannerTokenGroup({ tokenLogos }: { tokenLogos?: string[] }) {
+function BannerTokenGroupComponent({ tokenLogos }: { tokenLogos?: string[] }) {
   if (!tokenLogos?.length) return null;
 
   const visibleTokens = tokenLogos.slice(0, 3);
@@ -75,7 +77,9 @@ function BannerTokenGroup({ tokenLogos }: { tokenLogos?: string[] }) {
   );
 }
 
-export function MarketBannerItem({ item, onPress }: IMarketBannerItemProps) {
+const BannerTokenGroup = memo(BannerTokenGroupComponent);
+
+function MarketBannerItemComponent({ item, onPress }: IMarketBannerItemProps) {
   const { title, description, backgroundColor, tokenLogos } = item;
   const bgColor = convertThemeToken(backgroundColor, '$bgSubdued');
   const descriptionColor = convertThemeToken(
@@ -83,9 +87,9 @@ export function MarketBannerItem({ item, onPress }: IMarketBannerItemProps) {
     '$textSubdued',
   );
 
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
     onPress?.(item);
-  };
+  }, [onPress, item]);
 
   return (
     <Stack
@@ -132,3 +136,5 @@ export function MarketBannerItem({ item, onPress }: IMarketBannerItemProps) {
     </Stack>
   );
 }
+
+export const MarketBannerItem = memo(MarketBannerItemComponent);

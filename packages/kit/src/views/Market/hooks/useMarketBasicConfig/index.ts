@@ -47,6 +47,7 @@ export function useMarketBasicConfig() {
     [],
     {
       watchLoading: true,
+      revalidateOnReconnect: true,
     },
   );
 
