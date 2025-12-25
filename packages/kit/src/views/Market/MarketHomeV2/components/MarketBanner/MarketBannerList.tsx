@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { ScrollView, XStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -6,7 +8,7 @@ import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
 import { useToMarketBannerDetail } from './useToMarketBannerDetail';
 
-function MarketBannerListSkeleton({
+function MarketBannerListSkeletonComponent({
   isSmallScreen,
 }: {
   isSmallScreen: boolean;
@@ -38,7 +40,9 @@ function MarketBannerListSkeleton({
   );
 }
 
-export function MarketBannerList() {
+const MarketBannerListSkeleton = memo(MarketBannerListSkeletonComponent);
+
+function MarketBannerListComponent() {
   const toMarketBannerDetail = useToMarketBannerDetail();
   const { md } = useMedia();
 
@@ -100,3 +104,5 @@ export function MarketBannerList() {
     </XStack>
   );
 }
+
+export const MarketBannerList = memo(MarketBannerListComponent);
