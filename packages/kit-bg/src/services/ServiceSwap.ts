@@ -2199,6 +2199,18 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSpeedSwapConfig(params: { networkId: string }) {
+    const defaultConfig = {
+      provider: '',
+      speedConfig: {
+        slippage: 0.5,
+        spenderAddress: '',
+        defaultTokens: [],
+        defaultLimitTokens: [],
+        swapMevNetConfig: mevSwapNetworks,
+      },
+      supportSpeedSwap: false,
+      speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
+    };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const res = await client.get<{ data: ISpeedSwapConfig }>(
@@ -2207,21 +2219,10 @@ export default class ServiceSwap extends ServiceBase {
           params: { networkId: params.networkId },
         },
       );
-      return res.data.data;
+      return res?.data?.data || defaultConfig;
     } catch (error) {
       console.error(error);
-      return {
-        provider: '',
-        speedConfig: {
-          slippage: 0.5,
-          spenderAddress: '',
-          defaultTokens: [],
-          defaultLimitTokens: [],
-          swapMevNetConfig: mevSwapNetworks,
-        },
-        supportSpeedSwap: false,
-        speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
-      };
+      return defaultConfig;
     }
   }
 
