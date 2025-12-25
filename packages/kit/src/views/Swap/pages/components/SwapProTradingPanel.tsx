@@ -128,7 +128,9 @@ const SwapProTradingPanel = ({
           onBalanceMax={onBalanceMax}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
-        <SwapProSlippageSetting isMEV={isMev} />
+        {swapProTradeType === ESwapProTradeType.MARKET ? (
+          <SwapProSlippageSetting isMEV={isMev} />
+        ) : null}
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>
             <LimitExpirySelect

@@ -28,6 +28,7 @@ import {
   useEarnActions,
   useEarnAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import { useEarnAccountKey } from '@onekeyhq/kit/src/views/Earn/hooks/useEarnAccountKey';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
@@ -148,14 +149,10 @@ function BasicInvestmentDetails() {
   const intl = useIntl();
   const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
   const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
+  const totalFiatMapKey = useEarnAccountKey();
 
   const { result, isLoading } = usePromiseResult(
     async () => {
-      const totalFiatMapKey = actions.current.buildEarnAccountsKey({
-        accountId: accountInfo.activeAccount?.account?.id,
-        indexAccountId: accountInfo.activeAccount?.indexedAccount?.id,
-        networkId: allNetworkId,
-      });
       let list = earnAccount?.[totalFiatMapKey]?.accounts || [];
       if (list.length === 0) {
         const earnAccountOnNetwork =
@@ -203,10 +200,10 @@ function BasicInvestmentDetails() {
     [
       accountInfo.activeAccount?.account?.id,
       accountInfo.activeAccount?.indexedAccount?.id,
-      actions,
       allNetworkId,
       earnAccount,
       evmNetworkId,
+      totalFiatMapKey,
     ],
     {
       watchLoading: true,

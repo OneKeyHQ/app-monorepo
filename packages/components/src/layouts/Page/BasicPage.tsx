@@ -51,7 +51,8 @@ export function BasicPage({ children }: IBasicPageProps) {
   const desktopProps = useMemo(() => {
     return isDesktopLayout && !platformEnv.isWebDappMode
       ? {
-          borderRadius: '$4' as const,
+          borderTopLeftRadius: '$4' as const,
+          borderTopRightRadius: '$4' as const,
           borderWidth: DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
           mr: DESKTOP_MODE_UI_PAGE_MARGIN,
           mb: DESKTOP_MODE_UI_PAGE_MARGIN,

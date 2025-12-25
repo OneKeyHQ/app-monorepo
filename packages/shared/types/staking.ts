@@ -1083,6 +1083,8 @@ export type IStakeProtocolListItem = {
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
     description?: string;
+    vaultName?: string;
+    tvl?: string;
     badges?: Array<{
       badgeType: IBadgeType;
       tag: string;

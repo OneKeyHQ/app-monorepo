@@ -25,7 +25,7 @@ const SwapProLimitPriceValue = ({
   const [settings] = useSettingsPersistAtom();
   const {
     onLimitRateChange,
-    // limitPriceSetReverse,
+    limitPriceSetReverse,
     fromTokenInfo,
     onSetMarketPrice,
     toTokenInfo,
@@ -336,36 +336,36 @@ const SwapProLimitPriceValue = ({
 
   // Handle percent change from slider or percent input
   // This updates the limit price based on the new percent value
-  // const onChangePercent = useCallback(
-  //   (value: number) => {
-  //     // Only need market price to calculate new limit rate
-  //     if (limitPriceMarketPrice.rate) {
-  //       const marketPriceBN = new BigNumber(limitPriceMarketPrice.rate);
-  //       if (marketPriceBN.isZero()) {
-  //         return;
-  //       }
-  //       const rateDifferenceChange = new BigNumber(value).dividedBy(100);
-  //       const newLimitRate = new BigNumber(1)
-  //         .plus(rateDifferenceChange)
-  //         .multipliedBy(marketPriceBN);
-  //       // Format the new rate with appropriate decimals
-  //       const decimals = limitPriceSetReverse
-  //         ? limitPriceMarketPrice.fromToken?.decimals ?? 8
-  //         : limitPriceMarketPrice.toToken?.decimals ?? 8;
-  //       const formattedRate = newLimitRate
-  //         .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
-  //         .toFixed();
-  //       onLimitRateChange(formattedRate);
-  //     }
-  //   },
-  //   [
-  //     onLimitRateChange,
-  //     limitPriceMarketPrice.rate,
-  //     limitPriceSetReverse,
-  //     limitPriceMarketPrice.fromToken?.decimals,
-  //     limitPriceMarketPrice.toToken?.decimals,
-  //   ],
-  // );
+  const onChangePercent = useCallback(
+    (value: number) => {
+      // Only need market price to calculate new limit rate
+      if (limitPriceMarketPrice.rate) {
+        const marketPriceBN = new BigNumber(limitPriceMarketPrice.rate);
+        if (marketPriceBN.isZero()) {
+          return;
+        }
+        const rateDifferenceChange = new BigNumber(value).dividedBy(100);
+        const newLimitRate = new BigNumber(1)
+          .plus(rateDifferenceChange)
+          .multipliedBy(marketPriceBN);
+        // Format the new rate with appropriate decimals
+        const decimals = limitPriceSetReverse
+          ? limitPriceMarketPrice.fromToken?.decimals ?? 8
+          : limitPriceMarketPrice.toToken?.decimals ?? 8;
+        const formattedRate = newLimitRate
+          .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
+          .toFixed();
+        onLimitRateChange(formattedRate);
+      }
+    },
+    [
+      onLimitRateChange,
+      limitPriceMarketPrice.rate,
+      limitPriceSetReverse,
+      limitPriceMarketPrice.fromToken?.decimals,
+      limitPriceMarketPrice.toToken?.decimals,
+    ],
+  );
 
   // Initialize with market price on first render
   useEffect(() => {
@@ -415,6 +415,7 @@ const SwapProLimitPriceValue = ({
         currencySymbol={currencySymbol}
         onChangeText={onTokenPriceInputChange}
         onBlur={onTokenPriceBlur}
+        onSelectPercentageStage={onChangePercent}
       />
       {/* <SwapProLimitPriceSlider
         percentValue={rateDifferenceInfo.value}

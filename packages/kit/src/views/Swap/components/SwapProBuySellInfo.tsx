@@ -2,8 +2,13 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
@@ -38,17 +43,23 @@ const SwapProBuySellInfo = ({
       'vBuy',
       '',
     );
-    const formattedBuyVolume = numberFormat(buyVolumeValue.toString(), {
-      formatter: 'marketCap',
-      formatterOptions: {
-        currency: currencyInfo.symbol,
-      },
-    });
+    const isAboveThreshold = new BigNumber(buyVolumeValue).gte(10);
+    const formattedBuyVolume = (
+      <NumberSizeableText
+        size="$bodySm"
+        color="$textSuccess"
+        fontFamily="$monoRegular"
+        formatter={isAboveThreshold ? 'marketCap' : 'value'}
+        formatterOptions={{ currency: currencyInfo.symbol }}
+      >
+        {isNative ? '--' : buyVolumeValue}
+      </NumberSizeableText>
+    );
     return {
       value: buyVolumeValue,
       formattedValue: formattedBuyVolume,
     };
-  }, [tokenDetailInfo, timeRange, currencyInfo.symbol]);
+  }, [tokenDetailInfo, timeRange, currencyInfo.symbol, isNative]);
   const sellVolume = useMemo(() => {
     const sellVolumeValue = getCountByTimeRange(
       tokenDetailInfo,
@@ -56,17 +67,23 @@ const SwapProBuySellInfo = ({
       'vSell',
       '',
     );
-    const formattedSellVolume = numberFormat(sellVolumeValue.toString(), {
-      formatter: 'marketCap',
-      formatterOptions: {
-        currency: currencyInfo.symbol,
-      },
-    });
+    const isAboveThreshold = new BigNumber(sellVolumeValue).gte(10);
+    const formattedSellVolume = (
+      <NumberSizeableText
+        size="$bodySm"
+        color="$textCritical"
+        fontFamily="$monoRegular"
+        formatter={isAboveThreshold ? 'marketCap' : 'value'}
+        formatterOptions={{ currency: currencyInfo.symbol }}
+      >
+        {isNative ? '--' : sellVolumeValue}
+      </NumberSizeableText>
+    );
     return {
       value: sellVolumeValue,
       formattedValue: formattedSellVolume,
     };
-  }, [tokenDetailInfo, timeRange, currencyInfo.symbol]);
+  }, [tokenDetailInfo, timeRange, currencyInfo.symbol, isNative]);
   const totalVolume = useMemo(() => {
     const buyVBN = new BigNumber(buyVolume.value);
     const sellVBN = new BigNumber(sellVolume.value);
@@ -171,20 +188,8 @@ const SwapProBuySellInfo = ({
         </XStack>
       </XStack>
       <XStack justifyContent="space-between">
-        <SizableText
-          size="$bodySm"
-          color="$textSuccess"
-          fontFamily="$monoRegular"
-        >
-          {isNative ? '--' : buyVolume.formattedValue}
-        </SizableText>
-        <SizableText
-          size="$bodySm"
-          color="$textCritical"
-          fontFamily="$monoRegular"
-        >
-          {isNative ? '--' : sellVolume.formattedValue}
-        </SizableText>
+        {buyVolume.formattedValue}
+        {sellVolume.formattedValue}
       </XStack>
     </YStack>
   );
