@@ -21,6 +21,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSignatureConfirmRoutes,
@@ -320,6 +321,7 @@ function TxConfirm() {
   });
 
   useEffect(() => {
+    dismissKeyboard();
     updateUnsignedTxs(unsignedTxs);
 
     const refreshNativeTokenInfo = () => {
