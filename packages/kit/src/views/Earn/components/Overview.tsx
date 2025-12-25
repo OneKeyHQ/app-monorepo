@@ -30,12 +30,10 @@ import { ListItem } from '../../../components/ListItem';
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import {
-  useEarnActions,
-  useEarnAtom,
-} from '../../../states/jotai/contexts/earn';
+import { useEarnAtom } from '../../../states/jotai/contexts/earn';
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { useEarnAccountKey } from '../hooks/useEarnAccountKey';
 import { getNumberColor } from '../utils/getNumberColor';
 
 const Rebate = ({
@@ -217,17 +215,7 @@ const OverviewComponent = ({
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const actions = useEarnActions();
-  const allNetworkId = getNetworkIdsMap().onekeyall;
-  const totalFiatMapKey = useMemo(
-    () =>
-      actions.current.buildEarnAccountsKey({
-        accountId: account?.id,
-        indexAccountId: indexedAccount?.id,
-        networkId: allNetworkId,
-      }),
-    [account?.id, actions, allNetworkId, indexedAccount?.id],
-  );
+  const totalFiatMapKey = useEarnAccountKey();
   const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
   const totalFiatValue = useMemo(
