@@ -10,6 +10,18 @@ export const updateRootViewBackgroundColor: IUpdateRootViewBackgroundColor = (
 ) => {
   setTimeout(() => {
     localStorage.setItem(THEME_PRELOAD_STORAGE_KEY, theme);
+    if (platformEnv.isExtension) {
+      // Keep a copy in extension storage so background/service-worker can read it.
+      void (async () => {
+        try {
+          await globalThis.chrome?.storage?.local?.set({
+            [THEME_PRELOAD_STORAGE_KEY]: theme,
+          });
+        } catch {
+          // ignore
+        }
+      })();
+    }
     // startup theme on desktop: apps/desktop/app/app.ts 213L
     if (platformEnv.isDesktop) {
       globalThis.desktopApi?.changeTheme(theme);
