@@ -36,7 +36,7 @@ export function MarketRecommendList({
     [windowHeight, maxSize],
   );
 
-  const actualShowTitle = useMemo(() => windowHeight > 900, [windowHeight]);
+  const actualShowTitle = useMemo(() => windowHeight > 800, [windowHeight]);
 
   const defaultTokens = useMemo(
     () => recommendedTokens?.slice(0, actualMaxSize) || [],
