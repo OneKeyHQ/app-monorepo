@@ -2,7 +2,11 @@ import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
-import { getTokenValue, rootNavigationRef } from '@onekeyhq/components';
+import {
+  getTokenValue,
+  rootNavigationRef,
+  useMedia,
+} from '@onekeyhq/components';
 import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
@@ -46,12 +50,9 @@ const getDiscoverRouterConfig = (
     exact: true,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
-    translationId:
-      platformEnv.isNative ||
-      platformEnv.isExtensionUiPopup ||
-      platformEnv.isExtensionUiSidePanel
-        ? ETranslations.global_discover
-        : ETranslations.global_browser,
+    translationId: platformEnv.isNative
+      ? ETranslations.global_discover
+      : ETranslations.global_browser,
     freezeOnBlur: Boolean(params?.freezeOnBlur),
     children: discoveryRouters,
     tabBarStyle,
@@ -61,11 +62,17 @@ const getDiscoverRouterConfig = (
 };
 
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
+  const { md } = useMedia();
+
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
   const isWebDappMode = platformEnv.isWebDappMode;
   const isShowMDDiscover = useMemo(
-    () => !isShowDesktopDiscover && !platformEnv.isWebDappMode,
-    [isShowDesktopDiscover],
+    () =>
+      !isShowDesktopDiscover &&
+      !platformEnv.isWebDappMode &&
+      !platformEnv.isExtensionUiPopup &&
+      !(platformEnv.isExtensionUiSidePanel && md),
+    [isShowDesktopDiscover, md],
   );
 
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
@@ -189,10 +196,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         exact: true,
         children: earnRouters,
         trackId: 'global-earn',
-        hideOnTabBar:
-          platformEnv.isNative ||
-          platformEnv.isExtensionUiPopup ||
-          platformEnv.isExtensionUiSidePanel,
+        hideOnTabBar: platformEnv.isNative,
       },
       !platformEnv.isNative && isWebDappMode
         ? referFriendsTabConfig

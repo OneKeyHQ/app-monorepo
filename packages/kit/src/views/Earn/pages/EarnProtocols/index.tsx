@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -341,6 +341,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       pageTitle={customHeaderLeft}
+      customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
       breadcrumbProps={{
         items: [
           {

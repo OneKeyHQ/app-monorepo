@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type ScrollView as ScrollViewNative } from 'react-native';
 
 import { EPageType, ScrollView, YStack } from '@onekeyhq/components';
-import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -17,7 +16,6 @@ import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGrou
 
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
-import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -147,7 +145,6 @@ const SwapSwapMbContainer = ({
           tokenPairs={swapRecentTokenPairs}
           fromTokenAmount={fromTokenAmountValue}
         />
-        <SwapPendingHistoryListComponent pageType={pageType} />
         {shouldRenderHeavyComponents ? (
           <>
             {platformEnv.isNative && !fromTokenAmountValue ? (
