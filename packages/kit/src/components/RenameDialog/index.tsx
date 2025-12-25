@@ -299,7 +299,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
         }
       },
     }),
-    [user?.avatar, user?.nickname],
+    [dialogInstance, user?.avatar, user?.nickname],
   );
   const form = useForm<IPrimeProfileFormValues>(formOption);
   const handlePickAvatar = useCallback(async () => {
