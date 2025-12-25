@@ -99,19 +99,13 @@ function DeFiProtocolDetails() {
       let type = asset.category;
       let typeColor = '$blue10';
       if (asset.type === EDeFiAssetType.DEBT) {
-        type = appLocale.intl.formatMessage({
-          id: ETranslations.wallet_defi_asset_type_borrowed,
-        });
+        type = 'Borrowed';
         typeColor = '$orange10';
       } else if (asset.type === EDeFiAssetType.REWARD) {
-        type = appLocale.intl.formatMessage({
-          id: ETranslations.wallet_defi_position_module_rewards,
-        });
+        type = 'Rewards';
         typeColor = '$teal10';
       } else if (asset.type === EDeFiAssetType.ASSET) {
-        type = appLocale.intl.formatMessage({
-          id: ETranslations.wallet_defi_asset_type_supplied,
-        });
+        type = 'Supplied';
         typeColor = '$blue10';
       }
 

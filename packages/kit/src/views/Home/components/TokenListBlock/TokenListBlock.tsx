@@ -493,7 +493,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       overrideIsFocused: (isPageFocused) =>
         (isPageFocused && isFocused) || shouldAlwaysFetch,
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      revalidateOnFocus: true,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
   );
@@ -1874,7 +1873,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      revalidateOnFocus: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
   );
