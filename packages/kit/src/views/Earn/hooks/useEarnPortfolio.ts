@@ -25,6 +25,7 @@ import {
   useEarnAtom,
   useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
+import { useEarnAccountKey } from './useEarnAccountKey';
 
 let currentAccountDataFetcher: (() => void) | null = null;
 let accountDataUpdateListenerRegistered = false;
@@ -372,22 +373,7 @@ export const useEarnPortfolio = ({
   const actions = useEarnActions();
   const [{ earnAccount }] = useEarnAtom();
   const [portfolioCache, setPortfolioCache] = useEarnPortfolioInvestmentsAtom();
-  const earnAccountKey = useMemo(
-    () =>
-      actions.current.buildEarnAccountsKey({
-        accountId: accountIdValue || undefined,
-        indexAccountId:
-          accountIndexedAccountIdValue || indexedAccountIdValue || undefined,
-        networkId: allNetworkId,
-      }),
-    [
-      actions,
-      accountIdValue,
-      accountIndexedAccountIdValue,
-      indexedAccountIdValue,
-      allNetworkId,
-    ],
-  );
+  const earnAccountKey = useEarnAccountKey();
   const currentOverviewData =
     earnAccountKey && earnAccount ? earnAccount[earnAccountKey] : undefined;
   const cachedInvestments = useMemo(() => {
