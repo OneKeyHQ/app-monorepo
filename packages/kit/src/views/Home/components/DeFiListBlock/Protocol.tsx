@@ -79,20 +79,15 @@ function Protocol({
         ) => {
           let type = '';
           let typeColor = '$blue10';
+          // show en value instead of translation id
           if (record.type === EDeFiAssetType.DEBT) {
-            type = intl.formatMessage({
-              id: ETranslations.wallet_defi_asset_type_borrowed,
-            });
+            type = 'Borrowed';
             typeColor = '$orange10';
           } else if (record.type === EDeFiAssetType.REWARD) {
-            type = intl.formatMessage({
-              id: ETranslations.wallet_defi_position_module_rewards,
-            });
+            type = 'Rewards';
             typeColor = '$teal10';
           } else if (record.type === EDeFiAssetType.ASSET) {
-            type = intl.formatMessage({
-              id: ETranslations.wallet_defi_asset_type_supplied,
-            });
+            type = 'Supplied';
             typeColor = '$blue10';
           } else {
             type = category;
