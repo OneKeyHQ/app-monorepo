@@ -695,7 +695,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       key={focusedWalletInfo?.wallet?.id}
       flex={1}
       pt={platformEnv.isNativeAndroid ? top : undefined}
-      pb={Math.max(bottom, 16)}
+      pb={Math.max(bottom, 8)}
       testID="account-selector-accountList"
     >
       <WalletDetailsHeader
