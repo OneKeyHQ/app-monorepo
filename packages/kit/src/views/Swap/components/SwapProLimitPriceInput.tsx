@@ -6,16 +6,12 @@ import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  ESwapProTradeType,
   SwapLimitPriceInputAccessoryViewID,
   SwapLimitPriceInputStageBuyForNative,
   SwapLimitPriceInputStageSellForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  useSwapProDirectionAtom,
-  useSwapProTradeTypeAtom,
-} from '../../../states/jotai/contexts/swap';
+import { useSwapProDirectionAtom } from '../../../states/jotai/contexts/swap';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import { PercentageStageOnKeyboard } from '../pages/components/SwapInputContainer';
 
