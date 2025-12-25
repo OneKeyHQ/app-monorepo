@@ -356,7 +356,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   //   }
   // }, [scrollToLocation, sectionData]);
 
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
 
   // const isEmptyData = useMemo(() => {
   //   let count = 0;
@@ -694,6 +694,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     <Stack
       key={focusedWalletInfo?.wallet?.id}
       flex={1}
+      pt={platformEnv.isNativeAndroid ? top : undefined}
       pb={bottom}
       testID="account-selector-accountList"
     >

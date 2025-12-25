@@ -87,7 +87,7 @@ export function AccountSelectorWalletListSideBar({
   hideNonBackedUpWallet,
 }: IWalletListProps) {
   const { serviceAccount } = backgroundApiProxy;
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
   const actions = useAccountSelectorActions();
   const route = useAccountSelectorRoute();
   // const linkNetwork = route.params?.linkNetwork;
@@ -330,6 +330,7 @@ export function AccountSelectorWalletListSideBar({
       $gtMd={{
         w: '$32',
       }}
+      mt={platformEnv.isNativeAndroid ? top : undefined}
       bg="$bgSubdued"
       borderRightWidth={StyleSheet.hairlineWidth}
       borderRightColor="$neutral3"
