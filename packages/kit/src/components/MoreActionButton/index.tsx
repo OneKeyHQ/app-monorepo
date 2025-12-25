@@ -592,10 +592,14 @@ function MoreActionOneKeyId() {
     networkId: network?.id,
   });
 
-  const handlePrimeButtonPressed = useCallback(async () => {
-    await closePopover?.();
-    await onPrimeButtonPressed();
-  }, [closePopover, onPrimeButtonPressed]);
+  const handlePrimeButtonPressed = useCallback(
+    async (e: GestureResponderEvent) => {
+      e.stopPropagation();
+      await closePopover?.();
+      await onPrimeButtonPressed();
+    },
+    [closePopover, onPrimeButtonPressed],
+  );
 
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
   const isPrimeDeviceLimitExceeded = user?.isPrimeDeviceLimitExceeded === true;

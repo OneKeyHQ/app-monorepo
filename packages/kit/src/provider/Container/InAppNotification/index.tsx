@@ -419,15 +419,16 @@ const InAppNotification = () => {
       remotePushMessageInfo: INotificationPushMessageInfo;
     }) => {
       const topicType = remotePushMessageInfo?.extras?.topic;
+      const isSystemTopic =
+        (topicType as ENotificationPushTopicTypes) ===
+        ENotificationPushTopicTypes.system;
       const toast = Toast.notification({
         title,
         message: description,
-        icon: icon as IKeyOfIcons,
-        iconImageUri:
-          (topicType as ENotificationPushTopicTypes) !==
-          ENotificationPushTopicTypes.system
-            ? remotePushMessageInfo?.extras?.image
-            : undefined,
+        icon: isSystemTopic ? undefined : (icon as IKeyOfIcons),
+        iconImageUri: isSystemTopic
+          ? undefined
+          : remotePushMessageInfo?.extras?.image,
         duration: 10 * 1000,
         imageUri: remotePushMessageInfo?.extras?.image,
         onPress: async () => {

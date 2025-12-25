@@ -219,15 +219,11 @@ export function useEarnActions() {
   const isDataIncomplete = actions.isDataIncomplete.use();
 
   const buildEarnAccountsKey = useCallback(
-    ({
-      accountId,
-      indexAccountId,
-      networkId,
-    }: {
+    (params: {
       accountId?: string;
       indexAccountId?: string;
       networkId: string;
-    }) => `${indexAccountId || accountId || ''}-${networkId}`,
+    }) => earnUtils.buildEarnAccountKey(params),
     [],
   );
 

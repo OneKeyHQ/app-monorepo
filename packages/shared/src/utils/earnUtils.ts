@@ -110,7 +110,20 @@ function extractAmountFromText(text?: IEarnText): string {
   return match ? match[0].replace(/,/g, '') : '0';
 }
 
+function buildEarnAccountKey({
+  accountId,
+  indexAccountId,
+  networkId,
+}: {
+  accountId?: string;
+  indexAccountId?: string;
+  networkId: string;
+}) {
+  return `${accountId || indexAccountId || ''}-${networkId}`;
+}
+
 export default {
+  buildEarnAccountKey,
   getEarnProviderEnumKey,
   isMorphoProvider,
   isListaProvider,
