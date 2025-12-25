@@ -120,12 +120,20 @@ export type IOnboardingParamListV2 = {
     mode?: EOnboardingV2KeylessWalletCreationMode;
   };
   [EOnboardingPagesV2.OneKeyIDLogin]: undefined;
-  [EOnboardingPagesV2.CreatePin]: undefined;
+  [EOnboardingPagesV2.CreatePin]: {
+    isResetPin?: boolean;
+  };
   [EOnboardingPagesV2.ConfirmPin]: {
     pin: string;
   };
   [EOnboardingPagesV2.CreatePasscode]: undefined;
-  [EOnboardingPagesV2.VerifyPin]: undefined;
+  [EOnboardingPagesV2.VerifyPin]: {
+    /**
+     * 'socialLogin' - User verifies PIN after social login (with retry mechanism)
+     * 'periodic' - App periodically asks user to verify PIN (no retry mechanism)
+     */
+    verifyType?: 'socialLogin' | 'periodic';
+  };
   [EOnboardingPagesV2.ResetPin]: undefined;
   [EOnboardingPagesV2.NewPinCreated]: undefined;
   [EOnboardingPagesV2.MoreAction]: undefined;
