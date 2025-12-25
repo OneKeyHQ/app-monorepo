@@ -275,10 +275,24 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
       onSubmit: async (form: UseFormReturn<IPrimeProfileFormValues>) => {
         const values = form.getValues();
         if (values.avatar && values.nickname) {
-          await backgroundApiProxy.servicePrime.updatePrimeUserProfile({
-            avatar: values.avatar,
-            nickname: values.nickname,
-          });
+          try {
+            await backgroundApiProxy.servicePrime.updatePrimeUserProfile({
+              avatar: values.avatar,
+              nickname: values.nickname,
+            });
+            Toast.success({
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.feedback_change_saved,
+              }),
+            });
+          } catch (error) {
+            console.error(error);
+            Toast.error({
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
+          }
         }
       },
     }),

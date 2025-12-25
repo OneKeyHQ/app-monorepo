@@ -12,14 +12,13 @@ import {
   useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 
-export function UniversalSearchInput({
+export function LegacyUniversalSearchInput({
   containerProps,
   size = 'large',
   initialTab,
@@ -37,29 +36,30 @@ export function UniversalSearchInput({
     });
   }, [navigation, initialTab]);
 
+  const isLarge = size === 'large';
   if (size === 'small') {
     return (
       <IconButton
         variant="tertiary"
         icon="SearchOutline"
-        title="Search everything"
+        title={intl.formatMessage({
+          id: ETranslations.global_search,
+        })}
         onPress={toUniversalSearchPage}
       />
     );
   }
   return (
     <XStack
-      $gtLg={{ minWidth: 320 } as any}
+      $gtLg={{ maxWidth: 320 } as any}
       width="100%"
       {...(containerProps as IXStackProps)}
     >
       <SearchBar
-        size="small"
+        size={isLarge ? 'small' : 'medium'}
         key="searchInput"
         placeholder={intl.formatMessage({
-          id: platformEnv.isWebDappMode
-            ? ETranslations.global_search
-            : ETranslations.global_search_everything,
+          id: ETranslations.global_search_everything,
         })}
         addOns={[
           {
@@ -83,7 +83,7 @@ export function MDUniversalSearchInput() {
   const isHorizontal = useIsWebHorizontalLayout();
   return isHorizontal ? null : (
     <XStack px="$5" pt="$0.5">
-      <UniversalSearchInput
+      <LegacyUniversalSearchInput
         size="medium"
         containerProps={{
           width: '100%',

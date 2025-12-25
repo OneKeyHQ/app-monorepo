@@ -361,28 +361,46 @@ function ReceiveToken() {
 
   const fetchAccount = useCallback(async () => {
     if (!accountId && networkId && indexedAccountId) {
-      const defaultDeriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId,
-        });
-
-      const { accounts } =
-        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
-          indexedAccountIds: [indexedAccountId],
-          networkId,
-          deriveType: defaultDeriveType,
-        });
-
-      if (accounts?.[0]) {
-        const deriveResp =
-          await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
+      try {
+        const defaultDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
-            template: accounts[0].template,
-            accountId: accounts[0].id,
           });
-        setCurrentDeriveInfo(deriveResp.deriveInfo);
-        setCurrentDeriveType(deriveResp.deriveType);
-        setCurrentAccount(accounts[0]);
+
+        const { accounts } =
+          await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+            indexedAccountIds: [indexedAccountId],
+            networkId,
+            deriveType: defaultDeriveType,
+          });
+
+        if (accounts?.[0]) {
+          const deriveResp =
+            await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
+              networkId,
+              template: accounts[0].template,
+              accountId: accounts[0].id,
+            });
+          setCurrentDeriveInfo(deriveResp.deriveInfo);
+          setCurrentDeriveType(deriveResp.deriveType);
+          setCurrentAccount(accounts[0]);
+        }
+      } catch (e) {
+        // get default derive type account error, try to find the non-empty account
+        const { networkAccounts } =
+          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+            {
+              networkId,
+              indexedAccountId,
+              excludeEmptyAccount: true,
+            },
+          );
+        const nonEmptyAccount = networkAccounts.find((item) => item.account);
+        if (nonEmptyAccount) {
+          setCurrentAccount(nonEmptyAccount.account);
+          setCurrentDeriveType(nonEmptyAccount.deriveType);
+          setCurrentDeriveInfo(nonEmptyAccount.deriveInfo);
+        }
       }
     }
   }, [accountId, indexedAccountId, networkId]);

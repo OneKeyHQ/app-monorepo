@@ -532,12 +532,17 @@ function MoreActionDivider() {
 function MoreActionOneKeyId() {
   const intl = useIntl();
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
-  const { isPrimeAvailable } = usePrimeAvailable();
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
 
   const { closePopover } = usePopoverContext();
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+    }
+  }, [isLoggedIn]);
 
   const displayName = useMemo(() => {
     if (!isLoggedIn) {
@@ -553,15 +558,15 @@ function MoreActionOneKeyId() {
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const navigation = useAppNavigation();
-  const showPrimeProfileDialog = useEditPrimeProfileDialog();
+  const showEditPrimeProfileDialog = useEditPrimeProfileDialog();
 
   const handleAvatarPress = useCallback(
     async (e: GestureResponderEvent) => {
       e.stopPropagation();
       await closePopover?.();
-      await showPrimeProfileDialog();
+      await showEditPrimeProfileDialog();
     },
-    [closePopover, showPrimeProfileDialog],
+    [closePopover, showEditPrimeProfileDialog],
   );
 
   const handleNavigateToOneKeyId = useCallback(async () => {
@@ -593,6 +598,7 @@ function MoreActionOneKeyId() {
   }, [closePopover, onPrimeButtonPressed]);
 
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const isPrimeDeviceLimitExceeded = user?.isPrimeDeviceLimitExceeded === true;
 
   if (!isLoggedIn) {
     return (
@@ -651,7 +657,7 @@ function MoreActionOneKeyId() {
       px="$4"
       mx="$1"
       mt="$1"
-      gap="$6"
+      gap="$5"
       userSelect="none"
       justifyContent="space-between"
       onPress={handleNavigateToOneKeyId}
@@ -669,14 +675,18 @@ function MoreActionOneKeyId() {
         </Stack>
 
         <YStack flex={1} gap="$1">
-          <XStack alignItems="center" gap="$2" flex={1}>
+          <XStack
+            alignItems="center"
+            gap="$1.5"
+            alignSelf="flex-start"
+            maxWidth="100%"
+          >
             <SizableText
               size="$headingLg"
               color="$text"
               numberOfLines={1}
               ellipsizeMode="tail"
               userSelect="none"
-              flex={1}
               flexShrink={1}
             >
               {displayName}
@@ -688,15 +698,33 @@ function MoreActionOneKeyId() {
                 gap="$1"
                 px="$2"
                 h={22}
-                bg="$brand2"
+                opacity={isPrimeDeviceLimitExceeded ? 0.7 : 1}
+                bg={
+                  isPrimeDeviceLimitExceeded ? '$bgCautionSubdued' : '$brand2'
+                }
                 borderRadius="$full"
                 borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$brand4"
+                borderColor={
+                  isPrimeDeviceLimitExceeded
+                    ? '$borderCautionSubdued'
+                    : '$brand4'
+                }
                 flexShrink={0}
                 onPress={handlePrimeButtonPressed}
               >
-                <Icon name={icon} size="$4" />
-                <SizableText size="$bodyMdMedium" color="$brand12">
+                <Icon
+                  name={isPrimeDeviceLimitExceeded ? 'PrimeSolid' : icon}
+                  size="$4"
+                  color={
+                    isPrimeDeviceLimitExceeded ? '$iconCaution' : undefined
+                  }
+                />
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={
+                    isPrimeDeviceLimitExceeded ? '$textCaution' : '$brand12'
+                  }
+                >
                   Prime
                 </SizableText>
               </XStack>
@@ -1028,14 +1056,14 @@ const MoreActionWalletGrid = () => {
 
   const items = useMemo(() => {
     return [
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_backup }),
             icon: 'CloudUploadOutline' as const,
             onPress: handleBackup,
           },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({
@@ -1044,7 +1072,7 @@ const MoreActionWalletGrid = () => {
             icon: 'ContactsOutline' as const,
             onPress: handleAddressBook,
           },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_network }),
@@ -1061,7 +1089,7 @@ const MoreActionWalletGrid = () => {
         icon: 'Shield2CheckOutline' as const,
         onPress: handleSecurity,
       },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({
@@ -1491,7 +1519,7 @@ function MoreActionButtonCmp() {
         overflow: 'hidden',
         style: { transformOrigin: 'bottom left' },
       }}
-      placement="right-end"
+      placement={platformEnv.isWebDappMode ? 'bottom-end' : 'right-end'}
       renderTrigger={trigger}
       renderContent={<MoreActionContent />}
     />

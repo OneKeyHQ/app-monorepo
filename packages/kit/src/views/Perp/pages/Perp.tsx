@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import {
   Page,
@@ -11,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -29,8 +31,6 @@ import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
 
 import type { LayoutChangeEvent } from 'react-native';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useIntl } from 'react-intl';
 
 function PerpLayout() {
   const { gtMd } = useMedia();
@@ -56,9 +56,11 @@ function PerpContent() {
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Perp}
       customHeaderLeftItems={
-        <SizableText size="$headingXl">
-          {intl.formatMessage({ id: ETranslations.global_perp })}
-        </SizableText>
+        platformEnv.isWebDappMode ? undefined : (
+          <SizableText size="$headingXl">
+            {intl.formatMessage({ id: ETranslations.global_perp })}
+          </SizableText>
+        )
       }
       customHeaderRightItems={
         <PerpsAccountSelectorProviderMirror>

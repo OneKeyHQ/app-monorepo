@@ -8,7 +8,6 @@ import {
   NavBackButton,
   Page,
   SizableText,
-  Stack,
   XStack,
   rootNavigationRef,
   useMedia,
@@ -38,11 +37,13 @@ export function HeaderLeftCloseButton() {
     </Page.Close>
   );
 }
-const discoveryTabs = [
-  ETranslations.global_market,
-  ETranslations.global_earn,
-  ETranslations.global_browser,
-];
+const discoveryTabs = platformEnv.isNative
+  ? [
+      ETranslations.global_market,
+      ETranslations.global_earn,
+      ETranslations.global_browser,
+    ]
+  : [ETranslations.global_market, ETranslations.global_earn];
 
 function SegmentText({
   translationId,
@@ -163,7 +164,9 @@ export function HeaderLeft({
     }
 
     if (tabRoute === ETabRoutes.Discovery) {
-      return platformEnv.isNative ? (
+      return platformEnv.isNative ||
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel ? (
         <DiscoveryHeaderSegment selectedHeaderTab={selectedHeaderTab} />
       ) : null;
     }

@@ -1,7 +1,9 @@
+import { memo } from 'react';
+
 import { Skeleton, Stack, YStack } from '@onekeyhq/components';
 import { TokenGroupSkeleton } from '@onekeyhq/kit/src/components/Token';
 
-export function MarketBannerItemSkeleton() {
+function MarketBannerItemSkeletonComponent() {
   return (
     <Stack
       flexDirection="column"
@@ -34,3 +36,5 @@ export function MarketBannerItemSkeleton() {
     </Stack>
   );
 }
+
+export const MarketBannerItemSkeleton = memo(MarketBannerItemSkeletonComponent);

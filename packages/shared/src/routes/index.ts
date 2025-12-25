@@ -34,7 +34,6 @@ export * from './tabDiscovery';
 export * from './tabEarn';
 export * from './tabHome';
 export * from './tabMarket';
-export * from './tabMe';
 export * from './tabMultiTabBrowser';
 export * from './tabReferFriends';
 export * from './tabSwap';
