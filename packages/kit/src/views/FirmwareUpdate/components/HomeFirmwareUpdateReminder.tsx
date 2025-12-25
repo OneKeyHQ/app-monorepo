@@ -31,22 +31,29 @@ export function FirmwareUpdateReminderAlert({
   message,
   onPress,
   containerProps,
+  fullBleed,
 }: {
   message: string;
   onPress?: () => any;
   containerProps?: IStackProps;
+  fullBleed?: boolean;
 }) {
   const intl = useIntl();
   return (
     <XStack
       px="$5"
-      py="$2"
-      borderTopWidth="$px"
-      borderBottomWidth="$px"
+      py={fullBleed ? '$1.5' : '$2'}
+      gap={fullBleed ? '$3' : '$2'}
+      borderWidth={fullBleed ? StyleSheet.hairlineWidth : undefined}
+      borderTopWidth={fullBleed ? undefined : '$px'}
+      borderBottomWidth={fullBleed ? undefined : '$px'}
+      borderLeftWidth={fullBleed ? 0 : undefined}
+      borderRightWidth={fullBleed ? 0 : undefined}
+      borderCurve={fullBleed ? 'continuous' : undefined}
       bg="$bgInfoSubdued"
       borderColor="$borderInfoSubdued"
       alignItems="center"
-      gap="$2"
+      justifyContent={fullBleed ? 'space-between' : undefined}
       flex={1}
       {...(containerProps as IXStackProps)}
     >
@@ -122,14 +129,7 @@ function HomeFirmwareUpdateReminderCmp() {
       }
       return (
         <FirmwareUpdateReminderAlert
-          containerProps={{
-            pl: '$3',
-            pr: '$2',
-            py: '$1.5',
-            borderWidth: StyleSheet.hairlineWidth,
-            borderRadius: '$2',
-            borderCurve: 'continuous',
-          }}
+          fullBleed
           message={message}
           onPress={async () => {
             await closePopover?.();
