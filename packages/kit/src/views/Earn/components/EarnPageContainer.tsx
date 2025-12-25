@@ -78,13 +78,7 @@ export function EarnPageContainer({
     [breadcrumbProps, media],
   );
   const showHeader = useMemo(() => header, [header]);
-  const scrollViewContentContainerStyle = useMemo(
-    () => ({
-      py: '$6',
-      ...contentContainerStyle,
-    }),
-    [contentContainerStyle],
-  );
+
   const containerMaxWidth = useMemo(() => {
     if (disableMaxWidth) return undefined;
     if (maxWidth !== undefined) return maxWidth;
@@ -103,7 +97,10 @@ export function EarnPageContainer({
       ) : null}
       <Page.Body>
         <ScrollView
-          contentContainerStyle={{ py: media.gtMd ? '$6' : 0 }}
+          contentContainerStyle={{
+            py: media.gtMd ? '$6' : 0,
+            ...contentContainerStyle,
+          }}
           refreshControl={refreshControl}
         >
           <YStack w="100%" mx="auto" maxWidth={containerMaxWidth}>

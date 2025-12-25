@@ -152,7 +152,7 @@ export const BorrowCard = () => {
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
-        emptyContent="Nothing supplied yet" // FIXME[borrow]: i18n
+        emptyContent="No assets available to borrow" // FIXME[borrow]: i18n
       />
     </Card>
   );
