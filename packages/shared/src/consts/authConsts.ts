@@ -127,7 +127,7 @@ export const DEFAULT_EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
 export const DEFAULT_DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod =
   EDesktopOAuthMethod.LOCALHOST_SERVER;
 export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
-  ENativeOAuthMethod.WEB_BROWSER;
+  ENativeOAuthMethod.NATIVE_SDK;
 
 // Google OAuth clients
 //  - https://console.cloud.google.com/auth/clients

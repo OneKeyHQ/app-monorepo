@@ -114,6 +114,7 @@ export class OAuthPopup extends OAuthPopupBase {
     }
 
     // Apple Sign-In: Use native on iOS, WebBrowser on Android
+    // Supabase Apple provider Client IDs must include: so.onekey.wallet (iOS Bundle ID)
     if (provider === 'apple') {
       if (platformEnv.isNativeIOS) {
         try {
