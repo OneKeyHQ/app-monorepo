@@ -36,11 +36,10 @@ function decodeCoinFromUrl(urlToken: string): string {
   const dexPrefix = findDexPrefix(urlToken);
   if (dexPrefix && urlToken.length > dexPrefix.length) {
     const hasNoSeparator = !urlToken.includes(DEX_SEPARATOR);
-    if (hasNoSeparator) {
-      const symbol = urlToken.slice(dexPrefix.length);
-      return `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
-    }
-    const symbol = urlToken.slice(dexPrefix.length + DEX_SEPARATOR.length);
+    const symbolStartIndex = hasNoSeparator
+      ? dexPrefix.length
+      : dexPrefix.length + DEX_SEPARATOR.length;
+    const symbol = urlToken.slice(symbolStartIndex);
     return `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
   }
 
