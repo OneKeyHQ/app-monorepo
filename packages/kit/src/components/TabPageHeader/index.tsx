@@ -11,6 +11,7 @@ import {
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -110,6 +111,13 @@ export function TabPageHeader({
     );
   }, [customHeaderRightItems, tabRoute]);
 
+  const renderHeaderLeftInHomeRouter = useCallback(() => {
+    if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+      return renderHeaderLeft();
+    }
+    return null;
+  }, [renderHeaderLeft, sceneName]);
+
   if (platformEnv.isWebDappMode) {
     if (gtMd) {
       return (
@@ -145,10 +153,21 @@ export function TabPageHeader({
           headerStyle={{ backgroundColor: theme.bgSubdued.val }}
           headerTitle={renderUniversalSearchInput}
           headerRight={renderDesktopModeRightButtons}
+          headerLeft={
+            tabRoute === ETabRoutes.Home
+              ? renderHeaderLeftInHomeRouter
+              : undefined
+          }
         />
-        {tabRoute === ETabRoutes.Home ? (
+        {tabRoute === ETabRoutes.Home &&
+        sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
           <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
             {hideHeaderLeft ? undefined : renderHeaderLeft()}
+          </XStack>
+        ) : null}
+        {sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
+          <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
+            {renderHeaderTitle()}
           </XStack>
         ) : null}
       </>
