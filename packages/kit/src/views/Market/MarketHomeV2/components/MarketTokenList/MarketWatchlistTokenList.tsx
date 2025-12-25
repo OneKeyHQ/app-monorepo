@@ -90,6 +90,7 @@ function MarketWatchlistTokenList({
       toolbar={toolbar}
       result={hideNativeToken ? watchListResultNoNative : watchlistResult}
       isWatchlistMode
+      showEndReachedIndicator
     />
   );
 }
