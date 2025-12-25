@@ -18,6 +18,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useDialogInstance,
   useForm,
   useInPageDialog,
 } from '@onekeyhq/components';
@@ -266,6 +267,7 @@ interface IPrimeProfileFormValues {
 }
 
 function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
+  const dialogInstance = useDialogInstance();
   const formOption = useMemo(
     () => ({
       defaultValues: {
@@ -285,6 +287,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
                 id: ETranslations.feedback_change_saved,
               }),
             });
+            await dialogInstance.close();
           } catch (error) {
             console.error(error);
             Toast.error({
