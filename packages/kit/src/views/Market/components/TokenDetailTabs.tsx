@@ -9,9 +9,11 @@ import {
   YStack,
   useIsOverlayPage,
   useMedia,
+  useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { IDeferredPromise } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import { MarketDetailLinks } from './MarketDetailLinks';
@@ -112,6 +114,8 @@ function BasicTokenDetailTabs({
     [coinGeckoId, defer, intl, md, token],
   );
 
+  const pageWidth = useTabContainerWidth();
+
   return (
     <Tabs.Container
       containerStyle={{
@@ -119,6 +123,7 @@ function BasicTokenDetailTabs({
         ...(md ? { marginTop: 20 } : undefined),
         ...(isModalPage ? { marginTop: 20 } : undefined),
       }}
+      width={pageWidth as number}
       renderHeader={() => (
         <YStack
           bg="$bgApp"

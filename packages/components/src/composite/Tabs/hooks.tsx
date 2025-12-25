@@ -14,6 +14,7 @@ import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsNativeTablet, useOrientation } from '../../hooks';
+import { useIPadModalPageWidth, useIsIpadModalPage } from '../../layouts';
 import {
   DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
   DESKTOP_MODE_UI_PAGE_MARGIN,
@@ -82,6 +83,11 @@ export const useTabContainerWidth = platformEnv.isNative
       const isTablet = useIsNativeTablet();
       const isLandscape = useOrientation();
       const { width, height } = useWindowDimensions();
+      const isIpadModalPage = useIsIpadModalPage();
+      const ipadModalPageWidth = useIPadModalPageWidth();
+      if (isIpadModalPage) {
+        return ipadModalPageWidth || 640;
+      }
       if (isTablet) {
         return isLandscape
           ? Math.max(width, height) / 2

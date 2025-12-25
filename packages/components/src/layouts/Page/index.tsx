@@ -98,3 +98,5 @@ export const Page = withStaticProperties(PageProvider, {
 });
 
 export * from './hooks';
+
+export * from './iPadModalPageContext';
