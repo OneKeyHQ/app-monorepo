@@ -415,7 +415,7 @@ export function AccountSelectorWalletListSideBar({
           p="$2"
           borderTopWidth={StyleSheet.hairlineWidth}
           borderTopColor="$borderSubdued"
-          mb={bottom}
+          mb={Math.max(bottom, 16)}
         >
           <AccountSelectorCreateWalletButton />
           {/* <OthersWalletItem onWalletPress={onWalletPress} num={num} /> */}
