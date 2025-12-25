@@ -329,16 +329,16 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
     <>
       <Form form={form}>
         <YStack gap="$4">
-          <XStack jc="center" onPress={handlePickAvatar} cursor="pointer">
-            <Image
-              size="$20"
-              borderRadius="$full"
-              borderWidth={1}
-              borderColor="$neutral3"
-              source={userAvatar ? { uri: userAvatar } : undefined}
-              fallback={<OneKeyIdFallbackAvatar size="$20" />}
-            />
-            <XStack position="relative">
+          <XStack jc="center">
+            <Stack position="relative" onPress={handlePickAvatar}>
+              <Image
+                size="$20"
+                borderRadius="$full"
+                borderWidth={1}
+                borderColor="$neutral3"
+                source={userAvatar ? { uri: userAvatar } : undefined}
+                fallback={<OneKeyIdFallbackAvatar size="$20" />}
+              />
               <XStack
                 bg="$bg"
                 w={30}
@@ -354,7 +354,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
               >
                 <Icon name="EditOutline" size="$4" color="$icon" />
               </XStack>
-            </XStack>
+            </Stack>
           </XStack>
           <Form.Field
             label={appLocale.intl.formatMessage({
