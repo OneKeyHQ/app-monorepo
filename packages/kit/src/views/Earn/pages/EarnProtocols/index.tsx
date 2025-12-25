@@ -166,6 +166,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                     </Badge>
                   ))}
                 </XStack>
+                {isDesktopLayout && item?.provider?.vaultName ? (
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                    {item.provider.vaultName}
+                  </SizableText>
+                ) : null}
                 {!isDesktopLayout && item?.provider?.description ? (
                   <SizableText size="$bodySmMedium" color="$textSubdued">
                     {item.provider.description}

@@ -72,19 +72,26 @@ export function useReplaceToReferFriends() {
   const navigation = useAppNavigation();
 
   return useCallback(
-    async (params?: { utmSource?: string; code?: string }) => {
-      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+    async (params?: {
+      utmSource?: string;
+      code?: string;
+      /** Skip isLoggedIn check when caller already knows login state */
+      isLoggedIn?: boolean;
+    }) => {
+      const { isLoggedIn: knownLoginState, ...navParams } = params ?? {};
+      const isLogin =
+        knownLoginState ?? (await backgroundApiProxy.servicePrime.isLoggedIn());
 
       if (platformEnv.isNative) {
         const screen = isLogin
           ? EModalReferFriendsRoutes.InviteReward
           : EModalReferFriendsRoutes.ReferAFriend;
-        navigation.replace(screen, params);
+        navigation.replace(screen, navParams);
       } else {
         const screen = isLogin
           ? ETabReferFriendsRoutes.TabInviteReward
           : ETabReferFriendsRoutes.TabReferAFriend;
-        navigation.replace(screen, params);
+        navigation.replace(screen, navParams);
       }
     },
     [navigation],

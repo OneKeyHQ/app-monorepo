@@ -19,6 +19,7 @@ import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/Le
 import { EARN_PAGE_MAX_WIDTH } from '../EarnConfig';
 
 import type { RefreshControlProps } from 'react-native';
+import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 
 interface IEarnPageContainerProps {
   pageTitle?: React.ReactNode;

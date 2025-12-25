@@ -15,14 +15,16 @@ import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 interface ISwapProPositionsListProps {
   onTokenPress: (token: ISwapToken) => void;
   onSearchClick?: () => void;
+  filterToken?: ISwapToken[];
 }
 
 const SwapProPositionsList = ({
   onTokenPress,
   onSearchClick,
+  filterToken,
 }: ISwapProPositionsListProps) => {
   const intl = useIntl();
-  const { finallyTokenList } = useSwapProPositionsListFilter();
+  const { finallyTokenList } = useSwapProPositionsListFilter(filterToken);
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
