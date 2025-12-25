@@ -15,10 +15,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 import { EARN_PAGE_MAX_WIDTH } from '../EarnConfig';
 
 import type { RefreshControlProps } from 'react-native';
-import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 
 interface IEarnPageContainerProps {
   pageTitle?: React.ReactNode;
