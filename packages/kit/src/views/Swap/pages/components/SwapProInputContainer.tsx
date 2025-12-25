@@ -202,6 +202,9 @@ const SwapProInputContainer = ({
           onBlur={onInputBlur}
           onFocus={onInputFocus}
           onChangeText={handleInputChange}
+          inputAccessoryViewID={
+            platformEnv.isNativeIOS ? SwapAmountInputAccessoryViewID : undefined
+          }
           placeholder={intl.formatMessage({
             id: ETranslations.content__amount,
           })}

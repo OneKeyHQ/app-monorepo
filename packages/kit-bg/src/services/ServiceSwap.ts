@@ -522,14 +522,17 @@ export default class ServiceSwap extends ServiceBase {
           checkInscriptionProtectionEnabled && inscriptionProtection;
         params.withCheckInscription = withCheckInscription;
       }
+      let fetchSignal: AbortSignal | undefined;
+      if (direction === ESwapDirectionType.FROM) {
+        fetchSignal = this._tokenDetailAbortControllerMap.from?.signal;
+      } else if (direction === ESwapDirectionType.TO) {
+        fetchSignal = this._tokenDetailAbortControllerMap.to?.signal;
+      }
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
         '/swap/v1/token/detail',
         {
           params,
-          signal:
-            direction === ESwapDirectionType.FROM
-              ? this._tokenDetailAbortControllerMap.from?.signal
-              : this._tokenDetailAbortControllerMap.to?.signal,
+          signal: fetchSignal,
           headers:
             await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {

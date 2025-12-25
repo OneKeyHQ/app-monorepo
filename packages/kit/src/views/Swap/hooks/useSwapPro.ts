@@ -1050,22 +1050,13 @@ export function useSwapProSupportNetworksTokenList(
   };
 }
 
-export function useSwapProPositionsListFilter() {
+export function useSwapProPositionsListFilter(filterToken?: ISwapToken[]) {
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
-  const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
-  const [swapProTokenSelect] = useSwapProSelectTokenAtom();
-  const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
-  const filterToken = useMemo(() => {
-    if (focusSwapPro) {
-      return swapProTokenSelect;
-    }
-    return swapFromToken;
-  }, [focusSwapPro, swapProTokenSelect, swapFromToken]);
   const filterDefaultTokenList = useMemo(() => {
     let filterMinValueTokenList = swapProSupportNetworksTokenList.filter(
       (token) => {
@@ -1087,20 +1078,14 @@ export function useSwapProPositionsListFilter() {
 
   const finallyTokenList = useMemo(
     () =>
-      swapProEnableCurrentSymbol
+      filterToken
         ? swapProSupportNetworksTokenList.filter((token) =>
-            equalTokenNoCaseSensitive({
-              token1: token,
-              token2: filterToken,
-            }),
+            filterToken.some((t) =>
+              equalTokenNoCaseSensitive({ token1: t, token2: token }),
+            ),
           )
         : filterDefaultTokenList,
-    [
-      filterDefaultTokenList,
-      swapProEnableCurrentSymbol,
-      swapProSupportNetworksTokenList,
-      filterToken,
-    ],
+    [filterDefaultTokenList, swapProSupportNetworksTokenList, filterToken],
   );
   return {
     finallyTokenList,

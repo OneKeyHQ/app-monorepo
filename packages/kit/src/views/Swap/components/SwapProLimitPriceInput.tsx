@@ -12,7 +12,11 @@ import {
   SwapLimitPriceInputStageSellForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapProTradeTypeAtom } from '../../../states/jotai/contexts/swap';
+import {
+  useSwapProDirectionAtom,
+  useSwapProTradeTypeAtom,
+} from '../../../states/jotai/contexts/swap';
+import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import { PercentageStageOnKeyboard } from '../pages/components/SwapInputContainer';
 
 interface ISwapProLimitPriceInputProps {
@@ -32,13 +36,13 @@ const SwapProLimitPriceInput = ({
 }: ISwapProLimitPriceInputProps) => {
   const inputRef = useRef<IInputRef & TextInput>(null);
   const isFocusedRef = useRef(false);
-  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
   const stageList = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
+    if (swapProDirection === ESwapDirection.BUY) {
       return SwapLimitPriceInputStageBuyForNative;
     }
     return SwapLimitPriceInputStageSellForNative;
-  }, [swapProTradeType]);
+  }, [swapProDirection]);
   // Reset scroll position to show text from the beginning when value changes and input is not focused
   useEffect(() => {
     if (!isFocusedRef.current) {
@@ -85,6 +89,11 @@ const SwapProLimitPriceInput = ({
         textAlign="left"
         keyboardType="decimal-pad"
         size="small"
+        inputAccessoryViewID={
+          platformEnv.isNativeIOS
+            ? SwapLimitPriceInputAccessoryViewID
+            : undefined
+        }
         containerProps={{
           borderWidth: 0,
           flex: 1,
