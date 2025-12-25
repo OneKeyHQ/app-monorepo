@@ -672,7 +672,9 @@ export function UniversalSearch({
             autoFocus
             value={searchValue}
             placeholder={intl.formatMessage({
-              id: ETranslations.global_universal_search_placeholder,
+              id: platformEnv.isWebDappMode
+                ? ETranslations.global_search
+                : ETranslations.global_search_everything,
             })}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
