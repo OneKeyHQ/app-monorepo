@@ -196,6 +196,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
             hideTokenAge
             watchlistFrom={EWatchlistFrom.BannerList}
             copyFrom={ECopyFrom.BannerList}
+            showEndReachedIndicator
           />
         </Stack>
       </Page.Body>
