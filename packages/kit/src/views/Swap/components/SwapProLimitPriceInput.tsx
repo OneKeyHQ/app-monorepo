@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { InputAccessoryView, type TextInput } from 'react-native';
+
 import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  ESwapProTradeType,
+  SwapLimitPriceInputAccessoryViewID,
+  SwapLimitPriceInputStageBuyForNative,
+  SwapLimitPriceInputStageSellForNative,
+} from '@onekeyhq/shared/types/swap/types';
 
-import type { TextInput } from 'react-native';
+import { useSwapProTradeTypeAtom } from '../../../states/jotai/contexts/swap';
+import { PercentageStageOnKeyboard } from '../pages/components/SwapInputContainer';
 
 interface ISwapProLimitPriceInputProps {
   value: string;
   currencySymbol: string;
   onChangeText: (text: string) => void;
   onBlur?: () => void;
+  onSelectPercentageStage: (stage: number) => void;
 }
 
 const SwapProLimitPriceInput = ({
@@ -17,10 +28,17 @@ const SwapProLimitPriceInput = ({
   currencySymbol,
   onChangeText,
   onBlur,
+  onSelectPercentageStage,
 }: ISwapProLimitPriceInputProps) => {
   const inputRef = useRef<IInputRef & TextInput>(null);
   const isFocusedRef = useRef(false);
-
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const stageList = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      return SwapLimitPriceInputStageBuyForNative;
+    }
+    return SwapLimitPriceInputStageSellForNative;
+  }, [swapProTradeType]);
   // Reset scroll position to show text from the beginning when value changes and input is not focused
   useEffect(() => {
     if (!isFocusedRef.current) {
@@ -73,6 +91,14 @@ const SwapProLimitPriceInput = ({
         }}
         addOns={[{ renderContent: currencySymbolAddOn }]}
       />
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={SwapLimitPriceInputAccessoryViewID}>
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+            stageList={stageList}
+          />
+        </InputAccessoryView>
+      ) : null}
     </YStack>
   );
 };

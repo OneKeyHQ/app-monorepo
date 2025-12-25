@@ -715,15 +715,13 @@ export function useSwapProTokenSearch(
         if (isCancelled) {
           return;
         }
-        const searchTokenParse = searchRes
-          ?.map((t) => {
-            const networkInfo = networkUtils.getLocalNetworkInfo(t.network);
-            return {
-              ...t,
-              networkLogoURI: networkInfo?.logoURI ?? '',
-            };
-          })
-          .filter((t) => !t.isNative);
+        const searchTokenParse = searchRes?.map((t) => {
+          const networkInfo = networkUtils.getLocalNetworkInfo(t.network);
+          return {
+            ...t,
+            networkLogoURI: networkInfo?.logoURI ?? '',
+          };
+        });
         const finalList = searchTokenParse ?? [];
         setSearchTokenList(finalList);
 

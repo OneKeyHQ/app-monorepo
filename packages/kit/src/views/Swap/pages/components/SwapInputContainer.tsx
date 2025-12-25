@@ -56,8 +56,10 @@ import SwapInputActions from './SwapInputActions';
 
 export function PercentageStageOnKeyboard({
   onSelectPercentageStage,
+  stageList,
 }: {
   onSelectPercentageStage?: (stage: number) => void;
+  stageList?: number[];
 }) {
   const isShow = useIsKeyboardShown();
   const [{ swapPercentageInputStageShowForNative }] =
@@ -66,6 +68,14 @@ export function PercentageStageOnKeyboard({
   if (!platformEnv.isNativeIOS) {
     viewShow = isShow && swapPercentageInputStageShowForNative;
   }
+
+  const stageListToShow = useMemo(() => {
+    if (stageList && stageList.length > 0) {
+      return stageList;
+    }
+    return SwapPercentageInputStageForNative;
+  }, [stageList]);
+
   return viewShow ? (
     <XStack
       alignItems="center"
@@ -75,7 +85,7 @@ export function PercentageStageOnKeyboard({
       h="$10"
     >
       <>
-        {SwapPercentageInputStageForNative.map((stage) => (
+        {stageListToShow.map((stage) => (
           <SwapPercentageStageBadge
             badgeSize="lg"
             key={`swap-percentage-input-stage-${stage}`}
