@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
-import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
+import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
@@ -92,7 +92,7 @@ export function SearchInput({
     size = platformEnv.isWeb ? gtXl : gtLg;
   }
 
-  return <UniversalSearchInput size={size ? 'large' : 'small'} />;
+  return <LegacyUniversalSearchInput size={size ? 'large' : 'small'} />;
 }
 
 export function HeaderRight({

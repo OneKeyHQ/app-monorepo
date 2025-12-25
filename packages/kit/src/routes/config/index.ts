@@ -157,7 +157,6 @@ const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations | null> = {
   [ETabRoutes.Home]: null,
   [ETabRoutes.Market]: ETranslations.global_market,
   [ETabRoutes.Discovery]: ETranslations.global_discover,
-  [ETabRoutes.Me]: ETranslations.global_settings,
   [ETabRoutes.Earn]: ETranslations.global_earn,
   [ETabRoutes.Swap]: ETranslations.global_swap,
   [ETabRoutes.Perp]: ETranslations.global_perp,

@@ -558,15 +558,15 @@ function MoreActionOneKeyId() {
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const navigation = useAppNavigation();
-  const showPrimeProfileDialog = useEditPrimeProfileDialog();
+  const showEditPrimeProfileDialog = useEditPrimeProfileDialog();
 
   const handleAvatarPress = useCallback(
     async (e: GestureResponderEvent) => {
       e.stopPropagation();
       await closePopover?.();
-      await showPrimeProfileDialog();
+      await showEditPrimeProfileDialog();
     },
-    [closePopover, showPrimeProfileDialog],
+    [closePopover, showEditPrimeProfileDialog],
   );
 
   const handleNavigateToOneKeyId = useCallback(async () => {
@@ -1052,14 +1052,14 @@ const MoreActionWalletGrid = () => {
 
   const items = useMemo(() => {
     return [
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_backup }),
             icon: 'CloudUploadOutline' as const,
             onPress: handleBackup,
           },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({
@@ -1068,7 +1068,7 @@ const MoreActionWalletGrid = () => {
             icon: 'ContactsOutline' as const,
             onPress: handleAddressBook,
           },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_network }),
@@ -1085,7 +1085,7 @@ const MoreActionWalletGrid = () => {
         icon: 'Shield2CheckOutline' as const,
         onPress: handleSecurity,
       },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({
@@ -1515,7 +1515,7 @@ function MoreActionButtonCmp() {
         overflow: 'hidden',
         style: { transformOrigin: 'bottom left' },
       }}
-      placement="right-end"
+      placement={platformEnv.isWebDappMode ? 'bottom-end' : 'right-end'}
       renderTrigger={trigger}
       renderContent={<MoreActionContent />}
     />

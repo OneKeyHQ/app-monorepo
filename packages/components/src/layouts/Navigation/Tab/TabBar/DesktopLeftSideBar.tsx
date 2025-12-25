@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MotiView } from 'moti';
@@ -8,10 +9,6 @@ import type {
   IActionListSection,
   ITooltipRef,
 } from '@onekeyhq/components/src/actions';
-import {
-  EPortalContainerConstantName,
-  Portal,
-} from '@onekeyhq/components/src/hocs';
 import {
   useSafeAreaInsets,
   useShortcuts,
@@ -284,8 +281,12 @@ export function DesktopLeftSideBar({
   state,
   descriptors,
   extraConfig,
+  bottomMenu,
+  webPageTabBar,
 }: BottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
+  bottomMenu: ReactElement;
+  webPageTabBar: ReactElement;
 }) {
   const intl = useIntl();
   const { routes } = state;
@@ -358,7 +359,7 @@ export function DesktopLeftSideBar({
       if (isShowWebTabBar && route.name === extraConfig?.name) {
         return (
           <YStack flex={1} key={route.key}>
-            <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
+            {webPageTabBar}
           </YStack>
         );
       }
@@ -397,6 +398,7 @@ export function DesktopLeftSideBar({
     isShowWebTabBar,
     extraConfig?.name,
     navigation,
+    webPageTabBar,
   ]);
 
   const handleHoverIn = useCallback(() => {
@@ -543,7 +545,7 @@ export function DesktopLeftSideBar({
             >
               {tabs}
             </YStack>
-            <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
+            {bottomMenu}
           </YStack>
         </MotiView>
       </YStack>

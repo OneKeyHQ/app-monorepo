@@ -23,7 +23,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
-import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
+import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -502,7 +502,10 @@ function MobileBrowser() {
           onLayout={handleTabPageLayout}
         >
           <Stack position="absolute" top={top} px="$5">
-            <UniversalSearchInput size="medium" initialTab={searchInitialTab} />
+            <LegacyUniversalSearchInput
+              size="medium"
+              initialTab={searchInitialTab}
+            />
           </Stack>
           <TabPageHeader
             sceneName={EAccountSelectorSceneName.home}

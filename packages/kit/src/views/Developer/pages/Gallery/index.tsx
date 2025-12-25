@@ -215,12 +215,7 @@ const LottieViewGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LottieView'
     ),
 );
-const DemoRootApp = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute'
-    ),
-);
+
 const PasswordDemoGallery = LazyLoadPage(
   () =>
     import(
@@ -808,11 +803,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentSegmentSlider,
     component: SegmentSliderGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentNavigation,
-    component: DemoRootApp,
-    // options: { headerShown: false },
   },
   {
     name: EGalleryRoutes.ComponentSegmentControl,

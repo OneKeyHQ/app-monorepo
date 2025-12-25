@@ -4,13 +4,17 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, usePageType } from '../../hocs';
 import { useIsDesktopModeUIInTabPages } from '../../hooks';
 import { Stack } from '../../primitives';
+import {
+  DESKTOP_MODE_UI_HEADER_HEIGHT,
+  DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
+  DESKTOP_MODE_UI_PAGE_MARGIN,
+} from '../../utils';
 
 import type { IBasicPageProps } from './type';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const useMaxHeight = () => {
   const headerHeight = useHeaderHeight();
@@ -18,32 +22,21 @@ const useMaxHeight = () => {
   return windowHeight - headerHeight;
 };
 
-const useHeightStyle = platformEnv.isNative
-  ? () => {
-      const { md } = useMedia();
-      const maxHeight = useMaxHeight();
-      if (md) {
-        return {
-          maxHeight,
-        };
-      }
-      return {
-        maxHeight: '100%',
-      };
-    }
-  : () => {
-      const { md } = useMedia();
-      const maxHeight = useMaxHeight();
-      if (md) {
-        return {
-          height: maxHeight,
-          maxHeight: '100%',
-        };
-      }
-      return {
-        maxHeight: '100%',
-      };
+const useHeightStyle = () => {
+  const { md } = useMedia();
+  const maxHeight = useMaxHeight();
+  if (md) {
+    return {
+      height: maxHeight,
+      maxHeight: '100%',
     };
+  }
+  return {
+    height: `calc(100vh - ${
+      DESKTOP_MODE_UI_PAGE_MARGIN + DESKTOP_MODE_UI_HEADER_HEIGHT
+    }px)`,
+  };
+};
 
 export function BasicPage({ children }: IBasicPageProps) {
   // fix scrolling issues on md Web
@@ -56,11 +49,12 @@ export function BasicPage({ children }: IBasicPageProps) {
     setIsLayoutMount(true);
   }, []);
   const desktopProps = useMemo(() => {
-    return isDesktopLayout
+    return isDesktopLayout && !platformEnv.isWebDappMode
       ? {
-          borderTopLeftRadius: '$4' as const,
-          borderTopRightRadius: '$4' as const,
-          borderWidth: 1,
+          borderRadius: '$4' as const,
+          borderWidth: DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
+          mr: DESKTOP_MODE_UI_PAGE_MARGIN,
+          mb: DESKTOP_MODE_UI_PAGE_MARGIN,
           borderColor: '$neutral3',
           overflow: 'hidden' as const,
         }

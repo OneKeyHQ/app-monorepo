@@ -1,6 +1,13 @@
 import { useCallback } from 'react';
 
-import { Page, XStack, YStack, useMedia, useTheme } from '@onekeyhq/components';
+import {
+  Page,
+  View,
+  XStack,
+  YStack,
+  useMedia,
+  useTheme,
+} from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -13,7 +20,7 @@ import { WalletConnectionForWeb } from './components';
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
-import { DepositAction, HeaderRight } from './HeaderRight';
+import { HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
@@ -103,7 +110,7 @@ export function TabPageHeader({
     );
   }, [customHeaderRightItems, tabRoute]);
 
-  if (platformEnv.isWeb) {
+  if (platformEnv.isWebDappMode) {
     if (gtMd) {
       return (
         <Page.Header
@@ -149,21 +156,46 @@ export function TabPageHeader({
   }
   return (
     <>
+      <Page.Header headerShown={false} />
       {tabRoute === ETabRoutes.Home ||
       tabRoute === ETabRoutes.Discovery ||
       tabRoute === ETabRoutes.Earn ||
       tabRoute === ETabRoutes.Perp ? (
-        <Page.Header
-          headerTitleAlign="left"
-          headerTitle={renderHeaderTitle}
-          headerRight={renderHeaderRight}
-          headerLeft={renderHeaderLeft}
-        />
-      ) : (
-        <Page.Header headerShown={false} />
-      )}
-      {!hideSearch ? (
-        <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+        <>
+          <XStack
+            alignItems="center"
+            justifyContent="space-between"
+            px="$5"
+            h="$11"
+          >
+            <View>
+              <HeaderLeft
+                selectedHeaderTab={selectedHeaderTab}
+                sceneName={sceneName}
+                tabRoute={tabRoute}
+                customHeaderLeftItems={customHeaderLeftItems}
+              />
+            </View>
+            <View>
+              <HeaderTitle sceneName={sceneName} />
+            </View>
+            <XStack flexShrink={1}>
+              <HomeTokenListProviderMirror>
+                <HeaderRight
+                  selectedHeaderTab={selectedHeaderTab}
+                  sceneName={sceneName}
+                  tabRoute={tabRoute}
+                  customHeaderRightItems={customHeaderRightItems}
+                  renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+                />
+              </HomeTokenListProviderMirror>
+            </XStack>
+          </XStack>
+
+          {!hideSearch ? (
+            <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+          ) : null}
+        </>
       ) : null}
     </>
   );
