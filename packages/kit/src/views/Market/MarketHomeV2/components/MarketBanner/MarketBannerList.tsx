@@ -51,6 +51,7 @@ export function MarketBannerList() {
     [],
     {
       watchLoading: true,
+      revalidateOnReconnect: true,
     },
   );
 
