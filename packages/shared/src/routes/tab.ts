@@ -4,7 +4,6 @@ import type {
   IMultiTabBrowserParamList,
   ITabDiscoveryParamList,
   ITabHomeParamList,
-  ITabMeParamList,
   ITabSwapParamList,
 } from '@onekeyhq/shared/src/routes';
 
@@ -16,7 +15,6 @@ export enum ETabRoutes {
   Home = 'Home',
   Market = 'Market',
   Discovery = 'Discovery',
-  Me = 'Me',
   Developer = 'Developer',
   Earn = 'Earn',
   Swap = 'Swap',
@@ -30,7 +28,6 @@ export enum ETabRoutes {
 export type ITabStackParamList = {
   [ETabRoutes.Home]: ITabHomeParamList;
   [ETabRoutes.Discovery]: ITabDiscoveryParamList;
-  [ETabRoutes.Me]: ITabMeParamList;
   [ETabRoutes.Developer]: IDemoDeveloperTabParamList;
   [ETabRoutes.Earn]: ITabEarnParamList;
   [ETabRoutes.Market]: ITabMarketParamList;

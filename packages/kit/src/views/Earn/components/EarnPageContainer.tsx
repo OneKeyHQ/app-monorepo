@@ -84,15 +84,17 @@ export function EarnPageContainer({
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={sceneName}
-        tabRoute={tabRoute}
-        customHeaderLeftItems={customHeaderLeft}
-        customHeaderRightItems={customHeaderRightItems}
-      />
+      {media.gtMd ? (
+        <TabPageHeader
+          sceneName={sceneName}
+          tabRoute={tabRoute}
+          customHeaderLeftItems={customHeaderLeft}
+          customHeaderRightItems={customHeaderRightItems}
+        />
+      ) : null}
       <Page.Body>
         <ScrollView
-          contentContainerStyle={{ py: '$6' }}
+          contentContainerStyle={{ py: media.gtMd ? '$6' : 0 }}
           refreshControl={refreshControl}
         >
           <YStack w="100%" mx="auto" maxWidth={containerMaxWidth}>

@@ -558,15 +558,15 @@ function MoreActionOneKeyId() {
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const navigation = useAppNavigation();
-  const showPrimeProfileDialog = useEditPrimeProfileDialog();
+  const showEditPrimeProfileDialog = useEditPrimeProfileDialog();
 
   const handleAvatarPress = useCallback(
     async (e: GestureResponderEvent) => {
       e.stopPropagation();
       await closePopover?.();
-      await showPrimeProfileDialog();
+      await showEditPrimeProfileDialog();
     },
-    [closePopover, showPrimeProfileDialog],
+    [closePopover, showEditPrimeProfileDialog],
   );
 
   const handleNavigateToOneKeyId = useCallback(async () => {
@@ -657,7 +657,7 @@ function MoreActionOneKeyId() {
       px="$4"
       mx="$1"
       mt="$1"
-      gap="$6"
+      gap="$5"
       userSelect="none"
       justifyContent="space-between"
       onPress={handleNavigateToOneKeyId}
@@ -675,14 +675,18 @@ function MoreActionOneKeyId() {
         </Stack>
 
         <YStack flex={1} gap="$1">
-          <XStack alignItems="center" gap="$1.5" flex={1}>
+          <XStack
+            alignItems="center"
+            gap="$1.5"
+            alignSelf="flex-start"
+            maxWidth="100%"
+          >
             <SizableText
               size="$headingLg"
               color="$text"
               numberOfLines={1}
               ellipsizeMode="tail"
               userSelect="none"
-              flex={1}
               flexShrink={1}
             >
               {displayName}
@@ -1052,14 +1056,14 @@ const MoreActionWalletGrid = () => {
 
   const items = useMemo(() => {
     return [
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_backup }),
             icon: 'CloudUploadOutline' as const,
             onPress: handleBackup,
           },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({
@@ -1068,7 +1072,7 @@ const MoreActionWalletGrid = () => {
             icon: 'ContactsOutline' as const,
             onPress: handleAddressBook,
           },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_network }),
@@ -1085,7 +1089,7 @@ const MoreActionWalletGrid = () => {
         icon: 'Shield2CheckOutline' as const,
         onPress: handleSecurity,
       },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({
@@ -1515,7 +1519,7 @@ function MoreActionButtonCmp() {
         overflow: 'hidden',
         style: { transformOrigin: 'bottom left' },
       }}
-      placement="right-end"
+      placement={platformEnv.isWebDappMode ? 'bottom-end' : 'right-end'}
       renderTrigger={trigger}
       renderContent={<MoreActionContent />}
     />

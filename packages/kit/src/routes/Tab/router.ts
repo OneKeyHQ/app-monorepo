@@ -2,11 +2,7 @@ import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
-import {
-  getTokenValue,
-  rootNavigationRef,
-  useMedia,
-} from '@onekeyhq/components';
+import { getTokenValue, rootNavigationRef } from '@onekeyhq/components';
 import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
@@ -28,7 +24,6 @@ import { perpTradeRouters as perpWebviewRouters } from '../../views/PerpTrade/ro
 import { discoveryRouters } from './Discovery/router';
 import { earnRouters } from './Earn/router';
 import { marketRouters } from './Marktet/router';
-import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { referFriendsRouters } from './ReferFriends/router';
 import { swapRouters } from './Swap/router';
@@ -51,9 +46,12 @@ const getDiscoverRouterConfig = (
     exact: true,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
-    translationId: platformEnv.isNative
-      ? ETranslations.global_discover
-      : ETranslations.global_browser,
+    translationId:
+      platformEnv.isNative ||
+      platformEnv.isExtensionUiPopup ||
+      platformEnv.isExtensionUiSidePanel
+        ? ETranslations.global_discover
+        : ETranslations.global_browser,
     freezeOnBlur: Boolean(params?.freezeOnBlur),
     children: discoveryRouters,
     tabBarStyle,
@@ -63,17 +61,11 @@ const getDiscoverRouterConfig = (
 };
 
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
-  const { md } = useMedia();
-
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
   const isWebDappMode = platformEnv.isWebDappMode;
   const isShowMDDiscover = useMemo(
-    () =>
-      !isShowDesktopDiscover &&
-      !platformEnv.isWebDappMode &&
-      !platformEnv.isExtensionUiPopup &&
-      !(platformEnv.isExtensionUiSidePanel && md),
-    [isShowDesktopDiscover, md],
+    () => !isShowDesktopDiscover && !platformEnv.isWebDappMode,
+    [isShowDesktopDiscover],
   );
 
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
@@ -197,7 +189,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         exact: true,
         children: earnRouters,
         trackId: 'global-earn',
-        hideOnTabBar: platformEnv.isNative,
+        hideOnTabBar:
+          platformEnv.isNative ||
+          platformEnv.isExtensionUiPopup ||
+          platformEnv.isExtensionUiSidePanel,
       },
       !platformEnv.isNative && isWebDappMode
         ? referFriendsTabConfig
@@ -221,19 +216,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             hideOnTabBar: !isGtMdNonNative,
           },
       isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
-      platformEnv.isDev
-        ? {
-            name: ETabRoutes.Me,
-            rewrite: '/me',
-            exact: true,
-            tabBarIcon: (focused?: boolean) =>
-              focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
-            translationId: ETranslations.global_more,
-            freezeOnBlur: Boolean(params?.freezeOnBlur),
-            children: meRouters,
-            trackId: 'global-me',
-          }
-        : undefined,
       platformEnv.isDev
         ? {
             name: ETabRoutes.Developer,

@@ -1,6 +1,6 @@
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
-import { MDUniversalSearchInput } from './UniversalSearchInput';
+import { MDUniversalSearchInput } from './LegacyUniversalSearchInput';
 
 import type { ITabPageHeaderProp } from './type';
 
