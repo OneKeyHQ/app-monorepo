@@ -59,7 +59,7 @@ export function LegacyUniversalSearchInput({
         size={isLarge ? 'small' : 'medium'}
         key="searchInput"
         placeholder={intl.formatMessage({
-          id: ETranslations.global_universal_search_placeholder,
+          id: ETranslations.global_search_everything,
         })}
         addOns={[
           {

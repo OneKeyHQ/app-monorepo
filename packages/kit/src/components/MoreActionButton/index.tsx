@@ -657,7 +657,7 @@ function MoreActionOneKeyId() {
       px="$4"
       mx="$1"
       mt="$1"
-      gap="$6"
+      gap="$5"
       userSelect="none"
       justifyContent="space-between"
       onPress={handleNavigateToOneKeyId}
@@ -675,14 +675,18 @@ function MoreActionOneKeyId() {
         </Stack>
 
         <YStack flex={1} gap="$1">
-          <XStack alignItems="center" gap="$1.5" flex={1}>
+          <XStack
+            alignItems="center"
+            gap="$1.5"
+            alignSelf="flex-start"
+            maxWidth="100%"
+          >
             <SizableText
               size="$headingLg"
               color="$text"
               numberOfLines={1}
               ellipsizeMode="tail"
               userSelect="none"
-              flex={1}
               flexShrink={1}
             >
               {displayName}
