@@ -4,6 +4,7 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsDesktopModeUIInTabPages } from '../../hooks';
 import { Stack } from '../../primitives';
@@ -14,7 +15,6 @@ import {
 } from '../../utils';
 
 import type { IBasicPageProps } from './type';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const useMaxHeight = () => {
   const headerHeight = useHeaderHeight();
