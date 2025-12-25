@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { useCurrency } from '../../../components/Currency';

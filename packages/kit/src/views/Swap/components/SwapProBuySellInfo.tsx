@@ -9,7 +9,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 

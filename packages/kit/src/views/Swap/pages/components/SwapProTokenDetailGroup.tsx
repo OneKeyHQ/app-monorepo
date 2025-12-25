@@ -10,7 +10,6 @@ import {
   useSwapProTokenMarketDetailInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 
@@ -25,7 +24,7 @@ const SwapProTokenDetailGroup = () => {
   const currencyInfo = useCurrency();
   const { marketCap, volume24h, liquidity, holders } = useMemo(() => {
     const isMarketCapAboveThreshold = new BigNumber(
-      tokenMarketDetailInfo?.marketCap ?? '0',
+      tokenMarketDetailInfo?.marketCap || '0',
     ).gte(10);
     const formattedMarketCap = (
       <NumberSizeableText
@@ -33,12 +32,12 @@ const SwapProTokenDetailGroup = () => {
         formatter={isMarketCapAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: currencyInfo.symbol }}
       >
-        {tokenMarketDetailInfo?.marketCap ?? '0'}
+        {tokenMarketDetailInfo?.marketCap || '0'}
       </NumberSizeableText>
     );
 
     const isVolume24hAboveThreshold = new BigNumber(
-      tokenMarketDetailInfo?.volume24h ?? '0',
+      tokenMarketDetailInfo?.volume24h || '0',
     ).gte(10);
     const formattedVolume24h = (
       <NumberSizeableText
@@ -46,11 +45,11 @@ const SwapProTokenDetailGroup = () => {
         formatter={isVolume24hAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: currencyInfo.symbol }}
       >
-        {tokenMarketDetailInfo?.volume24h ?? '0'}
+        {tokenMarketDetailInfo?.volume24h || '0'}
       </NumberSizeableText>
     );
     const isLiquidityAboveThreshold = new BigNumber(
-      tokenMarketDetailInfo?.liquidity ?? '0',
+      tokenMarketDetailInfo?.liquidity || '0',
     ).gte(10);
     const formattedLiquidity = (
       <NumberSizeableText
@@ -58,11 +57,11 @@ const SwapProTokenDetailGroup = () => {
         formatter={isLiquidityAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: currencyInfo.symbol }}
       >
-        {tokenMarketDetailInfo?.liquidity ?? '0'}
+        {tokenMarketDetailInfo?.liquidity || '0'}
       </NumberSizeableText>
     );
     const isHoldersAboveThreshold = new BigNumber(
-      tokenMarketDetailInfo?.holders?.toString() ?? '0',
+      tokenMarketDetailInfo?.holders?.toString() || '0',
     ).gte(10);
     const formattedHolders = (
       <NumberSizeableText
@@ -71,7 +70,7 @@ const SwapProTokenDetailGroup = () => {
       >
         {swapProSelectToken?.isNative
           ? '-'
-          : tokenMarketDetailInfo?.holders?.toString() ?? '0'}
+          : tokenMarketDetailInfo?.holders?.toString() || '0'}
       </NumberSizeableText>
     );
     return {
