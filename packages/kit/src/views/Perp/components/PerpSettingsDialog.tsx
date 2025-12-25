@@ -79,10 +79,10 @@ function PerpSettingsPopoverContent({
   }
 
   return (
-    <YStack py="$3" px="$4" gap="$3">
+    <YStack py="$3" px="$2">
       <ListItem
         mx="$0"
-        p="$0"
+        px="$2.5"
         titleProps={{ size: '$bodyMdMedium' }}
         subtitleProps={{ size: '$bodySm' }}
         title={intl.formatMessage({
@@ -94,6 +94,7 @@ function PerpSettingsPopoverContent({
       >
         <Switch
           size={ESwitchSize.small}
+          cursor="pointer"
           value={perpsCustomSettings.skipOrderConfirm}
           onChange={(value) => {
             setPerpsCustomSettings((prev) => ({
@@ -103,28 +104,13 @@ function PerpSettingsPopoverContent({
           }}
         />
       </ListItem>
-      {SHOW_RESET_LAYOUT ? (
-        <ListItem mx="$0" p="$0" title="Reset Layout">
-          <Button
-            size="small"
-            onPress={() => {
-              setPerpsLayoutState({
-                ...DEFAULT_PERPS_LAYOUT_STATE,
-                resetAt: Date.now(),
-              });
-              closePopover();
-            }}
-          >
-            Reset
-          </Button>
-        </ListItem>
-      ) : null}
+
       {/* Only show referral menu item if wallet type is supported */}
       {isWalletSupported ? (
         <ListItem
           cursor="pointer"
           mx="$0"
-          p="$0"
+          px="$2.5"
           titleProps={{ size: '$bodyMdMedium' }}
           title={intl.formatMessage({
             id: ETranslations.perps_trade_reward,
@@ -137,14 +123,30 @@ function PerpSettingsPopoverContent({
             closePopover();
             void showInviteeRewardModal();
           }}
-          hoverStyle={{}}
-          pressStyle={{}}
         >
           <XStack gap="$2" alignItems="center">
             {referralBadge}
             <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
           </XStack>
         </ListItem>
+      ) : null}
+      {SHOW_RESET_LAYOUT ? (
+        <ListItem
+          cursor="pointer"
+          mx="$0"
+          px="$2.5"
+          title={intl.formatMessage({
+            id: ETranslations.perps_settings_return_to_default_layout,
+          })}
+          titleProps={{ size: '$bodyMdMedium' }}
+          onPress={() => {
+            setPerpsLayoutState({
+              ...DEFAULT_PERPS_LAYOUT_STATE,
+              resetAt: Date.now(),
+            });
+            closePopover();
+          }}
+        />
       ) : null}
     </YStack>
   );

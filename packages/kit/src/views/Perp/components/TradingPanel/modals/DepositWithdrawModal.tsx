@@ -1163,7 +1163,7 @@ function DepositWithdrawContent({
 
   const depositTokenSelectComponent = useMemo(() => {
     if (balanceLoading && checkAccountSupport)
-      return <Skeleton w={50} h={14} />;
+      return <Skeleton w={40} h={14} radius="round" />;
     if (depositTokensWithPrice.length === 0)
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -1551,23 +1551,25 @@ function DepositWithdrawContent({
               {perpDepositQuoteLoading ? (
                 <Skeleton w={60} h={14} />
               ) : (
-                <SizableText color="$text" size="$bodyMd">
-                  $
-                  {numberFormat(depositToAmount.value, {
-                    formatter: 'balance',
-                  })}{' '}
-                </SizableText>
+                <XStack gap="$1">
+                  <SizableText color="$text" size="$bodyMd">
+                    $
+                    {numberFormat(depositToAmount.value, {
+                      formatter: 'balance',
+                    })}{' '}
+                  </SizableText>
+                  <SizableText color="$text" size="$bodyMd">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.perp_deposit_on,
+                      },
+                      {
+                        chain: 'Hyperliquid',
+                      },
+                    )}
+                  </SizableText>
+                </XStack>
               )}
-              <SizableText color="$text" size="$bodyMd">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.perp_deposit_on,
-                  },
-                  {
-                    chain: 'Hyperliquid',
-                  },
-                )}
-              </SizableText>
             </XStack>
           )}
         </XStack>
