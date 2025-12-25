@@ -21,7 +21,7 @@ import { WalletConnectionForWeb } from './components';
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
-import { HeaderRight } from './HeaderRight';
+import { HeaderRight, SelectorTrigger } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
@@ -200,13 +200,17 @@ export function TabPageHeader({
             </View>
             <XStack flexShrink={1}>
               <HomeTokenListProviderMirror>
-                <HeaderRight
-                  selectedHeaderTab={selectedHeaderTab}
-                  sceneName={sceneName}
-                  tabRoute={tabRoute}
-                  customHeaderRightItems={customHeaderRightItems}
-                  renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-                />
+                {sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
+                  <HeaderRight
+                    selectedHeaderTab={selectedHeaderTab}
+                    sceneName={sceneName}
+                    tabRoute={tabRoute}
+                    customHeaderRightItems={customHeaderRightItems}
+                    renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+                  />
+                ) : (
+                  <SelectorTrigger />
+                )}
               </HomeTokenListProviderMirror>
             </XStack>
           </XStack>

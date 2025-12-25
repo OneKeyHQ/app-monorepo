@@ -3,12 +3,13 @@ import { useMemo } from 'react';
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
-import { HeaderRight } from './HeaderRight';
+import { HeaderRight, SelectorTrigger } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
@@ -70,7 +71,11 @@ export function TabPageHeader({
             <View>
               <HeaderTitle sceneName={sceneName} />
             </View>
-            {headerRight}
+            {sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
+              headerRight
+            ) : (
+              <SelectorTrigger />
+            )}
           </XStack>
 
           {!hideSearch ? (
