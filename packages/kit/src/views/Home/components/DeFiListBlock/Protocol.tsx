@@ -79,7 +79,7 @@ function Protocol({
         ) => {
           let type = '';
           let typeColor = '$blue10';
-          // show ENUM value instead of translation id
+          // show en value instead of translation id
           if (record.type === EDeFiAssetType.DEBT) {
             type = 'Borrowed';
             typeColor = '$orange10';
