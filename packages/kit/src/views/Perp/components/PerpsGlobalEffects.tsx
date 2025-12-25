@@ -63,6 +63,8 @@ import {
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 
+import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
+
 function useSyncContextOrderBookOptionsToGlobal() {
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
@@ -593,6 +595,7 @@ function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();
+  usePerpTokenUrlSync();
   useHyperliquidSymbolSelect();
   useHyperliquidScreenLockHandler();
   useSyncContextOrderBookOptionsToGlobal();
