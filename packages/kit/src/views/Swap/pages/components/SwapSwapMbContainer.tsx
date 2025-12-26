@@ -9,6 +9,7 @@ import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   ISwapAlertState,
+  ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -48,6 +49,7 @@ interface ISwapSwapMbContainerProps {
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
+  supportNetworksList: ISwapNetwork[];
 }
 
 const SwapSwapMbContainer = ({
@@ -69,6 +71,7 @@ const SwapSwapMbContainer = ({
   onOpenOrdersClick,
   fromTokenAmountValue,
   swapRecentTokenPairs,
+  supportNetworksList,
 }: ISwapSwapMbContainerProps) => {
   const [shouldRenderHeavyComponents, setShouldRenderHeavyComponents] =
     useState(false);
@@ -152,6 +155,7 @@ const SwapSwapMbContainer = ({
                 onTokenPress={onTokenPressCallback}
                 onOpenOrdersClick={onOpenOrdersClick}
                 onSearchClick={onSearchClickCallback}
+                supportNetworksList={supportNetworksList}
               />
             ) : null}
           </>

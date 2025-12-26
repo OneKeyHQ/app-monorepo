@@ -33,6 +33,7 @@ import {
   wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ISwapNetwork,
   ISwapToken,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
@@ -882,13 +883,38 @@ export function useSwapProTokenTransactionList(
   };
 }
 
-export function useSwapProSupportNetworksTokenList(
-  networkList: IMarketBasicConfigNetwork[],
-) {
+export function useSwapPositionsSupportTokenListAction() {
   const { swapProLoadSupportNetworksTokenList } = useSwapActions().current;
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const swapProLoadSupportNetworksTokenListRun = useCallback(
+    async (networkList: (IMarketBasicConfigNetwork | ISwapNetwork)[]) => {
+      if (networkList.length > 0) {
+        await swapProLoadSupportNetworksTokenList(
+          networkList.map((item) => ({
+            networkId: item.networkId,
+            symbol: item.name,
+            name: item.name,
+          })),
+          activeAccount?.indexedAccount?.id,
+          !activeAccount?.indexedAccount?.id
+            ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
+            : undefined,
+        );
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeAccount?.indexedAccount?.id, swapProLoadSupportNetworksTokenList],
+  );
+  return {
+    swapProLoadSupportNetworksTokenListRun,
+  };
+}
+
+export function useSwapProSupportNetworksTokenList(
+  networkList: (IMarketBasicConfigNetwork | ISwapNetwork)[],
+) {
   const [swapSelectToken] = useSwapProSelectTokenAtom();
   const [swapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const { syncOrderTokenBalance } = useSwapProTokenInfoSync();
   const [swapProSupportNetworksTokenList, setSwapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
@@ -912,29 +938,11 @@ export function useSwapProSupportNetworksTokenList(
       ...swapProSupportNetworksTokenList,
     ];
   }
-  const swapProLoadSupportNetworksTokenListRun = useCallback(async () => {
-    if (networkList.length > 0) {
-      await swapProLoadSupportNetworksTokenList(
-        networkList.map((item) => ({
-          networkId: item.networkId,
-          symbol: item.name,
-          name: item.name,
-        })),
-        activeAccount?.indexedAccount?.id,
-        !activeAccount?.indexedAccount?.id
-          ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
-          : undefined,
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    networkList,
-    swapProLoadSupportNetworksTokenList,
-    activeAccount?.indexedAccount?.id,
-  ]);
+  const { swapProLoadSupportNetworksTokenListRun } =
+    useSwapPositionsSupportTokenListAction();
   useEffect(() => {
-    void swapProLoadSupportNetworksTokenListRun();
-  }, [swapProLoadSupportNetworksTokenListRun]);
+    void swapProLoadSupportNetworksTokenListRun(networkList);
+  }, [swapProLoadSupportNetworksTokenListRun, networkList]);
 
   const checkSyncOrderTokenBalance = useCallback(
     async ({
