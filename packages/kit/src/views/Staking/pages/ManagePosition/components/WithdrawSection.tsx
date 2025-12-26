@@ -141,28 +141,59 @@ export const WithdrawSection = ({
   );
 
   const onBorrowConfirm = useCallback(
-    async (amount: string) => {
+    async ({
+      amount,
+      withdrawAll,
+      repayAll,
+    }: {
+      amount: string;
+      withdrawAll?: boolean;
+      repayAll?: boolean;
+    }) => {
       if (!hasRequiredData || !borrowApiCtx.isBorrow) return;
 
       const { provider, marketAddress, reserveAddress, action } =
         borrowApiCtx.borrowApiParams;
 
-      await (action === 'repay' ? handleBorrowRepay : handleBorrowWithdraw)({
+      if (action === 'repay') {
+        await handleBorrowRepay({
+          amount,
+          provider,
+          marketAddress,
+          reserveAddress,
+          repayAll,
+          stakingInfo: token
+            ? {
+                label: EEarnLabels.Stake,
+                protocol: earnUtils.getEarnProviderName({
+                  providerName: provider,
+                }),
+                protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+                send: { token, amount },
+                tags: [protocolInfo?.stakeTag || ''],
+              }
+            : undefined,
+          onSuccess: () => {
+            onSuccess?.();
+          },
+        });
+        return;
+      }
+
+      await handleBorrowWithdraw({
         amount,
         provider,
         marketAddress,
         reserveAddress,
+        withdrawAll,
         stakingInfo: token
           ? {
-              label:
-                action === 'repay' ? EEarnLabels.Stake : EEarnLabels.Withdraw,
+              label: EEarnLabels.Withdraw,
               protocol: earnUtils.getEarnProviderName({
                 providerName: provider,
               }),
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-              ...(action === 'repay'
-                ? { send: { token, amount } }
-                : { receive: { token, amount } }),
+              receive: { token, amount },
               tags: [protocolInfo?.stakeTag || ''],
             }
           : undefined,

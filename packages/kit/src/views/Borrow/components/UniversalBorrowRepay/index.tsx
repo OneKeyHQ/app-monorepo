@@ -58,7 +58,11 @@ type IUniversalBorrowRepayProps = {
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
   actionLabel?: string;
-  onConfirm?: (amount: string) => Promise<void>;
+  onConfirm?: (params: {
+    amount: string;
+    withdrawAll?: boolean;
+    repayAll?: boolean;
+  }) => Promise<void>;
 };
 
 const isAmountInvalid = (amount: string) =>
@@ -197,21 +201,33 @@ export function UniversalBorrowRepay({
     setCollateralAmountValue,
   );
 
+  const maxAmountValue = useMemo(() => {
+    const balanceBN = new BigNumber(balance);
+    if (balanceBN.isNaN()) {
+      return '0';
+    }
+    if (typeof decimals === 'number') {
+      return balanceBN.toFixed(decimals, BigNumber.ROUND_DOWN);
+    }
+    return balance;
+  }, [balance, decimals]);
+
+  const isRepayAll = useMemo(() => {
+    const amountBN = new BigNumber(amountValue);
+    const maxAmountBN = new BigNumber(maxAmountValue);
+    if (amountBN.isNaN() || maxAmountBN.isNaN()) {
+      return false;
+    }
+    return amountBN.gt(0) && amountBN.eq(maxAmountBN);
+  }, [amountValue, maxAmountValue]);
+
   const onMax = useCallback(() => {
-    const formattedMaxAmount =
-      typeof decimals === 'number'
-        ? new BigNumber(balance).toFixed(decimals, BigNumber.ROUND_DOWN)
-        : balance;
-    onChangeAmountValue(formattedMaxAmount);
-  }, [balance, decimals, onChangeAmountValue]);
+    onChangeAmountValue(maxAmountValue);
+  }, [maxAmountValue, onChangeAmountValue]);
 
   const onMaxCollateral = useCallback(() => {
-    const formattedMaxAmount =
-      typeof decimals === 'number'
-        ? new BigNumber(balance).toFixed(decimals, BigNumber.ROUND_DOWN)
-        : balance;
-    onChangeCollateralAmountValue(formattedMaxAmount);
-  }, [balance, decimals, onChangeCollateralAmountValue]);
+    onChangeCollateralAmountValue(maxAmountValue);
+  }, [maxAmountValue, onChangeCollateralAmountValue]);
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
@@ -289,12 +305,15 @@ export function UniversalBorrowRepay({
     try {
       Keyboard.dismiss();
       setSubmitting(true);
-      await onConfirm(amountValue);
+      await onConfirm({
+        amount: amountValue,
+        repayAll: isRepayAll,
+      });
       setAmountValue('');
     } finally {
       setSubmitting(false);
     }
-  }, [amountValue, onConfirm]);
+  }, [amountValue, isRepayAll, onConfirm]);
 
   const token = useMemo(
     () => tokenInfo?.token as IToken | undefined,

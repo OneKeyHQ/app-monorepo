@@ -23,6 +23,8 @@ type IBorrowBuildTxParams = {
   provider: string;
   marketAddress: string;
   reserveAddress: string;
+  withdrawAll?: boolean;
+  repayAll?: boolean;
   stakingInfo?: IStakingInfo;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -89,6 +91,7 @@ export function useUniversalBorrowWithdraw({
       provider,
       marketAddress,
       reserveAddress,
+      withdrawAll,
       stakingInfo,
       onSuccess,
       onFail,
@@ -101,6 +104,7 @@ export function useUniversalBorrowWithdraw({
           marketAddress,
           reserveAddress,
           amount,
+          withdrawAll,
         });
 
       await navigationToTxConfirm({
@@ -175,6 +179,7 @@ export function useUniversalBorrowRepay({
       provider,
       marketAddress,
       reserveAddress,
+      repayAll,
       stakingInfo,
       onSuccess,
       onFail,
@@ -187,6 +192,7 @@ export function useUniversalBorrowRepay({
           marketAddress,
           reserveAddress,
           amount,
+          repayAll,
         });
 
       await navigationToTxConfirm({
