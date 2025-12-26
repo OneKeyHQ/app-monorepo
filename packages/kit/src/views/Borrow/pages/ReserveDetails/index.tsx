@@ -56,13 +56,12 @@ const ReserveDetailsPage = () => {
 
   const { result: details } = usePromiseResult(
     async () => {
-      if (!accountId) return undefined;
       return backgroundApiProxy.serviceStaking.getBorrowReserveDetails({
         networkId,
         provider,
         marketAddress,
         reserveAddress,
-        accountId,
+        ...(accountId ? { accountId } : {}),
       });
     },
     [networkId, provider, marketAddress, reserveAddress, accountId],

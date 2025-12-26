@@ -2057,15 +2057,16 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     marketAddress: string;
     reserveAddress: string;
-    accountId: string;
+    accountId?: string;
   }) {
     const { accountId, ...rest } = params;
 
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
+    const accountAddress = accountId
+      ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId: params.networkId,
+          accountId,
+        })
+      : undefined;
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
@@ -2073,7 +2074,7 @@ class ServiceStaking extends ServiceBase {
     }>('/earn/v1/borrow/reserve-detail', {
       params: {
         ...rest,
-        accountAddress,
+        ...(accountAddress ? { accountAddress } : {}),
       },
     });
     return response.data.data;
