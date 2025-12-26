@@ -162,7 +162,6 @@ const popToDiscoveryHomePage = () => {
 };
 
 function MobileBrowser() {
-  const isTabletDevice = useIsNativeTablet();
   const isTabletMainView = useIsTabletMainView();
   const isTabletDetailView = useIsTabletDetailView();
   const isDualScreen = isDualScreenDevice();
@@ -171,27 +170,10 @@ function MobileBrowser() {
       RouteProp<ITabDiscoveryParamList, ETabDiscoveryRoutes.TabDiscovery>
     >();
   const isLandscape = useOrientation();
-  const { defaultTab, earnTab } = route?.params || {};
+  const { earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
-  const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
-    isTabletDevice && isTabletDetailView && isLandscape
-      ? ETranslations.global_browser
-      : defaultTab ||
-          settings.selectedBrowserTab ||
-          ETranslations.global_market,
-  );
-  const handleChangeHeaderTab = useCallback(
-    async (tab: ETranslations) => {
-      if (isTabletDevice && isTabletDetailView && isLandscape) {
-        return;
-      }
-      setSelectedHeaderTab(tab);
-      setTimeout(async () => {
-        await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
-      }, 150);
-    },
-    [isLandscape, isTabletDetailView, isTabletDevice],
-  );
+  const selectedHeaderTab =
+    settings.selectedBrowserTab || ETranslations.global_browser;
 
   const searchInitialTab = useMemo(() => {
     if (selectedHeaderTab === ETranslations.global_market) {
@@ -203,17 +185,6 @@ function MobileBrowser() {
     return undefined;
   }, [selectedHeaderTab]);
 
-  const previousDefaultTab = useRef<ETranslations | undefined>(defaultTab);
-  useEffect(() => {
-    if (previousDefaultTab.current !== defaultTab) {
-      previousDefaultTab.current = defaultTab;
-      if (defaultTab) {
-        setTimeout(async () => {
-          await handleChangeHeaderTab(defaultTab);
-        }, 100);
-      }
-    }
-  }, [defaultTab, handleChangeHeaderTab]);
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const { closeWebTab } = useBrowserTabActions().current;
@@ -259,8 +230,11 @@ function MobileBrowser() {
   }, [activeTabId, closeWebTab]);
 
   useEffect(() => {
-    const listener = (event: { tab: ETranslations; openUrl?: boolean }) => {
-      void handleChangeHeaderTab(event.tab);
+    const listener = async (event: {
+      tab: ETranslations;
+      openUrl?: boolean;
+    }) => {
+      await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(event.tab);
       if (event.tab === ETranslations.global_browser && event.openUrl) {
         setTimeout(() => {
           popToDiscoveryHomePage();
@@ -271,7 +245,7 @@ function MobileBrowser() {
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
     };
-  }, [handleChangeHeaderTab]);
+  }, []);
 
   // For risk detection
   useEffect(() => {
