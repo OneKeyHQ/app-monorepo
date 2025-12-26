@@ -56,7 +56,6 @@ import {
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapProDirectionAtom,
-  useSwapProEnableCurrentSymbolAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,

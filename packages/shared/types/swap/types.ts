@@ -1092,8 +1092,8 @@ export interface ISwapNativeTokenReserveGas {
 
 export const SwapPercentageInputStage = [25, 50, 100];
 export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
-export const SwapLimitPriceInputStageBuyForNative = [0, 20, 50, 100];
-export const SwapLimitPriceInputStageSellForNative = [0, -20, -50, -100];
+export const SwapLimitPriceInputStageBuyForNative = [0, -20, -50];
+export const SwapLimitPriceInputStageSellForNative = [0, 20, 50, 100];
 
 export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
 
