@@ -21,7 +21,7 @@ const isTabletScreen = () => {
   const realWidth = Math.min(width, height);
   const aspectRatio = realWidth / realHeight;
   alert(`height: ${height}, width: ${width}, aspectRatio: ${aspectRatio}`);
-  return aspectRatio < 1.7;
+  return aspectRatio < 1.6;
 };
 
 export const isRawSpanning = () => {
