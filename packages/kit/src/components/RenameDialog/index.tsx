@@ -292,7 +292,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
             console.error(error);
             Toast.error({
               title: appLocale.intl.formatMessage({
-                id: ETranslations.global_failed,
+                id: ETranslations.global_update_failed,
               }),
             });
           }
