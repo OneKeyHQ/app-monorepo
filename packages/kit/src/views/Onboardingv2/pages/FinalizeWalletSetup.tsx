@@ -162,6 +162,8 @@ function FinalizeWalletSetupPage({
   const bgAppColor = theme.bgApp.val;
   const borderDisabledColor = theme.borderDisabled.val;
   const borderActiveColor = theme.borderActive.val;
+  const neutral1Color = theme.neutral1.val;
+  const neutral4Color = theme.neutral4.val;
   const [setupError, setSetupError] = useState<
     | {
         messageId: ETranslations;
@@ -542,7 +544,7 @@ function FinalizeWalletSetupPage({
                     }}
                   >
                     <LinearGradient
-                      colors={['$neutral1', '$neutral4']}
+                      colors={[neutral1Color, neutral4Color]}
                       start={{ x: 1, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       w="$14"
