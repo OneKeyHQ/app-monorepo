@@ -14,10 +14,11 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
+import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-import { WalletConnectionForWeb } from './components';
+import { GiftAction, WalletConnectionForWeb } from './components';
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
@@ -105,6 +106,16 @@ export function TabPageHeader({
       <>
         {tabRoute === ETabRoutes.WebviewPerpTrade ? (
           <WalletConnectionForWeb tabRoute={tabRoute} />
+        ) : null}
+        {tabRoute === ETabRoutes.Earn ? (
+          <XStack px="$5">
+            <GiftAction copyAsUrl />
+          </XStack>
+        ) : null}
+        {tabRoute === ETabRoutes.Discovery ? (
+          <XStack px="$5">
+            <HistoryIconButton />
+          </XStack>
         ) : null}
         <HeaderNotificationIconButton testID="header-right-notification" />
       </>

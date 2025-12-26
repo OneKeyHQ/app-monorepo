@@ -51,6 +51,7 @@ import { useTokenListViewContext } from './TokenListViewContext';
 type IProps = {
   tableLayout?: boolean;
   hideZeroBalanceTokens?: boolean;
+  hideDeFiMarkedTokens?: boolean;
   hasTokens?: boolean;
   manageTokenEnabled?: boolean;
   plainMode?: boolean;
@@ -61,6 +62,7 @@ function TokenListFooter(props: IProps) {
   const {
     tableLayout,
     hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
     hasTokens,
     manageTokenEnabled,
     plainMode,
@@ -118,8 +120,10 @@ function TokenListFooter(props: IProps) {
   );
 
   const filteredSmallBalanceTokens = useMemo(() => {
+    let resultTokens = smallBalanceTokens;
+
     if (hideZeroBalanceTokens) {
-      return smallBalanceTokens.filter((token) => {
+      resultTokens = resultTokens.filter((token) => {
         const tokenBalance = new BigNumber(
           smallBalanceTokenListMap[token.$key]?.balance ??
             aggregateTokensMap[token.$key]?.balance ??
@@ -133,10 +137,16 @@ function TokenListFooter(props: IProps) {
         return false;
       });
     }
-    return smallBalanceTokens;
+
+    if (hideDeFiMarkedTokens) {
+      resultTokens = resultTokens.filter((token) => !token.defiMarked);
+    }
+
+    return resultTokens;
   }, [
     smallBalanceTokens,
     hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
     smallBalanceTokenListMap,
     aggregateTokensMap,
   ]);
