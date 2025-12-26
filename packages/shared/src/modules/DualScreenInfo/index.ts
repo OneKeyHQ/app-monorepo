@@ -2,8 +2,12 @@ export const isDualScreenDevice = () => {
   return false;
 };
 
-export const isSpanning = () => {
+export const isRawSpanning = () => {
   return false;
+};
+
+export const isSpanning = () => {
+  return isRawSpanning();
 };
 
 export const useIsSpanningInDualScreen = () => {

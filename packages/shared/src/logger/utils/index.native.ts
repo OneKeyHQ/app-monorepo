@@ -12,7 +12,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   isDualScreenDevice,
-  isSpanning,
+  isRawSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import {
   FileLogger,
@@ -68,7 +68,7 @@ const getDeviceInfo = () =>
     `isDevice: ${isDevice ? 1 : 0}`,
     `deviceType: ${deviceType ?? ''}`,
     `isDualScreenDevice: ${isDualScreenDevice() ? 1 : 0}`,
-    `isSpanning: ${isSpanning() ? 1 : 0}`,
+    `isSpanning: ${isRawSpanning() ? 1 : 0}`,
     `arch: ${supportedCpuArchitectures?.join(',') ?? ''}`,
     `Version Hash: ${process.env.COMMITHASH || ''}`,
     `Memory: ${totalMemory ?? 0}`,
