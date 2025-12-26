@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   EOnboardingV2OneKeyIDLoginMode,
   IOnboardingParamListV2,
@@ -23,7 +24,6 @@ import {
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';

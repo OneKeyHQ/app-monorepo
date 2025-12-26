@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { Dialog } from '@onekeyhq/components';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { Dialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
