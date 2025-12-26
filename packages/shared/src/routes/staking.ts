@@ -88,6 +88,7 @@ export type IModalStakingParamList = {
   };
   [EModalStakingRoutes.WithdrawOptions]: IDetailPageInfoParams & {
     onSuccess?: () => void;
+    isInModalContext?: boolean;
   };
   [EModalStakingRoutes.AssetProtocolList]: IBaseRouteParams & {
     symbol: string;
