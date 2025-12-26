@@ -1,11 +1,6 @@
-import { useMemo } from 'react';
-
 import { LinearGradient as NativeLinearGradient } from 'expo-linear-gradient';
 
-import {
-  usePropsAndStyle,
-  useTheme,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
 import type { IThemeColorKeys } from '../../hooks';
 import type { IStackProps } from '../../primitives';
@@ -18,19 +13,13 @@ export type ILinearGradientProps = Omit<LinearGradientProps, 'colors'> &
   };
 
 export function LinearGradient({ colors, ...props }: ILinearGradientProps) {
-  const theme = useTheme();
-  const resolvedColors = useMemo(() => {
-    return colors.map(
-      (color) => theme[color as IThemeColorKeys]?.val as string,
-    );
-  }, [colors, theme]);
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
   return (
     <NativeLinearGradient
       style={style as ViewStyle}
-      colors={resolvedColors}
+      colors={colors}
       start={props.start}
       end={props.end}
       {...(restProps as any)}
