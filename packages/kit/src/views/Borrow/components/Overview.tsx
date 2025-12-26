@@ -16,12 +16,12 @@ import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
+import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
 import { useBorrowRewards } from '../hooks/useBorrowRewards';
-import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
 
 import { BorrowBonusTooltip } from './BorrowBonusTooltip';

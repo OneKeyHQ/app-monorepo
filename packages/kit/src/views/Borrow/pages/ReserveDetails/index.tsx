@@ -25,8 +25,8 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnPageContainer } from '../../../Earn/components/EarnPageContainer';
-import { BorrowNavigation } from '../../borrowUtils';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
+import { BorrowNavigation } from '../../borrowUtils';
 
 import { DetailsPart } from './components/DetailsPart';
 import { ManagePositionPart } from './components/ManagePositionPart';

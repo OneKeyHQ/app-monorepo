@@ -47,6 +47,7 @@ export const StakeSection = ({
   borrowReserveAddress,
   borrowAction,
   borrowReserves,
+  borrowActionLabel,
 }: {
   accountId: string;
   networkId: string;
@@ -64,6 +65,7 @@ export const StakeSection = ({
   borrowReserveAddress?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
   borrowReserves?: IBorrowReserveItem;
+  borrowActionLabel?: string;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -343,6 +345,7 @@ export const StakeSection = ({
           borrowReserveAddress={borrowReserveAddress}
           beforeFooter={beforeFooter}
           borrowReserves={borrowReserves}
+          actionLabel={borrowActionLabel}
         />
       );
     }
@@ -391,6 +394,7 @@ export const StakeSection = ({
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           borrowReserves={borrowReserves}
+          actionLabel={borrowActionLabel}
         />
       ) : (
         <UniversalStake

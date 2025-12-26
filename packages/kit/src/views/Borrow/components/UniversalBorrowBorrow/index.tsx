@@ -63,6 +63,7 @@ type IUniversalBorrowBorrowProps = {
   isDisabled?: boolean;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
+  actionLabel?: string;
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -87,6 +88,7 @@ export function UniversalBorrowBorrow({
   isDisabled,
   beforeFooter,
   showApyDetail = false,
+  actionLabel: actionLabelProp,
   onConfirm,
 }: IUniversalBorrowBorrowProps) {
   const intl = useIntl();
@@ -134,8 +136,9 @@ export function UniversalBorrowBorrow({
   });
 
   const actionLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.earn_deposit }),
-    [intl],
+    () =>
+      actionLabelProp || intl.formatMessage({ id: ETranslations.earn_deposit }),
+    [actionLabelProp, intl],
   );
 
   const onChangeAmountValue = useCallback(

@@ -1883,7 +1883,7 @@ export interface IBorrowReserveItem {
       apyDetail: IBorrowApy;
       categories: string[];
       suppliedAmount: IBorrowBalance;
-      withdrawButton: IEarnWithdrawAction;
+      withdrawButton: IEarnWithdrawActionData;
     }[];
   };
   borrowed: {
@@ -1896,7 +1896,7 @@ export interface IBorrowReserveItem {
       apyDetail: IBorrowApy;
       categories: string[];
       borrowedAmount: IBorrowBalance;
-      repayButton: any; // FIXME[borrow]: repay action icon
+      repayButton: IEarnRepayActionData;
     }[];
   };
   supply: {
@@ -1919,7 +1919,7 @@ export interface IBorrowReserveItem {
       apyDetail: IBorrowApy;
       categories: string[];
       available: IBorrowBalance;
-      borrowButton: any; // FIXME[borrow]: borrow action icon
+      borrowButton: IEarnBorrowActionData;
     }[];
   };
 }

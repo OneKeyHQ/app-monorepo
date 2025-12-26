@@ -132,6 +132,40 @@ export function NormalManageContent({
     return undefined;
   }, [type, useBorrowApi]);
 
+  const borrowActionLabelPrimary = useMemo<string | undefined>(() => {
+    if (!useBorrowApi || !managePageData) {
+      return undefined;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return managePageData.supply?.text?.text;
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return managePageData.borrow?.text?.text;
+    }
+    return undefined;
+  }, [type, useBorrowApi, managePageData]);
+
+  const borrowActionLabelSecondary = useMemo<string | undefined>(() => {
+    if (!useBorrowApi || !managePageData) {
+      return undefined;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return managePageData.withdraw?.text?.text;
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return managePageData.repay?.text?.text;
+    }
+    return undefined;
+  }, [type, useBorrowApi, managePageData]);
+
   const [selectedTabIndex, setSelectedTabIndex] = useState(() => {
     if (defaultTab === 'withdraw') return 1;
     return 0;
@@ -326,6 +360,7 @@ export function NormalManageContent({
           borrowReserveAddress={reserveAddress}
           borrowAction={borrowActionPrimary}
           borrowReserves={borrowReserves}
+          borrowActionLabel={borrowActionLabelPrimary}
         />
       ) : null}
       {selectedTabIndex === 1 ? (
@@ -344,6 +379,7 @@ export function NormalManageContent({
           borrowMarketAddress={marketAddress}
           borrowReserveAddress={reserveAddress}
           borrowAction={borrowActionSecondary}
+          borrowActionLabel={borrowActionLabelSecondary}
         />
       ) : null}
     </>

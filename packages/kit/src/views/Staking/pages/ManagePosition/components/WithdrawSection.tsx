@@ -35,6 +35,7 @@ export const WithdrawSection = ({
   borrowMarketAddress,
   borrowReserveAddress,
   borrowAction,
+  borrowActionLabel,
 }: {
   accountId: string;
   networkId: string;
@@ -50,6 +51,7 @@ export const WithdrawSection = ({
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
+  borrowActionLabel?: string;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -202,6 +204,7 @@ export const WithdrawSection = ({
           beforeFooter={beforeFooter}
           tokenImageUri={fallbackTokenImageUri}
           tokenSymbol={tokenInfo?.token.symbol}
+          actionLabel={borrowActionLabel}
         />
       );
     }
@@ -247,6 +250,7 @@ export const WithdrawSection = ({
           }
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
+          actionLabel={borrowActionLabel}
         />
       ) : (
         <UniversalWithdraw

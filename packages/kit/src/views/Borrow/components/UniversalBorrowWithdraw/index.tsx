@@ -56,6 +56,7 @@ type IUniversalBorrowWithdrawProps = {
   isDisabled?: boolean;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
+  actionLabel?: string;
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -78,6 +79,7 @@ export function UniversalBorrowWithdraw({
   isDisabled,
   beforeFooter,
   showApyDetail = false,
+  actionLabel: actionLabelProp,
   onConfirm,
 }: IUniversalBorrowWithdrawProps) {
   const intl = useIntl();
@@ -122,8 +124,10 @@ export function UniversalBorrowWithdraw({
   });
 
   const actionLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.global_withdraw }),
-    [intl],
+    () =>
+      actionLabelProp ||
+      intl.formatMessage({ id: ETranslations.global_withdraw }),
+    [actionLabelProp, intl],
   );
 
   const onChangeAmountValue = useCallback(
