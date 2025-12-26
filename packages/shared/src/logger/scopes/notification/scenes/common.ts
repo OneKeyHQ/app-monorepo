@@ -147,35 +147,4 @@ export class CommonScene extends BaseScene {
   getPermission(params: INotificationPermissionDetail) {
     return [params.permission, params.isSupported];
   }
-
-  @LogToConsole()
-  notificationAlertCheck(params: {
-    scene: INotificationAlertScene;
-    permission: INotificationPermissionDetail;
-    serverSettings: INotificationPushSettings | undefined;
-    result: {
-      shouldShow: boolean;
-      isPushEnabled?: boolean;
-      isPermissionGranted?: boolean;
-      isSceneNotificationDisabled?: boolean;
-    };
-  }) {
-    const { scene, permission, serverSettings, result } = params;
-    return {
-      scene,
-      permission: {
-        isSupported: permission.isSupported,
-        permission: permission.permission,
-      },
-      serverSettings: serverSettings
-        ? {
-            pushEnabled: serverSettings.pushEnabled,
-            accountActivityPushEnabled:
-              serverSettings.accountActivityPushEnabled,
-            perpsEnabled: serverSettings.perpsEnabled,
-          }
-        : undefined,
-      result,
-    };
-  }
 }
