@@ -5,6 +5,7 @@ import * as ExpoDevice from 'expo-device';
 import { Dimensions } from 'react-native';
 
 let isDualScreen: boolean | undefined;
+
 export const isDualScreenDevice = () => {
   if (isDualScreen === undefined) {
     isDualScreen = ReactNativeDeviceUtils.isDualScreenDevice();
@@ -29,7 +30,7 @@ export const isSpanning = () => {
 
 export const useIsSpanningInDualScreen = () => {
   const [isSpanningInDualScreen, setIsSpanningInDualScreen] = useState(
-    ReactNativeDeviceUtils.isSpanning(),
+    isSpanning(),
   );
   useEffect(() => {
     if (!isDualScreenDevice()) {
