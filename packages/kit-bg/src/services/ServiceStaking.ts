@@ -354,9 +354,12 @@ class ServiceStaking extends ServiceBase {
       paramsToSend.vault = protocolVault;
     }
 
-    const walletReferralCode =
-      await this.backgroundApi.serviceReferralCode.checkAndUpdateReferralCode({
+    const walletReferralCode = await this.backgroundApi.serviceReferralCode
+      .checkAndUpdateReferralCode({
         accountId,
+      })
+      .catch((e) => {
+        // ignore
       });
     if (walletReferralCode) {
       paramsToSend.bindedAccountAddress = walletReferralCode.address;
