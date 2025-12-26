@@ -150,7 +150,7 @@ function CreateOrImportWallet() {
   const {
     enableKeylessWallet,
     enableKeylessWalletLoading,
-    enableKeylessWalletV2,
+    checkKeylessWalletExistence,
   } = useKeylessWallet();
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
@@ -203,8 +203,8 @@ function CreateOrImportWallet() {
     //   fromScene: EKeylessWalletEnableScene.Onboarding,
     // });
     // navigation.push(EOnboardingPagesV2.OneKeyIDLogin);
-    await enableKeylessWalletV2();
-  }, [enableKeylessWalletV2]);
+    await checkKeylessWalletExistence();
+  }, [checkKeylessWalletExistence]);
 
   const handleKeylessWalletLegacyClick = useCallback(async () => {
     await enableKeylessWallet({

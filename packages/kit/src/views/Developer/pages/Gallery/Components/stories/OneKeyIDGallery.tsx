@@ -18,6 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import {
+  EOAuthSocialLoginProvider,
   SUPABASE_PROJECT_URL,
   SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
@@ -68,8 +69,6 @@ function OneKeyIDApiTests() {
   > | null>(null);
 
   const {
-    signInWithGoogle,
-    signInWithApple,
     signInWithOtp,
     verifyOtp,
     getSession,
@@ -79,7 +78,7 @@ function OneKeyIDApiTests() {
     isReady,
   } = useSupabaseAuth();
 
-  const { logout } = useOneKeyAuth();
+  const { logout, signInWithSocialLogin } = useOneKeyAuth();
 
   const onTryCloseWindow = async () => {
     if (platformEnv.isNative) {
@@ -176,7 +175,10 @@ function OneKeyIDApiTests() {
           onPress={async () => {
             try {
               setLoading('google');
-              const result = await signInWithGoogle({ persistSession });
+              const result = await signInWithSocialLogin(
+                EOAuthSocialLoginProvider.Google,
+                { persistSession },
+              );
               if (result.success && result.session?.accessToken) {
                 // Set access token
                 setAccessToken(result.session.accessToken);
@@ -190,9 +192,9 @@ function OneKeyIDApiTests() {
                   message: 'You are now signed in with Google',
                 });
               }
-              demoLog(result, 'signInWithGoogle');
+              demoLog(result, 'signInWithSocialLogin(Google)');
             } catch (e) {
-              demoError(e, 'signInWithGoogle');
+              demoError(e, 'signInWithSocialLogin(Google)');
             } finally {
               setLoading(null);
             }
@@ -207,7 +209,10 @@ function OneKeyIDApiTests() {
           onPress={async () => {
             try {
               setLoading('apple');
-              const result = await signInWithApple({ persistSession });
+              const result = await signInWithSocialLogin(
+                EOAuthSocialLoginProvider.Apple,
+                { persistSession },
+              );
               if (result.success && result.session?.accessToken) {
                 // Set access token
                 setAccessToken(result.session.accessToken);
@@ -221,9 +226,9 @@ function OneKeyIDApiTests() {
                   message: 'You are now signed in with Apple',
                 });
               }
-              demoLog(result, 'signInWithApple');
+              demoLog(result, 'signInWithSocialLogin(Apple)');
             } catch (e) {
-              demoError(e, 'signInWithApple');
+              demoError(e, 'signInWithSocialLogin(Apple)');
             } finally {
               setLoading(null);
             }

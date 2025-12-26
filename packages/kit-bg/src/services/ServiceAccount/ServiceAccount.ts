@@ -3071,11 +3071,13 @@ class ServiceAccount extends ServiceBase {
     name,
     mnemonic,
     isWalletBackedUp,
+    isKeylessWallet,
     avatarInfo,
   }: {
     mnemonic: string;
     name?: string;
     isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
     avatarInfo?: IAvatarInfo;
   }) {
     const { servicePassword } = this.backgroundApi;
@@ -3116,6 +3118,7 @@ class ServiceAccount extends ServiceBase {
       walletHash: walletHashAndXfp.hash,
       walletXfp: walletHashAndXfp.xfp,
       isWalletBackedUp,
+      isKeylessWallet,
       avatarInfo,
     });
   }
@@ -3162,6 +3165,7 @@ class ServiceAccount extends ServiceBase {
     walletHash,
     walletXfp,
     isWalletBackedUp,
+    isKeylessWallet,
   }: {
     rs: string;
     password: string;
@@ -3170,6 +3174,7 @@ class ServiceAccount extends ServiceBase {
     walletHash: string;
     walletXfp: string;
     isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
@@ -3225,6 +3230,7 @@ class ServiceAccount extends ServiceBase {
       name,
       walletHash,
       walletXfp,
+      isKeylessWallet,
     });
 
     await timerUtils.wait(100);

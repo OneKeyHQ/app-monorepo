@@ -27,6 +27,12 @@ export const OAUTH_CALLBACK_NATIVE_PATH = 'oauth_callback_native';
 // OAuth shared constants (OneKeyAuth)
 // ============================================================================
 
+// OAuth provider types (used by OneKeyAuth)
+export enum EOAuthSocialLoginProvider {
+  Google = 'google',
+  Apple = 'apple',
+}
+
 // OAuth method enums (used by OneKeyAuth)
 export enum EDesktopOAuthMethod {
   // ✅ RECOMMENDED

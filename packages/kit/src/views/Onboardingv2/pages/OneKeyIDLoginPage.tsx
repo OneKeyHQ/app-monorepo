@@ -12,10 +12,23 @@ import {
   Spinner,
   YStack,
 } from '@onekeyhq/components';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import type {
+  EOnboardingV2OneKeyIDLoginMode,
+  IOnboardingParamListV2,
+} from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPagesV2,
+  IOnboardingParamList,
+} from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '../../../components/ListItem';
+import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useAppRoute } from '../../../hooks/useAppRoute';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 function OptionItem({
@@ -98,15 +111,60 @@ function OptionItem({
 function OneKeyIDLoginPage() {
   const navigation = useAppNavigation();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const route = useAppRoute<
+    IOnboardingParamListV2,
+    EOnboardingPagesV2.OneKeyIDLogin
+  >();
+  const mode: EOnboardingV2OneKeyIDLoginMode | undefined = route?.params?.mode;
 
-  const handleGoogleLogin = useCallback(() => {
-    setIsLoggingIn(true);
+  const { logout, signInWithSocialLogin } = useOneKeyAuth();
+  const {
+    createOrRestoreKeylessWallet,
+    cacheKeylessOnboardingToken,
+    checkKeylessWalletCreatedOnServer,
+  } = useKeylessWallet();
 
-    setTimeout(() => {
-      setIsLoggingIn(false);
-      navigation.push(EOnboardingPagesV2.CreatePin);
-    }, 1000);
-  }, [navigation]);
+  const goToInputPinPage = useCallback(
+    async ({ token }: { token: string }) => {
+      const { isCreated } = await checkKeylessWalletCreatedOnServer({ token });
+      await cacheKeylessOnboardingToken({ token });
+      if (isCreated) {
+        navigation.push(EOnboardingPagesV2.VerifyPin);
+      } else {
+        navigation.push(EOnboardingPagesV2.CreatePin);
+      }
+    },
+    [
+      cacheKeylessOnboardingToken,
+      checkKeylessWalletCreatedOnServer,
+      navigation,
+    ],
+  );
+
+  const handleSocialLogin = useCallback(
+    async (provider: EOAuthSocialLoginProvider) => {
+      try {
+        setIsLoggingIn(true);
+        const result = await signInWithSocialLogin(provider);
+        if (result?.session?.accessToken) {
+          await goToInputPinPage({
+            token: result.session.accessToken,
+          });
+        }
+      } finally {
+        setIsLoggingIn(false);
+      }
+    },
+    [goToInputPinPage, signInWithSocialLogin],
+  );
+
+  const handleGoogleLogin = useCallback(async () => {
+    await handleSocialLogin(EOAuthSocialLoginProvider.Google);
+  }, [handleSocialLogin]);
+
+  const handleAppleLogin = useCallback(async () => {
+    await handleSocialLogin(EOAuthSocialLoginProvider.Apple);
+  }, [handleSocialLogin]);
 
   return (
     <Page>
@@ -134,9 +192,7 @@ function OneKeyIDLoginPage() {
                   color: '$iconActive',
                   y: -1,
                 }}
-                onPress={() => {
-                  // TODO: Handle Apple login
-                }}
+                onPress={handleAppleLogin}
               />
             </YStack>
           </OnboardingLayout.ConstrainedContent>
@@ -156,4 +212,17 @@ function OneKeyIDLoginPage() {
   );
 }
 
-export { OneKeyIDLoginPage as default };
+function OneKeyIDLoginPageWithContext() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <OneKeyIDLoginPage />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export { OneKeyIDLoginPageWithContext as default };

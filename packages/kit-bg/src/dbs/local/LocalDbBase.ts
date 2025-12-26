@@ -1990,6 +1990,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       rs,
       walletHash,
       walletXfp,
+      isKeylessWallet,
     } = params;
     const context = await this.getContext({ verifyPassword: password });
     const walletId = accountUtils.buildHdWalletId({
@@ -2022,6 +2023,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         accounts: [],
         walletNo: context.nextWalletNo,
         deprecated: false,
+        isKeyless: !!isKeylessWallet,
       };
       currentWalletToCreate = _walletToCreate;
       currentAvatarInfo = options.avatar;
