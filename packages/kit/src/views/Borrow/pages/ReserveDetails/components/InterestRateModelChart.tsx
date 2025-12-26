@@ -50,6 +50,24 @@ const convertTimeToUtilization = (time: UTCTimestamp | BusinessDay): number => {
   return Math.max(0, Math.min(1, util));
 };
 
+const UTILIZATION_LINE_TIME_DELTA = 1;
+
+const toTimestamp = (value: number) => value as UTCTimestamp;
+
+const normalizeUtilization = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return value > 1 ? value / 100 : value;
+};
+
+const normalizeApyToPercent = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return value <= 1 ? value * 100 : value;
+};
+
 export function InterestRateModelChart({
   borrowCurve,
   supplyCurve,
@@ -94,13 +112,13 @@ export function InterestRateModelChart({
     }
 
     const supplyData = supplyCurve.map(([util, apy]) => ({
-      time: convertUtilizationToTime(util),
-      value: parseFloat(apy),
+      time: convertUtilizationToTime(normalizeUtilization(util)),
+      value: normalizeApyToPercent(parseFloat(apy)),
     }));
 
     const borrowData = borrowCurve.map(([util, apy]) => ({
-      time: convertUtilizationToTime(util),
-      value: parseFloat(apy),
+      time: convertUtilizationToTime(normalizeUtilization(util)),
+      value: normalizeApyToPercent(parseFloat(apy)),
     }));
 
     return { supplyData, borrowData };
@@ -160,14 +178,27 @@ export function InterestRateModelChart({
 
     // Add current utilization vertical line marker if available
     if (utilizationRatio) {
-      const currentUtilRatio = parseFloat(utilizationRatio);
+      const currentUtilRatio = normalizeUtilization(
+        parseFloat(utilizationRatio),
+      );
       const currentUtilTime = convertUtilizationToTime(currentUtilRatio);
       const iconSubduedColor = theme.iconSubdued?.val || '#8C8CA1';
 
       // Find the max value to draw the line from bottom to top
-      const maxValue = Math.max(
+      const rawMaxValue = Math.max(
         ...chartData.supplyData.map((d) => d.value),
         ...chartData.borrowData.map((d) => d.value),
+      );
+      const maxValue = rawMaxValue > 0 ? rawMaxValue : 1;
+
+      const minTime = BASE_TIMESTAMP;
+      const maxTime = BASE_TIMESTAMP + UTILIZATION_RANGE;
+      const currentUtilTimeValue = Number(currentUtilTime);
+      const lineStartTime = toTimestamp(
+        Math.max(minTime, currentUtilTimeValue - UTILIZATION_LINE_TIME_DELTA),
+      );
+      const lineEndTime = toTimestamp(
+        Math.min(maxTime, currentUtilTimeValue + UTILIZATION_LINE_TIME_DELTA),
       );
 
       // Add a vertical line series at the current utilization position
@@ -180,10 +211,10 @@ export function InterestRateModelChart({
         lineStyle: 0, // Solid line
       });
 
-      // Draw vertical line by adding two points at the same time but different values
+      // Draw a near-vertical line using two extremely close timestamps.
       verticalLineSeries.setData([
-        { time: currentUtilTime, value: 0 },
-        { time: currentUtilTime, value: maxValue * 1.1 },
+        { time: lineStartTime, value: 0 },
+        { time: lineEndTime, value: maxValue * 1.1 },
       ]);
     }
 
@@ -226,7 +257,9 @@ export function InterestRateModelChart({
   }
 
   const utilizationPercentage = utilizationRatio
-    ? `${parseFloat(utilizationRatio).toFixed(2)}%`
+    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
+        2,
+      )}%`
     : '0.00%';
 
   return (
