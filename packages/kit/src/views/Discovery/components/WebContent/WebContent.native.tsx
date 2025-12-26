@@ -20,6 +20,7 @@ import type {
   WebView as ReactNativeWebview,
   WebViewNavigation,
   WebViewProps,
+  ShouldStartLoadRequest,
 } from 'react-native-webview';
 import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
 
@@ -106,9 +107,17 @@ function WebContent({
   );
 
   const onShouldStartLoadWithRequest = useCallback(
-    (navigationStateChangeEvent: WebViewNavigation) => {
-      const { url: navUrl } = navigationStateChangeEvent;
-      const validateState = validateWebviewSrc(navUrl);
+    (navigationStateChangeEvent: ShouldStartLoadRequest) => {
+      const {
+        url: navUrl,
+        isTopFrame,
+        navigationType,
+        mainDocumentURL,
+      } = navigationStateChangeEvent;
+      const validateState = validateWebviewSrc({
+        url: navUrl,
+        isTopFrame,
+      });
       if (validateState === EValidateUrlEnum.Valid) {
         return true;
       }
@@ -157,7 +166,10 @@ function WebContent({
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
           const { targetUrl } = e.nativeEvent;
-          const validateState = validateWebviewSrc(targetUrl);
+          const validateState = validateWebviewSrc({
+            url: targetUrl,
+            isTopFrame: true,
+          });
           if (validateState === EValidateUrlEnum.ValidDeeplink) {
             handleDeepLinkUrl({ url: targetUrl });
           } else {
