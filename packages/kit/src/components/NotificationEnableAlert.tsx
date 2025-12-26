@@ -8,7 +8,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 
+import useAppNavigation from '../hooks/useAppNavigation';
 import { usePromiseResult } from '../hooks/usePromiseResult';
 
 export type INotificationAlertScene =
@@ -39,6 +42,7 @@ function BasicNotificationEnableAlert({
   scene: INotificationAlertScene;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [notificationsData, setNotificationsData] = useNotificationsAtom();
 
   const dismissedKey = dismissedKeyMap[scene];
@@ -78,6 +82,20 @@ function BasicNotificationEnableAlert({
     }));
   }, [setNotificationsData, dismissedKey]);
 
+  const handleEnablePress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingNotifications,
+    });
+  }, [navigation]);
+
+  const alertAction = useMemo(
+    () => ({
+      primary: intl.formatMessage({ id: ETranslations.global_enable }),
+      onPrimaryPress: handleEnablePress,
+    }),
+    [intl, handleEnablePress],
+  );
+
   const shouldShowAlert = useMemo(
     () => !isDismissed && result?.shouldShow,
     [isDismissed, result?.shouldShow],
@@ -97,6 +115,7 @@ function BasicNotificationEnableAlert({
         })}
         closable
         onClose={handleClose}
+        action={alertAction}
       />
     </Stack>
   );
