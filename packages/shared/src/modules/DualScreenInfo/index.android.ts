@@ -6,13 +6,14 @@ import { Dimensions } from 'react-native';
 
 let isDualScreen: boolean | undefined;
 
-const MIN_TABLET_ASPECT_RATIO = 1.6;
 export const isDualScreenDevice = () => {
   if (isDualScreen === undefined) {
     isDualScreen = ReactNativeDeviceUtils.isDualScreenDevice();
   }
   return isDualScreen;
 };
+
+const MIN_TABLET_ASPECT_RATIO = 1.6;
 
 const isTabletScreen = () => {
   if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
