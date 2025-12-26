@@ -76,15 +76,7 @@ const WithdrawOptions = () => {
         amount: item.amount,
         fromPage: EModalStakingRoutes.WithdrawOptions,
         allowPartialWithdraw: stakingConfig?.allowPartialWithdraw,
-        onSuccess: () => {
-          // pop to portfolio details page
-          setTimeout(() => {
-            appNavigation.pop();
-            // Trigger external onSuccess callback (from ManagePositionContent)
-            // This ensures the entire modal stack is closed when in modal context
-            externalOnSuccess?.();
-          }, 4);
-        },
+        onSuccess: externalOnSuccess,
       });
     },
     [
