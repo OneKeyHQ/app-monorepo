@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
+import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -16,6 +21,8 @@ function ConfirmPinPage() {
 
   // Use state to store the PIN, fetched only once on mount
   const [originalPin, setOriginalPin] = useState<string | undefined>(undefined);
+
+  const intl = useIntl();
   const [confirmPin, setConfirmPin] = useState('');
   const [isValid, setIsValid] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -46,14 +53,16 @@ function ConfirmPinPage() {
         if (filteredText === originalPin) {
           setIsValid(true);
         } else {
-          setErrorMessage('Incorrect PIN. Please try again.');
+          setErrorMessage(
+            intl.formatMessage({ id: ETranslations.incorrect_pin }),
+          );
           setIsValid(false);
         }
       } else {
         setIsValid(false);
       }
     },
-    [originalPin],
+    [originalPin, intl],
   );
 
   const handleConfirm = useCallback(() => {
@@ -64,10 +73,12 @@ function ConfirmPinPage() {
 
   return (
     <PinInputLayout
-      title="Confirm your PIN"
-      description="If you forget this PIN, you will not be able to recover your wallet on a new device."
+      title={intl.formatMessage({ id: ETranslations.confirm_your_pin })}
+      description={intl.formatMessage({
+        id: ETranslations.confirm_your_pin_desc,
+      })}
       descriptionColor="$textCaution"
-      buttonText="Confirm"
+      buttonText={intl.formatMessage({ id: ETranslations.global_confirm })}
       value={confirmPin}
       onChange={handlePinChange}
       onSubmit={handleConfirm}

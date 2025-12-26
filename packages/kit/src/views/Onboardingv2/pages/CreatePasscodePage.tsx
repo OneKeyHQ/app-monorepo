@@ -43,7 +43,7 @@ function CreatePasscodePage() {
                     })}
               </SizableText>
               <SizableText size="$bodyLg" color="$textSubdued">
-                You will use this to unlock your wallet.
+                {intl.formatMessage({ id: ETranslations.create_passcode_desc })}
               </SizableText>
             </YStack>
             <Suspense fallback={<Spinner size="large" />}>

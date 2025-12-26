@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
@@ -22,6 +23,7 @@ import {
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
@@ -116,6 +118,7 @@ function OneKeyIDLoginPage() {
     EOnboardingPagesV2.OneKeyIDLogin
   >();
   const mode: EOnboardingV2OneKeyIDLoginMode | undefined = route?.params?.mode;
+  const intl = useIntl();
 
   const { logout, signInWithSocialLogin } = useOneKeyAuth();
   const {
@@ -173,9 +176,13 @@ function OneKeyIDLoginPage() {
         <OnboardingLayout.Body constrained={false} scrollable={false}>
           <OnboardingLayout.ConstrainedContent gap="$10">
             <YStack gap="$2">
-              <SizableText size="$heading3xl">Select your email</SizableText>
+              <SizableText size="$heading3xl">
+                {intl.formatMessage({ id: ETranslations.select_your_email })}
+              </SizableText>
               <SizableText size="$bodyLg" color="$textSubdued">
-                Add a wallet with your Google or Apple account
+                {intl.formatMessage({
+                  id: ETranslations.select_your_email_desc,
+                })}
               </SizableText>
             </YStack>
             <YStack gap="$3">
