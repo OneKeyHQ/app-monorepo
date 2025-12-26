@@ -12,10 +12,6 @@ export const isDualScreenDevice = () => {
   return isDualScreen;
 };
 
-export const isSpanning = () => {
-  return ReactNativeDeviceUtils.isSpanning();
-};
-
 const isTabletScreen = () => {
   if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
     return true;
@@ -25,6 +21,10 @@ const isTabletScreen = () => {
   const realWidth = Math.min(width, height);
   const aspectRatio = realWidth / realHeight;
   return aspectRatio < 1.7;
+};
+
+export const isSpanning = () => {
+  return ReactNativeDeviceUtils.isSpanning() && isTabletScreen();
 };
 
 export const useIsSpanningInDualScreen = () => {
