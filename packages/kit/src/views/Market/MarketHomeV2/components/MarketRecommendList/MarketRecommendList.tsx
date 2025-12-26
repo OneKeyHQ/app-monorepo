@@ -1,16 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
-import {
-  Button,
-  ScrollView,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -26,8 +19,6 @@ interface IMarketRecommendListProps {
   maxSize?: number;
   onTokenSelect?: (token: IMarketBasicConfigToken) => void;
   enableSelection?: boolean;
-  showTitle?: boolean;
-  showAddButton?: boolean;
 }
 
 export function MarketRecommendList({
@@ -35,16 +26,21 @@ export function MarketRecommendList({
   maxSize = 8,
   onTokenSelect,
   enableSelection = true,
-  showTitle = true,
-  showAddButton = true,
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
-  const { gtMd } = useMedia();
+  const { height: windowHeight } = useWindowDimensions();
+
+  const actualMaxSize = useMemo(
+    () => (windowHeight < 750 ? 6 : maxSize),
+    [windowHeight, maxSize],
+  );
+
+  const actualShowTitle = useMemo(() => windowHeight > 800, [windowHeight]);
 
   const defaultTokens = useMemo(
-    () => recommendedTokens?.slice(0, maxSize) || [],
-    [recommendedTokens, maxSize],
+    () => recommendedTokens?.slice(0, actualMaxSize) || [],
+    [recommendedTokens, actualMaxSize],
   );
 
   const [selectedTokens, setSelectedTokens] = useState<
@@ -82,7 +78,7 @@ export function MarketRecommendList({
   );
 
   const handleAddTokens = useCallback(async () => {
-    if (showAddButton && enableSelection) {
+    if (enableSelection) {
       const items = selectedTokens.map((token) => ({
         chainId: token.chainId,
         contractAddress: token.contractAddress,
@@ -105,11 +101,11 @@ export function MarketRecommendList({
         setSelectedTokens(defaultTokens);
       }, 50);
     }
-  }, [actions, selectedTokens, defaultTokens, showAddButton, enableSelection]);
+  }, [actions, selectedTokens, defaultTokens, enableSelection]);
 
   const confirmButton = useMemo(
     () =>
-      showAddButton && enableSelection ? (
+      enableSelection ? (
         <Button
           width="100%"
           size="large"
@@ -125,102 +121,80 @@ export function MarketRecommendList({
           )}
         </Button>
       ) : null,
-    [
-      selectedTokens.length,
-      handleAddTokens,
-      intl,
-      showAddButton,
-      enableSelection,
-    ],
+    [selectedTokens.length, handleAddTokens, intl, enableSelection],
   );
-
-  const stackPaddingBottom = useMemo(() => {
-    if (platformEnv.isNativeAndroid) return 80;
-    if (platformEnv.isExtension) return 50;
-    if (platformEnv.isWeb && !gtMd) return 50;
-    return 0;
-  }, [gtMd]);
 
   if (!recommendedTokens?.length) {
     return null;
   }
 
   return (
-    <Stack flex={1} width="100%" paddingBottom={stackPaddingBottom}>
-      <ScrollView
-        contentContainerStyle={{ ai: 'center' }}
-        px="$5"
-        display="flex"
-        py={platformEnv.isExtensionUiPopup ? '$5' : '$8'}
+    <YStack p="$5" jc="center" ai="center" width="100%">
+      {actualShowTitle ? (
+        <>
+          <SizableText
+            size={platformEnv.isExtensionUiPopup ? '$headingXl' : '$heading3xl'}
+            color="$text"
+          >
+            {intl.formatMessage({
+              id: ETranslations.market_favorites_empty,
+            })}
+          </SizableText>
+          <SizableText
+            color="$textSubdued"
+            size={platformEnv.isExtensionUiPopup ? '$bodyMd' : '$bodyLg'}
+            pt="$2"
+          >
+            {intl.formatMessage({
+              id: ETranslations.market_favorites_empty_desc,
+            })}
+          </SizableText>
+        </>
+      ) : null}
+      <YStack
+        pt={actualShowTitle ? '$8' : '$0'}
+        gap="$2.5"
+        flexWrap="wrap"
+        width="100%"
+        $gtMd={{ maxWidth: 480 }}
+        $sm={{
+          gap: '$2',
+        }}
       >
-        {showTitle ? (
-          <>
-            <SizableText
-              size={
-                platformEnv.isExtensionUiPopup ? '$headingXl' : '$heading3xl'
-              }
-              color="$text"
-            >
-              {intl.formatMessage({
-                id: ETranslations.market_favorites_empty,
-              })}
-            </SizableText>
-            <SizableText
-              color="$textSubdued"
-              size={platformEnv.isExtensionUiPopup ? '$bodyMd' : '$bodyLg'}
-              pt="$2"
-            >
-              {intl.formatMessage({
-                id: ETranslations.market_favorites_empty_desc,
-              })}
-            </SizableText>
-          </>
-        ) : null}
-        <YStack
-          pt={showTitle ? '$8' : '$0'}
-          gap="$2.5"
-          flexWrap="wrap"
-          width="100%"
-          $gtMd={{ maxWidth: 480 }}
-          $sm={{
-            gap: '$2',
-          }}
-        >
-          {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
-            <XStack
-              gap="$2.5"
-              key={i}
-              $sm={{
-                gap: '$2',
-              }}
-            >
-              {new Array(2).fill(0).map((__, j) => {
-                const item = recommendedTokens?.[i * 2 + j];
-                console.log('item', item);
-                return item ? (
-                  <RecommendItem
-                    key={item.contractAddress}
-                    address={item.contractAddress}
-                    checked={
-                      enableSelection
-                        ? selectedTokens.some(
-                            (t) => t.contractAddress === item.contractAddress,
-                          )
-                        : false
-                    }
-                    icon={item.logo || ''}
-                    symbol={item.symbol}
-                    tokenName={item.name}
-                    networkId={item.chainId}
-                    onChange={handleRecommendItemChange}
-                  />
-                ) : null;
-              })}
-            </XStack>
-          ))}
-          <YStack pt="$8">{confirmButton}</YStack>
-        </YStack>
-      </ScrollView>
-    </Stack>
+        {new Array(Math.ceil(actualMaxSize / 2)).fill(0).map((_, i) => (
+          <XStack
+            gap="$2.5"
+            key={i}
+            $sm={{
+              gap: '$2',
+            }}
+          >
+            {new Array(2).fill(0).map((__, j) => {
+              const item = recommendedTokens?.[i * 2 + j];
+              console.log('item', item);
+              return item ? (
+                <RecommendItem
+                  key={item.contractAddress}
+                  address={item.contractAddress}
+                  checked={
+                    enableSelection
+                      ? selectedTokens.some(
+                          (t) => t.contractAddress === item.contractAddress,
+                        )
+                      : false
+                  }
+                  icon={item.logo || ''}
+                  symbol={item.symbol}
+                  tokenName={item.name}
+                  networkId={item.chainId}
+                  onChange={handleRecommendItemChange}
+                />
+              ) : null;
+            })}
+          </XStack>
+        ))}
+        <YStack pt="$8">{confirmButton}</YStack>
+      </YStack>
+    </YStack>
   );
 }

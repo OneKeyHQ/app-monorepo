@@ -361,9 +361,6 @@ function MobileBrowser() {
     platformEnv.isNativeIOS ? 153 : 100,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    if (platformEnv.isNativeIOS) {
-      return;
-    }
     // Use the actual measured height without arbitrary adjustments
     const height = e.nativeEvent.layout.height;
     setTabPageHeight(height);
