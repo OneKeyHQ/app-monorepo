@@ -7,6 +7,7 @@ import {
   Stack,
   Tabs,
   YStack,
+  useIsIpadModalPage,
   useIsOverlayPage,
   useMedia,
   useTabContainerWidth,
@@ -115,7 +116,7 @@ function BasicTokenDetailTabs({
   );
 
   const pageWidth = useTabContainerWidth();
-
+  const isIpadModalPage = useIsIpadModalPage();
   return (
     <Tabs.Container
       containerStyle={{
@@ -123,7 +124,7 @@ function BasicTokenDetailTabs({
         ...(md ? { marginTop: 20 } : undefined),
         ...(isModalPage ? { marginTop: 20 } : undefined),
       }}
-      width={pageWidth as number}
+      width={isIpadModalPage ? (pageWidth as number) : undefined}
       renderHeader={() => (
         <YStack
           bg="$bgApp"
