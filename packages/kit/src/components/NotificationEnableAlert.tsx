@@ -8,8 +8,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 
+import useAppNavigation from '../hooks/useAppNavigation';
 import { usePromiseResult } from '../hooks/usePromiseResult';
 
 export type INotificationAlertScene =
@@ -40,6 +42,7 @@ function BasicNotificationEnableAlert({
   scene: INotificationAlertScene;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [notificationsData, setNotificationsData] = useNotificationsAtom();
 
   const dismissedKey = dismissedKeyMap[scene];
@@ -55,36 +58,22 @@ function BasicNotificationEnableAlert({
 
     noop(lastSettingsUpdateTime);
 
-    const [permission, serverSettings] = await Promise.all([
-      backgroundApiProxy.serviceNotification.getPermission(),
-      backgroundApiProxy.serviceNotification.fetchServerNotificationSettingsWithCache(),
-    ]);
+    const serverSettings =
+      await backgroundApiProxy.serviceNotification.fetchServerNotificationSettingsWithCache();
 
-    const isPushEnabled = !!serverSettings?.pushEnabled;
-    const isPermissionGranted =
-      permission.isSupported &&
-      permission.permission === ENotificationPermission.granted;
-
-    let isSceneNotificationDisabled = false;
-    if (scene === 'txHistory' || scene === 'swapHistory') {
-      if (isPushEnabled && !serverSettings?.accountActivityPushEnabled) {
-        isSceneNotificationDisabled = true;
-      }
-    } else if (scene === 'perpHistory') {
-      if (isPushEnabled && !serverSettings?.perpsEnabled) {
-        isSceneNotificationDisabled = true;
-      }
+    // If serverSettings is undefined (API failed), don't show the alert
+    if (!serverSettings) {
+      return {
+        shouldShow: false,
+      };
     }
 
-    const shouldShow =
-      !isSceneNotificationDisabled && (!isPushEnabled || !isPermissionGranted);
+    const shouldShow = !serverSettings.pushEnabled;
 
     return {
       shouldShow,
-      isPushEnabled,
-      isPermissionGranted,
     };
-  }, [lastSettingsUpdateTime, scene]);
+  }, [lastSettingsUpdateTime]);
 
   const handleClose = useCallback(() => {
     setNotificationsData((v) => ({
@@ -92,6 +81,20 @@ function BasicNotificationEnableAlert({
       [dismissedKey]: true,
     }));
   }, [setNotificationsData, dismissedKey]);
+
+  const handleEnablePress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingNotifications,
+    });
+  }, [navigation]);
+
+  const alertAction = useMemo(
+    () => ({
+      primary: intl.formatMessage({ id: ETranslations.global_enable }),
+      onPrimaryPress: handleEnablePress,
+    }),
+    [intl, handleEnablePress],
+  );
 
   const shouldShowAlert = useMemo(
     () => !isDismissed && result?.shouldShow,
@@ -112,6 +115,7 @@ function BasicNotificationEnableAlert({
         })}
         closable
         onClose={handleClose}
+        action={alertAction}
       />
     </Stack>
   );
