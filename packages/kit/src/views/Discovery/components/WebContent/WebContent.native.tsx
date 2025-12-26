@@ -20,9 +20,11 @@ import type {
   WebView as ReactNativeWebview,
   WebViewNavigation,
   WebViewProps,
-  ShouldStartLoadRequest,
 } from 'react-native-webview';
-import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  ShouldStartLoadRequest,
+  WebViewNavigationEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {
