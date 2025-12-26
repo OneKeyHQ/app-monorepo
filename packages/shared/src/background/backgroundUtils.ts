@@ -33,11 +33,11 @@ import {
   IMPL_NOSTR,
   IMPL_SCDO,
   IMPL_SOL,
+  IMPL_STELLAR,
   IMPL_SUI,
   IMPL_TBTC,
   IMPL_TON,
   IMPL_TRON,
-  IMPL_STELLAR,
 } from '../engine/engineConsts';
 import { NotAutoPrintError } from '../errors';
 import errorUtils from '../errors/utils/errorUtils';

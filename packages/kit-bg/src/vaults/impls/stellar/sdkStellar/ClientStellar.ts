@@ -9,6 +9,7 @@ import { JsonRpcTransport } from './JsonRpcTransport';
 import { OneKeyTransport } from './OneKeyTransport';
 
 import type { EStellarAssetType } from '../types';
+import { ISimulateTransactionResponse } from './types';
 
 type IStellarBalance = {
   asset_type: string;
@@ -24,84 +25,39 @@ type IStellarAccountInfo = {
   balances: IStellarBalance[];
 };
 
-/**
- * Stellar Client for network interactions
- * Supports three transport modes:
- * 1. HorizonTransport - Direct public Horizon API (default, recommended for Classic Assets)
- * 2. JsonRpcTransport - Soroban RPC (for smart contracts and Soroban-specific features)
- * 3. OneKeyTransport - OneKey proxy server (for special OneKey features)
- */
 export default class ClientStellar {
   readonly networkId: string;
 
   readonly backgroundApi: IBackgroundApi;
 
-  readonly transport: HorizonTransport | JsonRpcTransport | OneKeyTransport;
+  private readonly transport:
+    | HorizonTransport
+    | JsonRpcTransport
+    | OneKeyTransport;
 
   readonly customRpcUrl?: string;
-
-  readonly useOneKeyProxy: boolean;
 
   constructor({
     networkId,
     backgroundApi,
     customRpcUrl,
-    useOneKeyProxy = false,
   }: {
     networkId: string;
     backgroundApi: IBackgroundApi;
     customRpcUrl?: string;
-    useOneKeyProxy?: boolean; // Force use OneKey proxy
   }) {
     this.networkId = networkId;
     this.backgroundApi = backgroundApi;
     this.customRpcUrl = customRpcUrl;
-    this.useOneKeyProxy = useOneKeyProxy;
 
-    /**
-     * Transport Selection Logic:
-     *
-     * Priority 1: If useOneKeyProxy is explicitly set
-     *   -> Use OneKeyTransport
-     *
-     * Priority 2: If customRpcUrl is provided and looks like Soroban RPC
-     *   -> Use JsonRpcTransport (for smart contracts)
-     *
-     * Priority 3: If customRpcUrl is provided and looks like Horizon API
-     *   -> Use HorizonTransport with custom endpoint
-     *
-     * Priority 4: Default (no customRpcUrl)
-     *   -> Use HorizonTransport with public endpoint (RECOMMENDED)
-     */
-    if (useOneKeyProxy) {
-      // Mode 1: OneKey Proxy (for special OneKey features)
-      this.transport = new OneKeyTransport({ backgroundApi, networkId });
-    } else if (customRpcUrl && this.isSorobanRpcUrl(customRpcUrl)) {
-      // Mode 2: Soroban RPC (for smart contracts)
+    if (customRpcUrl) {
       this.transport = new JsonRpcTransport({
         rpcUrl: customRpcUrl,
         networkId,
       });
-    } else if (customRpcUrl) {
-      // Mode 3: Custom Horizon endpoint
-      this.transport = new JsonRpcTransport({
-        rpcUrl: customRpcUrl,
-        networkId,
-      });
-      // this.transport = new HorizonTransport({ horizonUrl: customRpcUrl });
     } else {
-      // Mode 4: Default - Public Horizon API (recommended for Classic Assets)
-      this.transport = new HorizonTransport({ networkId });
+      this.transport = new OneKeyTransport({ backgroundApi, networkId });
     }
-  }
-
-  /**
-   * Detect if URL is a Soroban RPC endpoint
-   * Soroban RPC URLs typically contain 'soroban' or '/rpc'
-   */
-  private isSorobanRpcUrl(url: string): boolean {
-    const lowerUrl = url.toLowerCase();
-    return lowerUrl.includes('soroban') || lowerUrl.includes('/rpc');
   }
 
   /**
@@ -239,17 +195,6 @@ export default class ClientStellar {
   }
 
   /**
-   * Get account sequence number
-   */
-  async getSequence(address: string): Promise<string> {
-    const accountInfo = await this.getAccountInfo(address);
-    if (!accountInfo) {
-      throw new OneKeyInternalError(`Account ${address} not found on network`);
-    }
-    return accountInfo.sequence;
-  }
-
-  /**
    * Get suggested fee from network
    */
   async getSuggestedFee(): Promise<string> {
@@ -277,6 +222,15 @@ export default class ClientStellar {
   async submitTransaction(signedTxXdr: string): Promise<string> {
     const result = await this.transport.sendTransaction(signedTxXdr);
     return result.hash;
+  }
+
+  /**
+   * Simulate transaction
+   */
+  async simulateTransaction(
+    transaction: string,
+  ): Promise<ISimulateTransactionResponse> {
+    return this.transport.simulateTransaction(transaction);
   }
 
   /**

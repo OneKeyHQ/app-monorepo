@@ -2,6 +2,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import type { IEncodedTxStellar } from '@onekeyhq/core/src/chains/stellar/types';
 import {
   backgroundClass,
   providerApiMethod,
@@ -9,27 +10,27 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesStellar } from '@onekeyhq/shared/types/message';
 
-import ProviderApiBase from './ProviderApiBase';
 import { vaultFactory } from '../vaults/factory';
 
+import ProviderApiBase from './ProviderApiBase';
+
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type Vault from '../vaults/impls/stellar/Vault';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-import type Vault from '../vaults/impls/stellar/Vault';
-import { IEncodedTxStellar } from '@onekeyhq/core/src/chains/stellar/types';
 
-type GetAddressParams = {
+type IGetAddressParams = {
   path?: string;
   skipRequestAccess?: boolean;
 };
 
-type GetAddressResult = {
+type IGetAddressResult = {
   address: string;
 };
 
-type SignTransactionParams = {
+type ISignTransactionParams = {
   xdr: string;
   networkPassphrase?: string;
   address?: string;
@@ -38,36 +39,36 @@ type SignTransactionParams = {
   submitUrl?: string;
 };
 
-type SignTransactionResult = {
+type ISignTransactionResult = {
   signedTxXdr: string;
   signerAddress?: string;
 };
 
-type SignAuthEntryParams = {
+type ISignAuthEntryParams = {
   authEntry: string;
   networkPassphrase?: string;
   address?: string;
   path?: string;
 };
 
-type SignAuthEntryResult = {
+type ISignAuthEntryResult = {
   signedAuthEntry: string;
   signerAddress?: string;
 };
 
-type SignMessageParams = {
+type ISignMessageParams = {
   message: string;
   networkPassphrase?: string;
   address?: string;
   path?: string;
 };
 
-type SignMessageResult = {
+type ISignMessageResult = {
   signedMessage: string;
   signerAddress?: string;
 };
 
-type GetNetworkResult = {
+type IGetNetworkResult = {
   network: string;
   networkPassphrase: string;
 };
@@ -132,8 +133,8 @@ class ProviderApiStellar extends ProviderApiBase {
   @providerApiMethod()
   async stellar_getAddress(
     request: IJsBridgeMessagePayload,
-    params?: GetAddressParams,
-  ): Promise<GetAddressResult> {
+    params?: IGetAddressParams,
+  ): Promise<IGetAddressResult> {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
     const { skipRequestAccess = false } = params || {};
@@ -159,8 +160,8 @@ class ProviderApiStellar extends ProviderApiBase {
   @providerApiMethod()
   async stellar_signTransaction(
     request: IJsBridgeMessagePayload,
-    params: SignTransactionParams,
-  ): Promise<SignTransactionResult> {
+    params: ISignTransactionParams,
+  ): Promise<ISignTransactionResult> {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
     const { xdr, networkPassphrase, submit = false } = params;
@@ -226,8 +227,8 @@ class ProviderApiStellar extends ProviderApiBase {
   @providerApiMethod()
   async stellar_signAuthEntry(
     request: IJsBridgeMessagePayload,
-    params: SignAuthEntryParams,
-  ): Promise<SignAuthEntryResult> {
+    params: ISignAuthEntryParams,
+  ): Promise<ISignAuthEntryResult> {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
     const { authEntry, networkPassphrase } = params;
@@ -262,8 +263,8 @@ class ProviderApiStellar extends ProviderApiBase {
   @providerApiMethod()
   async stellar_signMessage(
     request: IJsBridgeMessagePayload,
-    params: SignMessageParams,
-  ): Promise<SignMessageResult> {
+    params: ISignMessageParams,
+  ): Promise<ISignMessageResult> {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
     const { message, networkPassphrase } = params;
@@ -298,7 +299,7 @@ class ProviderApiStellar extends ProviderApiBase {
   @providerApiMethod()
   async stellar_getNetwork(
     request: IJsBridgeMessagePayload,
-  ): Promise<GetNetworkResult> {
+  ): Promise<IGetNetworkResult> {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
     const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(

@@ -92,6 +92,7 @@ import {
   SAC_TOKEN_DECIMALS,
   buildMemoFromString,
   calculateAvailableBalance,
+  calculateFrozenBalance,
   getNetworkPassphrase,
   isContractAddress,
   isValidAccountCreationAmount,
@@ -168,32 +169,6 @@ export default class Vault extends VaultBase {
    */
   async getNetworkPassphrase(): Promise<string> {
     return getNetworkPassphrase(this.networkId);
-  }
-
-  /**
-   * Check if account exists on the network
-   */
-  async checkAccountExists(address: string): Promise<boolean> {
-    const client = await this.getClient();
-    const network = await this.getNetwork();
-    return client.accountExists(address);
-  }
-
-  /**
-   * Get available balance considering reserves
-   */
-  async getAvailableBalance(address: string): Promise<string> {
-    const client = await this.getClient();
-    const accountInfo = await client.getAccountInfo(address);
-
-    if (!accountInfo) {
-      return '0';
-    }
-
-    return calculateAvailableBalance({
-      balance: accountInfo.balance,
-      numSubEntries: accountInfo.subentry_count,
-    });
   }
 
   /**
@@ -333,16 +308,18 @@ export default class Vault extends VaultBase {
       return Promise.resolve(true);
     }
 
-    const availableBalance = new BigNumber(
-      calculateAvailableBalance({
-        balance: accountInfo.balance,
-        numSubEntries: accountInfo.subentry_count,
-      }),
-    );
+    const { available } = calculateAvailableBalance({
+      balance: accountInfo.balance,
+      numSubEntries: accountInfo.subentry_count,
+    });
+    const availableBalance = new BigNumber(available);
     const reserveRequired = new BigNumber(ENTRY_RESERVE).shiftedBy(
       network.decimals,
     );
-    const feeRequired = new BigNumber(BASE_FEE).shiftedBy(network.decimals);
+    const feeRequired = new BigNumber(BASE_FEE);
+    console.log('=====>>>>> availableBalance: ', availableBalance.toFixed());
+    console.log('=====>>>>> reserveRequired: ', reserveRequired.toFixed());
+    console.log('=====>>>>> feeRequired: ', feeRequired.toFixed());
     if (availableBalance.lt(reserveRequired.plus(feeRequired))) {
       throw new ManageTokenInsufficientBalanceError({
         info: {
@@ -674,7 +651,10 @@ export default class Vault extends VaultBase {
 
         if (!paymentOp.asset.isNative()) {
           const assetInfo = this._convertAssetToIStellarAsset(paymentOp.asset);
-          if (assetInfo.type !== 'NATIVE') {
+          if (
+            assetInfo.type === 'ALPHANUM4' ||
+            assetInfo.type === 'ALPHANUM12'
+          ) {
             tokenIdOnNetwork = `${assetInfo.code}:${assetInfo.issuer}`;
             tokenInfo = await ensureTokenInfo(tokenIdOnNetwork, {
               address: tokenIdOnNetwork,
@@ -733,7 +713,10 @@ export default class Vault extends VaultBase {
         const assetLine = changeTrustOp.line;
         if (assetLine instanceof Asset) {
           const assetInfo = this._convertAssetToIStellarAsset(assetLine);
-          if (assetInfo.type !== 'NATIVE') {
+          if (
+            assetInfo.type === 'ALPHANUM4' ||
+            assetInfo.type === 'ALPHANUM12'
+          ) {
             const tokenIdOnNetwork = `${assetInfo.code}:${assetInfo.issuer}`;
             const tokenInfo = await ensureTokenInfo(tokenIdOnNetwork, {
               address: tokenIdOnNetwork,
@@ -978,7 +961,7 @@ export default class Vault extends VaultBase {
 
       // Parse contract address
       const contractId = sdkStellar.StellarSdk.StrKey.encodeContract(
-        contractAddress.contractId(),
+        contractAddress.contractId() as unknown as Buffer,
       );
 
       // Extract transfer parameters: from, to, amount
@@ -1237,8 +1220,19 @@ export default class Vault extends VaultBase {
     }
 
     const network = await this.getNetwork();
-    const balance = new BigNumber(accountInfo.balance ?? '0').toFixed();
-    const balanceParsed = new BigNumber(accountInfo.balance ?? '0')
+
+    const frozenBalance = calculateFrozenBalance({
+      numSubEntries: accountInfo.subentry_count,
+    });
+    const frozenBalanceParsed = new BigNumber(frozenBalance)
+      .shiftedBy(-network.decimals)
+      .toFixed();
+
+    const balance = BigNumber.max(
+      new BigNumber(accountInfo.balance ?? '0').minus(frozenBalance),
+      0,
+    ).toFixed();
+    const balanceParsed = new BigNumber(balance)
       .shiftedBy(-network.decimals)
       .toFixed();
 
@@ -1249,6 +1243,8 @@ export default class Vault extends VaultBase {
           balance,
           balanceParsed,
           nonce: parseInt(accountInfo.sequence, 10),
+          frozenBalance,
+          frozenBalanceParsed,
         },
       },
     };
@@ -1360,6 +1356,8 @@ export default class Vault extends VaultBase {
             },
             balance: accountDetails?.balance ?? '0',
             balanceParsed: accountDetails?.balanceParsed ?? '0',
+            frozenBalance: accountDetails?.frozenBalance ?? '0',
+            frozenBalanceParsed: accountDetails?.frozenBalanceParsed ?? '0',
             fiatValue: '0',
             price: 0,
           };
@@ -1569,6 +1567,8 @@ export default class Vault extends VaultBase {
         },
         balance: nativeToken.balance,
         balanceParsed: new BigNumber(nativeToken.balanceParsed).toFixed(),
+        frozenBalance: nativeToken.frozenBalance ?? '0',
+        frozenBalanceParsed: nativeToken.frozenBalanceParsed ?? '0',
         fiatValue: '0',
         price: '0',
         price24h: 0,
@@ -1636,8 +1636,6 @@ export default class Vault extends VaultBase {
             address: contract,
             logoURI: '',
             isNative: false,
-            stellarContractAddress: contract,
-            stellarTokenType: EStellarAssetType.StellarAsset,
           },
           balance: balance.balance,
           balanceParsed: new BigNumber(balance.balance)
@@ -1701,8 +1699,8 @@ export default class Vault extends VaultBase {
           address: contractId,
           logoURI: '',
           isNative: false,
-          stellarContractAddress: contractAddress,
-          stellarTokenType: type,
+          // stellarContractAddress: contractAddress,
+          // stellarTokenType: type,
         },
         balance,
         balanceParsed,
@@ -1768,12 +1766,8 @@ export default class Vault extends VaultBase {
     let minResourceFee = new BigNumber(0);
     if (encodedTx?.xdr) {
       try {
-        const simulateResult = await client.transport.simulateTransaction(
-          encodedTx.xdr,
-        );
-        const minResourceFeeValue =
-          simulateResult?.minResourceFee ??
-          simulateResult?.result?.minResourceFee;
+        const simulateResult = await client.simulateTransaction(encodedTx.xdr);
+        const minResourceFeeValue = simulateResult?.minResourceFee;
         if (minResourceFeeValue) {
           minResourceFee = new BigNumber(minResourceFeeValue).multipliedBy(1.1);
         }
@@ -1837,47 +1831,16 @@ export default class Vault extends VaultBase {
         encodedTx.xdr,
         encodedTx.networkPassphrase,
       );
-      const operations =
-        (stellarTx as any)?.innerTransaction?.operations ??
-        stellarTx.operations;
+      let operations: StellarSdk.Operation[] = [];
+      if (stellarTx instanceof sdkStellar.StellarSdk.FeeBumpTransaction) {
+        operations = stellarTx.innerTransaction.operations;
+      } else {
+        operations = stellarTx.operations;
+      }
       return operations?.length ?? 1;
     } catch (error) {
       console.error('Failed to parse Stellar operations count', error);
       return 1;
     }
-  }
-
-  private _resolveStellarFeeFromFeeInfo(
-    feeInfo?: IFeeInfoUnit,
-    fallbackDecimals?: number,
-  ): string | undefined {
-    if (!feeInfo) {
-      return undefined;
-    }
-    const decimals = feeInfo.common?.feeDecimals ?? fallbackDecimals ?? 0;
-    const gasPrice = feeInfo.gas?.gasPrice;
-    if (gasPrice) {
-      const resolved = new BigNumber(gasPrice)
-        .shiftedBy(decimals)
-        .decimalPlaces(0, BigNumber.ROUND_CEIL)
-        .toFixed();
-      if (new BigNumber(resolved).gt(0)) {
-        return resolved;
-      }
-    }
-    const baseFee = feeInfo.common?.baseFee;
-    if (baseFee) {
-      const baseFeeBN = new BigNumber(baseFee);
-      if (baseFeeBN.gt(0)) {
-        if (baseFee.includes('.') || baseFeeBN.lt(1)) {
-          return baseFeeBN
-            .shiftedBy(decimals)
-            .decimalPlaces(0, BigNumber.ROUND_CEIL)
-            .toFixed();
-        }
-        return baseFeeBN.decimalPlaces(0, BigNumber.ROUND_CEIL).toFixed();
-      }
-    }
-    return undefined;
   }
 }

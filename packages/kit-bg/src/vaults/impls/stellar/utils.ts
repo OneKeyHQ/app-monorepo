@@ -12,7 +12,7 @@ export const BASE_RESERVE = '1'; // 1 XLM base reserve
 export const ENTRY_RESERVE = '0.5'; // 0.5 XLM per trustline/offer/signer
 
 // Minimum account creation balance
-export const MIN_ACCOUNT_BALANCE = '1'; // 1 XLM minimum
+export const MIN_ACCOUNT_BALANCE = BASE_RESERVE; // 1 XLM minimum
 
 // Base fee per operation
 export const BASE_FEE = '100'; // 100 stroops = 0.00001 XLM
@@ -33,23 +33,16 @@ export function getNetworkPassphrase(networkId: string): string {
  * Calculate available balance considering reserves
  * Formula: available = balance - (baseReserve + numEntries * entryReserve)
  */
-export function calculateAvailableBalance(params: {
-  balance: string;
+export function calculateFrozenBalance(params: {
   numSubEntries: number;
 }): string {
-  const { balance, numSubEntries } = params;
+  const { numSubEntries } = params;
 
   const reserved = new BigNumber(BASE_RESERVE)
-    .shiftedBy(-SAC_TOKEN_DECIMALS)
-    .plus(
-      new BigNumber(ENTRY_RESERVE)
-        .shiftedBy(-SAC_TOKEN_DECIMALS)
-        .multipliedBy(numSubEntries),
-    );
+    .plus(new BigNumber(ENTRY_RESERVE).multipliedBy(numSubEntries))
+    .shiftedBy(SAC_TOKEN_DECIMALS);
 
-  const available = new BigNumber(balance).minus(reserved);
-
-  return BigNumber.max(available, 0).toFixed(0);
+  return reserved.toFixed(0);
 }
 
 /**
@@ -159,19 +152,54 @@ export function getSACAddress(
   }
 }
 
-/**
- * Check if a contract address is a SAC (Stellar Asset Contract)
- * and return the underlying classic asset if it is
- * @param contractId - Contract address
- * @returns Classic asset info if this is a SAC, null otherwise
- */
-export async function getSACClassicAsset(
-  contractId: string,
-): Promise<{ code: string; issuer: string } | null> {
-  // This is a placeholder - in practice, you would need to:
-  // 1. Query the contract to check if it's a SAC
-  // 2. If it is, extract the underlying asset info
-  // For now, we'll return null to indicate we can't determine this
-  // In a full implementation, this would require RPC calls to the network
-  return null;
+export function decimalToFraction(value: string | number | BigNumber): {
+  n: number;
+  d: number;
+} {
+  const bn = new BigNumber(value);
+
+  const str = bn.toFixed();
+  const [integerPart, decimalPart = ''] = str.split('.');
+
+  const decimalPlaces = decimalPart.length;
+  const denominator = new BigNumber(10).pow(decimalPlaces);
+
+  const numerator = new BigNumber(integerPart)
+    .multipliedBy(denominator)
+    .plus(decimalPart || '0');
+
+  const gcd = (a: BigNumber, b: BigNumber): BigNumber => {
+    return b.isZero() ? a : gcd(b, a.mod(b));
+  };
+
+  const common = gcd(numerator, denominator);
+
+  return {
+    n: numerator.div(common).toNumber(),
+    d: denominator.div(common).toNumber(),
+  };
+}
+
+export function calculateAvailableBalance(params: {
+  balance: string; // stroops
+  numSubEntries: number;
+}): { available: string; reserved: string } {
+  const { balance, numSubEntries } = params;
+
+  // convert XLM reserve to stroops (decimals = 7)
+  const reserved = new BigNumber(BASE_RESERVE)
+    .shiftedBy(SAC_TOKEN_DECIMALS)
+    .plus(
+      new BigNumber(ENTRY_RESERVE)
+        .shiftedBy(SAC_TOKEN_DECIMALS)
+        .multipliedBy(numSubEntries),
+    )
+    .toFixed(0);
+
+  const available = BigNumber.max(
+    new BigNumber(balance).minus(reserved),
+    0,
+  ).toFixed(0);
+
+  return { available, reserved };
 }

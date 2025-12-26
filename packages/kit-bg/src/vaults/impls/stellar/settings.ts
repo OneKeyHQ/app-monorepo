@@ -39,6 +39,7 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 30,
   activateTokenRequired: true, // Stellar needs to establish a trustline to receive tokens.
+  hasFrozenBalance: true, // trustline count * 0.5XLM is frozen balance
 
   withMemo: true,
   memoMaxLength: 28,

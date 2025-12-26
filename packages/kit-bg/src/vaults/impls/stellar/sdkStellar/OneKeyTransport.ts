@@ -1,8 +1,9 @@
 /* eslint-disable spellcheck/spell-checker */
-import type { ISimulateTransactionResponse } from './types';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import type { ISimulateTransactionResponse } from './types';
 
 /**
  * OneKey Stellar RPC Transport
