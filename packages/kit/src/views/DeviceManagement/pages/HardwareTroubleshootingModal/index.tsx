@@ -115,7 +115,7 @@ function HardwareTroubleshootingModal() {
       },
       {
         title: intl.formatMessage({
-          id: ETranslations.global_faqs_reset_wallet,
+          id: ETranslations.global_faqs_reset_device,
         }),
         icon: 'RepeatOutline',
         link: 'https://help.onekey.so/articles/11461116',
