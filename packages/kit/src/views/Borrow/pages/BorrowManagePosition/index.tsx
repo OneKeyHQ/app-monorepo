@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   EModalStakingRoutes,
@@ -13,6 +12,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
+import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 
 import type { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
@@ -22,7 +22,6 @@ const BorrowManagePosition = () => {
     IModalStakingParamList,
     EModalStakingRoutes.BorrowManagePosition
   >();
-  const { activeAccount } = useActiveAccount({ num: 0 });
 
   const {
     networkId,
@@ -35,8 +34,9 @@ const BorrowManagePosition = () => {
     type,
     borrowReserves,
   } = route.params;
-  const accountId = activeAccount.account?.id || '';
-  const indexedAccountId = activeAccount.indexedAccount?.id;
+  const { earnAccount } = useEarnAccount({ networkId });
+  const accountId = earnAccount?.account?.id || '';
+  const indexedAccountId = earnAccount?.account?.indexedAccountId;
   const defaultTab = useMemo(() => {
     if (type === 'withdraw' || type === 'repay') {
       return 'withdraw';

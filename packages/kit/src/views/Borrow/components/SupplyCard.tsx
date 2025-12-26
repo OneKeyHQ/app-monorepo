@@ -2,10 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { SizableText, Switch, XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
@@ -25,16 +25,19 @@ type ISupplyAsset = IBorrowReserveItem['supply']['assets'][number];
 export const SupplyCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
   const navigation = useAppNavigation();
-  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd, gtLg } = useMedia();
   const [showZeroBalance, setShowZeroBalance] = useState(false);
+  const accountId = earnAccount?.account?.id || '';
+  const walletId = earnAccount?.walletId || '';
+  const indexedAccountId = earnAccount?.account?.indexedAccountId;
 
   const handleManageSupply = useCallback(
     (item: ISupplyAsset) => {
       if (!market) return;
 
       BorrowNavigation.pushToBorrowManagePosition(navigation, {
-        accountId: activeAccount.account?.id || '',
+        accountId,
         networkId: market.networkId,
         provider: market.provider,
         marketAddress: market.marketAddress,
@@ -46,7 +49,7 @@ export const SupplyCard = () => {
         borrowReserves: reserves ?? undefined,
       });
     },
-    [navigation, market, activeAccount.account?.id, reserves],
+    [navigation, market, accountId, reserves],
   );
 
   const handlePressRow = useCallback(
@@ -163,12 +166,15 @@ export const SupplyCard = () => {
             item={item}
             onPress={() => handleManageSupply(item)}
             needAdditionButton={gtLg}
+            accountId={accountId}
+            walletId={walletId}
+            indexedAccountId={indexedAccountId}
           />
         ),
         flex: 1,
       },
     ],
-    [handleManageSupply, gtLg],
+    [handleManageSupply, gtLg, accountId, walletId, indexedAccountId],
   );
 
   return (

@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { ActionList, Button, IconButton, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
 import { useBorrowContext } from '../../BorrowProvider';
 import { useSupplyActions } from '../../hooks/useSupplyActions';
@@ -15,6 +14,9 @@ type IActionFieldProps = {
   onPress?: (item: IAssetWithToken) => void;
   needAdditionButton?: boolean;
   buttonText: React.ReactNode;
+  accountId?: string;
+  walletId?: string;
+  indexedAccountId?: string;
 };
 
 export const ActionField = ({
@@ -22,16 +24,18 @@ export const ActionField = ({
   onPress,
   needAdditionButton = false,
   buttonText,
+  accountId = '',
+  walletId = '',
+  indexedAccountId,
 }: IActionFieldProps) => {
   const { market } = useBorrowContext();
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const networkId = market?.networkId || '';
 
   const { handleSwap, handleBridge, handleReceive } = useSupplyActions({
-    accountId: activeAccount?.account?.id || '',
-    walletId: activeAccount?.wallet?.id || '',
+    accountId,
+    walletId,
     networkId,
-    indexedAccountId: activeAccount?.indexedAccount?.id,
+    indexedAccountId,
   });
 
   const { result: swapConfig } = usePromiseResult(

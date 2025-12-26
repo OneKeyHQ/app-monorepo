@@ -1976,11 +1976,12 @@ class ServiceStaking extends ServiceBase {
   async getBorrowReserves(params: IBorrowReserveRequestParams) {
     const { accountId, ...rest } = params;
 
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
+    const accountAddress = accountId
+      ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId: params.networkId,
+          accountId,
+        })
+      : undefined;
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
@@ -1988,7 +1989,7 @@ class ServiceStaking extends ServiceBase {
     }>('/earn/v1/borrow/reserves', {
       params: {
         ...rest,
-        accountAddress,
+        ...(accountAddress ? { accountAddress } : {}),
       },
     });
     return response.data.data;

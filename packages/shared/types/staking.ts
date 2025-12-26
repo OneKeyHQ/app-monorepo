@@ -1773,7 +1773,7 @@ export interface IBorrowReserveRequestParams {
   provider: string;
   networkId: string;
   marketAddress: string;
-  accountId: string;
+  accountId?: string;
 }
 
 export interface IBorrowHealthFactor {

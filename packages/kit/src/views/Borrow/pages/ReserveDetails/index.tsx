@@ -26,7 +26,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnPageContainer } from '../../../Earn/components/EarnPageContainer';
 import { BorrowNavigation } from '../../borrowUtils';
-import { useEarnAccount } from '../../hooks/useEarnAccount';
+import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 
 import { DetailsPart } from './components/DetailsPart';
 import { ManagePositionPart } from './components/ManagePositionPart';

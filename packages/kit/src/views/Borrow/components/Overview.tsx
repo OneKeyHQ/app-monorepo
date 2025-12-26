@@ -21,7 +21,7 @@ import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
 import { useBorrowRewards } from '../hooks/useBorrowRewards';
-import { useEarnAccount } from '../hooks/useEarnAccount';
+import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
 
 import { BorrowBonusTooltip } from './BorrowBonusTooltip';
@@ -102,7 +102,7 @@ export const Overview = () => {
   });
 
   const handleRefresh = useCallback(async () => {
-    if (!provider || !networkId || !marketAddress || !earnAccountId) return;
+    if (!provider || !networkId || !marketAddress) return;
     setReservesLoading(true);
     try {
       const result = await fetchReserves({

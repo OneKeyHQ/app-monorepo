@@ -2,10 +2,10 @@ import { useCallback, useMemo } from 'react';
 
 import { XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
@@ -60,15 +60,18 @@ const SuppliedHeader = ({
 export const SuppliedCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
   const navigation = useAppNavigation();
-  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd } = useMedia();
+  const accountId = earnAccount?.account?.id || '';
+  const walletId = earnAccount?.walletId || '';
+  const indexedAccountId = earnAccount?.account?.indexedAccountId;
 
   const handleManageWithdraw = useCallback(
     (item: ISuppliedAsset) => {
       if (!market) return;
 
       BorrowNavigation.pushToBorrowManagePosition(navigation, {
-        accountId: activeAccount.account?.id || '',
+        accountId,
         networkId: market.networkId,
         provider: market.provider,
         marketAddress: market.marketAddress,
@@ -80,7 +83,7 @@ export const SuppliedCard = () => {
         borrowReserves: reserves ?? undefined,
       });
     },
-    [navigation, market, activeAccount.account?.id, reserves],
+    [navigation, market, accountId, reserves],
   );
 
   const handlePressRow = useCallback(
@@ -169,13 +172,16 @@ export const SuppliedCard = () => {
           <ActionField
             buttonText={<EarnText text={{ text: 'Withdraw' }} />}
             item={item}
+            accountId={accountId}
+            walletId={walletId}
+            indexedAccountId={indexedAccountId}
             onPress={() => handleManageWithdraw(item)}
           />
         ),
         flex: 1,
       },
     ],
-    [handleManageWithdraw],
+    [handleManageWithdraw, accountId, walletId, indexedAccountId],
   );
 
   // FIXME[borrow]: i18n
