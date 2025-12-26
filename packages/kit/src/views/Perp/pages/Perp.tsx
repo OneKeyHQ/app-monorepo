@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { usePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { HyperliquidTermsOverlay } from '../components/HyperliquidTerms';
@@ -38,6 +39,16 @@ function PerpLayout() {
     return <PerpDesktopLayout />;
   }
   return <PerpMobileLayout />;
+}
+
+function PerpBodyContent() {
+  return (
+    <Stack position="relative" flex={1}>
+      <PerpLayout />
+      <HyperliquidTermsOverlay />
+      <PerpContentFooter />
+    </Stack>
+  );
 }
 
 function PerpContent() {
@@ -94,32 +105,15 @@ function PerpContent() {
         header
       )}
       <Page.Body>
-        <Stack position="relative" flex={1}>
-          <PerpLayout />
-          <HyperliquidTermsOverlay />
-          <PerpContentFooter />
-        </Stack>
+        <LazyPageContainer>
+          <PerpBodyContent />
+        </LazyPageContainer>
       </Page.Body>
     </Page>
   );
 }
 
 function PerpView() {
-  const isFocused = useIsFocused();
-  const [isMounted, setIsMounted] = useState(false);
-  const isMountedRef = useRef(false);
-  useEffect(() => {
-    if (isMountedRef.current) {
-      return;
-    }
-    if (isFocused) {
-      isMountedRef.current = true;
-      setIsMounted(true);
-    }
-  }, [isFocused]);
-  if (!isMounted) {
-    return null;
-  }
   return shouldOpenExpandExtPerp ? (
     <ExtPerp />
   ) : (
