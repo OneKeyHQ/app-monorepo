@@ -34,7 +34,10 @@ interface IPerpSettingsPopoverContentProps {
   closePopover: () => void;
 }
 
-const SHOW_RESET_LAYOUT = platformEnv.isWeb || platformEnv.isDesktop;
+const SHOW_RESET_LAYOUT =
+  platformEnv.isWeb ||
+  platformEnv.isDesktop ||
+  platformEnv.isExtensionUiExpandTab;
 
 function PerpSettingsPopoverContent({
   closePopover,
