@@ -131,6 +131,48 @@ const KeylessWalletCreation = LazyLoadPage(
   false,
   <OnboardingLayoutFallback />,
 );
+const OneKeyIDLogin = LazyLoadPage(
+  () => import('../pages/OneKeyIDLoginPage'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
+const CreatePin = LazyLoadPage(
+  () => import('../pages/CreatePinPage'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
+const ConfirmPin = LazyLoadPage(
+  () => import('../pages/ConfirmPinPage'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
+const CreatePasscode = LazyLoadPage(
+  () => import('../pages/CreatePasscodePage'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
+const VerifyPin = LazyLoadPage(
+  () => import('../pages/VerifyPinPage'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
+const ResetPin = LazyLoadPage(
+  () => import('../pages/ResetPinPage'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
+const NewPinCreated = LazyLoadPage(
+  () => import('../pages/NewPinCreatedPage'),
+  undefined,
+  false,
+  <OnboardingLayoutFallback />,
+);
 
 const MoreAction = LazyLoadPage(
   () => import('../pages/MoreAction'),
@@ -250,6 +292,41 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.KeylessWalletCreation,
     component: KeylessWalletCreation,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.OneKeyIDLogin,
+    component: OneKeyIDLogin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.CreatePin,
+    component: CreatePin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConfirmPin,
+    component: ConfirmPin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.CreatePasscode,
+    component: CreatePasscode,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.VerifyPin,
+    component: VerifyPin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ResetPin,
+    component: ResetPin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.NewPinCreated,
+    component: NewPinCreated,
     options: hiddenHeaderOptions,
   },
   {

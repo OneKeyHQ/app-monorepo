@@ -1,0 +1,159 @@
+import { useCallback, useState } from 'react';
+
+import { StyleSheet } from 'react-native';
+
+import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
+import {
+  Anchor,
+  AnimatePresence,
+  Icon,
+  Page,
+  SizableText,
+  Spinner,
+  YStack,
+} from '@onekeyhq/components';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+
+import { ListItem } from '../../../components/ListItem';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { OnboardingLayout } from '../components/OnboardingLayout';
+
+function OptionItem({
+  icon,
+  iconProps,
+  title,
+  isLoading,
+  onPress,
+}: {
+  icon: IKeyOfIcons;
+  iconProps?: IIconProps;
+  title: string;
+  isLoading?: boolean;
+  onPress?: () => void;
+}) {
+  return (
+    <ListItem
+      gap="$3"
+      bg="$bg"
+      $platform-web={{
+        boxShadow:
+          '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+      }}
+      $theme-dark={{
+        bg: '$neutral2',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$neutral3',
+      }}
+      $platform-native={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$borderSubdued',
+      }}
+      borderRadius="$5"
+      borderCurve="continuous"
+      p="$3"
+      m="$0"
+      onPress={onPress}
+      userSelect="none"
+    >
+      <YStack
+        borderRadius="$full"
+        bg="$neutral2"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$neutral2"
+        p="$2"
+      >
+        <Icon name={icon} {...iconProps} />
+      </YStack>
+      <YStack gap={2} flex={1}>
+        <SizableText size="$bodyLgMedium">{title}</SizableText>
+      </YStack>
+      <YStack w="$6" h="$6" alignItems="center" justifyContent="center">
+        <AnimatePresence initial={false} exitBeforeEnter>
+          {isLoading ? (
+            <YStack
+              key="loading-spinner"
+              animation="quick"
+              animateOnly={['transform', 'opacity']}
+              enterStyle={{ scale: 0.7, opacity: 0 }}
+              exitStyle={{ scale: 0.7, opacity: 0 }}
+            >
+              <Spinner size="small" />
+            </YStack>
+          ) : (
+            <YStack
+              key="chevron-right"
+              animation="quick"
+              enterStyle={{ scale: 0.7, opacity: 0 }}
+              exitStyle={{ scale: 0.7, opacity: 0 }}
+            >
+              <Icon name="ChevronRightSmallOutline" color="$iconDisabled" />
+            </YStack>
+          )}
+        </AnimatePresence>
+      </YStack>
+    </ListItem>
+  );
+}
+
+function OneKeyIDLoginPage() {
+  const navigation = useAppNavigation();
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleGoogleLogin = useCallback(() => {
+    setIsLoggingIn(true);
+
+    setTimeout(() => {
+      setIsLoggingIn(false);
+      navigation.push(EOnboardingPagesV2.CreatePin);
+    }, 1000);
+  }, [navigation]);
+
+  return (
+    <Page>
+      <OnboardingLayout>
+        <OnboardingLayout.Header />
+        <OnboardingLayout.Body constrained={false} scrollable={false}>
+          <OnboardingLayout.ConstrainedContent gap="$10">
+            <YStack gap="$2">
+              <SizableText size="$heading3xl">Select your email</SizableText>
+              <SizableText size="$bodyLg" color="$textSubdued">
+                Add a wallet with your Google or Apple account
+              </SizableText>
+            </YStack>
+            <YStack gap="$3">
+              <OptionItem
+                icon="GoogleIllus"
+                title="Google"
+                onPress={handleGoogleLogin}
+                isLoading={isLoggingIn}
+              />
+              <OptionItem
+                icon="AppleBrand"
+                title="Apple"
+                iconProps={{
+                  color: '$iconActive',
+                  y: -1,
+                }}
+                onPress={() => {
+                  // TODO: Handle Apple login
+                }}
+              />
+            </YStack>
+          </OnboardingLayout.ConstrainedContent>
+        </OnboardingLayout.Body>
+        <OnboardingLayout.Footer>
+          <Anchor
+            href="https://help.onekey.so/articles/11461088"
+            target="_blank"
+            size="$bodySm"
+            color="$textSubdued"
+          >
+            TODO — Link to "How to create wallet with Apple or Google account"
+          </Anchor>
+        </OnboardingLayout.Footer>
+      </OnboardingLayout>
+    </Page>
+  );
+}
+
+export { OneKeyIDLoginPage as default };

@@ -47,6 +47,9 @@ import {
   EModalKeyTagRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -507,6 +510,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     } else {
                       void backgroundApiProxy.servicePassword.promptPasswordVerify();
                     }
+                  },
+                },
+            platformEnv.isWebDappMode
+              ? undefined
+              : {
+                  icon: 'InputOutline',
+                  title: 'Reset PIN',
+                  onPress: (navigation) => {
+                    navigation?.navigate(ERootRoutes.Onboarding, {
+                      screen: EOnboardingV2Routes.OnboardingV2,
+                      params: {
+                        screen: EOnboardingPagesV2.NewPinCreated,
+                      },
+                    });
                   },
                 },
           ],
