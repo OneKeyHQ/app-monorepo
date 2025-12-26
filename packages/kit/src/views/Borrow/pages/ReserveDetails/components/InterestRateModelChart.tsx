@@ -65,7 +65,7 @@ const normalizeApyToPercent = (value: number) => {
   if (!Number.isFinite(value)) {
     return 0;
   }
-  return value <= 1 ? value * 100 : value;
+  return value;
 };
 
 export function InterestRateModelChart({
