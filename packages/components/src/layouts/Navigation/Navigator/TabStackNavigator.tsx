@@ -85,7 +85,7 @@ const useTabBarPosition = platformEnv.isNative
       return media.md ? 'bottom' : 'left';
     };
 
-const GAP_TIME = 250;
+const GAP_TIME = 1500;
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
