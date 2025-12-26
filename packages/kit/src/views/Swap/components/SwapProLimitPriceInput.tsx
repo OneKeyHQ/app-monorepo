@@ -60,7 +60,7 @@ const SwapProLimitPriceInput = ({
 
   const currencySymbolAddOn = useMemo(() => {
     return (
-      <XStack alignItems="center" px="$1" mr="$2">
+      <XStack alignItems="center" mr="$-2">
         <SizableText
           size="$bodySm"
           color="$textSubdued"
@@ -94,7 +94,9 @@ const SwapProLimitPriceInput = ({
           borderWidth: 0,
           flex: 1,
         }}
-        addOns={[{ renderContent: currencySymbolAddOn }]}
+        leftAddOnProps={{
+          renderContent: currencySymbolAddOn,
+        }}
       />
       {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={SwapLimitPriceInputAccessoryViewID}>
