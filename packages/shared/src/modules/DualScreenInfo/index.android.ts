@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
+import * as ExpoDevice from 'expo-device';
 import { Dimensions } from 'react-native';
 
 let isDualScreen: boolean | undefined;
@@ -15,6 +16,17 @@ export const isSpanning = () => {
   return ReactNativeDeviceUtils.isSpanning();
 };
 
+const isTabletScreen = () => {
+  if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
+    return true;
+  }
+  const { width, height } = Dimensions.get('window');
+  const realHeight = Math.max(width, height);
+  const realWidth = Math.min(width, height);
+  const aspectRatio = realWidth / realHeight;
+  return aspectRatio < 1.7;
+};
+
 export const useIsSpanningInDualScreen = () => {
   const [isSpanningInDualScreen, setIsSpanningInDualScreen] = useState(
     ReactNativeDeviceUtils.isSpanning(),
@@ -25,8 +37,7 @@ export const useIsSpanningInDualScreen = () => {
     }
     const listenerId = ReactNativeDeviceUtils.addSpanningChangedListener(
       (result) => {
-        const screenWidth = Dimensions.get('window').width;
-        setIsSpanningInDualScreen(result && screenWidth > 800);
+        setIsSpanningInDualScreen(result && isTabletScreen());
       },
     );
     return () => {
