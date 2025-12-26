@@ -5,15 +5,12 @@ import type {
   INotificationPushMessageAckParams,
   INotificationPushMessageInfo,
   INotificationPushRegisterParams,
-  INotificationPushSettings,
   INotificationSetBadgeParams,
   INotificationShowParams,
 } from '@onekeyhq/shared/types/notification';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToConsole, LogToLocal } from '../../../base/decorators';
-
-import type { INotificationAlertScene } from './types';
 
 export class CommonScene extends BaseScene {
   @LogToLocal({ level: 'info' })
