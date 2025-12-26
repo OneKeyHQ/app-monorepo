@@ -25,7 +25,6 @@ const SwapProLimitPriceValue = ({
   const [settings] = useSettingsPersistAtom();
   const {
     onLimitRateChange,
-    limitPriceSetReverse,
     fromTokenInfo,
     onSetMarketPrice,
     toTokenInfo,
@@ -335,34 +334,67 @@ const SwapProLimitPriceValue = ({
   }, [currentTokenPrice]);
 
   // Handle percent change from slider or percent input
-  // This updates the limit price based on the new percent value
+  // This updates the token price based on the market token price percentage change, then calculates the new limit price
   const onChangePercent = useCallback(
     (value: number) => {
-      // Only need market price to calculate new limit rate
-      if (limitPriceMarketPrice.rate) {
-        const marketPriceBN = new BigNumber(limitPriceMarketPrice.rate);
-        if (marketPriceBN.isZero()) {
+      if (!targetToken || !fromTokenInfo || !toTokenInfo) {
+        return;
+      }
+
+      // Get market token price (not current limit price token price)
+      const marketTokenPriceBN = new BigNumber(marketTokenPrice || '0');
+      if (marketTokenPriceBN.isZero() || marketTokenPriceBN.isNaN()) {
+        return;
+      }
+
+      // Calculate new token price based on percentage change from market price
+      const percentChange = new BigNumber(value).dividedBy(100);
+      const newTokenPrice = marketTokenPriceBN.multipliedBy(
+        new BigNumber(1).plus(percentChange),
+      );
+
+      // Calculate new limit rate based on new token price
+      if (swapProDirection === ESwapDirection.BUY) {
+        // BUY: user modifies toToken price
+        // limit price = fromToken price / toToken price
+        const fromTokenPriceBN = new BigNumber(
+          limitPriceMarketPrice.fromTokenMarketPrice ?? '0',
+        );
+        if (fromTokenPriceBN.isZero()) {
           return;
         }
-        const rateDifferenceChange = new BigNumber(value).dividedBy(100);
-        const newLimitRate = new BigNumber(1)
-          .plus(rateDifferenceChange)
-          .multipliedBy(marketPriceBN);
-        // Format the new rate with appropriate decimals
-        const decimals = limitPriceSetReverse
-          ? limitPriceMarketPrice.fromToken?.decimals ?? 8
-          : limitPriceMarketPrice.toToken?.decimals ?? 8;
+        const newLimitRate = fromTokenPriceBN.dividedBy(newTokenPrice);
+        const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
         const formattedRate = newLimitRate
           .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
           .toFixed();
         onLimitRateChange(formattedRate);
+        return;
       }
+      // SELL: user modifies fromToken price
+      // limit price = fromToken price / toToken price
+      const toTokenPriceBN = new BigNumber(
+        limitPriceMarketPrice.toTokenMarketPrice ?? '0',
+      );
+      if (toTokenPriceBN.isZero()) {
+        return;
+      }
+      const newLimitRate = newTokenPrice.dividedBy(toTokenPriceBN);
+      const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+      const formattedRate = newLimitRate
+        .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
+        .toFixed();
+      onLimitRateChange(formattedRate);
     },
     [
       onLimitRateChange,
-      limitPriceMarketPrice.rate,
-      limitPriceSetReverse,
-      limitPriceMarketPrice.fromToken?.decimals,
+      targetToken,
+      fromTokenInfo,
+      toTokenInfo,
+      swapProDirection,
+      marketTokenPrice,
+      limitPriceMarketPrice.fromTokenMarketPrice,
+      limitPriceMarketPrice.toTokenMarketPrice,
       limitPriceMarketPrice.toToken?.decimals,
     ],
   );

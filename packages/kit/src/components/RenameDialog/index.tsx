@@ -39,10 +39,7 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import {
-  OneKeyIdAvatar,
-  OneKeyIdFallbackAvatar,
-} from '../../views/Setting/pages/OneKeyId/OneKeyIdAvatar';
+import { OneKeyIdFallbackAvatar } from '../../views/Setting/pages/OneKeyId/OneKeyIdAvatar';
 import { buildChangeHistoryInputAddon } from '../ChangeHistoryDialog/ChangeHistoryDialog';
 import { NetworkAvatar } from '../NetworkAvatar';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';

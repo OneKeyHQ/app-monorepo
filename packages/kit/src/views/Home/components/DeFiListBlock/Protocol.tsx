@@ -24,10 +24,14 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IDeFiAsset, IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 import { EDeFiAssetType } from '@onekeyhq/shared/types/defi';
 
@@ -358,7 +362,13 @@ function Protocol({
                 <XStack
                   onPress={(event: GestureResponderEvent) => {
                     event.stopPropagation();
-                    openUrlExternal(protocolInfo?.protocolUrl);
+                    if (platformEnv.isDesktop || platformEnv.isNative) {
+                      openUrlInDiscovery({
+                        url: protocolInfo?.protocolUrl,
+                      });
+                    } else {
+                      openUrlExternal(protocolInfo?.protocolUrl);
+                    }
                   }}
                   cursor="pointer"
                   borderRadius="$full"
