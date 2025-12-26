@@ -24,6 +24,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
@@ -37,7 +38,6 @@ import { EDeFiAssetType } from '@onekeyhq/shared/types/defi';
 import { RichTable } from '../RichTable';
 
 import type { GestureResponderEvent } from 'react-native';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function Protocol({
   protocol,
