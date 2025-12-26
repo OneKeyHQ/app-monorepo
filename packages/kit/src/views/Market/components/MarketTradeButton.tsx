@@ -156,7 +156,7 @@ export function MarketTradeButton({
         <Skeleton width="100%" height={38} />
       ) : (
         <>
-          <XStack gap="$2.5" flex={1}>
+          <XStack gap="$2.5">
             <Button
               flex={1}
               variant="primary"

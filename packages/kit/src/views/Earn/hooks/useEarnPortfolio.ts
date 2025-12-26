@@ -25,6 +25,7 @@ import {
   useEarnAtom,
   useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
+
 import { useEarnAccountKey } from './useEarnAccountKey';
 
 let currentAccountDataFetcher: (() => void) | null = null;

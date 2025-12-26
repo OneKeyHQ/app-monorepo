@@ -5,7 +5,7 @@ import { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsOverlayPage } from '../../hocs';
+import { EPageType, useIsOverlayPage, usePageType } from '../../hocs';
 import {
   updateHeightWhenKeyboardHide,
   updateHeightWhenKeyboardShown,
@@ -133,3 +133,10 @@ export const useSafeKeyboardAnimationStyle = () => {
   });
   return platformEnv.isNative ? animatedStyles : undefined;
 };
+
+export const useIsIpadModalPage = platformEnv.isNativeIOSPad
+  ? () => {
+      const pageType = usePageType();
+      return pageType === EPageType.modal;
+    }
+  : () => false;
