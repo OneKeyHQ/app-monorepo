@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useState } from 'react';
 
-import { noop } from 'lodash';
+import noop from 'lodash/noop';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
+
+const LAYOUT_PLACEHOLDER = {};
 
 export interface IIPadModalPageContext {
   width?: number;
@@ -27,8 +29,8 @@ export const useIPadModalPageSizeChange = platformEnv.isNativeIOSPad
     }
   : () => {
       return {
-        layout: {},
-        onPageLayout: noop as (event: LayoutChangeEvent) => void,
+        layout: LAYOUT_PLACEHOLDER,
+        onPageLayout: noop,
       };
     };
 
