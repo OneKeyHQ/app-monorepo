@@ -32,7 +32,9 @@ export const PRIVACY_POLICY_URL =
   'https://help.onekey.so/articles/11461298-privacy-policy';
 
 // Multi-DEX support constants
-export const XYZ_DEX_PREFIX = 'xyz:';
+export const DEX_PREFIXES = ['xyz'] as const;
+export const DEX_SEPARATOR = ':';
+export const XYZ_DEX_PREFIX = `${DEX_PREFIXES[0]}${DEX_SEPARATOR}`;
 export const XYZ_ASSET_ID_OFFSET = 110_000;
 export const XYZ_ASSET_ID_LENGTH = `${XYZ_ASSET_ID_OFFSET}`.length;
 
@@ -53,12 +55,12 @@ export const PERP_LAYOUT_CONFIG = {
   },
   leftPanel: {
     charts: {
-      minHeight: 400,
+      minHeight: 0,
       collapseThreshold: 350,
       defaultRatio: 60,
     },
     infoPanel: {
-      minHeight: 200,
+      minHeight: 42,
       collapseThreshold: 180,
     },
   },

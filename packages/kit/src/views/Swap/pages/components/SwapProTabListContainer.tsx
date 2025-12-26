@@ -11,13 +11,16 @@ import {
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ESwapTabSwitchType,
-  type IFetchLimitOrderRes,
-  type ISwapToken,
+import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchLimitOrderRes,
+  ISwapNetwork,
+  ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
+import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 
 import LimitOrderList from './LimitOrderList';
 import SwapMarketHistoryList from './SwapMarketHistoryList';
@@ -28,6 +31,8 @@ interface ISwapProTabListContainerProps {
   onTokenPress: (token: ISwapToken) => void;
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
   onSearchClick?: () => void;
+  supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
+  disableDelayRender?: boolean;
 }
 
 const SwapProTabListContainer = memo(
@@ -35,6 +40,8 @@ const SwapProTabListContainer = memo(
     onTokenPress,
     onOpenOrdersClick,
     onSearchClick,
+    supportNetworksList,
+    disableDelayRender = false,
   }: ISwapProTabListContainerProps) => {
     const [activeTab, setActiveTab] = useState<ETabName | string>(
       ETabName.Positions,
@@ -44,6 +51,7 @@ const SwapProTabListContainer = memo(
     const [swapCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
     const [swapTypeSwitch] = useSwapTypeSwitchAtom();
     const [swapToToken] = useSwapSelectToTokenAtom();
+    useSwapProSupportNetworksTokenList(supportNetworksList);
     const focusSwapPro = useMemo(() => {
       return (
         platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT
@@ -65,6 +73,8 @@ const SwapProTabListContainer = memo(
       setActiveTab(openOrdersTabName);
     }, [setActiveTab, openOrdersTabName]);
 
+    const [shouldRenderLists, setShouldRenderLists] = useState(false);
+
     useEffect(() => {
       appEventBus.off(
         EAppEventBusNames.SwapLimitOrderBuildSuccess,
@@ -82,68 +92,86 @@ const SwapProTabListContainer = memo(
       };
     }, [changeTabToLimitOrderList, openOrdersTabName]);
 
+    // Delay rendering heavy list components after initial render
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        setShouldRenderLists(true);
+      }, 100);
+      return () => {
+        clearTimeout(timer);
+      };
+    }, []);
+
     return (
       <YStack>
-        <XStack
-          bg="$bgApp"
-          borderBottomWidth="$0.5"
-          borderBottomColor="$borderSubdued"
-          justifyContent="space-between"
-          alignItems="center"
-        >
-          <XStack gap="$5" bg="$bgApp">
-            <TabBarItem
-              name={ETabName.Positions}
-              isFocused={activeTab === ETabName.Positions}
-              onPress={setActiveTab}
-            />
-            <TabBarItem
-              name={openOrdersTabName}
-              isFocused={activeTab === openOrdersTabName}
-              onPress={setActiveTab}
-            />
-          </XStack>
-        </XStack>
-        <YStack flex={1}>
-          <YStack
-            display={activeTab === ETabName.Positions ? 'flex' : 'none'}
-            flex={1}
-          >
-            <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
-            <SwapProPositionsList
-              onTokenPress={onTokenPress}
-              onSearchClick={onSearchClick}
-              filterToken={swapCurrentSymbolEnable ? filterToken : undefined}
-            />
-          </YStack>
-          <YStack
-            display={activeTab === openOrdersTabName ? 'flex' : 'none'}
-            flex={1}
-          >
-            <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
-            {focusSwapPro ? (
-              <LimitOrderList
-                onClickCell={onOpenOrdersClick}
-                type="open"
-                filterToken={swapCurrentSymbolEnable ? filterToken : undefined}
-              />
-            ) : (
-              <XStack mx="$-6">
-                <SwapMarketHistoryList
-                  showType={
-                    swapTypeSwitch === ESwapTabSwitchType.SWAP
-                      ? 'swap'
-                      : 'bridge'
-                  }
+        {shouldRenderLists || disableDelayRender ? (
+          <>
+            <XStack
+              bg="$bgApp"
+              borderBottomWidth="$0.5"
+              borderBottomColor="$borderSubdued"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <XStack gap="$5" bg="$bgApp">
+                <TabBarItem
+                  name={ETabName.Positions}
+                  isFocused={activeTab === ETabName.Positions}
+                  onPress={setActiveTab}
+                />
+                <TabBarItem
+                  name={openOrdersTabName}
+                  isFocused={activeTab === openOrdersTabName}
+                  onPress={setActiveTab}
+                />
+              </XStack>
+            </XStack>
+            <YStack flex={1}>
+              <YStack
+                display={activeTab === ETabName.Positions ? 'flex' : 'none'}
+                flex={1}
+              >
+                <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
+                <SwapProPositionsList
+                  onTokenPress={onTokenPress}
+                  onSearchClick={onSearchClick}
                   filterToken={
                     swapCurrentSymbolEnable ? filterToken : undefined
                   }
-                  isPushModal
                 />
-              </XStack>
-            )}
-          </YStack>
-        </YStack>
+              </YStack>
+              <YStack
+                display={activeTab === openOrdersTabName ? 'flex' : 'none'}
+                flex={1}
+              >
+                <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
+                {focusSwapPro ? (
+                  <LimitOrderList
+                    onClickCell={onOpenOrdersClick}
+                    type="open"
+                    filterToken={
+                      swapCurrentSymbolEnable ? filterToken : undefined
+                    }
+                  />
+                ) : (
+                  <XStack mx="$-6">
+                    <SwapMarketHistoryList
+                      showType={
+                        swapTypeSwitch === ESwapTabSwitchType.SWAP
+                          ? 'swap'
+                          : 'bridge'
+                      }
+                      filterToken={
+                        swapCurrentSymbolEnable ? filterToken : undefined
+                      }
+                      isPushModal
+                    />
+                  </XStack>
+                )}
+              </YStack>
+            </YStack>
+          </>
+        ) : null}
       </YStack>
     );
   },

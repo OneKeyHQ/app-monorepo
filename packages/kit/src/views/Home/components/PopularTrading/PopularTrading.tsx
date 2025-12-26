@@ -88,7 +88,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         },
         {
           dataIndex: 'priceChange24h',
-          title: 'change / 24h',
+          title: intl.formatMessage({ id: ETranslations.market_change_24h }),
           render: (_: unknown, record: IPopularTrading) => {
             const { changeColor, showPlusMinusSigns } =
               getTokenPriceChangeStyle({

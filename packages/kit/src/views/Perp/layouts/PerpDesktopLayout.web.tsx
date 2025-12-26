@@ -218,11 +218,7 @@ function PerpDesktopLayout() {
           onChange={handleMainChangeDebounced}
         >
           <Allotment.Pane minSize={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
-            <YStack
-              height="100%"
-              borderRightWidth="$px"
-              borderRightColor="$borderSubdued"
-            >
+            <YStack height="100%">
               <Allotment
                 ref={leftPanelAllotmentRef}
                 vertical

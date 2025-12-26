@@ -10,9 +10,13 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsModalPage, useIsOverlayPage } from '../../hocs';
-import { Spinner, Stack, View } from '../../primitives';
+import { Spinner, Stack, View, YStack } from '../../primitives';
 
-import { useTabBarHeight } from './hooks';
+import { useIsIpadModalPage, useTabBarHeight } from './hooks';
+import {
+  iPadModalPageContext,
+  useIPadModalPageSizeChange,
+} from './iPadModalPageContext';
 
 import type { IBasicPageProps } from './type';
 
@@ -122,14 +126,27 @@ export function BasicPage({
   lazyLoad = false,
   fullPage = false,
 }: IBasicPageProps) {
-  return (
-    <Stack bg="$bgApp" flex={1}>
-      {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
-      {lazyLoad ? (
-        <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
-      ) : (
-        children
-      )}
-    </Stack>
+  const { layout, onPageLayout } = useIPadModalPageSizeChange();
+  const isIpadModalPage = useIsIpadModalPage();
+  const content = useMemo(() => {
+    return (
+      <Stack bg="$bgApp" flex={1}>
+        {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
+        {lazyLoad ? (
+          <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
+        ) : (
+          children
+        )}
+      </Stack>
+    );
+  }, [children, lazyLoad, fullPage]);
+  return isIpadModalPage ? (
+    <YStack flex={1} onLayout={onPageLayout}>
+      <iPadModalPageContext.Provider value={layout}>
+        {content}
+      </iPadModalPageContext.Provider>
+    </YStack>
+  ) : (
+    content
   );
 }
