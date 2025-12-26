@@ -1036,26 +1036,34 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
-    if (!url) return EValidateUrlEnum.InvalidUrl;
-    const cache = get(phishingLruCacheAtom());
-    const { action } = uriUtils.parseDappRedirect(
-      url,
-      Array.from(cache.keys()),
-    );
-    if (action === uriUtils.EDAppOpenActionEnum.DENY) {
-      defaultLogger.discovery.browser.logRejectUrl(url);
-      return EValidateUrlEnum.NotSupportProtocol;
-    }
-    if (uriUtils.containsPunycode(url)) {
-      defaultLogger.discovery.browser.logRejectUrl(url);
-      return EValidateUrlEnum.InvalidPunycode;
-    }
-    if (uriUtils.isValidDeepLink(url)) {
-      return EValidateUrlEnum.ValidDeeplink;
-    }
-    return EValidateUrlEnum.Valid;
-  });
+  validateWebviewSrc = contextAtomMethod(
+    (
+      get,
+      _,
+      payload: { url: string; isTopFrame?: boolean },
+    ) => {
+      const { url, isTopFrame = true } = payload;
+      if (!url) return EValidateUrlEnum.InvalidUrl;
+      const cache = get(phishingLruCacheAtom());
+      const { action } = uriUtils.parseDappRedirect(
+        url,
+        Array.from(cache.keys()),
+        { isTopFrame },
+      );
+      if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+        defaultLogger.discovery.browser.logRejectUrl(url);
+        return EValidateUrlEnum.NotSupportProtocol;
+      }
+      if (uriUtils.containsPunycode(url)) {
+        defaultLogger.discovery.browser.logRejectUrl(url);
+        return EValidateUrlEnum.InvalidPunycode;
+      }
+      if (uriUtils.isValidDeepLink(url)) {
+        return EValidateUrlEnum.ValidDeeplink;
+      }
+      return EValidateUrlEnum.Valid;
+    },
+  );
 }
 
 const createActions = memoFn(() => {
