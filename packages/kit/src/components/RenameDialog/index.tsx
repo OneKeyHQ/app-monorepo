@@ -324,7 +324,6 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
       preventClose();
       await form.trigger();
       await form.submit?.();
-      await close();
     },
     [form],
   );
