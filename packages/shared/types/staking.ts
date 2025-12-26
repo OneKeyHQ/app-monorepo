@@ -1945,12 +1945,12 @@ export interface IBorrowHistory {
 }
 
 export interface IBorrowReserveDetailDailyInfo {
-  borrowCapacity: string;
-  borrowable: string;
-  borrowCapResetRemainingTime: number;
-  withdrawCapacity: string;
-  withdrawable: string;
-  withdrawCapResetRemainingTime: number;
+  borrowCapacity: IEarnText;
+  borrowable: IEarnText;
+  borrowCapResetRemainingTime: IEarnText;
+  withdrawCapacity: IEarnText;
+  withdrawable: IEarnText;
+  withdrawCapResetRemainingTime: IEarnText;
 }
 
 export interface IBorrowReserveDetailRiskItem {
