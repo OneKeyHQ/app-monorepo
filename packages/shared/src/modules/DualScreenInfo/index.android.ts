@@ -12,6 +12,8 @@ export const isDualScreenDevice = () => {
   return isDualScreen;
 };
 
+const MIN_TABLET_ASPECT_RATIO = 1.6;
+
 const isTabletScreen = () => {
   if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
     return true;
@@ -20,7 +22,7 @@ const isTabletScreen = () => {
   const realHeight = Math.max(width, height);
   const realWidth = Math.min(width, height);
   const aspectRatio = realHeight / realWidth;
-  return aspectRatio < 1.6;
+  return aspectRatio < MIN_TABLET_ASPECT_RATIO;
 };
 
 export const isRawSpanning = () => {
