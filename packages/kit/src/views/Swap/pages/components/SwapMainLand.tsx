@@ -28,6 +28,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
   useSwapNativeTokenReserveGasAtom,
+  useSwapNetworksIncludeAllNetworkAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
@@ -96,6 +97,7 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import {
+  useSwapPositionsSupportTokenListAction,
   useSwapProAccount,
   useSwapProErrorAlert,
   useSwapProInit,
@@ -1093,7 +1095,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     ],
   );
 
-  const { networkList } = useSwapProInit();
+  const { networkList: SwapProSupportNetworksList } = useSwapProInit();
+  const [swapBridgeSupportNetworksList] =
+    useSwapNetworksIncludeAllNetworkAtom();
+  const swapBridgeSupportNetworksFilterAllNet = useMemo(() => {
+    return swapBridgeSupportNetworksList.filter((item) => !item.isAllNetworks);
+  }, [swapBridgeSupportNetworksList]);
   const {
     isLoading,
     speedConfig,
@@ -1103,8 +1110,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     supportSpeedSwap,
   } = useSwapProTokenInit();
 
-  const { swapProLoadSupportNetworksTokenListRun } =
-    useSwapProSupportNetworksTokenList(networkList);
   useSwapProErrorAlert(!supportSpeedSwap);
   useSwapQuote();
 
@@ -1155,6 +1160,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           onOpenOrdersClick={onOpenOrdersClick}
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
+          supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
         />
       );
     }
@@ -1178,11 +1184,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         onOpenOrdersClick={onOpenOrdersClick}
         fromTokenAmountValue={fromTokenAmount.value}
         swapRecentTokenPairs={swapRecentTokenPairs}
+        supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
       />
     );
   }, [
+    swapTypeSwitch,
     pageType,
-    storeName,
     onSelectToken,
     fetchLoading,
     onSelectPercentageStage,
@@ -1194,14 +1201,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     quoteResult,
     quoteLoading,
     quoteEventFetching,
-    swapTypeSwitch,
     alerts,
-    isWrapped,
     onTokenPress,
     onSelectRecentTokenPairs,
     onOpenOrdersClick,
     fromTokenAmount.value,
     swapRecentTokenPairs,
+    swapBridgeSupportNetworksFilterAllNet,
+    storeName,
+    isWrapped,
   ]);
 
   return (
@@ -1233,9 +1241,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           handleSelectAccountClick={handleSelectAccountClick}
           onProMarketDetail={onProMarketDetail}
           onTokenPress={onTokenPress}
-          swapProLoadSupportNetworksTokenListRun={
-            swapProLoadSupportNetworksTokenListRun
-          }
+          supportNetworksList={SwapProSupportNetworksList}
           config={{
             isLoading,
             speedConfig,
