@@ -19,7 +19,7 @@ const isTabletScreen = () => {
   const { width, height } = Dimensions.get('window');
   const realHeight = Math.max(width, height);
   const realWidth = Math.min(width, height);
-  const aspectRatio = realWidth / realHeight;
+  const aspectRatio = realHeight / realWidth;
   return aspectRatio < 1.6;
 };
 
