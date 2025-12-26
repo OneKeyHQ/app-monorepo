@@ -42,6 +42,7 @@ import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isDualScreenDevice,
+  isRawSpanning,
   isSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
@@ -401,6 +402,7 @@ const BaseDevSettingsSection = () => {
                       isMas: globalThis?.desktopApi?.isMas,
                       systemVersion: globalThis?.desktopApi?.systemVersion,
                       isDualScreenDevice: isDualScreenDevice(),
+                      isRawSpanning: isRawSpanning(),
                       isSpanning: isSpanning(),
                       ...platformEnv,
                     },

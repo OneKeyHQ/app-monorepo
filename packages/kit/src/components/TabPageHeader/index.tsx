@@ -160,6 +160,7 @@ export function TabPageHeader({
     return (
       <>
         <Page.Header
+          headerShown
           headerTitleAlign="center"
           headerStyle={{ backgroundColor: theme.bgSubdued.val }}
           headerTitle={renderUniversalSearchInput}
