@@ -193,54 +193,37 @@ export const Overview = () => {
   if (!gtMd) {
     return (
       <YStack mt="$2" mb="$5" gap="$3">
-        {/* Row 1: Net worth + History */}
-        <XStack jc="space-between" ai="flex-start">
-          <YStack gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              Net worth
-            </SizableText>
-            <EarnText
-              text={
-                reserves?.overview?.netWorth ?? {
-                  text: amountPlaceholder,
-                  color: '$textDisabled',
-                }
+        {/* Row 1: Net worth */}
+        <YStack gap="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            Net worth
+          </SizableText>
+          <EarnText
+            text={
+              reserves?.overview?.netWorth ?? {
+                text: amountPlaceholder,
+                color: '$textDisabled',
               }
-              size="$heading3xl"
-            />
-            {reserves?.overview?.netApy ? (
-              <XStack ai="center" gap="$1">
-                <EarnText
-                  text={reserves.overview.netApy}
-                  size="$bodyMd"
-                  color="$textSubdued"
-                />
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  Net APY
-                </SizableText>
-              </XStack>
-            ) : (
-              <SizableText size="$bodyMd" color="$textDisabled">
-                -
+            }
+            size="$heading3xl"
+          />
+          {reserves?.overview?.netApy ? (
+            <XStack ai="center" gap="$1">
+              <EarnText
+                text={reserves.overview.netApy}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Net APY
               </SizableText>
-            )}
-          </YStack>
-          <XStack
-            ai="center"
-            gap="$1"
-            cursor="pointer"
-            onPress={handleHistoryPress}
-          >
-            <Icon
-              name="ClockTimeHistoryOutline"
-              size="$4"
-              color="$iconSubdued"
-            />
-            <SizableText size="$bodyMd" color="$textSubdued">
-              History
+            </XStack>
+          ) : (
+            <SizableText size="$bodyMd" color="$textDisabled">
+              -
             </SizableText>
-          </XStack>
-        </XStack>
+          )}
+        </YStack>
 
         {/* Row 2: Health factor + Platform bonus */}
         <XStack gap="$6">
@@ -284,45 +267,65 @@ export const Overview = () => {
               />
               <BorrowBonusTooltip
                 data={reserves?.overview?.platformBonus}
-                handleHistoryPress={handleHistoryPress}
+                accountId={earnAccountId}
+                networkId={networkId}
+                provider={provider}
+                marketAddress={marketAddress}
               />
             </XStack>
           </YStack>
         </XStack>
 
-        {/* Row 3: Rewards */}
+        {/* Row 3: Rewards + History */}
         {borrowRewards ? (
-          <YStack gap="$1">
-            <EarnText
-              text={borrowRewards.title}
-              size="$bodyMd"
-              color="$textSubdued"
-            />
-            <XStack ai="center" gap="$1">
+          <XStack jc="space-between" ai="flex-start">
+            <YStack gap="$1" flex={1}>
               <EarnText
-                text={borrowRewards.description}
+                text={borrowRewards.title}
                 size="$bodyMd"
                 color="$textSubdued"
               />
-              <Button
-                p="0"
-                ai="center"
-                size="small"
-                variant="link"
-                cursor={
-                  borrowRewards.button.disabled ? 'not-allowed' : 'pointer'
-                }
-                disabled={borrowRewards.button.disabled}
-                onPress={handleShowRewardsDialog}
-              >
+              <XStack ai="center" gap="$1">
                 <EarnText
-                  size="$bodyMdMedium"
-                  color="$textInfo"
-                  text={borrowRewards.button.text}
+                  text={borrowRewards.description}
+                  size="$bodyMd"
+                  color="$textSubdued"
                 />
-              </Button>
+                <Button
+                  p="0"
+                  ai="center"
+                  size="small"
+                  variant="link"
+                  cursor={
+                    borrowRewards.button.disabled ? 'not-allowed' : 'pointer'
+                  }
+                  disabled={borrowRewards.button.disabled}
+                  onPress={handleShowRewardsDialog}
+                >
+                  <EarnText
+                    size="$bodyMdMedium"
+                    color="$textInfo"
+                    text={borrowRewards.button.text}
+                  />
+                </Button>
+              </XStack>
+            </YStack>
+            <XStack
+              ai="center"
+              gap="$1"
+              cursor="pointer"
+              onPress={handleHistoryPress}
+            >
+              <Icon
+                name="ClockTimeHistoryOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                History
+              </SizableText>
             </XStack>
-          </YStack>
+          </XStack>
         ) : null}
       </YStack>
     );
@@ -382,7 +385,10 @@ export const Overview = () => {
         tooltip={
           <BorrowBonusTooltip
             data={reserves?.overview?.platformBonus}
-            handleHistoryPress={handleHistoryPress}
+            accountId={earnAccountId}
+            networkId={networkId}
+            provider={provider}
+            marketAddress={marketAddress}
           />
         }
       />

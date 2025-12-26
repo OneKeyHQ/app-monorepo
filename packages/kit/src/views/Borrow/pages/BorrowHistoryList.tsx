@@ -107,6 +107,7 @@ type IHistoryContentProps = {
   filter: Record<string, string>;
   filterType?: string;
   onFilterTypeChange: (type: string) => void;
+  hideFilter?: boolean;
 };
 
 const keyExtractor = (
@@ -124,6 +125,7 @@ const HistoryContent = ({
   filter,
   filterType,
   onFilterTypeChange,
+  hideFilter,
 }: IHistoryContentProps) => {
   const renderItem = useCallback(
     ({
@@ -163,23 +165,25 @@ const HistoryContent = ({
 
   return (
     <YStack flex={1}>
-      <XStack px="$5">
-        <Select
-          value={filterType}
-          renderTrigger={({ label }) => (
-            <XStack h="$12" ai="center" gap="$1">
-              <Icon name="Filter2Outline" size="$4" mr="$1" />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {label}
-              </SizableText>
-              <Icon name="ChevronDownSmallOutline" size="$4" />
-            </XStack>
-          )}
-          items={items}
-          onChange={handleSelectChange}
-          title={intl.formatMessage({ id: ETranslations.global_filter_by })}
-        />
-      </XStack>
+      {!hideFilter ? (
+        <XStack px="$5">
+          <Select
+            value={filterType}
+            renderTrigger={({ label }) => (
+              <XStack h="$12" ai="center" gap="$1">
+                <Icon name="Filter2Outline" size="$4" mr="$1" />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {label}
+                </SizableText>
+                <Icon name="ChevronDownSmallOutline" size="$4" />
+              </XStack>
+            )}
+            items={items}
+            onChange={handleSelectChange}
+            title={intl.formatMessage({ id: ETranslations.global_filter_by })}
+          />
+        </XStack>
+      ) : null}
       <SectionList
         estimatedItemSize="$14"
         sections={sections}
@@ -212,9 +216,10 @@ function BorrowHistoryList() {
     EModalStakingRoutes.BorrowHistoryList
   >();
   const intl = useIntl();
-  const { accountId, networkId, provider, title, marketAddress } = route.params;
+  const { accountId, networkId, provider, title, marketAddress, type } =
+    route.params;
 
-  const [filterType, setFilterType] = useState('all');
+  const [filterType, setFilterType] = useState(type || 'all');
 
   const { result, isLoading, run } = usePromiseResult(
     async () => {
@@ -300,6 +305,7 @@ function BorrowHistoryList() {
               filter={result.filter}
               filterType={filterType}
               onFilterTypeChange={setFilterType}
+              hideFilter={!!type}
             />
           ) : null}
         </PageFrame>

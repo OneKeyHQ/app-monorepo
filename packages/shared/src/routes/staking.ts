@@ -134,5 +134,6 @@ export type IModalStakingParamList = {
     provider: string;
     marketAddress: string;
     title?: string;
+    type?: string;
   };
 };

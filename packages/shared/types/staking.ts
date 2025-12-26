@@ -354,8 +354,53 @@ export type IEarnTokenItem = {
   info: IToken;
 };
 
+export interface IBorrowApyDetailItem {
+  icon?: {
+    icon: IKeyOfIcons;
+  };
+  logoURI?: string;
+  title: IEarnText;
+  description?: IEarnText;
+  value: {
+    text: IEarnText;
+  };
+}
+
+export interface IBorrowApyDetailSection {
+  title?: IEarnText;
+  descriptions?: IEarnText[];
+  items: IBorrowApyDetailItem[];
+}
+
+export interface IBorrowApyDetailPopupData {
+  icon?: {
+    icon: IKeyOfIcons;
+  };
+  apyDetail: {
+    normal?: IBorrowApyDetailSection;
+    supplyBonus?: IBorrowApyDetailSection;
+    collateralBonus?: IBorrowApyDetailSection;
+    totalApy?: {
+      icon?: {
+        icon: IKeyOfIcons;
+      };
+      title: IEarnText;
+      description?: IEarnText;
+      value: {
+        text: IEarnText;
+      };
+    };
+  };
+}
+
+export interface IBorrowApyPopupButton {
+  type: 'popup';
+  data: IBorrowApyDetailPopupData;
+}
+
 export type IBorrowApy = {
   apy: string;
+  button?: IBorrowApyPopupButton;
 } & IEarnAvailableAssetAprInfo;
 
 export type IBorrowBalance = {
@@ -844,26 +889,13 @@ export interface IEarnWithdrawOrderActionIcon {
   };
 }
 
-export interface IEarnSupplyActionData {
-  type: 'supply';
-  disabled: boolean;
-  text: IEarnText;
-  data: {
-    balance: string;
-    token: {
-      info: IEarnToken;
-      price: string;
-    };
-  };
-}
-
 export interface IEarnBorrowActionData {
   type: 'borrow';
   disabled: boolean;
   text: IEarnText;
-  data: {
+  data?: {
     balance: string;
-    token: {
+    token?: {
       info: IEarnToken;
       price: string;
     };
@@ -876,7 +908,7 @@ export interface IEarnRepayActionData {
   text: IEarnText;
   data: {
     balance: string;
-    token: {
+    token?: {
       info: IEarnToken;
       price: string;
     };
@@ -887,9 +919,22 @@ export interface IEarnDepositActionData {
   type: 'deposit';
   disabled: boolean;
   text: IEarnText;
-  data: {
+  data?: {
     balance: string;
-    token: {
+    token?: {
+      info: IEarnToken;
+      price: string;
+    };
+  };
+}
+
+export interface IEarnSupplyActionData {
+  type: 'supply';
+  disabled: boolean;
+  text: IEarnText;
+  data?: {
+    balance: string;
+    token?: {
       info: IEarnToken;
       price: string;
     };
@@ -1835,7 +1880,7 @@ export interface IBorrowReserveItem {
   overview: {
     netWorth: IEarnText;
     netApy: IEarnText;
-    platformBonus: {
+    platformBonus?: {
       totalReceived: {
         description: IEarnText;
         button: IEarnHistoryActionIcon;
@@ -1861,8 +1906,8 @@ export interface IBorrowReserveItem {
         button: IEarnLinkActionIcon;
       };
     };
-    history: IEarnHistoryActionIcon;
-    rewards: {
+    history?: IEarnHistoryActionIcon;
+    rewards?: {
       text: IEarnText;
       button: IEarnClaimActionIcon;
     };
@@ -1873,8 +1918,9 @@ export interface IBorrowReserveItem {
     };
     suppliedApy: {
       title: IEarnText;
+      tooltip?: IEarnTooltip;
     };
-    collateralBalance: {
+    collateralBalance?: {
       title: IEarnText;
     };
     assets: {
@@ -1883,24 +1929,32 @@ export interface IBorrowReserveItem {
       apyDetail: IBorrowApy;
       categories: string[];
       suppliedAmount: IBorrowBalance;
+      liquidationLtv?: string;
+      canBeCollateral?: boolean;
       withdrawButton: IEarnWithdrawActionData;
     }[];
   };
   borrowed: {
-    borrowedBalance: string;
-    borrowApy: string;
-    borrowPowerUsed: string;
+    borrowedBalance: {
+      title: IEarnText;
+    };
+    borrowedApy: {
+      title: IEarnText;
+      tooltip?: IEarnTooltip;
+    };
+    borrowPowerUsed?: string;
     assets: {
       reserveAddress: string;
       token: IBorrowToken;
       apyDetail: IBorrowApy;
       categories: string[];
       borrowedAmount: IBorrowBalance;
+      borrowFactor?: string;
       repayButton: IEarnRepayActionData;
     }[];
   };
   supply: {
-    alert: IEarnAlert;
+    alert?: IEarnAlert;
     assets: {
       reserveAddress: string;
       token: IBorrowToken;
@@ -1908,18 +1962,25 @@ export interface IBorrowReserveItem {
       categories: string[];
       walletBalance: IBorrowBalance;
       canBeCollateral: boolean;
-      supplyButton: IEarnDepositActionData;
+      liquidationLtv?: string;
+      supplyButton: IEarnSupplyActionData;
     }[];
   };
   borrow: {
-    alert: IEarnAlert;
+    alert?: IEarnAlert;
     assets: {
       reserveAddress: string;
       token: IBorrowToken;
       apyDetail: IBorrowApy;
       categories: string[];
+      canBeBorrowed?: boolean;
       available: IBorrowBalance;
       borrowButton: IEarnBorrowActionData;
+      borrowFactor?: string;
+      platformBonusApy?: {
+        title: IEarnText;
+        logoURI: string;
+      };
     }[];
   };
 }

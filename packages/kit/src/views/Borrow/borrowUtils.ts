@@ -72,6 +72,7 @@ export const BorrowNavigation = {
       provider: string;
       marketAddress: string;
       title?: string;
+      type?: string;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -82,6 +83,7 @@ export const BorrowNavigation = {
         provider: params.provider,
         marketAddress: params.marketAddress,
         title: params.title || 'Borrow History', // FIXME[borrow]: i18n
+        type: params.type,
       },
     });
   },
