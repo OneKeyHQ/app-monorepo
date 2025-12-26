@@ -117,11 +117,19 @@ export const HealthFactor = ({
             style={{ color: thresholdIndicatorColor }}
           />
           {liquidationText ? (
-            <EarnText
-              size="$bodySmMedium"
-              color="$textCritical"
-              text={liquidationText}
-            />
+            <Stack
+              transform={[
+                {
+                  translateX: (thresholdPercent < 40 ? '40%' : '0%') as never,
+                },
+              ]}
+            >
+              <EarnText
+                size="$bodySmMedium"
+                color="$textCritical"
+                text={liquidationText}
+              />
+            </Stack>
           ) : null}
         </YStack>
         <LinearGradient
