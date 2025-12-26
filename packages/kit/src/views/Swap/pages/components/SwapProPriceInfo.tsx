@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import {
+  useSwapProSelectTokenAtom,
   useSwapProTimeRangeAtom,
   useSwapProTokenMarketDetailInfoAtom,
   useSwapProTokenTransactionPriceAtom,
@@ -16,6 +17,7 @@ interface ISwapProPriceInfoProps {
 
 const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
   const [tokenMarketDetailInfo] = useSwapProTokenMarketDetailInfoAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTokenTransactionPrice] = useSwapProTokenTransactionPriceAtom();
   const [swapProTimeRange] = useSwapProTimeRangeAtom();
   const [settings] = useSettingsPersistAtom();
@@ -33,8 +35,22 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
         return '0';
     }
   }, [swapProTimeRange.value, tokenMarketDetailInfo]);
-  const unFormattedPrice =
-    swapProTokenTransactionPrice ?? tokenMarketDetailInfo?.price ?? '0';
+  const unFormattedPrice = useMemo(() => {
+    if (swapProSelectToken?.isNative) {
+      return tokenMarketDetailInfo?.price || '--';
+    }
+    if (swapProTokenTransactionPrice) {
+      return swapProTokenTransactionPrice;
+    }
+    if (tokenMarketDetailInfo?.price) {
+      return tokenMarketDetailInfo?.price;
+    }
+    return '--';
+  }, [
+    swapProSelectToken?.isNative,
+    swapProTokenTransactionPrice,
+    tokenMarketDetailInfo?.price,
+  ]);
 
   const { formattedPriceChange, textColor } = useMemo(() => {
     const priceChangeValue = Number(priceChange);

@@ -11,6 +11,7 @@ import {
   useSwapProSliderValueAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
   ISwapProSpeedConfig,
@@ -20,6 +21,7 @@ import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProErrorAlert from '../../components/SwapProErrorAlert';
 import {
+  useSwapPositionsSupportTokenListAction,
   useSwapProTokenDetailInfo,
   useSwapProTokenInfoSync,
 } from '../../hooks/useSwapPro';
@@ -38,7 +40,7 @@ interface ISwapProContainerProps {
   onSelectPercentageStage: (stage: number) => void;
   onBalanceMaxPress: () => void;
   onTokenPress: (token: ISwapToken) => void;
-  swapProLoadSupportNetworksTokenListRun: () => void;
+  supportNetworksList: IMarketBasicConfigNetwork[];
   config: {
     isLoading: boolean;
     speedConfig: ISwapProSpeedConfig;
@@ -56,8 +58,8 @@ const SwapProContainer = ({
   onProMarketDetail,
   onBalanceMaxPress,
   onSelectPercentageStage,
-  swapProLoadSupportNetworksTokenListRun,
   onTokenPress,
+  supportNetworksList,
   config,
 }: ISwapProContainerProps) => {
   const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
@@ -80,11 +82,14 @@ const SwapProContainer = ({
   // Delay rendering heavy components to improve initial render performance
   const [shouldRenderHeavyComponents, setShouldRenderHeavyComponents] =
     useState(false);
+
+  const { swapProLoadSupportNetworksTokenListRun } =
+    useSwapPositionsSupportTokenListAction();
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
       fetchTokenMarketDetailInfo(),
-      swapProLoadSupportNetworksTokenListRun(),
+      swapProLoadSupportNetworksTokenListRun(supportNetworksList),
       syncInputTokenBalance(),
       syncToTokenPrice(),
     ]);
@@ -94,6 +99,7 @@ const SwapProContainer = ({
     swapProLoadSupportNetworksTokenListRun,
     syncInputTokenBalance,
     syncToTokenPrice,
+    supportNetworksList,
   ]);
   const cleanInputAmount = useCallback(() => {
     setSwapProInputAmount('');
@@ -232,6 +238,8 @@ const SwapProContainer = ({
           onTokenPress={onTokenPressCallback}
           onOpenOrdersClick={onOpenOrdersClick}
           onSearchClick={onSearchClickCallback}
+          supportNetworksList={supportNetworksList}
+          disableDelayRender
         />
       ) : null}
     </ScrollView>
