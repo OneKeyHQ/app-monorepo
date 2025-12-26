@@ -1,7 +1,5 @@
 import { useEffect, useRef } from 'react';
 
-import { StackActions } from '@react-navigation/native';
-
 import {
   Page,
   Spinner,
@@ -18,7 +16,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
-  ETabHomeRoutes,
   type ETabHomeRoutes as ETabHomeRoutesType,
   ETabRoutes,
   type ITabHomeParamList,
@@ -116,11 +113,12 @@ function ReferralLandingPage() {
 
       // Navigate to target page and replace current route
       if (targetTabRoute === ETabRoutes.Home) {
-        // Replace to home page
-        navigation.dispatch(StackActions.replace(ETabHomeRoutes.TabHome));
+        navigation.popToTop();
       } else {
-        // Switch to other tab
-        navigation.switchTab(targetTabRoute);
+        navigation.popToTop();
+        setTimeout(() => {
+          navigation.switchTab(targetTabRoute);
+        }, 20);
       }
 
       // Open InvitedByFriend modal after navigation
