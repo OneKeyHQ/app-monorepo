@@ -37,9 +37,15 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
   }, [swapProTimeRange.value, tokenMarketDetailInfo]);
   const unFormattedPrice = useMemo(() => {
     if (swapProSelectToken?.isNative) {
-      return tokenMarketDetailInfo?.price ?? '0';
+      return tokenMarketDetailInfo?.price || '--';
     }
-    return swapProTokenTransactionPrice ?? '0';
+    if (swapProTokenTransactionPrice) {
+      return swapProTokenTransactionPrice;
+    }
+    if (tokenMarketDetailInfo?.price) {
+      return tokenMarketDetailInfo?.price;
+    }
+    return '--';
   }, [
     swapProSelectToken?.isNative,
     swapProTokenTransactionPrice,

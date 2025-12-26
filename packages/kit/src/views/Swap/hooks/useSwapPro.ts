@@ -820,13 +820,19 @@ export function useSwapProTokenTransactionList(
       if (!networkId) {
         return undefined;
       }
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
-          tokenAddress,
-          networkId,
-          limit: 10,
-        });
-      return response;
+      try {
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions(
+            {
+              tokenAddress,
+              networkId,
+              limit: 10,
+            },
+          );
+        return response;
+      } catch (e) {
+        return { list: [] };
+      }
     },
     [tokenAddress, networkId],
     {
@@ -837,6 +843,7 @@ export function useSwapProTokenTransactionList(
     const newTransactions = transactionsData?.list;
     if (!newTransactions || newTransactions.length === 0) {
       setSwapProTokenTransactionList([]);
+      setSwapProTokenTransactionPrice('');
       return;
     }
     setSwapProTokenTransactionList(newTransactions);

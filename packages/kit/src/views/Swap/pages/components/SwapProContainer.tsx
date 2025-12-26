@@ -239,6 +239,7 @@ const SwapProContainer = ({
           onOpenOrdersClick={onOpenOrdersClick}
           onSearchClick={onSearchClickCallback}
           supportNetworksList={supportNetworksList}
+          disableDelayRender
         />
       ) : null}
     </ScrollView>

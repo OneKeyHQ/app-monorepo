@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { type ScrollView as ScrollViewNative } from 'react-native';
 
@@ -73,8 +73,6 @@ const SwapSwapMbContainer = ({
   swapRecentTokenPairs,
   supportNetworksList,
 }: ISwapSwapMbContainerProps) => {
-  const [shouldRenderHeavyComponents, setShouldRenderHeavyComponents] =
-    useState(false);
   const scrollViewRef = useRef<ScrollViewNative>(null);
   const onSearchClickCallback = useCallback(() => {
     onSelectToken(ESwapDirectionType.FROM);
@@ -93,15 +91,6 @@ const SwapSwapMbContainer = ({
     },
     [onTokenPress],
   );
-  // Delay rendering heavy components after initial render
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShouldRenderHeavyComponents(true);
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, []);
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
@@ -148,17 +137,13 @@ const SwapSwapMbContainer = ({
           tokenPairs={swapRecentTokenPairs}
           fromTokenAmount={fromTokenAmountValue}
         />
-        {shouldRenderHeavyComponents ? (
-          <>
-            {platformEnv.isNative && !fromTokenAmountValue ? (
-              <SwapProTabListContainer
-                onTokenPress={onTokenPressCallback}
-                onOpenOrdersClick={onOpenOrdersClick}
-                onSearchClick={onSearchClickCallback}
-                supportNetworksList={supportNetworksList}
-              />
-            ) : null}
-          </>
+        {platformEnv.isNative && !fromTokenAmountValue ? (
+          <SwapProTabListContainer
+            onTokenPress={onTokenPressCallback}
+            onOpenOrdersClick={onOpenOrdersClick}
+            onSearchClick={onSearchClickCallback}
+            supportNetworksList={supportNetworksList}
+          />
         ) : null}
       </YStack>
     </ScrollView>
