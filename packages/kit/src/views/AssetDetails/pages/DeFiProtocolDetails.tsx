@@ -22,11 +22,15 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EDeFiAssetType, type IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
 function DeFiProtocolDetails() {
@@ -78,7 +82,15 @@ function DeFiProtocolDetails() {
             variant="tertiary"
             icon="OpenOutline"
             size="small"
-            onPress={() => openUrlExternal(protocolInfo?.protocolUrl)}
+            onPress={() => {
+              if (platformEnv.isDesktop || platformEnv.isNative) {
+                openUrlInDiscovery({
+                  url: protocolInfo?.protocolUrl,
+                });
+              } else {
+                openUrlExternal(protocolInfo?.protocolUrl);
+              }
+            }}
           />
         </XStack>
         <Divider />

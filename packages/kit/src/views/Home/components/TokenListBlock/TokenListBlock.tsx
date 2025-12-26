@@ -1999,6 +1999,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         inTabList
         hideValue
         withSwapAction
+        hideDeFiMarkedTokens
         accountId={account?.id ?? ''}
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}
