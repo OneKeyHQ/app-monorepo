@@ -261,6 +261,7 @@ const icons = {
       : import("./react/outline/ArrowTriangleRight"),
   ArrowTriangleTopOutline: () => import("./react/outline/ArrowTriangleTop"),
   AtSignOutline: () => import("./react/outline/AtSign"),
+  AtomOutline: () => import("./react/outline/Atom"),
   AttachmentOutline: () => import("./react/outline/Attachment"),
   AutoFlashOutline: () => import("./react/outline/AutoFlash"),
   AutoPageSizeOutline: () => import("./react/outline/AutoPageSize"),
