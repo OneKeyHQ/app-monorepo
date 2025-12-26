@@ -7,8 +7,7 @@ import {
   useTheme,
 } from '@onekeyhq/components/src/shared/tamagui';
 
-import { type IThemeColorKeys, useThemeValue } from '../../hooks';
-
+import type { IThemeColorKeys } from '../../hooks';
 import type { IStackProps } from '../../primitives';
 import type { LinearGradientProps } from 'expo-linear-gradient';
 import type { ViewStyle } from 'react-native';

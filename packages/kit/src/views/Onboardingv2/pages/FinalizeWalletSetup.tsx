@@ -22,7 +22,7 @@ import {
   SizableText,
   XStack,
   YStack,
-  useThemeValue,
+  useTheme,
 } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -158,11 +158,10 @@ function FinalizeWalletSetupPage({
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const [bgAppColor, borderDisabledColor, borderActiveColor] = useThemeValue([
-    '$bgApp',
-    '$borderDisabled',
-    '$borderActive',
-  ]);
+  const theme = useTheme();
+  const bgAppColor = theme.bgApp.val;
+  const borderDisabledColor = theme.borderDisabled.val;
+  const borderActiveColor = theme.borderActive.val;
   const [setupError, setSetupError] = useState<
     | {
         messageId: ETranslations;

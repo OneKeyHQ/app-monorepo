@@ -1,9 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
-import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import { useMedia, useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../../hooks';
 import {
   clearStackNavigatorOptions,
   makeFullScreenOptions,
@@ -59,7 +58,8 @@ export function RootStackNavigator<
     [config],
   );
 
-  const bgColor = useThemeValue('bg');
+  const theme = useTheme();
+  const bgColor = theme.bg.val;
   const isVerticalLayout = useMedia().md;
   const presetScreenOptions = clearStackNavigatorOptions({
     bgColor,
