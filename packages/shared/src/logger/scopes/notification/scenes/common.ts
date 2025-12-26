@@ -5,12 +5,15 @@ import type {
   INotificationPushMessageAckParams,
   INotificationPushMessageInfo,
   INotificationPushRegisterParams,
+  INotificationPushSettings,
   INotificationSetBadgeParams,
   INotificationShowParams,
 } from '@onekeyhq/shared/types/notification';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToConsole, LogToLocal } from '../../../base/decorators';
+
+import type { INotificationAlertScene } from './types';
 
 export class CommonScene extends BaseScene {
   @LogToLocal({ level: 'info' })
@@ -143,5 +146,36 @@ export class CommonScene extends BaseScene {
   @LogToLocal()
   getPermission(params: INotificationPermissionDetail) {
     return [params.permission, params.isSupported];
+  }
+
+  @LogToConsole()
+  notificationAlertCheck(params: {
+    scene: INotificationAlertScene;
+    permission: INotificationPermissionDetail;
+    serverSettings: INotificationPushSettings | undefined;
+    result: {
+      shouldShow: boolean;
+      isPushEnabled?: boolean;
+      isPermissionGranted?: boolean;
+      isSceneNotificationDisabled?: boolean;
+    };
+  }) {
+    const { scene, permission, serverSettings, result } = params;
+    return {
+      scene,
+      permission: {
+        isSupported: permission.isSupported,
+        permission: permission.permission,
+      },
+      serverSettings: serverSettings
+        ? {
+            pushEnabled: serverSettings.pushEnabled,
+            accountActivityPushEnabled:
+              serverSettings.accountActivityPushEnabled,
+            perpsEnabled: serverSettings.perpsEnabled,
+          }
+        : undefined,
+      result,
+    };
   }
 }

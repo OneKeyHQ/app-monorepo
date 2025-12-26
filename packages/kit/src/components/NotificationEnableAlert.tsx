@@ -7,6 +7,7 @@ import { Alert, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
 
@@ -60,18 +61,42 @@ function BasicNotificationEnableAlert({
       backgroundApiProxy.serviceNotification.fetchServerNotificationSettingsWithCache(),
     ]);
 
-    const isPushEnabled = !!serverSettings?.pushEnabled;
+    // If serverSettings is undefined (API failed), don't show the alert
+    // to avoid false positives
+    if (!serverSettings) {
+      defaultLogger.notification.common.notificationAlertCheck({
+        scene,
+        permission,
+        serverSettings: undefined,
+        result: {
+          shouldShow: false,
+        },
+      });
+      return {
+        shouldShow: false,
+      };
+    }
+
+    const isPushEnabled = !!serverSettings.pushEnabled;
     const isPermissionGranted =
       permission.isSupported &&
       permission.permission === ENotificationPermission.granted;
 
+    // Debug log for permission details
+    console.log('NotificationEnableAlert permission check:', {
+      'permission.isSupported': permission.isSupported,
+      'permission.permission': permission.permission,
+      'ENotificationPermission.granted': ENotificationPermission.granted,
+      isPermissionGranted,
+    });
+
     let isSceneNotificationDisabled = false;
     if (scene === 'txHistory' || scene === 'swapHistory') {
-      if (isPushEnabled && !serverSettings?.accountActivityPushEnabled) {
+      if (isPushEnabled && !serverSettings.accountActivityPushEnabled) {
         isSceneNotificationDisabled = true;
       }
     } else if (scene === 'perpHistory') {
-      if (isPushEnabled && !serverSettings?.perpsEnabled) {
+      if (isPushEnabled && !serverSettings.perpsEnabled) {
         isSceneNotificationDisabled = true;
       }
     }
@@ -79,11 +104,21 @@ function BasicNotificationEnableAlert({
     const shouldShow =
       !isSceneNotificationDisabled && (!isPushEnabled || !isPermissionGranted);
 
-    return {
+    const checkResult = {
       shouldShow,
       isPushEnabled,
       isPermissionGranted,
+      isSceneNotificationDisabled,
     };
+
+    defaultLogger.notification.common.notificationAlertCheck({
+      scene,
+      permission,
+      serverSettings,
+      result: checkResult,
+    });
+
+    return checkResult;
   }, [lastSettingsUpdateTime, scene]);
 
   const handleClose = useCallback(() => {
