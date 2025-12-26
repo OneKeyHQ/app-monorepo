@@ -8,12 +8,51 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_ROUTE_PATH } from '@onekeyhq/shared/src/consts/perp';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  DEX_PREFIXES,
+  DEX_SEPARATOR,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
+function findDexPrefix(token: string): string | null {
+  const lowerToken = token.toLowerCase();
+  return DEX_PREFIXES.find((prefix) => lowerToken.startsWith(prefix)) ?? null;
+}
+
+function encodeCoinForUrl(coin: string): string {
+  if (!coin) return '';
+
+  const dexPrefix = findDexPrefix(coin);
+  if (dexPrefix && coin.includes(DEX_SEPARATOR)) {
+    const symbol = coin.slice(dexPrefix.length + DEX_SEPARATOR.length);
+    return `${dexPrefix}${symbol.toUpperCase()}`;
+  }
+
+  return coin.toUpperCase();
+}
+
+function decodeCoinFromUrl(urlToken: string): string {
+  if (!urlToken) return '';
+
+  const dexPrefix = findDexPrefix(urlToken);
+  if (dexPrefix && urlToken.length > dexPrefix.length) {
+    const hasNoSeparator = !urlToken.includes(DEX_SEPARATOR);
+    const symbolStartIndex = hasNoSeparator
+      ? dexPrefix.length
+      : dexPrefix.length + DEX_SEPARATOR.length;
+    const symbol = urlToken.slice(symbolStartIndex);
+    return `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
+  }
+
+  return urlToken.toUpperCase();
+}
 
 function getTokenFromUrl(): string | null {
   try {
     const searchParams = new URLSearchParams(globalThis.location.search);
-    const token = searchParams.get('token')?.trim();
-    return token ? decodeURIComponent(token) : null;
+    const urlToken = searchParams.get('token')?.trim();
+    if (!urlToken) return null;
+
+    return decodeCoinFromUrl(urlToken);
   } catch {
     return null;
   }
@@ -21,7 +60,7 @@ function getTokenFromUrl(): string | null {
 
 function updateUrlWithoutNavigation(token: string): void {
   try {
-    const encoded = encodeURIComponent(token);
+    const encoded = encodeCoinForUrl(token);
     const newUrl = `${PERPS_ROUTE_PATH}?token=${encoded}`;
     globalThis.history.replaceState(null, '', newUrl);
   } catch {
