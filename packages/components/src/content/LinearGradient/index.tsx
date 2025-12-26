@@ -13,6 +13,12 @@ export type ILinearGradientProps = Omit<LinearGradientProps, 'colors'> &
     colors: string[] | IThemeColorKeys[];
   };
 
+/**
+ * @deprecated Use useTheme hook instead for better performance and type safety
+ * @example
+ * const theme = useTheme();
+ * <NativeLinearGradient colors={[theme.bg1.val, theme.bg2.val]} />
+ */
 export function LinearGradient({ colors, ...props }: ILinearGradientProps) {
   const resolvedColors = useThemeValue(colors as IThemeColorKeys[]);
   const [restProps, style] = usePropsAndStyle(props, {
