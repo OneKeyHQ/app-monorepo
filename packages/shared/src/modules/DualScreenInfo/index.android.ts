@@ -41,7 +41,7 @@ export const useIsSpanningInDualScreen = () => {
     }
     const listenerId = ReactNativeDeviceUtils.addSpanningChangedListener(
       (result) => {
-        setIsSpanningInDualScreen(result && isSpanning());
+        setIsSpanningInDualScreen(result && isTabletScreen());
       },
     );
     return () => {
