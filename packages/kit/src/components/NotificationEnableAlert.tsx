@@ -86,7 +86,7 @@ function BasicNotificationEnableAlert({
     console.log('NotificationEnableAlert permission check:', {
       'permission.isSupported': permission.isSupported,
       'permission.permission': permission.permission,
-      'ENotificationPermission.granted': ENotificationPermission.granted,
+    'ENotificationPermission.granted': ENotificationPermission.granted,
       isPermissionGranted,
     });
 
