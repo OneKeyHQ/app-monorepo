@@ -36,6 +36,11 @@ export function ShareView({
   const generationIdRef = useRef(0);
 
   useEffect(() => {
+    if (isReferralReady === false) {
+      setPreviewImage(null);
+      setIsGenerating(true);
+      return;
+    }
     generationIdRef.current += 1;
     const currentGenerationId = generationIdRef.current;
     setIsGenerating(true);

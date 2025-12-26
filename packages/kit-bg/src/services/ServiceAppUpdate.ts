@@ -340,6 +340,22 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async updateLastDialogShownAt() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      lastUpdateDialogShownAt: Date.now(),
+    }));
+  }
+
+  @backgroundMethod()
+  public async clearLastDialogShownAt() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      lastUpdateDialogShownAt: undefined,
+    }));
+  }
+
+  @backgroundMethod()
   public async clearCache() {
     clearTimeout(downloadTimeoutId);
     await AppUpdate.clearPackage();

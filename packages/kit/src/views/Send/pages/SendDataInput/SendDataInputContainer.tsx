@@ -1,5 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -46,6 +54,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useSelectedUTXOsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
@@ -70,6 +79,7 @@ import type {
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
+  EModalSendRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -89,6 +99,8 @@ import {
   getAccountIdOnNetwork,
   parseOnChainAmount,
 } from '../../../ScanQrCode/hooks/useParseQRCode';
+import CoinControlBadge from '../../components/CoinControlBadge';
+import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import RecentRecipients from './RecentRecipients';
 
@@ -139,6 +151,7 @@ function SendDataInputContainer() {
 
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
+  const [selectedUTXOs] = useSelectedUTXOsAtom();
 
   const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
 
@@ -352,6 +365,28 @@ function SendDataInputContainer() {
 
   const isLightningNetwork =
     networkUtils.isLightningNetworkByNetworkId(networkId);
+
+  // Extract selected UTXO info for current account
+  const currentSelectedUtxoInfo = useMemo(() => {
+    if (
+      selectedUTXOs &&
+      selectedUTXOs.networkId === currentAccount.networkId &&
+      selectedUTXOs.accountId === currentAccount.accountId &&
+      selectedUTXOs.selectedUtxoKeys.length > 0
+    ) {
+      return {
+        keys: selectedUTXOs.selectedUtxoKeys,
+        totalValue: selectedUTXOs.selectedUtxoTotalValue,
+        strategy: selectedUTXOs.utxoSelectionStrategy,
+      };
+    }
+    return undefined;
+  }, [selectedUTXOs, currentAccount.networkId, currentAccount.accountId]);
+
+  // For backward compatibility
+  const currentSelectedUtxoKeys = currentSelectedUtxoInfo?.keys;
+  const currentUtxoSelectionStrategy = currentSelectedUtxoInfo?.strategy;
+
   const form = useForm<IFormValues>(formOptions);
 
   // token amount or fiat amount
@@ -413,14 +448,19 @@ function SendDataInputContainer() {
     tokenDetails?.price,
   ]);
   const {
-    result: { displayAmountFormItem } = { displayAmountFormItem: false },
+    result: { displayAmountFormItem, displayCoinControlButton } = {
+      displayAmountFormItem: false,
+      displayCoinControlButton: false,
+    },
   } = usePromiseResult(async () => {
     const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
       networkId,
     });
+    const showCoinControlButton = !!vs.coinControlEnabled;
     if (!vs?.hideAmountInputOnFirstEntry) {
       return {
         displayAmountFormItem: true,
+        displayCoinControlButton: showCoinControlButton,
       };
     }
     if (toResolved) {
@@ -433,10 +473,12 @@ function SendDataInputContainer() {
         });
       return {
         displayAmountFormItem: validation.isValid,
+        displayCoinControlButton: showCoinControlButton,
       };
     }
     return {
       displayAmountFormItem: false,
+      displayCoinControlButton: showCoinControlButton,
     };
   }, [networkId, toResolved, form]);
 
@@ -649,6 +691,8 @@ function SendDataInputContainer() {
               paymentId: paymentIdValue,
               note: noteValue,
               hexData: tokenDetails?.info.isNative ? hexData : undefined,
+              selectedUtxoKeys: currentSelectedUtxoKeys,
+              utxoSelectionStrategy: currentUtxoSelectionStrategy,
             },
           ];
 
@@ -714,6 +758,8 @@ function SendDataInputContainer() {
     [
       account,
       amount,
+      currentSelectedUtxoKeys,
+      currentUtxoSelectionStrategy,
       displayTxMessageForm,
       form,
       intl,
@@ -740,6 +786,47 @@ function SendDataInputContainer() {
       txMessageLinkedString,
     ],
   );
+  // Get the effective balance for validation (considers selected UTXOs)
+  const effectiveBalance = useMemo(() => {
+    if (currentSelectedUtxoInfo?.totalValue) {
+      const decimals = tokenDetails?.info?.decimals;
+      if (decimals === undefined || decimals === null) {
+        throw new OneKeyInternalError(
+          'Token decimals is required for UTXO balance calculation',
+        );
+      }
+      return new BigNumber(currentSelectedUtxoInfo.totalValue)
+        .shiftedBy(-decimals)
+        .toFixed();
+    }
+    return tokenDetails?.balanceParsed ?? '0';
+  }, [
+    currentSelectedUtxoInfo?.totalValue,
+    tokenDetails?.info?.decimals,
+    tokenDetails?.balanceParsed,
+  ]);
+
+  const effectiveBalanceFiat = useMemo(() => {
+    if (currentSelectedUtxoInfo?.totalValue && tokenDetails?.price) {
+      const decimals = tokenDetails?.info?.decimals;
+      if (decimals === undefined || decimals === null) {
+        throw new OneKeyInternalError(
+          'Token decimals is required for UTXO fiat calculation',
+        );
+      }
+      const balanceInToken = new BigNumber(
+        currentSelectedUtxoInfo.totalValue,
+      ).shiftedBy(-decimals);
+      return balanceInToken.times(tokenDetails.price).toFixed();
+    }
+    return tokenDetails?.fiatValue ?? '0';
+  }, [
+    currentSelectedUtxoInfo?.totalValue,
+    tokenDetails?.info?.decimals,
+    tokenDetails?.price,
+    tokenDetails?.fiatValue,
+  ]);
+
   const handleValidateTokenAmount = useCallback(
     async (value: string) => {
       let amountBN = new BigNumber(value ?? 0);
@@ -755,7 +842,8 @@ function SendDataInputContainer() {
         : vaultSettings?.minTransferAmount ?? '0';
 
       if (isUseFiat) {
-        if (amountBN.isGreaterThan(tokenDetails?.fiatValue ?? 0)) {
+        // Use effective balance (considers selected UTXOs)
+        if (amountBN.isGreaterThan(effectiveBalanceFiat)) {
           isInsufficientBalance = true;
         }
 
@@ -773,7 +861,8 @@ function SendDataInputContainer() {
           );
         }
 
-        if (amountBN.isGreaterThan(tokenDetails?.balanceParsed ?? 0)) {
+        // Use effective balance (considers selected UTXOs)
+        if (amountBN.isGreaterThan(effectiveBalance)) {
           isInsufficientBalance = true;
         }
 
@@ -809,7 +898,8 @@ function SendDataInputContainer() {
           accountId: currentAccount.accountId,
           networkId: currentAccount.networkId,
           amount: amountBN.toFixed(),
-          tokenBalance: tokenDetails?.balanceParsed ?? '0',
+          // Use effective balance for validation
+          tokenBalance: effectiveBalance,
           to: toRaw ?? '',
           isNative: tokenDetails?.info.isNative,
         });
@@ -835,9 +925,9 @@ function SendDataInputContainer() {
       isLightningNetwork,
       lnUnit,
       tokenDetails?.info.isNative,
-      tokenDetails?.fiatValue,
       tokenDetails?.price,
-      tokenDetails?.balanceParsed,
+      effectiveBalance,
+      effectiveBalanceFiat,
       vaultSettings?.nativeMinTransferAmount,
       vaultSettings?.minTransferAmount,
       vaultSettings?.transferZeroNativeTokenEnabled,
@@ -878,20 +968,61 @@ function SendDataInputContainer() {
     displayAmountFormItem,
   ]);
 
+  // When UTXOs are selected, use the selected UTXO total value as max balance
   const maxBalance = useMemo(() => {
-    let balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
+    let balance: BigNumber;
+
+    // If UTXOs are selected, use selected UTXO total value
+    if (currentSelectedUtxoInfo?.totalValue && tokenDetails?.info) {
+      balance = new BigNumber(
+        chainValueUtils.convertTokenChainValueToAmount({
+          value: currentSelectedUtxoInfo.totalValue,
+          token: tokenDetails.info,
+        }),
+      );
+    } else {
+      balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
+    }
+
     if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
       balance = new BigNumber(
         chainValueUtils.convertSatsToBtc(balance.toFixed()),
       );
     }
     return balance.isNaN() ? '0' : balance.toFixed();
-  }, [tokenDetails?.balanceParsed, isLightningNetwork, lnUnit]);
+  }, [
+    tokenDetails?.info,
+    tokenDetails?.balanceParsed,
+    currentSelectedUtxoInfo?.totalValue,
+    isLightningNetwork,
+    lnUnit,
+  ]);
 
   const maxBalanceFiat = useMemo(() => {
+    // If UTXOs are selected, calculate fiat value from selected UTXO total
+    if (
+      currentSelectedUtxoInfo?.totalValue &&
+      tokenDetails?.price &&
+      tokenDetails?.info
+    ) {
+      const balanceInToken = new BigNumber(
+        chainValueUtils.convertTokenChainValueToAmount({
+          value: currentSelectedUtxoInfo.totalValue,
+          token: tokenDetails.info,
+        }),
+      );
+      const fiatValue = balanceInToken.times(tokenDetails.price);
+      return fiatValue.isNaN() ? '0' : fiatValue.toFixed();
+    }
+
     const balanceFiat = new BigNumber(tokenDetails?.fiatValue ?? '0');
     return balanceFiat.isNaN() ? '0' : balanceFiat.toFixed();
-  }, [tokenDetails?.fiatValue]);
+  }, [
+    tokenDetails?.fiatValue,
+    tokenDetails?.price,
+    tokenDetails?.info,
+    currentSelectedUtxoInfo?.totalValue,
+  ]);
 
   // Lightning Network only accepts integer values on Token Mode
   const isIntegerAmount = useMemo(
@@ -917,10 +1048,23 @@ function SendDataInputContainer() {
     tokenInfo?.symbol,
   ]);
 
+  const handleCoinControlPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SendModal, {
+      screen: EModalSendRoutes.CoinControl,
+      params: {
+        accountId: currentAccount.accountId,
+        networkId: currentAccount.networkId,
+      },
+    });
+  }, [navigation, currentAccount.accountId, currentAccount.networkId]);
+
   const renderAmountInputAddOn = useCallback(() => {
+    const addons: ReactNode[] = [];
+
     if (isLightningNetwork && !isUseFiat) {
-      return (
+      addons.push(
         <LightningUnitSwitch
+          key="lightning-unit-switch"
           value={lnUnit}
           onChange={(v) => {
             setLnUnit(v as ELightningUnit);
@@ -938,13 +1082,14 @@ function SendDataInputContainer() {
               }
             }
           }}
-        />
+        />,
       );
     }
 
     if (vaultSettings?.mergeDeriveAssetsEnabled) {
-      return (
+      addons.push(
         <AddressTypeSelector
+          key="address-type-selector"
           placement="top-end"
           walletId={walletId}
           networkId={currentAccount.networkId}
@@ -962,23 +1107,48 @@ function SendDataInputContainer() {
               }));
             }
           }}
-        />
+        />,
       );
     }
+
+    if (displayCoinControlButton) {
+      addons.push(
+        <CoinControlBadge
+          key="coin-control"
+          onPress={handleCoinControlPress}
+        />,
+      );
+    }
+
+    if (!addons.length) return undefined;
+
+    return (
+      <XStack
+        gap="$2"
+        alignItems="center"
+        justifyContent="flex-end"
+        flexShrink={1}
+        flexWrap="wrap"
+      >
+        {addons}
+      </XStack>
+    );
   }, [
-    isLightningNetwork,
-    isUseFiat,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-    lnUnit,
-    form,
-    walletId,
-    currentAccount.networkId,
     account?.indexedAccountId,
+    currentAccount.networkId,
     deriveInfo,
     deriveType,
     disableAddressTypeSelector,
-    showAddressTypeSelectorWhenDisabled,
+    form,
+    handleCoinControlPress,
+    isLightningNetwork,
+    isUseFiat,
+    lnUnit,
     map,
+    showAddressTypeSelectorWhenDisabled,
+    displayCoinControlButton,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    walletId,
   ]);
 
   const renderTokenDataInputForm = useCallback(
@@ -1700,9 +1870,11 @@ function SendDataInputContainer() {
 }
 
 const SendDataInputContainerWithProvider = memo(() => (
-  <HomeTokenListProviderMirror>
-    <SendDataInputContainer />
-  </HomeTokenListProviderMirror>
+  <SendConfirmProviderMirror>
+    <HomeTokenListProviderMirror>
+      <SendDataInputContainer />
+    </HomeTokenListProviderMirror>
+  </SendConfirmProviderMirror>
 ));
 SendDataInputContainerWithProvider.displayName =
   'SendDataInputContainerWithProvider';

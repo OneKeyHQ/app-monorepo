@@ -35,6 +35,9 @@ const TOKEN_AGE_TRANSLATION_MAP = {
 export const useColumnsDesktop = (
   networkId?: string,
   isWatchlistMode?: boolean,
+  hideTokenAge?: boolean,
+  watchlistFrom?: EWatchlistFrom,
+  copyFrom?: ECopyFrom,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const [settings] = useSettingsPersistAtom();
@@ -55,7 +58,7 @@ export const useColumnsDesktop = (
           <MarketStarV2
             chainId={record.chainId || networkId || ''}
             contractAddress={record.address}
-            from={EWatchlistFrom.Homepage}
+            from={watchlistFrom || EWatchlistFrom.Homepage}
             tokenSymbol={record.symbol}
             size="small"
           />
@@ -73,10 +76,11 @@ export const useColumnsDesktop = (
         <TokenIdentityItem
           tokenLogoURI={record.tokenImageUri}
           networkLogoURI={record.networkLogoUri}
+          networkId={record.networkId}
           symbol={record.symbol}
           address={record.address}
           showCopyButton
-          copyFrom={ECopyFrom.Homepage}
+          copyFrom={copyFrom || ECopyFrom.Homepage}
           communityRecognized={record.communityRecognized}
         />
       ),
@@ -219,7 +223,7 @@ export const useColumnsDesktop = (
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }
       : undefined,
-    gtXl && !isWatchlistMode
+    gtXl && !isWatchlistMode && !hideTokenAge
       ? {
           title: intl.formatMessage({ id: ETranslations.dexmarket_token_age }),
           dataIndex: 'tokenAge',

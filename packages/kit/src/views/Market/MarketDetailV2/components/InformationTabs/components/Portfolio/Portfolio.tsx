@@ -8,31 +8,24 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PortfolioSkeleton } from './components/PortfolioSkeleton';
-import { usePortfolioData } from './hooks/usePortfolioData';
 import { PortfolioItemNormal } from './layout/PortfolioItemNormal';
 import { PortfolioItemSmall } from './layout/PortfolioItemSmall';
 
 import type { FlatListProps } from 'react-native';
 
 interface IPortfolioProps {
-  tokenAddress: string;
-  networkId: string;
   accountAddress?: string;
+  portfolioData: IMarketAccountPortfolioItem[];
+  isRefreshing?: boolean;
 }
 
 function PortfolioBase({
-  tokenAddress,
-  networkId,
   accountAddress,
+  portfolioData,
+  isRefreshing,
 }: IPortfolioProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
-
-  const { portfolioData, isRefreshing } = usePortfolioData({
-    tokenAddress,
-    networkId,
-    accountAddress,
-  });
 
   const renderItem: FlatListProps<IMarketAccountPortfolioItem>['renderItem'] =
     useCallback(

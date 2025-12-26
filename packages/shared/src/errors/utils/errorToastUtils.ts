@@ -11,6 +11,13 @@ import { EOneKeyErrorClassNames, type IOneKeyError } from '../types/errorTypes';
 async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
   const parts: string[] = [];
 
+  // Add request URL if available (from axios interceptor error data)
+  const requestUrl = (err?.data as { requestUrl?: string } | undefined)
+    ?.requestUrl;
+  if (requestUrl) {
+    parts.push(`URL: ${requestUrl}`);
+  }
+
   if (err?.requestId) {
     parts.push(`RequestId: ${err.requestId}`);
 
@@ -94,8 +101,29 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
     lastToastErrorInstance = err;
     void (async () => {
       const diagnosticText = await buildDiagnosticText(err);
+
+      let httpStatusCode: number | undefined = err.httpStatusCode;
+
+      if (!httpStatusCode) {
+        const errorWithResponse = err as
+          | (IOneKeyError & {
+              response?: {
+                status?: unknown;
+              };
+            })
+          | undefined;
+
+        if (
+          errorWithResponse?.response &&
+          typeof errorWithResponse.response.status === 'number'
+        ) {
+          httpStatusCode = errorWithResponse.response.status;
+        }
+      }
+
       appEventBus.emit(EAppEventBusNames.ShowToast, {
         errorCode: err?.code,
+        httpStatusCode,
         method: 'error',
         title: err?.message ?? 'Error',
         requestId: err?.requestId,

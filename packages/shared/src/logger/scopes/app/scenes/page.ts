@@ -63,4 +63,24 @@ export class PageScene extends BaseScene {
       duration,
     };
   }
+
+  @LogToLocal()
+  public dispatchUnlockJob() {
+    return {};
+  }
+
+  @LogToLocal()
+  public isAppLocked(isLock: boolean) {
+    return { isLock };
+  }
+
+  @LogToLocal()
+  public addUnlockJob() {
+    return {};
+  }
+
+  @LogToLocal()
+  public removeUnlockJob() {
+    return {};
+  }
 }

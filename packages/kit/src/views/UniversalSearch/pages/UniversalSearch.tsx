@@ -23,6 +23,7 @@ import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discover
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -124,8 +125,10 @@ function ListEmptyComponent() {
 
 export function UniversalSearch({
   filterTypes,
+  initialTab,
 }: {
   filterTypes?: EUniversalSearchType[];
+  initialTab?: 'market' | 'dapp';
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -177,6 +180,19 @@ export function UniversalSearch({
       }),
     ].filter(Boolean);
   }, [intl]);
+
+  const initialTabName = useMemo(() => {
+    if (initialTab === 'market') {
+      return intl.formatMessage({ id: ETranslations.global_market });
+    }
+    if (initialTab === 'dapp') {
+      return intl.formatMessage({
+        id: ETranslations.global_universal_search_tabs_dapps,
+      });
+    }
+    return tabTitles[0];
+  }, [initialTab, intl, tabTitles]);
+
   const [filterType, setFilterType] = useState(tabTitles[0]);
   const focusedTab = useSharedValue(tabTitles[0]);
   const handleTabPress = useCallback(
@@ -191,17 +207,16 @@ export function UniversalSearch({
   }, [filterType, tabTitles]);
 
   useEffect(() => {
-    if (
-      searchStatus === ESearchStatus.done &&
-      focusedTab.value !== tabTitles[0]
-    ) {
-      const firstTabName = tabTitles[0];
-      setFilterType(firstTabName);
-      setTimeout(() => {
-        focusedTab.value = firstTabName;
-      }, 0);
+    if (searchStatus === ESearchStatus.done) {
+      const targetTabName = initialTabName;
+      if (focusedTab.value !== targetTabName) {
+        setFilterType(targetTabName);
+        setTimeout(() => {
+          focusedTab.value = targetTabName;
+        }, 0);
+      }
     }
-  }, [focusedTab, searchStatus, tabTitles]);
+  }, [focusedTab, searchStatus, initialTabName]);
 
   const shouldUseTokensCacheData = useMemo(() => {
     return (
@@ -373,6 +388,23 @@ export function UniversalSearch({
 
       setSections(searchResultSections);
       setSearchStatus(ESearchStatus.done);
+
+      // Track search event for analytics
+      // Exclude Google search item from result count
+      const resultCount = searchResultSections.reduce((sum, section) => {
+        const count = section.data.filter(
+          (item) =>
+            !(
+              item.type === EUniversalSearchType.Dapp &&
+              isGoogleSearchItem(item.payload?.dappId)
+            ),
+        ).length;
+        return sum + count;
+      }, 0);
+      defaultLogger.universalSearch.search.universalSearchQuery({
+        searchText: input,
+        resultCount,
+      });
     } else {
       setSearchStatus(ESearchStatus.init);
     }
@@ -640,7 +672,9 @@ export function UniversalSearch({
             autoFocus
             value={searchValue}
             placeholder={intl.formatMessage({
-              id: ETranslations.global_universal_search_placeholder,
+              id: platformEnv.isWebDappMode
+                ? ETranslations.global_search
+                : ETranslations.global_search_everything,
             })}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
@@ -666,6 +700,7 @@ const UniversalSearchWithHomeTokenListProvider = ({
     >
       <UniversalSearch
         filterTypes={route?.params?.filterTypes || getSearchTypes()}
+        initialTab={route?.params?.initialTab}
       />
     </HomeTokenListProviderMirrorWrapper>
   );

@@ -50,7 +50,7 @@ function InvitedByFriendPage() {
             flex={1}
           >
             <InvitedByFriendImage />
-            <InvitedByFriendContent />
+            <InvitedByFriendContent referralCode={referralCode} />
           </YStack>
         </ReferFriendsPageContainer>
       </Page.Body>

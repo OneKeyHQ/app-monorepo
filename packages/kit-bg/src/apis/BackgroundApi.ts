@@ -231,13 +231,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceDefi() {
-    const ServiceDefi =
-      require('../services/ServiceDefi') as typeof import('../services/ServiceDefi');
-    const value = new ServiceDefi.default({
+  get serviceDeFi() {
+    const ServiceDeFi =
+      require('../services/ServiceDeFi') as typeof import('../services/ServiceDeFi');
+    const value = new ServiceDeFi.default({
       backgroundApi: this,
     });
-    Object.defineProperty(this, 'serviceDefi', { value });
+    Object.defineProperty(this, 'serviceDeFi', { value });
     return value;
   }
 
@@ -781,6 +781,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceKeylessWallet() {
+    const Service =
+      require('../services/ServiceKeylessWallet/ServiceKeylessWallet') as typeof import('../services/ServiceKeylessWallet/ServiceKeylessWallet');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceKeylessWallet', { value });
+    return value;
+  }
+
   get serviceIpTable() {
     const ServiceIpTable =
       require('../services/ServiceIpTable') as typeof import('../services/ServiceIpTable');
@@ -798,6 +808,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceNetworkDoctor', { value });
+    return value;
+  }
+
+  get serviceOneKeyID() {
+    const Service =
+      require('../services/ServiceOneKeyID') as typeof import('../services/ServiceOneKeyID');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceOneKeyID', { value });
     return value;
   }
 }

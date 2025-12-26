@@ -207,7 +207,8 @@ class ServiceIpTable extends ServiceBase {
     return this.backgroundApi.simpleDb.ipTable.getConfig();
   }
 
-  private async getConnectionInfo(): Promise<{
+  @backgroundMethod()
+  async getConnectionInfo(): Promise<{
     type: 'ip' | 'domain';
     ip?: string;
     domain: string;

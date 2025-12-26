@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -7,8 +9,10 @@ import {
   XStack,
   YStack,
   useMedia,
+  useOrientation,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -36,8 +40,18 @@ export function TokenDetailHeaderLeft({
   showMediaAndSecurity = true,
   isNative = false,
 }: ITokenDetailHeaderLeftProps) {
-  const { width: screenWidth } = useWindowDimensions();
+  const isLandscape = useOrientation();
+  const { width: windowScreenWidth } = useWindowDimensions();
+  const screenWidth = useMemo(() => {
+    return isLandscape ? windowScreenWidth / 2 : windowScreenWidth;
+  }, [isLandscape, windowScreenWidth]);
   const { md } = useMedia();
+
+  // Use hook to get network logo with async fallback
+  const effectiveNetworkLogoUri = useNetworkLogoUri({
+    logoUri: networkLogoUri,
+    networkId,
+  });
 
   const {
     handleCopyAddress,
@@ -98,7 +112,7 @@ export function TokenDetailHeaderLeft({
         <Token
           size="md"
           tokenImageUri={logoUrl}
-          networkImageUri={networkLogoUri}
+          networkImageUri={effectiveNetworkLogoUri}
           fallbackIcon="CryptoCoinOutline"
         />
 

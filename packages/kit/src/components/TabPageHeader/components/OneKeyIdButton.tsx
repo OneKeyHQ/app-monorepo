@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { HeaderIconButton } from '@onekeyhq/components';
 
-import { useLoginOneKeyId } from '../../../hooks/useLoginOneKeyId';
+import { useOneKeyAuth } from '../../OneKeyAuth/useOneKeyAuth';
 
 export interface IOneKeyIdButtonProps {
   testID?: string;
@@ -11,7 +11,7 @@ export interface IOneKeyIdButtonProps {
 export function OneKeyIdButton({
   testID = 'onekey-id-button',
 }: IOneKeyIdButtonProps = {}) {
-  const { loginOneKeyId } = useLoginOneKeyId();
+  const { loginOneKeyId } = useOneKeyAuth();
 
   const handlePress = useCallback(async () => {
     await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });

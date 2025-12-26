@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
@@ -20,7 +20,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
-import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 import { perpRouters } from '../../views/Perp/router';
@@ -29,7 +28,6 @@ import { perpTradeRouters as perpWebviewRouters } from '../../views/PerpTrade/ro
 import { discoveryRouters } from './Discovery/router';
 import { earnRouters } from './Earn/router';
 import { marketRouters } from './Marktet/router';
-import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { referFriendsRouters } from './ReferFriends/router';
 import { swapRouters } from './Swap/router';
@@ -78,7 +76,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   );
 
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
-  const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
   const isGtMdNonNative = useIsGtMdNonNative();
   const shouldShowMarketTab = !(
     platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel
@@ -99,15 +96,12 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             params: {
               screen: ETabMarketRoutes.TabMarket,
             },
+            pop: true,
           }),
         );
       }
     };
   }, []);
-
-  const handleReferFriendsEntry = useCallback(() => {
-    void toReferFriendsPage();
-  }, [toReferFriendsPage]);
 
   const referFriendsTabConfig = useMemo(() => {
     return {
@@ -119,9 +113,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       children: referFriendsRouters,
       trackId: 'global-referral',
       freezeOnBlur: Boolean(params?.freezeOnBlur),
-      tabbarOnPress: handleReferFriendsEntry,
     };
-  }, [handleReferFriendsEntry, params?.freezeOnBlur]);
+  }, [params?.freezeOnBlur]);
 
   return useMemo(() => {
     const tabs = [
@@ -148,6 +141,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             exact: true,
             children: marketRouters,
             trackId: 'global-market',
+            // Hide Market tab on mobile (merged into Discovery)
+            hiddenIcon: platformEnv.isNative,
             // Only apply custom tab press handler for non-mobile platforms
             ...(platformEnv.isDesktop ||
             platformEnv.isWeb ||
@@ -203,36 +198,28 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         trackId: 'global-earn',
         hideOnTabBar: platformEnv.isNative,
       },
-      isWebDappMode ? referFriendsTabConfig : undefined,
-      // In non-DAPP mode, show ReferFriends in more actions
-      !isWebDappMode && {
-        ...referFriendsTabConfig,
-        inMoreAction: true,
-        hideOnTabBar: !isGtMdNonNative,
-      },
-      {
-        name: ETabRoutes.DeviceManagement,
-        tabBarIcon: () => 'OnekeyDeviceCustom',
-        translationId: ETranslations.global_device,
-        tabbarOnPress: toMyOneKeyModal,
-        children: null,
-        trackId: 'global-my-onekey',
-        hideOnTabBar: !isGtMdNonNative,
-      },
-      isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
-      platformEnv.isDev
-        ? {
-            name: ETabRoutes.Me,
-            rewrite: '/me',
-            exact: true,
-            tabBarIcon: (focused?: boolean) =>
-              focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
-            translationId: ETranslations.global_more,
-            freezeOnBlur: Boolean(params?.freezeOnBlur),
-            children: meRouters,
-            trackId: 'global-me',
-          }
+      !platformEnv.isNative && isWebDappMode
+        ? referFriendsTabConfig
         : undefined,
+      // In non-DAPP mode, show ReferFriends in more actions
+      !platformEnv.isNative &&
+        !isWebDappMode && {
+          ...referFriendsTabConfig,
+          inMoreAction: true,
+          hideOnTabBar: !isGtMdNonNative,
+        },
+      platformEnv.isNative
+        ? undefined
+        : {
+            name: ETabRoutes.DeviceManagement,
+            tabBarIcon: () => 'OnekeyDeviceCustom',
+            translationId: ETranslations.global_device,
+            tabbarOnPress: toMyOneKeyModal,
+            children: null,
+            trackId: 'global-my-onekey',
+            hideOnTabBar: !isGtMdNonNative,
+          },
+      isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
       platformEnv.isDev
         ? {
             name: ETabRoutes.Developer,

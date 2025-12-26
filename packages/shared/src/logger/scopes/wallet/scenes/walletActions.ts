@@ -11,6 +11,7 @@ export type IWalletActionBaseParams = {
     | 'receiveSelector'
     | 'tokenDetails'
     | 'homeTokenList'
+    | 'homePopularTrading'
     | 'earn'
     | 'swap'
     | 'accountSelector';
@@ -134,6 +135,29 @@ export class WalletActionsScene extends BaseScene {
     return {
       networkName,
       details,
+    };
+  }
+
+  @LogToServer()
+  public buyOnLowBalance({
+    source,
+    networkId,
+    tokenSymbol,
+    tokenAddress,
+    walletType,
+  }: {
+    source: 'swap' | 'perp';
+    networkId: string;
+    tokenSymbol: string;
+    tokenAddress: string;
+    walletType: string;
+  }) {
+    return {
+      source,
+      networkId,
+      tokenSymbol,
+      tokenAddress,
+      walletType,
     };
   }
 }

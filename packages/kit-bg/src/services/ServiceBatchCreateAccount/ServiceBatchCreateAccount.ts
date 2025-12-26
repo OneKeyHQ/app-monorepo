@@ -428,6 +428,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       backgroundApi: this.backgroundApi,
       walletId,
       includingNetworkWithGlobalDeriveType: true,
+      firmwareType: undefined,
     });
     return networks.map((item) => ({
       ...item,

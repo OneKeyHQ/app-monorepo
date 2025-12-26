@@ -145,6 +145,8 @@ export const useManagePage = ({
       remainingCap: managePageData.nums?.remainingCap,
       // claim
       claimable: managePageData.nums?.claimable,
+      // input decimals restriction
+      protocolInputDecimals: managePageData.nums?.protocolInputDecimals,
       // approve
       approve: managePageData.approve
         ? {
@@ -192,6 +194,11 @@ export const useManagePage = ({
     [managePageData?.alertsWithdraw],
   );
 
+  const ongoingValidator = useMemo(
+    () => managePageData?.ongoingValidator,
+    [managePageData?.ongoingValidator],
+  );
+
   return {
     managePageData,
     isLoading,
@@ -205,5 +212,6 @@ export const useManagePage = ({
     alertsHolding,
     alertsStake,
     alertsWithdraw,
+    ongoingValidator,
   };
 };

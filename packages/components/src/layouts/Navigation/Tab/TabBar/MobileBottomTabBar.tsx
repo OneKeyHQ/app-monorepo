@@ -1,11 +1,13 @@
+import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { CommonActions } from '@react-navigation/native';
-import * as ExpoDevice from 'expo-device';
 import { Animated, StyleSheet } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
-import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
+import {
+  useIsNativeTablet,
+  useSafeAreaInsets,
+} from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
@@ -16,8 +18,9 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+
+import { switchTab } from '../../Navigator/NavigationContainer';
 
 import { MobileTabItem } from './MobileTabItem';
 
@@ -41,6 +44,8 @@ export default function MobileBottomTabBar({
   descriptors,
   extraConfig,
 }: IMobileBottomTabBarProps & {
+  webPageTabBar: ReactElement;
+  bottomMenu: ReactElement;
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
@@ -66,6 +71,7 @@ export default function MobileBottomTabBar({
     });
   }, [heightAnim, opacityAnim]);
 
+  const isTablet = useIsNativeTablet();
   const onTabPress = useCallback(
     (
       route: RouteProp<Record<string, object | undefined>, string>,
@@ -77,7 +83,7 @@ export default function MobileBottomTabBar({
         target: route.key,
         canPreventDefault: true,
       });
-      if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
+      if (isTablet) {
         appEventBus.emit(EAppEventBusNames.SwitchTabBar, {
           route: route.name as ETabRoutes,
         });
@@ -89,27 +95,19 @@ export default function MobileBottomTabBar({
       }
 
       if (!isActive && !event.defaultPrevented) {
-        navigation.dispatch({
-          ...CommonActions.navigate({
-            name: route.name,
-            merge: true,
-            params:
-              route.name === ETabRoutes.Market
-                ? {
-                    screen: ETabMarketRoutes.TabMarket,
-                    params: { from: EEnterWay.HomeTab },
-                  }
-                : undefined,
-          }),
-          target: state.key,
-        });
+        switchTab(route.name as ETabRoutes);
+        if (route.name === ETabRoutes.Market) {
+          appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+            from: EEnterWay.HomeTab,
+          });
+        }
       }
       const trackId = (options as { trackId?: string })?.trackId;
       if (trackId) {
         defaultLogger.app.page.tabBarClick(trackId);
       }
     },
-    [navigation, state.key],
+    [isTablet, navigation],
   );
   const onDebouncedTabPress = useThrottledCallback(onTabPress, 250);
   const handleRoutePress = platformEnv.isNativeAndroid

@@ -120,7 +120,7 @@ const ClaimPage = () => {
           accountId={accountId}
           networkId={networkId}
           price={price}
-          decimals={info?.decimals}
+          decimals={protocolInfo?.protocolInputDecimals ?? info?.decimals}
           initialAmount={initialAmount}
           balance={protocolInfo?.claimable ?? '0'}
           tokenSymbol={symbol}

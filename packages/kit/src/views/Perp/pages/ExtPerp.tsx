@@ -6,17 +6,15 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
-export function shouldOpenExpandExtPerp() {
-  return (
-    platformEnv.isExtension &&
-    (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
-  );
-}
+export const shouldOpenExpandExtPerp = !!(
+  platformEnv.isExtension &&
+  (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
+);
 
 export function ExtPerp() {
   const navigation = useAppNavigation();
   useFocusEffect(() => {
-    if (shouldOpenExpandExtPerp()) {
+    if (shouldOpenExpandExtPerp) {
       void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
       setTimeout(() => {
         navigation.navigate(ETabRoutes.Home);

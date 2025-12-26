@@ -1,13 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFocusEffect, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -80,7 +73,11 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 import type { RouteProp } from '@react-navigation/core';
 import type { FlatList } from 'react-native';
 
-const SwapTokenSelectPage = () => {
+const SwapTokenSelectPage = ({
+  autoSearch = false,
+}: {
+  autoSearch?: boolean;
+}) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const route =
@@ -185,12 +182,13 @@ const SwapTokenSelectPage = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentSelectNetwork?.networkId]);
 
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
     searchKeywordDebounce,
+    swapTypeSwitch,
   );
   const alertIndex = useMemo(
     () =>
@@ -532,6 +530,7 @@ const SwapTokenSelectPage = () => {
             const afterTrim = nativeEvent.text.trim();
             setSearchKeyword(afterTrim);
           },
+          ...(autoSearch ? { autoFocus: true } : {}),
           searchBarInputValue: searchKeyword,
           ...(searchKeyword?.length === 0 && !platformEnv.isExtension
             ? {
@@ -656,10 +655,10 @@ const SwapTokenSelectPageWithProvider = () => {
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
     >();
-  const { storeName } = route.params;
+  const { storeName, autoSearch = false } = route.params;
   return (
     <SwapProviderMirror storeName={storeName}>
-      <SwapTokenSelectPage />
+      <SwapTokenSelectPage autoSearch={autoSearch} />
     </SwapProviderMirror>
   );
 };

@@ -25,6 +25,7 @@ import {
   calculateProfitLoss,
   formatPriceToSignificantDigits,
   formatWithPrecision,
+  parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -72,6 +73,10 @@ const ClosePositionForm = memo(
     const midPrice = useMemo(() => {
       return allMids?.mids?.[position.coin] || '0';
     }, [allMids?.mids, position.coin]);
+
+    const tokenDisplayName = useMemo(() => {
+      return parseDexCoin(position.coin).displayName;
+    }, [position.coin]);
 
     const positionSize = useMemo(() => {
       const size = new BigNumber(position.szi || '0').abs();
@@ -378,7 +383,7 @@ const ClosePositionForm = memo(
                 id: ETranslations.perp_token_selector_asset,
               })}
             </SizableText>
-            <SizableText size="$bodyMdMedium">{position.coin}</SizableText>
+            <SizableText size="$bodyMdMedium">{tokenDisplayName}</SizableText>
           </XStack>
 
           <XStack justifyContent="space-between" alignItems="center">
@@ -388,7 +393,7 @@ const ClosePositionForm = memo(
               })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
-              {positionSize.toNumber()} {position.coin}
+              {positionSize.toNumber()} {tokenDisplayName}
             </SizableText>
           </XStack>
           <XStack justifyContent="space-between" alignItems="center">
@@ -464,7 +469,7 @@ const ClosePositionForm = memo(
             formData.amount || (formData.percentage > 0 ? calculatedAmount : '')
           }
           onChange={handleAmountChange}
-          suffix={position.coin}
+          suffix={tokenDisplayName}
           validator={(value: string) => {
             const processedValue = value.replace(/。/g, '.');
             return validateSizeInput(processedValue, szDecimals);

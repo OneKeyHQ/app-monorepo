@@ -7,7 +7,7 @@ import type {
   IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
-  IPerpTokenSortConfig,
+  IPerpTokenSelectorConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
   IPerpsFormattedAssetCtx,
@@ -245,16 +245,17 @@ export const {
   initialValue: undefined,
 });
 
-// Token Selector Sort Config (Persisted)
+// Token Selector Config (Persisted)
 export const {
-  target: perpTokenSortConfigPersistAtom,
-  use: usePerpTokenSortConfigPersistAtom,
-} = globalAtom<IPerpTokenSortConfig | null>({
-  name: EAtomNames.perpTokenSortConfigPersistAtom,
+  target: perpTokenSelectorConfigPersistAtom,
+  use: usePerpTokenSelectorConfigPersistAtom,
+} = globalAtom<IPerpTokenSelectorConfig | null>({
+  name: EAtomNames.perpTokenSelectorConfigPersistAtom,
   persist: true,
   initialValue: {
     field: 'volume24h',
     direction: 'desc',
+    activeTab: 'all',
   },
 });
 
@@ -511,3 +512,29 @@ export const {
   name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
   initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
 });
+
+export interface IPerpsLayoutState {
+  main: {
+    marketRatio: number;
+  };
+  leftPanel: {
+    chartsRatio: number;
+  };
+  orderBook: {
+    visible: boolean;
+  };
+  resetAt?: number;
+}
+
+export const DEFAULT_PERPS_LAYOUT_STATE: Omit<IPerpsLayoutState, 'resetAt'> = {
+  main: { marketRatio: 90 },
+  leftPanel: { chartsRatio: 60 },
+  orderBook: { visible: true },
+};
+
+export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
+  globalAtom<IPerpsLayoutState>({
+    name: EAtomNames.perpsLayoutStateAtom,
+    persist: true,
+    initialValue: DEFAULT_PERPS_LAYOUT_STATE,
+  });

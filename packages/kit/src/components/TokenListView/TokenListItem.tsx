@@ -47,7 +47,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   const renderFirstColumn = useCallback(() => {
     if (!tableLayout && !isTokenSelector) {
       return (
-        <XStack alignItems="center" gap="$3" maxWidth="60%">
+        <XStack alignItems="center" gap="$3" flex={1}>
           <TokenIconView
             $key={token.$key}
             isAggregateToken={token.isAggregateToken}
@@ -158,7 +158,6 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             flexGrow: 1,
             flexBasis: 0,
           })}
-          maxWidth="$36"
         >
           <TokenBalanceView
             hideValue={hideValue}
@@ -186,7 +185,6 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           ? {
               flexGrow: 1,
               flexBasis: 0,
-              maxWidth: '$36',
             }
           : { flex: 1 })}
       >

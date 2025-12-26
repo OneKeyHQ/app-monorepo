@@ -18,7 +18,8 @@ export function useReferAFriendData() {
 
   // Monitor login status changes and auto-navigate when user logs in
   useLoginStatusChange(() => {
-    void replaceToReferFriends();
+    // Pass isLoggedIn: true to skip redundant check since hook already confirmed login
+    void replaceToReferFriends({ isLoggedIn: true });
   });
 
   useEffect(() => {

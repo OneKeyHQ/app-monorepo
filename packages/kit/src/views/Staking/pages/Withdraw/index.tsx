@@ -32,6 +32,7 @@ const WithdrawPage = () => {
     amount: initialAmount,
     onSuccess,
     fromPage,
+    allowPartialWithdraw,
   } = route.params;
 
   const token = tokenInfo?.token;
@@ -48,9 +49,14 @@ const WithdrawPage = () => {
     async ({
       amount,
       withdrawAll,
+      signature,
+      message,
     }: {
       amount: string;
       withdrawAll: boolean;
+      // Stakefish: signature and message for withdraw all
+      signature?: string;
+      message?: string;
     }) => {
       await handleWithdraw({
         amount,
@@ -71,6 +77,9 @@ const WithdrawPage = () => {
           tags: [actionTag],
         },
         withdrawAll,
+        // Signature and message for withdraw all
+        withdrawSignature: signature,
+        withdrawMessage: message,
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
@@ -126,11 +135,11 @@ const WithdrawPage = () => {
           isInModalContext
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={price}
-          decimals={token?.decimals}
+          decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
           balance={balance}
           accountId={accountId}
           networkId={networkId}
-          initialAmount={initialAmount}
+          initialAmount={allowPartialWithdraw ? undefined : initialAmount}
           tokenSymbol={tokenSymbol}
           tokenImageUri={token?.logoURI}
           providerLogo={protocolInfo?.providerDetail.logoURI}

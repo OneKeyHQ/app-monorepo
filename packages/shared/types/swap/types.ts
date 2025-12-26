@@ -30,6 +30,7 @@ import type {
   IGasLegacy,
 } from '../fee';
 import type { EMessageTypesEth } from '../message';
+import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -78,6 +79,7 @@ export enum ESwapSource {
   WALLET_HOME = 'wallet_home',
   TOKEN_DETAIL = 'token_detail',
   WALLET_HOME_TOKEN_LIST = 'wallet_home_token_list',
+  WALLET_HOME_POPULAR_TRADING = 'wallet_home_popular_trading',
   EARN = 'earn',
   MARKET = 'market',
   TAB = 'tab',
@@ -136,6 +138,9 @@ export interface ISwapNetwork extends ISwapNetworkBase {
 }
 
 export interface ISwapTokenBase {
+  fiatValue?: string;
+  balanceParsed?: string;
+  price?: string;
   networkId: string;
   contractAddress: string;
   isNative?: boolean;
@@ -489,6 +494,24 @@ export interface ISwapPreSwapData {
   };
 }
 
+export interface IFetchSwapQuoteParams {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  fromTokenAmount?: string;
+  receivingAddress?: string;
+  userAddress?: string;
+  slippagePercentage: number;
+  autoSlippage?: boolean;
+  blockNumber?: number;
+  accountId?: string;
+  protocol: ESwapTabSwitchType;
+  expirationTime?: number;
+  limitPartiallyFillable?: boolean;
+  kind?: ESwapQuoteKind;
+  toTokenAmount?: string;
+  userMarketPriceRate?: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
@@ -612,6 +635,7 @@ export enum ESwapFetchCancelCause {
   SWAP_QUOTE_CANCEL = 'SWAP_QUOTE_CANCEL',
   SWAP_APPROVE_ALLOWANCE_CANCEL = 'SWAP_APPROVE_ALLOWANCE_CANCEL',
   SWAP_PERP_DEPOSIT_QUOTE_CANCEL = 'SWAP_PERP_DEPOSIT_QUOTE_CANCEL',
+  SWAP_SPEED_QUOTE_CANCEL = 'SWAP_SPEED_QUOTE_CANCEL',
 }
 
 // swap action&alert state
@@ -977,14 +1001,18 @@ export interface IFetchLimitOrderRes {
     signedType: EMessageTypesEth;
   };
 }
+
+export interface ISwapProSpeedConfig {
+  slippage: number;
+  spenderAddress: string;
+  defaultTokens: ISwapTokenBase[];
+  defaultLimitTokens: ISwapTokenBase[];
+  swapMevNetConfig: string[];
+}
 export interface ISpeedSwapConfig {
   provider: string;
-  speedConfig: {
-    slippage: number;
-    spenderAddress: string;
-    defaultTokens: ISwapTokenBase[];
-    swapMevNetConfig: string[];
-  };
+  speedConfig: ISwapProSpeedConfig;
+  speedDefaultSelectToken?: ISwapTokenBase;
   supportSpeedSwap: boolean;
 }
 
@@ -1025,6 +1053,12 @@ export const ESwapLimitOrderUpdateInterval = 10_000;
 
 export const ESwapLimitOrderMarketPriceUpdateInterval = 15_000;
 
+// swap pro
+
+export enum ESwapProTradeType {
+  MARKET = 'market',
+  LIMIT = 'limit',
+}
 // component -----------------
 
 export interface IExplorersInfo {
@@ -1058,6 +1092,8 @@ export interface ISwapNativeTokenReserveGas {
 
 export const SwapPercentageInputStage = [25, 50, 100];
 export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
+export const SwapLimitPriceInputStageBuyForNative = [0, -20, -50];
+export const SwapLimitPriceInputStageSellForNative = [0, 20, 50, 100];
 
 export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
 
@@ -1065,7 +1101,21 @@ export const SwapBuildShouldFallBackNetworkIds = ['tron--0x2b6653dc'];
 
 export const SwapAmountInputAccessoryViewID =
   'swap-amount-input-accessory-view';
+export const SwapLimitPriceInputAccessoryViewID =
+  'swap-limit-price-input-accessory-view';
 
 export const ChainFlipLogo =
   'https://uni.onekey-asset.com/static/logo/chainFlip_logo.png';
 export const ChainFlipName = 'ChainFlip';
+
+export type IPopularTrading = {
+  networkId: string;
+  symbol: string;
+  address: string;
+  marketCap: number;
+  tokenDetail?: {
+    info: IToken;
+    price: number;
+    price24h: number;
+  };
+};

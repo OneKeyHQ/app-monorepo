@@ -72,6 +72,7 @@ class ServiceHistory extends ServiceBase {
       targetCurrency,
       currencyMap,
       excludeTestNetwork,
+      limit,
     } = params;
     let dbAccount;
     try {
@@ -375,7 +376,7 @@ class ServiceHistory extends ServiceBase {
 
     if (changedPendingTxInfos.length > 0) {
       // Check if staking transaction status has changed, if so request backend to update order status
-      void this.backgroundApi.serviceStaking.updateEarnOrder({
+      await this.backgroundApi.serviceStaking.updateEarnOrder({
         txs: changedPendingTxInfos,
       });
     }
@@ -716,6 +717,7 @@ class ServiceHistory extends ServiceBase {
       isAllNetworks,
       filterScam,
       filterLowValue,
+      limit,
     } = params;
     const vault = await vaultFactory.getVault({
       accountId,
@@ -764,6 +766,7 @@ class ServiceHistory extends ServiceBase {
           isAllNetwork: isAllNetworks,
           onlySafe: filterScam,
           withoutDust: filterLowValue,
+          limit,
         },
         {
           headers:

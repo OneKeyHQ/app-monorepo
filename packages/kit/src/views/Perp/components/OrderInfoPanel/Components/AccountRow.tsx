@@ -477,7 +477,7 @@ const AccountRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-            color={fee && Number(fee) !== 0 ? '$textCritical' : undefined}
+            color={fee && Number(fee) !== 0 ? '$red11' : undefined}
           >
             {fee && Number(fee) !== 0
               ? numberFormat(fee, balanceFormatter)

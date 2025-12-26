@@ -21,8 +21,11 @@ export type IAllowanceOverview = {
 
 export enum ECheckAmountActionType {
   STAKING = 'stake',
+  RESTAKE = 'restake',
   UNSTAKING = 'unstake',
   CLAIM = 'claim',
+  DELEGATE = 'delegate',
+  UNDELEGATE = 'undelegate',
 }
 
 export interface IEarnAlertButton {
@@ -147,10 +150,16 @@ export type IStakeBaseParams = {
   protocolVault?: string; // protocol vault
   approveType?: EApproveType;
   permitSignature?: string;
+  unsignedMessage?: IEarnPermit2ApproveSignData;
+  // Stakefish: original message for permit signature
+  message?: string;
 
   inviteCode?: string;
   bindedAccountAddress?: string;
   bindedNetworkId?: string;
+
+  // Stakefish ETH validator
+  validatorPublicKey?: string; // validator pubkey from selector
 };
 
 export type IWithdrawBaseParams = {
@@ -161,10 +170,12 @@ export type IWithdrawBaseParams = {
   provider: string;
 
   identity?: string; // sol pubkey
-  signature?: string; // lido unstake
+  signature?: string; // lido unstake, stakefish withdraw all
   deadline?: number; // lido unstake
   protocolVault?: string; // protocol vault
   withdrawAll?: boolean;
+  // Stakefish: original message for withdraw all signature
+  message?: string;
 };
 
 export type IUnstakePushParams = {
@@ -253,7 +264,18 @@ export type IStakeTx =
   | IStakeTxEthEvertStake
   | IStakeTxEthLido
   | IStakeTxCosmosAmino
-  | IStakeTxSui;
+  | IStakeTxSui
+  | IStakeTxStakefishExitBroadcast;
+
+// Stakefish validator exit broadcast response (no on-chain tx needed)
+export type IStakeTxStakefishExitBroadcast = {
+  exitBroadcasted: boolean;
+  validators: {
+    pubkey: string;
+    validatorIndex: string;
+    successful: boolean;
+  }[];
+};
 
 export type IStakeTxResponse = {
   tx: IStakeTx;
@@ -287,9 +309,17 @@ export enum EInternalDappEnum {
   Swap = 'swap',
 }
 
+export enum EInternalStakingAction {
+  Stake = 'stake',
+  Withdraw = 'withdraw',
+  Claim = 'claim',
+}
+
 export type IInternalDappTxParams = {
   internalDappTx: IStakeTx;
   internalDappType: EInternalDappEnum;
+  /** Staking action type, only applicable when internalDappType is Staking */
+  stakingAction?: EInternalStakingAction;
 };
 
 // Cosmos dapp interface signAmino
@@ -365,6 +395,9 @@ export type IProtocolInfo = {
   claimable?: string;
   remainingCap?: string;
   withdrawAction?: IEarnWithdrawActionIcon;
+  // Max decimal places allowed for amount input (UI restriction)
+  // If undefined, defaults to token decimals
+  protocolInputDecimals?: number;
 };
 
 export interface IEarnToken {
@@ -579,20 +612,25 @@ export interface IEarnPortfolioActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnConfirmDialogData {
+  title: IEarnText;
+  description: IEarnText[];
+  checkboxes?: IEarnText[];
+  accordions?: {
+    title: IEarnText;
+    description: IEarnText;
+  }[];
+  button?: {
+    disabled?: boolean;
+    text?: IEarnText;
+  };
+}
+
 export interface IEarnActivateActionIcon {
   type: 'activate';
   disabled: boolean;
   text: IEarnText;
-  data: {
-    title: IEarnText;
-    description: IEarnText[];
-    checkboxes: IEarnText[];
-    accordions: {
-      title: IEarnText;
-      description: IEarnText;
-    }[];
-    button: IEarnActivateActionIcon;
-  };
+  data: IEarnConfirmDialogData;
 }
 
 export interface IEarnReceiveActionIcon {
@@ -735,6 +773,42 @@ export interface IEarnWithdrawActionData {
   };
 }
 
+export interface IEarnDelegateActionData {
+  type: 'delegate';
+  disabled: boolean;
+  text: IEarnText;
+  data?: IEarnConfirmDialogData;
+}
+
+export interface IEarnUndelegateActionData {
+  type: 'undelegate';
+  disabled: boolean;
+  text: IEarnText;
+  data?: IEarnConfirmDialogData;
+}
+
+export interface IEarnSelectOption {
+  value: string;
+  label: IEarnText;
+  description?: IEarnText;
+  disabled?: boolean;
+  extra?: Record<string, unknown>;
+}
+
+export interface IEarnSelectField {
+  type: 'select';
+  key: string;
+  title?: IEarnText;
+  description?: IEarnText;
+  tooltip?: IEarnTooltip;
+  select: {
+    title?: IEarnText;
+    description?: IEarnText;
+    options: IEarnSelectOption[];
+    defaultValue?: string;
+  };
+}
+
 export interface IEarnManagePageResponse {
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
@@ -742,6 +816,10 @@ export interface IEarnManagePageResponse {
   trade?: IEarnTradeActionIcon;
   history?: IEarnHistoryActionIcon;
   activate?: IEarnActivateActionIcon;
+  delegate?: IEarnDelegateActionData;
+  undelegate?: IEarnUndelegateActionData;
+  riskNoticeDialog?: IEarnRiskNoticeDialog;
+  ongoingValidator?: IEarnSelectField;
   approve?: {
     allowance: string;
     approveType: string;
@@ -754,6 +832,7 @@ export interface IEarnManagePageResponse {
     minTransactionFee?: string;
     claimable?: string;
     remainingCap?: string;
+    protocolInputDecimals?: number;
   };
   alerts?: IEarnAlert[];
   alertsStake?: IEarnAlert[];
@@ -807,6 +886,9 @@ export interface IEarnRiskNoticeDialog {
 }
 
 export interface IStakeEarnDetail {
+  // Max decimal places allowed for amount input (UI restriction)
+  // If undefined, defaults to token decimals
+  protocolInputDecimals?: number;
   protection?: {
     title: IEarnText;
     items: {
@@ -1001,6 +1083,8 @@ export type IStakeProtocolListItem = {
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
     description?: string;
+    vaultName?: string;
+    tvl?: string;
     badges?: Array<{
       badgeType: IBadgeType;
       tag: string;
@@ -1058,12 +1142,21 @@ export type IBabylonPortfolioItem = {
   isOverflow: string;
 };
 
+export type IClaimableListItemExtra = {
+  disabled?: boolean;
+  badge?: {
+    badgeType: IBadgeType;
+    tag: string;
+  };
+};
+
 export type IClaimableListItem = {
   id: string;
   amount: string;
   fiatValue?: string;
   isPending?: boolean;
   babylonExtra?: IBabylonPortfolioItem;
+  extra?: IClaimableListItemExtra;
 };
 
 export type IClaimableListResponse = {
@@ -1074,6 +1167,9 @@ export type IClaimableListResponse = {
     logoURI: string;
   };
   items: IClaimableListItem[];
+  description?: {
+    text: string;
+  };
 };
 
 export interface IEarnAccountToken {
@@ -1368,8 +1464,12 @@ export interface IBuildPermit2ApproveSignDataParams {
   provider: string;
   symbol: string;
   accountAddress: string;
-  vault: string;
-  amount: string;
+  amount?: string;
+  // Morpho: vault is required
+  vault?: string;
+  // Stakefish: action is required, identity required for unstake
+  action?: 'stake' | 'unstake';
+  identity?: string;
 }
 
 export interface IEarnPermit2ApproveSignData {
@@ -1405,6 +1505,10 @@ export interface IBuildRegisterSignMessageParams {
   provider: string;
   symbol: string;
   accountAddress: string;
+  // Stakefish: action is required, amount required for stake, identity required for unstake
+  action?: 'stake' | 'unstake';
+  amount?: string;
+  identity?: string;
 }
 
 export interface IEarnRegisterSignMessageResponse {
@@ -1423,6 +1527,11 @@ export type IApproveConfirmFnParams = {
   amount: string;
   approveType?: EApproveType;
   permitSignature?: string;
+  unsignedMessage?: IEarnPermit2ApproveSignData;
+  // Stakefish: original message for permit signature
+  message?: string;
+  // Stakefish ETH validator
+  validatorPubkey?: string;
 };
 
 export interface IEarnSummary {

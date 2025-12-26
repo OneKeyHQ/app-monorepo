@@ -5,6 +5,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
   EExportTimeRange,
+  IBatchCheckWalletItem,
+  IBatchCheckWalletResponse,
   IEarnPositionsResponse,
   IEarnRewardResponse,
   IEarnWalletHistory,
@@ -110,7 +112,23 @@ class ServiceReferralCode extends ServiceBase {
       responseType: 'text',
       autoHandleError: false, // Skip JSON error checking for CSV response
     } as any);
-    return response.data;
+
+    // Parse filename from Content-Disposition header
+    const contentDisposition = response.headers['content-disposition'] as
+      | string
+      | undefined;
+    let filename: string | undefined;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) {
+        filename = match[1];
+      }
+    }
+
+    return {
+      data: response.data,
+      filename,
+    };
   }
 
   @backgroundMethod()
@@ -349,10 +367,12 @@ class ServiceReferralCode extends ServiceBase {
       walletId,
     });
     if (walletReferralCode) {
-      const alreadyBound = await this.checkWalletIsBoundReferralCode({
-        address: walletReferralCode.address,
-        networkId: walletReferralCode.networkId,
-      });
+      const { address, networkId } = walletReferralCode;
+      const batchResult = await this.batchCheckWalletsBoundReferralCode([
+        { address, networkId },
+      ]);
+      const key = `${networkId}:${address}`;
+      const alreadyBound = batchResult[key] ?? false;
       const newWalletReferralCode = {
         ...walletReferralCode,
         isBound: alreadyBound,
@@ -424,6 +444,16 @@ class ServiceReferralCode extends ServiceBase {
       params: { address, networkId },
     });
     return response.data.data.data;
+  }
+
+  @backgroundMethod()
+  async batchCheckWalletsBoundReferralCode(items: IBatchCheckWalletItem[]) {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const response = await client.post<{
+      data: IBatchCheckWalletResponse;
+    }>('/rebate/v1/wallet/batch-check', { items });
+    // Response: { code: 0, message: "success", data: { "networkId:address": boolean } }
+    return response.data.data;
   }
 
   @backgroundMethod()

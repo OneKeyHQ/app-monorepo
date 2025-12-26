@@ -1210,6 +1210,25 @@ export function parseSignatureToRSV(signatureHex: string): {
   };
 }
 
+// Parse coin with dex prefix, e.g., "xyz:NVDA" -> { displayName: "NVDA", dexLabel: "xyz" }
+export function parseDexCoin(coin: string): {
+  displayName: string;
+  dexLabel?: string;
+} {
+  if (coin.includes(':')) {
+    const [dexLabel, name] = coin.split(':', 2);
+    const displayName = name || coin;
+    return {
+      displayName,
+      dexLabel: dexLabel || undefined,
+    };
+  }
+  return {
+    displayName: coin,
+    dexLabel: undefined,
+  };
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,

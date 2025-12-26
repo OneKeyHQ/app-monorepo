@@ -38,14 +38,17 @@ export interface ISimpleDbPerpData {
     string,
     IPerpOrderBookTickOptionPersist
   >;
-  tradingUniverse?: IPerpsUniverse[] | undefined;
-  marginTablesMap?: IMarginTablesMap;
+  tradingUniverse?: IPerpsUniverse[] | undefined; // legacy single-dex
+  marginTablesMap?: IMarginTablesMap; // legacy single-dex
+  tradingUniverses?: IPerpsUniverse[][]; // multi-dex
+  marginTablesMapList?: Array<IMarginTablesMap | undefined>;
   agentTTL?: number; // in milliseconds
   referralCode?: string;
   configVersion?: string;
   tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
   hyperliquidTermsAccepted?: boolean;
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
+  dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -94,34 +97,31 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   @backgroundMethod()
   async getTradingUniverse(): Promise<{
-    universeItems: IPerpsUniverse[];
-    marginTablesMap: IMarginTablesMap | undefined;
+    universesByDex: IPerpsUniverse[][];
+    marginTablesMapByDex: Array<IMarginTablesMap | undefined>;
   }> {
     const config = await this.getPerpData();
     return {
-      universeItems: config.tradingUniverse || [],
-      marginTablesMap: config.marginTablesMap,
+      universesByDex: config.tradingUniverses || [],
+      marginTablesMapByDex: config.marginTablesMapList || [],
     };
   }
 
   @backgroundMethod()
   async setTradingUniverse({
-    universe,
-    marginTablesMap,
+    universes,
+    marginTablesMapList,
   }: {
-    universe: IPerpsUniverseRaw[];
-    marginTablesMap: IMarginTablesMap;
+    universes: IPerpsUniverse[][];
+    marginTablesMapList: Array<IMarginTablesMap | undefined>;
   }) {
     await this.setPerpData(
       (prev): ISimpleDbPerpData => ({
         ...prev,
-        marginTablesMap,
-        tradingUniverse: universe.map((item, index) => {
-          return {
-            ...item,
-            assetId: index,
-          };
-        }),
+        marginTablesMapList,
+        marginTablesMap: marginTablesMapList?.[0],
+        tradingUniverses: universes,
+        tradingUniverse: universes?.[0],
       }),
     );
   }
@@ -240,5 +240,26 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   > {
     const config = await this.getPerpData();
     return config.hyperliquidErrorLocales;
+  }
+
+  @backgroundMethod()
+  async isDexAbstractionEnabled(userAddress: string): Promise<boolean> {
+    const config = await this.getPerpData();
+    return (
+      config.dexAbstractionEnabledUsers?.[userAddress.toLowerCase()] ?? false
+    );
+  }
+
+  @backgroundMethod()
+  async setDexAbstractionEnabled(userAddress: string, enabled: boolean) {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        dexAbstractionEnabledUsers: {
+          ...(prev?.dexAbstractionEnabledUsers ?? {}),
+          [userAddress.toLowerCase()]: enabled,
+        },
+      }),
+    );
   }
 }

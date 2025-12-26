@@ -1,9 +1,13 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
-
-import { useIntl } from 'react-intl';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
-  Page,
   RefreshControl,
   Stack,
   XStack,
@@ -12,6 +16,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -26,6 +34,7 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
@@ -49,8 +58,9 @@ import { useBannerInfo } from './hooks/useBannerInfo';
 import { useBlockRegion } from './hooks/useBlockRegion';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
+import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
 
-import type { LayoutChangeEvent } from 'react-native';
+import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
 
 function BasicEarnHome({
   showHeader,
@@ -64,15 +74,15 @@ function BasicEarnHome({
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const media = useMedia();
   const actions = useEarnActions();
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
 
-  const { earnBanners, refetchBanners } = useBannerInfo();
+  const { earnBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
   const [isEarnTabFocused, setIsEarnTabFocused] = useState(true);
+  const wasFocusedRef = useRef(false);
   const portfolioData = useEarnPortfolio({ isActive: isEarnTabFocused });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
     portfolioData;
@@ -84,6 +94,26 @@ function BasicEarnHome({
     return portfolioLoading;
   }, [portfolioLoading, showContent]);
 
+  const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
+    return [EEarnLabels.Stake, EEarnLabels.Withdraw].includes(
+      tx.stakingInfo.label,
+    );
+  }, []);
+  const { filteredTxs } = useStakingPendingTxsByInfo({
+    filter: pendingTxsFilter,
+  });
+  const isPending = useMemo(() => {
+    return filteredTxs.length > 0;
+  }, [filteredTxs]);
+  const previousIsPendingRef = useRef(isPending);
+
+  useEffect(() => {
+    if (previousIsPendingRef.current && !isPending) {
+      void refreshEarnDataRaw();
+    }
+    previousIsPendingRef.current = isPending;
+  }, [isPending, refreshEarnDataRaw]);
+
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
     actions.current.triggerRefresh();
@@ -94,11 +124,14 @@ function BasicEarnHome({
 
   const defaultTab = overrideDefaultTab || route.params?.tab;
 
+  const media = useMedia();
+
   const accountSelectorActions = useAccountSelectorActions();
 
   const handleListenTabFocusState = useCallback(
     (isFocus: boolean, isHideByModal: boolean) => {
       const actualFocus = isFocus && !isHideByModal;
+      wasFocusedRef.current = actualFocus;
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
 
@@ -119,10 +152,9 @@ function BasicEarnHome({
         actions.current.triggerRefresh();
       }
 
-      void refetchBanners();
       void refetchFAQ();
     },
-    [actions, refetchBanners, refetchFAQ],
+    [actions, refetchFAQ],
   );
 
   useListenTabFocusState(
@@ -181,11 +213,13 @@ function BasicEarnHome({
 
   const banners = useMemo(
     () => (
-      <Stack px="$5">
-        <BannerV2 data={earnBanners} onBannerPress={onBannerPress} />
-      </Stack>
+      <BannerV2
+        data={earnBanners}
+        onBannerPress={onBannerPress}
+        isActive={isEarnTabFocused}
+      />
     ),
-    [earnBanners, onBannerPress],
+    [earnBanners, onBannerPress, isEarnTabFocused],
   );
 
   const mobileContainerProps = useMemo(
@@ -208,13 +242,13 @@ function BasicEarnHome({
     [showContent, refreshEarnData, isLoading, banners],
   );
 
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 143 : 92,
-  );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    const height = e.nativeEvent.layout.height - 20;
-    setTabPageHeight(height);
-  }, []);
+  // const [tabPageHeight, setTabPageHeight] = useState(
+  //   platformEnv.isNativeIOS ? 143 : 92,
+  // );
+  // const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+  //   const height = e.nativeEvent.layout.height - 20;
+  //   setTabPageHeight(height);
+  // }, []);
 
   if (!isFetchingBlockResult && blockResult?.blockData) {
     return (
@@ -233,44 +267,23 @@ function BasicEarnHome({
   if (platformEnv.isNative) {
     return (
       <YStack flex={1}>
-        {showHeader && showContent && media.md ? (
-          <Stack h={tabPageHeight} />
-        ) : null}
         <EarnMainTabs
-          isMobile
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
-          isAccountsLoading={isLoading}
-          refreshEarnAccounts={refreshEarnData}
           defaultTab={defaultTab}
           portfolioData={portfolioData}
           containerProps={mobileContainerProps}
         />
-
-        {showHeader && showContent && media.md ? (
-          <YStack
-            position="absolute"
-            top={-20}
-            left={0}
-            bg="$bgApp"
-            pt="$5"
-            width="100%"
-            onLayout={handleTabPageLayout}
-          >
-            <TabPageHeader
-              sceneName={EAccountSelectorSceneName.home}
-              tabRoute={ETabRoutes.Earn}
-            />
-          </YStack>
-        ) : null}
       </YStack>
     );
   }
 
   return (
     <EarnPageContainer
+      showTabPageHeader={media.gtMd}
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
+      disableMaxWidth
       refreshControl={
         <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
       }
@@ -287,13 +300,10 @@ function BasicEarnHome({
           ) : null}
         </YStack>
         <EarnMainTabs
-          isMobile={false}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
-          isAccountsLoading={isLoading}
           defaultTab={defaultTab}
           portfolioData={portfolioData}
-          refreshEarnAccounts={refreshEarnData}
         />
       </YStack>
     </EarnPageContainer>
@@ -330,40 +340,29 @@ export function EarnHomeWithProvider({
 
 const useNavigateToNativeEarnPage = platformEnv.isNative
   ? () => {
-      const { md } = useMedia();
       const navigation = useAppNavigation();
       const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
       const tabParam = route.params?.tab;
 
       useLayoutEffect(() => {
-        if (md) {
-          navigation.navigate(
-            ETabRoutes.Discovery,
-            {
-              screen: ETabDiscoveryRoutes.TabDiscovery,
-              params: {
-                defaultTab: ETranslations.global_earn,
-                earnTab: tabParam,
-              },
+        navigation.navigate(
+          ETabRoutes.Discovery,
+          {
+            screen: ETabDiscoveryRoutes.TabDiscovery,
+            params: {
+              defaultTab: ETranslations.global_earn,
+              earnTab: tabParam,
             },
-            {
-              pop: true,
-            },
-          );
-        }
-      }, [navigation, md, tabParam]);
+          },
+          {
+            pop: true,
+          },
+        );
+      }, [navigation, tabParam]);
     }
   : () => {};
 
 export default function EarnHome() {
   useNavigateToNativeEarnPage();
-  return platformEnv.isNative ? (
-    <Page fullPage>
-      <Page.Body>
-        <EarnHomeWithProvider />
-      </Page.Body>
-    </Page>
-  ) : (
-    <EarnHomeWithProvider />
-  );
+  return platformEnv.isNative ? null : <EarnHomeWithProvider />;
 }

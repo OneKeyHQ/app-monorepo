@@ -503,4 +503,13 @@ export class SimpleDb {
     Object.defineProperty(this, 'ipTable', { value });
     return value;
   }
+
+  get deFi() {
+    const SimpleDbEntityDeFi = (
+      require('../entity/SimpleDbEntityDeFi') as unknown as typeof import('../entity/SimpleDbEntityDeFi')
+    ).SimpleDbEntityDeFi;
+    const value = new SimpleDbEntityDeFi();
+    Object.defineProperty(this, 'deFi', { value });
+    return value;
+  }
 }

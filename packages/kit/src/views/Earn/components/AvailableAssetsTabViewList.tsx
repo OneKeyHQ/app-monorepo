@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
@@ -113,7 +114,7 @@ export function AvailableAssetsTabViewList() {
   );
 
   // Load data for the selected tab
-  const { isLoading } = usePromiseResult(
+  usePromiseResult(
     async () => {
       const currentTabType = tabData[selectedTabIndex]?.type;
       if (currentTabType) {
@@ -191,7 +192,7 @@ export function AvailableAssetsTabViewList() {
       },
       {
         key: 'yield',
-        label: intl.formatMessage({ id: ETranslations.earn_yield }),
+        label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
         flex: 1,
         align: 'flex-end',
         sortable: true,
@@ -318,16 +319,16 @@ export function AvailableAssetsTabViewList() {
       />
 
       <TableList<IEarnAvailableAsset>
+        key={`assets-tab-${selectedTabIndex}`}
         data={assets ?? []}
         columns={columns}
         keyExtractor={(asset) => asset.symbol}
-        withHeader={media.gtSm}
+        withHeader={platformEnv.isNative ? false : media.gtSm}
         defaultSortKey="yield"
         defaultSortDirection="desc"
         onPressRow={(asset) => void handleRowPress(asset)}
         mobileRenderItem={mobileRenderItem}
         enableDrillIn
-        isLoading={Boolean(isLoading && assets.length === 0)}
       />
     </YStack>
   );

@@ -47,7 +47,7 @@ export function ShareContentRenderer({
 }: IShareContentRendererProps) {
   const {
     side,
-    token,
+    tokenDisplayName,
     tokenImageUrl,
     pnl,
     leverage,
@@ -59,7 +59,8 @@ export function ShareContentRenderer({
   const isProfit = pnlBn.isGreaterThan(0);
   const pnlColor = isProfit ? colors.long : colors.short;
   const sideColor = side === 'long' ? colors.long : colors.short;
-  const tokenImage = tokenImageUrl || getHyperliquidTokenImageUrl(token);
+  const tokenImage =
+    tokenImageUrl || getHyperliquidTokenImageUrl(tokenDisplayName);
   const pnlDisplayMode = config.pnlDisplayMode;
 
   const selectedBackground = isProfit
@@ -172,7 +173,7 @@ export function ShareContentRenderer({
                 fontWeight="600"
                 color={colors.textPrimary}
               >
-                {token}
+                {tokenDisplayName}
               </SizableText>
             ) : null}
 
@@ -331,7 +332,8 @@ export function ShareContentRenderer({
               <QRCode
                 value={referralQrCodeUrl ?? ''}
                 size={layout.qrCodeSize * scale - 5}
-                padding={5}
+                padding={8}
+                logoBackgroundColor="white"
               />
             </XStack>
           </Stack>

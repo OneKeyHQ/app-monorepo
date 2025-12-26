@@ -96,6 +96,9 @@ export default class ServiceNotification extends ServiceBase {
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.registerClientWithOverrideAllAccounts();
     });
+    appEventBus.on(EAppEventBusNames.MarketWatchListV2Changed, () => {
+      void this.syncWatchlistTokensToServer();
+    });
   }
 
   _notificationProvider: NotificationProviderBase | undefined;
@@ -208,13 +211,20 @@ export default class ServiceNotification extends ServiceBase {
         const prefix = showMessagePushSource ? '[wss:] ' : '';
         // jpush will show notification automatically
         // websocket should show notification by ourselves
-        await this.showNotification({
+        const notificationParams = {
           notificationId: msgId,
           title: prefix + messageInfo.title,
           description: messageInfo.content,
           icon: messageInfo.extras?.image,
           remotePushMessageInfo: messageInfo,
-        });
+        };
+        await this.showNotification(notificationParams);
+        if (!platformEnv.isNativeIOS) {
+          appEventBus.emit(
+            EAppEventBusNames.ShowInAppPushNotification,
+            notificationParams,
+          );
+        }
       }
     }
 
@@ -1021,7 +1031,39 @@ export default class ServiceNotification extends ServiceBase {
       return;
     }
     void (await this.getNotificationProvider()).clearNotificationCache();
-    return this.registerClientWithOverrideAllAccounts();
+    await this.registerClientWithOverrideAllAccounts();
+    await this._syncWatchlistTokensToServerCore();
+  }
+
+  @backgroundMethod()
+  async syncWatchlistTokensToServer() {
+    return this._syncWatchlistTokensToServerDebounced();
+  }
+
+  private _syncWatchlistTokensToServerDebounced = debounce(
+    async () => {
+      await this._syncWatchlistTokensToServerCore();
+    },
+    5000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  private async _syncWatchlistTokensToServerCore() {
+    const tokens =
+      await this.backgroundApi.serviceMarketV2.buildWatchlistTokensForNotification();
+
+    defaultLogger.notification.common.consoleLog(
+      'syncWatchlistTokensToServer',
+      { tokenCount: tokens.length },
+    );
+
+    const client = await this.getClient(EServiceEndpointEnum.Notification);
+    await client.post('/notification/v1/watchlist/tokens', {
+      tokens,
+    });
   }
 
   @backgroundMethod()
@@ -1262,6 +1304,12 @@ export default class ServiceNotification extends ServiceBase {
     return result?.data?.data;
   }
 
+  @backgroundMethod()
+  async fetchServerNotificationSettingsWithCache(): Promise<INotificationPushSettings> {
+    const { serverSettings } = await this.getServerSettingsWithCache();
+    return serverSettings;
+  }
+
   updateNotificationSettingsAbortController: AbortController | undefined;
 
   @backgroundMethod()
@@ -1279,6 +1327,7 @@ export default class ServiceNotification extends ServiceBase {
     if (result?.data?.data?.pushEnabled) {
       void this.registerClientWithOverrideAllAccounts();
     }
+    await this.clearServerSettingsCache();
     await notificationsAtom.set((v) =>
       perfUtils.buildNewValueIfChanged(v, {
         ...v,

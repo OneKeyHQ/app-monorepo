@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { earnTestnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IEarnInvestmentItemV2,
   IEarnPortfolioInvestment,
@@ -24,6 +25,8 @@ import {
   useEarnAtom,
   useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
+
+import { useEarnAccountKey } from './useEarnAccountKey';
 
 let currentAccountDataFetcher: (() => void) | null = null;
 let accountDataUpdateListenerRegistered = false;
@@ -55,7 +58,7 @@ function unregisterAccountDataUpdateFetcher(fetcher: () => void) {
   }
 }
 
-interface IRefreshOptions {
+export interface IRefreshOptions {
   provider?: string;
   networkId?: string;
   symbol?: string;
@@ -92,6 +95,36 @@ const createInvestmentKey = (item: {
 const hasPositiveFiatValue = (value: string | undefined): boolean =>
   new BigNumber(value || '0').gt(0);
 
+const isEarnTestnetNetwork = (networkId: string): boolean =>
+  earnTestnetNetworkIds.includes(networkId);
+
+// Check if investment has any assets (for testnet networks)
+// For testnet: check assetsStatus or rewardAssets instead of fiat value
+const hasAnyAssets = (
+  assets: Array<{
+    assetsStatus?: Array<{ title: { text: string } }>;
+    rewardAssets?: Array<{ title: { text: string } }>;
+  }>,
+): boolean => {
+  if (assets.length === 0) return false;
+  return assets.some(
+    (asset) =>
+      (asset.assetsStatus && asset.assetsStatus.length > 0) ||
+      (asset.rewardAssets && asset.rewardAssets.length > 0),
+  );
+};
+
+const hasAnyAirdropAssets = (
+  assets: Array<{
+    airdropAssets?: Array<{ title: { text: string } }>;
+  }>,
+): boolean => {
+  if (assets.length === 0) return false;
+  return assets.some(
+    (asset) => asset.airdropAssets && asset.airdropAssets.length > 0,
+  );
+};
+
 const sortByFiatValueDesc = (
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] =>
@@ -105,7 +138,11 @@ const filterValidInvestments = (
   values: Iterable<IEarnPortfolioInvestment>,
 ): IEarnPortfolioInvestment[] =>
   Array.from(values).filter((inv) => {
-    if (inv.airdropAssets.length > 0) return true;
+    if (hasAnyAirdropAssets(inv.airdropAssets)) return true;
+    // For testnet networks, check if there are any actual assets
+    if (isEarnTestnetNetwork(inv.network.networkId)) {
+      return hasAnyAssets(inv.assets);
+    }
     return hasPositiveFiatValue(inv.totalFiatValue);
   });
 
@@ -329,26 +366,15 @@ export const useEarnPortfolio = ({
   const accountIdValue = account?.id ?? '';
   const indexedAccountIdValue = indexedAccount?.id ?? '';
   const accountIndexedAccountIdValue = account?.indexedAccountId;
+  const activeAccountIdRef = useRef(accountIdValue);
+  useEffect(() => {
+    activeAccountIdRef.current = accountIdValue;
+  }, [accountIdValue]);
 
   const actions = useEarnActions();
   const [{ earnAccount }] = useEarnAtom();
   const [portfolioCache, setPortfolioCache] = useEarnPortfolioInvestmentsAtom();
-  const earnAccountKey = useMemo(
-    () =>
-      actions.current.buildEarnAccountsKey({
-        accountId: accountIdValue || undefined,
-        indexAccountId:
-          accountIndexedAccountIdValue || indexedAccountIdValue || undefined,
-        networkId: allNetworkId,
-      }),
-    [
-      actions,
-      accountIdValue,
-      accountIndexedAccountIdValue,
-      indexedAccountIdValue,
-      allNetworkId,
-    ],
-  );
+  const earnAccountKey = useEarnAccountKey();
   const currentOverviewData =
     earnAccountKey && earnAccount ? earnAccount[earnAccountKey] : undefined;
   const cachedInvestments = useMemo(() => {
@@ -406,8 +432,15 @@ export const useEarnPortfolio = ({
       clearInvestments();
       throttledUIUpdate.cancel();
       lastSyncedValuesRef.current = { totalFiatValue: '', earnings24h: '' };
+      markAccountChange();
+      setIsLoading(true);
     }
-  }, [hasAccountChanged, clearInvestments, throttledUIUpdate]);
+  }, [
+    hasAccountChanged,
+    clearInvestments,
+    throttledUIUpdate,
+    markAccountChange,
+  ]);
 
   const fetchInvestmentDetail = useCallback(
     async (
@@ -465,7 +498,11 @@ export const useEarnPortfolio = ({
           return null;
         }
 
-        if (!hasPositiveFiatValue(result.totalFiatValue)) {
+        const shouldRemove = isEarnTestnetNetwork(result.network.networkId)
+          ? !hasAnyAssets(result.assets)
+          : !hasPositiveFiatValue(result.totalFiatValue);
+
+        if (shouldRemove) {
           return {
             key,
             remove: true,
@@ -604,6 +641,14 @@ export const useEarnPortfolio = ({
               isAirdrop,
               requestId,
             );
+
+            // Skip outdated account responses
+            if (
+              params.accountId &&
+              params.accountId !== activeAccountIdRef.current
+            ) {
+              return;
+            }
 
             if (!isRequestStale(requestId) && isMountedRef.current && result) {
               const { key: resultKey, investment: newInv, remove } = result;

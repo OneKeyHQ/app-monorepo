@@ -1,5 +1,6 @@
+import { SizableText } from '@tamagui/text';
+
 import {
-  SizableText,
   createStyledContext,
   styled,
   withStaticProperties,

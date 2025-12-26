@@ -40,6 +40,7 @@ export enum EScopeName {
   ipTable = 'ipTable',
   networkDoctor = 'networkDoctor',
   onboarding = 'onboarding',
+  universalSearch = 'universalSearch',
 }
 export interface IScope {
   getName: () => EScopeName;

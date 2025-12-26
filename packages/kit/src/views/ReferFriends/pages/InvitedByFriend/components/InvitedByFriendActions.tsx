@@ -90,7 +90,7 @@ function InvitedByFriendActions({
         onPress={handleJoin}
       >
         {intl.formatMessage({
-          id: ETranslations.global_join,
+          id: ETranslations.referral_accept,
         })}
       </Button>
     </XStack>

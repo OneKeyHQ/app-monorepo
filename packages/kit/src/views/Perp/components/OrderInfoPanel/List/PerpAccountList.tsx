@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { noop } from 'lodash';
@@ -11,6 +12,7 @@ import type { IPerpsDepositOrderAtom } from '@onekeyhq/kit-bg/src/states/jotai/a
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDepositPending,
+  IHex,
   IUserNonFundingLedgerUpdate,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
@@ -24,12 +26,14 @@ interface IPerpAccountListProps {
   isMobile?: boolean;
   useTabsList?: boolean;
   disableListScroll?: boolean;
+  ListHeaderComponent?: ReactElement | null;
 }
 
 function PerpAccountList({
   isMobile,
   useTabsList,
   disableListScroll,
+  ListHeaderComponent,
 }: IPerpAccountListProps) {
   const intl = useIntl();
   const [{ updates, isSubscribed }] = usePerpsLedgerUpdatesAtom();
@@ -104,7 +108,7 @@ function PerpAccountList({
         };
         return {
           time: order.time ?? Date.now(),
-          hash: order.toTxId || order.fromTxId,
+          hash: (order.toTxId || order.fromTxId || '0x') as IHex,
           delta,
         };
       })
@@ -164,13 +168,16 @@ function PerpAccountList({
       data={mergedData}
       isMobile={isMobile}
       renderRow={renderAccountRow}
-      listLoading={!isSubscribed}
+      // If account has no Perp address (unsupported or not created),
+      // show empty state instead of skeleton loading.
+      listLoading={currentUser?.accountAddress ? !isSubscribed : false}
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty,
       })}
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty_desc,
       })}
+      ListHeaderComponent={mergedData.length > 0 ? ListHeaderComponent : null}
     />
   );
 }

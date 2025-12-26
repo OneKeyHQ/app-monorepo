@@ -1,9 +1,14 @@
-import { rootNavigationRef } from '@onekeyhq/components';
+import { type NavigationState, StackActions } from '@react-navigation/native';
+
+import { rootNavigationRef, switchTab } from '@onekeyhq/components';
 import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -24,6 +29,7 @@ const NetworkNameToIdMap: Record<string, string> = {
   cosmos: getNetworkIdsMap().cosmoshub,
   sbtc: getNetworkIdsMap().sbtc,
   bsc: getNetworkIdsMap().bsc,
+  base: getNetworkIdsMap().base,
 };
 
 const NetworkIdToNameMap: Record<string, string> = Object.fromEntries(
@@ -47,7 +53,7 @@ export const EarnNetworkUtils = {
   },
 };
 
-async function safePushToEarnRoute(
+export async function safePushToEarnRoute(
   navigation: IAppNavigation,
   route: ETabEarnRoutes,
   params?: any,
@@ -57,15 +63,75 @@ async function safePushToEarnRoute(
     : ETabRoutes.Earn;
 
   navigation.switchTab(targetTab);
+  if (platformEnv.isNative) {
+    void timerUtils.wait(150).then(() => {
+      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+        tab: ETranslations.global_earn,
+      });
+    });
+  }
   await timerUtils.wait(0);
 
-  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-    screen: targetTab,
-    params: {
-      screen: route,
-      params,
-    },
-  });
+  const rootNavigation = rootNavigationRef.current;
+  const findTargetStack = (state?: NavigationState) => {
+    if (!state) return undefined;
+    // Find tab navigator state under Main
+    const mainRoute = state.routes.find(
+      (item) => item.name === ERootRoutes.Main,
+    );
+    const mainState = (mainRoute as { state?: NavigationState })?.state;
+    if (!mainState) return undefined;
+
+    // Find the target tab route
+    const tabRoute = mainState.routes.find((item) => item.name === targetTab);
+    if (!tabRoute) return undefined;
+
+    // Stack navigator inside the tab
+    const tabState = (tabRoute as { state?: NavigationState })?.state;
+    // Prefer inner stack key; fall back to tab route key
+    const targetKey = tabState?.key ?? tabRoute.key;
+    return { targetKey, tabState };
+  };
+
+  if (!rootNavigation) {
+    navigation.navigate(ERootRoutes.Main, {
+      screen: targetTab,
+      params: {
+        screen: route,
+        params,
+      },
+    });
+    return;
+  }
+
+  const targetStack = findTargetStack(rootNavigation.getRootState?.());
+  const targetKey = targetStack?.targetKey;
+  const tabState = targetStack?.tabState;
+  const topRoute = tabState?.routes?.[tabState.index || 0];
+
+  if (targetKey) {
+    if (topRoute?.name === route) {
+      const action = StackActions.replace(route, params);
+      // @ts-expect-error target is added at runtime for navigator selection
+      action.target = targetKey;
+      rootNavigation.dispatch(action);
+      return;
+    }
+
+    const action = StackActions.push(route, params);
+    // @ts-expect-error target is added at runtime for navigator selection
+    action.target = targetKey;
+    rootNavigation.dispatch(action);
+  } else {
+    // Fallback: navigate as before (may reuse route)
+    rootNavigation.navigate(ERootRoutes.Main, {
+      screen: targetTab,
+      params: {
+        screen: route,
+        params,
+      },
+    });
+  }
 }
 
 export const EarnNavigation = {
@@ -176,12 +242,14 @@ export const EarnNavigation = {
     if (platformEnv.isNative) {
       navigation.popTo(ETabDiscoveryRoutes.TabDiscovery, params);
     } else {
-      navigation.popTo(ERootRoutes.Main, {
-        screen: ETabRoutes.Earn,
-        params: { screen: ETabEarnRoutes.EarnHome, params },
-      });
+      switchTab(ETabRoutes.Earn);
+      await timerUtils.wait(50);
+      navigation.popToTop();
     }
-
+    await timerUtils.wait(80);
+    appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
+      tab: params?.tab ?? 'assets',
+    });
     await timerUtils.wait(0);
   },
 

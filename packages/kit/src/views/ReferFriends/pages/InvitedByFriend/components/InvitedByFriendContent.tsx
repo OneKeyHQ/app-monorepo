@@ -1,11 +1,11 @@
-import { useIntl } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
-import { Stack } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferralBenefitsList } from '../../../components';
 
-function InvitedByFriendContent() {
+function InvitedByFriendContent({ referralCode }: { referralCode?: string }) {
   const intl = useIntl();
 
   const benefits = [
@@ -26,15 +26,24 @@ function InvitedByFriendContent() {
   return (
     <Stack mx="auto" gap="$10" px="$5" mt="$4">
       <ReferralBenefitsList
-        title={intl.formatMessage({
-          id: ETranslations.referral_modal_been_invited_title,
-        })}
+        title={
+          <FormattedMessage
+            id={ETranslations.referral_modal_been_invited_title_code}
+            values={{
+              ABCDEF: (
+                <SizableText size="$heading2xl" color="$textInfo">
+                  {referralCode}
+                </SizableText>
+              ),
+            }}
+          />
+        }
         subtitle={intl.formatMessage({
           id: ETranslations.referral_modal_been_invited_desc,
         })}
         benefits={benefits}
         bottomNote={intl.formatMessage({
-          id: ETranslations.referral_intro_p1_note,
+          id: ETranslations.referral_intro_p2_note,
         })}
       />
     </Stack>

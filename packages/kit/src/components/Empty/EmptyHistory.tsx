@@ -21,6 +21,8 @@ interface IEmptyHistoryProps {
   showViewInExplorer?: boolean;
   isSingleAccount?: boolean;
   tokenMap?: Record<string, ITokenFiat>;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 function EmptyHistory({
@@ -30,6 +32,9 @@ function EmptyHistory({
   indexedAccountId,
   isSingleAccount,
   tokenMap,
+  showViewInExplorer,
+  emptyTitle,
+  emptyDescription,
 }: IEmptyHistoryProps) {
   const intl = useIntl();
   const { account, network, vaultSettings } = useAccountData({
@@ -58,6 +63,9 @@ function EmptyHistory({
   ]);
 
   const renderViewInExplorerButton = useCallback(() => {
+    if (!showViewInExplorer) {
+      return null;
+    }
     if (vaultSettings?.hideBlockExplorer && !network?.isAllNetworks) {
       return null;
     }
@@ -110,6 +118,7 @@ function EmptyHistory({
     tokenMap,
     handleOnPress,
     requiresNetworkSelection,
+    showViewInExplorer,
   ]);
 
   return (
@@ -117,9 +126,11 @@ function EmptyHistory({
       h={platformEnv.isNativeAndroid ? 300 : undefined}
       testID="Wallet-No-History-Empty"
       icon="ClockTimeHistoryOutline"
-      title={intl.formatMessage({ id: ETranslations.no_transaction_title })}
+      title={intl.formatMessage({
+        id: ETranslations.wallet_transaction_history_empty_message,
+      })}
       description={intl.formatMessage({
-        id: ETranslations.no_transaction_desc,
+        id: ETranslations.wallet_transactions_empty_desc,
       })}
       button={renderViewInExplorerButton()}
     />

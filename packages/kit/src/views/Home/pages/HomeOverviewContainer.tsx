@@ -28,13 +28,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { calculateAccountTokensValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AllNetworksManagerTrigger } from '../../../components/AccountSelector/AllNetworksManagerTrigger';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
+import { useDebounce } from '../../../hooks/useDebounce';
 import {
+  useAccountDeFiOverviewAtom,
   useAccountOverviewActions,
   useAccountOverviewStateAtom,
   useAccountWorthAtom,
@@ -61,9 +64,13 @@ function HomeOverviewContainer() {
   const listRefreshKey = useRef('');
 
   const [accountWorth] = useAccountWorthAtom();
+  const [accountDeFiOverview] = useAccountDeFiOverviewAtom();
   const [overviewState] = useAccountOverviewStateAtom();
-  const { updateAccountOverviewState, updateAccountWorth } =
-    useAccountOverviewActions().current;
+  const {
+    updateAccountOverviewState,
+    updateAccountWorth,
+    updateAccountDeFiOverview,
+  } = useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
 
@@ -85,12 +92,21 @@ function HomeOverviewContainer() {
           worth: {},
           initialized: false,
         });
+        updateAccountDeFiOverview({
+          overview: {
+            totalValue: 0,
+            totalDebt: 0,
+            totalReward: 0,
+            netWorth: 0,
+          },
+        });
       }
     }
   }, [
     account?.id,
     network?.id,
     network?.isAllNetworks,
+    updateAccountDeFiOverview,
     updateAccountOverviewState,
     updateAccountWorth,
     wallet?.backuped,
@@ -296,39 +312,25 @@ function HomeOverviewContainer() {
   }, [account?.id, network?.id]);
 
   const balanceString = useMemo(() => {
-    if (network?.isAllNetworks) {
-      const allWorth = Object.values(accountWorth.worth).reduce(
-        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-        '0',
-      );
-      return allWorth;
-    }
-
-    if (vaultSettings?.mergeDeriveAssetsEnabled) {
-      const allWorth = Object.values(accountWorth.worth).reduce(
-        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-        '0',
-      );
-      return allWorth;
-    }
-
-    return (
-      accountWorth.worth[
-        accountUtils.buildAccountValueKey({
-          accountId: account?.id ?? '',
-          networkId: network?.id ?? '',
-        })
-      ] ??
-      Object.values(accountWorth.worth)[0] ??
-      '0'
-    );
+    return new BigNumber(
+      calculateAccountTokensValue({
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+        tokensWorth: accountWorth,
+        mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+      }),
+    )
+      .plus(accountDeFiOverview.netWorth ?? 0)
+      .toFixed();
   }, [
-    network?.isAllNetworks,
-    network?.id,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-    accountWorth.worth,
     account?.id,
+    network?.id,
+    accountWorth,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    accountDeFiOverview.netWorth,
   ]);
+
+  const debouncedBalanceString = useDebounce(balanceString, 100);
 
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
     { length: 17, size: '$headingXl' },
@@ -391,14 +393,14 @@ function HomeOverviewContainer() {
                     ? balanceSizeList.find(
                         (item) =>
                           numberFormatAsRenderText(
-                            String(balanceString),
+                            String(debouncedBalanceString),
                             numberFormatter,
                           ).length >= item.length,
                       )?.size ?? defaultBalanceSize
                     : defaultBalanceSize
                 }
               >
-                {balanceString}
+                {debouncedBalanceString}
               </NumberSizeableTextWrapper>
             </XStack>
             {refreshButton}

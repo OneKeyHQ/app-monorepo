@@ -172,8 +172,15 @@ const RecommendedItem = memo(
 
 RecommendedItem.displayName = 'RecommendedItem';
 
-function RecommendedContainer({ children }: PropsWithChildren) {
+function RecommendedContainer({
+  withHeader,
+  children,
+}: PropsWithChildren & { withHeader?: boolean }) {
   const intl = useIntl();
+
+  if (!withHeader) {
+    return children;
+  }
   return (
     <YStack
       gap="$3"
@@ -208,7 +215,16 @@ function RecommendedContainer({ children }: PropsWithChildren) {
   );
 }
 
-export function Recommended() {
+export function Recommended(
+  props:
+    | {
+        recommendedItemContainerProps?: IYStackProps;
+        withHeader?: boolean;
+      }
+    | undefined,
+) {
+  const { recommendedItemContainerProps, withHeader = true } = props ?? {};
+
   const { md } = useMedia();
   const allNetworkId = getNetworkIdsMap().onekeyall;
   const {
@@ -256,7 +272,7 @@ export function Recommended() {
   const shouldShowSkeleton = recommendedTokens.length === 0;
   if (shouldShowSkeleton) {
     return (
-      <RecommendedContainer>
+      <RecommendedContainer withHeader={withHeader}>
         {/* Desktop/Extension with larger screen: 4 items per row */}
         {platformEnv.isNative ? (
           // Mobile: horizontal scrolling skeleton
@@ -300,7 +316,7 @@ export function Recommended() {
   // Render actual tokens
   if (recommendedTokens.length) {
     return (
-      <RecommendedContainer>
+      <RecommendedContainer withHeader={withHeader}>
         {platformEnv.isNative ? (
           // Mobile: horizontal scrolling
           <ScrollView
@@ -316,6 +332,7 @@ export function Recommended() {
                   <RecommendedItem
                     token={token}
                     noWalletConnected={noWalletConnected}
+                    {...recommendedItemContainerProps}
                   />
                 </YStack>
               ))}
@@ -337,6 +354,7 @@ export function Recommended() {
                 <RecommendedItem
                   token={token}
                   noWalletConnected={noWalletConnected}
+                  {...recommendedItemContainerProps}
                 />
               </YStack>
             ))}

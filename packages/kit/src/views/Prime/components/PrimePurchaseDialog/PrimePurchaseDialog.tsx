@@ -10,13 +10,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
@@ -35,7 +35,7 @@ export function usePrimePurchaseCallback({
     purchasePackageWeb,
     getPackagesWeb,
   } = usePrimePayment();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   const intl = useIntl();
 
   const purchaseByWebview = usePurchasePackageWebview();
@@ -132,7 +132,7 @@ export function usePrimePurchaseCallback({
             featureName,
           });
           // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
-          //   privyUserId: user.privyUserId || '',
+          //   onekeyUserId: user.onekeyUserId || '',
           // });
           // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
           //   packageId: selectedPackageId,
@@ -166,7 +166,7 @@ export const PrimePurchaseDialog = (props: {
 }) => {
   const { onPurchase, featureName } = props;
   const intl = useIntl();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
 

@@ -37,6 +37,7 @@ export enum EMessageTypesBtc {
 
 export enum EMessageTypesTon {
   SIGN_DATA = 'tonSignData',
+  SIGN_DATA_V1 = 'tonSignDataV1',
   SIGN_PROOF = 'tonSignProof',
 }
 

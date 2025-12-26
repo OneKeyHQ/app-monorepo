@@ -15,6 +15,7 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
@@ -27,7 +28,10 @@ import { EAppEventBusNames } from './appEventBusNames';
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
-import type { INotificationViewDialogPayload } from '../../types/notification';
+import type {
+  INotificationPushMessageInfo,
+  INotificationViewDialogPayload,
+} from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
 import type {
   ESwapCrossChainStatus,
@@ -39,6 +43,7 @@ import type {
   ISwapTokenBase,
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
+import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
@@ -60,6 +65,7 @@ export interface IHardwareErrorDialogPayload {
 }
 
 export enum EFinalizeWalletSetupSteps {
+  // Regular wallet steps
   CreatingWallet = 'CreatingWallet',
   GeneratingAccounts = 'GeneratingAccounts',
   EncryptingData = 'EncryptingData',
@@ -73,6 +79,7 @@ export type IEventBusPayloadShowToast = {
   message?: string;
   duration?: number;
   errorCode?: number;
+  httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
   requestId?: string;
@@ -208,6 +215,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
+  [EAppEventBusNames.SwitchWalletHomeTab]: {
+    id: EHomeWalletTab;
+  };
   [EAppEventBusNames.RefreshMarketWatchList]: undefined;
   [EAppEventBusNames.RefreshCustomRpcList]: undefined;
   [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
@@ -242,13 +252,6 @@ export interface IAppEventBusPayload {
     accountId: string;
     networkId: string;
   };
-  [EAppEventBusNames.RefreshEarnPortfolioItem]: {
-    provider: string;
-    symbol: string;
-    networkId: string;
-    rewardSymbol?: string;
-  };
-  [EAppEventBusNames.RefreshEarnPortfolio]: undefined;
   [EAppEventBusNames.AccountDataUpdate]: undefined;
   [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
@@ -321,6 +324,7 @@ export interface IAppEventBusPayload {
     uiRequestType: EHardwareUiStateAction;
   };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
+  [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
   [EAppEventBusNames.EnabledNetworksChanged]: undefined;
   [EAppEventBusNames.CheckWalletBackupStatus]: {
     promiseId: number;
@@ -332,9 +336,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
-  [EAppEventBusNames.UnlockApp]: {
-    jobId: string;
-  };
+  [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
   [EAppEventBusNames.MarketWSDataUpdate]: {
     channel: string;
@@ -395,6 +397,7 @@ export interface IAppEventBusPayload {
       params: Record<string, any>;
     };
   };
+  [EAppEventBusNames.ShowNotificationInDappPage]: string;
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
@@ -405,7 +408,14 @@ export interface IAppEventBusPayload {
     message?: string;
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
-    tab: ETranslations.global_browser | ETranslations.global_earn;
+    tab:
+      | ETranslations.global_market
+      | ETranslations.global_browser
+      | ETranslations.global_earn;
+    openUrl?: boolean;
+  };
+  [EAppEventBusNames.SwitchEarnTab]: {
+    tab: 'assets' | 'portfolio' | 'faqs';
   };
   [EAppEventBusNames.SwitchTabBar]: {
     route: ETabRoutes;
@@ -414,6 +424,19 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PushModalPageInTabletDetailView]: {
     route: EModalRoutes;
     params: any;
+  };
+  [EAppEventBusNames.MarketHomePageEnter]: {
+    from: EEnterWay;
+  };
+  [EAppEventBusNames.MarketWatchListV2Changed]: undefined;
+  [EAppEventBusNames.SwapLimitOrderBuildSuccess]: undefined;
+  [EAppEventBusNames.RefreshNativeTokenInfo]: undefined;
+  [EAppEventBusNames.ShowInAppPushNotification]: {
+    notificationId: string | undefined;
+    title: string;
+    description: string;
+    icon: string | undefined;
+    remotePushMessageInfo: INotificationPushMessageInfo;
   };
 }
 

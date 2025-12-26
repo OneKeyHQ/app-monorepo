@@ -28,6 +28,7 @@ interface IUsePortfolioActionParams {
   vault?: string;
   providerLogoURI?: string;
   stakeTag?: string;
+  onSuccess?: () => Promise<void>;
 }
 
 export const usePortfolioAction = ({
@@ -39,6 +40,7 @@ export const usePortfolioAction = ({
   vault,
   providerLogoURI,
   stakeTag,
+  onSuccess,
 }: IUsePortfolioActionParams) => {
   const [loading, setLoading] = useState(false);
 
@@ -80,20 +82,12 @@ export const usePortfolioAction = ({
           request: { origin: 'https://lista.org/', scope: 'ethereum' },
         });
 
-        const symbolForRefresh = actionStakedSymbol || symbol;
-        if (symbolForRefresh) {
-          appEventBus.emit(EAppEventBusNames.RefreshEarnPortfolioItem, {
-            provider,
-            symbol: symbolForRefresh,
-            networkId,
-            rewardSymbol: actionRewardSymbol,
-          });
-        }
+        void onSuccess?.();
       } finally {
         setLoading(false);
       }
     },
-    [signMessage, earnAccountId, networkId, provider, symbol],
+    [signMessage, earnAccountId, networkId, provider, symbol, onSuccess],
   );
 
   const handleClaimAction = useCallback(
@@ -170,12 +164,14 @@ export const usePortfolioAction = ({
           portfolioSymbol: stakedSymbol || token?.info.symbol,
           // For airdrops, also pass rewardSymbol to filter the correct airdrop asset
           portfolioRewardSymbol: rewardSymbol,
+          onSuccess,
         });
       } finally {
         setLoading(false);
       }
     },
     [
+      onSuccess,
       handleClaim,
       provider,
       symbol,

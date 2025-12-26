@@ -1,22 +1,24 @@
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   type EApproveType,
   EInternalDappEnum,
+  EInternalStakingAction,
+  type IEarnPermit2ApproveSignData,
   type IStakeTxResponse,
+  type IStakeTxStakefishExitBroadcast,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -61,31 +63,6 @@ const handleStakeSuccess = async ({
   onSuccess?.(data);
 };
 
-const emitEarnPortfolioRefresh = ({
-  provider,
-  symbol,
-  networkId,
-  targetSymbol,
-  rewardSymbol,
-}: {
-  provider?: string;
-  symbol?: string;
-  networkId: string;
-  targetSymbol?: string;
-  rewardSymbol?: string;
-}) => {
-  const finalSymbol = targetSymbol || symbol;
-  if (!provider || !finalSymbol) {
-    return;
-  }
-  appEventBus.emit(EAppEventBusNames.RefreshEarnPortfolioItem, {
-    provider,
-    symbol: finalSymbol,
-    networkId,
-    rewardSymbol,
-  });
-};
-
 export function useUniversalStake({
   networkId,
   accountId,
@@ -106,10 +83,14 @@ export function useUniversalStake({
       protocolVault,
       approveType,
       permitSignature,
+      unsignedMessage,
+      message,
       provider,
       stakingInfo,
       onSuccess,
       onFail,
+      // Stakefish specific param
+      validatorPublicKey,
     }: {
       amount: string;
       symbol: string;
@@ -118,10 +99,16 @@ export function useUniversalStake({
       protocolVault?: string;
       approveType?: EApproveType;
       permitSignature?: string;
+      // Permit2 sign data for Morpho
+      unsignedMessage?: IEarnPermit2ApproveSignData;
+      // Stakefish: original message for permit signature
+      message?: string;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      // Stakefish specific param
+      validatorPublicKey?: string;
     }) => {
       const stakeTx =
         await backgroundApiProxy.serviceStaking.buildStakeTransaction({
@@ -135,6 +122,10 @@ export function useUniversalStake({
           protocolVault,
           approveType,
           permitSignature,
+          unsignedMessage,
+          message,
+          // Stakefish specific param
+          validatorPublicKey,
         });
 
       const encodedTx =
@@ -143,6 +134,7 @@ export function useUniversalStake({
           accountId,
           tx: stakeTx.tx,
           internalDappType: EInternalDappEnum.Staking,
+          stakingAction: EInternalStakingAction.Stake,
         });
 
       let useFeeInTx;
@@ -170,11 +162,6 @@ export function useUniversalStake({
             networkId,
             onSuccess,
           });
-          emitEarnPortfolioRefresh({
-            provider,
-            symbol,
-            networkId,
-          });
         },
         onFail,
         useFeeInTx,
@@ -192,6 +179,7 @@ export function useUniversalWithdraw({
   networkId: string;
   accountId: string;
 }) {
+  const intl = useIntl();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
@@ -207,6 +195,9 @@ export function useUniversalWithdraw({
       stakingInfo,
       onSuccess,
       onFail,
+      // Signature and message for withdraw all
+      withdrawSignature,
+      withdrawMessage,
     }: {
       amount: string;
       symbol: string;
@@ -217,6 +208,9 @@ export function useUniversalWithdraw({
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      // Signature and message for withdraw all
+      withdrawSignature?: string;
+      withdrawMessage?: string;
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
       const stakingConfig =
@@ -277,14 +271,32 @@ export function useUniversalWithdraw({
             provider,
             protocolVault,
             withdrawAll,
+            // Pass signature and message for withdraw all
+            signature: withdrawSignature,
+            message: withdrawMessage,
           });
       }
+
+      // Handle Stakefish validator exit broadcast (no on-chain tx needed)
+      const txAsExitBroadcast =
+        stakeTx.tx as unknown as IStakeTxStakefishExitBroadcast;
+      if (txAsExitBroadcast?.exitBroadcasted === true) {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.feedback_transaction_submitted,
+          }),
+        });
+        onSuccess?.([]);
+        return;
+      }
+
       const encodedTx =
         await backgroundApiProxy.serviceStaking.buildInternalDappTx({
           networkId,
           accountId,
           tx: stakeTx.tx,
           internalDappType: EInternalDappEnum.Staking,
+          stakingAction: EInternalStakingAction.Withdraw,
         });
       let useFeeInTx;
       let feeInfoEditable;
@@ -315,11 +327,6 @@ export function useUniversalWithdraw({
               networkId,
               onSuccess,
             });
-            emitEarnPortfolioRefresh({
-              provider,
-              symbol,
-              networkId,
-            });
           } else {
             const psbtHex = data[0].signedTx.finalizedPsbtHex;
             if (psbtHex && identity) {
@@ -332,18 +339,13 @@ export function useUniversalWithdraw({
                 unstakeTxHex: psbtHex,
               });
               onSuccess?.(data);
-              emitEarnPortfolioRefresh({
-                provider,
-                symbol,
-                networkId,
-              });
             }
           }
         },
         onFail,
       });
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, networkId, navigationToTxConfirm, intl],
   );
 }
 
@@ -371,8 +373,6 @@ export function useUniversalClaim({
       stakingInfo,
       onSuccess,
       onFail,
-      portfolioSymbol,
-      portfolioRewardSymbol,
     }: {
       identity?: string;
       amount: string;
@@ -405,6 +405,7 @@ export function useUniversalClaim({
             accountId,
             tx: stakeTx.tx,
             internalDappType: EInternalDappEnum.Staking,
+            stakingAction: EInternalStakingAction.Claim,
           });
         let useFeeInTx;
         let feeInfoEditable;
@@ -430,13 +431,6 @@ export function useUniversalClaim({
               stakeInfo: stakeInfoWithOrderId,
               networkId,
               onSuccess,
-            });
-            emitEarnPortfolioRefresh({
-              provider,
-              symbol,
-              networkId,
-              targetSymbol: portfolioSymbol,
-              rewardSymbol: portfolioRewardSymbol,
             });
           },
           onFail,

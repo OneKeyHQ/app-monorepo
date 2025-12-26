@@ -618,6 +618,7 @@ const ProtocolDetailsPage = () => {
       minTransactionFee: detailInfo.nums?.minTransactionFee,
       remainingCap: detailInfo.nums?.remainingCap,
       claimable: detailInfo.nums?.claimable,
+      protocolInputDecimals: detailInfo.protocolInputDecimals,
     };
   }, [detailInfo, earnAccount, provider, symbol]);
 

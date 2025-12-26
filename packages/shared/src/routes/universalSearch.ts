@@ -8,6 +8,7 @@ export enum EUniversalSearchPages {
 export type IUniversalSearchParamList = {
   [EUniversalSearchPages.UniversalSearch]: {
     filterTypes?: EUniversalSearchType[];
+    initialTab?: 'market' | 'dapp';
   };
   [EUniversalSearchPages.MarketDetail]: {
     token: string;

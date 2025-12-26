@@ -47,7 +47,7 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
 
   // Calculate image width based on platform and screen size
   const imageWidth = useMemo(() => {
-    if (gtSm) return 640; // Desktop: fixed width
+    if (gtSm) return 540; // Desktop: fixed width
     return screenWidth; // Native / popup: screen width minus padding
   }, [gtSm, screenWidth]);
 

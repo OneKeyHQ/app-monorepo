@@ -26,8 +26,8 @@ export class HardwareAllNetworkGetAddressResponse {
         {
           code: item.payload?.code,
           error: item.payload?.error,
+          params: item.payload?.params,
           // message: item.payload?.message,
-          // params: item.payload?.params,
           // errorCode: item.payload?.errorCode,
           connectId: item.payload?.connectId,
           deviceId: item.payload?.deviceId,
@@ -111,7 +111,7 @@ export class HardwareAllNetworkGetAddressResponse {
         const account = hwAllNetworkPrepareAccountsResponse?.find(
         (item) =>
         item.network && item.path === path && item.network === hwSdkNetwork,
-        );        
+        );
         */
 
     if (useTweak) {

@@ -18,14 +18,14 @@ export function usePerpReward(
     if (!hasPerpRewards) return undefined;
     return onChain.perp
       ?.reduce((acc, curr) => acc.plus(BigNumber(curr.usdValue)), BigNumber(0))
-      .toFixed(2);
+      .toFixed();
   }, [hasPerpRewards, onChain.perp]);
 
   const perpSummaryFiat = useMemo(() => {
     if (!hasPerpRewards) return undefined;
     return onChain.perp
       ?.reduce((acc, curr) => acc.plus(BigNumber(curr.fiatValue)), BigNumber(0))
-      .toFixed(2);
+      .toFixed();
   }, [hasPerpRewards, onChain.perp]);
 
   const perpToken = useMemo(() => {

@@ -25,6 +25,9 @@ export type IOneKeyDeviceType = IDeviceType;
 
 export type IOneKeyDeviceFeatures = FeaturesTransport;
 export type IOneKeyDeviceFeaturesCore = FeaturesCore;
+export type IOneKeyDeviceFeaturesWithAppParams = IOneKeyDeviceFeatures & {
+  $app_firmware_type?: EFirmwareType;
+};
 
 export type IFirmwareChangeLog = {
   [key in ILocaleSymbol]?: string;
@@ -278,6 +281,7 @@ export enum EFirmwareUpdateTipMessages {
   FirmwareEraseSuccess = 'FirmwareEraseSuccess',
 
   SelectDeviceInBootloaderForWebDevice = 'SelectDeviceInBootloaderForWebDevice',
+  SwitchFirmwareReconnectDevice = 'SwitchFirmwareReconnectDevice',
 
   // Touch & Pro only
   CheckLatestUiResource = 'CheckLatestUiResource',

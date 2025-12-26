@@ -1,33 +1,22 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback } from 'react';
 
 import { IconButton, Stack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
-  useSwapLimitPriceFromAmountAtom,
-  useSwapLimitPriceToAmountAtom,
-  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenDetailFetchingAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
   useSwapToTokenAmountAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  checkWrappedTokenPair,
-  equalTokenNoCaseSensitive,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  ESwapDirectionType,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
-import { useSwapQuote } from '../../hooks/useSwapQuote';
+import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
 import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
@@ -56,13 +45,8 @@ const SwapQuoteInput = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const { alternationToken } = useSwapActions().current;
-  const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
-  const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
-  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
-  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
-  useSwapQuote();
   useSwapFromAccountNetworkSync();
 
   const getTransform = useCallback(() => {
@@ -74,77 +58,7 @@ const SwapQuoteInput = ({
     };
   }, []);
 
-  useEffect(() => {
-    if (
-      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
-      swapLimitPriceFromAmount
-    ) {
-      setFromInputAmount({
-        value: swapLimitPriceFromAmount,
-        isInput: false,
-      });
-    }
-  }, [setFromInputAmount, swapLimitPriceFromAmount, swapTypeSwitchValue]);
-
-  useEffect(() => {
-    if (
-      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
-      swapLimitPriceToAmount
-    ) {
-      setToInputAmount({
-        value: swapLimitPriceToAmount,
-        isInput: false,
-      });
-    }
-  }, [setToInputAmount, swapLimitPriceToAmount, swapTypeSwitchValue]);
-
-  useEffect(() => {
-    if (
-      swapTypeSwitchValue !== ESwapTabSwitchType.LIMIT ||
-      checkWrappedTokenPair({
-        fromToken,
-        toToken,
-      })
-    ) {
-      let toAmount = '';
-      if (
-        equalTokenNoCaseSensitive({
-          token1: fromToken,
-          token2: swapQuoteCurrentSelect?.fromTokenInfo,
-        }) &&
-        equalTokenNoCaseSensitive({
-          token1: toToken,
-          token2: swapQuoteCurrentSelect?.toTokenInfo,
-        })
-      ) {
-        toAmount = swapQuoteCurrentSelect?.toAmount ?? '';
-      }
-      if (
-        checkWrappedTokenPair({
-          fromToken,
-          toToken,
-        })
-      ) {
-        toAmount = swapQuoteCurrentSelect?.isWrapped
-          ? swapQuoteCurrentSelect?.toAmount ?? ''
-          : '';
-      }
-      setToInputAmount({
-        value: toAmount,
-        isInput: false,
-      });
-    }
-  }, [
-    swapQuoteCurrentSelect?.toAmount,
-    swapQuoteCurrentSelect?.fromTokenInfo,
-    swapQuoteCurrentSelect?.toTokenInfo,
-    swapQuoteCurrentSelect?.isWrapped,
-    setToInputAmount,
-    setFromInputAmount,
-    swapTypeSwitchValue,
-    fromToken,
-    toToken,
-  ]);
+  useSwapLimitPriceCheck(fromToken, toToken);
 
   return (
     <YStack gap="$2">

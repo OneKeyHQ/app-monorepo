@@ -9,6 +9,7 @@ import {
   Stack,
   Switch,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -33,7 +34,7 @@ import { HomeApprovalListProviderMirror } from '../components/HomeApprovalListPr
 
 function TokenListSettings() {
   const intl = useIntl();
-
+  const media = useMedia();
   const {
     activeAccount: {
       account,
@@ -52,6 +53,11 @@ function TokenListSettings() {
     indexedAccountId: indexedAccount?.id,
     isOthersWallet,
   });
+
+  if (media.gtMd) {
+    return null;
+  }
+
   return manageTokenEnabled ? (
     <IconButton
       title={intl.formatMessage({
@@ -228,10 +234,10 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
       }),
     [intl],
   );
-  const cryptoName = useMemo(
+  const portfolioName = useMemo(
     () =>
       intl.formatMessage({
-        id: ETranslations.global_crypto,
+        id: ETranslations.global_portfolio,
       }),
     [intl],
   );
@@ -245,7 +251,7 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
   );
   const content = useMemo(() => {
     switch (focusedTab) {
-      case cryptoName:
+      case portfolioName:
         return <TokenListSettings />;
       case historyName:
         return <TxHistorySettings />;
@@ -258,7 +264,7 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
       default:
         return null;
     }
-  }, [approvalName, cryptoName, focusedTab, historyName]);
+  }, [approvalName, portfolioName, focusedTab, historyName]);
   return <XStack pr="$5">{content}</XStack>;
 }
 

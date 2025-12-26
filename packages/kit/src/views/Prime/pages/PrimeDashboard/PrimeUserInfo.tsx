@@ -11,17 +11,18 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
-import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
+// import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
 export function PrimeUserBadge() {
   const intl = useIntl();
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   const navigation = useAppNavigation();
 
   const isPrime = user?.primeSubscription?.isActive;
@@ -91,7 +92,7 @@ export function PrimeUserInfo({
 }: {
   onLogoutSuccess?: () => Promise<void>;
 } & ComponentProps<typeof XStack>) {
-  const { user } = usePrimeAuthV2();
+  const { user } = useOneKeyAuth();
   return (
     <XStack
       alignItems="center"
@@ -110,8 +111,7 @@ export function PrimeUserInfo({
       <Icon name="PeopleOutline" color="$iconSubdued" size="$5" />
       <SizableText
         onPress={() => {
-          // console.log(privy?.web?.user);
-          // console.log(privy?.native?.user);
+          //
         }}
         flex={1}
         size="$bodyMdMedium"

@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  Button,
   EPageType,
   Icon,
   SizableText,

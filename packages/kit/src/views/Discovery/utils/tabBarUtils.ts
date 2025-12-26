@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 
-import * as ExpoDevice from 'expo-device';
-
+import { useIsNativeTablet, useOrientation } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EAppEventBusNames,
@@ -20,14 +19,16 @@ export const showTabBar = () => {
 export const useNotifyTabBarDisplay = isNative
   ? (isActive: boolean) => {
       const isFocused = useIsFocused({ disableLockScreenCheck: true });
+      const isLandscape = useOrientation();
+      const isTablet = useIsNativeTablet();
 
       const hideTabBar = isActive && isFocused;
 
       useEffect(() => {
-        if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
+        if (isTablet && isLandscape) {
           return;
         }
         appEventBus.emit(EAppEventBusNames.HideTabBar, hideTabBar);
-      }, [hideTabBar]);
+      }, [hideTabBar, isLandscape, isTablet]);
     }
   : () => {};

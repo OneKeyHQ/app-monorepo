@@ -9,13 +9,12 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
-
-import type { FrontendOrder } from '@nktkas/hyperliquid';
 
 interface IPerpOpenOrdersListProps {
   isMobile?: boolean;
@@ -129,7 +128,7 @@ function PerpOpenOrdersList({
   );
 
   const handleCancelOrder = useCallback(
-    async (order: FrontendOrder) => {
+    async (order: IPerpsFrontendOrder) => {
       await actions.current.ensureTradingEnabled();
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
@@ -160,7 +159,7 @@ function PerpOpenOrdersList({
       ),
     [columnsConfig],
   );
-  const renderOrderRow = (item: FrontendOrder, _index: number) => {
+  const renderOrderRow = (item: IPerpsFrontendOrder, _index: number) => {
     return (
       <OpenOrdersRow
         order={item}

@@ -1,12 +1,14 @@
 import { useCallback } from 'react';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 
 import { XStack } from '../../../primitives';
 import { SearchBar } from '../../SearchBar';
 
 import type { IInputAddOnProps } from '../../../forms/Input/InputAddOnItem';
 import type {
+  BlurEvent,
+  FocusEvent,
   NativeSyntheticEvent,
   TargetedEvent,
   TextInputFocusEventData,
@@ -76,14 +78,14 @@ function HeaderSearchBar({
   );
 
   const onBlurCallback = useCallback(
-    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    (e: BlurEvent) => {
       onBlur?.(e);
     },
     [onBlur],
   );
 
   const onFocusCallback = useCallback(
-    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    (e: FocusEvent) => {
       onFocus?.(e); // Stub event object
     },
     [onFocus],

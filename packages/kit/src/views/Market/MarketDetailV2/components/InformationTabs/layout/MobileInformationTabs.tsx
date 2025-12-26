@@ -9,6 +9,7 @@ import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
@@ -40,9 +41,13 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
 export function MobileInformationTabs({
   renderHeader,
   onScrollEnd,
+  portfolioData,
+  isRefreshing,
 }: {
   renderHeader: CollapsibleProps['renderHeader'];
   onScrollEnd: () => void;
+  portfolioData: IMarketAccountPortfolioItem[];
+  isRefreshing?: boolean;
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
@@ -90,8 +95,8 @@ export function MobileInformationTabs({
           })}
         >
           <Portfolio
-            tokenAddress={tokenAddress}
-            networkId={networkId}
+            portfolioData={portfolioData}
+            isRefreshing={!!isRefreshing}
             accountAddress={accountAddress}
           />
         </Tabs.Tab>
@@ -110,6 +115,8 @@ export function MobileInformationTabs({
     onScrollEnd,
     holdersTabName,
     accountAddress,
+    portfolioData,
+    isRefreshing,
   ]);
 
   const renderTabBar = useCallback(({ ...props }: any) => {

@@ -20,11 +20,17 @@ export enum EModalSettingRoutes {
   SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
   SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
   SettingDevCloudBackupGalleryModal = 'SettingDevCloudBackupGalleryModal',
+  SettingDevAuthGalleryModal = 'SettingDevAuthGalleryModal',
+  SettingDevKeylessWalletGallery = 'SettingDevKeylessWalletGallery',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
   SettingAlignPrimaryAccount = 'SettingAlignPrimaryAccount',
   SettingFloatingIconModal = 'SettingFloatingIconModal',
+  // OneKey ID sub-pages
+  SettingOneKeyIdPersonalInfo = 'SettingOneKeyIdPersonalInfo',
+  SettingOneKeyIdSignInSecurity = 'SettingOneKeyIdSignInSecurity',
+  SettingOneKeyIdKeylessWallet = 'SettingOneKeyIdKeylessWallet',
 }
 
 export type IModalSettingParamList = {
@@ -53,10 +59,15 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCloudBackupGalleryModal]: undefined;
+  [EModalSettingRoutes.SettingDevAuthGalleryModal]: undefined;
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
   [EModalSettingRoutes.SettingPerpUserConfig]: undefined;
+  // OneKey ID sub-pages
+  [EModalSettingRoutes.SettingOneKeyIdPersonalInfo]: undefined;
+  [EModalSettingRoutes.SettingOneKeyIdSignInSecurity]: undefined;
+  [EModalSettingRoutes.SettingOneKeyIdKeylessWallet]: undefined;
 };

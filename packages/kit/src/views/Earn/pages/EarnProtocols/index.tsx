@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,6 +7,7 @@ import {
   Empty,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -21,6 +22,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ETabEarnRoutes,
@@ -59,6 +61,8 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   }, [encodedLogoURI]);
 
   const media = useMedia();
+
+  const isDesktopLayout = !platformEnv.isNative && media.gtSm;
 
   const customHeaderLeft = useMemo(
     () => (
@@ -135,15 +139,18 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         render: (item) => {
           return (
             <XStack jc="center" ai="center">
-              <Token
-                size="md"
-                borderRadius="$2"
-                mr="$3"
-                tokenImageUri={item.provider.logoURI}
-              />
-              <YStack mr="$2">
-                <XStack ai="center" gap="$2">
-                  <SizableText size="$bodyLgMedium">
+              <Stack mr="$3">
+                <Token
+                  size="md"
+                  borderRadius="$2"
+                  tokenImageUri={item.provider.logoURI}
+                  showNetworkIcon={!isDesktopLayout}
+                  networkId={item.network.networkId}
+                />
+              </Stack>
+              <YStack mr="$2" flex={1} minWidth={0}>
+                <XStack ai="center" gap="$2" minWidth={0}>
+                  <SizableText size="$bodyLgMedium" flexShrink={0}>
                     {normalizeToEarnProvider(item.provider.name)}
                   </SizableText>
                   {item.provider.badges?.map((badge) => (
@@ -152,12 +159,19 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                       key={badge.tag}
                       badgeType={badge.badgeType}
                       badgeSize="sm"
+                      flexShrink={1}
+                      minWidth={0}
                     >
                       <Badge.Text>{badge.tag}</Badge.Text>
                     </Badge>
                   ))}
                 </XStack>
-                {item?.provider?.description ? (
+                {isDesktopLayout && item?.provider?.vaultName ? (
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                    {item.provider.vaultName}
+                  </SizableText>
+                ) : null}
+                {!isDesktopLayout && item?.provider?.description ? (
                   <SizableText size="$bodySmMedium" color="$textSubdued">
                     {item.provider.description}
                   </SizableText>
@@ -196,7 +210,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       },
       {
         key: 'yield',
-        label: intl.formatMessage({ id: ETranslations.global_apr }),
+        label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
         flex: 2,
         align: 'flex-end',
         render: (item) => (
@@ -209,14 +223,14 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         ),
       },
     ];
-  }, [intl]);
+  }, [intl, isDesktopLayout]);
 
   const content = useMemo(() => {
     if (isLoading) {
       return (
         <YStack>
           {/* Table Header - Desktop only */}
-          {media.gtSm ? (
+          {isDesktopLayout ? (
             <ListItem mx="$0" px="$5">
               <XStack flex={2.5}>
                 <Skeleton h="$3" w={80} />
@@ -239,10 +253,10 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
               key={index}
               mx="$0"
               px="$5"
-              ai={media.gtSm ? 'center' : 'flex-start'}
+              ai={isDesktopLayout ? 'center' : 'flex-start'}
             >
               {/* Protocol column */}
-              <XStack flex={media.gtSm ? 2.5 : 1} ai="center" gap="$3">
+              <XStack flex={isDesktopLayout ? 2.5 : 1} ai="center" gap="$3">
                 <Skeleton w="$10" h="$10" borderRadius="$2" />
                 <YStack gap="$1" flex={1}>
                   <Skeleton h="$4" w="70%" />
@@ -250,7 +264,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                 </YStack>
               </XStack>
 
-              {media.gtSm ? (
+              {isDesktopLayout ? (
                 <>
                   {/* Network column */}
                   <XStack flex={1} jc="flex-end">
@@ -308,18 +322,18 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         defaultSortKey="yield"
         defaultSortDirection="desc"
         onPressRow={handleProtocolPress}
-        enableDrillIn={media.gtSm}
+        enableDrillIn={isDesktopLayout}
         isLoading={isLoading}
       />
     );
   }, [
-    media,
-    columns,
-    fetchProtocolData,
-    intl,
     isLoading,
     protocolData,
+    columns,
     handleProtocolPress,
+    isDesktopLayout,
+    intl,
+    fetchProtocolData,
   ]);
 
   return (
@@ -327,6 +341,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       pageTitle={customHeaderLeft}
+      customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
       breadcrumbProps={{
         items: [
           {

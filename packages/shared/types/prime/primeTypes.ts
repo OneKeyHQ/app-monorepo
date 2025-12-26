@@ -8,14 +8,17 @@ export type IPrimeSubscriptionInfo = {
   willRenew?: boolean;
 };
 export type IPrimeUserInfo = {
-  isLoggedIn: boolean; // local privy sdk login status
+  isLoggedIn: boolean; // local supabase sdk login status
   isLoggedInOnServer: boolean; // server api login status
   isEnablePrime: boolean | undefined;
   isEnableSandboxPay: boolean | undefined;
   isPrimeDeviceLimitExceeded: boolean | undefined;
-  email: string | undefined; // update by local privy sdk
+  email: string | undefined; // update by local supabase sdk
+  keylessWalletId: string | undefined; // packSetId
   displayEmail: string | undefined; // update by server api
-  privyUserId: string | undefined;
+  nickname: string | undefined; // update by server api
+  avatar: string | undefined; // update by server api
+  onekeyUserId: string | undefined;
   subscriptionManageUrl: string | undefined; // update by local revenuecat sdk: Purchases.getCustomerInfo()
   primeSubscription: IPrimeSubscriptionInfo | undefined;
 };
@@ -30,6 +33,8 @@ export type IPrimeDeviceInfo = {
 };
 
 export type IPrimeServerUserInfo = {
+  avatar: string | undefined; // update by server api
+  nickname: string | undefined; // update by server api
   createdAt: string;
   updatedAt: string;
 
@@ -39,6 +44,7 @@ export type IPrimeServerUserInfo = {
   isPrimeDeviceLimitExceeded: boolean | undefined;
   primeExpiredAt: number;
   level: 'PRIME' | 'NORMAL';
+  keylessWalletId: string | undefined; // packSetId
   salt: string;
   pwdHash: string;
   userId: string;

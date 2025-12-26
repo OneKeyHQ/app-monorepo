@@ -55,7 +55,7 @@ export function useCurrentLevelCard(
       };
     }> = [];
 
-    // Use more detailed commission rates if available
+    // Use detailed commission rates if available
     if (detailLevel?.commissionRates) {
       const rates = detailLevel.commissionRates;
 
@@ -81,26 +81,6 @@ export function useCurrentLevelCard(
           },
         }));
       }
-    } else {
-      // Fallback to default values if no detailed data available
-      commissionRates = [
-        {
-          subject: 'HardwareSales',
-          rate: {
-            you: currentLevel.rebate || 5,
-            invitee: currentLevel.discount || 5,
-            label: 'Hardware sales',
-          },
-        },
-        {
-          subject: 'Onchain',
-          rate: {
-            you: currentLevel.rebate || 10,
-            invitee: currentLevel.discount || 10,
-            label: 'DeFi performance fee',
-          },
-        },
-      ];
     }
 
     return {

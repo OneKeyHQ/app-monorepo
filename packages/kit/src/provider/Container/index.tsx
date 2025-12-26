@@ -1,7 +1,10 @@
-import { DeviceType, deviceType } from 'expo-device';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import { ETabletViewType, TabletModeViewContext } from '@onekeyhq/components';
+import {
+  ETabletViewType,
+  TabletModeViewContext,
+  useIsNativeTablet,
+} from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
@@ -25,9 +28,9 @@ import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
+import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
-import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
@@ -59,11 +62,11 @@ function DetailRouter() {
       <VerifyTxContainer />
       <HardwareUiStateContainer />
       <PrimeLoginContainerLazy />
+      <KeylessWalletContainerLazy />
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <CloudBackupContainer />
       <FullWindowOverlayContainer />
-      <PortalBodyContainer />
       <PageTrackerContainer />
       <ErrorToastContainer />
       <GlobalErrorHandlerContainer />
@@ -84,7 +87,8 @@ const tabletMainViewContext = { viewType: ETabletViewType.MAIN };
 const tabletDetailViewContext = { viewType: ETabletViewType.DETAIL };
 
 export function Container() {
-  if (deviceType === DeviceType.TABLET) {
+  const isTablet = useIsNativeTablet();
+  if (isTablet) {
     return (
       <RootSiblingParent>
         <AppStateLockContainer>

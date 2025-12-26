@@ -1,9 +1,10 @@
+import type { ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useIntl } from 'react-intl';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useThemeValue } from '../../../hooks';
@@ -89,13 +90,20 @@ export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
   showTabBar = true,
+  bottomMenu,
+  webPageTabBar,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => (
-      <NavigationBar {...props} extraConfig={extraConfig} />
+      <NavigationBar
+        {...props}
+        extraConfig={extraConfig}
+        bottomMenu={bottomMenu}
+        webPageTabBar={webPageTabBar}
+      />
     ),
-    [extraConfig],
+    [webPageTabBar, bottomMenu, extraConfig],
   );
 
   const tabComponents = useMemo(

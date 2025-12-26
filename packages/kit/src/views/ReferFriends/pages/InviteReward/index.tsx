@@ -23,6 +23,7 @@ import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/Inv
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
 import { SectionHeader } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SectionHeader';
 import { ResponsiveTwoColumnLayout } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared';
+import { SuspensionAlert } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SuspensionAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
@@ -49,10 +50,17 @@ function InviteRewardContent({
     rebateLevels,
     rebateConfig,
     withdrawAddresses,
+    suspensionNotice,
+    suspensionContactLabel,
   } = summaryInfo;
 
   return (
     <>
+      <SuspensionAlert
+        suspensionNotice={suspensionNotice}
+        suspensionContactLabel={suspensionContactLabel}
+      />
+
       <XStack px="$5" pt="$5" pb="$4" jc="space-between" ai="center">
         <SectionHeader translationId={ETranslations.global_overview} />
 
@@ -134,7 +142,7 @@ function InviteRewardPage() {
       {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
-            id: ETranslations.perps_trade_reward,
+            id: ETranslations.referral_title,
           })}
           headerRight={renderHeaderRight}
         />

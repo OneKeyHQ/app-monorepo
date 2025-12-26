@@ -8,6 +8,7 @@ import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/Ac
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export function NoAddressWarning({
@@ -55,14 +56,12 @@ export function NoAddressWarning({
   const { result } = usePromiseResult(async () => {
     const { serviceAccount, serviceNetwork } = backgroundApiProxy;
     let accountName = '';
-    let accountImpl: string | undefined;
     try {
       const account = await serviceAccount.getAccount({
         accountId,
         networkId,
       });
       accountName = account.name;
-      accountImpl = account.impl;
     } catch (e) {
       if (indexedAccountId) {
         const indexedAccount = await serviceAccount.getIndexedAccount({
@@ -75,25 +74,14 @@ export function NoAddressWarning({
     const network = await serviceNetwork.getNetwork({ networkId });
     return {
       accountName,
-      accountImpl,
       networkName: network.name,
     };
   }, [accountId, indexedAccountId, networkId]);
 
-  const { result: accountNetworkNotSupported } = usePromiseResult(
-    async () => {
-      return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
-        accountId,
-        accountImpl: result?.accountImpl,
-        activeNetworkId: networkId,
-      });
-    },
-    [accountId, result?.accountImpl, networkId],
-    { initResult: undefined },
-  );
+  const isOthersAccount = accountUtils.isOthersAccount({ accountId });
 
   const content = useMemo(() => {
-    if (accountNetworkNotSupported) {
+    if (isOthersAccount) {
       return {
         title: intl.formatMessage(
           { id: ETranslations.wallet_unsupported_network_title },
@@ -119,7 +107,7 @@ export function NoAddressWarning({
         },
       ),
     };
-  }, [result, accountNetworkNotSupported, networkId, intl]);
+  }, [result, isOthersAccount, networkId, intl]);
 
   if (!result) {
     return null;
@@ -142,7 +130,7 @@ export function NoAddressWarning({
       title={content.title}
       description={content.description}
       action={
-        accountNetworkNotSupported
+        isOthersAccount
           ? undefined
           : {
               primary: intl.formatMessage({

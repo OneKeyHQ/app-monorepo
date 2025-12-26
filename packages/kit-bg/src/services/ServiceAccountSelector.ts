@@ -525,6 +525,14 @@ class ServiceAccountSelector extends ServiceBase {
               globalDeriveType || v.deriveType || 'default';
             v.deriveType = deriveType;
 
+            defaultLogger.accountSelector.listData.fixDeriveTypesForInitAccountSelectorMap(
+              {
+                selectedAccount: v,
+                globalDeriveType,
+                fixedDeriveType: deriveType,
+              },
+            );
+
             if (
               v.walletId &&
               accountUtils.isOthersWallet({ walletId: v.walletId })
@@ -555,6 +563,9 @@ class ServiceAccountSelector extends ServiceBase {
     // await timerUtils.wait(1000);
     const { serviceAccount } = this.backgroundApi;
     if (!focusedWallet) {
+      defaultLogger.accountSelector.listData.focusedWalletMissing({
+        focusedWallet,
+      });
       return [];
     }
     const buildAccountsData = ({
@@ -566,6 +577,12 @@ class ServiceAccountSelector extends ServiceBase {
       walletId: string;
       title?: string;
     }): IAccountSelectorAccountsListSectionData => {
+      defaultLogger.accountSelector.listData.buildAccountsData({
+        accountsLength: accounts.length,
+        walletId,
+        title,
+      });
+
       if (walletId === WALLET_TYPE_WATCHING) {
         return {
           title:
@@ -698,6 +715,10 @@ class ServiceAccountSelector extends ServiceBase {
     const { accounts } = await serviceAccount.getIndexedAccountsOfWallet({
       walletId,
     });
+    defaultLogger.accountSelector.listData.getIndexedAccountsOfWallet({
+      accountsLength: accounts.length,
+      walletId,
+    });
     if (linkedNetworkId) {
       await Promise.all(
         accounts.map(async (indexedAccount: IDBIndexedAccount) => {
@@ -739,7 +760,7 @@ class ServiceAccountSelector extends ServiceBase {
     const isHd = accountUtils.isHdWallet({
       walletId: focusedWallet,
     });
-    const isHw = accountUtils.isHwWallet({
+    const isHwOrQr = accountUtils.isHwOrQrWallet({
       walletId: focusedWallet,
     });
     try {
@@ -748,7 +769,7 @@ class ServiceAccountSelector extends ServiceBase {
       });
 
       let device: IDBDevice | undefined;
-      if (isHw) {
+      if (isHwOrQr) {
         device = await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
           dbWallet: wallet,
           walletId: focusedWallet,
@@ -789,6 +810,15 @@ class ServiceAccountSelector extends ServiceBase {
       deriveType,
     });
 
+    defaultLogger.accountSelector.listData.buildAccountsListData({
+      focusedWallet,
+      othersNetworkId,
+      linkedNetworkId,
+      selectedNetworkId,
+      deriveType,
+      keepAllOtherAccounts,
+    });
+
     const sectionData = await this.getAccountSelectorAccountsListSectionData({
       focusedWallet,
       othersNetworkId,
@@ -817,6 +847,21 @@ class ServiceAccountSelector extends ServiceBase {
       value: Record<string, string> | string | undefined;
       currency: string | undefined;
     }[] = [];
+    let accountsDeFiOverview: Array<
+      | {
+          overview: Record<
+            string,
+            {
+              totalValue: number;
+              totalDebt: number;
+              totalReward: number;
+              netWorth: number;
+              currency: string;
+            }
+          >;
+        }
+      | undefined
+    > = [];
 
     let mergeDeriveAssetsEnabled = false;
     if (selectedNetworkId) {
@@ -831,6 +876,9 @@ class ServiceAccountSelector extends ServiceBase {
     try {
       const accountsForValuesQuery: {
         accountId: string;
+        networkId: string;
+        indexedAccountId?: string;
+        accountAddress?: string;
       }[] = [];
 
       sectionData?.forEach?.((s) => {
@@ -838,9 +886,25 @@ class ServiceAccountSelector extends ServiceBase {
           accountsCount += 1;
           accountsForValuesQuery.push({
             accountId: account.id,
+            networkId:
+              (account as IDBAccount).createAtNetwork ||
+              selectedNetworkId ||
+              '',
+            indexedAccountId: accountUtils.buildIndexedAccountId({
+              walletId: (account as IDBIndexedAccount).walletId ?? '',
+              index: (account as IDBIndexedAccount).index,
+            }),
+            accountAddress:
+              (account as IDBAccount).address ||
+              (account as IDBIndexedAccount).associateAccount?.address ||
+              '',
           });
         });
       });
+      accountsDeFiOverview =
+        await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+          accounts: accountsForValuesQuery,
+        });
       if (
         accountUtils.isOthersWallet({
           walletId: focusedWallet ?? '',
@@ -868,6 +932,7 @@ class ServiceAccountSelector extends ServiceBase {
       accountsCount,
       accountsValue,
       mergeDeriveAssetsEnabled,
+      accountsDeFiOverview,
     };
   }
 }

@@ -7,19 +7,21 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 import type {
   EFeeType,
-  ESendFeeDiscountStatus,
   ESendFeeStatus,
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  type ICustomRpcStatusAtomValue,
   contextAtomMethod,
   customFeeAtom,
+  customRpcStatusAtom,
   decodedTxsAtom,
   decodedTxsInitAtom,
   extraFeeInfoAtom,
@@ -149,6 +151,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         logoURI: string;
         balance: string;
         isLoading: boolean;
+        info: IToken | undefined;
       },
     ) => {
       set(nativeTokenInfoAtom(), payload);
@@ -297,6 +300,16 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
   updateTxFeeInfoInit = contextAtomMethod((_, set, txFeeInfoInit: boolean) => {
     set(txFeeInfoInitAtom(), txFeeInfoInit);
   });
+
+  updateCustomRpcStatus = contextAtomMethod(
+    (get, set, value: ICustomRpcStatusAtomValue | null) => {
+      set(customRpcStatusAtom(), value);
+    },
+  );
+
+  clearCustomRpcStatus = contextAtomMethod((get, set) => {
+    set(customRpcStatusAtom(), null);
+  });
 }
 
 const createActions = memoFn(() => {
@@ -330,6 +343,8 @@ export function useSignatureConfirmActions() {
   const updateMegafuelEligible = actions.updateMegafuelEligible.use();
   const updateDecodedTxsInit = actions.updateDecodedTxsInit.use();
   const updateTxFeeInfoInit = actions.updateTxFeeInfoInit.use();
+  const updateCustomRpcStatus = actions.updateCustomRpcStatus.use();
+  const clearCustomRpcStatus = actions.clearCustomRpcStatus.use();
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,
@@ -352,5 +367,7 @@ export function useSignatureConfirmActions() {
     updateMegafuelEligible,
     updateDecodedTxsInit,
     updateTxFeeInfoInit,
+    updateCustomRpcStatus,
+    clearCustomRpcStatus,
   });
 }

@@ -16,8 +16,46 @@ import requestHelper from './requestHelper';
 
 import type { InternalAxiosRequestConfig } from 'axios';
 
+const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
+
 export function normalizeHeaderKey(key: string) {
   return key?.toLowerCase() ?? key;
+}
+
+async function getThemeFromExtensionStorage(): Promise<
+  'light' | 'dark' | undefined
+> {
+  if (!platformEnv.isExtension) {
+    return;
+  }
+  try {
+    const data = await globalThis.chrome?.storage?.local?.get(
+      THEME_PRELOAD_STORAGE_KEY,
+    );
+    const theme = data?.[THEME_PRELOAD_STORAGE_KEY] as unknown;
+    if (theme === 'light' || theme === 'dark') {
+      return theme;
+    }
+  } catch {
+    return defaultColorScheme;
+  }
+}
+
+async function resolveThemeVariantFromSettings(
+  theme: 'light' | 'dark' | 'system',
+) {
+  if (theme !== 'system') {
+    return theme;
+  }
+
+  if (!platformEnv.isExtension) {
+    return Appearance.getColorScheme() ?? defaultColorScheme;
+  }
+
+  const fromExtStorage = await getThemeFromExtensionStorage();
+  if (fromExtStorage) return fromExtStorage;
+
+  return defaultColorScheme;
 }
 
 export async function checkRequestIsOneKeyDomain({
@@ -69,9 +107,7 @@ export async function getRequestHeaders() {
     locale = getDefaultLocale();
   }
 
-  if (theme === 'system') {
-    theme = Appearance.getColorScheme() ?? defaultColorScheme;
-  }
+  theme = await resolveThemeVariantFromSettings(theme);
 
   const requestId = generateUUID();
   return {

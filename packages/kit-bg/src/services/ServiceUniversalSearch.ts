@@ -211,6 +211,7 @@ class ServiceUniversalSearch extends ServiceBase {
     return this.backgroundApi.serviceMarket.searchToken(query);
   }
 
+  @backgroundMethod()
   async universalSearchOfV2MarketToken(query: string) {
     return this.backgroundApi.serviceMarket.searchV2Token(query);
   }
@@ -534,13 +535,29 @@ class ServiceUniversalSearch extends ServiceBase {
       return items;
     }
 
+    const deFiRawData =
+      (await this.backgroundApi.simpleDb.deFi.getRawData()) ?? undefined;
+
     // Create search result items
     for (const accountItem of sortedAccounts) {
       let account;
       let indexedAccount;
       let wallet;
       let accountsValue;
+      let accountsDeFiOverview;
       try {
+        accountsDeFiOverview = (
+          await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+            accounts: [
+              {
+                accountId: accountItem.accountId,
+                networkId: networkId || '',
+                accountAddress: address,
+              },
+            ],
+            deFiRawData,
+          })
+        )?.[0];
         if (
           accountUtils.isOthersAccount({
             accountId: accountItem.accountId,
@@ -610,6 +627,7 @@ class ServiceUniversalSearch extends ServiceBase {
           account,
           indexedAccount,
           accountsValue,
+          accountsDeFiOverview,
         },
       } as IUniversalSearchResultItem);
     }

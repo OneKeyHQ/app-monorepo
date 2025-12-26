@@ -1,5 +1,5 @@
 export enum EHomeWalletTab {
-  Tokens = 'tokens',
+  Portfolio = 'portfolio',
   NFT = 'nft',
   History = 'history',
   Approvals = 'approvals',

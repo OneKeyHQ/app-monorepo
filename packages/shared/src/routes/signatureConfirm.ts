@@ -72,6 +72,7 @@ export type IModalSignatureConfirmParamList = {
   [EModalSignatureConfirmRoutes.TxConfirm]: {
     networkId: string;
     accountId: string;
+    indexedAccountId?: string;
     unsignedTxs: IUnsignedTxPro[];
     sourceInfo?: IDappSourceInfo;
     signOnly?: boolean;

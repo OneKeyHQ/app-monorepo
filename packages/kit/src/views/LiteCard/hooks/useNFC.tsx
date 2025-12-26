@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import LiteCard from '@onekeyfe/react-native-lite-card';
-import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
+import LiteCard, { CardErrors } from '@onekeyfe/react-native-lite-card';
 import { useIntl } from 'react-intl';
 import { Alert } from 'react-native';
 
@@ -15,10 +14,7 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type {
-  CallbackError,
-  CardInfo,
-} from '@onekeyfe/react-native-lite-card/src/types';
+import type { CallbackError, CardInfo } from '@onekeyfe/react-native-lite-card';
 
 enum ENFCEventCode {
   CONNECTED = 1,

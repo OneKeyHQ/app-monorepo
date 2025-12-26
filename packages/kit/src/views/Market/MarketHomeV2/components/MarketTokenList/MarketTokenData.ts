@@ -3,6 +3,7 @@ export interface IMarketToken {
   name: string;
   symbol: string;
   address: string;
+  decimals: number;
   price: number;
   change24h: number;
   marketCap: number;

@@ -27,6 +27,6 @@ export type IEndpointInfo = {
 
 export type IApiClientResponse<T> = {
   code: number;
-  data: T;
   message: string;
+  data: T;
 };

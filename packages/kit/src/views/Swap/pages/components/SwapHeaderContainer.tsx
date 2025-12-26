@@ -1,9 +1,10 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { EPageType, IStackProps } from '@onekeyhq/components';
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapSelectFromTokenAtom,
@@ -73,16 +74,19 @@ function CustomTabItem({
 interface ISwapHeaderContainerProps {
   pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
+  showSwapPro?: boolean;
 }
 
 const SwapHeaderContainer = ({
   pageType,
   defaultSwapType,
+  showSwapPro,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
@@ -105,14 +109,30 @@ const SwapHeaderContainer = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const updateSelectedAccountNetworkAction = useCallback(
+    async (targetNetworkId: string) => {
+      await updateSelectedAccountNetwork({
+        num: 0,
+        networkId: targetNetworkId,
+      });
+    },
+    [updateSelectedAccountNetwork],
+  );
+
   return (
-    <XStack justifyContent="space-between">
+    <XStack justifyContent="space-between" px="$5">
       <XStack gap="$3">
         <CustomTabItem
           isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
-          onPress={() => {
+          onPress={async () => {
             if (swapTypeSwitch !== ESwapTabSwitchType.SWAP) {
-              void swapTypeSwitchAction(ESwapTabSwitchType.SWAP, networkId);
+              if (fromToken?.networkId && fromToken?.networkId !== networkId) {
+                await updateSelectedAccountNetworkAction(fromToken?.networkId);
+              }
+              void swapTypeSwitchAction(
+                ESwapTabSwitchType.SWAP,
+                fromToken?.networkId || networkId,
+              );
             }
           }}
         >
@@ -121,9 +141,15 @@ const SwapHeaderContainer = ({
 
         <CustomTabItem
           isSelected={swapTypeSwitch === ESwapTabSwitchType.BRIDGE}
-          onPress={() => {
+          onPress={async () => {
             if (swapTypeSwitch !== ESwapTabSwitchType.BRIDGE) {
-              void swapTypeSwitchAction(ESwapTabSwitchType.BRIDGE, networkId);
+              if (fromToken?.networkId && fromToken?.networkId !== networkId) {
+                await updateSelectedAccountNetworkAction(fromToken?.networkId);
+              }
+              void swapTypeSwitchAction(
+                ESwapTabSwitchType.BRIDGE,
+                fromToken?.networkId || networkId,
+              );
             }
           }}
         >
@@ -137,7 +163,11 @@ const SwapHeaderContainer = ({
             }
           }}
         >
-          {intl.formatMessage({ id: ETranslations.swap_page_limit })}
+          {intl.formatMessage({
+            id: showSwapPro
+              ? ETranslations.dexmarket_pro
+              : ETranslations.swap_page_limit,
+          })}
         </CustomTabItem>
       </XStack>
       <SwapHeaderRightActionContainer pageType={pageType} />

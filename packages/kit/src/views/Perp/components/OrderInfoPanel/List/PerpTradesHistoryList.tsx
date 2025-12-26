@@ -14,7 +14,10 @@ import {
   usePerpsLastUsedLeverageAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getValidPriceDecimals,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
@@ -114,14 +117,21 @@ function PerpTradesHistoryList({
             .toFixed(2);
         }
       }
+      const parsed = parseDexCoin(fill.coin);
+      const exitPriceBN = new BigNumber(fill.px);
+      const exitPriceDecimals = getValidPriceDecimals(fill.px);
+      const exitPrice = exitPriceBN.isFinite()
+        ? exitPriceBN.toFixed(exitPriceDecimals)
+        : '0';
       showPositionShare({
         side: isLong ? 'long' : 'short',
         token: fill.coin,
+        tokenDisplayName: parsed.displayName,
         pnl: String(closedPnlBN),
         pnlPercent,
         leverage,
         entryPrice,
-        markPrice: fill.px,
+        markPrice: exitPrice,
         priceType: 'exit',
       });
     },

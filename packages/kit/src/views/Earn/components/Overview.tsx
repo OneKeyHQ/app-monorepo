@@ -13,18 +13,12 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import type {
@@ -36,12 +30,10 @@ import { ListItem } from '../../../components/ListItem';
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import {
-  useEarnActions,
-  useEarnAtom,
-} from '../../../states/jotai/contexts/earn';
+import { useEarnAtom } from '../../../states/jotai/contexts/earn';
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { useEarnAccountKey } from '../hooks/useEarnAccountKey';
 import { getNumberColor } from '../utils/getNumberColor';
 
 const Rebate = ({
@@ -223,17 +215,7 @@ const OverviewComponent = ({
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const actions = useEarnActions();
-  const allNetworkId = getNetworkIdsMap().onekeyall;
-  const totalFiatMapKey = useMemo(
-    () =>
-      actions.current.buildEarnAccountsKey({
-        accountId: account?.id,
-        indexAccountId: indexedAccount?.id,
-        networkId: allNetworkId,
-      }),
-    [account?.id, actions, allNetworkId, indexedAccount?.id],
-  );
+  const totalFiatMapKey = useEarnAccountKey();
   const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
   const totalFiatValue = useMemo(
@@ -345,14 +327,12 @@ const OverviewComponent = ({
           >
             {totalFiatValue}
           </NumberSizeableText>
-          {platformEnv.isNative ? null : (
-            <IconButton
-              icon="RefreshCcwOutline"
-              variant="tertiary"
-              loading={isLoading}
-              onPress={handleRefresh}
-            />
-          )}
+          <IconButton
+            icon="RefreshCcwOutline"
+            variant="tertiary"
+            loading={isLoading}
+            onPress={handleRefresh}
+          />
         </XStack>
       </YStack>
       {/* 24h earnings */}

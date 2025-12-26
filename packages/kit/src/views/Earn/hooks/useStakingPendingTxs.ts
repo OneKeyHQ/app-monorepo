@@ -4,10 +4,24 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IStakeTag } from '@onekeyhq/shared/types/staking';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useEarnAtom } from '../../../states/jotai/contexts/earn';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
+
+export type IStakePendingTx = IAccountHistoryTx &
+  Required<Pick<IAccountHistoryTx, 'stakingInfo'>>;
+
+type INetworkAccountMeta = {
+  accountId: string;
+  accountAddress: string;
+  xpub?: string;
+};
+
+const DEFAULT_POLLING_INTERVAL = timerUtils.getTimeDurationMs({ seconds: 30 });
 
 export const useStakingPendingTxs = ({
   accountId,
@@ -88,7 +102,10 @@ export const useStakingPendingTxs = ({
   // Trigger onRefresh callback when all pending transactions complete
   useEffect(() => {
     if (!isPending && prevIsPending) {
-      onRefreshRef.current?.();
+      // Delay refresh to allow backend data sync after transaction confirmation
+      setTimeout(() => {
+        onRefreshRef.current?.();
+      }, timerUtils.getTimeDurationMs({ seconds: 3 }));
     }
   }, [isPending, prevIsPending]);
 
@@ -99,22 +116,21 @@ export const useStakingPendingTxs = ({
 };
 
 /**
- * Hook to monitor pending transactions for multiple tokens under the same protocol
- * Aggregates pending tx counts across all provided token symbols
+ * Hook to monitor pending transactions based on stakingInfo filter
+ * Automatically monitors pending transactions for all staking positions
  */
-export const useProtocolMultiTokenPendingTxs = ({
-  networkId,
-  provider,
-  symbols,
+export const useStakingPendingTxsByInfo = ({
+  filter,
   onRefresh,
 }: {
-  networkId: string;
-  provider: string;
-  symbols: string[];
+  filter?: (tx: IStakePendingTx) => boolean;
   onRefresh?: () => void;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const indexedAccountId = activeAccount?.indexedAccount?.id;
+  const { account, indexedAccount } = activeAccount;
+  const accountId = account?.id;
+  const currentNetworkId = activeAccount.network?.id;
+  const [{ availableAssetsByType = {} }] = useEarnAtom();
 
   // Stabilize onRefresh callback reference
   const onRefreshRef = useRef(onRefresh);
@@ -122,102 +138,283 @@ export const useProtocolMultiTokenPendingTxs = ({
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
 
-  // Get the network-specific accountId from indexedAccountId
-  const { result: networkAccountId } = usePromiseResult(
+  // Prefer the "All" tab data, otherwise merge everything we have locally
+  const availableAssets = useMemo(() => {
+    const assetsFromAll = availableAssetsByType?.[EAvailableAssetsTypeEnum.All];
+    const mergedAssets =
+      assetsFromAll ?? Object.values(availableAssetsByType).flat();
+    if (!mergedAssets || mergedAssets.length === 0) return [];
+
+    const mergedByKey = new Map<string, (typeof mergedAssets)[number]>();
+    mergedAssets.forEach((asset) => {
+      const key = `${asset.symbol}-${asset.name}`;
+      const existing = mergedByKey.get(key);
+      if (!existing) {
+        mergedByKey.set(key, {
+          ...asset,
+          protocols: [...(asset.protocols ?? [])],
+        });
+        return;
+      }
+
+      const existingProtocols = existing.protocols ?? [];
+      const protocolKeys = new Set(
+        existingProtocols.map(
+          (protocol) =>
+            `${protocol.networkId}-${protocol.provider}-${
+              protocol.vault ?? ''
+            }`,
+        ),
+      );
+      asset.protocols?.forEach((protocol) => {
+        const protocolKey = `${protocol.networkId}-${protocol.provider}-${
+          protocol.vault ?? ''
+        }`;
+        if (!protocolKeys.has(protocolKey)) {
+          protocolKeys.add(protocolKey);
+          existingProtocols.push(protocol);
+        }
+      });
+      existing.protocols = existingProtocols;
+    });
+    return Array.from(mergedByKey.values());
+  }, [availableAssetsByType]);
+
+  // Build unique staking targets (network + stakeTag) from available assets
+  const stakingTargets = useMemo(() => {
+    const seen = new Set<string>();
+    const targets: { networkId: string; stakeTag: IStakeTag }[] = [];
+
+    availableAssets.forEach((asset) => {
+      asset.protocols?.forEach(({ networkId, provider }) => {
+        if (!networkId || !provider) {
+          return;
+        }
+        const stakeTag = buildLocalTxStatusSyncId({
+          providerName: provider,
+          tokenSymbol: asset.symbol,
+        });
+        const key = `${networkId}-${stakeTag}`;
+        if (seen.has(key)) {
+          return;
+        }
+        seen.add(key);
+        targets.push({ networkId, stakeTag });
+      });
+    });
+
+    return targets;
+  }, [availableAssets]);
+
+  const stakeTagsByNetwork = useMemo(
+    () =>
+      stakingTargets.reduce<Record<string, Set<IStakeTag>>>((acc, target) => {
+        if (!acc[target.networkId]) {
+          acc[target.networkId] = new Set<IStakeTag>();
+        }
+        acc[target.networkId].add(target.stakeTag);
+        return acc;
+      }, {}),
+    [stakingTargets],
+  );
+
+  const networkIds = useMemo<string[]>(
+    () => [...new Set(stakingTargets.map((target) => target.networkId))],
+    [stakingTargets],
+  );
+
+  // Get the minimum polling interval across all networks
+  const { result: pollingInterval } = usePromiseResult(
     async () => {
-      if (!indexedAccountId) {
-        return undefined;
+      if (networkIds.length === 0) return DEFAULT_POLLING_INTERVAL;
+      const intervals = await Promise.all(
+        networkIds.map((networkId: string) =>
+          backgroundApiProxy.serviceStaking
+            .getFetchHistoryPollingInterval({
+              networkId,
+            })
+            .catch(() => 30),
+        ),
+      );
+      const minInterval = Math.min(...intervals);
+      return timerUtils.getTimeDurationMs({ seconds: minInterval });
+    },
+    [networkIds],
+    { initResult: DEFAULT_POLLING_INTERVAL },
+  );
+
+  // Resolve network-specific accountIds for the active indexed account
+  const { result: networkAccountMap } = usePromiseResult<
+    Record<string, string>
+  >(
+    async () => {
+      const map: Record<string, string> = {};
+
+      if (
+        accountId &&
+        currentNetworkId &&
+        networkIds.includes(currentNetworkId)
+      ) {
+        map[currentNetworkId] = accountId;
+      }
+
+      if (!indexedAccount?.id || networkIds.length === 0) {
+        return map;
       }
 
       try {
-        // Get derive type for the network
-        const deriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId,
-          });
+        const accounts =
+          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+            {
+              indexedAccountId: indexedAccount.id,
+              networkIds,
+            },
+          );
 
-        const account =
-          await backgroundApiProxy.serviceAccount.getNetworkAccount({
-            accountId: undefined,
-            indexedAccountId,
-            networkId,
-            deriveType,
-          });
-        return account?.id;
-      } catch (error) {
-        return undefined;
-      }
-    },
-    [indexedAccountId, networkId],
-    { initResult: undefined },
-  );
-
-  // Get polling interval for this network
-  const { result: pollingInterval } = usePromiseResult(
-    async () => {
-      const time =
-        await backgroundApiProxy.serviceStaking.getFetchHistoryPollingInterval({
-          networkId,
+        accounts.forEach(({ network, account: networkAccount }) => {
+          if (network?.id && networkAccount?.id) {
+            map[network.id] = networkAccount.id;
+          }
         });
-      return timerUtils.getTimeDurationMs({ seconds: time });
+      } catch {
+        // Best-effort account resolution; keep whatever we have
+      }
+
+      return map;
     },
-    [networkId],
-    { initResult: timerUtils.getTimeDurationMs({ seconds: 30 }) },
+    [accountId, currentNetworkId, indexedAccount?.id, networkIds],
+    { initResult: {} },
   );
 
-  // Build stake tags for all symbols using buildLocalTxStatusSyncId
-  const stakeTags = useMemo(
-    () =>
-      symbols.map((symbol) =>
-        buildLocalTxStatusSyncId({
-          providerName: provider,
-          tokenSymbol: symbol,
+  const { result: accountMetaByNetwork } = usePromiseResult<
+    Record<string, INetworkAccountMeta>
+  >(
+    async () => {
+      const entries = Object.entries(networkAccountMap);
+      if (entries.length === 0) {
+        return {} as Record<string, INetworkAccountMeta>;
+      }
+
+      const meta: Record<string, INetworkAccountMeta> = {};
+      await Promise.all(
+        entries.map(async ([networkId, accountForNetwork]) => {
+          try {
+            const [xpub, accountAddress] = await Promise.all([
+              backgroundApiProxy.serviceAccount.getAccountXpub({
+                accountId: accountForNetwork,
+                networkId,
+              }),
+              backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+                accountId: accountForNetwork,
+                networkId,
+              }),
+            ]);
+
+            meta[networkId] = {
+              accountId: accountForNetwork,
+              accountAddress,
+              xpub,
+            };
+          } catch {
+            // Skip networks we cannot resolve
+          }
         }),
-      ),
-    [provider, symbols],
+      );
+
+      return meta;
+    },
+    [networkAccountMap],
+    { initResult: {} as Record<string, INetworkAccountMeta> },
   );
 
-  // Fetch pending transactions for all tokens in parallel
-  const fetchAllPendingTxs = useCallback(async () => {
-    if (!networkAccountId || symbols.length === 0) {
+  // Fetch pending transactions based on available assets
+  const fetchFilteredPendingTxs = useCallback(async (): Promise<
+    IStakePendingTx[]
+  > => {
+    if (Object.keys(stakeTagsByNetwork).length === 0) {
       return [];
     }
 
-    const txsPromises = stakeTags.map((stakeTag) =>
-      backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
-        accountId: networkAccountId,
-        networkId,
-        stakeTag,
+    const targetsWithAccount = Object.entries(accountMetaByNetwork).filter(
+      ([networkId]) => stakeTagsByNetwork[networkId]?.size,
+    );
+    if (targetsWithAccount.length === 0) {
+      return [];
+    }
+
+    const txsForTargets = await Promise.all(
+      targetsWithAccount.map(async ([networkId, meta]) => {
+        const stakeTags = stakeTagsByNetwork[networkId];
+        if (!stakeTags?.size) {
+          return [];
+        }
+        try {
+          const pendingTxs =
+            await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
+              {
+                networkId,
+                accountAddress: meta.accountAddress,
+                xpub: meta.xpub,
+              },
+            );
+
+          return pendingTxs.filter((tx): tx is IStakePendingTx =>
+            Boolean(
+              tx.stakingInfo &&
+                tx.stakingInfo.tags.some((tag) => stakeTags.has(tag)),
+            ),
+          );
+        } catch {
+          return [];
+        }
       }),
     );
 
-    const results = await Promise.all(txsPromises);
-    return results.flat();
-  }, [networkAccountId, networkId, stakeTags, symbols.length]);
+    const allTxs: IStakePendingTx[] = txsForTargets.flat();
 
-  const { result: allTxs, run: refreshPendingTxs } = usePromiseResult(
-    fetchAllPendingTxs,
-    [fetchAllPendingTxs],
+    // Apply custom filter if provided
+    if (filter) {
+      return allTxs.filter(filter);
+    }
+
+    return allTxs;
+  }, [accountMetaByNetwork, filter, stakeTagsByNetwork]);
+
+  const { result: filteredTxs, run: refreshPendingTxs } = usePromiseResult(
+    fetchFilteredPendingTxs,
+    [fetchFilteredPendingTxs],
     {
       initResult: [],
       revalidateOnFocus: true,
     },
   );
 
-  const isPending = allTxs.length > 0;
+  const isPending = filteredTxs.length > 0;
   const prevIsPending = usePrevious(isPending);
 
   // Refresh both account history and pending transactions
   const refreshPendingWithHistory = useCallback(async () => {
-    if (!networkAccountId) {
+    const accounts = Object.entries(networkAccountMap);
+    if (accounts.length === 0) {
       return;
     }
-    await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-      accountId: networkAccountId,
-      networkId,
-    });
+
+    // Refresh history for all networks that have available assets
+    await Promise.all(
+      accounts.map(([networkId, pendingAccountId]) =>
+        backgroundApiProxy.serviceHistory
+          .fetchAccountHistory({
+            accountId: pendingAccountId,
+            networkId,
+          })
+          .catch(() => {
+            // Skip networks that fail
+          }),
+      ),
+    );
+
     await refreshPendingTxs();
-  }, [networkAccountId, networkId, refreshPendingTxs]);
+  }, [networkAccountMap, refreshPendingTxs]);
 
   // Auto-polling when there are pending transactions
   usePromiseResult(
@@ -239,7 +436,8 @@ export const useProtocolMultiTokenPendingTxs = ({
   }, [isPending, prevIsPending]);
 
   return {
-    pendingCount: allTxs.length,
+    filteredTxs,
+    pendingCount: filteredTxs.length,
     refreshPending: refreshPendingWithHistory,
   };
 };

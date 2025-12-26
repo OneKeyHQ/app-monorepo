@@ -1,54 +1,36 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Button,
-  Divider,
-  Page,
-  SizableText,
-  Toast,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
   ECheckAmountActionType,
-  type IEarnAlert,
-  type IEarnHistoryActionIcon,
   type IEarnManagePageResponse,
   type IStakeTag,
 } from '@onekeyhq/shared/types/staking';
 
-import { EarnActionIcon } from '../../../components/ProtocolDetails/EarnActionIcon';
-import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
-import { EarnText } from '../../../components/ProtocolDetails/EarnText';
-import { EarnTooltip } from '../../../components/ProtocolDetails/EarnTooltip';
 import { showKYCDialog } from '../../../components/ProtocolDetails/showKYCDialog';
 import { useHandleSwap } from '../../../hooks/useHandleSwap';
 
-import { HeaderRight } from './HeaderRight';
+import { SpecialManageContent } from './SpecialManageContent';
+import { ESpecialManageLayoutType } from './types';
+
+import type { ISpecialManageButtonConfig } from './types';
 
 interface IUSDEManageContentProps {
-  managePageData: IEarnManagePageResponse;
+  managePageData?: IEarnManagePageResponse;
   networkId: string;
   symbol: ISupportedSymbol;
   provider: string;
   vault?: string;
-  alertsHolding: IEarnAlert[];
-  historyAction?: IEarnHistoryActionIcon;
   onHistory?: () => void;
   indicatorAccountId?: string;
   stakeTag?: IStakeTag;
@@ -56,6 +38,8 @@ interface IUSDEManageContentProps {
   onRefreshPendingRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
+  beforeFooter?: React.ReactElement | null;
+  fallbackTokenImageUri?: string;
   onActionSuccess?: () => void;
   earnAccount?: {
     walletId: string;
@@ -72,8 +56,6 @@ export function USDEManageContent({
   symbol,
   provider,
   vault,
-  alertsHolding,
-  historyAction,
   onHistory,
   indicatorAccountId,
   stakeTag,
@@ -81,6 +63,8 @@ export function USDEManageContent({
   onRefreshPendingRef,
   showApyDetail = false,
   isInModalContext = false,
+  beforeFooter,
+  fallbackTokenImageUri,
   onActionSuccess,
   earnAccount,
 }: IUSDEManageContentProps) {
@@ -91,15 +75,8 @@ export function USDEManageContent({
   const holdings = managePageData?.holdings;
   const receiveAction = managePageData?.receive;
   const tradeAction = managePageData?.trade;
+  const historyAction = managePageData?.history;
   const activateAction = managePageData?.activate;
-
-  const isWatchingAccount = useMemo(
-    () =>
-      earnAccount?.accountId
-        ? accountUtils.isWatchingAccount({ accountId: earnAccount.accountId })
-        : false,
-    [earnAccount?.accountId],
-  );
 
   // Extract the balance amount from holdings.title to use for rewards calculation
   const holdingsAmount = useMemo(
@@ -143,7 +120,8 @@ export function USDEManageContent({
     holdingsAmount,
   ]);
 
-  // Convert holdings token to IToken format
+  // TODO: Convert holdings token to IToken format with fallback
+  // Should fallback to tokenInfo?.token if holdings?.token is missing
   const token = useMemo(() => {
     if (!holdings?.token) return null;
     return {
@@ -213,195 +191,74 @@ export function USDEManageContent({
     onActionSuccess,
   ]);
 
-  if (!holdings) {
-    return null;
-  }
+  // Configure buttons based on available actions
+  const buttonConfig = useMemo((): ISpecialManageButtonConfig => {
+    // Case 1: Activate action (single button)
+    if (activateAction) {
+      return {
+        type: ESpecialManageLayoutType.Single,
+        buttons: {
+          primary: {
+            text: activateAction.text?.text || 'Activate',
+            variant: 'primary',
+            disabled: !earnAccount?.accountAddress || activateAction.disabled,
+            onPress: handleActivate,
+          },
+        },
+      };
+    }
+
+    // Case 2: Receive + Trade (dual buttons)
+    if (receiveAction || tradeAction) {
+      return {
+        type: ESpecialManageLayoutType.Dual,
+        buttons: {
+          secondary: receiveAction
+            ? {
+                text: receiveAction.text?.text || 'Receive',
+                disabled: receiveAction.disabled,
+                onPress: handleReceive,
+              }
+            : undefined,
+          primary: tradeAction
+            ? {
+                text: tradeAction.text?.text || 'Trade',
+                variant: 'primary',
+                disabled: tradeAction.disabled,
+                onPress: () => void handleTrade(),
+              }
+            : undefined,
+        },
+      };
+    }
+
+    // Fallback: empty config
+    return {
+      type: ESpecialManageLayoutType.Single,
+      buttons: {},
+    };
+  }, [
+    activateAction,
+    receiveAction,
+    tradeAction,
+    earnAccount?.accountAddress,
+    handleActivate,
+    handleReceive,
+    handleTrade,
+  ]);
 
   return (
-    <>
-      <YStack px="$5" gap="$5">
-        {/* Header with pending/history actions */}
-        <XStack jc="space-between" ai="center">
-          <SizableText size="$headingMd" color="$text">
-            {intl.formatMessage({ id: ETranslations.earn_holdings })}
-          </SizableText>
-          <HeaderRight
-            accountId={indicatorAccountId || earnAccount?.accountId}
-            networkId={networkId}
-            stakeTag={stakeTag}
-            historyAction={historyAction}
-            onHistory={onHistory}
-            onRefresh={onIndicatorRefresh}
-            onRefreshPending={(refreshFn) => {
-              if (onRefreshPendingRef) {
-                onRefreshPendingRef.current = refreshFn;
-              }
-            }}
-          />
-        </XStack>
-
-        {/* Holdings Section */}
-        <YStack gap="$2">
-          {/* Tags */}
-          {holdings.tags && holdings.tags.length > 0 ? (
-            <XStack gap="$2">
-              {holdings.tags.map((tag, index) => (
-                <Badge key={index} badgeType={tag.badge} badgeSize="lg">
-                  {tag.tag}
-                </Badge>
-              ))}
-            </XStack>
-          ) : null}
-
-          {/* Title with Token Icon on the right */}
-          <XStack jc="space-between" ai="center">
-            <YStack gap="$1" flex={1}>
-              <EarnText text={holdings.title} size="$heading3xl" />
-              <EarnText
-                text={holdings.description}
-                size="$bodyMd"
-                color="$textSubdued"
-              />
-            </YStack>
-            <Token
-              size="lg"
-              tokenImageUri={holdings.token?.logoURI}
-              networkImageUri={holdings.network?.logoURI}
-            />
-          </XStack>
-        </YStack>
-
-        {/* APY Detail Section */}
-        {showApyDetail && transactionConfirmation?.apyDetail ? (
-          <XStack gap="$1" ai="center" mb="$3.5">
-            <EarnText
-              text={transactionConfirmation.apyDetail.description}
-              size="$headingLg"
-              color="$textSuccess"
-            />
-            <EarnActionIcon
-              title={transactionConfirmation.apyDetail.title.text}
-              actionIcon={transactionConfirmation.apyDetail.button}
-            />
-          </XStack>
-        ) : null}
-
-        {/* Rewards Section */}
-        {!isEmpty(transactionConfirmation?.rewards) ? (
-          <>
-            <Divider />
-            <YStack gap="$1.5">
-              <XStack ai="center" gap="$1">
-                <EarnText
-                  text={transactionConfirmation?.title}
-                  color="$textSubdued"
-                  size="$bodyMd"
-                  boldTextProps={{
-                    size: '$bodyMdMedium',
-                  }}
-                />
-              </XStack>
-              {transactionConfirmation?.rewards.map((reward) => {
-                return (
-                  <XStack
-                    key={reward.title.text}
-                    gap="$1"
-                    ai="flex-start"
-                    mt="$1.5"
-                    flexWrap="wrap"
-                  >
-                    <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                      <EarnText text={reward.title} />
-                      <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                        <EarnText text={reward.description} flexShrink={1} />
-                        <EarnTooltip tooltip={reward.tooltip} />
-                      </XStack>
-                    </XStack>
-                  </XStack>
-                );
-              })}
-            </YStack>
-          </>
-        ) : null}
-
-        {/* Alerts */}
-        {alertsHolding && alertsHolding.length > 0 ? (
-          <EarnAlert alerts={alertsHolding} />
-        ) : null}
-
-        {/* Activate Button - not in modal */}
-        {!isInModalContext && activateAction ? (
-          <Button
-            variant="primary"
-            onPress={handleActivate}
-            disabled={
-              !earnAccount?.accountAddress ||
-              activateAction.disabled ||
-              isWatchingAccount
-            }
-          >
-            {activateAction.text?.text || ''}
-          </Button>
-        ) : null}
-
-        {/* Action Buttons - not in modal */}
-        {!isInModalContext && !activateAction ? (
-          <XStack gap="$3">
-            {receiveAction ? (
-              <YStack flex={1}>
-                <Button
-                  onPress={handleReceive}
-                  disabled={receiveAction.disabled}
-                >
-                  {receiveAction.text?.text || ''}
-                </Button>
-              </YStack>
-            ) : null}
-            {tradeAction ? (
-              <YStack flex={1}>
-                <Button
-                  variant="primary"
-                  onPress={() => void handleTrade()}
-                  disabled={tradeAction.disabled}
-                >
-                  {tradeAction.text?.text || ''}
-                </Button>
-              </YStack>
-            ) : null}
-          </XStack>
-        ) : null}
-      </YStack>
-
-      {/* Footer - in modal */}
-      {isInModalContext ? (
-        <Page.Footer>
-          {activateAction ? (
-            <Page.FooterActions
-              onConfirmText={activateAction.text?.text || ''}
-              confirmButtonProps={{
-                onPress: handleActivate,
-                disabled:
-                  !earnAccount?.accountAddress ||
-                  activateAction.disabled ||
-                  isWatchingAccount,
-              }}
-            />
-          ) : (
-            <Page.FooterActions
-              onCancelText={receiveAction?.text?.text || ''}
-              onConfirmText={tradeAction?.text?.text || ''}
-              cancelButtonProps={{
-                onPress: handleReceive,
-                disabled: receiveAction?.disabled,
-              }}
-              confirmButtonProps={{
-                onPress: () => void handleTrade(),
-                disabled: tradeAction?.disabled,
-              }}
-            />
-          )}
-        </Page.Footer>
-      ) : null}
-    </>
+    <SpecialManageContent
+      holdings={holdings}
+      historyAction={historyAction}
+      onHistory={onHistory}
+      showApyDetail={showApyDetail}
+      isInModalContext={isInModalContext}
+      beforeFooter={beforeFooter}
+      buttonConfig={buttonConfig}
+      transactionConfirmation={transactionConfirmation}
+      fallbackTokenImageUri={fallbackTokenImageUri}
+      fallbackSymbol={symbol}
+    />
   );
 }

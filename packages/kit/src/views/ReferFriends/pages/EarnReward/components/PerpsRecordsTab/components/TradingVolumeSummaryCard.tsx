@@ -2,15 +2,15 @@ import { useIntl } from 'react-intl';
 
 import {
   type IXStackProps,
-  NumberSizeableText,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IRewardToken } from '@onekeyhq/shared/src/referralCode/type';
+
+import { TokenAmountWithFiat } from '../../TokenAmountWithFiat';
 
 interface ITradingVolumeSummaryCardProps extends IXStackProps {
   titleId?: ETranslations;
@@ -54,32 +54,11 @@ export function TradingVolumeSummaryCard({
       </YStack>
 
       {/* Right section: Token icon, amount, and fiat value */}
-      <XStack ai="center" gap="$2" borderRadius="$2">
-        <Token size="xs" tokenImageUri={token.logoURI} />
-        <XStack ai="center" gap="$1">
-          <NumberSizeableText
-            formatter="balance"
-            size="$bodyMd"
-            color="$text"
-            formatterOptions={{
-              tokenSymbol: token.symbol || '',
-            }}
-          >
-            {tokenAmount}
-          </NumberSizeableText>
-          <XStack ai="center">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              (
-            </SizableText>
-            <Currency formatter="value" size="$bodyMd" color="$textSubdued">
-              {tokenFiatValue}
-            </Currency>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              )
-            </SizableText>
-          </XStack>
-        </XStack>
-      </XStack>
+      <TokenAmountWithFiat
+        token={token}
+        amount={tokenAmount}
+        fiatValue={tokenFiatValue}
+      />
     </XStack>
   );
 }

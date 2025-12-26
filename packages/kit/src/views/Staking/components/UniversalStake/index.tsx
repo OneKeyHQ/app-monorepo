@@ -47,6 +47,8 @@ import type {
   IApproveConfirmFnParams,
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
+  IEarnPermit2ApproveSignData,
+  IEarnSelectField,
   IEarnTextTooltip,
   IEarnTokenInfo,
   IProtocolInfo,
@@ -59,6 +61,7 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
+import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
@@ -69,6 +72,7 @@ import {
 } from '../EstimateNetworkFee';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
+import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
@@ -117,6 +121,7 @@ type IUniversalStakeProps = {
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
+  ongoingValidator?: IEarnSelectField;
 };
 
 export function UniversalStake({
@@ -141,6 +146,7 @@ export function UniversalStake({
   beforeFooter,
   showApyDetail = false,
   isInModalContext = false,
+  ongoingValidator,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -149,6 +155,16 @@ export function UniversalStake({
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [selectedValidator, setSelectedValidator] = useState<
+    string | undefined
+  >(ongoingValidator?.select?.defaultValue);
+
+  // Reset selectedValidator when accountId/networkId changes (manage-page re-fetches)
+  useEffect(() => {
+    setSelectedValidator(ongoingValidator?.select?.defaultValue);
+  }, [ongoingValidator?.select?.defaultValue]);
+
   const useVaultProvider = useMemo(
     () => earnUtils.isVaultBasedProvider({ providerName }),
     [providerName],
@@ -172,11 +188,40 @@ export function UniversalStake({
   >();
 
   const { getPermitSignature } = useEarnPermitApprove();
+  const signPersonalMessage = useEarnSignMessageWithoutVerify();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
+
+  const isStakefishProvider = useMemo(
+    () => earnUtils.isStakefishProvider({ providerName }),
+    [providerName],
+  );
+  // Only Stakefish ETH needs signature for create new validator
+  const isStakefishEthStake = useMemo(
+    () => isStakefishProvider && tokenSymbol?.toUpperCase() === 'ETH',
+    [isStakefishProvider, tokenSymbol],
+  );
+  const isStakefishCreateNewValidator = useMemo(() => {
+    if (!isStakefishEthStake || !selectedValidator) {
+      return false;
+    }
+    const selectedOption = ongoingValidator?.select?.options?.find(
+      (option) => option.value === selectedValidator,
+    );
+    return selectedOption?.extra?.isCreateNewValidator === true;
+  }, [
+    isStakefishEthStake,
+    selectedValidator,
+    ongoingValidator?.select?.options,
+  ]);
+  const stakefishPermitSignatureRef = useRef<string | undefined>(undefined);
+  const stakefishPermitMessageRef = useRef<string | undefined>(undefined);
 
   const useApprove = useMemo(() => !!approveType, [approveType]);
   const usePermit2Approve = approveType === EApproveType.Permit;
   const permitSignatureRef = useRef<string | undefined>(undefined);
+  const permit2DataRef = useRef<IEarnPermit2ApproveSignData | undefined>(
+    undefined,
+  );
   const isFocus = useIsFocused();
 
   const {
@@ -213,6 +258,7 @@ export function UniversalStake({
       });
       if (permitCache) {
         permitSignatureRef.current = permitCache.signature;
+        permit2DataRef.current = permitCache.permit2Data;
         return false;
       }
     }
@@ -233,6 +279,12 @@ export function UniversalStake({
   const [transactionConfirmation, setTransactionConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
   >();
+  // Stakefish: identity for existing validator
+  const stakefishIdentity =
+    isStakefishProvider && !isStakefishCreateNewValidator
+      ? selectedValidator
+      : undefined;
+
   const fetchTransactionConfirmation = useCallback(
     async (amount: string) => {
       if (isDisabled) {
@@ -247,6 +299,7 @@ export function UniversalStake({
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
           amount,
+          identity: stakefishIdentity,
         });
       return resp;
     },
@@ -258,6 +311,7 @@ export function UniversalStake({
       useVaultProvider,
       protocolInfo?.vault,
       protocolInfo?.earnAccount?.accountAddress,
+      stakefishIdentity,
     ],
   );
 
@@ -398,6 +452,7 @@ export function UniversalStake({
     amountValue,
     debouncedFetchEstimateFeeResp,
     debouncedFetchTransactionConfirmation,
+    stakefishIdentity,
   ]);
 
   // const { showFalconEventEndedDialog } = useFalconEventEndedDialog({
@@ -417,39 +472,47 @@ export function UniversalStake({
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
 
-  const checkAmount = useDebouncedCallback(async (amount: string) => {
-    if (isNaN(amount)) {
-      return;
-    }
-    setCheckAmountLoading(true);
-    try {
-      const response = await backgroundApiProxy.serviceStaking.checkAmount({
-        accountId,
-        networkId,
-        symbol: tokenSymbol,
-        provider: providerName,
-        action: ECheckAmountActionType.STAKING,
-        amount,
-        protocolVault,
-        withdrawAll: false,
-      });
-
-      if (Number(response.code) === 0) {
-        setCheckoutAmountMessage('');
-        setCheckAmountAlerts(response.data?.alerts || []);
-      } else {
-        setCheckoutAmountMessage(response.message);
-        setCheckAmountAlerts([]);
+  const checkAmount = useDebouncedCallback(
+    async ({ amount, identity }: { amount: string; identity?: string }) => {
+      if (isNaN(amount)) {
+        return;
       }
-    } finally {
-      setCheckAmountLoading(false);
-    }
-  }, 300);
+      setCheckAmountLoading(true);
+      try {
+        const response = await backgroundApiProxy.serviceStaking.checkAmount({
+          accountId,
+          networkId,
+          symbol: tokenSymbol,
+          provider: providerName,
+          action: identity
+            ? ECheckAmountActionType.RESTAKE
+            : ECheckAmountActionType.STAKING,
+          amount,
+          protocolVault,
+          withdrawAll: false,
+          identity,
+        });
 
-  // Initialize checkAmount on component mount
+        if (Number(response.code) === 0) {
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts(response.data?.alerts || []);
+        } else {
+          setCheckoutAmountMessage(response.message);
+          setCheckAmountAlerts([]);
+        }
+      } finally {
+        setCheckAmountLoading(false);
+      }
+    },
+    300,
+  );
+
   useEffect(() => {
-    void checkAmount('0');
-  }, [checkAmount]);
+    void checkAmount({
+      amount: amountValue || '0',
+      identity: stakefishIdentity,
+    });
+  }, [checkAmount, stakefishIdentity, amountValue]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -476,10 +539,10 @@ export function UniversalStake({
       } else {
         setAmountValue(value);
         void debouncedFetchEstimateFeeResp(value);
-        void checkAmount(value);
+        void checkAmount({ amount: value, identity: stakefishIdentity });
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp, checkAmount],
+    [decimals, debouncedFetchEstimateFeeResp, checkAmount, stakefishIdentity],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -632,20 +695,76 @@ export function UniversalStake({
 
   const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
-    const permitSignatureParams = usePermit2Approve
+
+    // Stakefish: get permit signature for create new validator
+    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
+      setApproving(true);
+      try {
+        const { signature, message } = await signPersonalMessage({
+          networkId,
+          accountId,
+          provider: providerName,
+          symbol: tokenSymbol || '',
+          amount: new BigNumber(amountValue).toFixed(),
+          action: 'stake',
+        });
+        stakefishPermitSignatureRef.current = signature;
+        stakefishPermitMessageRef.current = message;
+      } catch (error) {
+        console.error('Stakefish permit sign error:', error);
+        setApproving(false);
+        return;
+      }
+      setApproving(false);
+    }
+
+    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef
+    let finalPermitSignature: string | undefined;
+    let finalMessage: string | undefined;
+    let finalUnsignedMessage: IEarnPermit2ApproveSignData | undefined;
+    if (usePermit2Approve) {
+      finalPermitSignature = permitSignatureRef.current;
+      finalUnsignedMessage = permit2DataRef.current;
+    } else if (isStakefishCreateNewValidator) {
+      finalPermitSignature = stakefishPermitSignatureRef.current;
+      finalMessage = stakefishPermitMessageRef.current;
+    }
+
+    const permitSignatureParams = finalPermitSignature
       ? {
-          approveType,
-          permitSignature: permitSignatureRef.current,
+          approveType: usePermit2Approve ? approveType : undefined,
+          permitSignature: finalPermitSignature,
+          unsignedMessage: finalUnsignedMessage,
+          message: finalMessage,
         }
       : undefined;
+
+    // Stakefish specific params: validatorPubkey only for existing validator
+    const stakefishParams =
+      isStakefishProvider && !isStakefishCreateNewValidator
+        ? { validatorPubkey: selectedValidator }
+        : undefined;
+
     const resetAmount = () => {
       setAmountValue('');
       setCheckoutAmountMessage('');
       setCheckAmountAlerts([]);
+      // Reset stakefish permit signature and message
+      stakefishPermitSignatureRef.current = undefined;
+      stakefishPermitMessageRef.current = undefined;
     };
     const handleConfirm = async () => {
-      await onConfirm?.({ amount: amountValue, ...permitSignatureParams });
-      resetAmount();
+      setSubmitting(true);
+      try {
+        await onConfirm?.({
+          amount: amountValue,
+          ...permitSignatureParams,
+          ...stakefishParams,
+        });
+        resetAmount();
+      } finally {
+        setSubmitting(false);
+      }
     };
 
     // Wait for the dialog confirmation if it's shown
@@ -682,6 +801,14 @@ export function UniversalStake({
     amountValue,
     showEstimateGasAlert,
     checkEstimateGasAlert,
+    isStakefishProvider,
+    selectedValidator,
+    isStakefishCreateNewValidator,
+    signPersonalMessage,
+    networkId,
+    accountId,
+    tokenSymbol,
+    providerName,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
@@ -798,6 +925,7 @@ export function UniversalStake({
       console.error(e);
     }
     permitSignatureRef.current = undefined;
+    permit2DataRef.current = undefined;
     showStakeProgressRef.current[amountValue] = true;
 
     const allowanceBN = BigNumber(approveAllowance);
@@ -823,12 +951,13 @@ export function UniversalStake({
 
           if (permitCache) {
             permitSignatureRef.current = permitCache.signature;
+            permit2DataRef.current = permitCache.permit2Data;
             void onSubmit();
             setApproving(false);
             return;
           }
 
-          const permitBundlerAction = await getPermitSignature({
+          const { signature, unsignedMessage } = await getPermitSignature({
             networkId: approveTarget.networkId,
             accountId: approveTarget.accountId,
             token: tokenInfo?.token as IToken,
@@ -836,7 +965,8 @@ export function UniversalStake({
             providerName,
             vaultAddress: approveTarget.spenderAddress,
           });
-          permitSignatureRef.current = permitBundlerAction;
+          permitSignatureRef.current = signature;
+          permit2DataRef.current = unsignedMessage;
 
           // Update permit cache
           updatePermitCache({
@@ -844,7 +974,8 @@ export function UniversalStake({
             networkId: approveTarget.networkId,
             tokenAddress: tokenInfo?.token?.address ?? '',
             amount: amountValue,
-            signature: permitBundlerAction,
+            signature,
+            permit2Data: unsignedMessage,
             expiredAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
           });
 
@@ -1038,7 +1169,8 @@ export function UniversalStake({
         }}
         confirmButtonProps={{
           onPress: shouldApprove ? onApprove : onSubmit,
-          loading: loadingAllowance || approving || checkAmountLoading,
+          loading:
+            loadingAllowance || approving || submitting || checkAmountLoading,
           disabled: isDisable,
           w: '100%',
         }}
@@ -1230,86 +1362,101 @@ export function UniversalStake({
             })}
           </YStack>
           <Divider my="$5" />
-          <Accordion
-            overflow="hidden"
-            width="100%"
-            type="single"
-            collapsible
-            defaultValue=""
-          >
-            <Accordion.Item value="staking-accordion-content">
-              <Accordion.Trigger
-                unstyled
-                flexDirection="row"
-                alignItems="center"
-                alignSelf="flex-start"
-                px="$1"
-                mx="$-1"
-                width="100%"
-                justifyContent="space-between"
-                borderWidth={0}
-                bg="$transparent"
-                userSelect="none"
-                borderRadius="$1"
-                cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
-                disabled={isAccordionTriggerDisabled}
-              >
-                {({ open }: { open: boolean }) => (
-                  <>
-                    <XStack gap="$1.5" alignItems="center">
-                      <Image
-                        width="$5"
-                        height="$5"
-                        src={providerLogo}
-                        borderRadius="$2"
-                      />
-                      <SizableText size="$bodyMd">
-                        {capitalizeString(providerName || '')}
-                      </SizableText>
-                    </XStack>
-                    <XStack>
-                      <YStack
-                        animation="quick"
-                        rotate={
-                          open && !isAccordionTriggerDisabled
-                            ? '180deg'
-                            : '0deg'
-                        }
-                        left="$2"
-                      >
-                        <Icon
-                          name="ChevronDownSmallOutline"
-                          color={
-                            isAccordionTriggerDisabled
-                              ? '$iconDisabled'
-                              : '$iconSubdued'
-                          }
-                          size="$5"
-                        />
-                      </YStack>
-                    </XStack>
-                  </>
-                )}
-              </Accordion.Trigger>
-              <Accordion.HeightAnimator animation="quick">
-                <Accordion.Content
-                  animation="quick"
-                  exitStyle={{ opacity: 0 }}
-                  px={0}
-                  pb={0}
-                  pt="$3.5"
-                  gap="$2.5"
+          <YStack gap="$5">
+            {ongoingValidator ? (
+              <EarnValidatorSelect
+                field={ongoingValidator}
+                value={selectedValidator}
+                onChange={setSelectedValidator}
+                disabled={amountInputDisabled}
+              />
+            ) : null}
+            <Accordion
+              overflow="hidden"
+              width="100%"
+              type="single"
+              collapsible
+              defaultValue=""
+            >
+              <Accordion.Item value="staking-accordion-content">
+                <Accordion.Trigger
+                  unstyled
+                  flexDirection="row"
+                  alignItems="center"
+                  alignSelf="flex-start"
+                  px="$1"
+                  mx="$-1"
+                  width="100%"
+                  justifyContent="space-between"
+                  borderWidth={0}
+                  bg="$transparent"
+                  userSelect="none"
+                  borderRadius="$1"
+                  cursor={
+                    isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'
+                  }
+                  disabled={isAccordionTriggerDisabled}
                 >
-                  {accordionContent}
-                </Accordion.Content>
-              </Accordion.HeightAnimator>
-            </Accordion.Item>
-          </Accordion>
-          <TradeOrBuy
-            token={tokenInfo?.token as IToken}
-            accountId={accountId}
-            networkId={networkId}
-          />
+                  {({ open }: { open: boolean }) => (
+                    <>
+                      <XStack gap="$1.5" alignItems="center">
+                        <Image
+                          width="$5"
+                          height="$5"
+                          src={providerLogo}
+                          borderRadius="$2"
+                        />
+                        <SizableText size="$bodyMd">
+                          {capitalizeString(providerName || '')}
+                        </SizableText>
+                      </XStack>
+                      <XStack>
+                        <YStack
+                          animation="quick"
+                          rotate={
+                            open && !isAccordionTriggerDisabled
+                              ? '180deg'
+                              : '0deg'
+                          }
+                          left="$2"
+                        >
+                          <Icon
+                            name="ChevronDownSmallOutline"
+                            color={
+                              isAccordionTriggerDisabled
+                                ? '$iconDisabled'
+                                : '$iconSubdued'
+                            }
+                            size="$5"
+                          />
+                        </YStack>
+                      </XStack>
+                    </>
+                  )}
+                </Accordion.Trigger>
+                <Accordion.HeightAnimator animation="quick">
+                  <Accordion.Content
+                    animation="quick"
+                    exitStyle={{ opacity: 0 }}
+                    px={0}
+                    pb={0}
+                    pt="$3.5"
+                    gap="$2.5"
+                  >
+                    {accordionContent}
+                  </Accordion.Content>
+                </Accordion.HeightAnimator>
+              </Accordion.Item>
+            </Accordion>
+            <TradeOrBuy
+              token={tokenInfo?.token as IToken}
+              accountId={accountId}
+              networkId={networkId}
+              containerStyle={{
+                pt: '$0',
+              }}
+            />
+          </YStack>
         </YStack>
       ) : null}
       {beforeFooter}
@@ -1341,7 +1488,11 @@ export function UniversalStake({
               onConfirmText={onConfirmText}
               confirmButtonProps={{
                 onPress: shouldApprove ? onApprove : onSubmit,
-                loading: loadingAllowance || approving || checkAmountLoading,
+                loading:
+                  loadingAllowance ||
+                  approving ||
+                  submitting ||
+                  checkAmountLoading,
                 disabled: isDisable,
               }}
             />

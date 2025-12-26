@@ -9,10 +9,14 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsModalPage } from '../../hocs';
-import { Spinner, Stack, View } from '../../primitives';
+import { useIsModalPage, useIsOverlayPage } from '../../hocs';
+import { Spinner, Stack, View, YStack } from '../../primitives';
 
-import { useTabBarHeight } from './hooks';
+import { useIsIpadModalPage, useTabBarHeight } from './hooks';
+import {
+  iPadModalPageContext,
+  useIPadModalPageSizeChange,
+} from './iPadModalPageContext';
 
 import type { IBasicPageProps } from './type';
 
@@ -27,7 +31,7 @@ function Loading() {
 // On iOS, in the tab container, when initializing the page,
 //  the elements cannot fill the container space, so a minimum height needs to be set
 const useMinHeight = (isFullPage: boolean) => {
-  const isModalPage = useIsModalPage();
+  const isOverlayPage = useIsOverlayPage();
   const tabHeight = useTabBarHeight();
   return useMemo(() => {
     if (!platformEnv.isNativeIOS) {
@@ -36,7 +40,7 @@ const useMinHeight = (isFullPage: boolean) => {
     if (!isFullPage) {
       return undefined;
     }
-    if (!isModalPage) {
+    if (!isOverlayPage) {
       if (platformEnv.isNativeIOSPad) {
         return (
           Math.max(
@@ -48,7 +52,7 @@ const useMinHeight = (isFullPage: boolean) => {
       return Dimensions.get('window').height - tabHeight;
     }
     return undefined;
-  }, [isFullPage, isModalPage, tabHeight]);
+  }, [isFullPage, isOverlayPage, tabHeight]);
 };
 
 /**
@@ -122,14 +126,27 @@ export function BasicPage({
   lazyLoad = false,
   fullPage = false,
 }: IBasicPageProps) {
-  return (
-    <Stack bg="$bgApp" flex={1}>
-      {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
-      {lazyLoad ? (
-        <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
-      ) : (
-        children
-      )}
-    </Stack>
+  const { layout, onPageLayout } = useIPadModalPageSizeChange();
+  const isIpadModalPage = useIsIpadModalPage();
+  const content = useMemo(() => {
+    return (
+      <Stack bg="$bgApp" flex={1}>
+        {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
+        {lazyLoad ? (
+          <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
+        ) : (
+          children
+        )}
+      </Stack>
+    );
+  }, [children, lazyLoad, fullPage]);
+  return isIpadModalPage ? (
+    <YStack flex={1} onLayout={onPageLayout}>
+      <iPadModalPageContext.Provider value={layout}>
+        {content}
+      </iPadModalPageContext.Provider>
+    </YStack>
+  ) : (
+    content
   );
 }

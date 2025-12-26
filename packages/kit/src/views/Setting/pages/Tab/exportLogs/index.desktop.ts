@@ -26,6 +26,23 @@ export const collectLogDigest = async (
 ): Promise<ILogDigest> => {
   const baseName = fileBaseName ?? buildDefaultFileBaseName();
   defaultLogger.setting.device.logDeviceInfo();
+  try {
+    const connectionInfo =
+      await backgroundApiProxy.serviceIpTable.getConnectionInfo();
+    defaultLogger.ipTable.request.info({
+      info: `[IpTable] Connection info: type=${connectionInfo.type}, domain=${
+        connectionInfo.domain
+      }, ip=${connectionInfo.ip ?? 'N/A'}, sniSupported=${String(
+        connectionInfo.sniSupported,
+      )}`,
+    });
+  } catch (error) {
+    defaultLogger.ipTable.request.warn({
+      info: `[IpTable] Failed to get connection info: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    });
+  }
   await waitAsync(100);
   const result = await globalThis.desktopApiProxy.dev.collectLoggerDigest({
     fileBaseName: baseName,
@@ -47,6 +64,23 @@ export const collectLogDigest = async (
 
 export const exportLogs = async () => {
   defaultLogger.setting.device.logDeviceInfo();
+  try {
+    const connectionInfo =
+      await backgroundApiProxy.serviceIpTable.getConnectionInfo();
+    defaultLogger.ipTable.request.info({
+      info: `[IpTable] Connection info: type=${connectionInfo.type}, domain=${
+        connectionInfo.domain
+      }, ip=${connectionInfo.ip ?? 'N/A'}, sniSupported=${String(
+        connectionInfo.sniSupported,
+      )}`,
+    });
+  } catch (error) {
+    defaultLogger.ipTable.request.warn({
+      info: `[IpTable] Failed to get connection info: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    });
+  }
   await waitAsync(50);
   void globalThis.desktopApiProxy.dev.openLoggerFile();
 };

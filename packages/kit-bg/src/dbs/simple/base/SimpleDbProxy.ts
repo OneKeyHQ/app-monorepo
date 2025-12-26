@@ -26,6 +26,7 @@ import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC'
 import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import type { SimpleDbEntityDeFi } from '../entity/SimpleDbEntityDeFi';
 import type { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import type { SimpleDbEntityEarnExtra } from '../entity/SimpleDbEntityEarnExtra';
 import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
@@ -278,4 +279,6 @@ export class SimpleDbProxy
   ) as SimpleDbEntityWalletStatus;
 
   ipTable = this._createProxyService('ipTable') as SimpleDbEntityIpTable;
+
+  deFi = this._createProxyService('deFi') as SimpleDbEntityDeFi;
 }

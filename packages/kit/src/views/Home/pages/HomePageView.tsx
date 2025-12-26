@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { type LayoutChangeEvent } from 'react-native';
 
+import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   Icon,
   Page,
@@ -40,14 +41,15 @@ import {
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
-import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
@@ -78,6 +80,8 @@ export function HomePageView({
 
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
+
+  const tabsRef = useRef<ITabContainerRef | null>(null);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -202,11 +206,11 @@ export function HomePageView({
   const tabConfigs = useMemo(() => {
     return [
       {
-        id: EHomeWalletTab.Tokens,
+        id: EHomeWalletTab.Portfolio,
         name: intl.formatMessage({
-          id: ETranslations.global_crypto,
+          id: ETranslations.global_portfolio,
         }),
-        component: <TokenListContainerWithProvider />,
+        component: <PortfolioContainerWithProvider />,
       },
       isNFTEnabled
         ? {
@@ -273,6 +277,7 @@ export function HomePageView({
     }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
     return (
       <Tabs.Container
+        ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
         width={tabContainerWidth}
@@ -307,6 +312,16 @@ export function HomePageView({
     tabContainerWidth,
   ]);
 
+  const handleSwitchWalletHomeTab = useCallback(
+    (payload: { id: EHomeWalletTab }) => {
+      const name = tabConfigs.find((i) => i.id === payload.id)?.name;
+      if (name) {
+        tabsRef.current?.jumpToTab(name);
+      }
+    },
+    [tabConfigs],
+  );
+
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
   }, []);
@@ -319,14 +334,55 @@ export function HomePageView({
     appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
+    appEventBus.on(
+      EAppEventBusNames.SwitchWalletHomeTab,
+      handleSwitchWalletHomeTab,
+    );
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, clearCache);
       appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
       appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
+      appEventBus.off(
+        EAppEventBusNames.SwitchWalletHomeTab,
+        handleSwitchWalletHomeTab,
+      );
     };
-  }, []);
+  }, [handleSwitchWalletHomeTab]);
+
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      if (!network?.id) return undefined;
+      const checkResult =
+        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+          {
+            walletId: wallet?.id,
+            accountId: account?.id,
+            accountImpl: account?.impl,
+            activeNetworkId: network.id,
+            featuresInfoCache: device?.featuresInfo,
+          },
+        );
+
+      return !!checkResult?.networkImpl;
+    },
+    [account?.id, account?.impl, wallet?.id, network?.id, device?.featuresInfo],
+    { initResult: undefined },
+  );
 
   const homePageContent = useMemo(() => {
+    if (accountNetworkNotSupported) {
+      return (
+        <YStack height="100%">
+          <Stack flex={1} justifyContent="center">
+            <NetworkUnsupportedWarning
+              networkId={network?.id ?? ''}
+              emptyStyle
+            />
+          </Stack>
+        </YStack>
+      );
+    }
+
     if (
       (softwareAccountDisabled &&
         accountUtils.isHdWallet({
@@ -375,6 +431,7 @@ export function HomePageView({
 
     return tabs;
   }, [
+    accountNetworkNotSupported,
     softwareAccountDisabled,
     wallet?.id,
     supportedDeviceTypes,
@@ -426,16 +483,6 @@ export function HomePageView({
             <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
           )}
           <NetworkAlert />
-          {/* {
-            // The upgrade reminder does not need to be displayed on the Url Account page
-            sceneName === EAccountSelectorSceneName.home ? (
-              <>
-                <UpdateReminder />
-                <HomeFirmwareUpdateReminder />
-                <WalletXfpStatusReminder />
-              </>
-            ) : null
-          } */}
           {content}
           {platformEnv.isNative ? (
             <YStack

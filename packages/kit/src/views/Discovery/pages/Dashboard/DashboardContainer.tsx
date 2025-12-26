@@ -1,17 +1,37 @@
-import { Page } from '@onekeyhq/components';
+import { memo } from 'react';
+
+import { Page, useMedia } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src//components/TabPageHeader';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
-import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
+import Browser from '../Browser/Browser';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import DashboardContent from './DashboardContent';
 
+function BaseDashboard() {
+  return (
+    <>
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Discovery}
+      />
+      <Page>
+        <Page.Body>
+          <DashboardContent />
+        </Page.Body>
+      </Page>
+    </>
+  );
+}
+
+const MemoizedBaseDashboard = memo(BaseDashboard);
+
 function Dashboard() {
+  const media = useMedia();
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -20,17 +40,11 @@ function Dashboard() {
       }}
       enabledNum={[0]}
     >
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Discovery}
-      />
-      <Page>
-        {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
-        <Page.Body>
-          <DashboardContent />
-          {platformEnv.isNativeIOSPad ? <MobileBrowserBottomBar id="" /> : null}
-        </Page.Body>
-      </Page>
+      {platformEnv.isExtension && media.md ? (
+        <Browser />
+      ) : (
+        <MemoizedBaseDashboard />
+      )}
     </AccountSelectorProviderMirror>
   );
 }

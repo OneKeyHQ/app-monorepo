@@ -10,6 +10,7 @@ import {
   SizableText,
   XStack,
   usePopoverContext,
+  useTooltipContext,
 } from '@onekeyhq/components';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -71,7 +72,7 @@ function HomeFirmwareUpdateReminderCmp() {
   const connectId = activeAccount.device?.connectId;
   const actions = useFirmwareUpdateActions();
   const { closePopover } = usePopoverContext();
-
+  const { closeTooltip } = useTooltipContext();
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -132,6 +133,7 @@ function HomeFirmwareUpdateReminderCmp() {
           message={message}
           onPress={async () => {
             await closePopover?.();
+            await closeTooltip?.();
             actions.openChangeLogModal({ connectId });
           }}
         />
@@ -141,13 +143,18 @@ function HomeFirmwareUpdateReminderCmp() {
   }, [
     result?.shouldUpdate,
     result?.detectResult?.toVersion,
-    result?.detectResult?.toFirmwareType,
     result?.detectResult?.toVersionBle,
+    result?.detectResult?.toFirmwareType,
     intl,
     closePopover,
+    closeTooltip,
     actions,
     connectId,
   ]);
+
+  if (!updateButton) {
+    return null;
+  }
 
   return (
     <XStack>

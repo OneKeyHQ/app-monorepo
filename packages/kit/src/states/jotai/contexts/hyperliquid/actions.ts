@@ -58,6 +58,12 @@ import { EActionType, withToast } from './utils';
 
 import type { ITradingFormData } from './atoms';
 
+type IChStateLite = {
+  assetPositions?: HL.IPerpsAssetPosition[];
+};
+
+type IChPositionLite = HL.IPerpsAssetPosition;
+
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private orderBookTickOptionsLoaded = false;
 
@@ -137,27 +143,31 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     // just save raw ctxs here
     // use usePerpsAssetCtx() for single asset ctx with ctx formatted
     set(perpsAllAssetCtxsAtom(), {
-      assetCtxs: data.assetCtxs,
+      assetCtxsByDex: [data.assetCtxs || []],
     });
   });
 
   updateAllAssetsFiltered = contextAtomMethod(
-    (_, set, data: { allAssets: HL.IPerpsUniverse[]; query: string }) => {
-      const { allAssets, query } = data;
+    (
+      _,
+      set,
+      data: { allAssetsByDex: HL.IPerpsUniverse[][]; query: string },
+    ) => {
+      const { allAssetsByDex, query } = data;
       const searchQuery = query?.trim()?.toLowerCase();
-      let assets = allAssets;
-      if (!searchQuery) {
-        assets = allAssets.filter((token) => !token.isDelisted);
-      } else {
-        assets = allAssets.filter(
+      const assetsByDex = allAssetsByDex.map((assets) => {
+        if (!searchQuery) {
+          return assets.filter((token) => !token.isDelisted);
+        }
+        return assets.filter(
           (token) =>
             token.name?.toLowerCase().includes(searchQuery) &&
             !token.isDelisted,
         );
-      }
+      });
 
       set(perpsAllAssetsFilteredAtom(), {
-        assets,
+        assetsByDex,
         query,
       });
     },
@@ -226,6 +236,128 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
+  updateAllDexsClearinghouseState = contextAtomMethod(
+    async (get, set, data: HL.IWsAllDexsClearinghouseState) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+        // cleanup if account switched
+        const activePosition = get(perpsActivePositionAtom());
+        if (
+          activePosition?.accountAddress?.toLowerCase() !== activeAccountAddress
+        ) {
+          set(perpsActivePositionAtom(), {
+            accountAddress: activeAccountAddress,
+            activePositions: [],
+          });
+        }
+        return;
+      }
+
+      const statesRaw =
+        (data?.clearinghouseStates as Array<
+          [string, HL.IPerpsClearinghouseState | undefined]
+        >) || [];
+      const states: Array<[string, IChStateLite]> = statesRaw.map(
+        ([dexName, state]) => [dexName, (state as IChStateLite) || {}],
+      );
+
+      const stateMap = new Map<string, IChStateLite>();
+      states.forEach(([dexName, state]) => {
+        stateMap.set(dexName, state);
+      });
+
+      const primaryState =
+        stateMap.get('') ?? stateMap.get('perps') ?? states[0]?.[1];
+      const xyzState = stateMap.get('xyz');
+
+      const getPositions = (state?: IChStateLite): IChPositionLite[] =>
+        state?.assetPositions || [];
+
+      const combinedPositions: IChPositionLite[] = [
+        ...getPositions(primaryState),
+        ...getPositions(xyzState),
+      ];
+
+      const activePositions = combinedPositions
+        .filter((pos) => {
+          const size = parseFloat(pos.position?.szi ?? '0');
+          return Math.abs(size) > 0;
+        })
+        .sort((a, b) => {
+          const af = parseFloat(a.position?.cumFunding?.allTime ?? '0');
+          const bf = parseFloat(b.position?.cumFunding?.allTime ?? '0');
+          if (bf !== af) return bf - af;
+          return (
+            parseFloat(b.position?.positionValue ?? '0') -
+            parseFloat(a.position?.positionValue ?? '0')
+          );
+        });
+
+      set(perpsActivePositionAtom(), {
+        accountAddress: activeAccountAddress,
+        activePositions,
+      });
+    },
+  );
+
+  updateOpenOrders = contextAtomMethod(
+    async (get, set, data: HL.IWsOpenOrders) => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+      const dataUser = data?.user?.toLowerCase();
+      if (!activeAccountAddress || activeAccountAddress !== dataUser) {
+        const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
+        if (
+          activeOpenOrders?.accountAddress?.toLowerCase() !==
+          activeAccountAddress
+        ) {
+          set(perpsActiveOpenOrdersAtom(), {
+            accountAddress: activeAccountAddress,
+            openOrders: [],
+            openOrdersByCoin: {},
+          });
+        }
+        return;
+      }
+
+      const prevOpenOrdersState = get(perpsActiveOpenOrdersAtom());
+      const allOrders = data?.orders || [];
+      const openOrders = allOrders.filter(
+        (order) => !order.coin.startsWith('@'),
+      );
+      const openOrdersByCoin = this.buildOpenOrdersByCoinMap(
+        openOrders,
+        prevOpenOrdersState?.openOrdersByCoin,
+      );
+      set(perpsActiveOpenOrdersAtom(), {
+        accountAddress: activeAccountAddress,
+        openOrders,
+        openOrdersByCoin,
+      });
+    },
+  );
+
+  updateAllDexsAssetCtxs = contextAtomMethod(
+    (_, set, data: HL.IWsAllDexsAssetCtxs) => {
+      const incoming = data?.ctxs || [];
+      const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
+      incoming.forEach(([dexName, ctxList]) => {
+        ctxMap.set(dexName, ctxList || []);
+      });
+
+      const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
+      const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
+      const xyzCtx = ctxMap.get('xyz') ?? [];
+      ctxsByDex[0] = perpsCtx;
+      ctxsByDex[1] = xyzCtx;
+      set(perpsAllAssetCtxsAtom(), {
+        assetCtxsByDex: ctxsByDex,
+      });
+    },
+  );
+
   updateLedgerUpdates = contextAtomMethod(
     async (get, set, data: HL.IWsUserNonFundingLedgerUpdates) => {
       const activeAccount = await perpsActiveAccountAtom.get();
@@ -282,6 +414,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
     const activeAsset = await perpsActiveAssetAtom.get();
+    if (!data) {
+      return;
+    }
     if (activeAsset?.coin === data.coin) {
       set(l2BookAtom(), data);
     } else {
@@ -384,10 +519,26 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return;
       }
 
+      const form = get(tradingFormAtom());
+      const shouldUpdateLimitPrice = form.type === 'limit';
+
       await this.clearActiveAssetData.call(set);
       await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
         coin,
       });
+
+      // update limit price once using current atom snapshot.
+      if (shouldUpdateLimitPrice) {
+        const allMids = get(perpsAllMidsAtom());
+        const mid = allMids?.mids?.[coin];
+        const midValue = new BigNumber(mid || '');
+        this.updateTradingForm.call(set, {
+          price:
+            mid && midValue.isFinite() && midValue.gt(0)
+              ? formatPriceToSignificantDigits(mid)
+              : '',
+        });
+      }
     },
   );
 
@@ -543,7 +694,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   clearAllData = contextAtomMethod(async (get, set) => {
     set(perpsAllMidsAtom(), null);
     set(perpsAllAssetCtxsAtom(), {
-      assetCtxs: [],
+      assetCtxsByDex: [],
     });
     set(l2BookAtom(), null);
     set(subscriptionActiveAtom(), false);
@@ -901,21 +1052,25 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   });
 
   tokenSzDecimalsCache: {
-    [coin: string]: number | null;
+    [coin: string]: number | null | undefined;
   } = {};
 
   getTokenSzDecimals = contextAtomMethod(
     async (get, _set, params: { coin: string }) => {
       const { coin } = params;
+      const cached = this.tokenSzDecimalsCache[coin];
+      if (cached !== undefined) {
+        return cached;
+      }
+
       let szDecimals: number | null = null;
-      if (this.tokenSzDecimalsCache[coin] !== null) {
-        szDecimals = this.tokenSzDecimalsCache[coin];
-      } else {
+      try {
         const tokenInfo =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin,
           });
         szDecimals = tokenInfo?.universe?.szDecimals ?? null;
+      } finally {
         this.tokenSzDecimalsCache[coin] = szDecimals;
       }
       return szDecimals;
@@ -1154,6 +1309,10 @@ export function useHyperliquidActions() {
   const refreshAllPerpsData = actions.refreshAllPerpsData.use();
   const getTokenSzDecimals = actions.getTokenSzDecimals.use();
   const getMidPrice = actions.getMidPrice.use();
+  const updateAllDexsClearinghouseState =
+    actions.updateAllDexsClearinghouseState.use();
+  const updateOpenOrders = actions.updateOpenOrders.use();
+  const updateAllDexsAssetCtxs = actions.updateAllDexsAssetCtxs.use();
 
   return useRef({
     updateAllAssetsFiltered,
@@ -1166,6 +1325,9 @@ export function useHyperliquidActions() {
     updateConnectionState,
     changeActiveAsset,
     changeActivePerpsAccount,
+    updateAllDexsClearinghouseState,
+    updateOpenOrders,
+    updateAllDexsAssetCtxs,
 
     updateSubscriptions,
     startSubscriptions,

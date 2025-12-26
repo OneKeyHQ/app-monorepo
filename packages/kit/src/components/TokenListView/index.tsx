@@ -1,15 +1,19 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
+  Button,
   type IYStackProps,
   ListView,
   SizableText,
   Stack,
   Tabs,
+  XStack,
   YStack,
+  useMedia,
   useStyle,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -17,6 +21,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   buildHomeDefaultTokenMapKey,
@@ -101,11 +106,14 @@ type IProps = {
     }
   >;
   hideZeroBalanceTokens?: boolean;
+  hideDeFiMarkedTokens?: boolean;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   keepDefaultZeroBalanceTokens?: boolean;
   withAggregateBadge?: boolean;
   emptyProps?: IYStackProps;
   searchKeyLengthThreshold?: number;
+  plainMode?: boolean;
+  limit?: number;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -135,6 +143,7 @@ function TokenListViewCmp(props: IProps) {
     showNetworkIcon,
     allAggregateTokenMap,
     hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
     homeDefaultTokenMap,
     keepDefaultZeroBalanceTokens = true,
     withAggregateBadge,
@@ -143,7 +152,20 @@ function TokenListViewCmp(props: IProps) {
     networkId,
     indexedAccountId,
     searchKeyLengthThreshold,
+    plainMode,
+    limit,
   } = props;
+
+  const intl = useIntl();
+  const media = useMedia();
+
+  const [overFlowState, setOverFlowState] = useState<{
+    isOverflow: boolean;
+    isSliced: boolean;
+  }>({
+    isOverflow: false,
+    isSliced: true,
+  });
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
@@ -217,12 +239,17 @@ function TokenListViewCmp(props: IProps) {
       });
     }
 
+    if (hideDeFiMarkedTokens) {
+      resultTokens = resultTokens.filter((item) => !item.defiMarked);
+    }
+
     return resultTokens;
   }, [
     showActiveAccountTokenList,
     isTokenSelector,
     searchKey,
     hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
     activeAccountTokenList.tokens,
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
@@ -240,7 +267,7 @@ function TokenListViewCmp(props: IProps) {
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
   const filteredTokens = useMemo(() => {
-    const resp = getFilteredTokenBySearchKey({
+    let resp = getFilteredTokenBySearchKey({
       tokens,
       searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
       searchAll,
@@ -253,7 +280,7 @@ function TokenListViewCmp(props: IProps) {
 
     if (!isTokenSelector) {
       if (sortType === ETokenListSortType.Price) {
-        return sortTokensByPrice({
+        resp = sortTokensByPrice({
           tokens: resp,
           sortDirection,
           map: {
@@ -261,10 +288,8 @@ function TokenListViewCmp(props: IProps) {
             ...aggregateTokenMap,
           },
         });
-      }
-
-      if (sortType === ETokenListSortType.Value) {
-        return sortTokensByFiatValue({
+      } else if (sortType === ETokenListSortType.Value) {
+        resp = sortTokensByFiatValue({
           tokens: resp,
           sortDirection,
           map: {
@@ -272,10 +297,8 @@ function TokenListViewCmp(props: IProps) {
             ...aggregateTokenMap,
           },
         });
-      }
-
-      if (sortType === ETokenListSortType.Name) {
-        return sortTokensByName({
+      } else if (sortType === ETokenListSortType.Name) {
+        resp = sortTokensByName({
           tokens: resp,
           sortDirection,
         });
@@ -292,12 +315,19 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchTokenList.tokens,
     searchTokenList.tokens,
     allAggregateTokenMap,
+    searchKeyLengthThreshold,
     sortType,
     sortDirection,
     tokenListMap,
     aggregateTokenMap,
-    searchKeyLengthThreshold,
   ]);
+
+  const limitedTokens = useMemo(() => {
+    if (overFlowState.isOverflow && overFlowState.isSliced) {
+      return filteredTokens.slice(0, limit);
+    }
+    return filteredTokens;
+  }, [filteredTokens, overFlowState.isOverflow, overFlowState.isSliced, limit]);
 
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const addPaddingOnListFooter = useMemo(
@@ -431,6 +461,163 @@ function TokenListViewCmp(props: IProps) {
     emptyProps,
   ]);
 
+  useEffect(() => {
+    if (limit) {
+      setOverFlowState((prev) => ({
+        ...prev,
+        isOverflow: filteredTokens.length > limit,
+      }));
+    }
+  }, [filteredTokens.length, limit]);
+
+  const renderPlainModeFooter = useCallback(() => {
+    if (overFlowState.isOverflow && overFlowState.isSliced) {
+      return (
+        <XStack py="$3" jc="center" ai="center">
+          <Button
+            size="small"
+            variant="secondary"
+            onPress={() =>
+              setOverFlowState((prev) => ({ ...prev, isSliced: false }))
+            }
+            $md={
+              {
+                flexGrow: 1,
+                flexBasis: 0,
+                size: 'medium',
+                borderRadius: '$full',
+              } as any
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_show_more })}
+          </Button>
+        </XStack>
+      );
+    }
+    return (
+      <Stack pb="$5">
+        {withFooter ? (
+          <TokenListFooter
+            tableLayout={tableLayout}
+            hideZeroBalanceTokens={hideZeroBalanceTokens}
+            hideDeFiMarkedTokens={hideDeFiMarkedTokens}
+            hasTokens={filteredTokens.length > 0}
+            manageTokenEnabled={manageTokenEnabled}
+            plainMode={plainMode}
+          />
+        ) : null}
+        {!tokenSelectorSearchKey && footerTipText ? (
+          <Stack jc="center" ai="center" pt="$3">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {footerTipText}
+            </SizableText>
+          </Stack>
+        ) : null}
+        {overFlowState.isOverflow && !overFlowState.isSliced ? (
+          <XStack jc="center" ai="center" pt="$3">
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() =>
+                setOverFlowState((prev) => ({ ...prev, isSliced: true }))
+              }
+              $md={
+                {
+                  flexGrow: 1,
+                  flexBasis: 0,
+                  size: 'medium',
+                  borderRadius: '$full',
+                } as any
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_show_less })}
+            </Button>
+          </XStack>
+        ) : null}
+      </Stack>
+    );
+  }, [
+    overFlowState.isOverflow,
+    overFlowState.isSliced,
+    withFooter,
+    tableLayout,
+    hideZeroBalanceTokens,
+    filteredTokens.length,
+    manageTokenEnabled,
+    plainMode,
+    tokenSelectorSearchKey,
+    footerTipText,
+    intl,
+    hideDeFiMarkedTokens,
+  ]);
+
+  if (plainMode) {
+    if (showSkeleton) {
+      return (
+        <ListLoading
+          itemProps={
+            tableLayout
+              ? undefined
+              : {
+                  mx: '$0',
+                  px: '$0',
+                }
+          }
+          isTokenSelectorView={!tableLayout}
+        />
+      );
+    }
+
+    if (!limitedTokens || limitedTokens.length === 0) {
+      return searchKey ? (
+        <EmptySearch
+          onManageToken={onManageToken}
+          manageTokenEnabled={manageTokenEnabled}
+          {...emptyProps}
+        />
+      ) : (
+        <EmptyToken {...emptyProps} />
+      );
+    }
+
+    return (
+      <YStack>
+        {withHeader ? (
+          <TokenListHeader
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+            {...(tokens.length > 0 && {
+              tableLayout,
+            })}
+          />
+        ) : null}
+        {limitedTokens.map((item) => (
+          <TokenListItem
+            hideValue={hideValue}
+            token={item}
+            key={item.$key}
+            onPress={onPressToken}
+            tableLayout={tableLayout}
+            withPrice={withPrice}
+            isAllNetworks={isAllNetworks}
+            withNetwork={withNetwork}
+            isTokenSelector={isTokenSelector}
+            withSwapAction={withSwapAction}
+            showNetworkIcon={showNetworkIcon}
+            withAggregateBadge={withAggregateBadge}
+            {...(tableLayout
+              ? undefined
+              : {
+                  mx: '$0',
+                  px: '$0',
+                })}
+          />
+        ))}
+        {renderPlainModeFooter()}
+      </YStack>
+    );
+  }
+
   return (
     <ListComponent
       // @ts-ignore
@@ -438,15 +625,14 @@ function TokenListViewCmp(props: IProps) {
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
-      extraData={filteredTokens.length}
-      data={filteredTokens}
+      extraData={limitedTokens.length}
+      data={limitedTokens}
       contentContainerStyle={resolvedContentContainerStyle as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       ListHeaderComponent={
         withHeader ? (
           <TokenListHeader
-            filteredTokens={filteredTokens}
             onManageToken={onManageToken}
             manageTokenEnabled={manageTokenEnabled}
             {...(tokens.length > 0 && {
@@ -474,7 +660,7 @@ function TokenListViewCmp(props: IProps) {
           />
           {isTokenSelector &&
           tokenSelectorSearchTokenState.isSearching &&
-          index === filteredTokens.length - 1 ? (
+          index === limitedTokens.length - 1 ? (
             <ListLoading isTokenSelectorView={!tableLayout} />
           ) : null}
         </>
@@ -487,6 +673,7 @@ function TokenListViewCmp(props: IProps) {
               hideZeroBalanceTokens={hideZeroBalanceTokens}
               hasTokens={filteredTokens.length > 0}
               manageTokenEnabled={manageTokenEnabled}
+              plainMode={plainMode}
             />
           ) : null}
           {!tokenSelectorSearchKey && footerTipText ? (

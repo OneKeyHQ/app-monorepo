@@ -26,7 +26,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getValidPriceDecimals,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
@@ -49,6 +52,7 @@ interface IPositionRowProps {
 
 interface IAssetInfo {
   assetSymbol: string;
+  rawCoin: string;
   leverage: number | string;
   assetColor: string;
   leverageType: string;
@@ -1083,6 +1087,25 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
 });
 PositionRowMobileTPSL.displayName = 'PositionRowMobileTPSL';
 
+const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
+  const intl = useIntl();
+  const { midFormattedByDecimals } = usePerpsMidPrice({ coin });
+
+  return (
+    <YStack gap="$1" flex={1} alignItems="center" position="relative">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.perp_position_mark_price,
+        })}
+      </SizableText>
+      <SizableText size="$bodySmMedium" numberOfLines={1}>
+        {midFormattedByDecimals || '--'}
+      </SizableText>
+    </YStack>
+  );
+});
+PositionRowMobileMarkPrice.displayName = 'PositionRowMobileMarkPrice';
+
 const PositionRowMobileLiqPrice = memo(
   ({ priceInfo }: { priceInfo: IPriceInfo }) => {
     const intl = useIntl();
@@ -1215,7 +1238,7 @@ const PositionRowMobile = memo(
               assetInfo={assetInfo}
               otherInfo={otherInfo}
             />
-            <PositionRowMobileTPSL coin={coin} />
+            <PositionRowMobileMarkPrice coin={coin} />
             <PositionRowMobileLiqPrice priceInfo={priceInfo} />
           </XStack>
           <PositionRowMobileActions
@@ -1286,6 +1309,7 @@ const PositionRow = memo(
     }, [isMobile]);
 
     const assetInfo = useMemo(() => {
+      const parsed = parseDexCoin(pos.coin);
       const leverageType =
         pos.leverage?.type === 'cross'
           ? intl.formatMessage({
@@ -1295,12 +1319,13 @@ const PositionRow = memo(
               id: ETranslations.perp_trade_isolated,
             });
       return {
-        assetSymbol: pos.coin,
+        assetSymbol: parsed.displayName,
+        rawCoin: pos.coin,
         leverage: pos.leverage?.value ?? '',
         assetColor: side === 'long' ? '$green11' : '$red11',
         leverageType,
       };
-    }, [pos.coin, side, pos.leverage?.value, pos.leverage?.type, intl]);
+    }, [intl, pos.coin, pos.leverage?.type, pos.leverage?.value, side]);
     const decimals = useMemo(
       () => getValidPriceDecimals(pos.entryPx || '0'),
       [pos.entryPx],
@@ -1434,9 +1459,9 @@ const PositionRow = memo(
 
     const handleChangeAsset = useCallback(() => {
       void actions.current.changeActiveAsset({
-        coin: assetInfo.assetSymbol,
+        coin: assetInfo.rawCoin,
       });
-    }, [actions, assetInfo.assetSymbol]);
+    }, [actions, assetInfo.rawCoin]);
 
     const handleClosePosition = useCallback(
       (type: 'market' | 'limit') => {
@@ -1455,10 +1480,12 @@ const PositionRow = memo(
 
       const roiPercentBN = new BigNumber(pos.returnOnEquity || '0');
       const pnlPercent = roiPercentBN.multipliedBy(100).toFixed(1);
+      const parsed = parseDexCoin(pos.coin);
 
       showPositionShare({
         side: parseFloat(pos.szi) >= 0 ? 'long' : 'short',
         token: pos.coin,
+        tokenDisplayName: parsed.displayName,
         pnl: pos.unrealizedPnl,
         pnlPercent,
         leverage: pos.leverage?.value || 0,

@@ -118,6 +118,7 @@ axios.interceptors.response.use(
           data?.message ||
           'OneKeyServer Unknown Error',
         code: data.code,
+        httpStatusCode: response.status,
         data: {
           ...data,
           requestUrl: url,
@@ -168,6 +169,7 @@ axios.interceptors.response.use(
           autoToast: true,
           message: title,
           code: 403,
+          httpStatusCode: 403,
           requestId: description,
         });
       } else if (
@@ -182,10 +184,17 @@ axios.interceptors.response.use(
           autoToast: true,
           message: title,
           code: Number(response.status),
+          httpStatusCode: Number(response.status),
           requestId: config.headers[HEADER_REQUEST_ID_KEY],
         });
       }
     }
+
+    if (response?.status && typeof response.status === 'number') {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      (error as any).httpStatusCode = response.status;
+    }
+
     if (
       error &&
       error instanceof AxiosError &&

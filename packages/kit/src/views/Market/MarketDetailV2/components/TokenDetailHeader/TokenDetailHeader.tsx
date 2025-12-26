@@ -103,12 +103,14 @@ export function TokenDetailHeader({
         isNative={isNative}
       />
 
-      <TokenDetailHeaderRight
-        tokenDetail={tokenDetail}
-        networkId={networkId}
-        isNative={isNative}
-        showStats={showStats}
-      />
+      {showStats === false && platformEnv.isNative && md ? null : (
+        <TokenDetailHeaderRight
+          tokenDetail={tokenDetail}
+          networkId={networkId}
+          isNative={isNative}
+          showStats={showStats}
+        />
+      )}
     </XStack>
   );
 

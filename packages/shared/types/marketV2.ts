@@ -230,6 +230,28 @@ export interface IMarketTokenTransactionsResponse {
   cursor?: string;
 }
 
+export interface IMarketAccountTokenTransactionParty {
+  amount: string;
+  address: string;
+  symbol: string;
+}
+
+export interface IMarketAccountTokenTransaction {
+  hash: string;
+  type: 'buy' | 'sell';
+  timestamp: number;
+  amount: string;
+  from: IMarketAccountTokenTransactionParty;
+  to: IMarketAccountTokenTransactionParty;
+}
+
+export interface IMarketAccountTokenTransactionsResponse {
+  list: IMarketAccountTokenTransaction[];
+  hasMore?: boolean;
+  total?: number;
+  cursor?: string;
+}
+
 export interface IMarketTokenHolder {
   accountAddress: string;
   amount: string;
@@ -341,4 +363,37 @@ export interface IMarketAccountPortfolioItem {
 
 export interface IMarketAccountPortfolioResponse {
   list: IMarketAccountPortfolioItem[];
+}
+
+// Banner types
+export interface IMarketBannerDescription {
+  text: string;
+  fontColor: string;
+}
+
+export interface IMarketBannerItem {
+  _id: string;
+  title: string;
+  rank: number;
+  mode: number;
+  payload: string;
+  miniBundlerVersion: string;
+  backgroundColor: string;
+  tokenListId: string;
+  description?: IMarketBannerDescription;
+  tokenLogos?: string[];
+}
+
+export interface IMarketBannerListResponse {
+  total: number;
+  data: IMarketBannerItem[];
+}
+
+export interface IMarketBannerTokenListItem extends IMarketTokenListItem {
+  isNative?: boolean;
+  tokenAge?: string;
+}
+
+export interface IMarketBannerTokenListResponse {
+  list: IMarketBannerTokenListItem[];
 }

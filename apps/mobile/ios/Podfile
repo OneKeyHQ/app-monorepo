@@ -174,9 +174,9 @@ target 'OneKeyWallet' do
   use_expo_modules!
   config = use_native_modules!
 
-  use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
-  use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
-  use_frameworks! :linkage => :static
+  # use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
+  # use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
+  # use_frameworks! :linkage => :static
 
   # Flags change depending on the env values.
   flags = get_default_flags()
@@ -188,6 +188,9 @@ target 'OneKeyWallet' do
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/..",
   )
+
+  # Enable modular headers for EMASCurl to fix SniConnect dependency
+  pod 'EMASCurl', :modular_headers => true
 
   post_install do |installer|
     react_native_post_install(
@@ -216,31 +219,22 @@ target 'OneKeyWallet' do
           end
         end
       end
-      target.build_configurations.each do |config|
-        config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
-        if config.name == 'Debug'
-          config.build_settings["ONLY_ACTIVE_ARCH"] = "NO"
-        else
-          config.build_settings["ONLY_ACTIVE_ARCH"] = "YES"
-        end
-      end
     end
 
-    bitcode_strip_path = `xcrun --find bitcode_strip`.chop!
+    # bitcode_strip_path = `xcrun --find bitcode_strip`.chop!
 
-    def strip_bitcode_from_framework(bitcode_strip_path, framework_path)
-      command = "#{bitcode_strip_path} #{framework_path} -r -o #{framework_path}"
-      puts "Stripping bitcode: #{command}"
-      system(command)
-    end
+    # def strip_bitcode_from_framework(bitcode_strip_path, framework_path)
+    #   command = "#{bitcode_strip_path} #{framework_path} -r -o #{framework_path}"
+    #   puts "Stripping bitcode: #{command}"
+    #   system(command)
+    # end
+    
+    # framework_paths = [
+    # ]
 
-    framework_paths = [
-      File.join(Dir.pwd.split('/apps')[0], "node_modules/@onekeyfe/react-native-lite-card/ios/GPChannelSDKCore.framework/GPChannelSDKCore"),
-    ]
-
-    framework_paths.each do |framework_relative_path|
-      strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
-    end
+    # framework_paths.each do |framework_relative_path|
+    #   strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
+    # end
   end
 
   post_integrate do |installer|

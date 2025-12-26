@@ -14,14 +14,19 @@ export function CopyLinkButton({
   buttonProps?: IButtonProps;
 }) {
   const intl = useIntl();
-  const { copyText } = useClipboard();
+  const { copyUrl } = useClipboard();
 
   const handleCopy = useCallback(() => {
-    void copyText(url);
-  }, [url, copyText]);
+    void copyUrl(url);
+  }, [url, copyUrl]);
 
   return (
-    <Button variant="secondary" size="small" onPress={handleCopy} {...buttonProps}>
+    <Button
+      variant="secondary"
+      size="small"
+      onPress={handleCopy}
+      {...buttonProps}
+    >
       {intl.formatMessage({ id: ETranslations.browser_copy_link })}
     </Button>
   );

@@ -34,7 +34,7 @@ import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
-function ContractAddress({ address }: { address: string }) {
+export function ContractAddress({ address }: { address: string }) {
   const { copyText } = useClipboard();
   const contractAddress = accountUtils.shortenAddress({
     address,
@@ -68,7 +68,7 @@ function ContractAddress({ address }: { address: string }) {
   );
 }
 
-function MarketTokenLiquidity({
+export function MarketTokenLiquidity({
   liquidity,
   volume24h,
 }: {

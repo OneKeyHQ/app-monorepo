@@ -313,7 +313,7 @@ function PageWebviewPerpTradeView() {
   if (!isMounted) {
     return null;
   }
-  return shouldOpenExpandExtPerp() ? <ExtPerp /> : <WebviewPerpTradeView />;
+  return shouldOpenExpandExtPerp ? <ExtPerp /> : <WebviewPerpTradeView />;
 }
 
 const PageWebviewPerpTrade = () => {

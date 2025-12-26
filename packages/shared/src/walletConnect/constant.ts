@@ -11,7 +11,7 @@ import {
 } from '../consts/deeplinkConsts';
 import {
   IMPL_ALGO,
-  // IMPL_COSMOS,
+  IMPL_COSMOS,
   // IMPL_DOT,
   IMPL_EVM,
 } from '../engine/engineConsts';
@@ -177,6 +177,7 @@ export const EIP155_EVENTS = {
  * cosmos
  */
 export const COSMOS_SIGNING_METHODS = {
+  COSMOS_GET_ACCOUNTS: 'cosmos_getAccounts',
   COSMOS_SIGN_DIRECT: 'cosmos_signDirect',
   COSMOS_SIGN_AMINO: 'cosmos_signAmino',
 };
@@ -201,7 +202,7 @@ export const supportMethodsMap: Record<INamespaceUnion, string[]> = {
 export const supportEventsMap: Record<INamespaceUnion, string[]> = {
   eip155: ['accountsChanged', 'chainChanged'],
   // solana: [],
-  // cosmos: [],
+  // cosmos: ['accountsChanged'], // chainChanged not supported
   // polkadot: [],
   // tron: [],
   algorand: ['accountsChanged', 'chainChanged'],

@@ -16,7 +16,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getValidPriceDecimals,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { calcCellAlign, getColumnStyle } from '../utils';
@@ -49,12 +52,19 @@ const TradesHistoryRow = memo(
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
       return (
-        fill.closedPnl && !new BigNumber(fill.closedPnl).isZero() && onShare
+        fill.closedPnl &&
+        !new BigNumber(fill.closedPnl).isZero() &&
+        !fill.liquidation &&
+        onShare
       );
-    }, [fill.closedPnl, onShare]);
+    }, [fill.closedPnl, fill.liquidation, onShare]);
     const actions = useHyperliquidActions();
     const intl = useIntl();
-    const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
+    const assetSymbol = useMemo(() => {
+      const parsed = parseDexCoin(fill.coin);
+      return parsed.displayName;
+    }, [fill.coin]);
+    const rawCoin = fill.coin;
     const dateInfo = useMemo(() => {
       const timeDate = new Date(fill.time);
       const date = formatTime(timeDate, {
@@ -280,9 +290,7 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[1].align)}
           alignItems="center"
           cursor="pointer"
-          onPress={() =>
-            actions.current.changeActiveAsset({ coin: assetSymbol })
-          }
+          onPress={() => actions.current.changeActiveAsset({ coin: rawCoin })}
         >
           <SizableText
             numberOfLines={1}

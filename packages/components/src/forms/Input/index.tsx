@@ -518,6 +518,7 @@ function BaseInput(
           onChangeText={
             isNumberKeyboardType ? onNumberPadChangeText : onChangeText
           }
+          allowFontScaling={false}
         />
       </Group.Item>
 

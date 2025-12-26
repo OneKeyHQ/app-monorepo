@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { cloneDeep } from 'lodash';
+
 import type {
   IPrimeServerUserInfo,
   IPrimeUserInfo,
@@ -10,24 +12,29 @@ import { globalAtom } from '../utils';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 export type IPrimePersistAtomData = IPrimeUserInfo;
+export const primePersistAtomInitialValue: IPrimePersistAtomData = {
+  // export const initialPrimePersistAtomData: IPrimePersistAtomData = {
+  isLoggedIn: false,
+  isLoggedInOnServer: false,
+  isEnablePrime: undefined,
+  isEnableSandboxPay: undefined,
+  isPrimeDeviceLimitExceeded: undefined,
+  email: undefined,
+  displayEmail: undefined,
+  onekeyUserId: undefined,
+  primeSubscription: undefined,
+  subscriptionManageUrl: undefined,
+  keylessWalletId: undefined,
+  nickname: undefined,
+  avatar: undefined,
+};
 export const {
   target: primePersistAtom, // persist
   use: usePrimePersistAtom,
 } = globalAtom<IPrimePersistAtomData>({
   name: EAtomNames.primePersistAtom,
   persist: true,
-  initialValue: {
-    isLoggedIn: false,
-    isLoggedInOnServer: false,
-    isEnablePrime: undefined,
-    isEnableSandboxPay: undefined,
-    isPrimeDeviceLimitExceeded: undefined,
-    email: undefined,
-    displayEmail: undefined,
-    privyUserId: undefined,
-    primeSubscription: undefined,
-    subscriptionManageUrl: undefined,
-  },
+  initialValue: cloneDeep(primePersistAtomInitialValue),
 });
 
 export type IPrimeCloudSyncPersistAtomData = {

@@ -1,31 +1,75 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
-import { Carousel, Skeleton, Stack, useMedia } from '@onekeyhq/components';
+import {
+  Carousel,
+  Skeleton,
+  Stack,
+  XStack,
+  getTokenValue,
+  useMedia,
+} from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
 import { BannerItemV2 } from './BannerItemV2';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 interface IBannerV2Props {
   data?: IDiscoveryBanner[];
   onBannerPress: (item: IDiscoveryBanner) => void;
+  isActive?: boolean;
 }
 
-function BannerV2Cmp({ data, onBannerPress }: IBannerV2Props) {
+const DESKTOP_BANNER_WIDTH = 414;
+const BANNER_GAP_TOKEN = '$3';
+
+function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
   const media = useMedia();
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    setContainerWidth(event.nativeEvent.layout.width);
+  }, []);
+
+  const dataCount = data?.length ?? 0;
+  const shouldAutoPlay = isActive && !media.gtSm;
+  const bannerGap = Number(getTokenValue(BANNER_GAP_TOKEN, 'size')) || 0;
+  const requiredWidth = useMemo(() => {
+    if (dataCount <= 0) {
+      return 0;
+    }
+    return (
+      DESKTOP_BANNER_WIDTH * dataCount + bannerGap * Math.max(dataCount - 1, 0)
+    );
+  }, [bannerGap, dataCount]);
+  const canShowStaticRow =
+    !platformEnv.isNative &&
+    media.gtSm &&
+    containerWidth > 0 &&
+    requiredWidth > 0 &&
+    containerWidth >= requiredWidth;
 
   const renderItem = useCallback(
-    ({ item }: { item: IDiscoveryBanner }) => {
-      const noPadding =
-        !media.gtSm ||
-        (data && data.length > 0 && data[data.length - 1] === item);
+    ({ item, index }: { item: IDiscoveryBanner; index: number }) => {
+      const isLast = index === dataCount - 1;
+      const isFirst = index === 0;
+
+      if (!media.gtSm) {
+        return (
+          <Stack px="$5">
+            <BannerItemV2 item={item} onPress={onBannerPress} />
+          </Stack>
+        );
+      }
 
       return (
-        <Stack pr={noPadding ? 0 : '$5'}>
+        <Stack pl={isFirst ? '$5' : 0} pr={isLast ? '$5' : BANNER_GAP_TOKEN}>
           <BannerItemV2 item={item} onPress={onBannerPress} />
         </Stack>
       );
     },
-    [data, media.gtSm, onBannerPress],
+    [dataCount, media.gtSm, onBannerPress],
   );
 
   const content = useMemo(() => {
@@ -36,7 +80,7 @@ function BannerV2Cmp({ data, onBannerPress }: IBannerV2Props) {
         <Stack py="$5">
           <Skeleton
             height={130}
-            width={440}
+            width={DESKTOP_BANNER_WIDTH}
             $md={{
               width: '100%',
             }}
@@ -46,7 +90,46 @@ function BannerV2Cmp({ data, onBannerPress }: IBannerV2Props) {
     }
 
     if (data) {
-      return data.length ? (
+      if (!data.length) {
+        return null;
+      }
+
+      if (canShowStaticRow) {
+        return (
+          <XStack px="$5" paddingVertical={30} gap={BANNER_GAP_TOKEN}>
+            {data.map((item) => (
+              <Stack key={item.src} width={DESKTOP_BANNER_WIDTH}>
+                <BannerItemV2 item={item} onPress={onBannerPress} />
+              </Stack>
+            ))}
+          </XStack>
+        );
+      }
+
+      if (media.gtSm) {
+        return (
+          <Stack>
+            <Carousel
+              data={data}
+              maxPageWidth={440}
+              containerStyle={{
+                height: 130,
+                paddingTop: 30,
+              }}
+              pagerProps={{
+                keyboardDismissMode: 'none',
+              }}
+              renderItem={renderItem}
+              autoPlayInterval={3000}
+              loop={shouldAutoPlay}
+              showPagination
+              defaultIndex={0}
+            />
+          </Stack>
+        );
+      }
+
+      return (
         <Carousel
           data={data}
           maxPageWidth={440}
@@ -59,16 +142,28 @@ function BannerV2Cmp({ data, onBannerPress }: IBannerV2Props) {
           }}
           renderItem={renderItem}
           autoPlayInterval={3000}
-          loop
+          loop={shouldAutoPlay}
           showPagination
+          defaultIndex={0}
         />
-      ) : null;
+      );
     }
 
     return null;
-  }, [data, renderItem]);
+  }, [
+    canShowStaticRow,
+    data,
+    onBannerPress,
+    renderItem,
+    media.gtSm,
+    shouldAutoPlay,
+  ]);
 
-  return content;
+  return (
+    <Stack width="100%" onLayout={handleLayout}>
+      {content}
+    </Stack>
+  );
 }
 
 export const BannerV2 = memo(BannerV2Cmp);

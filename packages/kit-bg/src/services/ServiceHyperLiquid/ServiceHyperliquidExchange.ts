@@ -87,6 +87,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   private _exchangeClient: ExchangeClient | null = null;
 
+  private _wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey | null =
+    null;
+
   private _builderFeeInfo:
     | {
         b: `0x${string}`;
@@ -193,6 +196,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
 
       this._account = account;
+      this._wallet = wallet;
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to setup exchange client: ${String(error)}`,
@@ -277,6 +281,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
       throw error;
     }
+  }
+
+  @backgroundMethod()
+  async enableDexAbstraction(): Promise<{ status: 'ok' } | undefined> {
+    await this.checkAccountCanTrade();
+    const response = await convertHyperLiquidResponse(() =>
+      this.exchangeClient.agentEnableDexAbstraction(),
+    );
+    return response;
   }
 
   @backgroundMethod()
@@ -372,7 +385,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     nonce: number;
     signerAddress: string;
   } | null> {
-    const wallet = this.exchangeClient?.wallet;
+    const wallet = this._wallet;
 
     const signedData = (
       wallet as WalletHyperliquidOnekey
@@ -387,11 +400,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
     const { value, signatureHex, signerAddress } = signedData;
 
+    // These fields are NOT part of the signed EIP-712 message in SDK > 0.24.x,
+    // so reading them from `value` is unreliable. Use stable constants instead.
+    const actionType = 'approveAgent';
+    const signatureChainId = PERPS_EVM_CHAIN_ID_HEX;
     // Only extract approveAgent signatures
     return {
       action: {
-        type: value.type as string,
-        signatureChainId: value.signatureChainId as string,
+        type: actionType,
+        signatureChainId,
         hyperliquidChain: value.hyperliquidChain as string,
         agentAddress: value.agentAddress as string,
         agentName: value.agentName as string,
@@ -588,6 +605,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     this._account = null;
     this._exchangeClient = null;
     this._builderFeeInfo = undefined;
+    this._wallet = null;
   }
 
   async checkAccountCanTrade() {

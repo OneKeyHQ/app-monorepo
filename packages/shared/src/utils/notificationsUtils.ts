@@ -161,6 +161,12 @@ export function parseNotificationPayload(
         openUrlInApp(payload);
       }
       break;
+    case ENotificationPushMessageMode.openInDapp:
+      appEventBus.emit(
+        EAppEventBusNames.ShowNotificationInDappPage,
+        payload as string,
+      );
+      break;
     default:
       break;
   }
@@ -192,8 +198,12 @@ async function navigateToNotificationDetail({
   }
 
   if (isFromNotificationClick) {
-    const statusRoutes = appGlobals.$navigationRef.current?.getState().routes;
-    const currentRoute = statusRoutes?.[statusRoutes.length - 1];
+    const statusRoutes = platformEnv.isExtensionBackground
+      ? []
+      : appGlobals.$navigationRef.current?.getState().routes;
+    const currentRoute = statusRoutes?.length
+      ? statusRoutes?.[statusRoutes.length - 1]
+      : undefined;
     if (
       currentRoute &&
       currentRoute.name === ERootRoutes.Modal &&

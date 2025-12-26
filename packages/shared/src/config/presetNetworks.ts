@@ -1443,33 +1443,6 @@ const aurora: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
-const holesky: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '17000',
-  'id': 'evm--17000',
-  'name': 'Ethereum Holesky Testnet',
-  'symbol': 'ETH',
-  'code': 'holesky',
-  'shortcode': 'holesky',
-  'shortname': 'Holesky',
-  'decimals': 18,
-  'feeMeta': {
-    'decimals': 9,
-    'symbol': 'Gwei',
-    'isEIP1559FeeEnabled': false,
-    'isWithL1BaseFee': false,
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': true,
-  'extensions': {
-    'position': 9999,
-    'isTokenSupported': false,
-    'isNFTEnabled': false,
-  },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/holesky.png',
-  'defaultEnabled': false,
-  'backendIndex': false,
-};
 const zircuit: IServerNetwork = {
   'impl': 'evm',
   'chainId': '48900',
@@ -1832,6 +1805,35 @@ const monadTestnet: IServerNetwork = {
     'isNFTEnabled': false,
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/monad-testnet.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const hoodi: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '560048',
+  'id': 'evm--560048',
+  'name': 'Hoodi Testnet',
+  'symbol': 'ETH',
+  'code': 'hoodi',
+  'shortcode': 'hoodi',
+  'shortname': 'Hoodi',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': false,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni.onekey-asset.com/dashboard/logo/upload_1756881610802.0.9132280905497288.0.jpeg',
   'defaultEnabled': false,
   'backendIndex': false,
 };
@@ -2929,7 +2931,6 @@ export const presetNetworksMap = {
   base,
   bob,
   aurora,
-  holesky,
   zircuit,
   neox,
   azero,
@@ -2938,6 +2939,7 @@ export const presetNetworksMap = {
   hsk,
   rsk,
   unichain,
+  hoodi,
 
   // cosmos
   celestia,
@@ -3119,7 +3121,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     base,
     bob,
     aurora,
-    holesky,
     zircuit,
     neox,
     azero,
@@ -3133,6 +3134,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     worldChain,
     hyperEvm,
     monadTestnet,
+    hoodi,
 
     // cosmos
     celestia,
@@ -3194,8 +3196,9 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 export const getNetworksSupportFilterScamHistory = memoFn(
   (): IServerNetwork[] => [
     eth,
+    sol,
     sepolia,
-    holesky,
+    hoodi,
     base,
     optimism,
     avalanche,

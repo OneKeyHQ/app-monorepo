@@ -29,6 +29,23 @@ const getShareModule = async () => {
 
 export const exportLogs = async (filename: string) => {
   defaultLogger.setting.device.logDeviceInfo();
+  try {
+    const connectionInfo =
+      await backgroundApiProxy.serviceIpTable.getConnectionInfo();
+    defaultLogger.ipTable.request.info({
+      info: `[IpTable] Connection info: type=${connectionInfo.type}, domain=${
+        connectionInfo.domain
+      }, ip=${connectionInfo.ip ?? 'N/A'}, sniSupported=${String(
+        connectionInfo.sniSupported,
+      )}`,
+    });
+  } catch (error) {
+    defaultLogger.ipTable.request.warn({
+      info: `[IpTable] Failed to get connection info: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    });
+  }
   await waitAsync(1000);
   const logFilePath = await utils.getLogFilePath(filename);
   console.log('logFilePath', logFilePath);
@@ -52,6 +69,23 @@ export const collectLogDigest = async (
   });
   const baseName = fileBaseName ?? buildDefaultFileBaseName();
   defaultLogger.setting.device.logDeviceInfo();
+  try {
+    const connectionInfo =
+      await backgroundApiProxy.serviceIpTable.getConnectionInfo();
+    defaultLogger.ipTable.request.info({
+      info: `[IpTable] Connection info: type=${connectionInfo.type}, domain=${
+        connectionInfo.domain
+      }, ip=${connectionInfo.ip ?? 'N/A'}, sniSupported=${String(
+        connectionInfo.sniSupported,
+      )}`,
+    });
+  } catch (error) {
+    defaultLogger.ipTable.request.warn({
+      info: `[IpTable] Failed to get connection info: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    });
+  }
   await waitAsync(1000);
 
   const filePath = await utils.getLogFilePath(baseName);
@@ -124,9 +158,9 @@ export const uploadLogBundle = async ({
   let text = '';
 
   let uploadTaskError: Error | undefined;
-  let fileSystemModule: typeof import('expo-file-system') | undefined;
+  let fileSystemModule: typeof import('expo-file-system/legacy') | undefined;
   try {
-    fileSystemModule = await import('expo-file-system');
+    fileSystemModule = await import('expo-file-system/legacy');
   } catch (error) {
     fileSystemModule = undefined;
   }

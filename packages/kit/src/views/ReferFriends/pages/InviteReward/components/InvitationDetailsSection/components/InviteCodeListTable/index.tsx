@@ -6,7 +6,6 @@ import {
   Spinner,
   Stack,
   Table,
-  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -15,6 +14,7 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 
 import { useSortableData } from './hooks/useSortableData';
+import { useTableAvailableWidth } from './hooks/useTableAvailableWidth';
 import { useTableColumns } from './hooks/useTableColumns';
 
 interface IInviteCodeListTableProps {
@@ -29,15 +29,17 @@ export function InviteCodeListTable({
   refetch,
 }: IInviteCodeListTableProps) {
   const intl = useIntl();
-  const { gtXl } = useMedia();
+  const { containerWidth, onLayout } = useTableAvailableWidth();
+
   const hasCodeListData = Boolean(codeListData);
   const isInitialLoading = !hasCodeListData && (isLoading ?? true);
 
   // Sort data
   const { sortedData, handleSortChange } = useSortableData(codeListData?.items);
 
-  // Define columns
-  const { columns, handleHeaderRow } = useTableColumns(
+  // Define columns with container width
+  const { columns, handleHeaderRow, shouldUseFlex } = useTableColumns(
+    containerWidth,
     handleSortChange,
     refetch,
   );
@@ -62,10 +64,10 @@ export function InviteCodeListTable({
     );
   }
 
-  // Table with horizontal scroll support
-  return gtXl ? (
-    // Desktop: simple table
-    <Stack flex={1}>
+  // Table with horizontal scroll support when needed
+  return shouldUseFlex ? (
+    // Flex layout: table fits in container, no scroll needed
+    <Stack flex={1} onLayout={onLayout}>
       <Table<IInviteCodeListItem>
         dataSource={sortedData}
         columns={columns}
@@ -76,7 +78,7 @@ export function InviteCodeListTable({
       />
     </Stack>
   ) : (
-    // Mobile: horizontal scroll view
+    // Fixed width: table needs horizontal scroll
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator
@@ -84,6 +86,7 @@ export function InviteCodeListTable({
       contentContainerStyle={{
         flexGrow: 1,
       }}
+      onLayout={onLayout}
     >
       <Table<IInviteCodeListItem>
         dataSource={sortedData}

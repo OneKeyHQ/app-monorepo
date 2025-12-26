@@ -1,8 +1,9 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
-
 import { Anchor, Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
+
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 export function FirmwareVersionProgressBar({
   fromVersion = '',
@@ -42,19 +43,15 @@ export function FirmwareVersionProgressText({
 }) {
   const { versionValid, unknownMessage } = useFirmwareVersionValid();
 
-  let fromFirmwareTypeStr = '';
-  if (fromFirmwareType === EFirmwareType.BitcoinOnly) {
-    fromFirmwareTypeStr = 'Bitcoin Only ';
-  } else if (fromFirmwareType === EFirmwareType.Universal) {
-    fromFirmwareTypeStr = 'Universal ';
-  }
+  const formatLabel = (firmwareType?: EFirmwareType) =>
+    deviceUtils.getFirmwareTypeLabelByFirmwareType({
+      firmwareType,
+      returnUniversal: true,
+      displayFormat: 'withSpace',
+    });
 
-  let toFirmwareTypeStr = '';
-  if (toFirmwareType === EFirmwareType.BitcoinOnly) {
-    toFirmwareTypeStr = 'Bitcoin Only ';
-  } else if (toFirmwareType === EFirmwareType.Universal) {
-    toFirmwareTypeStr = 'Universal ';
-  }
+  const fromFirmwareTypeStr = formatLabel(fromFirmwareType);
+  const toFirmwareTypeStr = formatLabel(toFirmwareType);
 
   return (
     <>

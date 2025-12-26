@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
-import { Page, Stack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Page,
+  SizableText,
+  Stack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -32,10 +40,7 @@ function PerpLayout() {
   return <PerpMobileLayout />;
 }
 
-console.log('PerpContent js loaded');
-
 function PerpContent() {
-  console.log('PerpContent render');
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 143 : 92,
   );
@@ -44,11 +49,19 @@ function PerpContent() {
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);
+  const intl = useIntl();
 
   const header = (
     <TabPageHeader
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Perp}
+      customHeaderLeftItems={
+        platformEnv.isWebDappMode ? undefined : (
+          <SizableText size="$headingXl">
+            {intl.formatMessage({ id: ETranslations.global_perp })}
+          </SizableText>
+        )
+      }
       customHeaderRightItems={
         <PerpsAccountSelectorProviderMirror>
           <PerpsProviderMirror>
@@ -91,7 +104,7 @@ function PerpContent() {
   );
 }
 
-export function PerpView() {
+function PerpView() {
   const isFocused = useIsFocused();
   const [isMounted, setIsMounted] = useState(false);
   const isMountedRef = useRef(false);
@@ -107,7 +120,7 @@ export function PerpView() {
   if (!isMounted) {
     return null;
   }
-  return shouldOpenExpandExtPerp() ? (
+  return shouldOpenExpandExtPerp ? (
     <ExtPerp />
   ) : (
     <>
@@ -117,10 +130,15 @@ export function PerpView() {
   );
 }
 
+function ExtPerpNull() {
+  const isFocused = useIsFocused();
+  return isFocused ? <ExtPerp /> : null;
+}
+
 export default function Perp() {
   const canRenderPerp = usePerpFeatureGuard();
   if (!canRenderPerp) {
-    return null;
+    return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
   }
 
   return (

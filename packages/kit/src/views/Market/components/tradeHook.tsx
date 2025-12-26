@@ -277,7 +277,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       // Navigate to protocols list page if multiple providers
       void EarnNavigation.pushToEarnProtocols(navigation, {
         symbol: normalizedSymbol,
-        filterNetworkId: networkId,
+        // filterNetworkId: networkId,
       });
     }
   }, [createAccountIfNotExists, navigation, networkId, symbol]);

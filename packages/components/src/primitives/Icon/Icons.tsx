@@ -84,6 +84,7 @@ const icons = {
   FilecoinIllus: () => import("./react/illus/Filecoin"),
   GasIllus: () => import("./react/illus/Gas"),
   GnosisChainIllus: () => import("./react/illus/GnosisChain"),
+  GoogleIllus: () => import("./react/illus/Google"),
   GooglePayIllus: () => import("./react/illus/GooglePay"),
   HandDrawRightDownArrowIllus: () =>
     import("./react/illus/HandDrawRightDownArrow"),
@@ -112,6 +113,9 @@ const icons = {
   NexaIllus: () => import("./react/illus/Nexa"),
   NftPegIllus: () => import("./react/illus/NftPeg"),
   OkxChainIllus: () => import("./react/illus/OkxChain"),
+  OnekeyBrandingPillIllus: () => import("./react/illus/OnekeyBrandingPill"),
+  OnekeyBrandingPillDarkIllus: () =>
+    import("./react/illus/OnekeyBrandingPillDark"),
   OnekeyLogoIllus: () => import("./react/illus/OnekeyLogo"),
   OnekeyTextIllus: () => import("./react/illus/OnekeyText"),
   OnekeyTextOnlyIllus: () => import("./react/illus/OnekeyTextOnly"),
@@ -257,6 +261,7 @@ const icons = {
       : import("./react/outline/ArrowTriangleRight"),
   ArrowTriangleTopOutline: () => import("./react/outline/ArrowTriangleTop"),
   AtSignOutline: () => import("./react/outline/AtSign"),
+  AtomOutline: () => import("./react/outline/Atom"),
   AttachmentOutline: () => import("./react/outline/Attachment"),
   AutoFlashOutline: () => import("./react/outline/AutoFlash"),
   AutoPageSizeOutline: () => import("./react/outline/AutoPageSize"),
@@ -1197,7 +1202,6 @@ const icons = {
       ? import("./react/solid/ArrowTriangleLeft")
       : import("./react/solid/ArrowTriangleRight"),
   ArrowTriangleTopSolid: () => import("./react/solid/ArrowTriangleTop"),
-  AtomSolid: () => import("./react/solid/Atom"),
   AtSignSolid: () => import("./react/solid/AtSign"),
   AttachmentSolid: () => import("./react/solid/Attachment"),
   AutoFlashSolid: () => import("./react/solid/AutoFlash"),
@@ -1664,6 +1668,7 @@ const icons = {
   ItalicSolid: () => import("./react/solid/Italic"),
   JudgeGavelSolid: () => import("./react/solid/JudgeGavel"),
   KeySolid: () => import("./react/solid/Key"),
+  Key2Solid: () => import("./react/solid/Key2"),
   KeyboardConnectSolid: () => import("./react/solid/KeyboardConnect"),
   KeyboardDownSolid: () => import("./react/solid/KeyboardDown"),
   KeyboardUpSolid: () => import("./react/solid/KeyboardUp"),

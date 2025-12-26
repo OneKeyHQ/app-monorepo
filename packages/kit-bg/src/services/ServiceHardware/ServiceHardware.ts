@@ -487,6 +487,14 @@ class ServiceHardware extends ServiceBase {
               EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
               undefined,
             );
+          } else if (
+            newUiRequestType ===
+            EHardwareUiStateAction.REQUEST_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE
+          ) {
+            appEventBus.emit(
+              EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
+              undefined,
+            );
           } else {
             if (newUiRequestType === ('ui-device_progress' as any)) {
               console.log('ui-device_progress', originEvent);
@@ -617,8 +625,10 @@ class ServiceHardware extends ServiceBase {
     // return Promise.reject(deviceError);
   }
 
-  private connectDevice = (params: IDeviceGetFeaturesOptions) =>
-    this.getFeaturesWithoutCache(params);
+  @backgroundMethod()
+  async connectDevice(params: IDeviceGetFeaturesOptions) {
+    return this.getFeaturesWithoutCache(params);
+  }
 
   private handlerConnectError = (e: any) => {
     const error: deviceErrors.OneKeyHardwareError | undefined =
@@ -1227,6 +1237,7 @@ class ServiceHardware extends ServiceBase {
       | {
           fw_vendor: string | undefined;
           capabilities: number[] | undefined;
+          $app_firmware_type?: EFirmwareType;
         }
       | undefined;
     const capabilityBitcoinLike = 2;
@@ -1247,6 +1258,7 @@ class ServiceHardware extends ServiceBase {
         bitcoinOnlyFlag = {
           fw_vendor: bitcoinOnlyFwVendor,
           capabilities: newCapabilities,
+          $app_firmware_type: EFirmwareType.BitcoinOnly,
         };
       } else if (
         updateFirmwareInfo?.fromFirmwareType === EFirmwareType.BitcoinOnly &&
@@ -1267,6 +1279,7 @@ class ServiceHardware extends ServiceBase {
         bitcoinOnlyFlag = {
           fw_vendor: undefined,
           capabilities,
+          $app_firmware_type: EFirmwareType.Universal,
         };
       }
     } catch (error) {
@@ -1837,19 +1850,22 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async isBtcOnlyWallet({ walletId }: { walletId: string }) {
-    if (!accountUtils.isHwWallet({ walletId })) {
-      return false;
+    if (
+      accountUtils.isHwWallet({ walletId }) ||
+      accountUtils.isQrWallet({ walletId })
+    ) {
+      try {
+        const device = await this.backgroundApi.serviceAccount.getWalletDevice({
+          walletId,
+        });
+        return await deviceUtils.isBtcOnlyFirmware({
+          features: device?.featuresInfo,
+        });
+      } catch {
+        return false;
+      }
     }
-    try {
-      const device = await this.backgroundApi.serviceAccount.getWalletDevice({
-        walletId,
-      });
-      return await deviceUtils.isBtcOnlyFirmware({
-        features: device?.featuresInfo,
-      });
-    } catch {
-      return false;
-    }
+    return false;
   }
 
   @backgroundMethod()

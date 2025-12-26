@@ -25,5 +25,3 @@ export function HistoryIconButton() {
     />
   );
 }
-
-export default HistoryIconButton;

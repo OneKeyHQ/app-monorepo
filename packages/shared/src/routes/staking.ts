@@ -74,6 +74,7 @@ export type IModalStakingParamList = {
     amount?: string;
     fromPage?: EModalStakingRoutes.WithdrawOptions;
     onSuccess?: () => void;
+    allowPartialWithdraw?: boolean;
   };
   [EModalStakingRoutes.Claim]: IDetailPageInfoParams &
     IDetailPageInfoParams & {
@@ -82,8 +83,13 @@ export type IModalStakingParamList = {
       identity?: string;
       claimableAmount?: string;
     };
-  [EModalStakingRoutes.ClaimOptions]: IDetailPageInfoParams;
-  [EModalStakingRoutes.WithdrawOptions]: IDetailPageInfoParams;
+  [EModalStakingRoutes.ClaimOptions]: IDetailPageInfoParams & {
+    onSuccess?: () => void;
+  };
+  [EModalStakingRoutes.WithdrawOptions]: IDetailPageInfoParams & {
+    onSuccess?: () => void;
+    isInModalContext?: boolean;
+  };
   [EModalStakingRoutes.AssetProtocolList]: IBaseRouteParams & {
     symbol: string;
     filter?: boolean;

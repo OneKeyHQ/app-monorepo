@@ -68,7 +68,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
       $md={{
         maxWidth: '$80',
       }}
-      {...props?.contentContainerProps}
+      {...(props?.contentContainerProps as any)}
     >
       {intl.formatMessage(
         { id: ETranslations.terms_privacy },

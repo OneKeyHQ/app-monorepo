@@ -61,12 +61,15 @@ export function usePerpTradesHistory() {
 
   const fills: IFill[] = tradesData?.fills ?? [];
   const isLoaded: boolean = tradesData?.isLoaded ?? false;
+  const hasAccountAddress = Boolean(currentAccount?.accountAddress);
 
   return {
     trades: fills,
     currentListPage,
     setCurrentListPage,
-    isLoading: !isLoaded,
+    // If current account has no Perp address (unsupported or not created yet),
+    // show empty state instead of skeleton loading.
+    isLoading: hasAccountAddress ? !isLoaded : false,
   };
 }
 

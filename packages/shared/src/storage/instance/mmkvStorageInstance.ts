@@ -1,5 +1,4 @@
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
 
-export default new MMKV({
-  id: `onekey-app-setting`,
-});
+const mmkvStorageInstance = createMMKV({ id: `onekey-app-setting` });
+export default mmkvStorageInstance;

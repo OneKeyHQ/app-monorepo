@@ -27,6 +27,7 @@ import {
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useOrderConfirm } from '../../hooks';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
@@ -160,7 +161,8 @@ function SideButtonInternal({
       .decimalPlaces(szDecimals, BigNumber.ROUND_DOWN)
       .toFixed(szDecimals);
     const symbol = activeAsset?.coin || '';
-    return `${sizeValue} ${symbol}`;
+    const displayName = symbol ? parseDexCoin(symbol).displayName : '';
+    return `${sizeValue} ${displayName}`;
   }, [
     orderValue,
     tradingPreferences.sizeInputUnit,

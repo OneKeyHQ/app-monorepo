@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import PurchasesReactNative, { LOG_LEVEL } from 'react-native-purchases';
 
 import { Dialog, Toast } from '@onekeyhq/components';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -20,7 +21,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
-import { usePrimeAuthV2 } from './usePrimeAuthV2';
 
 import type {
   IPackage,
@@ -39,7 +39,7 @@ void (async () => {
 
 export function usePrimePaymentMethods(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
-  const { isReady: isAuthReady, user } = usePrimeAuthV2();
+  const { isReady: isAuthReady, user } = useOneKeyAuth();
 
   const [, setPrimePersistAtom] = usePrimePersistAtom();
   const intl = useIntl();
@@ -67,26 +67,26 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   }, []);
 
   const loginPurchasesSdk = useCallback(async () => {
-    if (!user?.privyUserId) {
+    if (!user?.onekeyUserId) {
       throw new OneKeyLocalError('User not logged in');
     }
-    if (user?.privyUserId) {
+    if (user?.onekeyUserId) {
       try {
-        await PurchasesReactNative.logIn(user.privyUserId);
+        await PurchasesReactNative.logIn(user.onekeyUserId);
       } catch (e) {
         console.error(e);
       }
       try {
-        await PurchasesReactNative.logIn(user.privyUserId);
+        await PurchasesReactNative.logIn(user.onekeyUserId);
       } catch (e) {
         console.error(e);
       }
     }
     const appUserId = await PurchasesReactNative.getAppUserID();
-    if (appUserId !== user?.privyUserId) {
+    if (appUserId !== user?.onekeyUserId) {
       throw new OneKeyLocalError('AppUserId not match');
     }
-  }, [user?.privyUserId]);
+  }, [user?.onekeyUserId]);
 
   const restorePurchases = useCallback(async () => {
     try {

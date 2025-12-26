@@ -23,6 +23,16 @@ interface IReward {
   perp?: IRewardBalance[];
 }
 
+export interface IWithdrawAddress {
+  _id: string;
+  networkId: string;
+  userId: string;
+  __v: number;
+  address: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface IInviteSummary {
   faqs: Array<{
     q: string;
@@ -30,10 +40,10 @@ export interface IInviteSummary {
   }>;
   inviteUrl: string;
   inviteCode: string;
-  withdrawAddresses: {
-    networkId: string;
-    address: string;
-  }[];
+  isSuspended?: boolean;
+  suspensionNotice?: string;
+  suspensionContactLabel?: string;
+  withdrawAddresses: IWithdrawAddress[];
   enabledNetworks: string[];
   totalRewards: string;
   levelPercent: string;
@@ -388,7 +398,7 @@ export interface IUpdateInviteCodeNoteResponse {
 // Export functionality types
 export enum EExportSubject {
   HardwareSales = 'HardwareSales',
-  Defi = 'Defi',
+  Onchain = 'Onchain',
   Perp = 'Perp',
 }
 
@@ -450,3 +460,16 @@ export interface IPerpsInviteeRewardsResponse {
   totalBonus: string;
   undistributed: string;
 }
+
+// Batch check wallet bound referral code types
+export interface IBatchCheckWalletItem {
+  networkId: string;
+  address: string;
+}
+
+export interface IBatchCheckWalletParams {
+  items: IBatchCheckWalletItem[];
+}
+
+// Response is a map where key is "networkId:address" and value is boolean
+export type IBatchCheckWalletResponse = Record<string, boolean>;

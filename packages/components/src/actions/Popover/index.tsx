@@ -16,9 +16,9 @@ import {
 
 import { Dimensions } from 'react-native';
 
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   TMPopover,
-  useMedia,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 import type {
@@ -593,6 +593,7 @@ function Tooltip({
   placement = 'bottom',
   iconSize = '$4',
   renderContent,
+  triggerProps,
 }: IPopoverTooltip & {
   iconSize?: IIconButtonProps['iconSize'];
 }) {
@@ -606,6 +607,7 @@ function Tooltip({
           iconSize={iconSize}
           icon="InfoCircleOutline"
           variant="tertiary"
+          {...triggerProps}
         />
       }
       renderContent={

@@ -33,8 +33,15 @@ const ClaimOptions = () => {
     EModalStakingRoutes.ClaimOptions
   >();
   const appNavigation = useAppNavigation();
-  const { accountId, networkId, protocolInfo, tokenInfo, symbol, provider } =
-    appRoute.params;
+  const {
+    accountId,
+    networkId,
+    protocolInfo,
+    tokenInfo,
+    symbol,
+    provider,
+    onSuccess: externalOnSuccess,
+  } = appRoute.params;
 
   const finalProvider = provider || protocolInfo?.provider || '';
   const finalSymbol = symbol || tokenInfo?.token.symbol || '';
@@ -100,6 +107,9 @@ const ClaimOptions = () => {
               identity: item.id,
             });
           }
+          // Trigger external onSuccess callback (from ManagePositionContent)
+          // This ensures the entire modal stack is closed when in modal context
+          externalOnSuccess?.();
         },
       });
     },
@@ -114,6 +124,7 @@ const ClaimOptions = () => {
       appNavigation,
       accountId,
       networkId,
+      externalOnSuccess,
     ],
   );
 

@@ -238,12 +238,7 @@ function ChartSection({
         </XStack>
       ) : null}
       {/* Chart component */}
-      <ApyChart
-        networkId={networkId}
-        symbol={symbol}
-        provider={provider}
-        vault={vault}
-      />
+      <ApyChart apyHistory={apyHistory} />
     </YStack>
   );
 }
@@ -701,15 +696,15 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       tabRoute={ETabRoutes.Earn}
       showBackButton
       header={
-        <XStack ml={gtMd ? 'auto' : '0'}>
+        <XStack ml={gtMd ? 'auto' : '0'} pr="$2">
           <ManagersSection managers={detailInfo?.managers} noPadding />
         </XStack>
       }
       customHeaderRightItems={headerRight}
       footer={pageFooter}
     >
-      <XStack $gtMd={{ flexDirection: 'row' }} flexDirection="column">
-        <Stack w="100%" $gtMd={{ width: '65%' }}>
+      <XStack flexDirection={gtMd ? 'row' : 'column'}>
+        <Stack w="100%" width={gtMd ? '65%' : undefined}>
           <DetailsPart
             detailInfo={detailInfo}
             tokenInfo={tokenInfo}
@@ -724,7 +719,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           />
         </Stack>
         {gtMd ? (
-          <Stack $gtMd={{ width: '35%' }}>
+          <Stack width={gtMd ? '35%' : undefined}>
             <ManagePositionPart
               networkId={networkId}
               symbol={symbol}

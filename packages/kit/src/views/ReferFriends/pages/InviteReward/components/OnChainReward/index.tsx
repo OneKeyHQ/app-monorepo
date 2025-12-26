@@ -33,7 +33,7 @@ export function OnChainReward({ onChain }: IOnChainRewardProps) {
   return (
     <Card.Container flex={1}>
       <Card.Title
-        icon="AtomSolid"
+        icon="AtomOutline"
         title={onChain.title}
         description={intl.formatMessage({
           id: ETranslations.referral_onchain_desc,

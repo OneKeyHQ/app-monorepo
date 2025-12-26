@@ -1,13 +1,8 @@
-import { useEffect, useState } from 'react';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, XStack } from '@onekeyhq/components';
+import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,
@@ -29,10 +24,12 @@ export function AccountSelectorStack({
       <Page.Body>
         <XStack flex={1}>
           {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
-          <AccountSelectorWalletListSideBar
-            num={num}
-            hideNonBackedUpWallet={hideNonBackedUpWallet}
-          />
+          {platformEnv.isWebDappMode ? null : (
+            <AccountSelectorWalletListSideBar
+              num={num}
+              hideNonBackedUpWallet={hideNonBackedUpWallet}
+            />
+          )}
 
           {/* <WalletDetailsPerfTest num={num} /> */}
           <WalletDetails num={num} />

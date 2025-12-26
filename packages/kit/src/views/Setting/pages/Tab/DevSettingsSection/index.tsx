@@ -40,6 +40,11 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  isDualScreenDevice,
+  isRawSpanning,
+  isSpanning,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import {
   requestPermissionsAsync,
@@ -68,7 +73,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
-import { exportLogs } from '../exportLogs';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
@@ -397,6 +401,9 @@ const BaseDevSettingsSection = () => {
                       channel: globalThis?.desktopApi?.channel,
                       isMas: globalThis?.desktopApi?.isMas,
                       systemVersion: globalThis?.desktopApi?.systemVersion,
+                      isDualScreenDevice: isDualScreenDevice(),
+                      isRawSpanning: isRawSpanning(),
+                      isSpanning: isSpanning(),
                       ...platformEnv,
                     },
                   });
@@ -664,21 +671,6 @@ const BaseDevSettingsSection = () => {
                   Dialog.cancel({
                     title: 'Image',
                     renderContent: <ImagePanel />,
-                  });
-                }}
-              />
-
-              <SectionPressItem
-                icon="AppleBrand"
-                title="In-App-Purchase(Mac)"
-                subtitle="查看 Mac 内购"
-                onPress={async () => {
-                  const products =
-                    await globalThis.desktopApiProxy.inAppPurchase.getProducts({
-                      productIDs: ['Prime_Yearly', 'Prime_Monthly'],
-                    });
-                  Dialog.debugMessage({
-                    debugMessage: products,
                   });
                 }}
               />
@@ -1136,12 +1128,21 @@ const BaseDevSettingsSection = () => {
                 }}
               />
               <SectionPressItem
+                icon="PeopleOutline"
+                title="AuthGallery"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevAuthGalleryModal,
+                  );
+                }}
+              />
+              <SectionPressItem
                 icon="KeyOutline"
                 title="KeylessWalletGallery"
                 onPress={() => {
-                  // navigation.push(
-                  //   EModalSettingRoutes.SettingDevKeylessWalletGallery,
-                  // );
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevKeylessWalletGallery,
+                  );
                 }}
               />
             </Accordion.Content>
@@ -1163,6 +1164,33 @@ const BaseDevSettingsSection = () => {
                 name="allowAddSameHDWallet"
                 title="允许添加相同助记词 HD 钱包"
                 subtitle=""
+              >
+                <Switch size={ESwitchSize.small} />
+              </SectionFieldItem>
+
+              <SectionFieldItem
+                icon="CloudOutline"
+                name="isKeylessWalletFeatureEnabled"
+                title="启用 Keyless Wallet"
+                subtitle="启用无私钥钱包功能"
+              >
+                <Switch size={ESwitchSize.small} />
+              </SectionFieldItem>
+
+              <SectionFieldItem
+                icon="WalletOutline"
+                name="allowCreateKeylessWalletOnWeb"
+                title="允许网页端创建 Keyless 钱包"
+                subtitle="在网页端 mock 云盘信息"
+              >
+                <Switch size={ESwitchSize.small} />
+              </SectionFieldItem>
+
+              <SectionFieldItem
+                icon="WalletOutline"
+                name="allowDeleteKeylessKey"
+                title="允许删除 Keyless Key"
+                subtitle="允许删除 deviceKey 和 authKey"
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
@@ -1207,6 +1235,21 @@ const BaseDevSettingsSection = () => {
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
+
+              <SectionPressItem
+                icon="AppleBrand"
+                title="In-App-Purchase(Mac)"
+                subtitle="查看 Mac 内购"
+                onPress={async () => {
+                  const products =
+                    await globalThis.desktopApiProxy.inAppPurchase.getProducts({
+                      productIDs: ['Prime_Yearly', 'Prime_Monthly'],
+                    });
+                  Dialog.debugMessage({
+                    debugMessage: products,
+                  });
+                }}
+              />
 
               <SectionFieldItem
                 icon="KeyOutline"

@@ -13,12 +13,9 @@ import {
   useIsWebHorizontalLayout,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  HeaderButtonGroup,
-  HeaderIconButton,
-} from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
-import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
+import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
@@ -27,17 +24,16 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
+import { MoreActionButton } from '../MoreActionButton';
 
 import {
   DownloadButton,
   GiftAction,
   HeaderNotificationIconButton,
   LanguageButton,
-  OneKeyIdButton,
   ThemeButton,
   WalletConnectionForWeb,
 } from './components';
-import { MoreActionButton } from './MoreActionButton';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function MoreAction() {
@@ -54,7 +50,7 @@ export function SelectorTrigger() {
   );
 }
 
-function DepositAction() {
+export function DepositAction() {
   const { gtMd } = useMedia();
   const intl = useIntl();
   return gtMd ? null : (
@@ -96,7 +92,7 @@ export function SearchInput({
     size = platformEnv.isWeb ? gtXl : gtLg;
   }
 
-  return <UniversalSearchInput size={size ? 'large' : 'small'} />;
+  return <LegacyUniversalSearchInput size={size ? 'large' : 'small'} />;
 }
 
 export function HeaderRight({
@@ -126,13 +122,8 @@ export function HeaderRight({
 
     const fixedItems = (
       <>
-        {isHorizontal ? (
-          <HeaderNotificationIconButton testID="header-right-notification" />
-        ) : null}
+        <HeaderNotificationIconButton testID="header-right-notification" />
         <MoreAction />
-        {isHorizontal ? (
-          <OneKeyIdButton testID="header-right-onekey-id" />
-        ) : null}
         {isHorizontal && platformEnv.isWebDappMode ? <DownloadButton /> : null}
         {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
           <LanguageButton />
@@ -211,16 +202,24 @@ export function HeaderRight({
           </>
         );
       case ETabRoutes.Discovery:
-        return selectedHeaderTab === ETranslations.global_earn ? (
-          earnItems
-        ) : (
+        if (selectedHeaderTab === ETranslations.global_earn) {
+          return (
+            <>
+              <GiftAction copyAsUrl />
+              <WalletConnectionForWeb tabRoute={tabRoute} />
+            </>
+          );
+        }
+        if (selectedHeaderTab === ETranslations.global_market) {
+          return <WalletConnectionForWeb tabRoute={tabRoute} />;
+        }
+        return (
           <>
             <HistoryIconButton />
             {isHorizontal || !platformEnv.isNative ? undefined : (
               <TabCountButton testID="browser-header-tabs" />
             )}
             <WalletConnectionForWeb tabRoute={tabRoute} />
-            {fixedItems}
           </>
         );
       case ETabRoutes.Earn:

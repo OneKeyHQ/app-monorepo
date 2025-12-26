@@ -1,10 +1,14 @@
 import { useCallback } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
-import * as ExpoDevice from 'expo-device';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, useMedia } from '@onekeyhq/components';
+import {
+  Page,
+  useIsNativeTablet,
+  useMedia,
+  useOrientation,
+} from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -29,8 +33,19 @@ import { MobileLayout } from './layouts/MobileLayout';
 
 function MarketDetail({
   route,
-}: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
-  const { tokenAddress, network, isNative } = route.params;
+}: IPageScreenProps<
+  ITabMarketParamList,
+  ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
+>) {
+  const params = route.params as
+    | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
+    | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
+
+  const network = params.network;
+  const isNative = params.isNative;
+  const disableTrade = params.disableTrade;
+  // For MarketNativeDetail route, tokenAddress is undefined, use empty string
+  const tokenAddress = 'tokenAddress' in params ? params.tokenAddress : '';
 
   // Convert shortcode back to full networkId if needed
   // network is a shortcode like 'bsc', convert it to 'evm--56'
@@ -60,7 +75,7 @@ function MarketDetail({
         {media.gtLg && !platformEnv.isNative ? (
           <DesktopLayout />
         ) : (
-          <MobileLayout />
+          <MobileLayout disableTrade={disableTrade} />
         )}
       </Page.Body>
     </Page>
@@ -68,14 +83,16 @@ function MarketDetail({
 }
 
 function MarketDetailV2(
-  props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
+  props: IPageScreenProps<
+    ITabMarketParamList,
+    ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
+  >,
 ) {
+  const isLandscape = useOrientation();
+  const isTablet = useIsNativeTablet();
   useFocusEffect(
     useCallback(() => {
-      if (
-        platformEnv.isExtension ||
-        ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET
-      ) {
+      if (platformEnv.isExtension || (isTablet && isLandscape)) {
         return;
       }
 
@@ -84,7 +101,7 @@ function MarketDetailV2(
       return () => {
         appEventBus.emit(EAppEventBusNames.HideTabBar, false);
       };
-    }, []),
+    }, [isLandscape, isTablet]),
   );
 
   return (

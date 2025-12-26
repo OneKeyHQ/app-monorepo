@@ -1,6 +1,7 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  BaseUSDC,
   BinanceSmartChainLISTA,
   BinanceSmartChainUSDT,
   EMPTY_NATIVE_TOKEN_ADDRESS,
@@ -167,6 +168,38 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      [EEarnProviderEnum.Stakefish]: {
+        supportedSymbols: ['ETH', 'POL'],
+        configs: {
+          ETH: {
+            enabled: true,
+            tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+            displayProfit: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          POL: {
+            ...commonStakeConfigs.POL,
+            claimWithTx: true,
+          },
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().base]: {
+    providers: {
+      [EEarnProviderEnum.Morpho]: {
+        supportedSymbols: ['USDC', 'MORPHO'],
+        configs: {
+          USDC: {
+            enabled: true,
+            tokenAddress: BaseUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+        },
+      },
     },
   },
   [getNetworkIdsMap().sepolia]: {
@@ -175,23 +208,6 @@ const stakingConfig: IStakingConfig = {
         supportedSymbols: ['ETH'],
         configs: {
           ...lidoConfig,
-        },
-      },
-    },
-  },
-  [getNetworkIdsMap().holesky]: {
-    providers: {
-      [EEarnProviderEnum.Everstake]: {
-        supportedSymbols: ['ETH', 'POL'],
-        configs: {
-          ETH: commonStakeConfigs.ETH,
-          POL: commonStakeConfigs.POL,
-        },
-      },
-      [EEarnProviderEnum.Lido]: {
-        supportedSymbols: ['ETH'],
-        configs: {
-          ETH: lidoConfig.ETH,
         },
       },
     },
@@ -212,6 +228,23 @@ const stakingConfig: IStakingConfig = {
             tokenAddress: BinanceSmartChainLISTA,
             displayProfit: true,
             stakingWithApprove: true,
+          },
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().hoodi]: {
+    providers: {
+      [EEarnProviderEnum.Stakefish]: {
+        supportedSymbols: ['ETH'],
+        configs: {
+          ETH: {
+            enabled: true,
+            tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+            displayProfit: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
           },
         },
       },

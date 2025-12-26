@@ -57,6 +57,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -77,6 +78,7 @@ import type {
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
+import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import {
   EInternalDappEnum,
   type IInternalDappTxParams,
@@ -875,7 +877,44 @@ export default class VaultBtc extends VaultBase {
 
     const isBatchTransfer = transfersInfo.length > 1;
 
-    const { utxoList: utxosInfo } = await this._collectUTXOsInfoByApi();
+    let { utxoList: utxosInfo } = await this._collectUTXOsInfoByApi();
+
+    // Coin Control: Filter UTXOs if manually selected
+    const selectedUtxoKeys = transfersInfo[0]?.selectedUtxoKeys;
+    const utxoSelectionStrategy =
+      transfersInfo[0]?.utxoSelectionStrategy ?? EUtxoSelectionStrategy.Default;
+    const totalUtxoCount = utxosInfo.length;
+
+    const hasSelectedUtxos = selectedUtxoKeys && selectedUtxoKeys.length > 0;
+    if (hasSelectedUtxos) {
+      const selectedKeysSet = new Set(selectedUtxoKeys);
+      utxosInfo = utxosInfo.filter((utxo) => {
+        const utxoKey = `${utxo.txid}:${utxo.vout}`;
+        return selectedKeysSet.has(utxoKey);
+      });
+
+      if (utxosInfo.length === 0) {
+        throw new InsufficientBalance({
+          info: {
+            symbol: network.symbol,
+          },
+        });
+      }
+
+      defaultLogger.transaction.send.coinControlSelected({
+        network: network.id,
+        selectedUtxoCount: utxosInfo.length,
+        totalUtxoCount,
+        selectedUtxoKeys,
+      });
+    }
+
+    // Determine if UTXOs should be marked as required (must be used)
+    // ForceSelected: all selected UTXOs must be included in the transaction
+    // Default: coin selector algorithm decides which UTXOs to use
+    const forceUseAllSelectedUtxos =
+      hasSelectedUtxos &&
+      utxoSelectionStrategy === EUtxoSelectionStrategy.ForceSelected;
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
@@ -896,6 +935,7 @@ export default class VaultBtc extends VaultBase {
         address,
         path,
         confirmations,
+        required: forceUseAllSelectedUtxos ? true : undefined,
       }),
     );
 
@@ -974,6 +1014,24 @@ export default class VaultBtc extends VaultBase {
       changeAddress,
       txType,
     });
+
+    if (hasSelectedUtxos) {
+      console.log('Coin Control: Coin selection result', {
+        inputs,
+        outputs,
+        fee,
+        bytes,
+        strategy: utxoSelectionStrategy,
+      });
+      defaultLogger.transaction.send.coinControlResult({
+        network: network.id,
+        inputCount: inputs?.length,
+        outputCount: outputs?.length,
+        fee,
+        txSize: bytes,
+        strategy: utxoSelectionStrategy,
+      });
+    }
 
     return {
       inputs,
@@ -1130,20 +1188,9 @@ export default class VaultBtc extends VaultBase {
     return lookup;
   }
 
-  _collectUTXOsInfoByApi = memoizee(
-    async () => {
+  _collectUTXOsInfoByApiWithCache = memoizee(
+    async (withCheckInscription: boolean) => {
       try {
-        const inscriptionProtection =
-          await this.backgroundApi.serviceSetting.getInscriptionProtection();
-        const checkInscriptionProtectionEnabled =
-          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
-            {
-              networkId: this.networkId,
-              accountId: this.accountId,
-            },
-          );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && inscriptionProtection;
         const { utxoList, frozenUtxoList, allUtxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
@@ -1151,6 +1198,7 @@ export default class VaultBtc extends VaultBase {
             withUTXOList: true,
             withFrozenBalance: true,
             withCheckInscription,
+            withUTXOBlockTime: true,
           });
         if (!utxoList) {
           throw new OneKeyInternalError(
@@ -1174,6 +1222,21 @@ export default class VaultBtc extends VaultBase {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
     },
   );
+
+  async _collectUTXOsInfoByApi() {
+    const inscriptionProtection =
+      await this.backgroundApi.serviceSetting.getInscriptionProtection();
+    const checkInscriptionProtectionEnabled =
+      await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+        {
+          networkId: this.networkId,
+          accountId: this.accountId,
+        },
+      );
+    const withCheckInscription =
+      checkInscriptionProtectionEnabled && inscriptionProtection;
+    return this._collectUTXOsInfoByApiWithCache(withCheckInscription);
+  }
 
   async _getRelPathsToAddressByApi({
     addresses, // addresses in tx.inputs

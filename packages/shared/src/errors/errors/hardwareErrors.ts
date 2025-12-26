@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file */
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EFirmwareType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { get, uniq } from 'lodash';
 
 import {
@@ -160,10 +160,19 @@ export class UserCancelFromOutside extends OneKeyHardwareError {
 
 export class UnknownMethod extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
+    const firmwareType = get<string | undefined>(
+      props?.payload?.params,
+      'firmwareType',
+      undefined,
+    );
+    let key = ETranslations.hardware_unknown_message_error;
+    if (firmwareType === EFirmwareType.BitcoinOnly) {
+      key = ETranslations.hardware_unknown_message_error_bitcoin_only;
+    }
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UnknownMethod',
-        defaultKey: ETranslations.hardware_unknown_message_error,
+        defaultKey: key,
       }),
     );
   }

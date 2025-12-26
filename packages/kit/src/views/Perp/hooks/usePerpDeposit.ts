@@ -268,7 +268,8 @@ const usePerpDeposit = (
       }
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (e?.cause !== ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL) {
+      const cause = e?.cause || e?.data?.cause;
+      if (cause !== ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL) {
         setPerpDepositQuoteLoading(false);
         setPerpDepositQuote(undefined);
         throw e;

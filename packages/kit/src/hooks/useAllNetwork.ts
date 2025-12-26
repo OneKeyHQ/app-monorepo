@@ -102,6 +102,7 @@ function useAllNetworkRequests<T>(params: {
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
   isNFTRequests?: boolean;
+  isDeFiRequests?: boolean;
   disabled?: boolean;
   interval?: number;
   shouldAlwaysFetch?: boolean;
@@ -121,6 +122,7 @@ function useAllNetworkRequests<T>(params: {
     accountId?: string;
     networkId?: string;
   }) => Promise<void>;
+  revalidateOnFocus?: boolean;
 }) {
   const {
     accountId: currentAccountId,
@@ -134,10 +136,12 @@ function useAllNetworkRequests<T>(params: {
     abortAllNetworkRequests,
     clearAllNetworkData,
     isNFTRequests,
+    isDeFiRequests,
     disabled,
     shouldAlwaysFetch,
     onStarted,
     onFinished,
+    revalidateOnFocus = false,
   } = params;
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
@@ -191,6 +195,7 @@ function useAllNetworkRequests<T>(params: {
         networkId: currentNetworkId,
         deriveType: undefined,
         nftEnabledOnly: isNFTRequests,
+        DeFiEnabledOnly: isDeFiRequests,
         // disable test network in all networks
         excludeTestNetwork: true,
         // For single network accounts, display all available network data without filtering
@@ -391,6 +396,7 @@ function useAllNetworkRequests<T>(params: {
       isAllNetworks,
       abortAllNetworkRequests,
       isNFTRequests,
+      isDeFiRequests,
       allNetworkAccountsData,
       onStarted,
       onFinished,
@@ -400,7 +406,7 @@ function useAllNetworkRequests<T>(params: {
       allNetworkRequests,
     ],
     {
-      revalidateOnFocus: true,
+      revalidateOnFocus,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       // debounced: 0,
       overrideIsFocused: (isPageFocused) =>

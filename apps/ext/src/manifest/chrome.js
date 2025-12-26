@@ -63,6 +63,7 @@ module.exports = {
     '*://*.onekeycn.com/*',
     '*://*.onekeytest.com/*',
     // '*://*.eth/',
+    'identity',
     'storage',
     'unlimitedStorage',
     'webRequest',
@@ -73,6 +74,18 @@ module.exports = {
     // 'webRequest',
     'idle',
   ],
+  // OAuth2 configuration for chrome.identity.getAuthToken
+  // Required for CHROME_GET_AUTH_TOKEN method
+  'oauth2': {
+    'client_id':
+      process.env.GOOGLE_CHROME_EXTENSION_CLIENT_ID ||
+      '244450898872-foi2b6mtfqus1ed46hu5j03abne6b04s.apps.googleusercontent.com',
+    'scopes': [
+      'openid',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+    ],
+  },
 };
 /*
 action:{

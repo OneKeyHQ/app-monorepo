@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -70,13 +70,8 @@ export function useTransactionsWebSocket({
     };
   }, [networkId, tokenAddress, enabled, currency]);
 
-  // Listen for transaction data updates via the app event bus
-  useEffect(() => {
-    if (!enabled || !onNewTransaction) {
-      return;
-    }
-
-    const handleTransactionUpdate = (payload: {
+  const handleTransactionUpdate = useCallback(
+    (payload: {
       channel: string;
       messageType?: string;
       data: any;
@@ -146,11 +141,26 @@ export function useTransactionsWebSocket({
             type: 'tokenTxs',
           });
 
-          onNewTransaction(transaction);
+          onNewTransaction?.(transaction);
         }
       }
-    };
+    },
+    [onNewTransaction, tokenAddress],
+  );
 
+  // Listen for transaction data updates via the app event bus
+  useEffect(() => {
+    if (!enabled || !onNewTransaction) {
+      appEventBus.off(
+        EAppEventBusNames.MarketWSDataUpdate,
+        handleTransactionUpdate,
+      );
+      return;
+    }
+    appEventBus.off(
+      EAppEventBusNames.MarketWSDataUpdate,
+      handleTransactionUpdate,
+    );
     appEventBus.on(
       EAppEventBusNames.MarketWSDataUpdate,
       handleTransactionUpdate,
@@ -162,5 +172,11 @@ export function useTransactionsWebSocket({
         handleTransactionUpdate,
       );
     };
-  }, [networkId, tokenAddress, enabled, onNewTransaction]);
+  }, [
+    networkId,
+    tokenAddress,
+    enabled,
+    onNewTransaction,
+    handleTransactionUpdate,
+  ]);
 }

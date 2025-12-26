@@ -262,9 +262,4 @@ export default class ServiceBase {
   async showToast(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
     appEventBus.emit(EAppEventBusNames.ShowToast, params);
   }
-
-  @backgroundMethod()
-  async showToast2(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
-    appEventBus.emit(EAppEventBusNames.ShowToast, params);
-  }
 }

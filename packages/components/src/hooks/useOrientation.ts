@@ -3,13 +3,19 @@ import { useEffect, useState } from 'react';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Dimensions } from 'react-native';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import {
+  isDualScreenDevice,
+  useIsSpanningInDualScreen,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const useOrientation = () => {
   const [isLandscape, setIsLandscape] = useState(
     Dimensions.get('window').width > Dimensions.get('window').height,
   );
+
+  const isSpanning = useIsSpanningInDualScreen();
 
   useEffect(() => {
     const handleOrientationChange = (
@@ -31,10 +37,8 @@ export const useOrientation = () => {
     };
   }, []);
 
-  return isLandscape;
+  return isDualScreenDevice() ? isSpanning : isLandscape;
 };
-
-export const useIsIpadLandscape = () => false;
 
 export const useIsWebHorizontalLayout = () => {
   const { gtMd } = useMedia();
