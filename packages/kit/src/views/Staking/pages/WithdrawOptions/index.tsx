@@ -40,6 +40,7 @@ const WithdrawOptions = () => {
     protocolInfo,
     tokenInfo,
     onSuccess: externalOnSuccess,
+    isInModalContext,
   } = appRoute.params;
   const symbol = tokenInfo?.token.symbol || '';
   const provider = protocolInfo?.provider || '';
@@ -76,7 +77,12 @@ const WithdrawOptions = () => {
         amount: item.amount,
         fromPage: EModalStakingRoutes.WithdrawOptions,
         allowPartialWithdraw: stakingConfig?.allowPartialWithdraw,
-        onSuccess: externalOnSuccess,
+        onSuccess: () => {
+          if (!isInModalContext) {
+            appNavigation.popStack();
+          }
+          externalOnSuccess?.();
+        },
       });
     },
     [
@@ -87,6 +93,7 @@ const WithdrawOptions = () => {
       tokenInfo,
       stakingConfig?.allowPartialWithdraw,
       externalOnSuccess,
+      isInModalContext,
     ],
   );
 
