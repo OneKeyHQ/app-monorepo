@@ -35,7 +35,6 @@ export const useIPadModalPageSizeChange = platformEnv.isNativeIOSPad
 export const useIPadModalPageWidth = platformEnv.isNativeIOSPad
   ? () => {
       const layout = useContext(iPadModalPageContext);
-      console.log('layout-----', layout);
       return layout?.width;
     }
   : () => {
