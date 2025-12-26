@@ -14,7 +14,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
-import HistoryIconButton from '../../views/Discovery/pages/components/HistoryIconButton';
+import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
