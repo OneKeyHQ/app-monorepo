@@ -411,10 +411,46 @@ export function useKeylessWallet() {
     ],
   );
 
+  const enableKeylessWalletV2 = useCallback(async () => {
+    if (enableKeylessWalletLoadingRef.current) {
+      return;
+    }
+    await errorToastUtils.withErrorAutoToast(async () => {
+      try {
+        enableKeylessWalletLoadingRef.current = true;
+        setEnableKeylessWalletLoading(true);
+
+        const exists =
+          await backgroundApiProxy.serviceAccount.isKeylessWalletExists();
+        if (exists) {
+          Dialog.show({
+            title: 'Keyless Wallet',
+            description:
+              'You already have a Keyless Wallet on this device. No need to create another one.',
+            showCancelButton: false,
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_got_it,
+            }),
+          });
+        } else {
+          navigation.navigate(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
+            params: {
+              screen: EOnboardingPagesV2.OneKeyIDLogin,
+            },
+          });
+        }
+      } finally {
+        setEnableKeylessWalletLoading(false);
+      }
+    });
+  }, [intl, navigation]);
+
   return {
     ...methods,
     // TODO handleKeylessWalletClick
     enableKeylessWallet,
+    enableKeylessWalletV2,
     enableKeylessWalletLoading,
   };
 }

@@ -114,7 +114,7 @@ const PasswordSetup = ({
     setTimeout(() => {
       form.setFocus('confirmPassCode');
     }, 150);
-  }, [form]);
+  }, [form, onStepChange]);
 
   const clearPasscodeTimeOut = useCallback(() => {
     setPassCodeConfirmClear(false);

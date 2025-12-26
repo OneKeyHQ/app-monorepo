@@ -379,6 +379,15 @@ class ServiceAccount extends ServiceBase {
     return localDb.getDevice(dbDeviceId);
   }
 
+  @backgroundMethod()
+  async isKeylessWalletExists(): Promise<boolean> {
+    if (process.env.NODE_ENV !== 'production') {
+      await timerUtils.wait(1500);
+    }
+    const { wallets } = await this.getAllWallets();
+    return wallets.some((wallet) => wallet.isKeyless);
+  }
+
   async getAllWallets(
     params: { refillWalletInfo?: boolean; excludeKeylessWallet?: boolean } = {},
   ) {

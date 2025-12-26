@@ -155,6 +155,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   dbIndexedAccounts?: IDBIndexedAccount[]; // readonly field
   isTemp?: boolean;
   isMocked?: boolean;
+  isKeyless?: boolean;
   passphraseState?: string;
   walletNo: number;
   walletOrderSaved?: number; // db field
