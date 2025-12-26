@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useFocusEffect } from '@react-navigation/core';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -13,14 +15,16 @@ export const shouldOpenExpandExtPerp = !!(
 
 export function ExtPerp() {
   const navigation = useAppNavigation();
-  useFocusEffect(() => {
-    if (shouldOpenExpandExtPerp) {
-      void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
-      setTimeout(() => {
-        navigation.navigate(ETabRoutes.Home);
-        // window.close();
-      }, 300);
-    }
-  });
+  useFocusEffect(
+    useCallback(() => {
+      if (shouldOpenExpandExtPerp) {
+        void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
+        setTimeout(() => {
+          navigation.navigate(ETabRoutes.Home);
+          // window.close();
+        }, 300);
+      }
+    }, [navigation]),
+  );
   return null;
 }
