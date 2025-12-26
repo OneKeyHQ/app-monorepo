@@ -33,7 +33,7 @@ export const isSpanning = () => {
 };
 
 export const useIsSpanningInDualScreen = () => {
-  const [isSpanningInDualScreen, setIsSpanningInDualScreen] = useState(
+  const [isSpanningInDualScreen, setIsSpanningInDualScreen] = useState(() =>
     isSpanning(),
   );
   useEffect(() => {
@@ -42,8 +42,7 @@ export const useIsSpanningInDualScreen = () => {
     }
     const listenerId = ReactNativeDeviceUtils.addSpanningChangedListener(
       (result) => {
-        const screenWidth = Dimensions.get('window').width;
-        setIsSpanningInDualScreen(result && screenWidth > 800);
+        setIsSpanningInDualScreen(result && isSpanning());
       },
     );
     return () => {
