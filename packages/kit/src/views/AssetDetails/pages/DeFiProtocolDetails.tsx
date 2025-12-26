@@ -26,8 +26,12 @@ import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EDeFiAssetType, type IDeFiAsset } from '@onekeyhq/shared/types/defi';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function DeFiProtocolDetails() {
   const route =
@@ -78,7 +82,15 @@ function DeFiProtocolDetails() {
             variant="tertiary"
             icon="OpenOutline"
             size="small"
-            onPress={() => openUrlExternal(protocolInfo?.protocolUrl)}
+            onPress={() => {
+              if (platformEnv.isDesktop || platformEnv.isNative) {
+                openUrlInDiscovery({
+                  url: protocolInfo?.protocolUrl,
+                });
+              } else {
+                openUrlExternal(protocolInfo?.protocolUrl);
+              }
+            }}
           />
         </XStack>
         <Divider />
