@@ -27,7 +27,7 @@ function VerifyPinPage() {
   const navigation = useAppNavigation();
   const route =
     useRoute<RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.VerifyPin>>();
-  const { verifyType = 'periodic' } = route.params ?? {};
+  const { verifyType = 'socialLogin' } = route.params ?? {};
 
   const isSocialLogin = verifyType === 'socialLogin';
 
