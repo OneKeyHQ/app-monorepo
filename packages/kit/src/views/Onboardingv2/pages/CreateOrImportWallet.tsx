@@ -10,7 +10,6 @@ import {
   AnimatePresence,
   Badge,
   Button,
-  Dialog,
   HeightTransition,
   Icon,
   Image,
@@ -21,17 +20,14 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
-import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EOnboardingPages,
   EOnboardingPagesV2,
 } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -43,8 +39,6 @@ import {
 } from '../../../components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
-import { showOneKeyIDLoginDialog } from '../../Prime/components/OneKeyIDLoginDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { AnimatedDeviceAvatar } from './GetStarted';
@@ -157,7 +151,6 @@ function CreateOrImportWallet() {
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
   const navigation = useAppNavigation();
-  const { isLoggedIn } = useOneKeyAuth();
 
   const handleExpand = useCallback(() => {
     setExpanded((prev) => !prev);
@@ -201,11 +194,14 @@ function CreateOrImportWallet() {
     defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
 
-  const handleKeylessWalletClick = useCallback(async () => {
-    await enableKeylessWallet({
-      fromScene: EKeylessWalletEnableScene.Onboarding,
-    });
-  }, [enableKeylessWallet]);
+  const handleKeylessWalletClick = useCallback(() => {
+    // await enableKeylessWallet({
+    //   fromScene: EKeylessWalletEnableScene.Onboarding,
+    // });
+
+    navigation.push(EOnboardingPagesV2.OneKeyIDLogin);
+  }, [navigation]);
+
   return (
     <Page>
       <OnboardingLayout>

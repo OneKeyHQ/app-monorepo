@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { MotiView } from 'moti';
@@ -20,6 +20,7 @@ import {
   Icon,
   Page,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -313,6 +314,17 @@ export default function GetStarted() {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleLogin = useCallback(() => {
+    setIsGoogleLoading(true);
+    // TODO: Implement actual Google login
+    setTimeout(() => {
+      setIsGoogleLoading(false);
+      navigation.push(EOnboardingPagesV2.VerifyPin);
+    }, 1000);
+  }, [navigation]);
+
   // Cache theme values to avoid multiple useThemeValue calls during render
   const neutral6 = useThemeValue('$neutral6');
   const bgColor = useThemeValue('$bgApp');
@@ -404,7 +416,7 @@ export default function GetStarted() {
                 </GridItem>
               </YStack>
             </YStack>
-            <YStack gap={56} justifyContent="center" alignItems="center">
+            <YStack gap={44} justifyContent="center" alignItems="center">
               <DecorativeOneKeyLogo />
               <Stack gap="$4" minWidth="$80" zIndex={1}>
                 <Button
@@ -432,10 +444,14 @@ export default function GetStarted() {
                       pressStyle={{ bg: '$gray5' }}
                       size="large"
                       childrenAsText={false}
-                      onPress={handleCreateOrImportWallet}
+                      onPress={isGoogleLoading ? undefined : handleGoogleLogin}
                     >
                       <XStack gap="$2" alignItems="center">
-                        <Icon name="GoogleIllus" size="$5" />
+                        {isGoogleLoading ? (
+                          <Spinner size="small" />
+                        ) : (
+                          <Icon name="GoogleIllus" size="$5" />
+                        )}
                         <SizableText size="$bodyLgMedium">
                           Continue with Google
                         </SizableText>

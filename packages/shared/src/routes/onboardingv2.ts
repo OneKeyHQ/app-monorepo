@@ -41,6 +41,13 @@ export enum EOnboardingPagesV2 {
   ImportKeyTag = 'ImportKeyTag',
   KeylessWalletRecovery = 'KeylessWalletRecovery',
   KeylessWalletCreation = 'KeylessWalletCreation',
+  OneKeyIDLogin = 'OneKeyIDLogin',
+  CreatePin = 'CreatePin',
+  ConfirmPin = 'ConfirmPin',
+  CreatePasscode = 'CreatePasscode',
+  VerifyPin = 'VerifyPin',
+  ResetPin = 'ResetPin',
+  NewPinCreated = 'NewPinCreated',
   MoreAction = 'MoreAction',
 }
 interface IVerifyRecoveryPhraseParams {
@@ -112,5 +119,22 @@ export type IOnboardingParamListV2 = {
     email?: string;
     mode?: EOnboardingV2KeylessWalletCreationMode;
   };
+  [EOnboardingPagesV2.OneKeyIDLogin]: undefined;
+  [EOnboardingPagesV2.CreatePin]: {
+    isResetPin?: boolean;
+  };
+  [EOnboardingPagesV2.ConfirmPin]: {
+    pin: string;
+  };
+  [EOnboardingPagesV2.CreatePasscode]: undefined;
+  [EOnboardingPagesV2.VerifyPin]: {
+    /**
+     * 'socialLogin' - User verifies PIN after social login (with retry mechanism)
+     * 'periodic' - App periodically asks user to verify PIN (no retry mechanism)
+     */
+    verifyType?: 'socialLogin' | 'periodic';
+  };
+  [EOnboardingPagesV2.ResetPin]: undefined;
+  [EOnboardingPagesV2.NewPinCreated]: undefined;
   [EOnboardingPagesV2.MoreAction]: undefined;
 };
