@@ -144,7 +144,7 @@ const LeverageContent = memo(
                       <XStack
                         alignItems="center"
                         pr="$1"
-                        h={platformEnv.isNativeAndroid ? 36 : undefined}
+                        h={platformEnv.isNativeAndroid ? 36 : 24}
                       >
                         <Icon name="CrossedSmallOutline" size="$5" />
                       </XStack>

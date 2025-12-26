@@ -55,12 +55,12 @@ export const PERP_LAYOUT_CONFIG = {
   },
   leftPanel: {
     charts: {
-      minHeight: 400,
+      minHeight: 0,
       collapseThreshold: 350,
       defaultRatio: 60,
     },
     infoPanel: {
-      minHeight: 200,
+      minHeight: 42,
       collapseThreshold: 180,
     },
   },
