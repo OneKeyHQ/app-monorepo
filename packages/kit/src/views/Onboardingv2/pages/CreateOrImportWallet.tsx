@@ -313,7 +313,11 @@ function CreateOrImportWallet() {
                     <Icon name="CloudOutline" color="$iconOnColor" />
                   </YStack>
                   <YStack gap="$0.5" flex={1} alignItems="flex-start">
-                    <Card.Title>Keyless wallet</Card.Title>
+                    <Card.Title>
+                      {intl.formatMessage({
+                        id: ETranslations.keyless_wallet,
+                      })}
+                    </Card.Title>
                     <Button
                       px="$1"
                       py="$0.5"
@@ -364,15 +368,31 @@ function CreateOrImportWallet() {
                   <XStack gap="$2" flexWrap="wrap">
                     {[
                       {
-                        title: 'Recovery phrase free',
+                        title: intl.formatMessage({
+                          id: ETranslations.recovery_phrase_free,
+                        }),
                         badge: 'success' as const,
                       },
-                      { title: 'Beginner-friendly' },
-                      { title: 'Supports hundreds of networks' },
                       {
-                        title: 'Open-source secure sharding',
+                        title: intl.formatMessage({
+                          id: ETranslations.beginner_friendly,
+                        }),
                       },
-                      { title: 'Ultra-fast setup' },
+                      {
+                        title: intl.formatMessage({
+                          id: ETranslations.create_new_wallet_badge_supports,
+                        }),
+                      },
+                      {
+                        title: intl.formatMessage({
+                          id: ETranslations.open_source_secure_sharding,
+                        }),
+                      },
+                      {
+                        title: intl.formatMessage({
+                          id: ETranslations.ultra_fast_setup,
+                        }),
+                      },
                     ].map((item, index) => (
                       <Badge
                         key={index}
@@ -395,11 +415,6 @@ function CreateOrImportWallet() {
                           size="$3"
                           y={-1}
                         />
-                        <Icon
-                          name="EmailOutline"
-                          color="$iconActive"
-                          size="$3"
-                        />
                       </XStack>
                     </Badge>
                   </XStack>
@@ -418,11 +433,9 @@ function CreateOrImportWallet() {
                           }}
                         >
                           <SizableText size="$bodySm" color="$textSubdued">
-                            Cloud wallet, powered by Shamir encrypted backup,
-                            splits your seed phrase into 3 parts. Any 2 parts
-                            can restore your wallet, and you always retain full
-                            control of your assets. Even if one part is lost,
-                            your wallet remains safe and recoverable.
+                            {intl.formatMessage({
+                              id: ETranslations.keyless_wallet_desc,
+                            })}
                           </SizableText>
                         </YStack>
                       ) : null}
@@ -450,7 +463,9 @@ function CreateOrImportWallet() {
                 <YStack gap="$0.5" flex={1} alignItems="flex-start">
                   <Card.Title>
                     {isKeylessWalletEnabled
-                      ? 'Seed phrase wallet'
+                      ? intl.formatMessage({
+                          id: ETranslations.seed_phrase_wallet,
+                        })
                       : intl.formatMessage({
                           id: ETranslations.onboarding_create_new_wallet,
                         })}

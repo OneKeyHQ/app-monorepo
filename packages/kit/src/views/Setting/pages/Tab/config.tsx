@@ -516,7 +516,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ? undefined
               : {
                   icon: 'InputOutline',
-                  title: 'Reset PIN',
+                  title: intl.formatMessage({ id: ETranslations.reset_pin }),
                   onPress: (navigation) => {
                     navigation?.navigate(ERootRoutes.Onboarding, {
                       screen: EOnboardingV2Routes.OnboardingV2,

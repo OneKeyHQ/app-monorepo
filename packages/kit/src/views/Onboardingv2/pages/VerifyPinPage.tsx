@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
@@ -24,6 +26,7 @@ const COOLDOWN_BY_ATTEMPT: Record<number, number> = {
 };
 
 function VerifyPinPage() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const route =
     useRoute<RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.VerifyPin>>();
@@ -43,17 +46,19 @@ function VerifyPinPage() {
   const { title, description } = useMemo(() => {
     if (isSocialLogin) {
       return {
-        title: 'Enter your PIN',
-        description:
-          'This email already has a wallet created. Please enter your PIN to login.',
+        title: intl.formatMessage({ id: ETranslations.enter_your_pin }),
+        description: intl.formatMessage({
+          id: ETranslations.enter_your_pin_desc,
+        }),
       };
     }
     return {
-      title: 'Remember your PIN?',
-      description:
-        "Just a friendly reminder to keep your PIN fresh in memory. We'll check in from time to time.",
+      title: intl.formatMessage({ id: ETranslations.remember_your_pin }),
+      description: intl.formatMessage({
+        id: ETranslations.remember_your_pin_desc,
+      }),
     };
-  }, [isSocialLogin]);
+  }, [isSocialLogin, intl]);
 
   // Clear cooldown timer on unmount
   useEffect(() => {
@@ -137,10 +142,12 @@ function VerifyPinPage() {
         }
       } else {
         // Periodic verification: simple error message, no retry mechanism
-        setErrorMessage('Incorrect PIN. Please try again.');
+        setErrorMessage(
+          intl.formatMessage({ id: ETranslations.incorrect_pin }),
+        );
       }
     }
-  }, [attemptsRemaining, isSocialLogin, navigation, startCooldown]);
+  }, [attemptsRemaining, isSocialLogin, navigation, startCooldown, intl]);
 
   const handleForgotPin = useCallback(() => {
     if (isSocialLogin) {
@@ -161,10 +168,20 @@ function VerifyPinPage() {
       attemptsRemaining < MAX_ATTEMPTS &&
       attemptsRemaining > 0
     ) {
-      const baseMessage = `Incorrect PIN entered. ${attemptsRemaining} attempts remaining.`;
+      const baseMessage = intl.formatMessage(
+        {
+          id: ETranslations.pin_attempts_remaining,
+        },
+        {
+          attemptsRemaining,
+        },
+      );
       if (cooldownSeconds > 0) {
-        return `${baseMessage} Try again in ${formatCooldownTime(
-          cooldownSeconds,
+        return `${baseMessage} ${intl.formatMessage(
+          { id: ETranslations.pin_attempts_cooldown },
+          {
+            seconds: formatCooldownTime(cooldownSeconds),
+          },
         )}.`;
       }
       return baseMessage;
@@ -176,8 +193,12 @@ function VerifyPinPage() {
     <PinInputLayout
       title={title}
       description={description}
-      buttonText="Continue"
-      secondaryButtonText={isSocialLogin ? 'Forgot PIN?' : 'Reset PIN'}
+      buttonText={intl.formatMessage({ id: ETranslations.global_continue })}
+      secondaryButtonText={
+        isSocialLogin
+          ? intl.formatMessage({ id: ETranslations.forgot_pin })
+          : intl.formatMessage({ id: ETranslations.reset_pin })
+      }
       onSecondaryButtonPress={handleForgotPin}
       value={pin}
       onChange={handlePinChange}

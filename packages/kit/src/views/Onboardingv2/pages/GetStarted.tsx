@@ -453,7 +453,10 @@ export default function GetStarted() {
                           <Icon name="GoogleIllus" size="$5" />
                         )}
                         <SizableText size="$bodyLgMedium">
-                          Continue with Google
+                          {intl.formatMessage(
+                            { id: ETranslations.continue_with_social_platform },
+                            { platform: 'Google' },
+                          )}
                         </SizableText>
                       </XStack>
                     </Button>

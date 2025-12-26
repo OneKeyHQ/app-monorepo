@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
@@ -12,6 +13,7 @@ import {
   Spinner,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import { ListItem } from '../../../components/ListItem';
@@ -98,6 +100,7 @@ function OptionItem({
 function OneKeyIDLoginPage() {
   const navigation = useAppNavigation();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const intl = useIntl();
 
   const handleGoogleLogin = useCallback(() => {
     setIsLoggingIn(true);
@@ -115,9 +118,13 @@ function OneKeyIDLoginPage() {
         <OnboardingLayout.Body constrained={false} scrollable={false}>
           <OnboardingLayout.ConstrainedContent gap="$10">
             <YStack gap="$2">
-              <SizableText size="$heading3xl">Select your email</SizableText>
+              <SizableText size="$heading3xl">
+                {intl.formatMessage({ id: ETranslations.select_your_email })}
+              </SizableText>
               <SizableText size="$bodyLg" color="$textSubdued">
-                Add a wallet with your Google or Apple account
+                {intl.formatMessage({
+                  id: ETranslations.select_your_email_desc,
+                })}
               </SizableText>
             </YStack>
             <YStack gap="$3">
