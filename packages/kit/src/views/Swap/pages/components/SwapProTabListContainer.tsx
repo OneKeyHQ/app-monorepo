@@ -5,6 +5,7 @@ import {
   useSwapProEnableCurrentSymbolAtom,
   useSwapProSelectTokenAtom,
   useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -42,6 +43,7 @@ const SwapProTabListContainer = memo(
     const [swapFromToken] = useSwapSelectFromTokenAtom();
     const [swapCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
     const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+    const [swapToToken] = useSwapSelectToTokenAtom();
     const focusSwapPro = useMemo(() => {
       return (
         platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT
@@ -49,14 +51,19 @@ const SwapProTabListContainer = memo(
     }, [swapTypeSwitch]);
     const filterToken = useMemo(() => {
       if (focusSwapPro) {
-        return swapProTokenSelect;
+        return swapProTokenSelect ? [swapProTokenSelect] : [];
       }
-      return swapFromToken;
-    }, [focusSwapPro, swapProTokenSelect, swapFromToken]);
+      return [swapFromToken, swapToToken].filter((t) => t !== undefined);
+    }, [focusSwapPro, swapFromToken, swapToToken, swapProTokenSelect]);
+    const openOrdersTabName = useMemo(() => {
+      return focusSwapPro
+        ? ETabName.SwapProOpenOrders
+        : ETabName.SwapOrderHistory;
+    }, [focusSwapPro]);
 
     const changeTabToLimitOrderList = useCallback(() => {
-      setActiveTab(ETabName.SwapProOpenOrders);
-    }, [setActiveTab]);
+      setActiveTab(openOrdersTabName);
+    }, [setActiveTab, openOrdersTabName]);
 
     useEffect(() => {
       appEventBus.off(
@@ -73,7 +80,7 @@ const SwapProTabListContainer = memo(
           changeTabToLimitOrderList,
         );
       };
-    }, [changeTabToLimitOrderList]);
+    }, [changeTabToLimitOrderList, openOrdersTabName]);
 
     return (
       <YStack>
@@ -91,8 +98,8 @@ const SwapProTabListContainer = memo(
               onPress={setActiveTab}
             />
             <TabBarItem
-              name={ETabName.SwapProOpenOrders}
-              isFocused={activeTab === ETabName.SwapProOpenOrders}
+              name={openOrdersTabName}
+              isFocused={activeTab === openOrdersTabName}
               onPress={setActiveTab}
             />
           </XStack>
@@ -102,17 +109,18 @@ const SwapProTabListContainer = memo(
             display={activeTab === ETabName.Positions ? 'flex' : 'none'}
             flex={1}
           >
-            <SwapProCurrentSymbolEnable />
+            <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
             <SwapProPositionsList
               onTokenPress={onTokenPress}
               onSearchClick={onSearchClick}
+              filterToken={swapCurrentSymbolEnable ? filterToken : undefined}
             />
           </YStack>
           <YStack
-            display={activeTab === ETabName.SwapProOpenOrders ? 'flex' : 'none'}
+            display={activeTab === openOrdersTabName ? 'flex' : 'none'}
             flex={1}
           >
-            <SwapProCurrentSymbolEnable />
+            <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
             {focusSwapPro ? (
               <LimitOrderList
                 onClickCell={onOpenOrdersClick}

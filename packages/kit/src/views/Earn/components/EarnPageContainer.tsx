@@ -18,6 +18,7 @@ import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EARN_PAGE_MAX_WIDTH } from '../EarnConfig';
 
 import type { RefreshControlProps } from 'react-native';
+import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 
 interface IEarnPageContainerProps {
   pageTitle?: React.ReactNode;
@@ -33,6 +34,7 @@ interface IEarnPageContainerProps {
   contentContainerStyle?: IScrollViewProps['contentContainerStyle'];
   maxWidth?: number | string;
   disableMaxWidth?: boolean;
+  showTabPageHeader?: boolean;
 }
 
 export function EarnPageContainer({
@@ -49,6 +51,7 @@ export function EarnPageContainer({
   contentContainerStyle,
   maxWidth,
   disableMaxWidth,
+  showTabPageHeader = true,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -87,14 +90,19 @@ export function EarnPageContainer({
 
   return (
     <Page>
-      {media.gtMd ? (
+      {showTabPageHeader ? (
         <TabPageHeader
           sceneName={sceneName}
           tabRoute={tabRoute}
           customHeaderLeftItems={customHeaderLeft}
           customHeaderRightItems={customHeaderRightItems}
         />
-      ) : null}
+      ) : (
+        <YStack mx="$5" mt="$2" mb="$1">
+          <Page.Header headerShown={false} />
+          <LegacyUniversalSearchInput size="medium" initialTab="dapp" />
+        </YStack>
+      )}
       <Page.Body>
         <ScrollView
           contentContainerStyle={{

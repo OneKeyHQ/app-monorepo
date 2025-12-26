@@ -34,6 +34,7 @@ export enum ETabName {
   Positions = 'Positions',
   OpenOrders = 'OpenOrders',
   SwapProOpenOrders = 'SwapProOpenOrders',
+  SwapOrderHistory = 'SwapOrderHistory',
 }
 
 const tabNameToTranslationKey: Record<
@@ -41,10 +42,12 @@ const tabNameToTranslationKey: Record<
   | ETranslations.perp_position_title
   | ETranslations.perp_open_orders_title
   | ETranslations.Limit_open_order
+  | ETranslations.Limit_order_history
 > = {
   [ETabName.Positions]: ETranslations.perp_position_title,
   [ETabName.OpenOrders]: ETranslations.perp_open_orders_title,
   [ETabName.SwapProOpenOrders]: ETranslations.Limit_open_order,
+  [ETabName.SwapOrderHistory]: ETranslations.Limit_order_history,
 };
 
 export const TabBarItem = memo(

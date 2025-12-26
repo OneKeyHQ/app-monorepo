@@ -138,6 +138,8 @@ function BasicEarnHome({
     [navigation, route.params?.tab],
   );
 
+  const media = useMedia();
+
   const accountSelectorActions = useAccountSelectorActions();
 
   const handleListenTabFocusState = useCallback(
@@ -319,6 +321,7 @@ function BasicEarnHome({
 
   return (
     <EarnPageContainer
+      showTabPageHeader={media.gtMd}
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       disableMaxWidth

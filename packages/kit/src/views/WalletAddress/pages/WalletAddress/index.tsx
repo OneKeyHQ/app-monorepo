@@ -189,7 +189,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     if (actionType === EWalletAddressActionType.ViewInExplorer) {
       await openExplorerAddressUrl({
         networkId: network.id,
-        address: account.apiAddress,
+        address: account?.apiAddress,
       });
       return;
     }

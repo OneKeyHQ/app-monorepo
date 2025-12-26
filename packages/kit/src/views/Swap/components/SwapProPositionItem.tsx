@@ -2,7 +2,9 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import {
+  IStackProps,
   Icon,
   NumberSizeableText,
   SizableText,
@@ -20,12 +22,14 @@ interface ISwapProPositionItemProps {
   token: ISwapToken;
   onPress: (token: ISwapToken) => void;
   disabled?: boolean;
+  props?: IYStackProps;
 }
 
 const SwapProPositionItem = ({
   token,
   onPress,
   disabled,
+  props,
 }: ISwapProPositionItemProps) => {
   const intl = useIntl();
   const currencyInfo = useCurrency();
@@ -47,6 +51,7 @@ const SwapProPositionItem = ({
       gap="$4"
       onPress={disabled ? undefined : () => onPress(token)}
       opacity={disabled ? 0.5 : 1}
+      {...(props && { ...props })}
     >
       <XStack alignItems="center" gap="$2">
         <Token

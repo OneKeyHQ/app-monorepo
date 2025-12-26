@@ -233,6 +233,21 @@ export function AccountSelectorAccountListItem({
     if (isCreatingAddress) {
       return null;
     }
+    if (shouldShowCreateAddressButton) {
+      return (
+        <AccountSelectorCreateAddressButton
+          num={num}
+          selectAfterCreate
+          account={{
+            walletId: focusedWalletInfo?.wallet?.id,
+            networkId: linkedNetworkId,
+            indexedAccountId: indexedAccount?.id,
+            deriveType: selectedAccount.deriveType,
+          }}
+          buttonRender={PlusButton}
+        />
+      );
+    }
     if (editable) {
       return (
         <AccountEditButton
@@ -252,21 +267,6 @@ export function AccountSelectorAccountListItem({
           }
           wallet={focusedWalletInfo?.wallet}
           networkId={linkedNetworkId ?? network?.id}
-        />
-      );
-    }
-    if (shouldShowCreateAddressButton) {
-      return (
-        <AccountSelectorCreateAddressButton
-          num={num}
-          selectAfterCreate
-          account={{
-            walletId: focusedWalletInfo?.wallet?.id,
-            networkId: linkedNetworkId,
-            indexedAccountId: indexedAccount?.id,
-            deriveType: selectedAccount.deriveType,
-          }}
-          buttonRender={PlusButton}
         />
       );
     }
