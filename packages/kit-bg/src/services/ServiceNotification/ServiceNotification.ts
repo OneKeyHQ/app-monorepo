@@ -219,10 +219,12 @@ export default class ServiceNotification extends ServiceBase {
           remotePushMessageInfo: messageInfo,
         };
         await this.showNotification(notificationParams);
-        appEventBus.emit(
-          EAppEventBusNames.ShowInAppPushNotification,
-          notificationParams,
-        );
+        if (!platformEnv.isNativeIOS) {
+          appEventBus.emit(
+            EAppEventBusNames.ShowInAppPushNotification,
+            notificationParams,
+          );
+        }
       }
     }
 
