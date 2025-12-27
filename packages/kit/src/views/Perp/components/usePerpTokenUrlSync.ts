@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
+
 import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -62,7 +64,13 @@ function updateUrlWithoutNavigation(token: string): void {
   try {
     const encoded = encodeCoinForUrl(token);
     const newUrl = `${PERPS_ROUTE_PATH}?token=${encoded}`;
-    globalThis.history.replaceState(null, '', newUrl);
+    setTimeout(() => {
+      try {
+        globalThis.history.replaceState(null, '', newUrl);
+      } catch {
+        // ignore
+      }
+    }, 0);
   } catch {
     // ignore
   }
@@ -75,6 +83,7 @@ function isValidPrice(price: string): boolean {
 }
 
 export function usePerpTokenUrlSync(): void {
+  const isFocused = useIsFocused();
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
@@ -108,7 +117,7 @@ export function usePerpTokenUrlSync(): void {
   const debouncedUpdateTitle = useDebouncedCallback(updateTitle, 200);
 
   useEffect(() => {
-    if (isInitializedRef.current) return;
+    if (isInitializedRef.current || !isFocused) return;
 
     originalTitleRef.current = globalThis.document.title;
 
@@ -125,20 +134,27 @@ export function usePerpTokenUrlSync(): void {
       globalThis.document.title = originalTitleRef.current;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isFocused]);
 
   useEffect(() => {
-    if (!isInitializedRef.current) return;
+    if (!isInitializedRef.current || !isFocused) return;
 
     const currentToken = activeAsset?.coin?.trim();
-    if (!currentToken || currentToken === lastSyncedTokenRef.current) return;
+    if (!currentToken) return;
 
     lastSyncedTokenRef.current = currentToken;
     updateUrlWithoutNavigation(currentToken);
-  }, [activeAsset?.coin]);
+  }, [activeAsset?.coin, isFocused]);
+
+  useEffect(() => {
+    if (!isInitializedRef.current || !isFocused) return;
+    debouncedUpdateTitle(markPrice);
+  }, [markPrice, symbolDisplay, debouncedUpdateTitle, isFocused]);
 
   useEffect(() => {
     if (!isInitializedRef.current) return;
-    debouncedUpdateTitle(markPrice);
-  }, [markPrice, symbolDisplay, debouncedUpdateTitle]);
+    if (!isFocused) {
+      globalThis.document.title = originalTitleRef.current;
+    }
+  }, [isFocused]);
 }
