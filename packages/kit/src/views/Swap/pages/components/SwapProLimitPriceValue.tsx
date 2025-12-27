@@ -33,6 +33,8 @@ const SwapProLimitPriceValue = ({
   const isInitializedRef = useRef(false);
   const [inputValue, setInputValue] = useState('');
   const prevExternalChangeRef = useRef<boolean | undefined>(undefined);
+  // Flag to prevent useEffect from overwriting user input after blur
+  const skipNextSyncRef = useRef(false);
 
   // Determine which token's price to display based on buy/sell direction
   // BUY: show toToken price, SELL: show fromToken price
@@ -296,6 +298,8 @@ const SwapProLimitPriceValue = ({
       const formattedRate = newLimitRate
         .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
         .toFixed();
+      // Skip next sync to preserve user input
+      skipNextSyncRef.current = true;
       onLimitRateChange(formattedRate);
       return;
     }
@@ -313,6 +317,8 @@ const SwapProLimitPriceValue = ({
     const formattedRate = newLimitRate
       .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
       .toFixed();
+    // Skip next sync to preserve user input
+    skipNextSyncRef.current = true;
     onLimitRateChange(formattedRate);
   }, [
     inputValue,
@@ -329,6 +335,11 @@ const SwapProLimitPriceValue = ({
 
   // Sync input value with calculated token price when it changes externally
   useEffect(() => {
+    // Skip sync if user just blurred (preserve user input)
+    if (skipNextSyncRef.current) {
+      skipNextSyncRef.current = false;
+      return;
+    }
     // Only update if input is not focused (user is not typing)
     setInputValue(currentTokenPrice);
   }, [currentTokenPrice]);

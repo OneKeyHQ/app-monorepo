@@ -301,10 +301,10 @@ export function useSwapProTokenInfoSync() {
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProUseSelectBuyToken, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
-  const [, setSwapProSellToToken] = useSwapProSellToTokenAtom();
+  const [swapProSellToToken, setSwapProSellToToken] =
+    useSwapProSellToTokenAtom();
   const netAccountRes = useSwapProAccount();
   const inputToken = useSwapProInputToken();
-  const swapProSellToToken = useSwapProToToken();
 
   const syncInputTokenBalance = useCallback(async () => {
     if (
@@ -536,10 +536,45 @@ export function useSwapProTokenInit() {
         }),
       )
     ) {
-      setSwapProUseSelectBuyTokenAtom(defaultTokensFromType[0]);
+      let selectedDefaultToken = defaultTokensFromType[0];
+      if (
+        equalTokenNoCaseSensitive({
+          token1: selectedDefaultToken,
+          token2: {
+            contractAddress: swapProSelectToken?.contractAddress ?? '',
+            networkId: swapProSelectToken?.networkId ?? '',
+          },
+        })
+      ) {
+        selectedDefaultToken =
+          defaultTokensFromType[1] ?? defaultTokensFromType[0];
+      }
+      setSwapProUseSelectBuyTokenAtom(selectedDefaultToken);
+    } else if (
+      swapProUseSelectBuyTokenAtom &&
+      defaultTokensFromType.length > 0 &&
+      equalTokenNoCaseSensitive({
+        token1: swapProUseSelectBuyTokenAtom,
+        token2: {
+          contractAddress: swapProSelectToken?.contractAddress ?? '',
+          networkId: swapProSelectToken?.networkId ?? '',
+        },
+      })
+    ) {
+      const noEqualToken = defaultTokensFromType.find(
+        (item) =>
+          !equalTokenNoCaseSensitive({
+            token1: item,
+            token2: swapProUseSelectBuyTokenAtom,
+          }),
+      );
+      if (noEqualToken) {
+        setSwapProUseSelectBuyTokenAtom(noEqualToken);
+      }
     }
   }, [
-    swapProSelectToken,
+    swapProSelectToken?.contractAddress,
+    swapProSelectToken?.networkId,
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
     defaultTokensFromType,
@@ -585,6 +620,7 @@ export function useSwapProTokenInit() {
         }),
       )
     ) {
+      let selectedDefaultToken = defaultTokensFromType[0];
       const nativeToken = defaultTokensFromType.find((item) => item.isNative);
       const wrappedToken = defaultTokensFromType.find((item) =>
         wrappedTokens.some(
@@ -596,20 +632,81 @@ export function useSwapProTokenInit() {
       );
       if (nativeToken || wrappedToken) {
         if (swapProTradeType === ESwapProTradeType.MARKET && nativeToken) {
-          setSwapProSellToToken(nativeToken);
+          selectedDefaultToken = nativeToken;
         } else if (
           swapProTradeType === ESwapProTradeType.LIMIT &&
           wrappedToken
         ) {
-          setSwapProSellToToken(wrappedToken);
+          if (
+            equalTokenNoCaseSensitive({
+              token1: wrappedToken,
+              token2: {
+                contractAddress: swapProSelectToken?.contractAddress ?? '',
+                networkId: swapProSelectToken?.networkId ?? '',
+              },
+            })
+          ) {
+            const noWrappedToken = defaultTokensFromType.find(
+              (item) =>
+                !wrappedTokens.find(
+                  (wrapped) =>
+                    wrapped.address.toLowerCase() ===
+                      item.contractAddress.toLowerCase() &&
+                    wrapped.networkId === item.networkId,
+                ),
+            );
+            if (noWrappedToken) {
+              selectedDefaultToken = noWrappedToken;
+            }
+          } else {
+            selectedDefaultToken = wrappedToken;
+          }
         }
       } else {
-        setSwapProSellToToken(defaultTokensFromType[0]);
+        const defaultTokenZero = defaultTokensFromType[0];
+        if (
+          equalTokenNoCaseSensitive({
+            token1: defaultTokenZero,
+            token2: {
+              contractAddress: swapProSelectToken?.contractAddress ?? '',
+              networkId: swapProSelectToken?.networkId ?? '',
+            },
+          })
+        ) {
+          selectedDefaultToken = defaultTokensFromType[1] ?? defaultTokenZero;
+        }
+      }
+      setSwapProSellToToken(selectedDefaultToken);
+    } else if (
+      swapProSellToToken &&
+      defaultTokensFromType.length > 0 &&
+      equalTokenNoCaseSensitive({
+        token1: swapProSellToToken,
+        token2: {
+          contractAddress: swapProSelectToken?.contractAddress ?? '',
+          networkId: swapProSelectToken?.networkId ?? '',
+        },
+      })
+    ) {
+      const noEqualToken = defaultTokensFromType.find(
+        (item) =>
+          !equalTokenNoCaseSensitive({
+            token1: item,
+            token2: {
+              contractAddress: swapProSelectToken?.contractAddress ?? '',
+              networkId: swapProSelectToken?.networkId ?? '',
+            },
+          }),
+      );
+      if (noEqualToken) {
+        setSwapProSellToToken(noEqualToken);
       }
     }
   }, [
     defaultTokensFromType,
     setSwapProSellToToken,
+    swapProSelectToken?.networkId,
+    swapProSelectToken?.contractAddress,
     swapProSellToToken,
     swapProTradeType,
   ]);
