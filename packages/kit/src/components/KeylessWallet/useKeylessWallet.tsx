@@ -4,14 +4,20 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  devSettingsPersistAtom,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyLocalError,
   PrimeSendEmailOTPCancelError,
 } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
+import {
+  EKeylessFinalizeAction,
+  EKeylessWalletEnableScene,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import type {
   IAuthKeyPack,
   ICloudKeyPack,
@@ -273,20 +279,79 @@ export function useKeylessWalletMethods() {
   };
 }
 
-const keylessOnboardingCache = new cacheUtils.LRUCache<string, string>({
+export const keylessOnboardingCache = new cacheUtils.LRUCache<string, string>({
   max: 1000,
   ttl: timerUtils.getTimeDurationMs({ minute: 3 }),
   ttlAutopurge: true,
 });
 
-function keylessOnboardingCacheGetAndDelete(key: string) {
+async function keylessOnboardingCacheGetAndDelete(
+  key: string,
+  options: {
+    skipDelete?: boolean;
+  } = {},
+) {
   const token = keylessOnboardingCache.get(key);
-  keylessOnboardingCache.delete(key);
+  if (!options?.skipDelete) {
+    keylessOnboardingCache.delete(key);
+  }
+  if (!token) {
+    return '';
+  }
+  return backgroundApiProxy.servicePassword.decodeSensitiveText({
+    encodedText: token,
+  });
+}
+
+async function keylessOnboardingCacheSet(key: string, value: string) {
+  keylessOnboardingCache.set(
+    key,
+    await backgroundApiProxy.servicePassword.encodeSensitiveText({
+      text: value,
+    }),
+  );
+}
+
+async function cacheKeylessOnboardingToken({ token }: { token: string }) {
+  await keylessOnboardingCacheSet('socialLoginToken', token);
+}
+
+async function getKeylessOnboardingToken(options?: { skipDelete?: boolean }) {
+  const token = keylessOnboardingCacheGetAndDelete('socialLoginToken', options);
   return token;
 }
 
-function keylessOnboardingCacheSet(key: string, value: string) {
-  keylessOnboardingCache.set(key, value);
+async function cacheKeylessOnboardingPin({ pin }: { pin: string }) {
+  await keylessOnboardingCacheSet('onboardingPin', pin);
+}
+
+async function getKeylessOnboardingPin(options?: { skipDelete?: boolean }) {
+  const pin = keylessOnboardingCacheGetAndDelete('onboardingPin', options);
+  return pin;
+}
+
+async function cacheKeylessOnboardingCustomMnemonic({
+  customMnemonic,
+}: {
+  customMnemonic: string;
+}) {
+  const devSettings = await devSettingsPersistAtom.get();
+  if (devSettings.enabled) {
+    await keylessOnboardingCacheSet('customMnemonic', customMnemonic);
+  }
+}
+
+async function getKeylessOnboardingCustomMnemonic(options?: {
+  skipDelete?: boolean;
+}) {
+  const devSettings = await devSettingsPersistAtom.get();
+  if (devSettings.enabled) {
+    const customMnemonic = keylessOnboardingCacheGetAndDelete(
+      'customMnemonic',
+      options,
+    );
+    return customMnemonic;
+  }
 }
 
 if (process.env.NODE_ENV !== 'production') {
@@ -435,7 +500,20 @@ export function useKeylessWallet() {
     ],
   );
 
-  const checkKeylessWalletExistence = useCallback(async () => {
+  const handleKeylessOnboardingTimeout = useCallback(() => {
+    Dialog.show({
+      title: 'Keyless Wallet',
+      description: 'Keyless Wallet onboarding timed out. Please try again.',
+      showCancelButton: false,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_got_it,
+      }),
+    });
+    throw new OneKeyLocalError('Keyless Wallet onboarding timed out');
+  }, [intl]);
+
+  // Renamed function, checks if KeylessWallet exists locally
+  const checkKeylessWalletLocalExistence = useCallback(async () => {
     if (enableKeylessWalletLoadingRef.current) {
       return;
     }
@@ -451,7 +529,7 @@ export function useKeylessWallet() {
             title: 'Keyless Wallet',
             // TODO @franco 本地已经添加无私钥钱包，如果需要使用其他无私钥钱包，请先删除当前钱包
             description:
-              'You already have a Keyless Wallet on this device. No need to create another one.',
+              'A Keyless Wallet is already added. To use another Keyless Wallet, please delete the current one first.',
             showCancelButton: false,
             onConfirmText: intl.formatMessage({
               id: ETranslations.global_got_it,
@@ -463,7 +541,7 @@ export function useKeylessWallet() {
             params: {
               screen: EOnboardingPagesV2.OneKeyIDLogin,
               params: {
-                mode: EOnboardingV2OneKeyIDLoginMode.CreateKeylessWallet,
+                mode: EOnboardingV2OneKeyIDLoginMode.CreateOrImportKeylessWallet,
               },
             },
           });
@@ -474,70 +552,139 @@ export function useKeylessWallet() {
     });
   }, [intl, navigation]);
 
-  const checkKeylessWalletCreatedOnServer = useCallback(
+  const checkKeylessWalletInitedOnServer = useCallback(
     async ({ token }: { token: string }) => {
+      if (!token) {
+        handleKeylessOnboardingTimeout();
+        return;
+      }
       const backendShareInfo =
         await backgroundApiProxy.serviceKeylessWallet.apiGetKeylessBackendShare(
           {
             token,
           },
         );
-      return {
-        isCreated: !!backendShareInfo,
-        backendShareInfo,
-      };
-    },
-    [],
-  );
-
-  const createOrRestoreKeylessWallet = useCallback(
-    async ({ token }: { token: string }) => {
-      const { isCreated, backendShareInfo } =
-        await checkKeylessWalletCreatedOnServer({ token });
-      if (isCreated) {
-        // TODO restore keyless wallet from server
-        console.log('backendShareInfo', backendShareInfo);
+      const isInited = !!backendShareInfo;
+      await cacheKeylessOnboardingToken({ token });
+      if (isInited) {
+        navigation.push(EOnboardingPagesV2.VerifyPin);
       } else {
-        await actions.current.createKeylessWalletV2({
-          token,
-        });
+        navigation.push(EOnboardingPagesV2.CreatePin);
       }
     },
-    [actions, checkKeylessWalletCreatedOnServer],
+    [handleKeylessOnboardingTimeout, navigation],
   );
 
-  const cacheKeylessOnboardingToken = useCallback(
-    async ({ token }: { token: string }) => {
-      keylessOnboardingCacheSet('socialLoginToken', token);
+  const finalizeKeylessWalletV2 = useCallback(
+    async ({ action }: { action: EKeylessFinalizeAction }) => {
+      const token = await getKeylessOnboardingToken();
+      if (!token) {
+        handleKeylessOnboardingTimeout();
+        return;
+      }
+      const pin = await getKeylessOnboardingPin();
+      if (!pin) {
+        handleKeylessOnboardingTimeout();
+        return;
+      }
+      if (!action) {
+        Dialog.show({
+          title: 'Keyless Wallet',
+          description: 'EKeylessFinalizeAction is required',
+          showCancelButton: false,
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+        });
+        return;
+      }
+      let mnemonic = '';
+      if (action === EKeylessFinalizeAction.Create) {
+        const customMnemonic = await getKeylessOnboardingCustomMnemonic();
+        ({ mnemonic } =
+          await backgroundApiProxy.serviceKeylessWallet.initKeylessWalletToServer(
+            {
+              token,
+              pin,
+              customMnemonic,
+            },
+          ));
+      }
+      if (action === EKeylessFinalizeAction.Restore) {
+        ({ mnemonic } =
+          await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletFromServer(
+            {
+              token,
+              pin,
+            },
+          ));
+      }
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+        mnemonic,
+        isWalletBackedUp: true,
+        isKeylessWallet: true,
+      });
     },
-    [],
+    [navigation, handleKeylessOnboardingTimeout, intl],
   );
-  const getKeylessOnboardingToken = useCallback(async () => {
-    const token = keylessOnboardingCacheGetAndDelete('socialLoginToken');
-    return token;
-  }, []);
 
-  const cacheKeylessOnboardingPin = useCallback(({ pin }: { pin: string }) => {
-    keylessOnboardingCacheSet('onboardingPin', pin);
-  }, []);
+  const confirmKeylessOnboardingPin = useCallback(
+    async ({
+      pin,
+      action,
+    }: {
+      pin: string;
+      action: EKeylessFinalizeAction;
+    }) => {
+      await cacheKeylessOnboardingPin({ pin });
+      const hasCachedPassword =
+        await backgroundApiProxy.servicePassword.hasCachedPassword();
+      if (hasCachedPassword) {
+        await finalizeKeylessWalletV2({ action });
+      } else {
+        navigation.push(EOnboardingPagesV2.CreatePasscode, { action });
+      }
+    },
+    [finalizeKeylessWalletV2, navigation],
+  );
 
-  const getKeylessOnboardingPin = useCallback(() => {
-    const pin = keylessOnboardingCacheGetAndDelete('onboardingPin');
-    return pin;
-  }, []);
+  const verifyKeylessOnboardingPin = useCallback(
+    async ({ pin }: { pin: string }) => {
+      const token = await getKeylessOnboardingToken({ skipDelete: true });
+      if (!token) {
+        handleKeylessOnboardingTimeout();
+        return;
+      }
+      await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
+        {
+          token,
+          pin,
+        },
+      );
+      await cacheKeylessOnboardingToken({ token });
+      await confirmKeylessOnboardingPin({
+        pin,
+        action: EKeylessFinalizeAction.Restore,
+      });
+    },
+    [confirmKeylessOnboardingPin, handleKeylessOnboardingTimeout],
+  );
 
   return {
     ...methods,
     // TODO handleKeylessWalletClick
     enableKeylessWallet,
-    checkKeylessWalletExistence,
-    checkKeylessWalletCreatedOnServer,
-    createOrRestoreKeylessWallet,
     enableKeylessWalletLoading,
+    checkKeylessWalletLocalExistence, // step1
+    checkKeylessWalletInitedOnServer, // step2
+    confirmKeylessOnboardingPin, // step3
+    verifyKeylessOnboardingPin,
+    finalizeKeylessWalletV2, // step4
     keylessOnboardingCache,
-    cacheKeylessOnboardingToken,
-    getKeylessOnboardingToken,
     cacheKeylessOnboardingPin,
     getKeylessOnboardingPin,
+    handleKeylessOnboardingTimeout,
+    cacheKeylessOnboardingCustomMnemonic,
+    getKeylessOnboardingCustomMnemonic,
   };
 }

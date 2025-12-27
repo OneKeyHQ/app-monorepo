@@ -15,6 +15,8 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { KeylessOnboardingDebugPanel } from '../pages/KeylessOnboardingDebugPanel';
+
 import { OnboardingLayout } from './OnboardingLayout';
 
 interface IPinInputLayoutProps {
@@ -30,6 +32,7 @@ interface IPinInputLayoutProps {
   isSubmitDisabled?: boolean;
   isInputDisabled?: boolean;
   errorMessage?: string;
+  isLoading?: boolean;
 }
 
 function PinInputLayout({
@@ -45,6 +48,7 @@ function PinInputLayout({
   isSubmitDisabled = false,
   isInputDisabled = false,
   errorMessage,
+  isLoading,
 }: IPinInputLayoutProps) {
   const inputRef = useRef<TextInput>(null);
   const { gtMd } = useMedia();
@@ -126,17 +130,20 @@ function PinInputLayout({
                   </Button>
                 ) : null}
                 <Button
+                  onPress={onSubmit}
+                  loading={isLoading}
+                  disabled={isSubmitDisabled || isLoading}
                   size="large"
                   variant={isSubmitDisabled ? 'secondary' : 'primary'}
                   flexGrow={1}
                   flexBasis={0}
-                  onPress={onSubmit}
-                  disabled={isSubmitDisabled}
                 >
                   {buttonText}
                 </Button>
               </XStack>
             ) : null}
+
+            <KeylessOnboardingDebugPanel />
           </YStack>
         </OnboardingLayout.ConstrainedContent>
       </OnboardingLayout.Body>
@@ -147,7 +154,8 @@ function PinInputLayout({
               size="large"
               variant={isSubmitDisabled ? 'secondary' : 'primary'}
               onPress={onSubmit}
-              disabled={isSubmitDisabled}
+              loading={isLoading}
+              disabled={isSubmitDisabled || isLoading}
             >
               {buttonText}
             </Button>

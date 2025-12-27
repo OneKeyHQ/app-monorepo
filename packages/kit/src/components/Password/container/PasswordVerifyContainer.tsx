@@ -45,12 +45,14 @@ interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void;
   onLayout?: (e: LayoutChangeEvent) => void;
   name?: 'lock';
+  pageMode?: boolean;
 }
 
 const PasswordVerifyContainer = ({
   onVerifyRes,
   onLayout,
   name,
+  pageMode,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
   const [{ authType, isEnable }] = usePasswordBiologyAuthInfoAtom();
@@ -185,7 +187,8 @@ const PasswordVerifyContainer = ({
     async (isExtLockNoCachePassword: boolean) => {
       if (
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
-        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+        (!pageMode &&
+          passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED)
       ) {
         return;
       }
@@ -285,6 +288,7 @@ const PasswordVerifyContainer = ({
       title,
       verifiedPasswordWebAuth,
       verifyPeriodBiologyAuthAttempts,
+      pageMode,
     ],
   );
 
@@ -294,7 +298,8 @@ const PasswordVerifyContainer = ({
     async (data: IPasswordVerifyForm) => {
       if (
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
-        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+        (!pageMode &&
+          passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED)
       ) {
         return;
       }
@@ -394,6 +399,7 @@ const PasswordVerifyContainer = ({
       setPasswordPersist,
       setUnlockPeriodPasswordArray,
       unlockPeriodPasswordArray,
+      pageMode,
     ],
   );
 
@@ -429,6 +435,7 @@ const PasswordVerifyContainer = ({
   return (
     <Stack>
       <PasswordVerify
+        pageMode={pageMode}
         passwordMode={passwordMode}
         alertText={alertText}
         disableInput={isProtectionTime}

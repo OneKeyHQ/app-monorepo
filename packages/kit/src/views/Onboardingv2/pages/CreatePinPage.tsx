@@ -26,9 +26,9 @@ function CreatePinPage() {
   const intl = useIntl();
   const [pin, setPin] = useState('');
 
-  const handleContinue = useCallback(() => {
+  const handleContinue = useCallback(async () => {
     if (pin) {
-      cacheKeylessOnboardingPin({ pin });
+      await cacheKeylessOnboardingPin({ pin });
       setPin('');
       navigation.push(EOnboardingPagesV2.ConfirmPin);
     }

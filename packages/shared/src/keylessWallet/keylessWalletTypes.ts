@@ -109,6 +109,12 @@ export type IKeylessBackendShare = {
   backendShare: string;
 };
 
+export type IKeylessJuiceboxShare = {
+  ownerId: string;
+  pin: string;
+  juiceboxShare: string;
+};
+
 export type ISupabaseJWTPayload = JWTPayload & {
   app_metadata: {
     provider: string;

@@ -1,5 +1,6 @@
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IConnectYourDeviceItem } from '../../types/device';
+import { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
 import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
@@ -20,8 +21,7 @@ export enum EOnboardingV2KeylessWalletCreationMode {
 }
 
 export enum EOnboardingV2OneKeyIDLoginMode {
-  CreateKeylessWallet = 'CreateKeylessWallet',
-  ImportKeylessWallet = 'ImportKeylessWallet',
+  CreateOrImportKeylessWallet = 'CreateOrImportKeylessWallet',
   VerifyKeylessWallet = 'VerifyKeylessWallet',
 }
 
@@ -75,6 +75,7 @@ export type IOnboardingParamListV2 = {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;
     isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
     isFirmwareVerified?: boolean;
     deviceData?: IConnectYourDeviceItem;
     keylessPackSetId?: string;
@@ -132,7 +133,9 @@ export type IOnboardingParamListV2 = {
     isResetPin?: boolean;
   };
   [EOnboardingPagesV2.ConfirmPin]: undefined;
-  [EOnboardingPagesV2.CreatePasscode]: undefined;
+  [EOnboardingPagesV2.CreatePasscode]: {
+    action: EKeylessFinalizeAction;
+  };
   [EOnboardingPagesV2.VerifyPin]: {
     /**
      * 'socialLogin' - User verifies PIN after social login (with retry mechanism)

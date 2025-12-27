@@ -3,12 +3,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { Button } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { PinInputLayout } from '../components/PinInputLayout';
+
+import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -31,6 +38,8 @@ function VerifyPinPage() {
   const route =
     useRoute<RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.VerifyPin>>();
   const { verifyType = 'socialLogin' } = route.params ?? {};
+  const { verifyKeylessOnboardingPin } = useKeylessWallet();
+  const [isLoading, setIsLoading] = useState(false);
 
   const isSocialLogin = verifyType === 'socialLogin';
 
@@ -108,7 +117,17 @@ function VerifyPinPage() {
     [isInputDisabled],
   );
 
-  const handleVerify = useCallback(() => {
+  const handleVerify = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      await verifyKeylessOnboardingPin({ pin });
+    } finally {
+      setIsLoading(false);
+      setPin('');
+    }
+  }, [verifyKeylessOnboardingPin, pin]);
+
+  const handleVerifyLegacy = useCallback(() => {
     // TODO: Verify against actual stored PIN on server
     const isCorrect = false; // Mock: always fail for testing
 
@@ -191,6 +210,7 @@ function VerifyPinPage() {
 
   return (
     <PinInputLayout
+      isLoading={isLoading}
       title={title}
       description={description}
       buttonText={intl.formatMessage({ id: ETranslations.global_continue })}
@@ -210,4 +230,17 @@ function VerifyPinPage() {
   );
 }
 
-export { VerifyPinPage as default };
+function VerifyPinPageWithContext() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <VerifyPinPage />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export { VerifyPinPageWithContext as default };

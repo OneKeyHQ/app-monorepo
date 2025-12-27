@@ -16,13 +16,11 @@ import {
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
+  EOnboardingPagesV2,
   EOnboardingV2OneKeyIDLoginMode,
   IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
-import {
-  EOnboardingPagesV2,
-  IOnboardingParamList,
-} from '@onekeyhq/shared/src/routes';
+import { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
@@ -121,27 +119,14 @@ function OneKeyIDLoginPage() {
   const intl = useIntl();
 
   const { logout, signInWithSocialLogin } = useOneKeyAuth();
-  const {
-    createOrRestoreKeylessWallet,
-    cacheKeylessOnboardingToken,
-    checkKeylessWalletCreatedOnServer,
-  } = useKeylessWallet();
+  const { cacheKeylessOnboardingToken, checkKeylessWalletInitedOnServer } =
+    useKeylessWallet();
 
   const goToInputPinPage = useCallback(
     async ({ token }: { token: string }) => {
-      const { isCreated } = await checkKeylessWalletCreatedOnServer({ token });
-      await cacheKeylessOnboardingToken({ token });
-      if (isCreated) {
-        navigation.push(EOnboardingPagesV2.VerifyPin);
-      } else {
-        navigation.push(EOnboardingPagesV2.CreatePin);
-      }
+      await checkKeylessWalletInitedOnServer({ token });
     },
-    [
-      cacheKeylessOnboardingToken,
-      checkKeylessWalletCreatedOnServer,
-      navigation,
-    ],
+    [checkKeylessWalletInitedOnServer],
   );
 
   const handleSocialLogin = useCallback(

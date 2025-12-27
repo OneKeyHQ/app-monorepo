@@ -3,53 +3,46 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Button, Dialog } from '@onekeyhq/components';
+import { EKeylessFinalizeAction } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { PinInputLayout } from '../components/PinInputLayout';
 
+import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
+
 function ConfirmPinPage() {
   const navigation = useAppNavigation();
-  const { getKeylessOnboardingPin, cacheKeylessOnboardingPin } =
-    useKeylessWallet();
-
-  // Use state to store the PIN, fetched only once on mount
-  const [originalPin, setOriginalPin] = useState<string | undefined>(undefined);
+  const {
+    confirmKeylessOnboardingPin,
+    getKeylessOnboardingPin,
+    handleKeylessOnboardingTimeout,
+  } = useKeylessWallet();
 
   const intl = useIntl();
   const [confirmPin, setConfirmPin] = useState('');
   const [isValid, setIsValid] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Fetch PIN only on mount (commit phase), not during render phase
-  // This ensures getAndDelete is called only once by the mounted instance
-  useEffect(() => {
-    const pin = getKeylessOnboardingPin();
-    setOriginalPin(pin);
-  }, [getKeylessOnboardingPin]);
-
   const handlePinChange = useCallback(
-    (filteredText: string) => {
+    async (filteredText: string) => {
       setConfirmPin(filteredText);
       setErrorMessage('');
 
-      if (!originalPin) {
-        Dialog.show({
-          icon: 'ErrorOutline',
-          tone: 'destructive',
-          title: 'Original PIN is not found. Please try again.',
-        });
-        return;
-      }
-
       // Auto-validate when 4 digits entered
       if (filteredText.length === 4) {
+        const originalPin = await getKeylessOnboardingPin({ skipDelete: true });
+        if (!originalPin) {
+          handleKeylessOnboardingTimeout();
+          return;
+        }
         if (filteredText === originalPin) {
           setIsValid(true);
         } else {
@@ -62,14 +55,25 @@ function ConfirmPinPage() {
         setIsValid(false);
       }
     },
-    [originalPin, intl],
+    [getKeylessOnboardingPin, handleKeylessOnboardingTimeout, intl],
   );
 
-  const handleConfirm = useCallback(() => {
+  const handleConfirm = useCallback(async () => {
     setConfirmPin('');
-    cacheKeylessOnboardingPin({ pin: originalPin || '' });
-    navigation.push(EOnboardingPagesV2.CreatePasscode);
-  }, [cacheKeylessOnboardingPin, navigation, originalPin]);
+    const originalPin = await getKeylessOnboardingPin();
+    if (!originalPin) {
+      handleKeylessOnboardingTimeout();
+      return;
+    }
+    await confirmKeylessOnboardingPin({
+      pin: originalPin || '',
+      action: EKeylessFinalizeAction.Create,
+    });
+  }, [
+    confirmKeylessOnboardingPin,
+    getKeylessOnboardingPin,
+    handleKeylessOnboardingTimeout,
+  ]);
 
   return (
     <PinInputLayout

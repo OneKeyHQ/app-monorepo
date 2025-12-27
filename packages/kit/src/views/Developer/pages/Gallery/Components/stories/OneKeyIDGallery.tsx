@@ -17,12 +17,18 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EOAuthSocialLoginProvider,
   SUPABASE_PROJECT_URL,
   SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
@@ -58,6 +64,7 @@ function demoError(error: unknown, apiName: string) {
 }
 
 function OneKeyIDApiTests() {
+  const navigation = useAppNavigation();
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
@@ -485,6 +492,24 @@ function OneKeyIDApiTests() {
           }}
         >
           Sign Out
+        </Button>
+      </XStack>
+
+      <SizableText size="$headingMd" mt="$4">
+        Onboarding Test
+      </SizableText>
+      <XStack gap="$3" flexWrap="wrap">
+        <Button
+          onPress={() => {
+            navigation.navigate(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
+              params: {
+                screen: EOnboardingPagesV2.CreatePasscode,
+              },
+            });
+          }}
+        >
+          Go to CreatePasscodePage
         </Button>
       </XStack>
     </YStack>
