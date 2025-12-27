@@ -1,10 +1,16 @@
 import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { rootNavigationRef } from '@onekeyhq/components';
+import {
+  rootNavigationRef,
+  useIsTabletDetailView,
+  useIsTabletMainView,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -37,6 +43,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const tokenDetailActions = useTokenDetailActions();
+  const isTabletMainView = useIsTabletMainView();
+  const isTabletDetailView = useIsTabletDetailView();
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
@@ -86,10 +94,25 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         // Always clear token detail when navigating
         tokenDetailActions.current.clearTokenDetail();
 
+        // Clean existing token detail pages in tablet split view mode before pushing new one
+        if (isTabletMainView || isTabletDetailView) {
+          appEventBus.emit(
+            EAppEventBusNames.CleanTokenDetailInTabletDetailView,
+            undefined,
+          );
+        }
+
         navigation.push(ETabMarketRoutes.MarketDetailV2, params);
       }
     },
-    [navigation, tokenDetailActions, options?.useRootNavigation, options?.from],
+    [
+      navigation,
+      tokenDetailActions,
+      options?.useRootNavigation,
+      options?.from,
+      isTabletMainView,
+      isTabletDetailView,
+    ],
   );
 
   return toMarketDetailPage;

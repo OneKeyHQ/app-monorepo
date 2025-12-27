@@ -425,6 +425,7 @@ export interface IAppEventBusPayload {
     route: EModalRoutes;
     params: any;
   };
+  [EAppEventBusNames.CleanTokenDetailInTabletDetailView]: undefined;
   [EAppEventBusNames.MarketHomePageEnter]: {
     from: EEnterWay;
   };

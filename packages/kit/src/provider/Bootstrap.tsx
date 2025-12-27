@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import { CommonActions, StackActions } from '@react-navigation/native';
 import { debounce, isEqual, noop, upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -43,6 +44,7 @@ import {
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
   ETabEarnRoutes,
+  ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -610,6 +612,32 @@ export const useTabletDetailView = () => {
           appNavigation.pushModal(event.route, event.params);
         }, 10);
       };
+      const onCleanTokenDetailInTabletDetailView = () => {
+        appNavigation.dispatch((state) => {
+          // Filter out only token detail pages, keep others (like banner list)
+          const filteredRoutes = state.routes.filter(
+            (route) =>
+              route.name !== ETabMarketRoutes.MarketDetailV2 &&
+              route.name !== ETabMarketRoutes.MarketNativeDetail,
+          );
+
+          // If no token detail routes were removed, do nothing
+          if (filteredRoutes.length === state.routes.length) {
+            return StackActions.pop(0);
+          }
+
+          // If all routes would be removed, clear all
+          if (filteredRoutes.length === 0) {
+            return StackActions.pop(state.routes.length);
+          }
+
+          return CommonActions.reset({
+            ...state,
+            routes: filteredRoutes,
+            index: filteredRoutes.length - 1,
+          });
+        });
+      };
       appEventBus.on(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
       appEventBus.on(
         EAppEventBusNames.PushPageInTabletDetailView,
@@ -618,6 +646,10 @@ export const useTabletDetailView = () => {
       appEventBus.on(
         EAppEventBusNames.PushModalPageInTabletDetailView,
         onPushModalPageInTabletDetailView,
+      );
+      appEventBus.on(
+        EAppEventBusNames.CleanTokenDetailInTabletDetailView,
+        onCleanTokenDetailInTabletDetailView,
       );
       return () => {
         appEventBus.off(EAppEventBusNames.SwitchTabBar, onSwitchTabBar);
@@ -628,6 +660,10 @@ export const useTabletDetailView = () => {
         appEventBus.off(
           EAppEventBusNames.PushModalPageInTabletDetailView,
           onPushModalPageInTabletDetailView,
+        );
+        appEventBus.off(
+          EAppEventBusNames.CleanTokenDetailInTabletDetailView,
+          onCleanTokenDetailInTabletDetailView,
         );
       };
     }
