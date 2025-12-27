@@ -54,7 +54,9 @@ export function UniversalSearchInput({
       {...(containerProps as IXStackProps)}
     >
       <SearchBar
-        size="small"
+        size={size === 'medium' ? 'medium' : 'small'}
+        containerProps={{ h: size === 'medium' ? 40 : 32 }}
+        py="$2"
         key="searchInput"
         placeholder={intl.formatMessage({
           id: platformEnv.isWebDappMode
@@ -63,7 +65,11 @@ export function UniversalSearchInput({
         })}
         addOns={[
           {
-            label: <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />,
+            label: (
+              <View justifyContent="center">
+                <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />
+              </View>
+            ),
           },
         ]}
       />
