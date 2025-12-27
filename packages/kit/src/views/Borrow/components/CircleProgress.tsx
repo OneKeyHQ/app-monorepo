@@ -2,12 +2,7 @@ import { useMemo } from 'react';
 
 import Svg, { Circle } from 'react-native-svg';
 
-import {
-  SizableText,
-  XStack,
-  YStack,
-  useThemeValue,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack, useTheme } from '@onekeyhq/components';
 
 interface ICircleProgressProps {
   percentage: number;
@@ -24,10 +19,9 @@ export function CircleProgress({
   progressColor,
   trackColor,
 }: ICircleProgressProps) {
-  const [defaultProgressColor, defaultTrackColor] = useThemeValue([
-    '$textSuccess',
-    '$bgStrong',
-  ]);
+  const theme = useTheme();
+  const defaultProgressColor = theme.textSuccess.val;
+  const defaultTrackColor = theme.bgStrong.val;
 
   const finalProgressColor = progressColor ?? defaultProgressColor;
   const finalTrackColor = trackColor ?? defaultTrackColor;

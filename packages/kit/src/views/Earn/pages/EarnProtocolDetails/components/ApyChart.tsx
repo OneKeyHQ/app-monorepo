@@ -174,6 +174,10 @@ const ApyChartComponent = ({ apyHistory }: IApyChartProps) => {
             data={chartData.marketChartData}
             height={200}
             onHover={handleHover}
+            lineColor="#008347D6"
+            topColor="#00834726"
+            bottomColor="#00834700"
+            lineWidth={2}
           />
           <Divider mt="$8" />
         </YStack>

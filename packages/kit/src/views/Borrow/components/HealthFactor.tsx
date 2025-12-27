@@ -9,7 +9,7 @@ import {
   SizableText,
   Stack,
   YStack,
-  useThemeValue,
+  useTheme,
 } from '@onekeyhq/components';
 import type { IEarnText } from '@onekeyhq/shared/types/staking';
 
@@ -49,11 +49,10 @@ export const HealthFactor = ({
   thresholdValue = 1,
   liquidationText,
 }: IHealthFactorProps) => {
-  const [criticalColor, cautionColor, successColor] = useThemeValue(
-    ['bgCriticalStrong', 'bgCautionStrong', 'bgSuccessStrong'],
-    undefined,
-    true,
-  );
+  const theme = useTheme();
+  const criticalColor = theme.bgCriticalStrong.val;
+  const cautionColor = theme.bgCautionStrong.val;
+  const successColor = theme.bgSuccessStrong.val;
 
   const { displayValue, pointerPercent, thresholdPercent } = useMemo(() => {
     const safeMin = min;
