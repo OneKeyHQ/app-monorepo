@@ -192,6 +192,7 @@ function VerifyPinPage() {
   return (
     <PinInputLayout
       title={title}
+      placeholder=""
       description={description}
       buttonText={intl.formatMessage({ id: ETranslations.global_continue })}
       secondaryButtonText={

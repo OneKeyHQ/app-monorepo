@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Page,
@@ -8,33 +10,46 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
-const STEPS = [
-  {
-    title: 'Open Other Device',
-    description:
-      'Go to another device where your OneKey account is signed in with your email',
-  },
-  {
-    title: 'Go to Settings',
-    description: 'In Settings, select "Security" and then "Reset PIN"',
-  },
-  {
-    title: 'Set Your New PIN',
-    description:
-      "Once you've set your new PIN, you can now login to your wallet on this device",
-  },
-];
-
 function ResetPinPage() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const handleDone = useCallback(() => {
     navigation.pop();
   }, [navigation]);
+
+  const STEPS = [
+    {
+      title: intl.formatMessage({
+        id: ETranslations.reset_pin_open_other_device,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.reset_pin_open_other_device_desc,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.reset_pin_go_to_settings,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.reset_pin_go_to_settings_desc,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.reset_pin_set_your_new_pin,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.reset_pin_set_your_new_pin_desc,
+      }),
+    },
+  ];
+
   return (
     <Page>
       <OnboardingLayout>
@@ -43,11 +58,14 @@ function ResetPinPage() {
           <OnboardingLayout.ConstrainedContent gap="$10">
             <YStack gap="$2">
               <SizableText size="$heading2xl">
-                Reset PIN using another device
+                {intl.formatMessage({
+                  id: ETranslations.reset_pin_using_another_device,
+                })}
               </SizableText>
               <SizableText size="$bodyLg" color="$textSubdued">
-                For security, you can only reset your PIN in other devices where
-                you are logged in
+                {intl.formatMessage({
+                  id: ETranslations.reset_pin_using_another_device_desc,
+                })}
               </SizableText>
             </YStack>
             <YStack gap="$6">
@@ -76,7 +94,9 @@ function ResetPinPage() {
 
               {gtMd ? (
                 <Button size="large" variant="primary" onPress={handleDone}>
-                  I've done these steps
+                  {intl.formatMessage({
+                    id: ETranslations.i_have_done_these_steps,
+                  })}
                 </Button>
               ) : null}
             </YStack>
@@ -90,7 +110,9 @@ function ResetPinPage() {
               variant="primary"
               onPress={handleDone}
             >
-              I've done these steps
+              {intl.formatMessage({
+                id: ETranslations.i_have_done_these_steps,
+              })}
             </Button>
           </OnboardingLayout.Footer>
         ) : null}
