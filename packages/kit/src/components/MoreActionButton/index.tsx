@@ -955,13 +955,15 @@ function MoreActionGeneralGrid() {
         onPress: handleScan,
         trackID: 'wallet-scan',
       },
-      {
-        title: 'Prime',
-        icon: 'PrimeOutline' as const,
-        onPress: handlePrime,
-        trackID: 'wallet-prime',
-      },
-    ];
+      !platformEnv.isWebDappMode
+        ? {
+            title: 'Prime',
+            icon: 'PrimeOutline' as const,
+            onPress: handlePrime,
+            trackID: 'wallet-prime',
+          }
+        : undefined,
+    ].filter(Boolean);
   }, [handlePrime, handleScan, handleSettings, intl]);
   return (
     <BaseMoreActionGrid
@@ -1298,7 +1300,7 @@ function BaseMoreActionContent() {
     <YStack flex={1}>
       <ScrollView overflow="scroll" flex={1}>
         <UpdateReminders />
-        <MoreActionOneKeyId />
+        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
         {isDesktopMode ? null : <MoreActionDevice />}
         <MoreActionDivider />
         <MoreActionGeneralGrid />
