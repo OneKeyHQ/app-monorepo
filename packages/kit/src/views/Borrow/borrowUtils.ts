@@ -77,11 +77,9 @@ export const BorrowNavigation = {
       accountId: string;
       networkId: string;
       provider: string;
-      symbol: string;
-      marketAddress?: string;
-      stakeTag: string;
-      protocolVault?: string;
-      filterType?: string;
+      marketAddress: string;
+      title?: string;
+      type?: string;
       isModal?: boolean;
     },
   ) {
@@ -89,17 +87,16 @@ export const BorrowNavigation = {
       accountId: params.accountId,
       networkId: params.networkId,
       provider: params.provider,
-      symbol: params.symbol,
-      stakeTag: params.stakeTag,
-      protocolVault: params.protocolVault,
-      filterType: params.filterType,
+      marketAddress: params.marketAddress,
+      title: params.title,
+      type: params.type,
     };
 
     if (params.isModal) {
-      navigation.push(EModalStakingRoutes.HistoryList, historyParams);
+      navigation.push(EModalStakingRoutes.BorrowHistoryList, historyParams);
     } else {
       navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.HistoryList,
+        screen: EModalStakingRoutes.BorrowHistoryList,
         params: historyParams,
       });
     }

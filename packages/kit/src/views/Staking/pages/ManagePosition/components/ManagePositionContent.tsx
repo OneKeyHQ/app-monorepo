@@ -285,19 +285,23 @@ export function ManagePositionContent({
     [managePageData?.history],
   );
 
+  const isBorrowType = [
+    EManagePositionType.Supply,
+    EManagePositionType.Borrow,
+    EManagePositionType.Withdraw,
+    EManagePositionType.Repay,
+  ].includes(type);
+
   const onHistory = useMemo(() => {
     if (historyAction?.disabled || !earnAccount?.accountId) return undefined;
-    return (params?: { filterType?: string }) => {
-      const { filterType } = params || {};
+    if (!isBorrowType || !marketAddress) return undefined;
+
+    return () => {
       BorrowNavigation.pushToBorrowHistory(appNavigation, {
         accountId: earnAccount?.accountId,
         networkId,
         provider,
-        symbol,
-        marketAddress: marketAddress || '',
-        stakeTag: resolvedProtocolInfo?.stakeTag || '',
-        protocolVault: vault,
-        filterType,
+        marketAddress,
         isModal: isInModalContext,
       });
     };
@@ -306,12 +310,10 @@ export function ManagePositionContent({
     appNavigation,
     earnAccount?.accountId,
     networkId,
-    resolvedProtocolInfo?.stakeTag,
     provider,
     marketAddress,
-    symbol,
-    vault,
     isInModalContext,
+    isBorrowType,
   ]);
 
   // Ref to store refreshPending function from useStakingPendingTxs hook
@@ -334,12 +336,6 @@ export function ManagePositionContent({
 
   // Create "View Reserve Details" button for borrow type in mobile modal
   const viewReserveDetailsButton = useMemo(() => {
-    const isBorrowType =
-      type === EManagePositionType.Supply ||
-      type === EManagePositionType.Withdraw ||
-      type === EManagePositionType.Borrow ||
-      type === EManagePositionType.Repay;
-
     // Only show on mobile (not desktop)
     if (
       !isBorrowType ||
@@ -379,7 +375,7 @@ export function ManagePositionContent({
       </Button>
     );
   }, [
-    type,
+    isBorrowType,
     isInModalContext,
     reserveAddress,
     marketAddress,
