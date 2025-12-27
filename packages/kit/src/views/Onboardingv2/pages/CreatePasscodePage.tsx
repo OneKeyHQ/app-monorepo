@@ -1,12 +1,14 @@
-import { useCallback, useState } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, SizableText, YStack } from '@onekeyhq/components';
+import { Page, SizableText, Spinner, YStack } from '@onekeyhq/components';
 import { usePasswordModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import PasswordSetup from '../../../components/Password/components/PasswordSetup';
+import PasswordSetupContainer from '../../../components/Password/container/PasswordSetupContainer';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { IPasswordSetupForm } from '../../../components/Password/components/PasswordSetup';
@@ -44,13 +46,14 @@ function CreatePasscodePage() {
                 {intl.formatMessage({ id: ETranslations.create_passcode_desc })}
               </SizableText>
             </YStack>
-            <PasswordSetup
-              loading={loading}
-              passwordMode={passwordMode}
-              onSetupPassword={handleSetupPasscode}
-              pageMode
-              onStepChange={setStep}
-            />
+            <Suspense fallback={<Spinner size="large" />}>
+              <PasswordSetupContainer
+                pageMode
+                onSetupRes={async (data: string) => {
+                  alert(data);
+                }}
+              />
+            </Suspense>
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
       </OnboardingLayout>

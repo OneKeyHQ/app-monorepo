@@ -31,6 +31,7 @@ import type { IPasswordSetupForm } from '../components/PasswordSetup';
 
 interface IPasswordSetupProps {
   onSetupRes: (password: string) => void;
+  pageMode?: boolean;
 }
 
 interface IBiologyAuthContainerProps {
@@ -74,7 +75,10 @@ const BiologyAuthContainer = ({
   ) : null;
 };
 
-const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
+const PasswordSetupContainer = ({
+  onSetupRes,
+  pageMode,
+}: IPasswordSetupProps) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
@@ -166,6 +170,7 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
 
   return (
     <PasswordSetup
+      pageMode={pageMode}
       loading={loading}
       passwordMode={passwordMode}
       onSetupPassword={onSetupPassword}

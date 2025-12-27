@@ -115,6 +115,8 @@ function HardwareTroubleshootingModal() {
       },
       {
         title: intl.formatMessage({
+          // TODO @franco missing translation?
+          // @ts-ignore
           id: ETranslations.global_faqs_reset_wallet,
         }),
         icon: 'RepeatOutline',

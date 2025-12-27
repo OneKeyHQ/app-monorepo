@@ -7,7 +7,10 @@ import { SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { PinInputLayout } from '../components/PinInputLayout';
 
@@ -18,12 +21,18 @@ function CreatePinPage() {
   const route =
     useRoute<RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.CreatePin>>();
   const { isResetPin } = route.params ?? {};
+  const { cacheKeylessOnboardingPin } = useKeylessWallet();
+
   const intl = useIntl();
   const [pin, setPin] = useState('');
 
   const handleContinue = useCallback(() => {
-    navigation.push(EOnboardingPagesV2.ConfirmPin, { pin });
-  }, [navigation, pin]);
+    if (pin) {
+      cacheKeylessOnboardingPin({ pin });
+      setPin('');
+      navigation.push(EOnboardingPagesV2.ConfirmPin);
+    }
+  }, [cacheKeylessOnboardingPin, navigation, pin]);
 
   const highlightDescription = useCallback(
     (chunks: React.ReactNode) => (
@@ -56,4 +65,17 @@ function CreatePinPage() {
   );
 }
 
-export { CreatePinPage as default };
+function CreatePinPageWithContext() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <CreatePinPage />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export { CreatePinPageWithContext as default };

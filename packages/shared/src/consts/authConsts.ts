@@ -27,6 +27,12 @@ export const OAUTH_CALLBACK_NATIVE_PATH = 'oauth_callback_native';
 // OAuth shared constants (OneKeyAuth)
 // ============================================================================
 
+// OAuth provider types (used by OneKeyAuth)
+export enum EOAuthSocialLoginProvider {
+  Google = 'google',
+  Apple = 'apple',
+}
+
 // OAuth method enums (used by OneKeyAuth)
 export enum EDesktopOAuthMethod {
   // ✅ RECOMMENDED
@@ -118,6 +124,12 @@ export const EXTENSION_OAUTH_USE_PKCE_FLOW = true;
 // Reference: https://developer.apple.com/documentation/authenticationservices/asauthorizationopenidrequest/nonce
 export const APPLE_SIGNIN_USE_NONCE = true;
 
+// Desktop native Apple Sign-In (macOS only)
+// When enabled, macOS will use native ASAuthorizationController for Apple Sign-In
+// instead of opening the browser. Provides better UX with system UI and Touch ID.
+// Set to false to always use browser OAuth flow.
+export const MAC_DESKTOP_USE_NATIVE_APPLE_SIGNIN = false;
+
 // Email OTP
 export const EMAIL_OTP_COUNTDOWN_SECONDS = 60;
 
@@ -127,7 +139,7 @@ export const DEFAULT_EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
 export const DEFAULT_DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod =
   EDesktopOAuthMethod.LOCALHOST_SERVER;
 export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
-  ENativeOAuthMethod.WEB_BROWSER;
+  ENativeOAuthMethod.NATIVE_SDK;
 
 // Google OAuth clients
 //  - https://console.cloud.google.com/auth/clients

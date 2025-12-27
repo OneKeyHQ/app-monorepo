@@ -910,6 +910,40 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }),
   );
 
+  createKeylessWalletV2 = contextAtomMethod(
+    async (
+      _,
+      set,
+      {
+        token,
+      }: {
+        token: string;
+      },
+    ) =>
+      this.withFinalizeWalletSetupStep.call(set, {
+        createWalletFn: async () => {
+          const { wallet, indexedAccount, isOverrideWallet } =
+            await backgroundApiProxy.serviceKeylessWallet.createKeylessWalletV2(
+              {
+                token,
+              },
+            );
+          await this.autoSelectToCreatedWallet.call(set, {
+            wallet,
+            indexedAccount,
+            isOverrideWallet,
+          });
+          return { wallet, indexedAccount, isOverrideWallet };
+        },
+        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
+          await this.addDefaultNetworkAccounts.call(set, {
+            wallet,
+            indexedAccount,
+          });
+        },
+      }),
+  );
+
   createHWWallet = contextAtomMethod(
     async (
       _,
@@ -2331,6 +2365,7 @@ export function useAccountSelectorActions() {
   const createQrWallet = actions.createQrWallet.use();
   const createTonImportedWallet = actions.createTonImportedWallet.use();
   const createKeylessWallet = actions.createKeylessWallet.use();
+  const createKeylessWalletV2 = actions.createKeylessWalletV2.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
   const updateHwWalletsDeprecatedStatus =
     actions.updateHwWalletsDeprecatedStatus.use();
@@ -2370,6 +2405,7 @@ export function useAccountSelectorActions() {
     createQrWallet,
     createTonImportedWallet,
     createKeylessWallet,
+    createKeylessWalletV2,
     updateHwWalletsDeprecatedStatus,
     autoSelectNextAccount,
     autoSelectNetworkOfOthersWalletAccount,

@@ -20,6 +20,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
+import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -146,8 +147,11 @@ function CreateOrImportWallet() {
   const [expanded, setExpanded] = useState(false);
   const [keylessExpanded, setKeylessExpanded] = useState(false);
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
-  const { enableKeylessWallet, enableKeylessWalletLoading } =
-    useKeylessWallet();
+  const {
+    enableKeylessWallet,
+    enableKeylessWalletLoading,
+    checkKeylessWalletExistence,
+  } = useKeylessWallet();
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
   const navigation = useAppNavigation();
@@ -194,13 +198,19 @@ function CreateOrImportWallet() {
     defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
 
-  const handleKeylessWalletClick = useCallback(() => {
+  const handleKeylessWalletClick = useCallback(async () => {
     // await enableKeylessWallet({
     //   fromScene: EKeylessWalletEnableScene.Onboarding,
     // });
+    // navigation.push(EOnboardingPagesV2.OneKeyIDLogin);
+    await checkKeylessWalletExistence();
+  }, [checkKeylessWalletExistence]);
 
-    navigation.push(EOnboardingPagesV2.OneKeyIDLogin);
-  }, [navigation]);
+  const handleKeylessWalletLegacyClick = useCallback(async () => {
+    await enableKeylessWallet({
+      fromScene: EKeylessWalletEnableScene.Onboarding,
+    });
+  }, [enableKeylessWallet]);
 
   return (
     <Page>
@@ -296,6 +306,11 @@ function CreateOrImportWallet() {
               </>
             ) : null}
             {/* keyless wallet */}
+            {isKeylessWalletEnabled ? (
+              <Button onPress={handleKeylessWalletLegacyClick}>
+                Keyless wallet legacy
+              </Button>
+            ) : null}
             {isKeylessWalletEnabled ? (
               <Card onPress={handleKeylessWalletClick}>
                 <Card.Header>
@@ -444,6 +459,7 @@ function CreateOrImportWallet() {
                 </Card.Body>
               </Card>
             ) : null}
+
             {/* create new wallet */}
             <Card onPress={handleCreateNewWallet}>
               <Card.Header>

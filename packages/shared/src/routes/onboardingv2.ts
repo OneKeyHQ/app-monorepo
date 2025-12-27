@@ -19,6 +19,12 @@ export enum EOnboardingV2KeylessWalletCreationMode {
   View = 'View',
 }
 
+export enum EOnboardingV2OneKeyIDLoginMode {
+  CreateKeylessWallet = 'CreateKeylessWallet',
+  ImportKeylessWallet = 'ImportKeylessWallet',
+  VerifyKeylessWallet = 'VerifyKeylessWallet',
+}
+
 export enum EOnboardingPagesV2 {
   GetStarted = 'GetStarted',
   AddExistingWallet = 'AddExistingWallet',
@@ -44,10 +50,10 @@ export enum EOnboardingPagesV2 {
   OneKeyIDLogin = 'OneKeyIDLogin',
   CreatePin = 'CreatePin',
   ConfirmPin = 'ConfirmPin',
-  CreatePasscode = 'CreatePasscode',
   VerifyPin = 'VerifyPin',
   ResetPin = 'ResetPin',
   NewPinCreated = 'NewPinCreated',
+  CreatePasscode = 'CreatePasscode',
   MoreAction = 'MoreAction',
 }
 interface IVerifyRecoveryPhraseParams {
@@ -119,13 +125,13 @@ export type IOnboardingParamListV2 = {
     email?: string;
     mode?: EOnboardingV2KeylessWalletCreationMode;
   };
-  [EOnboardingPagesV2.OneKeyIDLogin]: undefined;
+  [EOnboardingPagesV2.OneKeyIDLogin]: {
+    mode: EOnboardingV2OneKeyIDLoginMode;
+  };
   [EOnboardingPagesV2.CreatePin]: {
     isResetPin?: boolean;
   };
-  [EOnboardingPagesV2.ConfirmPin]: {
-    pin: string;
-  };
+  [EOnboardingPagesV2.ConfirmPin]: undefined;
   [EOnboardingPagesV2.CreatePasscode]: undefined;
   [EOnboardingPagesV2.VerifyPin]: {
     /**

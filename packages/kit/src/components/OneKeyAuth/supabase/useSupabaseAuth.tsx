@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -19,6 +20,21 @@ import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
 import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
 
+export type IOAuthSignInResult = {
+  success: boolean;
+  session?: {
+    accessToken: string;
+    refreshToken: string;
+  };
+};
+
+export type IOAuthSignInOptions = {
+  // Whether to persist the session to storage and set it in Supabase client
+  // When false (default): Only return tokens in memory, don't call setSession
+  // When true: Call setSession to persist and enable auto-refresh
+  persistSession?: boolean;
+};
+
 export function useSupabaseAuth() {
   const ctx = useSupabaseAuthContext();
   const supabaseUser = ctx?.session?.user;
@@ -32,20 +48,9 @@ export function useSupabaseAuth() {
 
   const performOAuthSignIn = useCallback(
     async (
-      provider: 'google' | 'apple',
-      options?: {
-        // Whether to persist the session to storage and set it in Supabase client
-        // When false (default): Only return tokens in memory, don't call setSession
-        // When true: Call setSession to persist and enable auto-refresh
-        persistSession?: boolean;
-      },
-    ): Promise<{
-      success: boolean;
-      session?: {
-        accessToken: string;
-        refreshToken: string;
-      };
-    }> => {
+      provider: EOAuthSocialLoginProvider,
+      options?: IOAuthSignInOptions,
+    ): Promise<IOAuthSignInResult> => {
       const { persistSession } = options ?? {};
       const clientTemp: SupabaseClient = createTemporarySupabaseClient();
 
@@ -126,14 +131,14 @@ export function useSupabaseAuth() {
         http://127.0.0.1:62416/oauth_callback_desktop?code=xxxx&onekey_oauth_state=2fd6480e3004ad6aef7d6a72dc37455b
       */
 
-      Dialog.debugMessage({
-        title: 'performOAuthSignIn',
-        debugMessage: {
-          provider,
-          redirectTo,
-          authUrl,
-        },
-      });
+      // Dialog.debugMessage({
+      //   title: 'performOAuthSignIn',
+      //   debugMessage: {
+      //     provider,
+      //     redirectTo,
+      //     authUrl,
+      //   },
+      // });
 
       // Open OAuth popup using platform-specific implementation
       return OAuthPopup.open({
@@ -147,37 +152,12 @@ export function useSupabaseAuth() {
     [],
   );
 
-  const signInWithGoogle = useCallback(
-    async (options?: {
-      // Whether to persist the session to storage (default: false)
-      persistSession?: boolean;
-    }): Promise<{
-      success: boolean;
-      session?: {
-        accessToken: string;
-        refreshToken: string;
-      };
-    }> => {
-      // Perform the OAuth flow
-      const oauthResult = await performOAuthSignIn('google', options);
-      return oauthResult;
-    },
-    [performOAuthSignIn],
-  );
-
-  const signInWithApple = useCallback(
-    async (options?: {
-      // Whether to persist the session to storage (default: false)
-      persistSession?: boolean;
-    }): Promise<{
-      success: boolean;
-      session?: {
-        accessToken: string;
-        refreshToken: string;
-      };
-    }> => {
-      // Perform the OAuth flow
-      const oauthResult = await performOAuthSignIn('apple', options);
+  const signInWithSocialLogin = useCallback(
+    async (
+      provider: EOAuthSocialLoginProvider,
+      options?: IOAuthSignInOptions,
+    ): Promise<IOAuthSignInResult> => {
+      const oauthResult = await performOAuthSignIn(provider, options);
       return oauthResult;
     },
     [performOAuthSignIn],
@@ -367,8 +347,7 @@ export function useSupabaseAuth() {
     () => ({
       signOut,
       signInWithOtp,
-      signInWithGoogle,
-      signInWithApple,
+      signInWithSocialLogin,
       performOAuthSignIn,
       verifyOtp,
       getSupabaseClient,
@@ -383,8 +362,7 @@ export function useSupabaseAuth() {
     [
       signOut,
       signInWithOtp,
-      signInWithGoogle,
-      signInWithApple,
+      signInWithSocialLogin,
       performOAuthSignIn,
       verifyOtp,
       getAccessToken,
