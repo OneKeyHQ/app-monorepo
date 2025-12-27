@@ -2,6 +2,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
+const BORROW_POLLING_INTERVAL = 3 * 60 * 1000;
+
 export const useBorrowMarkets = () => {
   const {
     result: markets,
@@ -18,6 +20,8 @@ export const useBorrowMarkets = () => {
       watchLoading: true,
       checkIsFocused: true,
       undefinedResultIfReRun: false,
+      pollingInterval: BORROW_POLLING_INTERVAL,
+      revalidateOnFocus: true,
     },
   );
 

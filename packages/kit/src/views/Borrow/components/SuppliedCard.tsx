@@ -176,6 +176,7 @@ export const SuppliedCard = () => {
             walletId={walletId}
             indexedAccountId={indexedAccountId}
             onPress={() => handleManageWithdraw(item)}
+            disabled={item.withdrawButton?.disabled}
           />
         ),
         flex: 1,

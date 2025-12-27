@@ -141,6 +141,7 @@ export const BorrowedCard = () => {
             walletId={walletId}
             indexedAccountId={indexedAccountId}
             onPress={() => handleManageRepay(item)}
+            disabled={item.repayButton?.disabled}
           />
         ),
         flex: 1,

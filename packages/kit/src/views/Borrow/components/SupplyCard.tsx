@@ -169,6 +169,7 @@ export const SupplyCard = () => {
             accountId={accountId}
             walletId={walletId}
             indexedAccountId={indexedAccountId}
+            disabled={item.supplyButton?.disabled}
           />
         ),
         flex: 1,

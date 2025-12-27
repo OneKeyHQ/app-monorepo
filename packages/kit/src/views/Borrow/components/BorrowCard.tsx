@@ -141,6 +141,7 @@ export const BorrowCard = () => {
             walletId={walletId}
             indexedAccountId={indexedAccountId}
             onPress={() => handleManageBorrow(item)}
+            disabled={item.borrowButton?.disabled}
           />
         ),
         flex: 1,

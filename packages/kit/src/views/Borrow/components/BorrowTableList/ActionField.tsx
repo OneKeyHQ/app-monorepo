@@ -17,6 +17,7 @@ type IActionFieldProps = {
   accountId?: string;
   walletId?: string;
   indexedAccountId?: string;
+  disabled?: boolean;
 };
 
 export const ActionField = ({
@@ -27,6 +28,7 @@ export const ActionField = ({
   accountId = '',
   walletId = '',
   indexedAccountId,
+  disabled = false,
 }: IActionFieldProps) => {
   const { market } = useBorrowContext();
   const networkId = market?.networkId || '';
@@ -94,6 +96,7 @@ export const ActionField = ({
       <Button
         size="small"
         variant="secondary"
+        disabled={disabled}
         onPress={() => {
           onPress?.(item);
         }}

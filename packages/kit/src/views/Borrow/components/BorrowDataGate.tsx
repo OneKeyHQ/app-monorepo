@@ -21,6 +21,8 @@ enum EBorrowDataStatus {
   Ready = 'Ready',
 }
 
+const BORROW_POLLING_INTERVAL = 3 * 60 * 1000; // 3 minutes
+
 export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
   const isFocused = useIsFocused();
   const { markets, isLoading: marketsLoading } = useBorrowMarkets();
@@ -53,7 +55,6 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     usePromiseResult(
       async () => {
         if (
-          !isFocused ||
           !fetchKey ||
           !marketProvider ||
           !marketNetworkId ||
@@ -70,7 +71,6 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
         });
       },
       [
-        isFocused,
         fetchKey,
         marketProvider,
         marketNetworkId,
@@ -81,9 +81,11 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
       ],
       {
         watchLoading: true,
-        checkIsFocused: false,
+        checkIsFocused: true,
         undefinedResultIfReRun: false,
         undefinedResultIfError: true,
+        pollingInterval: BORROW_POLLING_INTERVAL,
+        revalidateOnFocus: true,
       },
     );
 
