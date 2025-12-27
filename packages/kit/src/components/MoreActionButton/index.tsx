@@ -1091,11 +1091,13 @@ const MoreActionWalletGrid = () => {
         icon: 'SliderThreeOutline' as const,
         onPress: handlePreferences,
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_security }),
-        icon: 'Shield2CheckOutline' as const,
-        onPress: handleSecurity,
-      },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({ id: ETranslations.global_security }),
+            icon: 'Shield2CheckOutline' as const,
+            onPress: handleSecurity,
+          },
       platformEnv.isWebDappMode
         ? undefined
         : {
