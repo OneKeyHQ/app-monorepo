@@ -8,6 +8,7 @@ import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useSwapFromTokenAmountAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProTradeTypeAtom,
@@ -146,6 +147,7 @@ const SwapProActionButton = ({
   const currencyInfo = useCurrency();
   const [quoteFetching] = useSwapSpeedQuoteFetchingAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
+  const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapFromInputAmount] = useSwapFromTokenAmountAtom();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
@@ -159,11 +161,23 @@ const SwapProActionButton = ({
     if (swapProTradeType === ESwapProTradeType.MARKET) {
       return swapProQuoteResult?.toAmount || '0';
     }
+    // For limit order, calculate toAmount based on limitPriceUseRate
+    if (
+      swapProTradeType === ESwapProTradeType.LIMIT &&
+      limitPriceUseRate?.rate
+    ) {
+      const inputAmountBN = new BigNumber(swapFromInputAmount.value || '0');
+      if (!inputAmountBN.isNaN() && !inputAmountBN.isZero()) {
+        return inputAmountBN.multipliedBy(limitPriceUseRate.rate).toFixed();
+      }
+    }
     return swapQuoteResult?.toAmount || '0';
   }, [
     swapProTradeType,
     swapQuoteResult?.toAmount,
     swapProQuoteResult?.toAmount,
+    limitPriceUseRate?.rate,
+    swapFromInputAmount.value,
   ]);
 
   const inputTokenValue = useMemo(() => {
@@ -172,6 +186,22 @@ const SwapProActionButton = ({
     if (swapProDirection === ESwapDirection.BUY) {
       if (toPrice.isZero() || toPrice.isNaN()) {
         return '';
+      }
+      // For limit order, calculate toAmount based on limitPriceUseRate
+      if (
+        swapProTradeType === ESwapProTradeType.LIMIT &&
+        limitPriceUseRate?.rate
+      ) {
+        const inputFromAmountBN = new BigNumber(
+          swapFromInputAmount.value || '0',
+        );
+        if (inputFromAmountBN.isNaN() || inputFromAmountBN.isZero()) {
+          return '';
+        }
+        const limitToAmount = inputFromAmountBN.multipliedBy(
+          limitPriceUseRate.rate,
+        );
+        return limitToAmount.multipliedBy(toPrice).toFixed();
       }
       const quoteToAmountBN = new BigNumber(quoteToAmount || '0');
       if (quoteToAmountBN.isNaN() || quoteToAmountBN.isZero()) {
@@ -189,6 +219,7 @@ const SwapProActionButton = ({
       }
       return inputPrice.multipliedBy(inputProAmountBN).toFixed();
     }
+    // For limit order SELL direction
     const inputFromAmountBN = new BigNumber(swapFromInputAmount.value || '0');
     if (inputFromAmountBN.isNaN() || inputFromAmountBN.isZero()) {
       return '';
@@ -202,6 +233,7 @@ const SwapProActionButton = ({
     swapFromInputAmount.value,
     quoteToAmount,
     inputAmount,
+    limitPriceUseRate?.rate,
   ]);
   const debouncedOnSwapProActionClick = useDebouncedCallback(
     onSwapProActionClick,

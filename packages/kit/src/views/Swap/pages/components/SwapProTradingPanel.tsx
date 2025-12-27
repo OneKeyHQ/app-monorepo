@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -27,6 +27,8 @@ import SwapProInputContainer from './SwapProInputContainer';
 import SwapProLimitPriceValue from './SwapProLimitPriceValue';
 import { SwapProSlippageSetting } from './SwapProSlippageSetting';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
+
+import type { ITradeType } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
 interface ISwapProTradingPanelProps {
   swapProConfig: ISwapProSpeedConfig;
@@ -85,6 +87,23 @@ const SwapProTradingPanel = ({
     [intl, swapProTokenSupportLimit],
   );
 
+  const onTypeSelected = useCallback(
+    (value: ESwapProTradeType) => {
+      if (value === swapProTradeType) return;
+      cleanInputAmount();
+      setSwapProTradeType(value);
+    },
+    [cleanInputAmount, setSwapProTradeType, swapProTradeType],
+  );
+
+  const onDirectionSelected = useCallback(
+    (value: ITradeType) => {
+      if (!value || value === swapProDirection) return;
+      setSwapProDirection(value);
+    },
+    [setSwapProDirection, swapProDirection],
+  );
+
   useSwapProActionsQuote();
 
   return (
@@ -92,21 +111,12 @@ const SwapProTradingPanel = ({
       <TradeTypeSelector
         value={swapProDirection}
         size="small"
-        onChange={(value) => {
-          if (value) {
-            cleanInputAmount();
-            setSwapProDirection(value);
-          }
-        }}
+        onChange={onDirectionSelected}
       />
       <YStack gap="$2">
         <SwapProTradeTypeSelector
           currentSelect={swapProTradeType}
-          onSelectTradeType={(value) => {
-            if (value === swapProTradeType) return;
-            cleanInputAmount();
-            setSwapProTradeType(value);
-          }}
+          onSelectTradeType={onTypeSelected}
           selectItems={selectTradeTypeItems}
         />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
