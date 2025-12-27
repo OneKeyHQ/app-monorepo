@@ -468,20 +468,6 @@ function connectionIndicatorFooter({
         opacity: 0,
       }}
     >
-      {platformEnv.isWeb ? (
-        <Image
-          source={require('@onekeyhq/kit/assets/onboarding/radial-gradient.png')}
-          position="absolute"
-          left="50%"
-          bottom="0"
-          style={{
-            transform: [{ translateX: '-50%' }, { translateY: '50%' }],
-          }}
-          width={520}
-          height={226}
-          zIndex={0}
-        />
-      ) : null}
       {children}
     </YStack>
   );
