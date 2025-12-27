@@ -873,7 +873,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         setTimeout(() => {
           appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
             tab: ETranslations.global_browser,
-            openUrl: true,
+            openUrl: shouldPopNavigation,
           });
         }, 150);
       }
