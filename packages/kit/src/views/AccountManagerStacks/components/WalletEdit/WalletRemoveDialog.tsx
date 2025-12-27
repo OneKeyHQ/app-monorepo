@@ -166,33 +166,6 @@ export function showWalletRemoveDialog({
   showCheckBox: boolean;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
 }) {
-  // When no checkbox needed, use simpler dialog without renderContent to avoid extra space
-  if (!showCheckBox) {
-    return Dialog.show({
-      icon: 'ErrorOutline',
-      tone: 'destructive',
-      title,
-      description,
-      onConfirmText: appLocale.intl.formatMessage({
-        id: ETranslations.global_remove,
-      }),
-      confirmButtonProps: {
-        variant: 'destructive',
-      },
-      onConfirm: async () => {
-        await backgroundApiProxy.serviceAccount.removeWallet({
-          walletId: wallet?.id || '',
-        });
-        defaultLogger.account.wallet.deleteWallet();
-        Toast.success({
-          title: appLocale.intl.formatMessage({
-            id: ETranslations.feedback_change_saved,
-          }),
-        });
-      },
-    });
-  }
-
   return Dialog.show({
     icon: 'ErrorOutline',
     tone: 'destructive',
