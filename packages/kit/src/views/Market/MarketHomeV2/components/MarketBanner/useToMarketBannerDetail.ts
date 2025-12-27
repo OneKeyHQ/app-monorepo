@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabMarketRoutes,
   type ITabMarketParamList,
