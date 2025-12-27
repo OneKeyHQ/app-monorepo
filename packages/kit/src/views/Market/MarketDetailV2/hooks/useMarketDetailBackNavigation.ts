@@ -5,6 +5,7 @@ import {
   useRoute,
 } from '@react-navigation/native';
 
+import { useIsTabletDetailView } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -19,8 +20,15 @@ export function useMarketDetailBackNavigation() {
   const reactNavigation = useReactNavigation();
   const route = useRoute();
   const params = route.params as { from?: EEnterWay } | undefined;
+  const isTabletDetailView = useIsTabletDetailView();
 
   const handleBackPress = useCallback(() => {
+    // In tablet split view mode, always use pop for back navigation
+    if (isTabletDetailView) {
+      navigation.pop();
+      return;
+    }
+
     // Check if the previous route is Market home
     const state = reactNavigation.getState();
 
@@ -52,7 +60,7 @@ export function useMarketDetailBackNavigation() {
         screen: ETabMarketRoutes.TabMarket,
       },
     });
-  }, [params, reactNavigation, navigation]);
+  }, [params, reactNavigation, navigation, isTabletDetailView]);
 
   return { handleBackPress };
 }
