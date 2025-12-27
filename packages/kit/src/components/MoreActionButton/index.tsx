@@ -1331,8 +1331,8 @@ function MoreActionContent() {
     <MoreActionProvider>
       <YStack minHeight={560}>
         <MoreActionContentHeader />
-        <UpdateReminders />
-        <MoreActionOneKeyId />
+        {platformEnv.isWebDappMode ? <UpdateReminders /> : null}
+        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
         {isDesktopMode ? null : <MoreActionDevice />}
         <MoreActionDivider />
         <MoreActionGeneralGrid />
