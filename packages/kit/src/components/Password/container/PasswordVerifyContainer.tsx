@@ -42,7 +42,7 @@ import type { IPasswordVerifyForm } from '../components/PasswordVerify';
 import type { LayoutChangeEvent } from 'react-native';
 
 interface IPasswordVerifyProps {
-  onVerifyRes: (password: string) => void;
+  onVerifyRes: (password: string) => void | Promise<void>;
   onLayout?: (e: LayoutChangeEvent) => void;
   name?: 'lock';
   pageMode?: boolean;
@@ -200,11 +200,11 @@ const PasswordVerifyContainer = ({
         if (isExtLockNoCachePassword) {
           const result = await checkWebAuth();
           if (result) {
+            await onVerifyRes('');
             setPasswordAtom((v) => ({
               ...v,
               passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
             }));
-            onVerifyRes('');
             resetPasswordErrorAttempts();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
@@ -223,11 +223,11 @@ const PasswordVerifyContainer = ({
               });
           }
           if (biologyAuthRes) {
+            await onVerifyRes(biologyAuthRes);
             setPasswordAtom((v) => ({
               ...v,
               passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
             }));
-            onVerifyRes(biologyAuthRes);
             resetPasswordErrorAttempts();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
@@ -319,15 +319,15 @@ const PasswordVerifyContainer = ({
             password: encodePassword,
             passwordMode,
           });
-        setPasswordAtom((v) => ({
-          ...v,
-          passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
-        }));
         if (platformEnv.isNativeAndroid) {
           dismissKeyboard();
           await timerUtils.wait(0);
         }
-        onVerifyRes(verifiedPassword);
+        await onVerifyRes(verifiedPassword);
+        setPasswordAtom((v) => ({
+          ...v,
+          passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
+        }));
         resetPasswordErrorAttempts();
       } catch (e) {
         let message = intl.formatMessage({
