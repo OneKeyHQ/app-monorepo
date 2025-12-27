@@ -8,6 +8,7 @@ import {
   LinearGradient,
   SizableText,
   Stack,
+  XStack,
   YStack,
   useTheme,
 } from '@onekeyhq/components';
@@ -40,6 +41,18 @@ const getGradientColorAtPercent = (
   return colord(middleColor)
     .mix(endColor, (ratio - 0.5) * 2)
     .toRgbString();
+};
+
+const getTextAlignment = (
+  percent: number,
+): 'flex-start' | 'center' | 'flex-end' => {
+  if (percent < 15) {
+    return 'flex-start';
+  }
+  if (percent > 85) {
+    return 'flex-end';
+  }
+  return 'center';
 };
 
 export const HealthFactor = ({
@@ -83,61 +96,68 @@ export const HealthFactor = ({
     [cautionColor, criticalColor, successColor, thresholdPercent],
   );
 
+  const pointerTextAlignment = getTextAlignment(pointerPercent);
+  const thresholdTextAlignment = getTextAlignment(thresholdPercent);
+
   return (
-    <YStack gap="$2" mt="$4" mb="$1.5">
-      <Stack h="$10" position="relative" justifyContent="center">
-        <YStack
+    <YStack mt="$4" mb="$1.5">
+      {/* Upper indicator: current health factor value */}
+      <Stack position="relative" h="$8" mb="$1">
+        <Stack
           position="absolute"
           left={`${pointerPercent}%`}
-          bottom="50%"
-          transform={[{ translateX: '-50%' as never }]}
-          ai="center"
-          gap="$0"
-          zIndex="$1"
+          bottom={0}
+          w={0}
+          overflow="visible"
         >
-          <SizableText size="$bodySmMedium">{displayValue}</SizableText>
-          <Icon
-            name="ChevronTriangleDownSmallOutline"
-            size="$4"
-            color="$bgInverse"
-          />
-        </YStack>
-        <YStack
+          <YStack ai={pointerTextAlignment}>
+            <SizableText size="$bodySmMedium" whiteSpace="nowrap">
+              {displayValue}
+            </SizableText>
+            <Icon
+              name="ChevronTriangleDownSmallOutline"
+              size="$4"
+              color="$bgInverse"
+            />
+          </YStack>
+        </Stack>
+      </Stack>
+
+      {/* Gradient bar */}
+      <LinearGradient
+        start={[0, 0]}
+        end={[1, 0]}
+        colors={[criticalColor, cautionColor, successColor]}
+        height="$1"
+        width="100%"
+        borderRadius={9999}
+      />
+
+      {/* Lower indicator: liquidation threshold */}
+      <Stack position="relative" h="$10" mt="$1">
+        <Stack
           position="absolute"
           left={`${thresholdPercent}%`}
-          top="50%"
-          transform={[{ translateX: '-50%' as never }]}
-          ai="center"
-          gap="$0"
+          top={0}
+          w={0}
+          overflow="visible"
         >
-          <Icon
-            name="ChevronTriangleUpSmallOutline"
-            size="$4"
-            style={{ color: thresholdIndicatorColor }}
-          />
-          {liquidationText ? (
-            <Stack
-              transform={[
-                {
-                  translateX: (thresholdPercent < 40 ? '40%' : '0%') as never,
-                },
-              ]}
-            >
+          <YStack ai={thresholdTextAlignment}>
+            <Icon
+              name="ChevronTriangleUpSmallOutline"
+              size="$4"
+              style={{ color: thresholdIndicatorColor }}
+            />
+            {liquidationText ? (
               <EarnText
                 size="$bodySmMedium"
                 color="$textCritical"
                 text={liquidationText}
+                whiteSpace="nowrap"
               />
-            </Stack>
-          ) : null}
-        </YStack>
-        <LinearGradient
-          start={[0, 0]}
-          end={[1, 0]}
-          colors={['bgCriticalStrong', 'bgCautionStrong', 'bgSuccessStrong']}
-          height="$1"
-          borderRadius={9999}
-        />
+            ) : null}
+          </YStack>
+        </Stack>
       </Stack>
     </YStack>
   );
