@@ -16,7 +16,6 @@ import {
   Empty,
   HeightTransition,
   IconButton,
-  Image,
   LottieView,
   Page,
   Popover,
@@ -452,36 +451,13 @@ function ConnectionIndicatorTitle({ children }: { children: React.ReactNode }) {
   return <SizableText size="$bodyMdMedium">{children}</SizableText>;
 }
 
-function connectionIndicatorFooter({
+function ConnectionIndicatorFooter({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <YStack
-      pt="$5"
-      pb="$2"
-      gap="$2"
-      animation="quick"
-      animateOnly={['opacity']}
-      enterStyle={{
-        opacity: 0,
-      }}
-    >
-      {platformEnv.isWeb ? (
-        <Image
-          source={require('@onekeyhq/kit/assets/onboarding/radial-gradient.png')}
-          position="absolute"
-          left="50%"
-          bottom="0"
-          style={{
-            transform: [{ translateX: '-50%' }, { translateY: '50%' }],
-          }}
-          width={520}
-          height={226}
-          zIndex={0}
-        />
-      ) : null}
+    <YStack pt="$5" pb="$2" gap="$2">
       {children}
     </YStack>
   );
@@ -593,7 +569,7 @@ export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
   Card: ConnectionIndicatorCard,
   Content: ConnectionIndicatorContent,
   Title: ConnectionIndicatorTitle,
-  Footer: connectionIndicatorFooter,
+  Footer: ConnectionIndicatorFooter,
 });
 
 function BluetoothCard({
