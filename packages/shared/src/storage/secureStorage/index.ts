@@ -265,10 +265,15 @@ const storage: ISecureStorage = {
     await webStorage.removeItem(getSecureKey(key), undefined);
   },
 
-  supportSecureStorage(): Promise<boolean> {
+  async supportSecureStorage(): Promise<boolean> {
     // Synchronous check - basic browser support
     // For full PRF support check, use isPrfSupported() async function
-    return isPrfSupported();
+    // return isPrfSupported();
+
+    // TODO: remove this after test
+    // Note: On extension and web platforms, creating a mnemonic wallet will always require biometric verification by design,
+    // regardless of whether the user chooses to enable biometrics. This is because the password UI component does not synchronize this state.
+    return false;
   },
 
   async setSecureItemWithBiometrics(
