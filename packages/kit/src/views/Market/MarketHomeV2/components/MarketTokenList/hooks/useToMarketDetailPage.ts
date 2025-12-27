@@ -98,14 +98,21 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         if (isTabletMainView || isTabletDetailView) {
           appEventBus.emit(
             EAppEventBusNames.CleanTokenDetailInTabletDetailView,
-            {},
+            undefined,
           );
         }
 
         navigation.push(ETabMarketRoutes.MarketDetailV2, params);
       }
     },
-    [navigation, tokenDetailActions, options?.useRootNavigation, options?.from, isTabletMainView, isTabletDetailView],
+    [
+      navigation,
+      tokenDetailActions,
+      options?.useRootNavigation,
+      options?.from,
+      isTabletMainView,
+      isTabletDetailView,
+    ],
   );
 
   return toMarketDetailPage;
