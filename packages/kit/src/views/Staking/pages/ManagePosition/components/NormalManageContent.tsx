@@ -253,6 +253,7 @@ export function NormalManageContent({
             symbol,
             provider,
             onSuccess,
+            isInModalContext,
           };
 
           if (isInModalContext) {

@@ -87,7 +87,16 @@ enum EDAppOpenActionEnum {
 function parseDappRedirect(
   url: string,
   allowedUrls: string[],
+  options?: { isTopFrame?: boolean },
 ): { action: EDAppOpenActionEnum } {
+  // allow iframe ad
+  const isTopFrame = options?.isTopFrame ?? true;
+  const protocolMatch = url.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:/);
+  const protocol = protocolMatch ? protocolMatch[0].toLowerCase() : '';
+  if (isTopFrame === false && protocol === 'data:') {
+    return { action: EDAppOpenActionEnum.ALLOW };
+  }
+
   const parsedUrl = safeParseURL(url);
   if (process.env.NODE_ENV !== 'production') {
     if (

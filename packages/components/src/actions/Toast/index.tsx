@@ -301,6 +301,7 @@ function ToastNotificationContent({
       gap="$2"
       cursor="pointer"
       onPress={handlePress}
+      flex={1}
       $platform-native={{
         width: Math.min(width, 640) - 64,
       }}
@@ -315,7 +316,7 @@ function ToastNotificationContent({
       >
         {IconElement}
       </XStack>
-      <YStack flex={1} gap={2} flexShrink={1} maxWidth={220}>
+      <YStack flex={1} gap={2} flexShrink={1} minWidth={0}>
         <SizableText size="$headingSm" numberOfLines={2} flexShrink={1}>
           {title}
         </SizableText>

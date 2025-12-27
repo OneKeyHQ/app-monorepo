@@ -332,7 +332,7 @@ export function ManagePositionContent({
     void refreshPendingRef.current?.();
     onStakeWithdrawSuccess?.();
     if (isInModalContext) {
-      appNavigation.pop();
+      appNavigation.popStack();
     }
   }, [
     refreshManageData,

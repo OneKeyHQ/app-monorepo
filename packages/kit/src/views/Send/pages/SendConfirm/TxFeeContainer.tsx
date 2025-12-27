@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
@@ -760,11 +761,19 @@ function TxFeeContainer(props: IProps) {
             new BigNumber(0),
           );
           specialGasLimit = new BigNumber(baseGasLimit ?? 0)
-            .times(allRoutesLength.plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP))
+            .times(
+              allRoutesLength
+                .plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                .plus(BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP),
+            )
             .toFixed();
         } else {
           specialGasLimit = new BigNumber(baseGasLimit ?? 0)
-            .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+            .times(
+              new BigNumber(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP).plus(
+                BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
+              ),
+            )
             .toFixed();
         }
       }

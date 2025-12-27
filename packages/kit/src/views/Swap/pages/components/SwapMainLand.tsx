@@ -97,12 +97,10 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import {
-  useSwapPositionsSupportTokenListAction,
   useSwapProAccount,
   useSwapProErrorAlert,
   useSwapProInit,
   useSwapProInputToken,
-  useSwapProSupportNetworksTokenList,
   useSwapProToToken,
   useSwapProTokenInit,
 } from '../../hooks/useSwapPro';

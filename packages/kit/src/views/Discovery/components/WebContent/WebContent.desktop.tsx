@@ -31,7 +31,7 @@ function WebContent({ id, url }: IWebContentProps) {
     useBrowserTabActions().current;
   const { onNavigation, validateWebviewSrc } = useBrowserAction().current;
   useEffect(() => {
-    const validateState = validateWebviewSrc(url);
+    const validateState = validateWebviewSrc({ url, isTopFrame: true });
     setUrlValidateState(validateState);
     setShowBlockAccessView(
       validateState !== EValidateUrlEnum.Valid &&
@@ -130,7 +130,7 @@ function WebContent({ id, url }: IWebContentProps) {
   }, [id]);
   const webview = useMemo(
     () => {
-      const isValidate = validateWebviewSrc(url);
+      const isValidate = validateWebviewSrc({ url, isTopFrame: true });
       if (!isValidate) {
         return null;
       }

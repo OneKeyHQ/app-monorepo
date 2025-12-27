@@ -43,8 +43,8 @@ export function NetworkStatusBadge({
       indicatorElement: (
         <Stack
           position="relative"
-          w={8}
-          h={8}
+          w={10}
+          h={10}
           borderRadius="$full"
           alignItems="center"
           justifyContent="center"
@@ -53,8 +53,8 @@ export function NetworkStatusBadge({
         >
           <Stack
             position="absolute"
-            w={6}
-            h={6}
+            w={8}
+            h={8}
             borderRadius="$full"
             bg={indicatorBg}
           />
@@ -67,7 +67,7 @@ export function NetworkStatusBadge({
     <Badge
       badgeType={badgeType}
       badgeSize={badgeSize}
-      height={badgeSize === 'lg' ? 32 : 26}
+      height={badgeSize === 'lg' ? 32 : 30}
       borderRadius="$full"
       pl="$2"
       px="$3"
