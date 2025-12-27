@@ -24,10 +24,9 @@ export function PerpContentFooter() {
           borderTopWidth="$px"
           borderTopColor="$borderSubdued"
           bg="$bgApp"
-          h="$14"
+          h={40}
           alignItems="center"
-          pl="$5"
-          pr="$2.5"
+          p="$2"
           justifyContent="space-between"
         >
           <PerpNetworkStatus />
@@ -35,8 +34,8 @@ export function PerpContentFooter() {
           <Stack flex={1} />
           <Image
             source={poweredByHyperliquidLogo}
-            w={176}
-            h={30}
+            w={145}
+            h={25}
             resizeMode="contain"
           />
         </XStack>
