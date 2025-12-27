@@ -129,7 +129,7 @@ export function TabPageHeader({
     return null;
   }, [renderHeaderLeft, sceneName]);
 
-  if (platformEnv.isWebDappMode) {
+  if (platformEnv.isWebDappMode || platformEnv.isExtensionUiExpandTab) {
     if (gtMd) {
       return (
         <Page.Header

@@ -27,7 +27,7 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
-import { TabPageHeader } from '../../components/TabPageHeader';
+import { LazyPageContainer } from '../../components/LazyPageContainer';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAppRoute } from '../../hooks/useAppRoute';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
@@ -53,6 +53,7 @@ import { useFAQListInfo } from './hooks/useFAQListInfo';
 import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
 
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
+import { TabPageHeader } from '../../components/TabPageHeader';
 
 function BasicEarnHome({
   showHeader,
@@ -307,44 +308,50 @@ function BasicEarnHome({
   }
 
   return (
-    <EarnPageContainer
-      showTabPageHeader={media.gtMd}
-      sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Earn}
-      disableMaxWidth
-      contentContainerStyle={{
-        py: 0,
-      }}
-      refreshControl={
-        <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
-      }
-    >
-      <EarnHomeTabs
-        defaultMode={defaultMode}
-        onModeChange={handleModeChange}
-        earn={
-          <YStack flex={1}>
-            <YStack>
-              <XStack px="$5">
-                <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
-              </XStack>
-              {banners ? (
-                <YStack borderRadius="$3" width="100%" borderCurve="continuous">
-                  {banners}
-                </YStack>
-              ) : null}
-            </YStack>
-            <EarnMainTabs
-              faqList={faqList || []}
-              isFaqLoading={isFaqLoading}
-              defaultTab={defaultTab}
-              portfolioData={portfolioData}
-            />
-          </YStack>
+    <LazyPageContainer>
+      <EarnPageContainer
+        showTabPageHeader={media.gtMd}
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Earn}
+        disableMaxWidth
+        contentContainerStyle={{
+          py: 0,
+        }}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
         }
-        borrow={<BorrowHome />}
-      />
-    </EarnPageContainer>
+      >
+        <EarnHomeTabs
+          defaultMode={defaultMode}
+          onModeChange={handleModeChange}
+          earn={
+            <YStack flex={1}>
+              <YStack>
+                <XStack px="$5">
+                  <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+                </XStack>
+                {banners ? (
+                  <YStack
+                    borderRadius="$3"
+                    width="100%"
+                    borderCurve="continuous"
+                  >
+                    {banners}
+                  </YStack>
+                ) : null}
+              </YStack>
+              <EarnMainTabs
+                faqList={faqList || []}
+                isFaqLoading={isFaqLoading}
+                defaultTab={defaultTab}
+                portfolioData={portfolioData}
+              />
+            </YStack>
+          }
+          borrow={<BorrowHome />}
+        />
+      </EarnPageContainer>
+    </LazyPageContainer>
   );
 }
 

@@ -11,6 +11,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -164,7 +165,9 @@ export default function ReferAFriend() {
       }}
       enabledNum={[0]}
     >
-      <ReferAFriendPageWrapper />
+      <LazyPageContainer>
+        <ReferAFriendPageWrapper />
+      </LazyPageContainer>
     </AccountSelectorProviderMirror>
   );
 }

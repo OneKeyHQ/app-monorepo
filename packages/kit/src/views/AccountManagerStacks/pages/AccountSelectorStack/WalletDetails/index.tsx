@@ -707,6 +707,18 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         title={title}
       />
 
+      {platformEnv.isWebDappMode &&
+      accountUtils.isHwWallet({ walletId: focusedWalletInfo?.wallet?.id }) ? (
+        <Alert
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.global_web_access_for_hardware_wallet_disconnected,
+          })}
+          mx="$5"
+          mb="$2"
+        />
+      ) : null}
+
       {focusedWalletInfo?.wallet?.id && isHiddenWallet && editable ? (
         <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />
       ) : null}
