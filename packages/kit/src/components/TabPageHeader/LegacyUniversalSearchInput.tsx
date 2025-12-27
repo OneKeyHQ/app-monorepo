@@ -56,14 +56,20 @@ export function LegacyUniversalSearchInput({
       {...(containerProps as IXStackProps)}
     >
       <SearchBar
-        size={isLarge ? 'small' : 'medium'}
+        size={size === 'medium' ? 'medium' : 'small'}
+        containerProps={{ h: size === 'medium' ? 40 : 32 }}
+        py="$2"
         key="searchInput"
         placeholder={intl.formatMessage({
           id: ETranslations.global_search_everything,
         })}
         addOns={[
           {
-            label: <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />,
+            label: (
+              <View justifyContent="center">
+                <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />
+              </View>
+            ),
           },
         ]}
       />

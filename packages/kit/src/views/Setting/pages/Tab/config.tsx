@@ -41,7 +41,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  ECloudBackupRoutes,
   EDAppConnectionModal,
   ELiteCardRoutes,
   EModalKeyTagRoutes,
@@ -57,7 +56,6 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
-import { showApiEndpointDialog } from '../../components/ApiEndpointDialog';
 
 import {
   AutoLockListItem,
@@ -155,8 +153,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [settings] = useSettingsPersistAtom();
 
-  const { cloudBackupFeatureInfo, goToPageBackupList, startBackup } =
-    useCloudBackup();
+  const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
 
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
 

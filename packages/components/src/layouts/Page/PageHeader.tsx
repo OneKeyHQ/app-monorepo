@@ -7,7 +7,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsOverlayPage } from '../../hocs';
-import { useThemeValue } from '../../hooks';
+import { useTheme } from '../../hooks';
 import HeaderSearchBar from '../Navigation/Header/HeaderSearchBar';
 
 import type {
@@ -20,7 +20,8 @@ export type IPageHeaderProps = IStackNavigationOptions &
 
 const usePageHeaderReloadOptions = () => {
   const intl = useIntl();
-  const searchTextColor = useThemeValue('text');
+  const theme = useTheme();
+  const searchTextColor = theme.text.val;
   const reload = useCallback(
     (props: IPageHeaderProps) => {
       if (!props) {

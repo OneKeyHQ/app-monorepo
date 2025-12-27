@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import {
@@ -97,12 +98,10 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import {
-  useSwapPositionsSupportTokenListAction,
   useSwapProAccount,
   useSwapProErrorAlert,
   useSwapProInit,
   useSwapProInputToken,
-  useSwapProSupportNetworksTokenList,
   useSwapProToToken,
   useSwapProTokenInit,
 } from '../../hooks/useSwapPro';
@@ -1266,7 +1265,9 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           : EJotaiContextStoreNames.swap
       }
     >
-      <SwapMainLoad {...props} pageType={props?.pageType} />
+      <LazyPageContainer>
+        <SwapMainLoad {...props} pageType={props?.pageType} />
+      </LazyPageContainer>
     </SwapProviderMirror>
   );
 };

@@ -32,7 +32,10 @@ import type {
   ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
+  BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -1306,12 +1309,18 @@ export function useSwapBuildTx() {
                 );
                 specialGasLimit = new BigNumber(baseGasLimit ?? 0)
                   .times(
-                    allRoutesLength.plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP),
+                    allRoutesLength
+                      .plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                      .plus(BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP),
                   )
                   .toFixed();
               } else {
                 specialGasLimit = new BigNumber(baseGasLimit ?? 0)
-                  .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                  .times(
+                    new BigNumber(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP).plus(
+                      BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
+                    ),
+                  )
                   .toFixed();
               }
               const lastTxGasInfo = {
@@ -2681,12 +2690,19 @@ export function useSwapBuildTx() {
                 );
                 specialGasLimit = new BigNumber(baseGasLimit ?? 0)
                   .times(
-                    allRoutesLength.plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP),
+                    allRoutesLength
+                      .plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                      .plus(BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP),
                   )
                   .toFixed();
               } else {
                 specialGasLimit = new BigNumber(baseGasLimit ?? 0)
-                  .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                  .times(
+                    new BigNumber(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP).plus(
+                      BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
+                    ),
+                  )
+
                   .toFixed();
               }
               const lastTxGasInfo = {
