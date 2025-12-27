@@ -119,8 +119,7 @@ function OneKeyIDLoginPage() {
   const intl = useIntl();
 
   const { logout, signInWithSocialLogin } = useOneKeyAuth();
-  const { cacheKeylessOnboardingToken, checkKeylessWalletInitedOnServer } =
-    useKeylessWallet();
+  const { checkKeylessWalletInitedOnServer } = useKeylessWallet();
 
   const goToInputPinPage = useCallback(
     async ({ token }: { token: string }) => {

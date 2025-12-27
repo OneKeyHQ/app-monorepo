@@ -1159,8 +1159,10 @@ class ServiceKeylessWallet extends ServiceBase {
   @toastIfError()
   async apiGetKeylessJuiceboxShare(params: {
     token: string;
+    pin: string;
   }): Promise<IKeylessJuiceboxShare | null> {
-    const { token } = params;
+    const { token, pin } = params;
+    await this.apiVerifyKeylessJuiceboxPin({ token, pin });
     const ownerId = this.buildKeylessOwnerIdFromSocialToken({ token });
     // TODO: Replace with real API call
     // exchange juicebox token from onekey auth server
@@ -1168,6 +1170,22 @@ class ServiceKeylessWallet extends ServiceBase {
     // For now, return from mock cache
     const mockedShares = await this.getMockedKeylessShares();
     return mockedShares[ownerId]?.juiceboxShare || null;
+  }
+
+  // apiVerifyKeylessJuiceboxPin
+  @backgroundMethod()
+  @toastIfError()
+  async apiVerifyKeylessJuiceboxPin(params: { token: string; pin: string }) {
+    await timerUtils.wait(1500);
+    const { token, pin } = params;
+    const ownerId = this.buildKeylessOwnerIdFromSocialToken({ token });
+    // TODO: Replace with real API call
+    // For now, verify PIN from mock cache
+    const mockedShares = await this.getMockedKeylessShares();
+    const juiceboxShare = mockedShares[ownerId]?.juiceboxShare;
+    if (!juiceboxShare || juiceboxShare?.pin !== pin) {
+      throw new OneKeyLocalError('Invalid PIN');
+    }
   }
 
   @backgroundMethod()
@@ -1228,22 +1246,6 @@ class ServiceKeylessWallet extends ServiceBase {
     return juiceboxShareData;
   }
 
-  // apiVerifyKeylessJuiceboxPin
-  @backgroundMethod()
-  @toastIfError()
-  async apiVerifyKeylessJuiceboxPin(params: { token: string; pin: string }) {
-    await timerUtils.wait(1500);
-    const { token, pin } = params;
-    const ownerId = this.buildKeylessOwnerIdFromSocialToken({ token });
-    // TODO: Replace with real API call
-    // For now, verify PIN from mock cache
-    const mockedShares = await this.getMockedKeylessShares();
-    const juiceboxShare = mockedShares[ownerId]?.juiceboxShare;
-    if (!juiceboxShare || juiceboxShare?.pin !== pin) {
-      throw new OneKeyLocalError('Invalid PIN');
-    }
-  }
-
   @backgroundMethod()
   @toastIfError()
   async restoreKeylessWalletFromServer(params: {
@@ -1264,17 +1266,19 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('Keyless wallet not initialized');
     }
 
-    // Verify PIN
-    await this.apiVerifyKeylessJuiceboxPin({ token, pin });
+    // Get juicebox share from juicebox network
+    const juiceboxShareData = await this.apiGetKeylessJuiceboxShare({
+      token,
+      pin,
+    });
+    if (!juiceboxShareData) {
+      throw new OneKeyLocalError('Juicebox share not found');
+    }
 
     // Get shares from server
     const backendShareData = await this.apiGetKeylessBackendShare({ token });
     if (!backendShareData) {
       throw new OneKeyLocalError('Backend share not found');
-    }
-    const juiceboxShareData = await this.apiGetKeylessJuiceboxShare({ token });
-    if (!juiceboxShareData) {
-      throw new OneKeyLocalError('Juicebox share not found');
     }
 
     // Combine shares to recover mnemonic password

@@ -1,6 +1,6 @@
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IConnectYourDeviceItem } from '../../types/device';
-import { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
+import type { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
 import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
 import type { EDeviceType } from '@onekeyfe/hd-shared';

@@ -80,7 +80,7 @@ export function KeylessOnboardingDebugPanel() {
                 void backgroundApiProxy.serviceKeylessWallet.clearMockedKeylessShares();
               }}
             >
-              删除服务器钱包数据
+              重置云端钱包
             </Button>
             <Button onPress={handleImportCustomMnemonic}>
               自定义助记词创建钱包
