@@ -12,7 +12,10 @@ import {
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MarketBannerList } from '../components/MarketBanner';
+import {
+  MarketBannerList,
+  useMarketBannerList,
+} from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
@@ -53,11 +56,17 @@ export function MobileLayout({
 
   const { top, bottom } = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
+
+  const { bannerList } = useMarketBannerList();
+  const hasBanner = Boolean(bannerList && bannerList.length > 0);
+
   const height = useMemo(() => {
+    // When no banner, increase height by banner height (~120px)
+    const bannerHeight = hasBanner ? 0 : 120;
     return platformEnv.isNative
-      ? Dimensions.get('window').height - top - bottom - 188
-      : 'calc(100vh - 140px)';
-  }, [bottom, top]);
+      ? Dimensions.get('window').height - top - bottom - 188 + bannerHeight
+      : `calc(100vh - ${140 - bannerHeight}px)`;
+  }, [bottom, top, hasBanner]);
 
   const onPageChanged = useCallback(
     (index: number) => {
