@@ -1,5 +1,4 @@
-import type { ReactElement } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useIntl } from 'react-intl';
@@ -7,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../../hooks';
+import { useTheme } from '../../../hooks';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
@@ -19,31 +18,13 @@ const Stack = createStackNavigator();
 
 function BasicTabSubStackNavigator({
   config,
-  delay,
 }: {
   config: ITabSubNavigatorConfig<string, any>[] | null;
-  delay?: number;
 }) {
-  const delayNumber = useMemo(() => {
-    return platformEnv.isNative || platformEnv.isDesktop ? delay : 0;
-  }, [delay]);
-  const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
+  const theme = useTheme();
   const intl = useIntl();
-  const [isMounted, setIsMounted] = useState(!(delayNumber && delayNumber > 0));
-  useEffect(() => {
-    if (!delayNumber) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      setIsMounted(true);
-    }, delayNumber + 100);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [delayNumber]);
 
-  // Handle null config case - return null to avoid creating empty Stack.Navigator
-  if (!isMounted || !config || config.length === 0) {
+  if (!config || config.length === 0) {
     return null;
   }
 
@@ -63,7 +44,11 @@ function BasicTabSubStackNavigator({
                     id: translationId,
                   })
                 : '',
-              ...makeTabScreenOptions({ navigation, bgColor, titleColor }),
+              ...makeTabScreenOptions({
+                navigation,
+                bgColor: theme.bgApp.val,
+                titleColor: theme.text.val,
+              }),
               headerShown,
             })}
           />
@@ -85,7 +70,6 @@ const useTabBarPosition = platformEnv.isNative
       return media.md ? 'bottom' : 'left';
     };
 
-const GAP_TIME = 250;
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
@@ -110,12 +94,10 @@ export function TabStackNavigator<RouteName extends string>({
     () =>
       config
         .filter(({ disable }) => !disable)
-        .map(({ children, ...options }, index) => ({
+        .map(({ children, ...options }) => ({
           ...options,
           // eslint-disable-next-line react/no-unstable-nested-components
-          children: () => (
-            <TabSubStackNavigator config={children} delay={index * GAP_TIME} />
-          ),
+          children: () => <TabSubStackNavigator config={children} />,
         })),
     [config],
   );
