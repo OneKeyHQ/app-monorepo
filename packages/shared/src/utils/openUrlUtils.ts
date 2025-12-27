@@ -13,11 +13,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import appGlobals from '../appGlobals';
+import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import { ETranslations } from '../locale';
 
 import type { IPrefType } from '../../types/desktop';
 import type { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
-import { appEventBus, EAppEventBusNames } from '../eventBus/appEventBus';
-import { ETranslations } from '../locale';
 
 // ========== Discovery Browser ==========
 
@@ -151,12 +151,14 @@ export function gotoDiscoveryTab(): void {
       pop: true,
     },
   );
-  setTimeout(() => {
-    appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-      tab: ETranslations.global_browser,
-      openUrl: true,
-    });
-  }, 50);
+  if (platformEnv.isNative) {
+    setTimeout(() => {
+      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+        tab: ETranslations.global_browser,
+        openUrl: true,
+      });
+    }, 50);
+  }
 }
 
 /**
