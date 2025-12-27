@@ -1037,11 +1037,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   validateWebviewSrc = contextAtomMethod(
-    (
-      get,
-      _,
-      payload: { url: string; isTopFrame?: boolean },
-    ) => {
+    (get, _, payload: { url: string; isTopFrame?: boolean }) => {
       const { url, isTopFrame = true } = payload;
       if (!url) return EValidateUrlEnum.InvalidUrl;
       const cache = get(phishingLruCacheAtom());

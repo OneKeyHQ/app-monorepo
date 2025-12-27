@@ -13,7 +13,6 @@ import {
   XStack,
   YStack,
   rootNavigationRef,
-  useIsNativeTablet,
   useIsTabletDetailView,
   useIsTabletMainView,
   useOrientation,
@@ -21,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
@@ -489,4 +489,12 @@ function MobileBrowser() {
   );
 }
 
-export default memo(withBrowserProvider(MobileBrowser));
+function BaseMobileBrowser() {
+  return (
+    <LazyPageContainer>
+      <MobileBrowser />
+    </LazyPageContainer>
+  );
+}
+
+export default memo(withBrowserProvider(BaseMobileBrowser));

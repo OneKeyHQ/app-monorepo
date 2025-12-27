@@ -9,7 +9,10 @@ import {
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MarketBannerList } from '../components/MarketBanner';
+import {
+  MarketBannerList,
+  useMarketBannerList,
+} from '../components/MarketBanner';
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
@@ -60,16 +63,20 @@ export function DesktopLayout({
     handlePageChanged,
   } = useMarketTabsLogic(onTabChange);
 
+  const { bannerList } = useMarketBannerList();
+  const hasBanner = Boolean(bannerList && bannerList.length > 0);
+
   const { height, containerStyle } = useMemo(() => {
+    const bannerHeight = hasBanner ? 0 : 120;
     const computedHeight = platformEnv.isNative
       ? undefined
-      : 'calc(100vh - 167px)';
+      : `calc(100vh - ${167 - bannerHeight}px)`;
     const style: Record<string, any> = { height: computedHeight };
     if (platformEnv.isWebDappMode || platformEnv.isDesktop) {
       style.paddingBottom = 100;
     }
     return { height: computedHeight, containerStyle: style };
-  }, []);
+  }, [hasBanner]);
 
   const pageWidth = useTabContainerWidth();
   const renderItem = useCallback(

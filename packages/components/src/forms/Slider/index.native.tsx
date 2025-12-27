@@ -2,20 +2,21 @@ import { useCallback, useRef, useState } from 'react';
 
 import RNSlider from '@react-native-community/slider';
 
-import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  usePropsAndStyle,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../hooks';
 import { XStack, YStack } from '../../primitives';
 
 import type { IBaseSliderProps } from './type';
 import type { LayoutChangeEvent, ViewStyle } from 'react-native';
 
 function SliderSegment({ marked }: { marked: boolean }) {
-  const [bgPrimaryColor, neutral5Color] = useThemeValue([
-    'bgPrimary',
-    'neutral5',
-  ]);
+  const theme = useTheme();
+  const bgPrimaryColor = theme.bgPrimary.val;
+  const neutral5Color = theme.neutral5.val;
   return (
     <XStack
       w={8}
@@ -49,10 +50,9 @@ export function Slider({
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
-  const [bgPrimaryColor, neutral5Color] = useThemeValue([
-    'bgPrimary',
-    'neutral5',
-  ]);
+  const theme = useTheme();
+  const bgPrimaryColor = theme.bgPrimary.val;
+  const neutral5Color = theme.neutral5.val;
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {

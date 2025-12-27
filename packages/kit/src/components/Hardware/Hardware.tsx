@@ -27,6 +27,7 @@ import {
   YStack,
   useForm,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -50,6 +51,9 @@ function MacBluetoothIllustrationViews({
 }) {
   const themeVariant = useThemeVariant();
 
+  const theme = useTheme();
+  const info8Color = theme.info8.val;
+  const info10Color = theme.info10.val;
   const paringView = useMemo(() => {
     return (
       <YStack
@@ -91,7 +95,7 @@ function MacBluetoothIllustrationViews({
       >
         <XStack gap="$3" alignSelf="stretch" alignItems="center">
           <LinearGradient
-            colors={['$info8', '$info10']}
+            colors={[info8Color, info10Color]}
             p="$1"
             borderWidth={1}
             borderColor="$info7"
@@ -142,7 +146,7 @@ function MacBluetoothIllustrationViews({
             }}
           />
           <LinearGradient
-            colors={['$info8', '$info10']}
+            colors={[info8Color, info10Color]}
             borderRadius="$1"
             w="$12"
             h={15}
@@ -156,7 +160,7 @@ function MacBluetoothIllustrationViews({
         </XStack>
       </YStack>
     );
-  }, [themeVariant]);
+  }, [info10Color, info8Color, themeVariant]);
 
   const systemAuthorizedView = useMemo(() => {
     return (
@@ -198,7 +202,7 @@ function MacBluetoothIllustrationViews({
         })}
       >
         <LinearGradient
-          colors={['$info8', '$info10']}
+          colors={[info8Color, info10Color]}
           p="$1"
           borderWidth={1}
           borderColor="$info7"
@@ -233,7 +237,7 @@ function MacBluetoothIllustrationViews({
             }}
           />
           <LinearGradient
-            colors={['$info8', '$info10']}
+            colors={[info8Color, info10Color]}
             borderRadius="$1"
             w="$12"
             h={15}
@@ -247,7 +251,7 @@ function MacBluetoothIllustrationViews({
         </XStack>
       </YStack>
     );
-  }, [themeVariant]);
+  }, [info10Color, info8Color, themeVariant]);
 
   const userAuthorizedView = useMemo(() => {
     return <SizableText>user-authorized</SizableText>;
