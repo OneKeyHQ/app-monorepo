@@ -1299,7 +1299,7 @@ function BaseMoreActionContent() {
   return (
     <YStack flex={1}>
       <ScrollView overflow="scroll" flex={1}>
-        <UpdateReminders />
+        {platformEnv.isWebDappMode ? null : <UpdateReminders />}
         {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
         {isDesktopMode ? null : <MoreActionDevice />}
         <MoreActionDivider />
