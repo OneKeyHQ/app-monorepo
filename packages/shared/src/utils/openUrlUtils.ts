@@ -140,7 +140,15 @@ export const openSettings = (prefType: IPrefType) => {
  * ```
  */
 export function gotoDiscoveryTab(): void {
-  appGlobals.$navigationRef.current?.navigate(ETabRoutes.Discovery);
+  appGlobals.$navigationRef.current?.navigate(
+    ERootRoutes.Main,
+    {
+      screen: ETabRoutes.Discovery,
+    },
+    {
+      pop: true,
+    },
+  );
 }
 
 /**

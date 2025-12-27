@@ -72,8 +72,13 @@ export function DesktopLayout({
       ? undefined
       : `calc(100vh - ${167 - bannerHeight}px)`;
     const style: Record<string, any> = { height: computedHeight };
-    if (platformEnv.isWebDappMode || platformEnv.isDesktop) {
+    
+    if (platformEnv.isWebDappMode) {
       style.paddingBottom = 100;
+    }
+
+    if (platformEnv.isDesktop) {
+      style.paddingBottom = 50;
     }
     return { height: computedHeight, containerStyle: style };
   }, [hasBanner]);
