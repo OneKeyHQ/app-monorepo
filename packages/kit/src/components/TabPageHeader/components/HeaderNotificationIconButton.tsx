@@ -54,6 +54,7 @@ export function HeaderNotificationIconButton({
       showHeader={false}
       placement="bottom-end"
       offset={6}
+      keepChildrenMounted
       renderTrigger={
         <Tooltip
           placement="bottom"
@@ -78,7 +79,12 @@ export function HeaderNotificationIconButton({
         px: 0,
         overflow: 'hidden',
       }}
-      renderContent={<NotificationListView showPageHeader={false} />}
+      renderContent={
+        <NotificationListView
+          showPageHeader={false}
+          containerStyle={{ width: 434, maxWidth: 434, height: 592 }}
+        />
+      }
     />
   ) : (
     <HeaderNotificationButton
