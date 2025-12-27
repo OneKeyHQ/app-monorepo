@@ -13,6 +13,8 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import appGlobals from '../appGlobals';
+import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import { ETranslations } from '../locale';
 
 import type { IPrefType } from '../../types/desktop';
 import type { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
@@ -140,7 +142,23 @@ export const openSettings = (prefType: IPrefType) => {
  * ```
  */
 export function gotoDiscoveryTab(): void {
-  appGlobals.$navigationRef.current?.navigate(ETabRoutes.Discovery);
+  appGlobals.$navigationRef.current?.navigate(
+    ERootRoutes.Main,
+    {
+      screen: ETabRoutes.Discovery,
+    },
+    {
+      pop: true,
+    },
+  );
+  if (platformEnv.isNative) {
+    setTimeout(() => {
+      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+        tab: ETranslations.global_browser,
+        openUrl: true,
+      });
+    }, 50);
+  }
 }
 
 /**

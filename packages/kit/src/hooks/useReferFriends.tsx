@@ -58,12 +58,18 @@ export function useToReferFriendsModalByRootNavigation() {
         ? ETabReferFriendsRoutes.TabInviteReward
         : ETabReferFriendsRoutes.TabReferAFriend;
 
-      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.ReferFriends,
-        params: {
-          screen,
+      rootNavigationRef.current?.navigate(
+        ERootRoutes.Main,
+        {
+          screen: ETabRoutes.ReferFriends,
+          params: {
+            screen,
+          },
         },
-      });
+        {
+          pop: true,
+        },
+      );
     }
   }, []);
 }

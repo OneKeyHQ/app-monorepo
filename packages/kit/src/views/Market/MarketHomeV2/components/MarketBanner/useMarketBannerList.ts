@@ -1,6 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
 export function useMarketBannerList() {

@@ -137,7 +137,7 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
   : () => {};
 
 const popToDiscoveryHomePage = () => {
-  const rootState = rootNavigationRef.current?.getState();
+  const rootState = rootNavigationRef.current?.getRootState();
   const currentIndex = rootState?.index || 0;
   const routes = rootState?.routes || [];
   const currentRoute = routes[currentIndex];
