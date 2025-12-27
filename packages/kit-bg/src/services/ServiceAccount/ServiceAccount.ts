@@ -5533,7 +5533,9 @@ class ServiceAccount extends ServiceBase {
         currentAccountImpl = account.impl;
       }
 
-      const isAllNetwork = currentAccountImpl === IMPL_ALLNETWORKS;
+      const isAllNetwork =
+        currentAccountImpl === IMPL_ALLNETWORKS ||
+        activeNetworkImpl === IMPL_ALLNETWORKS;
 
       if (isAllNetwork || currentAccountImpl === activeNetworkImpl) {
         return undefined;
