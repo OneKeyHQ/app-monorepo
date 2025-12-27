@@ -10,6 +10,7 @@ import type {
   IKeyOfIcons,
   IStackProps,
   IStackStyle,
+  IYStackProps,
 } from '@onekeyhq/components';
 import {
   Divider,
@@ -1325,11 +1326,15 @@ export function MoreActionContentPage() {
   );
 }
 
-function MoreActionContent() {
+function MoreActionContent({
+  containerStyle,
+}: {
+  containerStyle?: IYStackProps;
+}) {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return (
     <MoreActionProvider>
-      <YStack minHeight={560}>
+      <YStack minHeight={560} {...containerStyle}>
         <MoreActionContentHeader />
         {platformEnv.isWebDappMode ? null : <UpdateReminders />}
         {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
@@ -1517,6 +1522,7 @@ function MoreActionButtonCmp() {
     <Popover
       title={intl.formatMessage({ id: ETranslations.address_book_menu_title })}
       showHeader={false}
+      keepChildrenMounted
       floatingPanelProps={{
         maxWidth: 384,
         width: 384,
@@ -1527,7 +1533,9 @@ function MoreActionButtonCmp() {
       }}
       placement={platformEnv.isWebDappMode ? 'bottom-end' : 'right-end'}
       renderTrigger={trigger}
-      renderContent={<MoreActionContent />}
+      renderContent={
+        <MoreActionContent containerStyle={{ maxWidth: 384, width: 384 }} />
+      }
     />
   );
 }

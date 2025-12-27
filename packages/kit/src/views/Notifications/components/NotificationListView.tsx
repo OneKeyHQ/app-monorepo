@@ -5,7 +5,11 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
-import type { ISectionListRef, IXStackProps } from '@onekeyhq/components';
+import type {
+  ISectionListRef,
+  IXStackProps,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Alert,
   Dialog,
@@ -313,8 +317,10 @@ function MaxAccountLimitWarning() {
 
 export function NotificationListView({
   showPageHeader = true,
+  containerStyle,
 }: {
   showPageHeader?: boolean;
+  containerStyle?: IYStackProps;
 }) {
   const { closePopover } = usePopoverContext();
   const intl = useIntl();
@@ -639,7 +645,7 @@ export function NotificationListView({
   );
 
   return (
-    <YStack flex={1}>
+    <YStack flex={1} {...containerStyle}>
       {showPageHeader ? (
         <Page.Header
           title={intl.formatMessage({ id: ETranslations.global_notifications })}
@@ -689,5 +695,32 @@ export function NotificationListView({
         {contentView}
       </YStack>
     </YStack>
+  );
+}
+
+export function NotificationListViewPopover({
+  showPageHeader = true,
+  containerStyle,
+}: {
+  showPageHeader?: boolean;
+  containerStyle?: IYStackProps;
+}) {
+  const { open } = usePopoverContext();
+  const [hasOpened, setHasOpened] = useState(false);
+
+  useEffect(() => {
+    if (open && !hasOpened) {
+      setHasOpened(true);
+    }
+  }, [open, hasOpened]);
+
+  if (!hasOpened) {
+    return null;
+  }
+  return (
+    <NotificationListView
+      showPageHeader={showPageHeader}
+      containerStyle={containerStyle}
+    />
   );
 }
