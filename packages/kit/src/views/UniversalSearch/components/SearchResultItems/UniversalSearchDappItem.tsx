@@ -80,17 +80,19 @@ export function UniversalSearchDappItem({
 
   const handlePress = useCallback(() => {
     console.log('[universalSearch] renderItem: ', item);
-    handleWebSite({
-      dApp: isGoogle ? undefined : item.payload,
-      // @ts-expect-error
-      webSite: isGoogle
-        ? {
-            title: 'Google',
-            url: getSearchInput(),
-          }
-        : undefined,
-      enterMethod: EEnterMethod.search,
-    });
+    setTimeout(() => {
+      handleWebSite({
+        dApp: isGoogle ? undefined : item.payload,
+        // @ts-expect-error
+        webSite: isGoogle
+          ? {
+              title: 'Google',
+              url: getSearchInput(),
+            }
+          : undefined,
+        enterMethod: EEnterMethod.search,
+      });
+    }, 100);
 
     // Add to recent search list
     setTimeout(() => {
