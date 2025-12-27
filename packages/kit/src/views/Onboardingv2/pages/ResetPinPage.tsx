@@ -6,6 +6,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -30,7 +31,7 @@ const STEPS = [
 
 function ResetPinPage() {
   const navigation = useAppNavigation();
-
+  const { gtMd } = useMedia();
   const handleDone = useCallback(() => {
     navigation.pop();
   }, [navigation]);
@@ -65,22 +66,34 @@ function ResetPinPage() {
                     </SizableText>
                   </YStack>
                   <YStack gap="$1" flex={1}>
-                    <SizableText size="$bodyLgMedium" flex={1}>
-                      {step.title}
-                    </SizableText>
-                    <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
+                    <SizableText size="$bodyLgMedium">{step.title}</SizableText>
+                    <SizableText size="$bodyMd" color="$textSubdued">
                       {step.description}
                     </SizableText>
                   </YStack>
                 </XStack>
               ))}
 
-              <Button size="large" variant="primary" onPress={handleDone}>
-                I've done these steps
-              </Button>
+              {gtMd ? (
+                <Button size="large" variant="primary" onPress={handleDone}>
+                  I've done these steps
+                </Button>
+              ) : null}
             </YStack>
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
+        {!gtMd ? (
+          <OnboardingLayout.Footer>
+            <Button
+              size="large"
+              w="100%"
+              variant="primary"
+              onPress={handleDone}
+            >
+              I've done these steps
+            </Button>
+          </OnboardingLayout.Footer>
+        ) : null}
       </OnboardingLayout>
     </Page>
   );

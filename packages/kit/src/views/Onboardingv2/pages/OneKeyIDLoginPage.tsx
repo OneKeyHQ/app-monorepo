@@ -154,6 +154,7 @@ function OneKeyIDLoginPage() {
             target="_blank"
             size="$bodySm"
             color="$textSubdued"
+            textAlign="center"
           >
             TODO — Link to "How to create wallet with Apple or Google account"
           </Anchor>

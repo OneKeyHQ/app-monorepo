@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
+import { KeyboardAvoidingView, type TextInput } from 'react-native';
 
 import {
   Button,
@@ -10,11 +11,11 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OnboardingLayout } from './OnboardingLayout';
-
-import type { TextInput } from 'react-native';
 
 interface IPinInputLayoutProps {
   title: string;
@@ -46,12 +47,16 @@ function PinInputLayout({
   errorMessage,
 }: IPinInputLayoutProps) {
   const inputRef = useRef<TextInput>(null);
+  const { gtMd } = useMedia();
 
   useFocusEffect(
     useCallback(() => {
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 300);
+      const timer = setTimeout(
+        () => {
+          inputRef.current?.focus();
+        },
+        platformEnv.isNative ? 600 : 300,
+      );
       return () => clearTimeout(timer);
     }, []),
   );
@@ -69,45 +74,45 @@ function PinInputLayout({
     }
   }, [isSubmitDisabled, onSubmit]);
 
-  return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header />
-        <OnboardingLayout.Body constrained={false} scrollable={false}>
-          <OnboardingLayout.ConstrainedContent gap="$10">
-            <YStack gap="$2">
-              <SizableText size="$heading2xl">{title}</SizableText>
-              <SizableText size="$bodyLg" color={descriptionColor}>
-                {description}
-              </SizableText>
-            </YStack>
+  const content = (
+    <OnboardingLayout>
+      <OnboardingLayout.Header />
+      <OnboardingLayout.Body constrained={false} scrollable={false}>
+        <OnboardingLayout.ConstrainedContent gap="$10">
+          <YStack gap="$2">
+            <SizableText size="$heading2xl">{title}</SizableText>
+            <SizableText size="$bodyLg" color={descriptionColor}>
+              {description}
+            </SizableText>
+          </YStack>
 
-            <YStack gap="$6">
-              <HeightTransition initialHeight={50}>
-                <YStack gap="$2">
-                  <Input
-                    ref={inputRef}
-                    size="large"
-                    placeholder="••••"
-                    textAlign="center"
-                    fontSize={24}
-                    h={50}
-                    maxLength={4}
-                    keyboardType="number-pad"
-                    secureTextEntry
-                    value={value}
-                    error={!!errorMessage}
-                    disabled={isInputDisabled}
-                    onChangeText={handleChangeText}
-                    onSubmitEditing={handleSubmitEditing}
-                  />
-                  {errorMessage ? (
-                    <SizableText size="$bodySm" color="$textCritical">
-                      {errorMessage}
-                    </SizableText>
-                  ) : null}
-                </YStack>
-              </HeightTransition>
+          <YStack gap="$6">
+            <HeightTransition initialHeight={50}>
+              <YStack gap="$2">
+                <Input
+                  ref={inputRef}
+                  size="large"
+                  placeholder="••••"
+                  textAlign="center"
+                  fontSize={24}
+                  h={50}
+                  maxLength={4}
+                  keyboardType="number-pad"
+                  secureTextEntry
+                  value={value}
+                  error={!!errorMessage}
+                  disabled={isInputDisabled}
+                  onChangeText={handleChangeText}
+                  onSubmitEditing={handleSubmitEditing}
+                />
+                {errorMessage ? (
+                  <SizableText size="$bodySm" color="$textCritical">
+                    {errorMessage}
+                  </SizableText>
+                ) : null}
+              </YStack>
+            </HeightTransition>
+            {gtMd ? (
               <XStack gap="$2">
                 {secondaryButtonText && onSecondaryButtonPress ? (
                   <Button
@@ -131,10 +136,47 @@ function PinInputLayout({
                   {buttonText}
                 </Button>
               </XStack>
-            </YStack>
-          </OnboardingLayout.ConstrainedContent>
-        </OnboardingLayout.Body>
-      </OnboardingLayout>
+            ) : null}
+          </YStack>
+        </OnboardingLayout.ConstrainedContent>
+      </OnboardingLayout.Body>
+      {!gtMd ? (
+        <OnboardingLayout.Footer>
+          <YStack gap="$2" w="100%">
+            <Button
+              size="large"
+              variant={isSubmitDisabled ? 'secondary' : 'primary'}
+              onPress={onSubmit}
+              disabled={isSubmitDisabled}
+            >
+              {buttonText}
+            </Button>
+            {secondaryButtonText && onSecondaryButtonPress ? (
+              <Button
+                m="$0"
+                py="$3"
+                size="large"
+                variant="tertiary"
+                onPress={onSecondaryButtonPress}
+              >
+                {secondaryButtonText}
+              </Button>
+            ) : null}
+          </YStack>
+        </OnboardingLayout.Footer>
+      ) : null}
+    </OnboardingLayout>
+  );
+
+  return (
+    <Page>
+      {platformEnv.isNative ? (
+        <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={-20}>
+          {content}
+        </KeyboardAvoidingView>
+      ) : (
+        content
+      )}
     </Page>
   );
 }
