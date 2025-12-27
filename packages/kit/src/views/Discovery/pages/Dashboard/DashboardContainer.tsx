@@ -3,6 +3,7 @@ import { memo } from 'react';
 import { Page, useMedia } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src//components/TabPageHeader';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
+import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -14,7 +15,7 @@ import DashboardContent from './DashboardContent';
 
 function BaseDashboard() {
   return (
-    <>
+    <LazyPageContainer>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Discovery}
@@ -24,7 +25,7 @@ function BaseDashboard() {
           <DashboardContent />
         </Page.Body>
       </Page>
-    </>
+    </LazyPageContainer>
   );
 }
 

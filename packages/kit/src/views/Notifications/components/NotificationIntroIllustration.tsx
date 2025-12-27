@@ -7,6 +7,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useTheme,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -53,6 +54,9 @@ function Item({
   time?: string;
   stacked?: boolean;
 }) {
+  const theme = useTheme();
+  const gray5Color = theme.gray5.val;
+  const gray3Color = theme.gray3.val;
   return (
     <YStack {...(stacked ? { pb: '$2.5' } : {})}>
       {stacked ? (
@@ -73,7 +77,7 @@ function Item({
           <LinearGradient
             h="$2.5"
             mt="auto"
-            colors={['$gray5', '$gray3']}
+            colors={[gray5Color, gray3Color]}
             start={[0, 0]}
             end={[0, 1]}
           />

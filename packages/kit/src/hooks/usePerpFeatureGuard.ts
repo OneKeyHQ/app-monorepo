@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -10,9 +10,11 @@ import useAppNavigation from './useAppNavigation';
 import { usePerpTabConfig } from './usePerpTabConfig';
 
 export function usePerpFeatureGuard() {
-  useFocusEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
-  });
+  useFocusEffect(
+    useCallback(() => {
+      void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+    }, []),
+  );
 
   const navigation = useAppNavigation();
   const { perpDisabled } = usePerpTabConfig();

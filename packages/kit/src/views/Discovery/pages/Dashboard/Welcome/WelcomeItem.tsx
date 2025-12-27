@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { Image, Stack, useThemeValue } from '@onekeyhq/components';
+import { Image, Stack, useTheme } from '@onekeyhq/components';
 import { useWebSiteHandler } from '@onekeyhq/kit/src/views/Discovery/hooks/useWebSiteHandler';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -112,7 +112,8 @@ export function BaseWelcomeItem({
   const scale = useSharedValue(1);
   const shadowOpacity = useSharedValue(DEFAULT_SHADOW_OPACITY);
   const handleWebSite = useWebSiteHandler();
-  const shadowColor = useThemeValue('popoverShadowColor');
+  const theme = useTheme();
+  const shadowColor = theme.popoverShadowColor.val;
 
   useEffect(() => {
     setTimeout(

@@ -7,19 +7,9 @@ import {
   useState,
 } from 'react';
 
-import {
-  RefreshControl,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -37,7 +27,7 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
-import { TabPageHeader } from '../../components/TabPageHeader';
+import { LazyPageContainer } from '../../components/LazyPageContainer';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAppRoute } from '../../hooks/useAppRoute';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
@@ -279,34 +269,36 @@ function BasicEarnHome({
   }
 
   return (
-    <EarnPageContainer
-      showTabPageHeader={media.gtMd}
-      sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Earn}
-      disableMaxWidth
-      refreshControl={
-        <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
-      }
-    >
-      <YStack flex={1}>
-        <YStack>
-          <XStack px="$5">
-            <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
-          </XStack>
-          {banners ? (
-            <YStack borderRadius="$3" width="100%" borderCurve="continuous">
-              {banners}
-            </YStack>
-          ) : null}
+    <LazyPageContainer>
+      <EarnPageContainer
+        showTabPageHeader={media.gtMd}
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Earn}
+        disableMaxWidth
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
+        }
+      >
+        <YStack flex={1}>
+          <YStack>
+            <XStack px="$5">
+              <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+            </XStack>
+            {banners ? (
+              <YStack borderRadius="$3" width="100%" borderCurve="continuous">
+                {banners}
+              </YStack>
+            ) : null}
+          </YStack>
+          <EarnMainTabs
+            faqList={faqList || []}
+            isFaqLoading={isFaqLoading}
+            defaultTab={defaultTab}
+            portfolioData={portfolioData}
+          />
         </YStack>
-        <EarnMainTabs
-          faqList={faqList || []}
-          isFaqLoading={isFaqLoading}
-          defaultTab={defaultTab}
-          portfolioData={portfolioData}
-        />
-      </YStack>
-    </EarnPageContainer>
+      </EarnPageContainer>
+    </LazyPageContainer>
   );
 }
 

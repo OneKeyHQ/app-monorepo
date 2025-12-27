@@ -1,7 +1,6 @@
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
-import type { IColorTokens } from '@onekeyhq/components';
-import { YStack, useThemeValue } from '@onekeyhq/components';
+import { YStack, useTheme } from '@onekeyhq/components';
 
 export type ISecurityKeyType = 'device' | 'cloud' | 'auth';
 
@@ -15,21 +14,21 @@ interface ISecurityKeyIconProps {
 const GRADIENT_TOKEN_CONFIG: Record<
   ISecurityKeyType,
   {
-    startColor: IColorTokens;
-    endColor: IColorTokens;
+    startColor: string;
+    endColor: string;
   }
 > = {
   device: {
-    startColor: '$brand9',
-    endColor: '$brand8',
+    startColor: 'brand9',
+    endColor: 'brand8',
   },
   cloud: {
-    startColor: '$info8',
-    endColor: '$info9',
+    startColor: 'info8',
+    endColor: 'info9',
   },
   auth: {
-    startColor: '$purple8',
-    endColor: '$purple9',
+    startColor: 'purple8',
+    endColor: 'purple9',
   },
 };
 
@@ -63,13 +62,12 @@ export function SecurityKeyIcon({
   const iconSize = SIZE_CONFIG[size];
   const gradientId = `gradient-${type}${muted ? '-muted' : ''}`;
 
+  const theme = useTheme();
   // Resolve color tokens to actual color values
-  const [startColor, endColor, mutedStartColor, mutedEndColor] = useThemeValue([
-    tokenConfig.startColor,
-    tokenConfig.endColor,
-    '$neutral7',
-    '$neutral8',
-  ]);
+  const startColor = theme[tokenConfig.startColor as keyof typeof theme]?.val;
+  const endColor = theme[tokenConfig.endColor as keyof typeof theme]?.val;
+  const mutedStartColor = theme.neutral7.val;
+  const mutedEndColor = theme.neutral8.val;
 
   const finalStartColor = muted ? mutedStartColor : startColor;
   const finalEndColor = muted ? mutedEndColor : endColor;

@@ -7,7 +7,6 @@ import type {
 import {
   getTokens as coreGetTokens,
   useMedia as useTamaguiMedia,
-  useTheme,
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SHEET_AND_DIALOG_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
@@ -41,28 +40,6 @@ const getValue = (
 };
 
 export const getThemeTokens = coreGetTokens;
-
-export function useThemeValue<T extends IThemeColorKeys[] | IThemeColorKeys>(
-  colorSymbol: T,
-  fallback?: VariableVal,
-  isRawValue?: boolean,
-): T extends IThemeColorKeys ? string : string[];
-
-export function useThemeValue(
-  colorSymbol: IThemeColorKeys | IThemeColorKeys[],
-  fallback?: VariableVal,
-  isRawValue?: boolean,
-): VariableVal | VariableVal[] {
-  const theme = useTheme();
-  return useMemo(() => {
-    if (Array.isArray(colorSymbol)) {
-      return colorSymbol.map((c) =>
-        getValue(theme, c, fallback, isRawValue),
-      ) as string[];
-    }
-    return getValue(theme, colorSymbol, fallback, isRawValue) as string;
-  }, [colorSymbol, fallback, isRawValue, theme]);
-}
 
 const zIndexStack: { id: number; zIndex: number }[] = [];
 let prevOverlayId = 0;

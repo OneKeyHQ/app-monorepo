@@ -24,6 +24,17 @@ function loadPosition(): IPosition {
         typeof parsed.x === 'number' &&
         typeof parsed.y === 'number'
       ) {
+        // Ensure position is within window bounds
+        const maxX = window.innerWidth - 100; // Reserve space for the monitor width
+        const maxY = window.innerHeight - 100; // Reserve space for the monitor height
+        if (
+          parsed.x > maxX ||
+          parsed.y > maxY ||
+          parsed.x < 0 ||
+          parsed.y < 0
+        ) {
+          return { x: Math.max(0, maxX), y: 40 };
+        }
         return { x: parsed.x, y: parsed.y };
       }
     }
