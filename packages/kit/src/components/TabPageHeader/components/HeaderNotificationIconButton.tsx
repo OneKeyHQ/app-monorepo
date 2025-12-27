@@ -15,7 +15,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { NotificationListView } from '../../../views/Notifications/components/NotificationListView';
+import { NotificationListViewPopover } from '../../../views/Notifications/components/NotificationListView';
 
 export interface IHeaderNotificationIconButtonProps {
   size?: IIconButtonProps['size'];
@@ -80,7 +80,7 @@ export function HeaderNotificationIconButton({
         overflow: 'hidden',
       }}
       renderContent={
-        <NotificationListView
+        <NotificationListViewPopover
           showPageHeader={false}
           containerStyle={{ width: 434, maxWidth: 434, height: 592 }}
         />

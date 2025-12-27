@@ -1534,7 +1534,7 @@ function MoreActionButtonCmp() {
       placement={platformEnv.isWebDappMode ? 'bottom-end' : 'right-end'}
       renderTrigger={trigger}
       renderContent={
-        <MoreActionContent containerStyle={{ maxWidth: 384, width: 384 }} />
+        <NotificationListViewPopover containerStyle={{ maxWidth: 384, width: 384 }} />
       }
     />
   );

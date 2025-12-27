@@ -697,3 +697,30 @@ export function NotificationListView({
     </YStack>
   );
 }
+
+export function NotificationListViewPopover({
+  showPageHeader = true,
+  containerStyle,
+}: {
+  showPageHeader?: boolean;
+  containerStyle?: IYStackProps;
+}) {
+  const { open } = usePopoverContext();
+  const [hasOpened, setHasOpened] = useState(false);
+
+  useEffect(() => {
+    if (open && !hasOpened) {
+      setHasOpened(true);
+    }
+  }, [open, hasOpened]);
+
+  if (!hasOpened) {
+    return null;
+  }
+  return (
+    <NotificationListView
+      showPageHeader={showPageHeader}
+      containerStyle={containerStyle}
+    />
+  );
+}
