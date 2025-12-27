@@ -1,13 +1,13 @@
-import type { ForwardRefExoticComponent, RefAttributes } from 'react';
-import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
-import { KeyboardAvoidingView, type TextInput } from 'react-native';
+import { type TextInput } from 'react-native';
 
 import {
   Button,
   HeightTransition,
   Input,
+  Keyboard,
   Page,
   SizableText,
   XStack,
@@ -15,8 +15,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { KeylessOnboardingDebugPanel } from '../pages/KeylessOnboardingDebugPanel';
 
 import { OnboardingLayout } from './OnboardingLayout';
 
@@ -33,69 +31,54 @@ interface IPinInputLayoutProps {
   isSubmitDisabled?: boolean;
   isInputDisabled?: boolean;
   errorMessage?: string;
-  isLoading?: boolean;
   placeholder?: string;
 }
 
-export interface IPinInputLayoutRef {
-  focus: () => void;
-}
+function PinInputLayout({
+  title,
+  description,
+  descriptionColor = '$textSubdued',
+  buttonText,
+  secondaryButtonText,
+  onSecondaryButtonPress,
+  value,
+  onChange,
+  onSubmit,
+  isSubmitDisabled = false,
+  isInputDisabled = false,
+  errorMessage,
+  placeholder = '••••',
+}: IPinInputLayoutProps) {
+  const inputRef = useRef<TextInput>(null);
+  const { gtMd } = useMedia();
 
-const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
-  (
-    {
-      title,
-      description,
-      descriptionColor = '$textSubdued',
-      buttonText,
-      secondaryButtonText,
-      onSecondaryButtonPress,
-      value,
-      onChange,
-      onSubmit,
-      isSubmitDisabled = false,
-      isInputDisabled = false,
-      errorMessage,
-      isLoading,
-      placeholder = '••••',
+  useFocusEffect(
+    useCallback(() => {
+      const timer = setTimeout(
+        () => {
+          inputRef.current?.focus();
+        },
+        platformEnv.isNative ? 500 : 300,
+      );
+      return () => clearTimeout(timer);
+    }, []),
+  );
+
+  const handleChangeText = useCallback(
+    (text: string) => {
+      onChange(text.replace(/[^0-9]/g, ''));
     },
-    ref,
-  ) => {
-    const inputRef = useRef<TextInput>(null);
-    const { gtMd } = useMedia();
+    [onChange],
+  );
 
-    useImperativeHandle(ref, () => ({
-      focus: () => {
-        inputRef.current?.focus();
-      },
-    }));
+  const handleSubmitEditing = useCallback(() => {
+    if (!isSubmitDisabled) {
+      onSubmit();
+    }
+  }, [isSubmitDisabled, onSubmit]);
 
-    useFocusEffect(
-      useCallback(() => {
-        const timer = setTimeout(
-          () => {
-            inputRef.current?.focus();
-          },
-          platformEnv.isNative ? 500 : 300,
-        );
-        return () => clearTimeout(timer);
-      }, []),
-    );
-
-    const handleChangeText = useCallback(
-      (text: string) => {
-        onChange(text.replace(/[^0-9]/g, ''));
-      },
-      [onChange],
-    );
-
-    const handleSubmitEditing = useCallback(() => {
-      if (!isSubmitDisabled) {
-        onSubmit();
-      }
-    }, [isSubmitDisabled, onSubmit]);
-
-    const content = (
+  return (
+    <Page>
       <OnboardingLayout>
         <OnboardingLayout.Header />
         <OnboardingLayout.Body constrained={false} scrollable={false}>
@@ -115,7 +98,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                     size="large"
                     placeholder={placeholder}
                     textAlign="center"
-                    fontSize={24}
+                    fontSize={platformEnv.isNative ? 20 : 24}
                     h={50}
                     maxLength={4}
                     keyboardType="number-pad"
@@ -147,69 +130,50 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                     </Button>
                   ) : null}
                   <Button
-                    onPress={onSubmit}
-                    loading={isLoading}
-                    disabled={isSubmitDisabled || isLoading}
                     size="large"
                     variant={isSubmitDisabled ? 'secondary' : 'primary'}
                     flexGrow={1}
                     flexBasis={0}
+                    onPress={onSubmit}
+                    disabled={isSubmitDisabled}
                   >
                     {buttonText}
                   </Button>
                 </XStack>
               ) : null}
-
-              <KeylessOnboardingDebugPanel />
             </YStack>
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
         {!gtMd ? (
-          <OnboardingLayout.Footer>
-            <YStack gap="$2" w="100%">
-              <Button
-                size="large"
-                variant={isSubmitDisabled ? 'secondary' : 'primary'}
-                onPress={onSubmit}
-                loading={isLoading}
-                disabled={isSubmitDisabled || isLoading}
-              >
-                {buttonText}
-              </Button>
-              {secondaryButtonText && onSecondaryButtonPress ? (
+          <Keyboard.StickyView>
+            <OnboardingLayout.Footer>
+              <YStack gap="$2" w="100%" y={platformEnv.isNative ? '$5' : '$0'}>
                 <Button
-                  m="$0"
-                  py="$3"
                   size="large"
-                  variant="tertiary"
-                  onPress={onSecondaryButtonPress}
+                  variant={isSubmitDisabled ? 'secondary' : 'primary'}
+                  onPress={onSubmit}
+                  disabled={isSubmitDisabled}
                 >
-                  {secondaryButtonText}
+                  {buttonText}
                 </Button>
-              ) : null}
-            </YStack>
-          </OnboardingLayout.Footer>
+                {secondaryButtonText && onSecondaryButtonPress ? (
+                  <Button
+                    m="$0"
+                    py="$3"
+                    size="large"
+                    variant="tertiary"
+                    onPress={onSecondaryButtonPress}
+                  >
+                    {secondaryButtonText}
+                  </Button>
+                ) : null}
+              </YStack>
+            </OnboardingLayout.Footer>
+          </Keyboard.StickyView>
         ) : null}
       </OnboardingLayout>
-    );
-
-    return (
-      <Page>
-        {platformEnv.isNative ? (
-          <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={-20}>
-            {content}
-          </KeyboardAvoidingView>
-        ) : (
-          content
-        )}
-      </Page>
-    );
-  },
-);
-
-PinInputLayout.displayName = 'PinInputLayout';
+    </Page>
+  );
+}
 
 export { PinInputLayout };
-export type IPinInputLayoutComponent = ForwardRefExoticComponent<
-  IPinInputLayoutProps & RefAttributes<IPinInputLayoutRef>
->;

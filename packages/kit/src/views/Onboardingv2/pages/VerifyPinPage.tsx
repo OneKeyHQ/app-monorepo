@@ -254,6 +254,7 @@ function VerifyPinPage() {
       ref={pinInputRef}
       isLoading={isLoading}
       title={title}
+      placeholder=""
       description={description}
       buttonText={intl.formatMessage({ id: ETranslations.global_continue })}
       secondaryButtonText={
