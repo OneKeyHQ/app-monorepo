@@ -29,9 +29,11 @@ export function WalletActionVote({
       source: 'homePage',
     });
 
-    void customization?.onPress?.();
-
     onClose();
+
+    setTimeout(() => {
+      void customization?.onPress?.();
+    });
   }, [wallet?.type, network?.id, customization, onClose]);
 
   return (

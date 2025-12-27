@@ -78,8 +78,10 @@ export const detailedNetworkConfigs: Record<
         }),
         onPress: () => {
           if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({
-              url: TRON_SCAN_STAKING_URL,
+            setTimeout(() => {
+              openUrlInDiscovery({
+                url: TRON_SCAN_STAKING_URL,
+              });
             });
           } else {
             openUrlExternal(TRON_SCAN_STAKING_URL);
@@ -92,8 +94,10 @@ export const detailedNetworkConfigs: Record<
         }),
         onPress: () => {
           if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({
-              url: TRON_SCAN_VOTE_URL,
+            setTimeout(() => {
+              openUrlInDiscovery({
+                url: TRON_SCAN_VOTE_URL,
+              });
             });
           } else {
             openUrlExternal(TRON_SCAN_VOTE_URL);
