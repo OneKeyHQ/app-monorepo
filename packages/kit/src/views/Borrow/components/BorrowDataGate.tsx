@@ -12,13 +12,21 @@ import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
 
+enum EBorrowDataStatus {
+  Idle = 'Idle',
+  LoadingMarkets = 'LoadingMarkets',
+  WaitingForAccount = 'WaitingForAccount',
+  LoadingReserves = 'LoadingReserves',
+  Refreshing = 'Refreshing',
+  Ready = 'Ready',
+}
+
 export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
   const isFocused = useIsFocused();
-  const { markets, isLoading: marketsLoading } = useBorrowMarkets({
-    isActive: isFocused,
-  });
+  const { markets, isLoading: marketsLoading } = useBorrowMarkets();
   const market = useMemo(() => markets?.[0], [markets]);
-  const { setMarket, setReserves, setReservesLoading } = useBorrowContext();
+  const { reserves, setMarket, setReserves, setReservesLoading } =
+    useBorrowContext();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { earnAccount } = useEarnAccount({
     networkId: market?.networkId,
@@ -74,49 +82,77 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
       {
         watchLoading: true,
         checkIsFocused: false,
-        undefinedResultIfReRun: true,
+        undefinedResultIfReRun: false,
         undefinedResultIfError: true,
       },
     );
+
+  const dataStatus = useMemo(() => {
+    if (!isFocused) return EBorrowDataStatus.Idle;
+    if (marketsLoading) {
+      if (!market) return EBorrowDataStatus.LoadingMarkets;
+      return EBorrowDataStatus.Refreshing;
+    }
+    if (!market || !fetchKey) return EBorrowDataStatus.Idle;
+    if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
+
+    if (reservesLoading) {
+      if (!reserves || lastFetchKeyRef.current !== fetchKey) {
+        return EBorrowDataStatus.LoadingReserves;
+      }
+      return EBorrowDataStatus.Refreshing;
+    }
+
+    if (reservesResult !== undefined) {
+      return EBorrowDataStatus.Ready;
+    }
+
+    return EBorrowDataStatus.Idle;
+  }, [
+    isFocused,
+    marketsLoading,
+    market,
+    fetchKey,
+    shouldWaitForAccount,
+    reservesLoading,
+    reserves,
+    reservesResult,
+  ]);
 
   useEffect(() => {
     setMarket(market ?? null);
   }, [market, setMarket]);
 
   useEffect(() => {
-    if (!isFocused) {
-      lastFetchKeyRef.current = null;
-      setReserves(null);
-      setReservesLoading(false);
-      return;
+    switch (dataStatus) {
+      case EBorrowDataStatus.Idle:
+        setReservesLoading(false);
+        break;
+      case EBorrowDataStatus.LoadingMarkets:
+      case EBorrowDataStatus.WaitingForAccount:
+        setReserves(null);
+        setReservesLoading(true);
+        break;
+      case EBorrowDataStatus.LoadingReserves:
+        if (lastFetchKeyRef.current !== fetchKey) {
+          lastFetchKeyRef.current = fetchKey;
+          setReserves(null);
+        }
+        setReservesLoading(true);
+        break;
+      case EBorrowDataStatus.Refreshing:
+        setReservesLoading(false);
+        break;
+      case EBorrowDataStatus.Ready:
+        if (reservesResult !== undefined) {
+          setReserves(reservesResult);
+        }
+        setReservesLoading(false);
+        break;
+      default:
+        break;
     }
-
-    if (!fetchKey) {
-      lastFetchKeyRef.current = null;
-      setReserves(null);
-      setReservesLoading(marketsLoading);
-      return;
-    }
-
-    const keyChanged = lastFetchKeyRef.current !== fetchKey;
-    if (keyChanged) {
-      lastFetchKeyRef.current = fetchKey;
-      setReserves(null);
-    }
-
-    if (!keyChanged && reservesResult !== undefined) {
-      setReserves(reservesResult);
-    }
-    setReservesLoading(keyChanged || Boolean(reservesLoading));
-  }, [
-    isFocused,
-    fetchKey,
-    marketsLoading,
-    setReserves,
-    setReservesLoading,
-    reservesResult,
-    reservesLoading,
-  ]);
+  }, [dataStatus, fetchKey, reservesResult, setReserves, setReservesLoading]);
 
   return <>{children}</>;
 };
