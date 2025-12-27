@@ -54,12 +54,18 @@ export function useMarketDetailBackNavigation() {
     }
 
     // Otherwise, navigate directly to Market home
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Market,
-      params: {
-        screen: ETabMarketRoutes.TabMarket,
+    navigation.navigate(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.TabMarket,
+        },
       },
-    });
+      {
+        pop: true,
+      },
+    );
   }, [params, reactNavigation, navigation, isTabletDetailView]);
 
   return { handleBackPress };

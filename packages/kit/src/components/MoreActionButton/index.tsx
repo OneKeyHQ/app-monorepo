@@ -879,11 +879,7 @@ function BaseMoreActionGrid({
       <YStack gap="$2" px="$4">
         {Array.from({ length: Math.ceil(displayItems.length / 4) }).map(
           (_, rowIndex) => (
-            <XStack
-              key={rowIndex}
-              justifyContent="space-evenly"
-              flexWrap="nowrap"
-            >
+            <XStack key={rowIndex} flexWrap="nowrap">
               {displayItems
                 .slice(rowIndex * 4, (rowIndex + 1) * 4)
                 .map((item, colIndex) =>
@@ -1091,11 +1087,13 @@ const MoreActionWalletGrid = () => {
         icon: 'SliderThreeOutline' as const,
         onPress: handlePreferences,
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_security }),
-        icon: 'Shield2CheckOutline' as const,
-        onPress: handleSecurity,
-      },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({ id: ETranslations.global_security }),
+            icon: 'Shield2CheckOutline' as const,
+            onPress: handleSecurity,
+          },
       platformEnv.isWebDappMode
         ? undefined
         : {
