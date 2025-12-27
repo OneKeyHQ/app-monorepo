@@ -19,7 +19,7 @@ import type { IModalParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 const getModalRoute = () => {
-  const state = rootNavigationRef.current?.getState();
+  const state = rootNavigationRef.current?.getRootState();
   const currentIndex = state?.index || 0;
   const routes = state?.routes || [];
   const currentRoute = routes[currentIndex];
