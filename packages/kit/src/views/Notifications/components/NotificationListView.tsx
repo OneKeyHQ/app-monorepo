@@ -659,7 +659,7 @@ export function NotificationListView({
               {intl.formatMessage({ id: ETranslations.global_notifications })}
             </SizableText>
             <HeaderRight
-              style={{ flex: 1, justifyContent: 'space-between' }}
+              style={{ flex: 1, justifyContent: 'flex-end' }}
               onClearUnread={handleClearUnread}
               closePopover={closePopover}
             />

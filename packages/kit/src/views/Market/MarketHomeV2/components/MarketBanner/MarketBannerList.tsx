@@ -1,11 +1,10 @@
 import { memo } from 'react';
 
 import { ScrollView, XStack, useMedia } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
 import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
+import { useMarketBannerList } from './useMarketBannerList';
 import { useToMarketBannerDetail } from './useToMarketBannerDetail';
 
 function MarketBannerListSkeletonComponent({
@@ -45,19 +44,7 @@ const MarketBannerListSkeleton = memo(MarketBannerListSkeletonComponent);
 function MarketBannerListComponent() {
   const toMarketBannerDetail = useToMarketBannerDetail();
   const { md } = useMedia();
-
-  const { result: bannerList, isLoading } = usePromiseResult(
-    async () => {
-      const data =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketBannerList();
-      return data;
-    },
-    [],
-    {
-      watchLoading: true,
-      revalidateOnReconnect: true,
-    },
-  );
+  const { bannerList, isLoading } = useMarketBannerList();
 
   // md = true when screen width <= 767px (small screen)
   const isSmallScreen = md;

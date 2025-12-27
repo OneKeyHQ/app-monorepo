@@ -17,6 +17,7 @@ import {
   XStack,
   usePageType,
   useSafeAreaInsets,
+  useTheme,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -52,7 +53,9 @@ export function OneKeyHardwareWallet() {
   }, [navigation]);
 
   const pageType = usePageType();
-
+  const theme = useTheme();
+  const blackA11Color = theme.blackA11.val;
+  const transparentColor = theme.transparent.val;
   return (
     <Page safeAreaEnabled={false}>
       <Page.Body>
@@ -107,7 +110,7 @@ export function OneKeyHardwareWallet() {
           </XStack>
           <Stack p="$5" pt="$10">
             <LinearGradient
-              colors={['transparent', '$blackA11']}
+              colors={[transparentColor, blackA11Color]}
               style={{
                 position: 'absolute',
                 left: 0,

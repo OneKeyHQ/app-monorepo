@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useCalendars } from 'expo-localization';
 
-import { useMedia, useThemeValue } from '@onekeyhq/components';
+import { useMedia, useTheme } from '@onekeyhq/components';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -23,27 +23,14 @@ export const useTradingViewProps = ({
 }) => {
   const { md } = useMedia();
   const theme = useThemeVariant();
-  const [
-    bgAppColor,
-    bgSubduedColor,
-    textColor,
-    textDisabled,
-    iconColor,
-    bgBackdropColor,
-    bgHoverColor,
-  ] = useThemeValue(
-    [
-      '$bgApp',
-      '$bgSubdued',
-      '$text',
-      '$textDisabled',
-      '$icon',
-      '$bgBackdrop',
-      '$bgHover',
-    ],
-    undefined,
-    true,
-  );
+  const themeColors = useTheme();
+  const bgAppColor = themeColors.bgApp.val;
+  const bgSubduedColor = themeColors.bgSubdued.val;
+  const textColor = themeColors.text.val;
+  const textDisabled = themeColors.textDisabled.val;
+  const iconColor = themeColors.icon.val;
+  const bgBackdropColor = themeColors.bgBackdrop.val;
+  const bgHoverColor = themeColors.bgHover.val;
   const systemLocale = useLocaleVariant();
   const calendars = useCalendars();
   return useMemo(() => {
