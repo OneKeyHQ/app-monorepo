@@ -4,9 +4,10 @@ import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  ETabEarnRoutes,
-  ITabEarnParamList,
+import {
+  type ETabEarnRoutes,
+  ETabRoutes,
+  type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
