@@ -1,22 +1,14 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  ETabEarnRoutes,
-  ITabEarnParamList,
+import {
+  type ETabEarnRoutes,
+  ETabRoutes,
+  type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ETabDiscoveryRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -330,31 +322,6 @@ export function EarnHomeWithProvider({
   );
 }
 
-const useNavigateToNativeEarnPage = platformEnv.isNative
-  ? () => {
-      const navigation = useAppNavigation();
-      const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
-      const tabParam = route.params?.tab;
-
-      useLayoutEffect(() => {
-        navigation.navigate(
-          ETabRoutes.Discovery,
-          {
-            screen: ETabDiscoveryRoutes.TabDiscovery,
-            params: {
-              defaultTab: ETranslations.global_earn,
-              earnTab: tabParam,
-            },
-          },
-          {
-            pop: true,
-          },
-        );
-      }, [navigation, tabParam]);
-    }
-  : () => {};
-
 export default function EarnHome() {
-  useNavigateToNativeEarnPage();
   return platformEnv.isNative ? null : <EarnHomeWithProvider />;
 }

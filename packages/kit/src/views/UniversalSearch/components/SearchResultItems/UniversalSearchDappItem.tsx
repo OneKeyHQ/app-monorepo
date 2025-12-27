@@ -79,7 +79,6 @@ export function UniversalSearchDappItem({
   );
 
   const handlePress = useCallback(() => {
-    console.log('[universalSearch] renderItem: ', item);
     setTimeout(() => {
       handleWebSite({
         dApp: isGoogle ? undefined : item.payload,
