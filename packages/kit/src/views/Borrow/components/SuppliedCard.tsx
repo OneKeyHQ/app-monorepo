@@ -189,9 +189,13 @@ export const SuppliedCard = () => {
 
   // FIXME[borrow]: i18n
   return (
-    <Card title="My supply">
+    <Card
+      title="My supply"
+      renderHeader={
+        !showLoading ? <SuppliedHeader data={reserves?.supplied} /> : null
+      }
+    >
       {/* FIXME[borrow]: i18n */}
-      {!showLoading ? <SuppliedHeader data={reserves?.supplied} /> : null}
       <BorrowTableList<ISuppliedAsset>
         data={reserves?.supplied.assets || []}
         isLoading={showLoading}

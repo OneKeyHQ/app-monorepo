@@ -15,10 +15,13 @@ export const Card = ({
   title,
   children,
   renderFilter,
+  renderHeader,
 }: {
   title: string;
   children: React.ReactNode;
   renderFilter?: React.ReactNode;
+  /** Header content that remains visible when collapsed */
+  renderHeader?: React.ReactNode;
 }) => {
   return (
     <Stack bg="$bgApp" overflow="hidden">
@@ -65,6 +68,8 @@ export const Card = ({
               </XStack>
             )}
           </Accordion.Trigger>
+          {/* Header remains visible when collapsed */}
+          {renderHeader}
           <Accordion.HeightAnimator animation="quick">
             <Accordion.Content
               animation="quick"
