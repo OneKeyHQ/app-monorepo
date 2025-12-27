@@ -1,6 +1,12 @@
 import { memo, useMemo, useState } from 'react';
 
-import { SegmentControl, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  ScrollView,
+  SegmentControl,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 
 import { BorrowProvider } from '../BorrowProvider';
 import { BorrowCard } from '../components/BorrowCard';
@@ -28,44 +34,46 @@ const BorrowHomeCmp = memo(() => {
   return (
     <BorrowProvider>
       <BorrowDataGate>
-        <YStack flex={1} px="$5">
-          <Markets />
-          <Overview />
-          {gtMd ? (
-            // Desktop layout - side by side
-            <XStack flex={1} gap="$5">
-              <YStack flex={1} gap="$5">
-                <SuppliedCard />
-                <SupplyCard />
-              </YStack>
-              <YStack flex={1} gap="$5">
-                <BorrowedCard />
-                <BorrowCard />
-              </YStack>
-            </XStack>
-          ) : (
-            // Mobile layout - tabbed
-            <YStack flex={1} gap="$5">
-              <SegmentControl
-                value={activeTab}
-                options={tabOptions}
-                onChange={(value) => setActiveTab(value as IBorrowTab)}
-                fullWidth
-              />
-              {activeTab === 'supply' ? (
-                <YStack gap="$5">
+        <ScrollView flex={1}>
+          <YStack flex={1} px="$5" pb="$10">
+            <Markets />
+            <Overview />
+            {gtMd ? (
+              // Desktop layout - side by side
+              <XStack flex={1} gap="$5">
+                <YStack flex={1} gap="$5">
                   <SuppliedCard />
                   <SupplyCard />
                 </YStack>
-              ) : (
-                <YStack gap="$5">
+                <YStack flex={1} gap="$5">
                   <BorrowedCard />
                   <BorrowCard />
                 </YStack>
-              )}
-            </YStack>
-          )}
-        </YStack>
+              </XStack>
+            ) : (
+              // Mobile layout - tabbed
+              <YStack flex={1} gap="$5">
+                <SegmentControl
+                  value={activeTab}
+                  options={tabOptions}
+                  onChange={(value) => setActiveTab(value as IBorrowTab)}
+                  fullWidth
+                />
+                {activeTab === 'supply' ? (
+                  <YStack gap="$5">
+                    <SuppliedCard />
+                    <SupplyCard />
+                  </YStack>
+                ) : (
+                  <YStack gap="$5">
+                    <BorrowedCard />
+                    <BorrowCard />
+                  </YStack>
+                )}
+              </YStack>
+            )}
+          </YStack>
+        </ScrollView>
       </BorrowDataGate>
     </BorrowProvider>
   );

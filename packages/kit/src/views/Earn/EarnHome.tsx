@@ -7,27 +7,16 @@ import {
   useState,
 } from 'react';
 
-import {
-  RefreshControl,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
-import {
-  ETabDiscoveryRoutes,
+import type {
   ETabEarnRoutes,
-  ETabRoutes,
+  ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ETabDiscoveryRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -130,10 +119,8 @@ function BasicEarnHome({
 
   const handleModeChange = useCallback(
     (mode: 'earn' | 'borrow') => {
-      navigation.navigate(ETabRoutes.Earn, {
-        screen: ETabEarnRoutes.EarnHome,
-        params: { mode, tab: route.params?.tab },
-      });
+      // Use setParams to update mode without navigation - prevents remount flash
+      navigation.setParams({ mode, tab: route.params?.tab });
     },
     [navigation, route.params?.tab],
   );
