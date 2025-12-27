@@ -137,7 +137,7 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
   : () => {};
 
 const popToDiscoveryHomePage = () => {
-  const rootState = rootNavigationRef.current?.getState();
+  const rootState = rootNavigationRef.current?.getRootState();
   const currentIndex = rootState?.index || 0;
   const routes = rootState?.routes || [];
   const currentRoute = routes[currentIndex];
@@ -147,6 +147,7 @@ const popToDiscoveryHomePage = () => {
       const discoveryRoute = currentRoute.state.routes[tabIndex];
       if (discoveryRoute?.name === ETabRoutes.Discovery) {
         const discoveryState = discoveryRoute?.state;
+        console.log('discoveryState', discoveryState);
         if (
           discoveryState?.index !== 0 &&
           rootNavigationRef.current?.canGoBack()
