@@ -48,20 +48,27 @@ export const BorrowNavigation = {
       reserveAddress: string;
       symbol: string;
       logoURI?: string;
+      isModal?: boolean;
     },
   ) {
-    void safePushToBorrowRoute(
-      navigation,
-      ETabEarnRoutes.BorrowReserveDetails,
-      {
-        networkId: params.networkId,
-        provider: params.provider,
-        marketAddress: params.marketAddress,
-        reserveAddress: params.reserveAddress,
-        symbol: params.symbol,
-        logoURI: params.logoURI,
-      },
-    );
+    const routeParams = {
+      networkId: params.networkId,
+      provider: params.provider,
+      marketAddress: params.marketAddress,
+      reserveAddress: params.reserveAddress,
+      symbol: params.symbol,
+      logoURI: params.logoURI,
+    };
+
+    if (params.isModal) {
+      navigation.push(EModalStakingRoutes.BorrowReserveDetails, routeParams);
+    } else {
+      void safePushToBorrowRoute(
+        navigation,
+        ETabEarnRoutes.BorrowReserveDetails,
+        routeParams,
+      );
+    }
   },
 
   pushToBorrowHistory(
@@ -70,22 +77,32 @@ export const BorrowNavigation = {
       accountId: string;
       networkId: string;
       provider: string;
-      marketAddress: string;
-      title?: string;
-      type?: string;
+      symbol: string;
+      marketAddress?: string;
+      stakeTag: string;
+      protocolVault?: string;
+      filterType?: string;
+      isModal?: boolean;
     },
   ) {
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.BorrowHistoryList,
-      params: {
-        accountId: params.accountId,
-        networkId: params.networkId,
-        provider: params.provider,
-        marketAddress: params.marketAddress,
-        title: params.title || 'Borrow History', // FIXME[borrow]: i18n
-        type: params.type,
-      },
-    });
+    const historyParams = {
+      accountId: params.accountId,
+      networkId: params.networkId,
+      provider: params.provider,
+      symbol: params.symbol,
+      stakeTag: params.stakeTag,
+      protocolVault: params.protocolVault,
+      filterType: params.filterType,
+    };
+
+    if (params.isModal) {
+      navigation.push(EModalStakingRoutes.HistoryList, historyParams);
+    } else {
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.HistoryList,
+        params: historyParams,
+      });
+    }
   },
 
   pushToBorrowManagePosition(

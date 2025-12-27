@@ -16,7 +16,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
@@ -290,26 +289,17 @@ export function ManagePositionContent({
     if (historyAction?.disabled || !earnAccount?.accountId) return undefined;
     return (params?: { filterType?: string }) => {
       const { filterType } = params || {};
-      const historyParams = {
+      BorrowNavigation.pushToBorrowHistory(appNavigation, {
         accountId: earnAccount?.accountId,
         networkId,
-        symbol,
         provider,
+        symbol,
+        marketAddress: marketAddress || '',
         stakeTag: resolvedProtocolInfo?.stakeTag || '',
         protocolVault: vault,
         filterType,
-      };
-
-      if (isInModalContext) {
-        // We're already in a modal, use push to navigate within the modal stack
-        appNavigation.push(EModalStakingRoutes.HistoryList, historyParams);
-      } else {
-        // We're in a regular page (like EarnProtocolDetails), use pushModal
-        appNavigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.HistoryList,
-          params: historyParams,
-        });
-      }
+        isModal: isInModalContext,
+      });
     };
   }, [
     historyAction?.disabled,
@@ -318,6 +308,7 @@ export function ManagePositionContent({
     networkId,
     resolvedProtocolInfo?.stakeTag,
     provider,
+    marketAddress,
     symbol,
     vault,
     isInModalContext,
@@ -368,6 +359,7 @@ export function ManagePositionContent({
         reserveAddress,
         symbol,
         logoURI: fallbackTokenImageUri,
+        isModal: isInModalContext,
       });
     };
 

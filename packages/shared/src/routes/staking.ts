@@ -16,6 +16,7 @@ export enum EModalStakingRoutes {
   ManagePosition = 'ManagePosition',
   BorrowManagePosition = 'BorrowManagePosition',
   BorrowTokenSelect = 'BorrowTokenSelect',
+  BorrowReserveDetails = 'BorrowReserveDetails',
   Claim = 'Claim',
   ProtocolDetails = 'ProtocolDetails',
   ProtocolDetailsV2 = 'ProtocolDetailsV2',
@@ -87,6 +88,14 @@ export type IModalStakingParamList = {
     action: 'supply' | 'borrow';
     currentReserveAddress?: string;
     onSelect?: (asset: IBorrowAsset) => void;
+  };
+  [EModalStakingRoutes.BorrowReserveDetails]: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    symbol: string;
+    logoURI?: string;
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;

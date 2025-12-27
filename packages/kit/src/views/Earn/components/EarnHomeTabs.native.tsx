@@ -34,16 +34,9 @@ export const EarnHomeTabs = ({
           onChange={(value) => onModeChange?.(value as IEarnHomeMode)}
         />
       </Stack>
-      {/* Content always mounted, toggle visibility to avoid remount flash */}
-      <Stack flex={1} pt="$6" display={activeMode === 'earn' ? 'flex' : 'none'}>
-        {earn}
-      </Stack>
-      <Stack
-        flex={1}
-        pt="$6"
-        display={activeMode === 'borrow' ? 'flex' : 'none'}
-      >
-        {borrow}
+      {/* Conditional rendering to avoid Tabs context issues */}
+      <Stack flex={1} pt="$6">
+        {activeMode === 'earn' ? earn : borrow}
       </Stack>
     </YStack>
   );

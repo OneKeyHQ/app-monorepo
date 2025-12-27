@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
 
-import { useIsFocusedTab } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
@@ -13,7 +13,7 @@ import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
 
 export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
-  const isFocused = useIsFocusedTab();
+  const isFocused = useIsFocused();
   const { markets, isLoading: marketsLoading } = useBorrowMarkets({
     isActive: isFocused,
   });
