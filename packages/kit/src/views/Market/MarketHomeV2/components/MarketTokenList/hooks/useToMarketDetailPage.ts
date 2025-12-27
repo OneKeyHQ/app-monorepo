@@ -8,7 +8,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -30,9 +29,11 @@ interface IMarketToken {
 
 interface IUseToDetailPageOptions {
   /**
-   * Force navigation through root navigator (used in universal search)
+   * Switch to Market tab first before navigating to detail page.
+   * - On mobile (native): switches to Discovery tab first, then pushes detail
+   * - On desktop/web: switches to Market tab first, then pushes detail
    */
-  useRootNavigation?: boolean;
+  switchToMarketTabFirst?: boolean;
   /**
    * Where the navigation originated from
    */
@@ -42,7 +43,6 @@ interface IUseToDetailPageOptions {
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
-  const tokenDetailActions = useTokenDetailActions();
   const isTabletMainView = useIsTabletMainView();
   const isTabletDetailView = useIsTabletDetailView();
 
@@ -80,20 +80,26 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             from: params.from || enterSource,
           },
         });
-      } else if (options?.useRootNavigation) {
-        // Use root navigation for cases that explicitly request it (e.g., from universal search on desktop/web)
-        rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-          screen: ETabRoutes.Market,
-          params: {
-            screen: ETabMarketRoutes.MarketDetailV2,
-            params,
-          },
-        });
-      } else {
-        // Regular navigation within current stack (desktop, web)
-        // Always clear token detail when navigating
-        tokenDetailActions.current.clearTokenDetail();
+      } else if (options?.switchToMarketTabFirst) {
+        // First switch to the appropriate tab to highlight it
+        const targetTab = platformEnv.isNative
+          ? ETabRoutes.Discovery
+          : ETabRoutes.Market;
+        navigation.switchTab(targetTab);
 
+        // Then navigate to detail page using rootNavigationRef
+        // because the current navigation context is from modal, not from the target tab
+        setTimeout(() => {
+          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+            screen: targetTab,
+            params: {
+              screen: ETabMarketRoutes.MarketDetailV2,
+              params,
+            },
+          });
+        }, 500);
+      } else {
+        // Regular navigation within current stack
         // Clean existing token detail pages in tablet split view mode before pushing new one
         if (isTabletMainView || isTabletDetailView) {
           appEventBus.emit(
@@ -107,8 +113,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     },
     [
       navigation,
-      tokenDetailActions,
-      options?.useRootNavigation,
+      options?.switchToMarketTabFirst,
       options?.from,
       isTabletMainView,
       isTabletDetailView,

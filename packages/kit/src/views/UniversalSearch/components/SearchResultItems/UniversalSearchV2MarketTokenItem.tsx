@@ -141,7 +141,7 @@ export function UniversalSearchV2MarketTokenItem({
   const [{ isMounted }] = useMarketWatchListV2Atom();
   const universalSearchActions = useUniversalSearchActions();
   const toMarketDetailPage = useToDetailPage({
-    useRootNavigation: true,
+    switchToMarketTabFirst: true,
     from: EEnterWay.Search,
   });
   const {

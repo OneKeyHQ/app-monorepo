@@ -5,7 +5,7 @@ import {
   useRoute,
 } from '@react-navigation/native';
 
-import { useIsTabletDetailView } from '@onekeyhq/components';
+import { Toast, useIsTabletDetailView } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -29,6 +29,15 @@ export function useMarketDetailBackNavigation() {
       return;
     }
 
+    if (
+      platformEnv.isNative &&
+      (params?.from === EEnterWay.Search)
+    ) {
+      navigation.pop();
+      navigation.switchTab(ETabRoutes.Discovery);
+      return;
+    }
+
     // Check if the previous route is Market home
     const state = reactNavigation.getState();
 
@@ -44,28 +53,7 @@ export function useMarketDetailBackNavigation() {
       }
     }
 
-    if (
-      platformEnv.isNative &&
-      (params?.from === EEnterWay.Search || params?.from === EEnterWay.HomeTab)
-    ) {
-      // On mobile, Market is under Discovery tab
-      navigation.switchTab(ETabRoutes.Discovery);
-      return;
-    }
-
-    // Otherwise, navigate directly to Market home
-    navigation.navigate(
-      ERootRoutes.Main,
-      {
-        screen: ETabRoutes.Market,
-        params: {
-          screen: ETabMarketRoutes.TabMarket,
-        },
-      },
-      {
-        pop: true,
-      },
-    );
+    navigation.pop();
   }, [params, reactNavigation, navigation, isTabletDetailView]);
 
   return { handleBackPress };
