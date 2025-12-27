@@ -175,7 +175,9 @@ export function UniversalBorrowSupply({
   const onMax = useCallback(() => {
     const formattedMaxAmount =
       typeof decimals === 'number'
-        ? new BigNumber(balance).toFixed(decimals, BigNumber.ROUND_DOWN)
+        ? new BigNumber(balance)
+            .decimalPlaces(decimals, BigNumber.ROUND_DOWN)
+            .toFixed()
         : balance;
     onChangeAmountValue(formattedMaxAmount);
   }, [balance, decimals, onChangeAmountValue]);

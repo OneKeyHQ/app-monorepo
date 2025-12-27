@@ -170,7 +170,7 @@ export function UniversalBorrowWithdraw({
       return '0';
     }
     if (typeof decimals === 'number') {
-      return balanceBN.toFixed(decimals, BigNumber.ROUND_DOWN);
+      return balanceBN.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed();
     }
     return balance;
   }, [balance, decimals]);
