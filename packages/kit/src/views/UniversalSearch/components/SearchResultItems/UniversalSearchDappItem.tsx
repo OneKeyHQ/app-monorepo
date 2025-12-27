@@ -4,12 +4,11 @@ import { StyleSheet } from 'react-native';
 
 import { Icon, Image } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
-import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
+import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IUniversalSearchDapp } from '@onekeyhq/shared/types/search';
-
-import { useWebSiteHandler } from '../../../Discovery/hooks/useWebSiteHandler';
 
 interface IUniversalSearchDappItemProps {
   item: IUniversalSearchDapp;
@@ -22,8 +21,8 @@ export function UniversalSearchDappItem({
 }: IUniversalSearchDappItemProps) {
   const { name, dappId, logo } = item.payload;
   const isGoogle = isGoogleSearchItem(dappId);
-  const handleWebSite = useWebSiteHandler();
   const universalSearchActions = useUniversalSearchActions();
+  const navigation = useAppNavigation();
 
   // Format text content based on display rules
   const formatDisplayText = useCallback((text: string): string => {
@@ -80,16 +79,16 @@ export function UniversalSearchDappItem({
 
   const handlePress = useCallback(() => {
     console.log('[universalSearch] renderItem: ', item);
-    handleWebSite({
-      dApp: isGoogle ? undefined : item.payload,
-      // @ts-expect-error
-      webSite: isGoogle
-        ? {
-            title: 'Google',
-            url: getSearchInput(),
-          }
-        : undefined,
-      enterMethod: EEnterMethod.search,
+
+    const url = isGoogle ? getSearchInput() : item.payload.url;
+    const title = isGoogle ? 'Google' : name;
+
+    // Close the search modal first
+    navigation.popStack();
+
+    // Then navigate to Discovery and open the URL
+    setTimeout(() => {
+      openUrlInDiscovery({ url, title });
     });
 
     // Add to recent search list
@@ -140,8 +139,8 @@ export function UniversalSearchDappItem({
       }
     }, 10);
   }, [
+    navigation,
     getSearchInput,
-    handleWebSite,
     isGoogle,
     item,
     name,
