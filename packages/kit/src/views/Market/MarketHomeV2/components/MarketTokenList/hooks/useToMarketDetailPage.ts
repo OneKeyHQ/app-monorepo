@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -43,6 +44,7 @@ interface IUseToDetailPageOptions {
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
+  const tokenDetailActions = useTokenDetailActions();
   const isTabletMainView = useIsTabletMainView();
   const isTabletDetailView = useIsTabletDetailView();
 
@@ -81,6 +83,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           },
         });
       } else if (options?.switchToMarketTabFirst) {
+        // Clear token detail before navigation
+        tokenDetailActions.current.clearTokenDetail();
+
         // First switch to the appropriate tab to highlight it
         const targetTab = platformEnv.isNative
           ? ETabRoutes.Discovery
@@ -99,7 +104,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           });
         }, 500);
       } else {
-        // Regular navigation within current stack
+        // Clear token detail before navigation
+        tokenDetailActions.current.clearTokenDetail();
+
         // Clean existing token detail pages in tablet split view mode before pushing new one
         if (isTabletMainView || isTabletDetailView) {
           appEventBus.emit(
@@ -113,6 +120,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     },
     [
       navigation,
+      tokenDetailActions,
       options?.switchToMarketTabFirst,
       options?.from,
       isTabletMainView,
