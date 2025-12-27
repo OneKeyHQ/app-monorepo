@@ -147,7 +147,6 @@ const popToDiscoveryHomePage = () => {
       const discoveryRoute = currentRoute.state.routes[tabIndex];
       if (discoveryRoute?.name === ETabRoutes.Discovery) {
         const discoveryState = discoveryRoute?.state;
-        console.log('discoveryState', discoveryState);
         if (
           discoveryState?.index !== 0 &&
           rootNavigationRef.current?.canGoBack()
