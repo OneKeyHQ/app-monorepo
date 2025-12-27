@@ -1,10 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
-import { useMedia } from '@onekeyhq/components';
+import { XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { useBorrowContext } from '../BorrowProvider';
@@ -21,6 +22,42 @@ import {
 import { Card } from './Card';
 
 export type IBorrowedAsset = IBorrowReserveItem['borrowed']['assets'][number];
+
+const BorrowedHeader = ({
+  data,
+}: {
+  data?: IBorrowReserveItem['borrowed'];
+}) => {
+  return (
+    <XStack mt="$3" mb="$5" px="$5" gap="$5">
+      {data?.borrowedBalance?.title ? (
+        <XStack gap="$1" ai="center">
+          <EarnText
+            text={{
+              text: 'Borrowed balance',
+              size: '$bodyMd',
+              color: '$textSubdued',
+            }}
+          />
+          <EarnText text={data?.borrowedBalance?.title} />
+        </XStack>
+      ) : null}
+      {data?.borrowedApy?.title ? (
+        <XStack gap="$1" ai="center">
+          <EarnText
+            text={{
+              text: 'APY',
+              size: '$bodyMd',
+              color: '$textSubdued',
+            }}
+          />
+          <EarnText text={data?.borrowedApy?.title} />
+          <EarnTooltip tooltip={data?.borrowedApy?.tooltip} />
+        </XStack>
+      ) : null}
+    </XStack>
+  );
+};
 
 export const BorrowedCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
@@ -152,8 +189,9 @@ export const BorrowedCard = () => {
 
   // FIXME[borrow]: i18n
   return (
-    <Card title="Your borrows">
+    <Card title="My borrow">
       {/* FIXME[borrow]: i18n */}
+      {!showLoading ? <BorrowedHeader data={reserves?.borrowed} /> : null}
       <BorrowTableList<IBorrowedAsset>
         data={reserves?.borrowed.assets || []}
         isLoading={showLoading}

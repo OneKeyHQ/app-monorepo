@@ -5,6 +5,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { useBorrowContext } from '../BorrowProvider';
@@ -30,7 +31,7 @@ const SuppliedHeader = ({
   return (
     <XStack mt="$3" mb="$5" px="$5" gap="$5">
       {data?.suppliedBalance?.title ? (
-        <XStack gap="$1">
+        <XStack gap="$1" ai="center">
           <EarnText
             text={{
               text: 'Supplied balance',
@@ -42,7 +43,7 @@ const SuppliedHeader = ({
         </XStack>
       ) : null}
       {data?.suppliedApy?.title ? (
-        <XStack gap="$1">
+        <XStack gap="$1" ai="center">
           <EarnText
             text={{
               text: 'APY',
@@ -51,6 +52,7 @@ const SuppliedHeader = ({
             }}
           />
           <EarnText text={data?.suppliedApy?.title} />
+          <EarnTooltip tooltip={data?.suppliedApy?.tooltip} />
         </XStack>
       ) : null}
     </XStack>
