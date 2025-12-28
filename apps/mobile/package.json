@@ -48,7 +48,7 @@
     "@onekeyfe/react-native-device-utils": "1.1.11",
     "@onekeyfe/react-native-keychain-module": "1.1.11",
     "@onekeyfe/react-native-lite-card": "1.1.11",
-    "@onekeyfe/react-native-skeleton": "1.1.11",
+    "@onekeyfe/react-native-skeleton": "1.1.12",
     "@onekeyfe/react-native-sni-connect": "1.1.0",
     "@onekeyfe/react-native-text-input": "0.3.0",
     "@onekeyhq/components": "*",
