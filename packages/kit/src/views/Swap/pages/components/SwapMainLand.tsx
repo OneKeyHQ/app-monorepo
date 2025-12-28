@@ -95,6 +95,9 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
+import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
+
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
@@ -176,6 +179,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     useSwapProInputAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const swapProAccount = useSwapProAccount();
+  const tokenDetailActions = useTokenDetailActions();
 
   const swapFromTokenRef = useRef<ISwapToken | undefined>(undefined);
   if (swapFromTokenRef.current !== fromSelectTokenAtom) {
@@ -287,6 +291,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   const onProMarketDetail = useCallback(() => {
     dismissKeyboard();
+    // Clear token detail before navigation to avoid stale data
+    tokenDetailActions.current.clearTokenDetail();
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapProMarketDetail,
       params: {
@@ -299,6 +305,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     });
   }, [
     navigation,
+    tokenDetailActions,
     swapProSelectToken?.contractAddress,
     swapProSelectToken?.networkId,
     swapProSelectToken?.isNative,
@@ -1273,9 +1280,13 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           : EJotaiContextStoreNames.swap
       }
     >
-      <LazyPageContainer>
-        <SwapMainLoad {...props} pageType={props?.pageType} />
-      </LazyPageContainer>
+      <MarketWatchListProviderMirrorV2
+        storeName={EJotaiContextStoreNames.marketWatchListV2}
+      >
+        <LazyPageContainer>
+          <SwapMainLoad {...props} pageType={props?.pageType} />
+        </LazyPageContainer>
+      </MarketWatchListProviderMirrorV2>
     </SwapProviderMirror>
   );
 };
