@@ -42,10 +42,7 @@ function WalletEditButtonView({
     activeAccount: { network },
   } = useActiveAccount({ num: num ?? 0 });
   const navigation = useAppNavigation();
-  const isKeyless = useMemo(
-    () => accountUtils.isKeylessWallet({ walletId: wallet?.id || '' }),
-    [wallet],
-  );
+  const isKeyless = useMemo(() => wallet?.isKeyless, [wallet]);
 
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();

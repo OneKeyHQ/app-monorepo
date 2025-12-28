@@ -877,10 +877,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // TODO performance
       const { wallets } = await this.getWallets();
       const walletsByXfp = wallets.filter((w) => {
-        const isKeylessWallet = accountUtils.isKeylessWallet({
-          walletId: w.id,
-        });
-        if (isKeylessWallet) {
+        if (w.isKeyless) {
           return false;
         }
         return w.xfp === xfp;
@@ -910,10 +907,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const { wallets } = await this.getWallets();
       if (walletType === WALLET_TYPE_HD) {
         const wallet = wallets.find((w) => {
-          const isKeylessWallet = accountUtils.isKeylessWallet({
-            walletId: w.id,
-          });
-          if (isKeylessWallet) {
+          if (w.isKeyless) {
             return false;
           }
           const r = w.type === walletType && w.hash === walletHash;
@@ -3305,7 +3299,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const wallet = await this.getWallet({
       walletId,
     });
-    const isKeylessWallet = accountUtils.isKeylessWallet({ walletId });
+    const isHardware =
+      accountUtils.isHwWallet({
+        walletId,
+      }) || accountUtils.isQrWallet({ walletId });
+    const isKeyless = wallet.isKeyless;
+    const isHdWallet = accountUtils.isHdWallet({ walletId });
+
     const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
       associatedDevice: wallet.associatedDevice,
     });
@@ -3316,7 +3316,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     // TODO buildSyncKeyAndPayloadSafe
     let syncKeyInfo: ICloudSyncKeyInfoWallet | undefined;
-    if (!isKeylessWallet) {
+    if (!isKeyless) {
       syncKeyInfo = await syncManagers.wallet.buildSyncKeyAndPayload({
         target,
       });
@@ -3328,10 +3328,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // remove wallet
       // remove address
 
-      const isHardware =
-        accountUtils.isHwWallet({
-          walletId,
-        }) || accountUtils.isQrWallet({ walletId });
       if (isHardware) {
         if (
           !isRemoveToMocked &&
@@ -3374,7 +3370,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             });
           }
         }
-      } else if (!isKeylessWallet) {
+      } else if (isHdWallet) {
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.Credential,

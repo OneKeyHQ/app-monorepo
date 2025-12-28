@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -115,6 +115,8 @@ function OneKeyIDLoginPage() {
     IOnboardingParamListV2,
     EOnboardingPagesV2.OneKeyIDLogin
   >();
+  const isLoggingInRef = useRef<boolean>(false);
+  isLoggingInRef.current = isLoggingIn;
   const mode: EOnboardingV2OneKeyIDLoginMode | undefined = route?.params?.mode;
   const intl = useIntl();
 
@@ -130,6 +132,9 @@ function OneKeyIDLoginPage() {
 
   const handleSocialLogin = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
+      if (isLoggingInRef.current) {
+        return;
+      }
       try {
         setIsLoggingIn(true);
         const result = await signInWithSocialLogin(provider);

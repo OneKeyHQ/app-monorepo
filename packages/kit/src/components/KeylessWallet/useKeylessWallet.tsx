@@ -501,10 +501,13 @@ export function useKeylessWallet() {
   );
 
   const handleKeylessOnboardingTimeout = useCallback(() => {
+    // TODO @franco 创建无私钥钱包超时提示（安全考虑，社交账户登录后 3 分钟内未完成创建，则提示超时，需重新登录）
     Dialog.show({
       title: 'Keyless Wallet',
-      description: 'Keyless Wallet onboarding timed out. Please try again.',
+      description:
+        'For security reasons, your keyless wallet creation session has expired. Please log in again with your social account to continue.',
       showCancelButton: false,
+      // TODO return to OneKeyIDLoginPage
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_got_it,
       }),

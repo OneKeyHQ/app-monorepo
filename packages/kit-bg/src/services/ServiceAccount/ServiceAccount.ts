@@ -267,37 +267,9 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
-  private async shouldIncludeWalletButNotKeyless(
-    wallet: IDBWallet,
-  ): Promise<boolean> {
-    const isKeylessWallet = accountUtils.isKeylessWallet({
-      walletId: wallet.id,
-    });
-    if (!isKeylessWallet) {
-      return true;
-    }
-    let expectedId: string | undefined;
-    if (expectedId === undefined) {
-      const { keylessWalletId: packSetId } = await primePersistAtom.get();
-      expectedId = packSetId
-        ? accountUtils.buildKeylessWalletId({ sharePackSetId: packSetId })
-        : undefined;
-    }
-    if (!expectedId) {
-      return false;
-    }
-    return wallet.id === expectedId;
-  }
-
   @backgroundMethod()
   async getWallet({ walletId }: { walletId: string }): Promise<IDBWallet> {
     const wallet = await localDb.getWallet({ walletId });
-    const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
-    if (!shouldInclude) {
-      throw new OneKeyError('KeylessWallet not found', {
-        code: EOneKeyErrorClassNames.OneKeyError,
-      });
-    }
     return wallet;
   }
 
@@ -334,10 +306,6 @@ class ServiceAccount extends ServiceBase {
   }): Promise<IDBWallet | undefined> {
     const wallet = await localDb.getWalletSafe({ walletId, withoutRefill });
     if (!wallet) {
-      return undefined;
-    }
-    const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
-    if (!shouldInclude) {
       return undefined;
     }
     return wallet;
@@ -411,12 +379,7 @@ class ServiceAccount extends ServiceBase {
     }
     // Filter out keyless wallets if excludeKeylessWallet is true
     if (excludeKeylessWallet) {
-      wallets = wallets.filter(
-        (wallet) =>
-          !accountUtils.isKeylessWallet({
-            walletId: wallet.id,
-          }),
-      );
+      // do nothing
     }
     return { wallets, allDevices };
   }
@@ -427,13 +390,7 @@ class ServiceAccount extends ServiceBase {
   }> {
     const r = await localDb.getWallets(options);
 
-    const wallets: IDBWallet[] = [];
-    for (const wallet of r.wallets) {
-      const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
-      if (shouldInclude) {
-        wallets.push(wallet);
-      }
-    }
+    const wallets: IDBWallet[] = r.wallets;
 
     return {
       ...r,
@@ -4235,9 +4192,7 @@ class ServiceAccount extends ServiceBase {
       [walletId: string]: { hash: string; xfp: string };
     } = {};
     for (const wallet of hdWallets) {
-      const isKeylessWallet = accountUtils.isKeylessWallet({
-        walletId: wallet.id,
-      });
+      const isKeylessWallet = wallet.isKeyless;
       if (isKeylessWallet) {
         // eslint-disable-next-line no-continue
         continue;

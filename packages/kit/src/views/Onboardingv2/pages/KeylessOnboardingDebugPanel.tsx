@@ -61,13 +61,13 @@ export function KeylessOnboardingDebugPanel() {
   }, [cacheKeylessOnboardingCustomMnemonic]);
 
   return (
-    <YStack py="$4">
+    <YStack>
       <MultipleClickStack
         h="$10"
         w="100%"
         showDevBgColor
         debugComponent={
-          <YStack gap="$2">
+          <YStack gap="$2" py="$4">
             <Button
               onPress={() => {
                 void backgroundApiProxy.servicePassword.clearCachedPassword();
