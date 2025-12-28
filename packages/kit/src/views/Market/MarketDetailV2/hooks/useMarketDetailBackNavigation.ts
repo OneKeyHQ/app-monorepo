@@ -29,10 +29,7 @@ export function useMarketDetailBackNavigation() {
       return;
     }
 
-    if (
-      platformEnv.isNative &&
-      (params?.from === EEnterWay.Search)
-    ) {
+    if (platformEnv.isNative && params?.from === EEnterWay.Search) {
       navigation.pop();
       navigation.switchTab(ETabRoutes.Discovery);
       return;
