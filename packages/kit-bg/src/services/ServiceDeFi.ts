@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { debounce, isEmpty } from 'lodash';
 
+import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,
@@ -60,6 +61,27 @@ class ServiceDeFi extends ServiceBase {
       trailing: true,
     },
   );
+
+  private _fixCurrencyValue = ({
+    sourceCurrencyInfo,
+    targetCurrencyInfo,
+    value,
+  }: {
+    sourceCurrencyInfo?: ICurrencyItem;
+    targetCurrencyInfo?: ICurrencyItem;
+    value: number;
+  }) => {
+    if (
+      sourceCurrencyInfo &&
+      targetCurrencyInfo &&
+      sourceCurrencyInfo.id !== targetCurrencyInfo.id
+    ) {
+      return new BigNumber(value ?? 0)
+        .div(new BigNumber(sourceCurrencyInfo.value))
+        .times(new BigNumber(targetCurrencyInfo.value));
+    }
+    return new BigNumber(value ?? 0);
+  };
 
   @backgroundMethod()
   public async abortFetchAccountDeFiPositions() {
@@ -193,11 +215,27 @@ class ServiceDeFi extends ServiceBase {
       this._localDeFiOverviewCache = {
         ...this._localDeFiOverviewCache,
         [networkId]: {
-          totalValue: resp.data.data.data.totals.totalValue,
-          totalDebt: resp.data.data.data.totals.totalDebt,
-          totalReward: resp.data.data.data.totals.totalReward,
-          netWorth: resp.data.data.data.totals.netWorth,
-          currency: sourceCurrencyInfo?.id ?? '',
+          totalValue: this._fixCurrencyValue({
+            sourceCurrencyInfo,
+            targetCurrencyInfo,
+            value: resp.data.data.data.totals.totalValue,
+          }).toNumber(),
+          totalDebt: this._fixCurrencyValue({
+            sourceCurrencyInfo,
+            targetCurrencyInfo,
+            value: resp.data.data.data.totals.totalDebt,
+          }).toNumber(),
+          totalReward: this._fixCurrencyValue({
+            sourceCurrencyInfo,
+            targetCurrencyInfo,
+            value: resp.data.data.data.totals.totalReward,
+          }).toNumber(),
+          netWorth: this._fixCurrencyValue({
+            sourceCurrencyInfo,
+            targetCurrencyInfo,
+            value: resp.data.data.data.totals.netWorth,
+          }).toNumber(),
+          currency: targetCurrencyInfo?.id ?? '',
         },
       };
       await this._updateAccountDeFiOverviewDebounced({
