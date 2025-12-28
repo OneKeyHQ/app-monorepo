@@ -82,7 +82,6 @@ function UpdatePreview({
         },
       ),
     };
-    console.log('isForceUpdate', isForceUpdate);
     if (isForceUpdate) {
       props.headerLeft = headerLeft;
     }
