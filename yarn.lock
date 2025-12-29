@@ -8033,7 +8033,7 @@ __metadata:
     expo-linear-gradient: "npm:15.0.8"
     expo-linking: "npm:7.1.5"
     expo-local-authentication: "npm:17.0.8"
-    expo-localization: "npm:17.0.8"
+    expo-localization: "npm:16.1.5"
     expo-navigation-bar: "npm:5.0.10"
     expo-notifications: "npm:0.31.3"
     expo-screen-capture: "npm:7.1.5"
@@ -24592,15 +24592,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-localization@npm:17.0.8":
-  version: 17.0.8
-  resolution: "expo-localization@npm:17.0.8"
+"expo-localization@npm:16.1.5":
+  version: 16.1.5
+  resolution: "expo-localization@npm:16.1.5"
   dependencies:
     rtl-detect: "npm:^1.0.2"
   peerDependencies:
     expo: "*"
     react: "*"
-  checksum: 10/aded0cad99430019eca555966b1e21ee115b7c9f01c2db04b41eb261c32c325d106c27e30ee24c9cf733f74eea8a282ea46e5425e3d45c6e9d9fef3f0b5a8508
+  checksum: 10/7e96b5d722d7d5dd524b4833a6721987e2068eef363d42eb64478b9b10ca9640e7758626b0a1d7a5944700fc1fc13d5afaf6a5f1e942a021d7cd53e508606560
   languageName: node
   linkType: hard
 
