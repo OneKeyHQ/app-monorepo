@@ -294,10 +294,10 @@ function ApprovalListHeader({
   ]);
 
   return (
-    <>
+    <YStack>
       {renderRiskOverview()}
       {renderTableHeader()}
-    </>
+    </YStack>
   );
 }
 
