@@ -40,7 +40,7 @@ const useScrollEnd = platformEnv.isNative
 
       const debouncedOnScrollEnd = useDebouncedCallback(onScrollEnd, 150);
 
-      useAnimatedReaction(
+      useAnimatedReaction<number>(
         () => scrollY.value,
         (current, prev) => {
           if (current !== prev) {
