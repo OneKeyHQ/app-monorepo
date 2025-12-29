@@ -62,10 +62,19 @@ export function useOrderConfirm(
       }
 
       // Use the price from useOrderPrice
-      const effectivePrice =
-        formDataSnapshot.type === 'market'
-          ? midPrice || '0'
-          : formatPriceToSignificantDigits(orderPrice.price);
+      let effectivePrice: string;
+      if (formDataSnapshot.type === 'market') {
+        if (!midPrice) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Market price is not available. Please try again.',
+          });
+          return;
+        }
+        effectivePrice = midPrice;
+      } else {
+        effectivePrice = formatPriceToSignificantDigits(orderPrice.price);
+      }
 
       hyperliquidActions.current.resetTradingForm();
 

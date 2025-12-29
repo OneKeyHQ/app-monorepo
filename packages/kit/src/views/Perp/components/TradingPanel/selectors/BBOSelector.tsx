@@ -141,7 +141,9 @@ export const BBOSelector = memo<IBBOSelectorProps>(
         value={currentValue}
         onChange={handleChange}
         disabled={disabled}
-        title="Select BBO Mode"
+        title={intl.formatMessage({
+          id: ETranslations.Perps_BBO_select_title,
+        })}
         renderTrigger={({ onPress, label, disabled: disabledTrigger }) => (
           <YStack
             bg="$bgSubdued"

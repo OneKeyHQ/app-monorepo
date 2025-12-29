@@ -95,10 +95,7 @@ function PerpTradingForm({
   const { midPrice, midPriceBN } = useTradingPrice();
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
-  const isBBOActive = useMemo(
-    () => !!formData.bboPriceMode,
-    [formData.bboPriceMode],
-  );
+  const isBBOActive = !!formData.bboPriceMode;
   const perpsSelectedDisplayName = useMemo(
     () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
     [perpsSelectedSymbol.coin],

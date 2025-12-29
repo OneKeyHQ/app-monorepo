@@ -86,7 +86,12 @@ function OrderConfirmContent({
 
     if (formData.bboPriceMode) {
       const { type, level } = formData.bboPriceMode;
-      const modeName = type === 'counterparty' ? 'Counterparty' : 'Queue';
+      const modeName = intl.formatMessage({
+        id:
+          type === 'counterparty'
+            ? ETranslations.Perps_BBO_Counterparty
+            : ETranslations.Perps_BBO_Queue,
+      });
 
       return (
         <YStack alignItems="flex-end" gap="$1">
@@ -98,7 +103,7 @@ function OrderConfirmContent({
     }
 
     return <SizableText size="$bodyMdMedium">$ {formData.price}</SizableText>;
-  }, [formData.type, formData.price, formData.bboPriceMode]);
+  }, [formData.type, formData.price, formData.bboPriceMode, intl]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
