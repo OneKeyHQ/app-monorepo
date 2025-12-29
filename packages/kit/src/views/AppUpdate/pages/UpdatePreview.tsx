@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { usePreventRemove } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -72,19 +73,24 @@ function UpdatePreview({
   const changeLog = updateInfo?.changeLog;
   usePreventRemove(!!isForceUpdate, () => {});
 
+  const headerProps = useMemo(() => {
+    const props: { title: string; headerLeft?: () => ReactNode } = {
+      title: intl.formatMessage(
+        { id: ETranslations.update_changelog_title },
+        {
+          ver: updateInfo ? displayAppUpdateVersion(updateInfo) : latestVersion,
+        },
+      ),
+    };
+    if (isForceUpdate) {
+      props.headerLeft = headerLeft;
+    }
+    return props;
+  }, [intl, updateInfo, latestVersion, isForceUpdate, headerLeft]);
+
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage(
-          { id: ETranslations.update_changelog_title },
-          {
-            ver: updateInfo
-              ? displayAppUpdateVersion(updateInfo)
-              : latestVersion,
-          },
-        )}
-        headerLeft={isForceUpdate ? headerLeft : undefined}
-      />
+      <Page.Header {...headerProps} />
       <Page.Body mt={0}>
         <ExtPluginText />
         {changeLog ? (

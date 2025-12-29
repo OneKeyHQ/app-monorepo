@@ -10,7 +10,7 @@ export const usePageType = () => {
 
 export const useIsModalPage = () => {
   const pageType = usePageType();
-  return pageType === EPageType.modal || pageType === EPageType.fullScreen;
+  return pageType === EPageType.modal;
 };
 
 export const useIsOverlayPage = () => {
