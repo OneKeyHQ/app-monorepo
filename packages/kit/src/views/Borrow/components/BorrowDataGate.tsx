@@ -11,6 +11,7 @@ import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
+import { useBorrowTxUpdate } from '../hooks/useBorrowTxUpdate';
 
 enum EBorrowDataStatus {
   Idle = 'Idle',
@@ -51,7 +52,11 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     [market, marketProvider, marketAddress, accountId],
   );
 
-  const { result: reservesResult, isLoading: reservesLoading } =
+  const {
+    result: reservesResult,
+    isLoading: reservesLoading,
+    run: refreshReserves,
+  } =
     usePromiseResult(
       async () => {
         if (
@@ -155,6 +160,19 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
         break;
     }
   }, [dataStatus, fetchKey, reservesResult, setReserves, setReservesLoading]);
+
+  const { isPending } = useBorrowTxUpdate({
+    accountId,
+    networkId: marketNetworkId,
+    provider: marketProvider,
+    onRefresh: () => {
+      // Re-fetch all reserves
+      // The simplest way to trigger re-fetch is to invalidate the cache or manually call the fetch function
+      // But here we rely on the `usePromiseResult` at line 54 re-running if we had a way to trigger it.
+      // However, `usePromiseResult` returns `run` (aliased as `refreshReserves` below) which we can call.
+      refreshReserves();
+    },
+  });
 
   return <>{children}</>;
 };
