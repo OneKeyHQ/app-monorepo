@@ -541,11 +541,7 @@ export function HomePageView({
 
   return useMemo(() => {
     const content = platformEnv.isNativeAndroid ? (
-      <AndroidScrollContainer
-        refreshControl={<RefreshControl refreshing onRefresh={() => {}} />}
-      >
-        {homePage}
-      </AndroidScrollContainer>
+      <AndroidScrollContainer>{homePage}</AndroidScrollContainer>
     ) : (
       homePage
     );
