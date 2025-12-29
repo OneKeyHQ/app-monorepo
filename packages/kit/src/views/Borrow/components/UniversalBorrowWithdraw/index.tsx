@@ -133,6 +133,7 @@ export function UniversalBorrowWithdraw({
     checkAmountAlerts,
     checkAmountLoading,
     isCheckAmountMessageError,
+    checkAmountResult,
   } = useUniversalBorrowAction({
     action: 'withdraw',
     accountId,
@@ -225,11 +226,11 @@ export function UniversalBorrowWithdraw({
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
       isCheckAmountMessageError ||
-      checkAmountAlerts.length > 0 ||
+      checkAmountResult === false ||
       checkAmountLoading,
     [
       amountValue,
-      checkAmountAlerts.length,
+      checkAmountResult,
       checkAmountLoading,
       isCheckAmountMessageError,
       isDisabled,

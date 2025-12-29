@@ -30,6 +30,7 @@ export type IUniversalBorrowActionState = {
   checkAmountAlerts: ICheckAmountAlert[];
   checkAmountLoading: boolean;
   isCheckAmountMessageError: boolean;
+  checkAmountResult?: boolean;
 };
 
 const isAmountInvalid = (amount: string) =>
@@ -57,6 +58,9 @@ export function useUniversalBorrowAction({
     ICheckAmountAlert[]
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+  const [checkAmountResult, setCheckAmountResult] = useState<
+    boolean | undefined
+  >(undefined);
 
   const isReady = useMemo(
     () =>
@@ -204,9 +208,11 @@ export function useUniversalBorrowAction({
       if (Number(response.code) === 0) {
         setCheckAmountMessage('');
         setCheckAmountAlerts(response.data?.alerts || []);
+        setCheckAmountResult(response.data?.result);
       } else {
         setCheckAmountMessage(response.message);
         setCheckAmountAlerts([]);
+        setCheckAmountResult(false);
       }
     } finally {
       setCheckAmountLoading(false);
@@ -218,6 +224,7 @@ export function useUniversalBorrowAction({
       setCheckAmountMessage('');
       setCheckAmountAlerts([]);
       setCheckAmountLoading(false);
+      setCheckAmountResult(undefined);
       return;
     }
 
@@ -236,5 +243,6 @@ export function useUniversalBorrowAction({
     checkAmountAlerts,
     checkAmountLoading,
     isCheckAmountMessageError,
+    checkAmountResult,
   };
 }

@@ -124,6 +124,7 @@ export function UniversalBorrowBorrow({
     checkAmountAlerts,
     checkAmountLoading,
     isCheckAmountMessageError,
+    checkAmountResult,
   } = useUniversalBorrowAction({
     action: 'borrow',
     accountId,
@@ -209,11 +210,11 @@ export function UniversalBorrowBorrow({
       isAmountInvalid(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isCheckAmountMessageError ||
-      checkAmountAlerts.length > 0 ||
+      checkAmountResult === false ||
       checkAmountLoading,
     [
       amountValue,
-      checkAmountAlerts.length,
+      checkAmountResult,
       checkAmountLoading,
       isCheckAmountMessageError,
       isDisabled,
