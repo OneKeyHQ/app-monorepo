@@ -1218,9 +1218,10 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string;
     encryptedMnemonic: string;
     backendShare: string;
+    juiceboxShareX: number;
   }): Promise<IKeylessBackendShare> {
     await timerUtils.wait(1500, { devOnly: true });
-    const { token, encryptedMnemonic, backendShare } = params;
+    const { token, encryptedMnemonic, backendShare, juiceboxShareX } = params;
     const ownerId = this.buildKeylessOwnerIdFromSocialToken({ token });
     // TODO: Replace with real API call
     // For now, save to mock cache
@@ -1228,6 +1229,7 @@ class ServiceKeylessWallet extends ServiceBase {
       ownerId,
       encryptedMnemonic,
       backendShare,
+      juiceboxShareX,
     };
     const mockedShares = await this.getMockedKeylessShares();
     if (!mockedShares[ownerId]) {
@@ -1247,9 +1249,10 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string;
     pin: string;
     juiceboxShare: string;
+    backendShareX: number;
   }): Promise<IKeylessJuiceboxShare> {
     await timerUtils.wait(1500, { devOnly: true });
-    const { token, pin, juiceboxShare } = params;
+    const { token, pin, juiceboxShare, backendShareX } = params;
     const ownerId = this.buildKeylessOwnerIdFromSocialToken({ token });
     // TODO: Replace with real API call
     // exchange juicebox token from onekey auth server
@@ -1259,6 +1262,7 @@ class ServiceKeylessWallet extends ServiceBase {
       ownerId,
       pin,
       juiceboxShare,
+      backendShareX,
     };
     const mockedShares = await this.getMockedKeylessShares();
     if (!mockedShares[ownerId]) {
@@ -1285,11 +1289,19 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!pin) {
       throw new OneKeyLocalError('pin is required');
     }
+
+    // check if keyless wallet is initialized
     const ownerId = this.buildKeylessOwnerIdFromSocialToken({ token });
     const mockedShares = await this.getMockedKeylessShares();
     const existingShares = mockedShares[ownerId];
     if (!existingShares?.backendShare || !existingShares?.juiceboxShare) {
       throw new OneKeyLocalError('Keyless wallet not initialized');
+    }
+
+    // Get backend share from server
+    const backendShareData = await this.apiGetKeylessBackendShare({ token });
+    if (!backendShareData) {
+      throw new OneKeyLocalError('Backend share not found');
     }
 
     // Get juicebox share from juicebox network
@@ -1299,12 +1311,6 @@ class ServiceKeylessWallet extends ServiceBase {
     });
     if (!juiceboxShareData) {
       throw new OneKeyLocalError('Juicebox share not found');
-    }
-
-    // Get shares from server
-    const backendShareData = await this.apiGetKeylessBackendShare({ token });
-    if (!backendShareData) {
-      throw new OneKeyLocalError('Backend share not found');
     }
 
     // Combine shares to recover mnemonic password
@@ -1385,22 +1391,18 @@ class ServiceKeylessWallet extends ServiceBase {
       );
     }
 
-    // 4. Extract x-coordinates from backendShare
-    // In 2-of-2 split, shares have x-coordinates 1 and 2
-    // backendShare is share1 (x=1), juiceboxShare is share2 (x=2)
-    const backendShareBytes = bufferUtils.base64ToBytes(
+    // 4. Get x-coordinates from stored data
+    // juiceboxShareX is stored in backendShareData for recovery
+    const { juiceboxShareX } = backendShareData;
+    const backendShareX = keylessWalletUtils.getShareXCoordinate(
       backendShareData.backendShare,
     );
-    const backendX = backendShareBytes[backendShareBytes.length - 1];
-    // juiceboxX is the other share's x-coordinate
-    // For 2-of-2 split with x-coordinates [1, 2], if backendX is 1, juiceboxX is 2
-    const juiceboxX = backendX === 1 ? 2 : 1;
 
     // 5. Recover juiceboxShare using recoverMissingShareFromSecret
     const juiceboxShare = await this.recoverMissingShareFromSecret({
       secretBase64: mnemonicPassword,
       shareBase64: backendShareData.backendShare,
-      missingX: juiceboxX,
+      missingX: juiceboxShareX,
     });
 
     // 6. Upload juiceboxShare with new PIN
@@ -1408,6 +1410,7 @@ class ServiceKeylessWallet extends ServiceBase {
       token,
       juiceboxShare,
       pin: newPin,
+      backendShareX,
     });
 
     return { success: true };
@@ -1461,6 +1464,11 @@ class ServiceKeylessWallet extends ServiceBase {
       mnemonicPasswordShare2,
     );
 
+    // Extract x-coordinates from shares
+    const backendShareX = keylessWalletUtils.getShareXCoordinate(backendShare);
+    const juiceboxShareX =
+      keylessWalletUtils.getShareXCoordinate(juiceboxShare);
+
     // Save mnemonicPassword to secure storage for Reset PIN flow
     await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
       ownerId,
@@ -1468,18 +1476,20 @@ class ServiceKeylessWallet extends ServiceBase {
       backgroundApi: this.backgroundApi,
     });
 
-    const backendShareData: IKeylessBackendShare =
+    const _backendShareData: IKeylessBackendShare =
       await this.apiUploadKeylessBackendShare({
         token,
         encryptedMnemonic,
         backendShare,
+        juiceboxShareX, // Store the other share's x-coordinate for recovery
       });
     // TODO verify backendShareData is valid
-    const juiceboxShareData: IKeylessJuiceboxShare =
+    const _juiceboxShareData: IKeylessJuiceboxShare =
       await this.apiUploadKeylessJuiceboxShare({
         token,
         juiceboxShare,
         pin,
+        backendShareX, // Store the other share's x-coordinate for recovery
       });
     // TODO verify juiceboxShareData is valid
 

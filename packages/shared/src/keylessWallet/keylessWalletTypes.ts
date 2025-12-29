@@ -107,12 +107,14 @@ export type IKeylessBackendShare = {
   ownerId: string;
   encryptedMnemonic: string;
   backendShare: string;
+  juiceboxShareX: number; // x-coordinate of the juicebox share for recovery
 };
 
 export type IKeylessJuiceboxShare = {
   ownerId: string;
   pin: string;
   juiceboxShare: string;
+  backendShareX: number; // x-coordinate of the backend share for recovery
 };
 
 export type ISupabaseJWTPayload = JWTPayload & {
