@@ -38,6 +38,7 @@ import type {
   IWsAllDexsAssetCtxs,
   IWsAllDexsClearinghouseState,
   IWsAllMids,
+  IWsBbo,
   IWsOpenOrders,
   IWsUserNonFundingLedgerUpdates,
   IWsWebData2,
@@ -174,6 +175,10 @@ function useHyperliquidEventBusListener() {
 
           case ESubscriptionType.L2_BOOK:
             void actions.current.updateL2Book(data as IBook);
+            break;
+
+          case ESubscriptionType.BBO:
+            void actions.current.updateBbo(data as IWsBbo);
             break;
 
           case ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES:

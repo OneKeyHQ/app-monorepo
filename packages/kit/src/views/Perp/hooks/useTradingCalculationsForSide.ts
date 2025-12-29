@@ -13,27 +13,20 @@ import {
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useLiquidationPrice } from './useLiquidationPrice';
-import { useTradingPrice } from './useTradingPrice';
+import { useOrderPrice } from './useOrderPrice';
 
 export function useTradingCalculationsForSide(side: 'long' | 'short') {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
-  const { midPriceBN } = useTradingPrice();
 
+  const { price: effectivePriceBN, error: priceError } = useOrderPrice(side);
   const liquidationPrice = useLiquidationPrice(side);
 
   const leverage = useMemo(() => {
     return activeAssetData?.leverage?.value || 1;
   }, [activeAssetData?.leverage?.value]);
-
-  const effectivePriceBN = useMemo(() => {
-    if (formData.type === 'limit') {
-      return new BigNumber(formData.price || 0);
-    }
-    return midPriceBN;
-  }, [formData.type, formData.price, midPriceBN]);
 
   const availableToTradeBN = useMemo(() => {
     const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
@@ -152,5 +145,6 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     isNoEnoughMargin,
     leverage,
     effectivePriceBN,
+    priceError,
   };
 }

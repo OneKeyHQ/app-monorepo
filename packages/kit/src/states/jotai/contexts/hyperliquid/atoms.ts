@@ -54,6 +54,10 @@ export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
 export const { atom: l2BookAtom, use: useL2BookAtom } =
   contextAtom<HL.IBook | null>(null);
 
+export const { atom: bboAtom, use: useBboAtom } = contextAtom<HL.IWsBbo | null>(
+  null,
+);
+
 // TODO remove
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
   contextAtom<IConnectionState>({
@@ -70,6 +74,11 @@ export const {
 export const { atom: subscriptionActiveAtom, use: useSubscriptionActiveAtom } =
   contextAtom<boolean>(false);
 
+export type IBBOPriceMode =
+  | null
+  | { type: 'counterparty'; level: number }
+  | { type: 'queue'; level: number };
+
 export interface ITradingFormData {
   side: 'long' | 'short';
   type: 'market' | 'limit';
@@ -78,6 +87,9 @@ export interface ITradingFormData {
   sizeInputMode: EPerpsSizeInputMode;
   sizePercent: number;
   leverage?: number;
+
+  // BBO limit price mode
+  bboPriceMode?: IBBOPriceMode;
 
   // Take Profit / Stop Loss
   hasTpsl: boolean;
@@ -102,6 +114,7 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     sizeInputMode: EPerpsSizeInputMode.MANUAL,
     sizePercent: 0,
     leverage: 1,
+    bboPriceMode: null,
     hasTpsl: false,
     tpTriggerPx: '',
     tpGainPercent: '',
