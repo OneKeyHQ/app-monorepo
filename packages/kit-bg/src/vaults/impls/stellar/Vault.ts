@@ -2,11 +2,6 @@
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty, isNaN, orderBy } from 'lodash';
-
-import type {
-  IEncodedTxStellar,
-  IStellarAsset,
-} from '@onekeyhq/core/src/chains/stellar/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveTextAsync,
@@ -18,12 +13,19 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
+  InvalidAccount,
   ManageTokenInsufficientBalanceError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import type {
+  IEncodedTxStellar,
+  IStellarAsset,
+} from '@onekeyhq/core/src/chains/stellar/types';
 import type {
   IAddressValidation,
   IFetchServerAccountDetailsParams,
@@ -38,10 +40,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
-import type {
-  IFeeInfoUnit,
-  IServerEstimateFeeResponse,
-} from '@onekeyhq/shared/types/fee';
+import type { IServerEstimateFeeResponse } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchServerTokenDetailParams,
   IFetchServerTokenDetailResponse,
@@ -78,7 +77,6 @@ import { KeyringWatching } from './KeyringWatching';
 import sdkStellar, {
   Account,
   Asset,
-  Memo,
   Operation,
   StrKey,
   TransactionBuilder,
@@ -94,7 +92,6 @@ import {
   calculateAvailableBalance,
   calculateFrozenBalance,
   getNetworkPassphrase,
-  isContractAddress,
   isValidAccountCreationAmount,
   parseTokenAddress,
 } from './utils';
@@ -109,7 +106,6 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
-  INativeAmountInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
@@ -138,22 +134,6 @@ export default class Vault extends VaultBase {
     },
   );
 
-  // ========== START: LOCAL DEVELOPMENT RPC SUPPORT ==========
-  // This modification allows using custom RPC for all Stellar operations
-  // Priority: Custom RPC (if enabled) > Default server RPC
-  //
-  // To use local RPC:
-  //   await backgroundApi.serviceCustomRpc.addCustomRpc({
-  //     customRpc: {
-  //       networkId: 'stellar--0',
-  //       rpc: 'http://localhost:8000',
-  //       enabled: true,
-  //       isCustomNetwork: false,
-  //       updatedAt: Date.now(),
-  //     },
-  //   });
-  //
-  // To rollback: Replace getClient() body with: return this._getClientCache();
   async getClient() {
     const customClient = await this.getCustomClient();
     if (customClient) {
@@ -161,7 +141,6 @@ export default class Vault extends VaultBase {
     }
     return this._getClientCache();
   }
-  // ========== END: LOCAL DEVELOPMENT RPC SUPPORT ==========
 
   /**
    * Get network passphrase based on current networkId
@@ -181,17 +160,16 @@ export default class Vault extends VaultBase {
     limit?: string; // undefined = unlimited, '0' = remove trustline
     memo?: string;
   }): Promise<IEncodedTxStellar> {
-    const { from, assetCode, assetIssuer, limit, memo } = params;
+    const { from, assetCode, assetIssuer, limit } = params;
 
     const client = await this.getClient();
 
     // Get account sequence
     const fromAccountInfo = await client.getAccountInfo(from);
     if (!fromAccountInfo) {
-      console.error('=====>>>>> fromAccountInfo not found: ', from);
-      throw new OneKeyInternalError(
-        `Source account ${from} not found on network`,
-      );
+      throw new InvalidAccount({
+        key: ETranslations.feedback_address_not_activated_message,
+      });
     }
 
     // Get network passphrase
@@ -229,15 +207,6 @@ export default class Vault extends VaultBase {
     const transaction = transactionBuilder.build();
     const xdr = transaction.toXDR();
 
-    console.log('=====>>>>> buildChangeTrustTx: ', {
-      from,
-      assetCode,
-      assetIssuer,
-      limit,
-      memo,
-      xdr,
-      networkPassphrase,
-    });
     // Return encoded transaction (XDR as single source of truth)
     return {
       xdr,
@@ -245,49 +214,49 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async convertTokenInfoBeforeSave({
-    token,
-  }: {
-    token: IAccountToken;
-  }): Promise<IAccountToken> {
-    if (token.stellarTokenType === EStellarAssetType.StellarAssetContract) {
-      return {
-        ...token,
-        address: token.stellarContractAddress ?? token.address,
-      };
-    }
-    return token;
-  }
-
   /**
    * Activate token by creating trustline
    * Stellar requires trustline to receive non-native tokens
-   *
-   * For SAC (Stellar Asset Contract):
-   * - Prioritizes Classic Asset activation (lower fees)
-   * - Checks if underlying Classic Asset trustline exists
-   * - Creates trustline using Classic Asset format
    */
-  override async activateToken(params: {
-    token: IAccountToken;
-  }): Promise<boolean> {
+  override async activateToken(params: { token: IAccountToken }): Promise<{
+    token?: IAccountToken;
+    isActivated: boolean;
+  }> {
     const { token } = params;
 
     // Native XLM doesn't need activation
     if (token.isNative) {
-      return Promise.resolve(true);
+      return Promise.resolve({ isActivated: true });
     }
 
     const dbAccount = await this.getAccount();
     const network = await this.getNetwork();
     const client = await this.getClient();
 
-    if (token.stellarTokenType === EStellarAssetType.ContractToken) {
-      return Promise.resolve(true);
+    const tokenAddressParsed = parseTokenAddress(token.address);
+
+    let stellarAssetContractAddress: string | undefined;
+    if (
+      tokenAddressParsed.type === EStellarAssetType.ContractToken &&
+      tokenAddressParsed.contractId
+    ) {
+      const contractTokenInfo = await client.getContractTokenInfo(
+        tokenAddressParsed.contractId,
+      );
+      if (!contractTokenInfo) {
+        throw new OneKeyInternalError('Contract token info not found');
+      }
+      const { symbol, admin, type } = contractTokenInfo;
+      if (type === EStellarAssetType.ContractToken) {
+        return Promise.resolve({ isActivated: true });
+      }
+      stellarAssetContractAddress = `${symbol}:${admin ?? ''}`;
+      token.name = symbol;
+      token.address = stellarAssetContractAddress;
     }
 
     const [assetCode, assetIssuer] = (
-      token.stellarContractAddress ?? token.address
+      stellarAssetContractAddress ?? token.address
     ).split(':');
 
     const hasTrustline = await client.hasTrustline(
@@ -297,15 +266,11 @@ export default class Vault extends VaultBase {
     );
     const accountInfo = await client.getAccountInfo(dbAccount.address);
     if (!accountInfo) {
-      throw new OneKeyInternalError(
-        `Account ${dbAccount.address} not found on network`,
-      );
+      throw new InvalidAccount();
     }
 
-    console.log('=====>>>>> hasTrustline: ', hasTrustline, accountInfo);
-
     if (hasTrustline) {
-      return Promise.resolve(true);
+      return Promise.resolve({ isActivated: true });
     }
 
     const { available } = calculateAvailableBalance({
@@ -317,9 +282,6 @@ export default class Vault extends VaultBase {
       network.decimals,
     );
     const feeRequired = new BigNumber(BASE_FEE);
-    console.log('=====>>>>> availableBalance: ', availableBalance.toFixed());
-    console.log('=====>>>>> reserveRequired: ', reserveRequired.toFixed());
-    console.log('=====>>>>> feeRequired: ', feeRequired.toFixed());
     if (availableBalance.lt(reserveRequired.plus(feeRequired))) {
       throw new ManageTokenInsufficientBalanceError({
         info: {
@@ -347,7 +309,9 @@ export default class Vault extends VaultBase {
           transferPayload: undefined,
         });
 
-      return !!signedTx.signedTx.txid;
+      // await tx confirmed
+      await client.waitForTransaction(signedTx.signedTx.txid);
+      return { token, isActivated: !!signedTx.signedTx.txid };
     } catch (error) {
       // Handle insufficient balance error
       if (
@@ -417,9 +381,7 @@ export default class Vault extends VaultBase {
     // Get account sequence
     const fromAccountInfo = await client.getAccountInfo(from);
     if (!fromAccountInfo) {
-      throw new OneKeyInternalError(
-        `Source account ${from} not found on network`,
-      );
+      throw new InvalidAccount();
     }
 
     // Check if destination account exists
@@ -459,9 +421,9 @@ export default class Vault extends VaultBase {
         }
         // Use createAccount for non-existent accounts
         if (!isValidAccountCreationAmount(amountInXlm)) {
-          throw new OneKeyInternalError(
-            `Minimum 1 XLM required to create account, got ${amountInXlm}`,
-          );
+          throw new OneKeyInternalError({
+            key: ETranslations.send_stellar_activation_minimum_hint,
+          });
         }
 
         transactionBuilder.addOperation(
@@ -483,9 +445,9 @@ export default class Vault extends VaultBase {
     } else {
       // Token transfer
       if (!toAccountExists) {
-        throw new OneKeyInternalError(
-          `Destination account ${to} does not exist. Cannot send tokens to non-existent account.`,
-        );
+        throw new OneKeyInternalError({
+          key: ETranslations.send_stellar_recipient_account_not_activated,
+        });
       }
 
       // Parse token address to determine if it's classic or contract
@@ -516,10 +478,14 @@ export default class Vault extends VaultBase {
             ],
           }),
         );
-      } else {
+      } else if (
+        tokenAddressParsed.type === EStellarAssetType.StellarAsset &&
+        tokenAddressParsed.code &&
+        tokenAddressParsed.issuer
+      ) {
         // Classic Asset transfer
-        const assetCode = tokenAddressParsed.code!;
-        const assetIssuer = tokenAddressParsed.issuer!;
+        const assetCode = tokenAddressParsed.code;
+        const assetIssuer = tokenAddressParsed.issuer;
 
         // Check if destination has trustline
         const hasTrustline = await client.hasTrustline(
@@ -529,9 +495,9 @@ export default class Vault extends VaultBase {
         );
 
         if (!hasTrustline) {
-          throw new OneKeyInternalError(
-            `Destination account does not have trustline for ${assetCode}`,
-          );
+          throw new OneKeyInternalError({
+            key: ETranslations.send_recipient_token_not_activated,
+          });
         }
 
         const asset = new Asset(assetCode, assetIssuer);
@@ -545,6 +511,10 @@ export default class Vault extends VaultBase {
             asset,
             amount: amountFormatted,
           }),
+        );
+      } else {
+        throw new OneKeyInternalError(
+          `Invalid token address: ${tokenInfo.address}`,
         );
       }
     }
@@ -652,8 +622,8 @@ export default class Vault extends VaultBase {
         if (!paymentOp.asset.isNative()) {
           const assetInfo = this._convertAssetToIStellarAsset(paymentOp.asset);
           if (
-            assetInfo.type === 'ALPHANUM4' ||
-            assetInfo.type === 'ALPHANUM12'
+            assetInfo.type === 'credit_alphanum4' ||
+            assetInfo.type === 'credit_alphanum12'
           ) {
             tokenIdOnNetwork = `${assetInfo.code}:${assetInfo.issuer}`;
             tokenInfo = await ensureTokenInfo(tokenIdOnNetwork, {
@@ -714,8 +684,8 @@ export default class Vault extends VaultBase {
         if (assetLine instanceof Asset) {
           const assetInfo = this._convertAssetToIStellarAsset(assetLine);
           if (
-            assetInfo.type === 'ALPHANUM4' ||
-            assetInfo.type === 'ALPHANUM12'
+            assetInfo.type === 'credit_alphanum4' ||
+            assetInfo.type === 'credit_alphanum12'
           ) {
             const tokenIdOnNetwork = `${assetInfo.code}:${assetInfo.issuer}`;
             const tokenInfo = await ensureTokenInfo(tokenIdOnNetwork, {
@@ -840,6 +810,14 @@ export default class Vault extends VaultBase {
     return decodedTx;
   }
 
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    // dApp not edit fee
+    return Promise.resolve('');
+  }
+
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
@@ -918,12 +896,12 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Liquidity pool assets are not supported.');
     }
     if (asset.isNative()) {
-      return { type: 'NATIVE' };
+      return { type: 'native' };
     }
     const code = asset.getCode();
     const issuer = asset.getIssuer();
     return {
-      type: code.length <= 4 ? 'ALPHANUM4' : 'ALPHANUM12',
+      type: code.length <= 4 ? 'credit_alphanum4' : 'credit_alphanum12',
       code,
       issuer,
     };
@@ -1045,17 +1023,11 @@ export default class Vault extends VaultBase {
 
     let privateKey: string;
 
-    // Check if input is a Stellar secret key (S...)
-    if (input.startsWith('S') && input.length === 56) {
-      try {
-        const secretBuffer = sdkStellar.decodeSecretKey(input);
-        privateKey = bufferUtils.bytesToHex(secretBuffer);
-      } catch {
-        throw new OneKeyInternalError('Invalid Stellar secret key');
-      }
-    } else {
-      // Assume it's a hex private key
-      privateKey = input;
+    try {
+      const secretBuffer = sdkStellar.decodeSecretKey(input);
+      privateKey = bufferUtils.bytesToHex(secretBuffer);
+    } catch {
+      throw new OneKeyInternalError('Invalid Stellar secret key');
     }
 
     privateKey = await encodeSensitiveTextAsync({ text: privateKey });
@@ -1076,19 +1048,13 @@ export default class Vault extends VaultBase {
   ): Promise<IPrivateKeyValidation> {
     try {
       // Check if it's a Stellar secret key format (S...)
-      if (privateKey.startsWith('S') && privateKey.length === 56) {
-        const isValid = sdkStellar.isValidAddress(privateKey);
-        return {
-          isValid,
-        };
+      if (sdkStellar.StrKey.isValidEd25519SecretSeed(privateKey)) {
+        return { isValid: true };
       }
-
-      // Check if it's a hex private key
-      if (privateKey.length === 64) {
-        return {
-          isValid: true,
-        };
-      }
+      // hex private key
+      // if (privateKey.length === 64) {
+      //   return { isValid: /^[0-9a-fA-F]+$/.test(privateKey) };
+      // }
     } catch {
       // Invalid format
     }
@@ -1105,7 +1071,7 @@ export default class Vault extends VaultBase {
     return result;
   }
 
-  // Custom RPC Client
+  // ========== LOCAL DEVELOPMENT RPC SUPPORT ==========
   private _getCustomClientCache = memoizee(
     async (url: string): Promise<ClientStellar> => {
       return new ClientStellar({
@@ -1123,10 +1089,7 @@ export default class Vault extends VaultBase {
     },
   );
 
-  // ========== START: LOCAL DEVELOPMENT RPC SUPPORT ==========
-  // Modified to check 'enabled' flag instead of 'isCustomNetwork'
-  // Original code: if (rpcInfo?.isCustomNetwork) { ... }
-  async getCustomClient(): Promise<ClientStellar | undefined> {
+  private async getCustomClient(): Promise<ClientStellar | undefined> {
     const rpcInfo =
       await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
         this.networkId,
@@ -1138,7 +1101,6 @@ export default class Vault extends VaultBase {
 
     return undefined;
   }
-  // ========== END: LOCAL DEVELOPMENT RPC SUPPORT ==========
 
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
@@ -1313,19 +1275,6 @@ export default class Vault extends VaultBase {
       contractBalances.map((b) => [b.contractId, b.balance]),
     );
 
-    const contractTokenInfos =
-      contractTokenList.length > 0
-        ? await Promise.all(
-            contractTokenList.map(async (contractId) => ({
-              contractId,
-              info: await client.getContractTokenInfo(contractId),
-            })),
-          )
-        : [];
-    const tokenInfoByContractId = new Map(
-      contractTokenInfos.map((item) => [item.contractId, item.info]),
-    );
-
     const resp: (IFetchTokenDetailItem | undefined)[] = await Promise.all(
       contractList?.map(async (contract) => {
         if (contract === networkInfo.nativeTokenAddress) {
@@ -1351,8 +1300,6 @@ export default class Vault extends VaultBase {
               logoURI: network.logoURI,
               networkId: network.id,
               isNative: true,
-              stellarContractAddress: networkInfo.nativeTokenAddress,
-              stellarTokenType: EStellarAssetType.Native,
             },
             balance: accountDetails?.balance ?? '0',
             balanceParsed: accountDetails?.balanceParsed ?? '0',
@@ -1373,7 +1320,6 @@ export default class Vault extends VaultBase {
           const contractTokenInfo = await client.getContractTokenInfo(
             parsed.contractId ?? '',
           );
-          console.log('=====>>>>> contractTokenInfo: ', contractTokenInfo);
           if (!contractTokenInfo) {
             return undefined;
           }
@@ -1529,7 +1475,6 @@ export default class Vault extends VaultBase {
   override async fetchTokenListByRpc(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
-    console.log('=====>>>>> fetchTokenListByRpc: ', params);
     const client = await this.getCustomClient();
     if (!client) {
       throw new OneKeyInternalError('No RPC url');
@@ -1677,17 +1622,15 @@ export default class Vault extends VaultBase {
         continue;
       }
 
-      const { name, symbol, decimals, admin, type } = contractTokenInfo;
+      const { name, symbol, decimals, type } = contractTokenInfo;
       const balance = balancesByContractId.get(contractId) ?? '0';
       let balanceParsed = '0';
       if (balance) {
         balanceParsed = new BigNumber(balance).shiftedBy(-decimals).toFixed();
       }
 
-      let contractAddress = contractId;
       let tokenName = name;
       if (type === EStellarAssetType.StellarAssetContract) {
-        contractAddress = `${symbol}:${admin ?? ''}`;
         tokenName = symbol;
       }
 
@@ -1699,8 +1642,6 @@ export default class Vault extends VaultBase {
           address: contractId,
           logoURI: '',
           isNative: false,
-          // stellarContractAddress: contractAddress,
-          // stellarTokenType: type,
         },
         balance,
         balanceParsed,

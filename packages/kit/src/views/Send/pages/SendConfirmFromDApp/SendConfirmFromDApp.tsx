@@ -23,27 +23,6 @@ import type {
   StackActionType,
 } from '@react-navigation/native';
 
-// Helper to detect Stellar Soroban transaction
-function isStellarSorobanTransaction(
-  encodedTx: IEncodedTx,
-  networkId: string,
-): boolean {
-  // Check if network is Stellar
-  if (!networkId.startsWith('stellar')) {
-    return false;
-  }
-
-  // Check if encodedTx is Stellar type with xdr
-  const stellarTx = encodedTx as IEncodedTxStellar;
-  if (stellarTx.xdr && typeof stellarTx.xdr === 'string') {
-    // Soroban transactions typically have XDR > 3000 characters
-    // due to ext field with contract data
-    return stellarTx.xdr.length > 3000;
-  }
-
-  return false;
-}
-
 function SendConfirmFromDApp() {
   const navigation = useNavigation();
   const pendingAction = useRef<StackActionType>(undefined);
@@ -137,14 +116,6 @@ function SendConfirmFromDApp() {
       let newEncodedTx = encodedTx;
       let feeInfoEditable = true;
       if (newEncodedTx) {
-        // Check for Stellar Soroban transaction - fee should not be editable
-        if (isStellarSorobanTransaction(newEncodedTx, networkId)) {
-          console.log(
-            '[SendConfirmFromDApp] Stellar Soroban detected: feeInfoEditable = false',
-          );
-          feeInfoEditable = false;
-        }
-
         const vaultSettings =
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,

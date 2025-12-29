@@ -1,7 +1,5 @@
 import * as StellarSdk from '@stellar/stellar-base';
 
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-
 export function encodeAddress(publicKey: Buffer): string {
   return StellarSdk.StrKey.encodeEd25519PublicKey(publicKey);
 }

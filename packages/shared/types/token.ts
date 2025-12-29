@@ -33,10 +33,6 @@ export type IToken = {
 
   // for defi
   defiMarked?: boolean;
-
-  // for stellar token type
-  stellarTokenType?: string;
-  stellarContractAddress?: string;
 };
 
 export type ITokenFiat = {

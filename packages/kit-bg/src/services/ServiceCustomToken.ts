@@ -323,34 +323,16 @@ class ServiceCustomToken extends ServiceBase {
     accountId: string;
     networkId: string;
     token: IAccountToken;
-  }): Promise<boolean> {
+  }) {
     const vaultSetting =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-    if (!vaultSetting.activateTokenRequired) return true;
+    if (!vaultSetting.activateTokenRequired)
+      return { token, isActivated: true };
     const vault = await vaultFactory.getVault({
       accountId,
       networkId,
     });
     return vault.activateToken({
-      token,
-    });
-  }
-
-  @backgroundMethod()
-  async convertTokenInfoBeforeSave({
-    networkId,
-    accountId,
-    token,
-  }: {
-    networkId: string;
-    accountId: string;
-    token: IAccountToken;
-  }): Promise<IAccountToken> {
-    const vault = await vaultFactory.getVault({
-      accountId,
-      networkId,
-    });
-    return vault.convertTokenInfoBeforeSave({
       token,
     });
   }

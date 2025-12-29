@@ -1,8 +1,5 @@
-import { ed25519 } from '@onekeyhq/core/src/secret';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { decryptAsync, ed25519 } from '@onekeyhq/core/src/secret';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -23,10 +20,11 @@ import {
 } from '../../types';
 
 import sdkStellar from './sdkStellar';
+import { hashMessage } from './utils/message';
 import { assembleSignedTransaction } from './utils/signing';
 import { extractTransactionHash } from './utils/transaction';
 
-import type { IEncodedTxStellar } from './types';
+import type { IEncodedTxStellar, IUnsignedMessageStellar } from './types';
 
 const curve: ICurveName = 'ed25519';
 
@@ -34,7 +32,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getExportedSecretKey(
     query: ICoreApiGetExportedSecretKey,
   ): Promise<string> {
-    const { keyType } = query;
+    const { keyType, password } = query;
 
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
@@ -43,11 +41,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
 
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      const privateKey = bufferUtils.toBuffer(privateKeyRaw);
-      return sdkStellar.encodeSecretKey(privateKey);
+      return sdkStellar.encodeSecretKey(
+        await decryptAsync({ password, data: privateKeyRaw }),
+      );
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.publicKey) {
+      return sdkStellar.encodeAddress(
+        await decryptAsync({ password, data: privateKeyRaw }),
+      );
     }
 
-    throw new OneKeyInternalError(`SecretKey type not supported: ${keyType}`);
+    throw new OneKeyInternalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -100,9 +104,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
 
-    const { unsignedMsg } = payload;
-    const msgBytes = bufferUtils.toBuffer(unsignedMsg.message);
-    const [signature] = await signer.sign(msgBytes);
+    const unsignedMsg = payload.unsignedMsg as IUnsignedMessageStellar;
+    const messageHash: Buffer = hashMessage({
+      messageType: unsignedMsg.type,
+      message: unsignedMsg.message,
+      networkPassphrase: unsignedMsg.networkPassphrase ?? '',
+    });
+    const [signature] = await signer.sign(messageHash);
 
     return bufferUtils.bytesToHex(signature);
   }

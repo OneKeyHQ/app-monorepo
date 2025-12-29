@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_STELLAR,
   IMPL_STELLAR,
@@ -28,6 +29,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [ECoreApiExportedSecretKeyType.privateKey],
+
   defaultFeePresetIndex: 0,
 
   isUtxo: false,
@@ -46,6 +49,7 @@ const settings: IVaultSettings = {
 
   accountDeriveInfo,
   customRpcEnabled: true,
+  preCheckDappTxFeeInfoRequired: true,
   networkInfo: {
     default: {
       curve: 'ed25519',

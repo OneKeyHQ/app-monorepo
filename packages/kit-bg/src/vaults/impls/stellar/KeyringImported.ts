@@ -5,6 +5,8 @@ import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
@@ -13,7 +15,13 @@ import type {
 } from '../../types';
 
 export class KeyringImported extends KeyringImportedBase {
-  override coreApi = coreChainApi.evm.imported;
+  override coreApi = coreChainApi.stellar.imported;
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    return this.baseExportAccountSecretKeys(params);
+  }
 
   override async getPrivateKeys(
     params: IGetPrivateKeysParams,

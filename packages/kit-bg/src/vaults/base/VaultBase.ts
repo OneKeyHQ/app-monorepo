@@ -1289,16 +1289,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(params.encodedTx);
   }
 
-  async activateToken(params: { token: IAccountToken }): Promise<boolean> {
+  async activateToken(params: { token: IAccountToken }): Promise<{
+    token?: IAccountToken;
+    isActivated: boolean;
+  }> {
     throw new NotImplemented();
-  }
-
-  async convertTokenInfoBeforeSave({
-    token,
-  }: {
-    token: IAccountToken;
-  }): Promise<IAccountToken> {
-    return token;
   }
 
   async getAddressType({ address }: { address: string }): Promise<{

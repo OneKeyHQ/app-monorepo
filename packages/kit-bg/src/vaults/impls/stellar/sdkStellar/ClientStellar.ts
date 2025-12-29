@@ -1,15 +1,21 @@
 /* eslint-disable spellcheck/spell-checker */
+import { Asset, Keypair, StellarSdk } from '.';
+
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  FailedToTransfer,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 
-import { BASE_FEE, getNetworkPassphrase } from '../utils';
+import { EStellarAssetType } from '../types';
+import { BASE_FEE, getNetworkPassphrase, getSACAddress } from '../utils';
 
-import { HorizonTransport } from './HorizonTransport';
 import { JsonRpcTransport } from './JsonRpcTransport';
 import { OneKeyTransport } from './OneKeyTransport';
 
-import type { EStellarAssetType } from '../types';
-import { ISimulateTransactionResponse } from './types';
+import type { ISimulateTransactionResponse } from './types';
+
+type IScVal = ReturnType<typeof StellarSdk.xdr.ScVal.fromXDR>;
 
 type IStellarBalance = {
   asset_type: string;
@@ -30,10 +36,7 @@ export default class ClientStellar {
 
   readonly backgroundApi: IBackgroundApi;
 
-  private readonly transport:
-    | HorizonTransport
-    | JsonRpcTransport
-    | OneKeyTransport;
+  private readonly transport: JsonRpcTransport | OneKeyTransport;
 
   readonly customRpcUrl?: string;
 
@@ -65,7 +68,7 @@ export default class ClientStellar {
    */
   async accountExists(address: string): Promise<boolean> {
     try {
-      await this.transport.getAccountInfo(address);
+      await this.getAccountInfo(address);
       return true;
     } catch (error) {
       return false;
@@ -77,9 +80,64 @@ export default class ClientStellar {
    */
   async getAccountInfo(address: string): Promise<IStellarAccountInfo | null> {
     try {
-      const data = (await this.transport.getAccountInfo(
-        address,
-      )) as IStellarAccountInfo | null;
+      let data: IStellarAccountInfo | null = null;
+
+      // For JsonRpcTransport, use getLedgerEntries directly
+      if (this.transport instanceof JsonRpcTransport) {
+        const baseAddress = StellarSdk.extractBaseAddress(address);
+        const accountId = Keypair.fromPublicKey(baseAddress).xdrAccountId();
+        const ledgerKey = StellarSdk.xdr.LedgerKey.account(
+          new StellarSdk.xdr.LedgerKeyAccount({ accountId }),
+        );
+        const response = await this.transport.getLedgerEntries([
+          ledgerKey.toXDR('base64'),
+        ]);
+
+        if (!response.entries || response.entries.length === 0) {
+          return null;
+        }
+
+        // Decode the account data from XDR
+        const accountData = StellarSdk.xdr.LedgerEntryData.fromXDR(
+          response.entries[0].xdr,
+          'base64',
+        );
+
+        const account = accountData.account();
+
+        // Extract balance and account info
+        const nativeBalance = account.balance().toBigInt().toString();
+        const sequence = account.seqNum().toString();
+        const subentryCount = account.numSubEntries();
+
+        console.log('=====>>>>> getAccountInfo: ', {
+          nativeBalance,
+          sequence,
+          subentryCount,
+        });
+
+        // Note: Account entry does NOT contain trustlines
+        // Trustlines are separate ledger entries
+        const balances: IStellarBalance[] = [
+          {
+            asset_type: 'native',
+            balance: nativeBalance,
+          },
+        ];
+
+        data = {
+          balance: nativeBalance,
+          sequence,
+          subentry_count: subentryCount,
+          balances,
+        };
+      } else {
+        // For other transports (Horizon, OneKey), use their getAccountInfo method
+        data = (await this.transport.getAccountInfo(
+          address,
+        )) as IStellarAccountInfo | null;
+      }
+
       if (!data) {
         return null;
       }
@@ -112,25 +170,8 @@ export default class ClientStellar {
     assetCode: string,
     assetIssuer: string,
   ): Promise<boolean> {
-    // If using JsonRpcTransport, use the dedicated getTrustline method
-    if ('getTrustline' in this.transport) {
-      const trustline = await this.transport.getTrustline(
-        address,
-        assetCode,
-        assetIssuer,
-      );
-      return trustline !== null && trustline.authorized;
-    }
-
-    // Fallback to checking all balances (for OneKeyTransport/Horizon API)
-    const accountInfo = await this.getAccountInfo(address);
-    if (!accountInfo) {
-      return false;
-    }
-
-    return accountInfo.balances.some(
-      (b) => b.asset_code === assetCode && b.asset_issuer === assetIssuer,
-    );
+    const trustline = await this.getTrustline(address, assetCode, assetIssuer);
+    return trustline !== null && trustline.authorized;
   }
 
   /**
@@ -154,12 +195,36 @@ export default class ClientStellar {
     limit: string;
     authorized: boolean;
   } | null> {
-    if ('getTrustline' in this.transport) {
-      return this.transport.getTrustline(address, assetCode, assetIssuer);
+    try {
+      const ledgerKey = this.buildTrustlineLedgerKey(
+        address,
+        assetCode,
+        assetIssuer,
+      );
+      console.log('=====>>>>> getTrustline: ', {
+        address,
+        assetCode,
+        assetIssuer,
+        ledgerKey,
+      });
+      const response = await this.transport.getLedgerEntries([ledgerKey]);
+      const entry = response.entries?.[0];
+      if (!entry) {
+        return null;
+      }
+      const trustline = this.decodeTrustlineEntry(entry.xdr);
+      const assetType =
+        assetCode.length <= 4 ? 'credit_alphanum4' : 'credit_alphanum12';
+      return {
+        asset_type: assetType,
+        asset_code: assetCode,
+        asset_issuer: assetIssuer,
+        ...trustline,
+      };
+    } catch (error) {
+      console.error('Failed to get trustline:', error);
+      return null;
     }
-    throw new OneKeyInternalError(
-      'getTrustline is only available with JsonRpcTransport (custom RPC)',
-    );
   }
 
   /**
@@ -186,12 +251,52 @@ export default class ClientStellar {
       authorized: boolean;
     }>
   > {
-    if ('getTrustlines' in this.transport) {
-      return this.transport.getTrustlines(address, assets);
+    if (assets.length === 0) {
+      return [];
     }
-    throw new OneKeyInternalError(
-      'getTrustlines is only available with JsonRpcTransport (custom RPC)',
-    );
+
+    if (assets.length > 200) {
+      throw new OneKeyInternalError('Maximum 200 assets allowed per query');
+    }
+
+    try {
+      const ledgerKeys = assets.map((asset) =>
+        this.buildTrustlineLedgerKey(
+          address,
+          asset.assetCode,
+          asset.assetIssuer,
+        ),
+      );
+
+      // Batch query all trustlines
+      const response = await this.transport.getLedgerEntries(ledgerKeys);
+
+      if (!response.entries || response.entries.length === 0) {
+        return [];
+      }
+
+      const trustlines = response.entries.map((entry, index) => {
+        const { balance, limit, authorized } = this.decodeTrustlineEntry(
+          entry.xdr,
+        );
+        const assetCode = assets[index].assetCode;
+        const assetType =
+          assetCode.length <= 4 ? 'credit_alphanum4' : 'credit_alphanum12';
+        return {
+          asset_type: assetType,
+          asset_code: assetCode,
+          asset_issuer: assets[index].assetIssuer,
+          balance,
+          limit,
+          authorized,
+        };
+      });
+
+      return trustlines;
+    } catch (error) {
+      console.error('Failed to get trustlines:', error);
+      return [];
+    }
   }
 
   /**
@@ -234,6 +339,95 @@ export default class ClientStellar {
   }
 
   /**
+   * Wait for transaction to be confirmed on the network
+   * Uses polling mechanism similar to Sui implementation
+   *
+   * @param txid - Transaction hash to wait for
+   * @param pollInterval - Time between polling attempts (ms), default 2000ms
+   * @param maxRetries - Maximum number of retry attempts, default 30 (60 seconds total)
+   * @returns Transaction details when confirmed
+   * @throws OneKeyInternalError if transaction fails or times out
+   */
+  async waitForTransaction(
+    txid: string,
+    pollInterval = 3000,
+    maxRetries = 10,
+  ): Promise<{
+    status: 'SUCCESS' | 'NOT_FOUND' | 'FAILED';
+    latestLedger: number;
+    latestLedgerCloseTime: string;
+    oldestLedger?: number;
+    oldestLedgerCloseTime?: string;
+    applicationOrder?: number;
+    envelopeXdr?: string;
+    resultXdr?: string;
+    resultMetaXdr?: string;
+    ledger?: number;
+    createdAt?: string;
+  }> {
+    let retryCount = 0;
+
+    const poll = async (): Promise<{
+      status: 'SUCCESS' | 'NOT_FOUND' | 'FAILED';
+      latestLedger: number;
+      latestLedgerCloseTime: string;
+      oldestLedger?: number;
+      oldestLedgerCloseTime?: string;
+      applicationOrder?: number;
+      envelopeXdr?: string;
+      resultXdr?: string;
+      resultMetaXdr?: string;
+      ledger?: number;
+      createdAt?: string;
+    }> => {
+      retryCount += 1;
+
+      let transaction;
+      try {
+        transaction = await this.transport.getTransaction(txid);
+      } catch (error) {
+        // If transaction query itself fails and we haven't exceeded retries, continue polling
+        if (retryCount <= maxRetries) {
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              void resolve(poll());
+            }, pollInterval);
+          });
+        }
+        throw new FailedToTransfer();
+      }
+
+      // Transaction found and succeeded
+      if (transaction.status === 'SUCCESS') {
+        return transaction;
+      }
+
+      // Transaction explicitly failed
+      if (transaction.status === 'FAILED') {
+        throw new FailedToTransfer();
+      }
+
+      // Transaction not found yet (status === 'NOT_FOUND')
+      if (retryCount > maxRetries) {
+        throw new OneKeyInternalError(
+          `Transaction ${txid} not found after ${maxRetries} attempts (${
+            (maxRetries * pollInterval) / 1000
+          }s timeout)`,
+        );
+      }
+
+      // Continue polling
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          void resolve(poll());
+        }, pollInterval);
+      });
+    };
+
+    return poll();
+  }
+
+  /**
    * Get latest ledger information
    * Used for RPC status check
    *
@@ -246,6 +440,11 @@ export default class ClientStellar {
     headerXdr: string;
     metadataXdr: string;
   }> {
+    if (!(this.transport instanceof JsonRpcTransport)) {
+      throw new OneKeyInternalError(
+        'getLatestLedger is only available with JsonRpcTransport (custom RPC)',
+      );
+    }
     return this.transport.getLatestLedger();
   }
 
@@ -265,7 +464,7 @@ export default class ClientStellar {
     }>
   > {
     try {
-      if (assets?.length && 'getTrustlines' in this.transport) {
+      if (assets?.length && this.transport instanceof JsonRpcTransport) {
         const chunkSize = 200;
         const results: Array<{
           asset_type: string;
@@ -275,7 +474,7 @@ export default class ClientStellar {
         }> = [];
         for (let i = 0; i < assets.length; i += chunkSize) {
           const chunk = assets.slice(i, i + chunkSize);
-          const trustlines = await this.transport.getTrustlines(address, chunk);
+          const trustlines = await this.getTrustlines(address, chunk);
           results.push(
             ...trustlines.map((t) => ({
               asset_type: t.asset_type,
@@ -285,7 +484,6 @@ export default class ClientStellar {
             })),
           );
         }
-        console.log('====>getTokenBalances: results: ', results);
         return results;
       }
 
@@ -325,16 +523,45 @@ export default class ClientStellar {
       return [];
     }
 
-    // Only JsonRpcTransport supports contract balance queries
-    if ('getContractBalances' in this.transport) {
-      return this.transport.getContractBalances(address, contractIds);
-    }
+    const results = await Promise.all(
+      contractIds.map(async (contractId) => ({
+        contractId,
+        balance: await this.getContractBalance(contractId, address),
+      })),
+    );
+    return results;
+  }
 
-    // Fallback: return zero balances for other transports
-    return contractIds.map((contractId) => ({
-      contractId,
-      balance: '0',
-    }));
+  /**
+   * Get balance for a Soroban contract token
+   * Simulates calling the contract's balance() function
+   *
+   * @param contractId - Contract address (C... encoded)
+   * @param address - Account address to check balance for
+   * @returns Balance as string, or '0' if not found or error
+   */
+  private async getContractBalance(
+    contractId: string,
+    address: string,
+  ): Promise<string> {
+    try {
+      const addressObj = new StellarSdk.Address(address);
+      const retval = await this.readContractValue(contractId, 'balance', [
+        addressObj.toScVal(),
+      ]);
+      if (!retval) {
+        return '0';
+      }
+      try {
+        const balance = StellarSdk.scValToBigInt(retval);
+        return balance.toString();
+      } catch {
+        return '0';
+      }
+    } catch (error) {
+      console.error('Failed to get contract balance:', error);
+      return '0';
+    }
   }
 
   /**
@@ -348,12 +575,216 @@ export default class ClientStellar {
     admin?: string;
     type: EStellarAssetType;
   }> {
-    if ('getContractTokenInfo' in this.transport) {
-      return this.transport.getContractTokenInfo(contractId);
-    }
+    try {
+      const nameVal = await this.getContractName(contractId);
+      const symbolVal = await this.getContractSymbol(contractId);
+      const decimalsVal = await this.getContractDecimals(contractId);
+      const adminVal = await this.getContractAdmin(contractId);
+      if (!nameVal || !symbolVal || !decimalsVal) {
+        throw new OneKeyInternalError('Failed to get contract token info');
+      }
 
-    throw new OneKeyInternalError(
-      'getContractTokenInfo is only available with JsonRpcTransport (custom RPC)',
+      let type = EStellarAssetType.ContractToken;
+
+      try {
+        const adminAddress = getSACAddress(symbolVal, adminVal ?? '');
+        if (adminAddress === contractId) {
+          type = EStellarAssetType.StellarAssetContract;
+        }
+      } catch (error) {
+        // ignore error
+      }
+
+      return {
+        name: nameVal ?? undefined,
+        symbol: symbolVal ?? undefined,
+        decimals: decimalsVal ?? undefined,
+        admin: adminVal ?? undefined,
+        type,
+      };
+    } catch (error) {
+      console.error('Failed to get contract token info:', error);
+      throw new OneKeyInternalError('Failed to get contract token info');
+    }
+  }
+
+  private async getContractName(contractId: string): Promise<string | null> {
+    try {
+      const scVal = await this.readContractValue(contractId, 'name');
+      if (!scVal) {
+        return null;
+      }
+      const value = StellarSdk.scValToNative(scVal);
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (
+        value &&
+        typeof (value as { toString?: () => string }).toString === 'function'
+      ) {
+        const str = String(value);
+        return str || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get contract name:', error);
+      return null;
+    }
+  }
+
+  private async getContractSymbol(contractId: string): Promise<string | null> {
+    try {
+      const scVal = await this.readContractValue(contractId, 'symbol');
+      if (!scVal) {
+        return null;
+      }
+      const value = StellarSdk.scValToNative(scVal);
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (
+        value &&
+        typeof (value as { toString?: () => string }).toString === 'function'
+      ) {
+        const str = String(value);
+        return str || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get contract symbol:', error);
+      return null;
+    }
+  }
+
+  private async getContractAdmin(contractId: string): Promise<string | null> {
+    try {
+      const scVal = await this.readContractValue(contractId, 'admin');
+      if (!scVal) {
+        return null;
+      }
+      const value = StellarSdk.scValToNative(scVal);
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (
+        value &&
+        typeof (value as { toString?: () => string }).toString === 'function'
+      ) {
+        const str = String(value);
+        return str || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get contract admin:', error);
+      return null;
+    }
+  }
+
+  private async getContractDecimals(
+    contractId: string,
+  ): Promise<number | null> {
+    try {
+      const scVal = await this.readContractValue(contractId, 'decimals');
+      if (!scVal) {
+        return null;
+      }
+      const value = StellarSdk.scValToNative(scVal);
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === 'bigint') {
+        return Number(value);
+      }
+      if (typeof value === 'string' && value !== '') {
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get contract decimals:', error);
+      return null;
+    }
+  }
+
+  private async readContractValue(
+    contractId: string,
+    fn: string,
+    args: IScVal[] = [],
+  ): Promise<IScVal | undefined> {
+    const account = new StellarSdk.Account(
+      'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+      '0',
     );
+    const networkPassphrase = await this.getNetworkPassphrase();
+
+    const transaction = new StellarSdk.TransactionBuilder(account, {
+      fee: '100',
+      networkPassphrase,
+    })
+      .addOperation(
+        StellarSdk.Operation.invokeContractFunction({
+          contract: contractId,
+          function: fn,
+          args,
+        }),
+      )
+      .setTimeout(30)
+      .build();
+
+    const simulateResult = await this.simulateTransaction(transaction.toXDR());
+    const opResults = simulateResult?.results ?? [];
+    return this.parseSimulateRetvalFromOp(opResults[0]);
+  }
+
+  private parseSimulateRetval(
+    retvalBase64: string | undefined,
+  ): IScVal | undefined {
+    if (!retvalBase64) {
+      return undefined;
+    }
+    try {
+      return StellarSdk.xdr.ScVal.fromXDR(retvalBase64, 'base64');
+    } catch {
+      return undefined;
+    }
+  }
+
+  private parseSimulateRetvalFromOp(opResult: unknown): IScVal | undefined {
+    if (!opResult || typeof opResult !== 'object') {
+      return undefined;
+    }
+    const op = opResult as {
+      xdr?: string;
+    };
+    return this.parseSimulateRetval(op.xdr);
+  }
+
+  private buildTrustlineLedgerKey(
+    address: string,
+    assetCode: string,
+    assetIssuer: string,
+  ): string {
+    const baseAddress = StellarSdk.extractBaseAddress(address);
+    const asset = new Asset(assetCode, assetIssuer);
+    const accountId = Keypair.fromPublicKey(baseAddress).xdrAccountId();
+    const trustlineKeyXdr = new StellarSdk.xdr.LedgerKeyTrustLine({
+      accountId,
+      asset: asset.toTrustLineXDRObject(),
+    });
+    return StellarSdk.xdr.LedgerKey.trustline(trustlineKeyXdr).toXDR('base64');
+  }
+
+  private decodeTrustlineEntry(xdr: string): {
+    balance: string;
+    limit: string;
+    authorized: boolean;
+  } {
+    const ledgerData = StellarSdk.xdr.LedgerEntryData.fromXDR(xdr, 'base64');
+    const trustline = ledgerData.trustLine();
+    const balance = trustline.balance().toString();
+    const limit = trustline.limit().toString();
+    // eslint-disable-next-line no-bitwise
+    const authorized = (trustline.flags() & 1) !== 0;
+    return { balance, limit, authorized };
   }
 }

@@ -2880,7 +2880,7 @@ const stellar: IServerNetwork = {
     'symbol': 'XLM',
   },
   'defaultEnabled': true,
-  'isCustomNetwork': true,
+  'isCustomNetwork': false,
   'status': ENetworkStatus.LISTED,
 };
 

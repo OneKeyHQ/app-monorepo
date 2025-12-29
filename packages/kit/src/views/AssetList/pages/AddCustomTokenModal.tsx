@@ -335,19 +335,15 @@ function AddCustomTokenModal() {
             isNative: searchedTokenRef.current?.isNative ?? false,
             $key: `${selectedNetworkIdValue}_${contractAddress}`,
           };
-          await backgroundApiProxy.serviceCustomToken.activateToken({
-            accountId: accountIdForNetwork,
-            networkId: selectedNetworkIdValue,
-            token: tokenInfo,
-          });
-          tokenInfo =
-            await backgroundApiProxy.serviceCustomToken.convertTokenInfoBeforeSave(
-              {
-                networkId: selectedNetworkIdValue,
-                accountId: accountIdForNetwork,
-                token: tokenInfo,
-              },
-            );
+          const { token: activatedToken } =
+            await backgroundApiProxy.serviceCustomToken.activateToken({
+              accountId: accountIdForNetwork,
+              networkId: selectedNetworkIdValue,
+              token: tokenInfo,
+            });
+          if (activatedToken) {
+            tokenInfo = activatedToken;
+          }
           const accountXpubOrAddress =
             await backgroundApiProxy.serviceAccount.getAccountXpubOrAddress({
               accountId: accountIdForNetwork,

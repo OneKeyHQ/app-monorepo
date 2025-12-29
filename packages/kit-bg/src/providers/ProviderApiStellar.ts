@@ -7,7 +7,10 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EMessageTypesStellar } from '@onekeyhq/shared/types/message';
 
 import { vaultFactory } from '../vaults/factory';
@@ -226,38 +229,32 @@ class ProviderApiStellar extends ProviderApiBase {
 
   @providerApiMethod()
   async stellar_signAuthEntry(
-    request: IJsBridgeMessagePayload,
-    params: ISignAuthEntryParams,
+    _request: IJsBridgeMessagePayload,
+    _params: ISignAuthEntryParams,
   ): Promise<ISignAuthEntryResult> {
-    defaultLogger.discovery.dapp.dappRequest({ request });
-
-    const { authEntry, networkPassphrase } = params;
-
-    if (!authEntry) {
-      throw web3Errors.rpc.invalidParams('AuthEntry XDR is required');
-    }
-
-    const { accountInfo: { accountId, networkId, address } = {} } = (
-      await this.getAccountsInfo(request)
-    )[0];
-
-    const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
-      request,
-      unsignedMessage: {
-        type: EMessageTypesStellar.SIGN_AUTH_ENTRY,
-        message: authEntry,
-        payload: {
-          networkPassphrase,
-        },
-      },
-      accountId: accountId ?? '',
-      networkId: networkId ?? '',
-    })) as string;
-
-    return {
-      signedAuthEntry: result,
-      signerAddress: address,
-    };
+    throw new NotImplemented();
+    // defaultLogger.discovery.dapp.dappRequest({ request });
+    // const { authEntry, networkPassphrase } = params;
+    // if (!authEntry) {
+    //   throw web3Errors.rpc.invalidParams('AuthEntry XDR is required');
+    // }
+    // const { accountInfo: { accountId, networkId, address } = {} } = (
+    //   await this.getAccountsInfo(request)
+    // )[0];
+    // const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
+    //   request,
+    //   unsignedMessage: {
+    //     type: EMessageTypesStellar.SIGN_AUTH_ENTRY,
+    //     message: authEntry,
+    //     networkPassphrase: networkPassphrase ?? '',
+    //   },
+    //   accountId: accountId ?? '',
+    //   networkId: networkId ?? '',
+    // })) as string;
+    // return {
+    //   signedAuthEntry: result,
+    //   signerAddress: address,
+    // };
   }
 
   @providerApiMethod()
@@ -291,7 +288,9 @@ class ProviderApiStellar extends ProviderApiBase {
     })) as string;
 
     return {
-      signedMessage: result,
+      signedMessage: bufferUtils.bytesToBase64(
+        bufferUtils.hexToBytes(hexUtils.stripHexPrefix(result)),
+      ),
       signerAddress: address,
     };
   }

@@ -1,7 +1,13 @@
 /* eslint-disable spellcheck/spell-checker */
 
+import { Keypair, StellarSdk } from '.';
+
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import type { IJsonRpcParams } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 import type { ISimulateTransactionResponse } from './types';
 
@@ -30,8 +36,7 @@ export class OneKeyTransport {
    */
   private async request<T>(input: {
     method: string;
-    params?: unknown[];
-    path?: string; // Horizon API path, e.g., '/accounts/:account_id'
+    params?: IJsonRpcParams;
   }): Promise<T> {
     const res: T[] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest({
@@ -41,8 +46,7 @@ export class OneKeyTransport {
             route: 'rpc',
             params: {
               method: input.method,
-              params: input.params ?? [],
-              path: input.path,
+              params: input.params,
             },
           },
         ],
@@ -54,35 +58,6 @@ export class OneKeyTransport {
     }
 
     return response;
-  }
-
-  /**
-   * getHealth - Get node health status
-   * Proxied through OneKey servers
-   */
-  async getHealth(): Promise<{ status: string }> {
-    return this.request({
-      method: 'GET',
-      path: '/health',
-    });
-  }
-
-  /**
-   * getLatestLedger - Get the most recent known ledger
-   * Proxied through OneKey servers
-   */
-  async getLatestLedger(): Promise<{
-    id: string;
-    sequence: number;
-    closeTime: string;
-    headerXdr: string;
-    metadataXdr: string;
-  }> {
-    return this.request({
-      method: 'GET',
-      path: '/ledgers',
-      params: [{ order: 'desc', limit: 1 }],
-    });
   }
 
   /**
@@ -106,9 +81,8 @@ export class OneKeyTransport {
       params.xdrFormat = xdrFormat;
     }
     return this.request({
-      method: 'POST',
-      path: '/ledger_entries',
-      params: [params],
+      method: 'getLedgerEntries',
+      params,
     });
   }
 
@@ -152,8 +126,7 @@ export class OneKeyTransport {
     latestLedger: number;
   }> {
     return this.request({
-      method: 'GET',
-      path: '/fee_stats',
+      method: 'getFeeStats',
     });
   }
 
@@ -170,9 +143,8 @@ export class OneKeyTransport {
     diagnosticEventsXdr?: string[];
   }> {
     return this.request({
-      method: 'POST',
-      path: '/transactions',
-      params: [{ tx: transaction }],
+      method: 'sendTransaction',
+      params: { transaction },
     });
   }
 
@@ -194,8 +166,8 @@ export class OneKeyTransport {
     createdAt?: string;
   }> {
     return this.request({
-      method: 'GET',
-      path: `/transactions/${hash}`,
+      method: 'getTransaction',
+      params: { hash },
     });
   }
 
@@ -207,68 +179,8 @@ export class OneKeyTransport {
     transaction: string,
   ): Promise<ISimulateTransactionResponse> {
     return this.request({
-      method: 'POST',
-      path: '/simulate_transaction',
-      params: [{ transaction }],
-    });
-  }
-
-  /**
-   * getNetwork - Obtain network configuration
-   * Proxied through OneKey servers
-   */
-  async getNetwork(): Promise<{
-    friendbotUrl?: string;
-    passphrase: string;
-    protocolVersion: number;
-  }> {
-    return this.request({
-      method: 'GET',
-      path: '/network',
-    });
-  }
-
-  /**
-   * getVersionInfo - Access version information
-   * Proxied through OneKey servers
-   */
-  async getVersionInfo(): Promise<{
-    version: string;
-    commit_hash: string;
-    build_timestamp: string;
-    captive_core_version: string;
-    protocol_version: number;
-  }> {
-    return this.request({
-      method: 'GET',
-      path: '/version',
-    });
-  }
-
-  /**
-   * getEvents - Retrieve contract events
-   * Proxied through OneKey servers
-   */
-  async getEvents(params: {
-    startLedger: number;
-    filters?: Array<{
-      type?: string;
-      contractIds?: string[];
-      topics?: Array<string[]>;
-    }>;
-    pagination?: {
-      cursor?: string;
-      limit?: number;
-    };
-  }): Promise<{
-    events: any[];
-    latestLedger: number;
-    cursor?: string;
-  }> {
-    return this.request({
-      method: 'POST',
-      path: '/events',
-      params: [params],
+      method: 'simulateTransaction',
+      params: { transaction },
     });
   }
 
@@ -287,9 +199,56 @@ export class OneKeyTransport {
       balance: string;
     }>;
   }> {
-    return this.request({
-      method: 'GET',
-      path: `/accounts/${address}`,
+    const baseAddress = StellarSdk.extractBaseAddress(address);
+    const accountId = Keypair.fromPublicKey(baseAddress).xdrAccountId();
+    const ledgerKey = StellarSdk.xdr.LedgerKey.account(
+      new StellarSdk.xdr.LedgerKeyAccount({ accountId }),
+    );
+
+    const response = await this.getLedgerEntries([ledgerKey.toXDR('base64')]);
+
+    if (!response.entries || response.entries.length === 0) {
+      throw new OneKeyInternalError(`Account ${address} not found`);
+    }
+
+    // Decode the account data from XDR
+    const accountData = StellarSdk.xdr.LedgerEntryData.fromXDR(
+      response.entries[0].xdr,
+      'base64',
+    );
+
+    const account = accountData.account();
+
+    // Extract balance and account info
+    const nativeBalance = account.balance().toBigInt().toString();
+    const sequence = account.seqNum().toString();
+    const subentryCount = account.numSubEntries();
+
+    console.log('=====>>>>> getAccountInfo: ', {
+      nativeBalance,
+      sequence,
+      subentryCount,
     });
+
+    // Note: Account entry does NOT contain trustlines
+    // Trustlines are separate ledger entries that must be queried individually
+    const balances: Array<{
+      asset_type: string;
+      asset_code?: string;
+      asset_issuer?: string;
+      balance: string;
+    }> = [
+      {
+        asset_type: 'native',
+        balance: nativeBalance,
+      },
+    ];
+
+    return {
+      balance: nativeBalance,
+      sequence,
+      subentry_count: subentryCount,
+      balances,
+    };
   }
 }

@@ -14,6 +14,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
@@ -53,21 +54,19 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    const chainId = await this.getNetworkChainId();
-
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
         const publicKeys = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
           sdkGetAddressFn: async ({
-            connectId,
-            deviceId,
+            connectId: _connectId,
+            deviceId: _deviceId,
             template,
-            pathPrefix,
-            pathSuffix,
-            coinName,
-            showOnOnekeyFn,
+            pathPrefix: _pathPrefix,
+            pathSuffix: _pathSuffix,
+            coinName: _coinName,
+            showOnOnekeyFn: _showOnOnekeyFn,
           }) => {
             const buildFullPath = (p: { index: number }) =>
               accountUtils.buildPathFromTemplate({
@@ -226,7 +225,10 @@ export class KeyringHardware extends KeyringHardwareBase {
           if (
             operation.line instanceof sdkStellar.StellarSdk.LiquidityPoolAsset
           ) {
-            throw new NotImplemented('Liquidity pool asset not supported');
+            throw new NotImplemented({
+              key: ETranslations.hardware_unknown_message_error,
+              // message: 'Liquidity pool asset not supported',
+            });
           }
           stellarOperations.push({
             type: 'changeTrust',
@@ -239,7 +241,10 @@ export class KeyringHardware extends KeyringHardwareBase {
           break;
         }
         case 'allowTrust': {
-          throw new NotImplemented('Allow trust operation not supported');
+          throw new NotImplemented({
+            key: ETranslations.hardware_unknown_message_error,
+            // message: 'Allow trust operation not supported',
+          });
           // let authorize = false;
           // if (typeof operation.authorize === 'boolean') {
           //   authorize = operation.authorize;
@@ -290,7 +295,10 @@ export class KeyringHardware extends KeyringHardwareBase {
           break;
         }
         case 'setOptions': {
-          throw new NotImplemented('setOptions operation not supported');
+          throw new NotImplemented({
+            key: ETranslations.hardware_unknown_message_error,
+            // message: 'setOptions operation not supported',
+          });
           // let signer: {
           //   type: 0 | 1 | 2;
           //   key: Buffer;
@@ -350,14 +358,16 @@ export class KeyringHardware extends KeyringHardwareBase {
           break;
         }
         case 'invokeHostFunction': {
-          throw new NotImplemented(
-            'invokeContractFunction operation not supported',
-          );
+          throw new NotImplemented({
+            key: ETranslations.hardware_unknown_message_error,
+            // message: 'invokeContractFunction operation not supported',
+          });
         }
         default:
-          throw new NotImplemented(
-            `Unsupported operation type: ${operation.type}`,
-          );
+          throw new NotImplemented({
+            key: ETranslations.hardware_unknown_message_error,
+            // message: `Unsupported operation type: ${operation.type}`,
+          });
       }
     }
 
@@ -419,17 +429,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       default:
         throw new OneKeyInternalError('Invalid memo type');
     }
-    console.log('======== hwMemo =========: stellarSignTransaction', {
-      hwMemo,
-      stellarOperations,
-      source,
-      fee,
-      sequence,
-      timeBounds,
-      memo,
-      encodedTx,
-      deviceCommonParams,
-    });
     const result = await convertDeviceResponse(async () =>
       sdk.stellarSignTransaction(connectId, deviceId, {
         path,
