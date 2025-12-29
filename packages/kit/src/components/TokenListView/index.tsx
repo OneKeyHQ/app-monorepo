@@ -114,6 +114,7 @@ type IProps = {
   searchKeyLengthThreshold?: number;
   plainMode?: boolean;
   limit?: number;
+  deferTokenManagement?: boolean;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -154,6 +155,7 @@ function TokenListViewCmp(props: IProps) {
     searchKeyLengthThreshold,
     plainMode,
     limit,
+    deferTokenManagement,
   } = props;
 
   const intl = useIntl();
@@ -176,10 +178,13 @@ function TokenListViewCmp(props: IProps) {
   const [searchKey] = useSearchKeyAtom();
   const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
 
+  const tokenManagementEnabled =
+    !deferTokenManagement || tokenListState.initialized;
   const { customTokens } = useTokenManagement({
     accountId,
     networkId,
     indexedAccountId,
+    enabled: tokenManagementEnabled,
   });
 
   const tokens = useMemo(() => {
