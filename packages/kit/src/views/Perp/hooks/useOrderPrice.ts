@@ -2,10 +2,7 @@ import { useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
-import type {
-  ITradingFormData,
-  IBBOPriceMode,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type { IBBOPriceMode } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useBboAtom,
   useTradingFormAtom,
@@ -14,12 +11,12 @@ import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useTradingPrice } from './useTradingPrice';
 
-export type TOrderPriceError = 'bbo_unavailable' | null;
+export type IOrderPriceError = 'bbo_unavailable' | null;
 
 export interface IUseOrderPriceReturn {
   price: BigNumber;
   isValid: boolean;
-  error: TOrderPriceError;
+  error: IOrderPriceError;
 }
 
 /**
@@ -125,12 +122,10 @@ export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
     [
       formData.type,
       formData.price,
-      formData.bboPriceMode?.type,
-      formData.bboPriceMode?.level,
-      bbo?.bbo?.[0]?.px,
-      bbo?.bbo?.[1]?.px,
-      side,
+      formData.bboPriceMode,
+      bbo,
       midPriceBN,
+      side,
     ],
   );
 }

@@ -43,7 +43,7 @@ export const BBOSelector = memo<IBBOSelectorProps>(
           value: `queue-${BBO_LEVEL}`,
         },
       ],
-      [],
+      [intl],
     );
 
     const parseBBOPriceMode = useCallback((val: string): IBBOPriceMode => {
