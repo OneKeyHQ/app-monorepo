@@ -172,7 +172,7 @@ export function sortTokensByFiatValue({
   };
   sortDirection?: 'desc' | 'asc';
 }) {
-  return tokens?.sort((a, b) => {
+  return [...tokens].sort((a, b) => {
     const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? -1);
     const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? -1);
 
