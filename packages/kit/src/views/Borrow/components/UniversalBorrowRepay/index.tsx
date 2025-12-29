@@ -490,121 +490,118 @@ export function UniversalBorrowRepay({
         </>
       ) : null}
 
-      {!isDisabled ? (
-        <YStack
-          p="$3.5"
-          pt="$5"
-          borderRadius="$3"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-        >
-          <YStack gap="$6">
-            {transactionConfirmation?.healthFactor ? (
-              <BorrowInfoItem title="Health factor">
-                <YStack ai="flex-end">
-                  <XStack ai="center" gap="$1">
-                    <EarnText
-                      text={transactionConfirmation.healthFactor.current?.title}
-                      size="$headingLg"
-                    />
-                    {transactionConfirmation.healthFactor.latest ? (
-                      <>
-                        <Icon
-                          name="ArrowRightSolid"
-                          size="$4"
-                          color="$iconDisabled"
-                        />
-                        <EarnText
-                          text={
-                            transactionConfirmation.healthFactor.latest?.title
-                          }
-                          size="$headingLg"
-                        />
-                      </>
-                    ) : null}
-                  </XStack>
+      <YStack
+        p="$3.5"
+        pt="$5"
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+      >
+        <YStack gap="$6">
+          {transactionConfirmation?.healthFactor ? (
+            <BorrowInfoItem title="Health factor">
+              <YStack ai="flex-end">
+                <XStack ai="center" gap="$1">
                   <EarnText
-                    text={
-                      transactionConfirmation.liquidationAt?.description ?? {
-                        text: 'Liquidation at < 1.0',
-                      }
+                    text={transactionConfirmation.healthFactor.current?.title}
+                    size="$headingLg"
+                  />
+                  {transactionConfirmation.healthFactor.latest ? (
+                    <>
+                      <Icon
+                        name="ArrowRightSolid"
+                        size="$4"
+                        color="$iconDisabled"
+                      />
+                      <EarnText
+                        text={
+                          transactionConfirmation.healthFactor.latest?.title
+                        }
+                        size="$headingLg"
+                      />
+                    </>
+                  ) : null}
+                </XStack>
+                <EarnText
+                  text={
+                    transactionConfirmation.liquidationAt?.description ?? {
+                      text: 'Liquidation at < 1.0',
                     }
-                    size="$bodySmMedium"
-                    color="$textSubdued"
-                  />
-                </YStack>
-              </BorrowInfoItem>
-            ) : null}
-            {transactionConfirmation?.myBorrow ? (
-              <BorrowInfoItem
-                title={
-                  <EarnText
-                    text={{ text: 'My Borrow' }}
-                    color="$textText"
-                    size="$bodyLg"
-                    boldTextProps={{
-                      size: '$bodyMdMedium',
-                    }}
-                  />
-                }
-              >
+                  }
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                />
+              </YStack>
+            </BorrowInfoItem>
+          ) : null}
+          {transactionConfirmation?.myBorrow ? (
+            <BorrowInfoItem
+              title={
+                <EarnText
+                  text={{ text: 'My Borrow' }}
+                  color="$textText"
+                  size="$bodyLg"
+                  boldTextProps={{
+                    size: '$bodyMdMedium',
+                  }}
+                />
+              }
+            >
+              <YStack ai="flex-end">
+                <EarnText
+                  text={transactionConfirmation.myBorrow.current?.title}
+                  size="$headingLg"
+                />
+                <EarnText
+                  text={transactionConfirmation.myBorrow.current?.description}
+                  size="$bodySmMedium"
+                />
+              </YStack>
+              {transactionConfirmation.myBorrow.latest ? (
+                <Icon name="ArrowRightSolid" size="$4" color="$iconDisabled" />
+              ) : null}
+              {transactionConfirmation.myBorrow.latest ? (
                 <YStack ai="flex-end">
                   <EarnText
-                    text={transactionConfirmation.myBorrow.current?.title}
+                    text={transactionConfirmation.myBorrow.latest?.title}
                     size="$headingLg"
                   />
                   <EarnText
-                    text={transactionConfirmation.myBorrow.current?.description}
+                    text={transactionConfirmation.myBorrow.latest?.description}
                     size="$bodySmMedium"
                   />
                 </YStack>
-                {transactionConfirmation.myBorrow.latest ? (
-                  <Icon
-                    name="ArrowRightSolid"
-                    size="$4"
-                    color="$iconDisabled"
-                  />
-                ) : null}
-                {transactionConfirmation.myBorrow.latest ? (
-                  <YStack ai="flex-end">
-                    <EarnText
-                      text={transactionConfirmation.myBorrow.latest?.title}
-                      size="$headingLg"
-                    />
-                    <EarnText
-                      text={
-                        transactionConfirmation.myBorrow.latest?.description
-                      }
-                      size="$bodySmMedium"
-                    />
-                  </YStack>
-                ) : null}
-              </BorrowInfoItem>
-            ) : null}
-            {showApyDetail && transactionConfirmation?.apyDetail ? (
-              <BorrowInfoItem title="Supply APY">
-                <YStack ai="flex-end">
-                  <EarnActionIcon
-                    title={transactionConfirmation.apyDetail.title.text}
-                    actionIcon={transactionConfirmation.apyDetail.button}
-                  />
-                </YStack>
-              </BorrowInfoItem>
-            ) : null}
-          </YStack>
-          <Divider my="$5" />
-          {token ? (
-            <TradeOrBuy
-              token={token}
-              accountId={accountId}
-              networkId={networkId}
-              containerStyle={{
-                pt: '$0',
-              }}
-            />
+              ) : null}
+            </BorrowInfoItem>
+          ) : null}
+          {showApyDetail && transactionConfirmation?.apyDetail ? (
+            <BorrowInfoItem title="Supply APY">
+              <YStack ai="flex-end">
+                <EarnActionIcon
+                  title={transactionConfirmation.apyDetail.title.text}
+                  actionIcon={transactionConfirmation.apyDetail.button}
+                />
+              </YStack>
+            </BorrowInfoItem>
           ) : null}
         </YStack>
-      ) : null}
+        {token &&
+        (transactionConfirmation?.healthFactor ||
+          transactionConfirmation?.myBorrow ||
+          (showApyDetail && transactionConfirmation?.apyDetail)) ? (
+          <Divider my="$5" />
+        ) : null}
+        {token ? (
+          <TradeOrBuy
+            token={token}
+            accountId={accountId}
+            networkId={networkId}
+            containerStyle={{
+              pt: '$0',
+            }}
+          />
+        ) : null}
+      </YStack>
 
       {beforeFooter}
 

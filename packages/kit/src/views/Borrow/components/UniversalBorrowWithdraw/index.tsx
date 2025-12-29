@@ -7,7 +7,6 @@ import { Keyboard, StyleSheet } from 'react-native';
 
 import {
   Alert,
-  Divider,
   Icon,
   Page,
   Stack,
@@ -29,12 +28,10 @@ import {
   useOnBlurAmountValue,
 } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
-import { TradeOrBuy } from '@onekeyhq/kit/src/views/Staking/components/TradeOrBuy';
 import { countDecimalPlaces } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnTokenInfo } from '@onekeyhq/shared/types/staking';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
@@ -258,11 +255,6 @@ export function UniversalBorrowWithdraw({
     }
   }, [amountValue, isWithdrawAll, onConfirm]);
 
-  const token = useMemo(
-    () => tokenInfo?.token as IToken | undefined,
-    [tokenInfo?.token],
-  );
-
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
@@ -448,17 +440,6 @@ export function UniversalBorrowWithdraw({
               </BorrowInfoItem>
             ) : null}
           </YStack>
-          <Divider my="$5" />
-          {token ? (
-            <TradeOrBuy
-              token={token}
-              accountId={accountId}
-              networkId={networkId}
-              containerStyle={{
-                pt: '$0',
-              }}
-            />
-          ) : null}
         </YStack>
       ) : null}
 

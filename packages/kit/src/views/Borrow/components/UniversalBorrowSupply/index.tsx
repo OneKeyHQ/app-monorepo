@@ -368,155 +368,154 @@ export function UniversalBorrowSupply({
         </>
       ) : null}
 
-      {!isDisabled ? (
-        <YStack
-          p="$3.5"
-          pt="$5"
-          borderRadius="$3"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-        >
-          <YStack gap="$6">
-            {transactionConfirmation?.healthFactor ? (
-              <BorrowInfoItem title="Health factor">
-                <YStack ai="flex-end">
-                  <XStack ai="center" gap="$1">
-                    <EarnText
-                      text={transactionConfirmation.healthFactor.current?.title}
-                      color="$textText"
-                      size="$bodyLg"
-                    />
-                    {transactionConfirmation.healthFactor.latest ? (
-                      <>
-                        <Icon
-                          name="ArrowRightSolid"
-                          size="$4"
-                          color="$iconDisabled"
-                        />
-                        <EarnText
-                          text={
-                            transactionConfirmation.healthFactor.latest?.title
-                          }
-                          size="$headingLg"
-                        />
-                      </>
-                    ) : null}
-                  </XStack>
+      <YStack
+        p="$3.5"
+        pt="$5"
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+      >
+        <YStack gap="$6">
+          {transactionConfirmation?.healthFactor ? (
+            <BorrowInfoItem title="Health factor">
+              <YStack ai="flex-end">
+                <XStack ai="center" gap="$1">
                   <EarnText
-                    text={
-                      transactionConfirmation.liquidationAt?.description ?? {
-                        text: 'Liquidation at < 1.0',
-                      }
-                    }
-                    size="$bodySmMedium"
-                    color="$textSubdued"
-                  />
-                </YStack>
-              </BorrowInfoItem>
-            ) : null}
-            {transactionConfirmation?.mySupply ? (
-              <BorrowInfoItem
-                title={
-                  <EarnText
-                    text={{ text: 'My Supply' }}
+                    text={transactionConfirmation.healthFactor.current?.title}
                     color="$textText"
                     size="$bodyLg"
                   />
-                }
-              >
+                  {transactionConfirmation.healthFactor.latest ? (
+                    <>
+                      <Icon
+                        name="ArrowRightSolid"
+                        size="$4"
+                        color="$iconDisabled"
+                      />
+                      <EarnText
+                        text={
+                          transactionConfirmation.healthFactor.latest?.title
+                        }
+                        size="$headingLg"
+                      />
+                    </>
+                  ) : null}
+                </XStack>
+                <EarnText
+                  text={
+                    transactionConfirmation.liquidationAt?.description ?? {
+                      text: 'Liquidation at < 1.0',
+                    }
+                  }
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                />
+              </YStack>
+            </BorrowInfoItem>
+          ) : null}
+          {transactionConfirmation?.mySupply ? (
+            <BorrowInfoItem
+              title={
+                <EarnText
+                  text={{ text: 'My Supply' }}
+                  color="$textText"
+                  size="$bodyLg"
+                />
+              }
+            >
+              <YStack ai="flex-end">
+                <EarnText
+                  text={transactionConfirmation.mySupply.current?.title}
+                  size="$headingLg"
+                />
+                <EarnText
+                  text={transactionConfirmation.mySupply.current?.description}
+                  size="$bodySmMedium"
+                />
+              </YStack>
+              {transactionConfirmation.mySupply.latest ? (
+                <Icon name="ArrowRightSolid" size="$4" color="$iconDisabled" />
+              ) : null}
+              {transactionConfirmation.mySupply.latest ? (
                 <YStack ai="flex-end">
                   <EarnText
-                    text={transactionConfirmation.mySupply.current?.title}
+                    text={transactionConfirmation.mySupply.latest?.title}
                     size="$headingLg"
                   />
                   <EarnText
-                    text={transactionConfirmation.mySupply.current?.description}
+                    text={transactionConfirmation.mySupply.latest?.description}
                     size="$bodySmMedium"
                   />
                 </YStack>
-                {transactionConfirmation.mySupply.latest ? (
-                  <Icon
-                    name="ArrowRightSolid"
-                    size="$4"
-                    color="$iconDisabled"
-                  />
-                ) : null}
-                {transactionConfirmation.mySupply.latest ? (
-                  <YStack ai="flex-end">
-                    <EarnText
-                      text={transactionConfirmation.mySupply.latest?.title}
-                      size="$headingLg"
-                    />
-                    <EarnText
-                      text={
-                        transactionConfirmation.mySupply.latest?.description
-                      }
-                      size="$bodySmMedium"
-                    />
-                  </YStack>
-                ) : null}
-              </BorrowInfoItem>
-            ) : null}
-          </YStack>
+              ) : null}
+            </BorrowInfoItem>
+          ) : null}
+        </YStack>
+        {token &&
+        (transactionConfirmation?.healthFactor ||
+          transactionConfirmation?.mySupply ||
+          (showApyDetail && transactionConfirmation?.apyDetail) ||
+          transactionConfirmation?.refundableFee ||
+          transactionConfirmation?.canBeCollateral) ? (
           <Divider my="$5" />
-          <YStack gap="$6">
-            {showApyDetail && transactionConfirmation?.apyDetail ? (
-              <BorrowInfoItem title="Supply APY">
-                <EarnText text={transactionConfirmation.apyDetail.title} />
-              </BorrowInfoItem>
-            ) : null}
-            {transactionConfirmation?.refundableFee ? (
-              <BorrowInfoItem
-                title={
-                  <XStack ai="center" gap="$1.5">
-                    <EarnText
-                      text={{
-                        text: 'Refundable fee',
-                        size: '$bodyMd',
-                        color: '$textSubdued',
-                      }}
-                    />
-                    <EarnTooltip
-                      tooltip={transactionConfirmation?.refundableFee?.tooltip}
-                    />
-                  </XStack>
-                }
-              >
-                <XStack>
+        ) : null}
+        <YStack gap="$6">
+          {showApyDetail && transactionConfirmation?.apyDetail ? (
+            <BorrowInfoItem title="Supply APY">
+              <EarnText text={transactionConfirmation.apyDetail.title} />
+            </BorrowInfoItem>
+          ) : null}
+          {transactionConfirmation?.refundableFee ? (
+            <BorrowInfoItem
+              title={
+                <XStack ai="center" gap="$1.5">
                   <EarnText
-                    text={transactionConfirmation?.refundableFee?.title}
+                    text={{
+                      text: 'Refundable fee',
+                      size: '$bodyMd',
+                      color: '$textSubdued',
+                    }}
                   />
-                  <EarnText
-                    text={transactionConfirmation?.refundableFee?.description}
+                  <EarnTooltip
+                    tooltip={transactionConfirmation?.refundableFee?.tooltip}
                   />
                 </XStack>
-              </BorrowInfoItem>
-            ) : null}
-            {transactionConfirmation?.canBeCollateral ? (
-              <BorrowInfoItem title="Use as collateral">
-                <Icon name="CheckmarkSolid" size="$4" color="$textSuccess" />
+              }
+            >
+              <XStack>
                 <EarnText
-                  text={{
-                    text: 'Enabled',
-                    color: '$textSuccess',
-                    size: '$bodyMdMedium',
-                  }}
+                  text={transactionConfirmation?.refundableFee?.title}
                 />
-              </BorrowInfoItem>
-            ) : null}
-            {token ? (
-              <TradeOrBuy
-                token={token}
-                accountId={accountId}
-                networkId={networkId}
-                containerStyle={{
-                  pt: '$0',
+                <EarnText
+                  text={transactionConfirmation?.refundableFee?.description}
+                />
+              </XStack>
+            </BorrowInfoItem>
+          ) : null}
+          {transactionConfirmation?.canBeCollateral ? (
+            <BorrowInfoItem title="Use as collateral">
+              <Icon name="CheckmarkSolid" size="$4" color="$textSuccess" />
+              <EarnText
+                text={{
+                  text: 'Enabled',
+                  color: '$textSuccess',
+                  size: '$bodyMdMedium',
                 }}
               />
-            ) : null}
-          </YStack>
+            </BorrowInfoItem>
+          ) : null}
+          {token ? (
+            <TradeOrBuy
+              token={token}
+              accountId={accountId}
+              networkId={networkId}
+              containerStyle={{
+                pt: '$0',
+              }}
+            />
+          ) : null}
         </YStack>
-      ) : null}
+      </YStack>
 
       {beforeFooter}
 
