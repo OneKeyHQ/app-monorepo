@@ -17,9 +17,9 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   EOnboardingPagesV2,
+  EOnboardingV2OneKeyIDLoginMode,
   IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
-import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
@@ -111,13 +111,14 @@ function OptionItem({
 
 function OneKeyIDLoginPage() {
   const navigation = useAppNavigation();
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loggingInProvider, setLoggingInProvider] =
+    useState<EOAuthSocialLoginProvider | null>(null);
   const route = useAppRoute<
     IOnboardingParamListV2,
     EOnboardingPagesV2.OneKeyIDLogin
   >();
-  const isLoggingInRef = useRef<boolean>(false);
-  isLoggingInRef.current = isLoggingIn;
+  const loggingInProviderRef = useRef<EOAuthSocialLoginProvider | null>(null);
+  loggingInProviderRef.current = loggingInProvider;
   const mode: EOnboardingV2OneKeyIDLoginMode | undefined = route?.params?.mode;
   const intl = useIntl();
 
@@ -133,11 +134,11 @@ function OneKeyIDLoginPage() {
 
   const handleSocialLogin = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
-      if (isLoggingInRef.current) {
+      if (loggingInProviderRef.current) {
         return;
       }
       try {
-        setIsLoggingIn(true);
+        setLoggingInProvider(provider);
         const result = await signInWithSocialLogin(provider);
         if (result?.session?.accessToken) {
           await goToInputPinPage({
@@ -145,7 +146,7 @@ function OneKeyIDLoginPage() {
           });
         }
       } finally {
-        setIsLoggingIn(false);
+        setLoggingInProvider(null);
       }
     },
     [goToInputPinPage, signInWithSocialLogin],
@@ -180,7 +181,7 @@ function OneKeyIDLoginPage() {
                 icon="GoogleIllus"
                 title="Google"
                 onPress={handleGoogleLogin}
-                isLoading={isLoggingIn}
+                isLoading={loggingInProvider === EOAuthSocialLoginProvider.Google}
               />
               <OptionItem
                 icon="AppleBrand"
@@ -190,6 +191,7 @@ function OneKeyIDLoginPage() {
                   y: -1,
                 }}
                 onPress={handleAppleLogin}
+                isLoading={loggingInProvider === EOAuthSocialLoginProvider.Apple}
               />
             </YStack>
             <KeylessOnboardingDebugPanel />

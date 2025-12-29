@@ -730,14 +730,17 @@ export function useKeylessWallet() {
 
       // VerifyPinOnly: just verify, show success dialog and close modal
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
+        navigation.popStack();
+
         Dialog.show({
           title: 'PIN Verified',
+          description: 'PIN verified successfully',
           showCancelButton: false,
           onConfirmText: intl.formatMessage({
             id: ETranslations.global_got_it,
           }),
           onConfirm: () => {
-            navigation.popStack();
+            //
           },
         });
         return;

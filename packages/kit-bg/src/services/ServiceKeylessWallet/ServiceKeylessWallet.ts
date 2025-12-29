@@ -1207,7 +1207,10 @@ class ServiceKeylessWallet extends ServiceBase {
     // For now, verify PIN from mock cache
     const mockedShares = await this.getMockedKeylessShares();
     const juiceboxShare = mockedShares[ownerId]?.juiceboxShare;
-    if (!juiceboxShare || juiceboxShare?.pin !== pin) {
+    if (!juiceboxShare) {
+      throw new OneKeyLocalError('Juicebox share not found');
+    }
+    if (juiceboxShare?.pin !== pin) {
       throw new OneKeyLocalError('Invalid PIN');
     }
   }
