@@ -93,6 +93,18 @@ export const SupplyCard = () => {
       supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
       balance: intl.formatMessage({ id: ETranslations.global_balance }),
       supply: intl.formatMessage({ id: ETranslations.defi_supply }),
+      assetCanBeCollateral: intl.formatMessage({
+        id: ETranslations.defi_asset_can_be_collateral,
+      }),
+      assetsToSupply: intl.formatMessage({
+        id: ETranslations.defi_assets_to_supply,
+      }),
+      noAssetsToSupply: intl.formatMessage({
+        id: ETranslations.defi_no_assets_to_supply,
+      }),
+      showAssetsWithZeroBalance: intl.formatMessage({
+        id: ETranslations.defi_show_assets_with_0_balance,
+      }),
     }),
     [intl],
   );
@@ -106,18 +118,18 @@ export const SupplyCard = () => {
           size="small"
         />
         <SizableText size="$bodyMd" color="$text">
-          Show assets with 0 balance
+          {labels.showAssetsWithZeroBalance}
         </SizableText>
       </XStack>
     ),
-    [showZeroBalance],
+    [showZeroBalance, labels.showAssetsWithZeroBalance],
   );
 
   // Mobile columns - 2 columns only
   const mobileColumns = useMemo(
     () => [
       {
-        label: 'Asset / Can be collateral',
+        label: labels.assetCanBeCollateral,
         key: 'asset',
         render: (item: ISupplyAsset) => (
           <AssetWithAmountField
@@ -145,7 +157,7 @@ export const SupplyCard = () => {
   const desktopColumns = useMemo(
     () => [
       {
-        label: 'Asset / Can be collateral',
+        label: labels.assetCanBeCollateral,
         key: 'asset',
         render: AssetField,
         flex: 1.5,
@@ -192,13 +204,13 @@ export const SupplyCard = () => {
   );
 
   return (
-    <Card title="Assets to supply" renderFilter={filterUI}>
+    <Card title={labels.assetsToSupply} renderFilter={filterUI}>
       <BorrowTableList<ISupplyAsset>
         data={filteredAssets}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
-        emptyContent="No assets available to supply"
+        emptyContent={labels.noAssetsToSupply}
       />
     </Card>
   );

@@ -351,7 +351,11 @@ export function UniversalBorrowWithdraw({
               <BorrowInfoItem
                 title={
                   <EarnText
-                    text={{ text: 'My Supply' }}
+                    text={{
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_my_supply,
+                      }),
+                    }}
                     color="$textText"
                     size="$bodyLg"
                     boldTextProps={{
@@ -394,7 +398,11 @@ export function UniversalBorrowWithdraw({
               </BorrowInfoItem>
             ) : null}
             {transactionConfirmation?.healthFactor ? (
-              <BorrowInfoItem title="Health factor">
+              <BorrowInfoItem
+                title={intl.formatMessage({
+                  id: ETranslations.defi_health_factor,
+                })}
+              >
                 <YStack ai="flex-end">
                   <XStack ai="center" gap="$1">
                     <EarnText
@@ -417,17 +425,19 @@ export function UniversalBorrowWithdraw({
                       </>
                     ) : null}
                   </XStack>
-                  <EarnText
-                    text={
-                      transactionConfirmation.liquidationAt?.description ?? {
-                        text: 'Liquidation at < 1.0',
-                      }
+                <EarnText
+                  text={
+                    transactionConfirmation.liquidationAt?.description ?? {
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_liquidation_at_less_than_1_00,
+                      }),
                     }
-                    size="$bodySmMedium"
-                    color="$textSubdued"
-                  />
-                </YStack>
-              </BorrowInfoItem>
+                  }
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                />
+              </YStack>
+            </BorrowInfoItem>
             ) : null}
             {showApyDetail && transactionConfirmation?.apyDetail ? (
               <BorrowInfoItem

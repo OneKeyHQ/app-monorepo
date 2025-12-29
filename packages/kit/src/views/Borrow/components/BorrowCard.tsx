@@ -86,7 +86,7 @@ export const BorrowCard = () => {
     return {
       asset,
       available,
-      supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
+      borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
       borrow: intl.formatMessage({ id: ETranslations.global_borrow }),
       assetsToBorrow: intl.formatMessage({
         id: ETranslations.defi_assets_to_borrow,
@@ -116,7 +116,7 @@ export const BorrowCard = () => {
         flex: 1.5,
       },
       {
-        label: labels.supplyApy,
+        label: labels.borrowApy,
         align: 'flex-end' as const,
         key: 'supplyApy',
         render: BorrowAPYField,
@@ -148,7 +148,7 @@ export const BorrowCard = () => {
         flex: 1,
       },
       {
-        label: labels.supplyApy,
+        label: labels.borrowApy,
         align: 'flex-end' as const,
         key: 'supplyApy',
         render: BorrowAPYField,

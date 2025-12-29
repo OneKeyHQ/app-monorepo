@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Badge,
   Icon,
@@ -8,6 +10,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowHealthFactorRiskDetail } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -24,6 +27,7 @@ type IBorrowHealthFactorTooltipProps = {
 export const BorrowHealthFactorTooltip = ({
   detail,
 }: IBorrowHealthFactorTooltipProps) => {
+  const intl = useIntl();
   const { value, lowerLimit, upperLimit } = useMemo(() => {
     return {
       value: Number(detail?.value) || 0,
@@ -31,6 +35,10 @@ export const BorrowHealthFactorTooltip = ({
       upperLimit: Number(detail?.upperLimit) || 3,
     };
   }, [detail?.lowerLimit, detail?.upperLimit, detail?.value]);
+  const healthFactorLabel = intl.formatMessage({
+    id: ETranslations.defi_health_factor,
+  });
+  const detailsLabel = intl.formatMessage({ id: ETranslations.global_details });
 
   const valueColor = useMemo(() => {
     const badgeType = detail?.status?.badge;
@@ -48,13 +56,13 @@ export const BorrowHealthFactorTooltip = ({
   return (
     <Popover
       placement="bottom"
-      title="Health factor"
+      title={healthFactorLabel}
       renderTrigger={
         <XStack cursor="pointer" ai="center">
           <EarnText
             size="$bodySmMedium"
             color="$textSubdued"
-            text={{ text: 'Details' }}
+            text={{ text: detailsLabel }}
           />
           <Icon
             size="$bodySmMedium"
@@ -68,7 +76,7 @@ export const BorrowHealthFactorTooltip = ({
           {/* Header: Health factor + value + Badge */}
           <XStack jc="space-between" ai="center">
             <XStack ai="center" gap="$2">
-              <SizableText size="$headingMd">Health factor</SizableText>
+              <SizableText size="$headingMd">{healthFactorLabel}</SizableText>
               <SizableText size="$headingMd" color={valueColor}>
                 {detail.value}
               </SizableText>

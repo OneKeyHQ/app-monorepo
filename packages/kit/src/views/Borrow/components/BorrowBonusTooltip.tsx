@@ -105,8 +105,9 @@ export const BorrowBonusTooltip = ({
             <EarnText
               size="$bodySmMedium"
               color="$textSubdued"
-              // FIXME i18n
-              text={{ text: 'Details' }}
+              text={{
+                text: intl.formatMessage({ id: ETranslations.global_details }),
+              }}
             />
             <Icon
               size="$bodySmMedium"

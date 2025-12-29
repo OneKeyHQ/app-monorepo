@@ -50,10 +50,10 @@ export function ChartSection({
     () => intl.formatMessage({ id: ETranslations.defi_supply_apy }),
     [intl],
   );
-  const borrowApyLabel = useMemo(() => {
-    const borrow = intl.formatMessage({ id: ETranslations.global_borrow });
-    return `${borrow} APY`;
-  }, [intl]);
+  const borrowApyLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
+    [intl],
+  );
 
   const { result: supplyHistory = [], isLoading: isSupplyLoading } =
     usePromiseResult(
@@ -105,28 +105,38 @@ export function ChartSection({
 
   const timePeriodOptions = useMemo(
     () => [
-      { label: '1W', value: 'week' as ITimePeriod },
-      { label: '1M', value: 'month' as ITimePeriod },
-      { label: '3M', value: 'quarter' as ITimePeriod },
-      { label: '1Y', value: 'year' as ITimePeriod },
+      {
+        label: intl.formatMessage({ id: ETranslations.market_1w }),
+        value: 'week' as ITimePeriod,
+      },
+      {
+        label: intl.formatMessage({ id: ETranslations.market_1m }),
+        value: 'month' as ITimePeriod,
+      },
+      {
+        label: intl.formatMessage({ id: ETranslations.market_3m }),
+        value: 'quarter' as ITimePeriod,
+      },
+      {
+        label: intl.formatMessage({ id: ETranslations.market_1y }),
+        value: 'year' as ITimePeriod,
+      },
     ],
-    [],
+    [intl],
   );
 
-  const supplyBadge = details ? (
-    <Badge badgeType={details.supply.canBeCollateral ? 'success' : 'default'}>
+  const supplyBadge = details?.supply.canBeCollateral ? (
+    <Badge badgeType="success">
       <Badge.Text>
-        {details.supply.canBeCollateral
-          ? 'Can be collateral'
-          : 'Not collateral'}
+        {intl.formatMessage({ id: ETranslations.defi_can_be_collateral })}
       </Badge.Text>
     </Badge>
   ) : null;
 
-  const borrowBadge = details ? (
-    <Badge badgeType={details.borrow.canBeBorrowed ? 'success' : 'default'}>
+  const borrowBadge = details?.borrow.canBeBorrowed ? (
+    <Badge badgeType="success">
       <Badge.Text>
-        {details.borrow.canBeBorrowed ? 'Borrowable' : 'Not borrowable'}
+        {intl.formatMessage({ id: ETranslations.defi_borrowable })}
       </Badge.Text>
     </Badge>
   ) : null;
@@ -139,7 +149,9 @@ export function ChartSection({
           {details?.supply.usage ? (
             <CapUsageChart
               percentage={details.supply.usage.percentage}
-              label="Supply cap usage"
+              label={intl.formatMessage({
+                id: ETranslations.defi_supply_cap_usage,
+              })}
               title={details.supply.usage.title}
               description={details.supply.usage.description}
               tooltip={details.supply.usage.tooltip}
@@ -173,17 +185,29 @@ export function ChartSection({
             {details ? (
               <XStack flexWrap="wrap" mt="$6">
                 <GridItem
-                  title={{ text: 'Max LTV' }}
+                  title={{
+                    text: intl.formatMessage({
+                      id: ETranslations.defi_max_ltv,
+                    }),
+                  }}
                   description={details.supply.maxLtv?.text}
                   tooltip={details.supply.maxLtv?.tooltip}
                 />
                 <GridItem
-                  title={{ text: 'Liquidation LTV' }}
+                  title={{
+                    text: intl.formatMessage({
+                      id: ETranslations.defi_liquidation_ltv,
+                    }),
+                  }}
                   description={details.supply.liquidationLtv?.text}
                   tooltip={details.supply.liquidationLtv?.tooltip}
                 />
                 <GridItem
-                  title={{ text: 'Soft Liquidations' }}
+                  title={{
+                    text: intl.formatMessage({
+                      id: ETranslations.defi_soft_liquidations,
+                    }),
+                  }}
                   description={details.supply.softLiquidation?.text}
                   tooltip={details.supply.softLiquidation?.tooltip}
                 />
@@ -203,7 +227,9 @@ export function ChartSection({
           {details?.borrow.usage ? (
             <CapUsageChart
               percentage={details.borrow.usage.percentage}
-              label="Borrow cap usage"
+              label={intl.formatMessage({
+                id: ETranslations.defi_borrow_cap_usage,
+              })}
               title={details.borrow.usage.title}
               description={details.borrow.usage.description}
               tooltip={details.borrow.usage.tooltip}

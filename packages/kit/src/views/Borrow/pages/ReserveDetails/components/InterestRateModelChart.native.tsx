@@ -341,14 +341,22 @@ export function InterestRateModelChart({
         2,
       )}%`
     : '0.00%';
+  const utilizationRatioLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.defi_utilization_ratio }),
+    [intl],
+  );
+  const currentUtilizationLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.defi_current_utilization }),
+    [intl],
+  );
   const supplyApyLabel = useMemo(
     () => intl.formatMessage({ id: ETranslations.defi_supply_apy }),
     [intl],
   );
-  const borrowApyLabel = useMemo(() => {
-    const borrow = intl.formatMessage({ id: ETranslations.global_borrow });
-    return `${borrow} APY`;
-  }, [intl]);
+  const borrowApyLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
+    [intl],
+  );
 
   if (isLoading) {
     return (
@@ -366,7 +374,7 @@ export function InterestRateModelChart({
     <YStack gap="$3">
       {/* Header showing current utilization */}
       <SizableText size="$headingLg">
-        {utilizationPercentage} Utilization ratio
+        {utilizationPercentage} {utilizationRatioLabel}
       </SizableText>
 
       {/* Legend */}
@@ -398,7 +406,7 @@ export function InterestRateModelChart({
             color="$iconSubdued"
           />
           <SizableText size="$bodySm" color="$textSubdued">
-            Current utilization
+            {currentUtilizationLabel}
           </SizableText>
         </XStack>
       </XStack>

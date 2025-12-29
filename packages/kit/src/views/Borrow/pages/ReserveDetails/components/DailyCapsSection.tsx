@@ -1,5 +1,8 @@
+import { useIntl } from 'react-intl';
+
 import { XStack } from '@onekeyhq/components';
 import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/GridItemV2';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IBorrowReserveDetail,
   IEarnText,
@@ -14,47 +17,67 @@ export function DailyCapsSection({
 }: {
   details?: IBorrowReserveDetail;
 }) {
+  const intl = useIntl();
+
   if (!details) {
     return null;
   }
 
   const dailyInfo = details.dailyInfo;
+  const labels = {
+    dailyCaps: intl.formatMessage({ id: ETranslations.defi_daily_caps }),
+    dailyBorrowCap: intl.formatMessage({
+      id: ETranslations.defi_daily_borrow_cap,
+    }),
+    borrowableToday: intl.formatMessage({
+      id: ETranslations.defi_borrowable_today,
+    }),
+    dailyCapResetsIn: intl.formatMessage({
+      id: ETranslations.defi_daily_cap_resets_in,
+    }),
+    dailyWithdrawCap: intl.formatMessage({
+      id: ETranslations.defi_daily_withdraw_cap,
+    }),
+    withdrawableToday: intl.formatMessage({
+      id: ETranslations.defi_withdrawable_today,
+    }),
+  };
 
   const items = [
     {
       key: 'dailyBorrowCap',
-      title: 'Daily borrow cap',
+      title: labels.dailyBorrowCap,
       description: dailyInfo?.borrowCapacity ?? fallbackText,
     },
     {
       key: 'borrowableToday',
-      title: 'Borrowable today',
+      title: labels.borrowableToday,
       description: dailyInfo?.borrowable ?? fallbackText,
     },
     {
       key: 'borrowCapResetsIn',
-      title: 'Daily cap resets in',
+      title: labels.dailyCapResetsIn,
       description: dailyInfo?.borrowCapResetRemainingTime ?? fallbackText,
     },
     {
       key: 'dailyWithdrawCap',
-      title: 'Daily withdraw cap',
+      title: labels.dailyWithdrawCap,
       description: dailyInfo?.withdrawCapacity ?? fallbackText,
     },
     {
       key: 'withdrawableToday',
-      title: 'Withdrawable today',
+      title: labels.withdrawableToday,
       description: dailyInfo?.withdrawable ?? fallbackText,
     },
     {
       key: 'withdrawCapResetsIn',
-      title: 'Daily cap resets in',
+      title: labels.dailyCapResetsIn,
       description: dailyInfo?.withdrawCapResetRemainingTime ?? fallbackText,
     },
   ];
 
   return (
-    <DetailsSectionContainer title="Daily caps">
+    <DetailsSectionContainer title={labels.dailyCaps}>
       <XStack flexWrap="wrap" m="$-5" p="$2">
         {items.map((item) => (
           <GridItem

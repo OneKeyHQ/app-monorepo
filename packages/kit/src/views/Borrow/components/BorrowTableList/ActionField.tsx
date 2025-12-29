@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { ActionList, Button, IconButton, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useBorrowContext } from '../../BorrowProvider';
 import { useSupplyActions } from '../../hooks/useSupplyActions';
@@ -32,6 +35,7 @@ export const ActionField = ({
 }: IActionFieldProps) => {
   const { market } = useBorrowContext();
   const networkId = market?.networkId || '';
+  const intl = useIntl();
 
   const { handleSwap, handleBridge, handleReceive } = useSupplyActions({
     accountId,
@@ -53,6 +57,15 @@ export const ActionField = ({
     { initResult: { isSupportSwap: false, isSupportCrossChain: false } },
   );
 
+  const labels = useMemo(
+    () => ({
+      swap: intl.formatMessage({ id: ETranslations.global_swap }),
+      bridge: intl.formatMessage({ id: ETranslations.swap_page_bridge }),
+      receive: intl.formatMessage({ id: ETranslations.global_receive }),
+    }),
+    [intl],
+  );
+
   const actionItems = useMemo(() => {
     const items: {
       icon: 'SwapHorOutline' | 'BridgeOutline' | 'ArrowBottomOutline';
@@ -63,7 +76,7 @@ export const ActionField = ({
     if (swapConfig.isSupportSwap || swapConfig.isSupportCrossChain) {
       items.push({
         icon: 'SwapHorOutline',
-        label: 'Swap',
+        label: labels.swap,
         onPress: () => {
           void handleSwap?.(item);
         },
@@ -73,7 +86,7 @@ export const ActionField = ({
     if (swapConfig.isSupportCrossChain) {
       items.push({
         icon: 'BridgeOutline',
-        label: 'Bridge',
+        label: labels.bridge,
         onPress: () => {
           void handleBridge?.(item);
         },
@@ -82,14 +95,14 @@ export const ActionField = ({
 
     items.push({
       icon: 'ArrowBottomOutline',
-      label: 'Receive',
+      label: labels.receive,
       onPress: () => {
         void handleReceive?.(item);
       },
     });
 
     return items;
-  }, [swapConfig, handleSwap, handleBridge, handleReceive, item]);
+  }, [swapConfig, handleSwap, handleBridge, handleReceive, item, labels]);
 
   return (
     <XStack gap="$2" alignItems="center" justifyContent="flex-end">

@@ -104,14 +104,13 @@ export default function BorrowTokenSelectModal() {
     const walletBalance = `${intl.formatMessage({
       id: ETranslations.global_wallet,
     })} ${intl.formatMessage({ id: ETranslations.global_balance })}`;
-    const borrow = intl.formatMessage({ id: ETranslations.global_borrow });
     return {
       asset,
       available: intl.formatMessage({ id: ETranslations.global_available }),
       borrowed,
       supplied,
       walletBalance,
-      borrowApy: `${borrow} APY`,
+      borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
       supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
     };
   }, [intl]);
@@ -120,6 +119,13 @@ export default function BorrowTokenSelectModal() {
   const balanceLabel = isBorrowAction ? labels.available : labels.walletBalance;
   const positionLabel = isBorrowAction ? labels.borrowed : labels.supplied;
   const apyLabel = isBorrowAction ? labels.borrowApy : labels.supplyApy;
+  const modalTitle = isBorrowAction
+    ? intl.formatMessage({
+        id: ETranslations.defi_select_an_asset_to_borrow,
+      })
+    : intl.formatMessage({
+        id: ETranslations.defi_select_an_asset_to_supply,
+      });
 
   const handleSelect = useCallback(
     (item: IBorrowSelectAsset) => {
@@ -132,7 +138,7 @@ export default function BorrowTokenSelectModal() {
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
-        title="Select an asset to supply/borrow"
+        title={modalTitle}
         headerSearchBarOptions={{
           placeholder: intl.formatMessage({
             id: ETranslations.token_selector_search_placeholder,

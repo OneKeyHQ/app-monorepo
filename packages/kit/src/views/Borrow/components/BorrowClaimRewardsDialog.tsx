@@ -1,8 +1,12 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Dialog, XStack, YStack } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
   IEarnRewardClaimGroup,
   IEarnRewardClaimItem,
@@ -91,6 +95,7 @@ function BorrowClaimRewardsDialogContent({
   onClaimItem,
   onClaimAll,
 }: IBorrowClaimRewardsDialogContentProps) {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [claimingItemId, setClaimingItemId] = useState<string | null>(null);
   const dialogInstance = useDialogInstance();
@@ -144,7 +149,7 @@ function BorrowClaimRewardsDialogContent({
           loading,
         }}
         onConfirm={handleClaimAll}
-        onConfirmText="Claim all"
+        onConfirmText={intl.formatMessage({ id: ETranslations.defi_claim_all })}
       />
     </YStack>
   );
@@ -162,7 +167,9 @@ export function showBorrowClaimRewardsDialog({
   onClose?: () => void;
 }) {
   return Dialog.show({
-    title: 'Claimable rewards',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.defi_claimable_rewards,
+    }),
     showFooter: false,
     onClose,
     renderContent: (

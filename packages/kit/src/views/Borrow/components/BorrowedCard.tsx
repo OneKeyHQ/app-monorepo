@@ -125,12 +125,11 @@ export const BorrowedCard = () => {
       id: ETranslations.wallet_defi_asset_type_borrowed,
     });
     const balance = intl.formatMessage({ id: ETranslations.global_balance });
-    const borrow = intl.formatMessage({ id: ETranslations.global_borrow });
     return {
       asset,
       borrowed,
       borrowedBalance: `${borrowed} ${balance}`,
-      borrowApy: `${borrow} APY`,
+      borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
       apy: 'APY',
       assetBorrowed: `${asset} / ${borrowed}`,
       borrowedWithColon: `${borrowed}:`,
@@ -198,7 +197,13 @@ export const BorrowedCard = () => {
         key: 'actions',
         render: (item: IBorrowedAsset) => (
           <ActionField
-            buttonText={<EarnText text={{ text: 'Repay' }} />}
+            buttonText={
+              <EarnText
+                text={{
+                  text: intl.formatMessage({ id: ETranslations.defi_repay }),
+                }}
+              />
+            }
             item={item}
             accountId={accountId}
             walletId={walletId}
@@ -215,7 +220,7 @@ export const BorrowedCard = () => {
 
   return (
     <Card
-      title="My borrow"
+      title={intl.formatMessage({ id: ETranslations.defi_my_borrow })}
       renderHeader={
         !showLoading ? (
           <BorrowedHeader
@@ -231,7 +236,9 @@ export const BorrowedCard = () => {
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
-        emptyContent="Supply assets as collateral before borrowing" // FIXME[borrow]: i18n
+        emptyContent={intl.formatMessage({
+          id: ETranslations.defi_supply_assets_as_collateral_before_borrowing,
+        })}
       />
     </Card>
   );

@@ -90,6 +90,19 @@ export const Overview = () => {
     const borrowLabel = intl.formatMessage({ id: ETranslations.global_borrow });
     return `${borrowLabel} ${historyLabel}`;
   }, [intl, historyLabel]);
+  const labels = useMemo(
+    () => ({
+      netWorth: intl.formatMessage({ id: ETranslations.defi_net_worth }),
+      netApy: intl.formatMessage({ id: ETranslations.defi_net_apy }),
+      healthFactor: intl.formatMessage({
+        id: ETranslations.defi_health_factor,
+      }),
+      platformBonus: intl.formatMessage({
+        id: ETranslations.defi_platform_bonus,
+      }),
+    }),
+    [intl],
+  );
 
   // Fetch health factor separately with 30s polling
   const { healthFactorData } = useBorrowHealthFactor({
@@ -206,8 +219,6 @@ export const Overview = () => {
 
   const { gtMd } = useMedia();
 
-  // FIXME[borrow]: i18n
-
   // Mobile layout
   if (!gtMd) {
     return (
@@ -215,7 +226,7 @@ export const Overview = () => {
         {/* Row 1: Net worth */}
         <YStack gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
-            Net worth
+            {labels.netWorth}
           </SizableText>
           <EarnText
             text={
@@ -234,7 +245,7 @@ export const Overview = () => {
                 color="$textSubdued"
               />
               <SizableText size="$bodyMd" color="$textSubdued">
-                Net APY
+                {labels.netApy}
               </SizableText>
             </XStack>
           ) : (
@@ -248,7 +259,7 @@ export const Overview = () => {
         <XStack gap="$6">
           <YStack gap="$1" flex={1}>
             <SizableText size="$bodyMd" color="$textSubdued">
-              Health factor
+              {labels.healthFactor}
             </SizableText>
             <XStack ai="center" gap="$1">
               <EarnText
@@ -271,7 +282,7 @@ export const Overview = () => {
           </YStack>
           <YStack gap="$1" flex={1}>
             <SizableText size="$bodyMd" color="$textSubdued">
-              Platform bonus
+              {labels.platformBonus}
             </SizableText>
             <XStack ai="center" gap="$1">
               <EarnText
@@ -355,7 +366,7 @@ export const Overview = () => {
     <XStack mt="$2" mb="$10" ai="center">
       <OverviewItem
         needDivider
-        title={{ text: 'Net worth' }} // FIXME[borrow]: i18n
+        title={{ text: labels.netWorth }}
         text={
           reserves?.overview?.netWorth ?? {
             text: amountPlaceholder,
@@ -366,14 +377,14 @@ export const Overview = () => {
 
       <OverviewItem
         needDivider
-        title={{ text: 'Net APY' }} // FIXME[borrow]: i18n
+        title={{ text: labels.netApy }}
         text={
           reserves?.overview?.netApy ?? { text: '-', color: '$textDisabled' }
         }
       />
       <OverviewItem
         needDivider
-        title={{ text: 'Health factor' }} // FIXME[borrow]: i18n
+        title={{ text: labels.healthFactor }}
         text={
           healthFactorData?.healthFactor?.text ?? {
             text: amountPlaceholder,
@@ -392,7 +403,7 @@ export const Overview = () => {
         needDivider={!!borrowRewards}
         title={
           reserves?.overview?.platformBonus?.data?.title ?? {
-            text: 'Platform bonus',
+            text: labels.platformBonus,
           }
         }
         text={
@@ -413,7 +424,7 @@ export const Overview = () => {
       />
       {borrowRewards ? (
         <OverviewItem
-          title={borrowRewards?.title} // FIXME[borrow]: i18n
+          title={borrowRewards?.title}
           text={borrowRewards?.description}
           action={
             <Button

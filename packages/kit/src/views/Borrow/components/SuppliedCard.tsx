@@ -215,7 +215,7 @@ export const SuppliedCard = () => {
 
   return (
     <Card
-      title="My supply"
+      title={intl.formatMessage({ id: ETranslations.defi_my_supply })}
       renderHeader={
         !showLoading ? (
           <SuppliedHeader
@@ -231,7 +231,7 @@ export const SuppliedCard = () => {
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
-        emptyContent="Nothing supplied yet" // FIXME[borrow]: i18n
+        emptyContent="Nothing supplied yet"
       />
     </Card>
   );

@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Divider,
@@ -14,6 +16,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BorrowNavigation } from '../../../borrowUtils';
 
@@ -37,6 +40,7 @@ export const ManagePositionPart = ({
   logoURI,
 }: IManagePositionPartProps) => {
   const navigation = useAppNavigation();
+  const intl = useIntl();
 
   const { result: details } = usePromiseResult(
     async () => {
@@ -100,13 +104,28 @@ export const ManagePositionPart = ({
   ]);
 
   const userInfo = details?.userInfo;
+  const labels = {
+    myInfo: intl.formatMessage({ id: ETranslations.defi_my_info }),
+    walletBalance: intl.formatMessage({
+      id: ETranslations.global_wallet_balance,
+    }),
+    availableToBorrow: intl.formatMessage({
+      id: ETranslations.defi_available_to_borrow,
+    }),
+    suppliedBalance: intl.formatMessage({
+      id: ETranslations.defi_supplied_balance,
+    }),
+    borrowedBalance: intl.formatMessage({
+      id: ETranslations.defi_borrowed_balance,
+    }),
+  };
 
   return (
     <YStack flex={4}>
       <YStack gap="$1.5" flex={1} p="$5">
         {/* My info header */}
         <SizableText size="$headingMd" mb="$5">
-          My info
+          {labels.myInfo}
         </SizableText>
 
         {/* Wallet balance section */}
@@ -115,7 +134,7 @@ export const ManagePositionPart = ({
             <XStack ai="center" gap="$1">
               <Icon name="WalletOutline" size="$4" color="$iconSubdued" />
               <SizableText size="$bodyMd" color="$textSubdued">
-                Wallet balance
+                {labels.walletBalance}
               </SizableText>
             </XStack>
             <EarnText
@@ -152,10 +171,10 @@ export const ManagePositionPart = ({
           <YStack gap="$1">
             <XStack ai="center" gap="$1">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Available to borrow
+                {labels.availableToBorrow}
               </SizableText>
               <EarnTooltip
-                title="Available to borrow"
+                title={labels.availableToBorrow}
                 tooltip={userInfo?.availableBorrowBalance?.tooltip}
               />
             </XStack>
@@ -191,7 +210,7 @@ export const ManagePositionPart = ({
         {/* Supplied balance */}
         <XStack ai="center" gap="$1" mb="$2">
           <SizableText size="$bodyMd" color="$textSubdued">
-            Supplied balance
+            {labels.suppliedBalance}
           </SizableText>
           <EarnText
             text={userInfo?.suppliedBalance?.title}
@@ -208,7 +227,7 @@ export const ManagePositionPart = ({
         {/* Borrowed balance */}
         <XStack ai="center" gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
-            Borrowed balance
+            {labels.borrowedBalance}
           </SizableText>
           <EarnText
             text={userInfo?.borrowedBalance?.title}

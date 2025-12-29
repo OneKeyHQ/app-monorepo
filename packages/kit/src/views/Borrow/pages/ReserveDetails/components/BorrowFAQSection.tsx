@@ -1,6 +1,9 @@
+import { useIntl } from 'react-intl';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { FAQContent } from '@onekeyhq/kit/src/views/Earn/components/FAQContent';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DetailsSectionContainer } from './DetailsSectionContainer';
 
@@ -15,6 +18,7 @@ export function BorrowFAQSection({
   marketAddress: string;
   reserveAddress: string;
 }) {
+  const intl = useIntl();
   const { result: faqData, isLoading } = usePromiseResult(
     async () => {
       if (!networkId || !provider || !marketAddress || !reserveAddress) {
@@ -38,7 +42,10 @@ export function BorrowFAQSection({
   }
 
   return (
-    <DetailsSectionContainer title="FAQ" showDivider={false}>
+    <DetailsSectionContainer
+      title={intl.formatMessage({ id: ETranslations.global_faqs })}
+      showDivider={false}
+    >
       <FAQContent faqList={faqList} isLoading={isLoading} />
     </DetailsSectionContainer>
   );

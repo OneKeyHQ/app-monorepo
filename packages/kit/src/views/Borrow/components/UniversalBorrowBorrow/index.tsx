@@ -364,7 +364,11 @@ export function UniversalBorrowBorrow({
         >
           <YStack gap="$6">
             {transactionConfirmation?.healthFactor ? (
-              <BorrowInfoItem title="Health factor">
+              <BorrowInfoItem
+                title={intl.formatMessage({
+                  id: ETranslations.defi_health_factor,
+                })}
+              >
                 <YStack ai="flex-end">
                   <XStack ai="center" gap="$1">
                     <EarnText
@@ -388,27 +392,33 @@ export function UniversalBorrowBorrow({
                       </>
                     ) : null}
                   </XStack>
-                  <EarnText
-                    text={
-                      transactionConfirmation.liquidationAt?.description ?? {
-                        text: 'Liquidation at < 1.0',
-                      }
+                <EarnText
+                  text={
+                    transactionConfirmation.liquidationAt?.description ?? {
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_liquidation_at_less_than_1_00,
+                      }),
                     }
-                    size="$bodySmMedium"
-                    color="$textSubdued"
-                  />
-                </YStack>
-              </BorrowInfoItem>
-            ) : null}
-            {transactionConfirmation?.myBorrow ? (
-              <BorrowInfoItem
-                title={
-                  <EarnText
-                    text={{ text: 'My Borrow' }}
-                    color="$textText"
-                    size="$bodyLg"
-                  />
-                }
+                  }
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                />
+              </YStack>
+            </BorrowInfoItem>
+          ) : null}
+          {transactionConfirmation?.myBorrow ? (
+            <BorrowInfoItem
+              title={
+                <EarnText
+                  text={{
+                    text: intl.formatMessage({
+                      id: ETranslations.defi_my_borrow,
+                    }),
+                  }}
+                  color="$textText"
+                  size="$bodyLg"
+                />
+              }
               >
                 <YStack ai="flex-end">
                   <EarnText

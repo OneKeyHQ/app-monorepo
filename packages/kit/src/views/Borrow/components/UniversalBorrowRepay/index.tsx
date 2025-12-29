@@ -325,17 +325,17 @@ export function UniversalBorrowRepay({
   const segmentOptions = useMemo(
     () => [
       {
-        // FIXME i18n
-        label: 'From wallet balance',
+        label: intl.formatMessage({
+          id: ETranslations.defi_from_wallet_balance,
+        }),
         value: 'wallet',
       },
       {
-        // FIXME i18n
-        label: 'With Collateral',
+        label: intl.formatMessage({ id: ETranslations.defi_with_collateral }),
         value: 'collateral',
       },
     ],
-    [],
+    [intl],
   );
 
   return (
@@ -385,8 +385,7 @@ export function UniversalBorrowRepay({
           <YStack gap="$2.5">
             <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
               <StakingAmountInput
-                // FIXME i18n
-                title="From"
+                title={intl.formatMessage({ id: ETranslations.global_from })}
                 disabled={amountInputDisabled}
                 value={collateralAmountValue}
                 onChange={onChangeCollateralAmountValue}
@@ -414,8 +413,7 @@ export function UniversalBorrowRepay({
             </Stack>
             <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
               <StakingAmountInput
-                // FIXME i18n
-                title="To"
+                title={intl.formatMessage({ id: ETranslations.global_to })}
                 disabled={amountInputDisabled}
                 hasError={isCheckAmountMessageError}
                 value={amountValue}
@@ -499,7 +497,11 @@ export function UniversalBorrowRepay({
       >
         <YStack gap="$6">
           {transactionConfirmation?.healthFactor ? (
-            <BorrowInfoItem title="Health factor">
+            <BorrowInfoItem
+              title={intl.formatMessage({
+                id: ETranslations.defi_health_factor,
+              })}
+            >
               <YStack ai="flex-end">
                 <XStack ai="center" gap="$1">
                   <EarnText
@@ -525,7 +527,9 @@ export function UniversalBorrowRepay({
                 <EarnText
                   text={
                     transactionConfirmation.liquidationAt?.description ?? {
-                      text: 'Liquidation at < 1.0',
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_liquidation_at_less_than_1_00,
+                      }),
                     }
                   }
                   size="$bodySmMedium"
@@ -538,7 +542,11 @@ export function UniversalBorrowRepay({
             <BorrowInfoItem
               title={
                 <EarnText
-                  text={{ text: 'My Borrow' }}
+                  text={{
+                    text: intl.formatMessage({
+                      id: ETranslations.defi_my_borrow,
+                    }),
+                  }}
                   color="$textText"
                   size="$bodyLg"
                   boldTextProps={{

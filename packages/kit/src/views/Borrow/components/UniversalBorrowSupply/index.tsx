@@ -377,7 +377,11 @@ export function UniversalBorrowSupply({
       >
         <YStack gap="$6">
           {transactionConfirmation?.healthFactor ? (
-            <BorrowInfoItem title="Health factor">
+            <BorrowInfoItem
+              title={intl.formatMessage({
+                id: ETranslations.defi_health_factor,
+              })}
+            >
               <YStack ai="flex-end">
                 <XStack ai="center" gap="$1">
                   <EarnText
@@ -404,7 +408,9 @@ export function UniversalBorrowSupply({
                 <EarnText
                   text={
                     transactionConfirmation.liquidationAt?.description ?? {
-                      text: 'Liquidation at < 1.0',
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_liquidation_at_less_than_1_00,
+                      }),
                     }
                   }
                   size="$bodySmMedium"
@@ -417,7 +423,11 @@ export function UniversalBorrowSupply({
             <BorrowInfoItem
               title={
                 <EarnText
-                  text={{ text: 'My Supply' }}
+                  text={{
+                    text: intl.formatMessage({
+                      id: ETranslations.defi_my_supply,
+                    }),
+                  }}
                   color="$textText"
                   size="$bodyLg"
                 />
@@ -475,7 +485,9 @@ export function UniversalBorrowSupply({
                 <XStack ai="center" gap="$1.5">
                   <EarnText
                     text={{
-                      text: 'Refundable fee',
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_refundable_fee,
+                      }),
                       size: '$bodyMd',
                       color: '$textSubdued',
                     }}
@@ -497,11 +509,15 @@ export function UniversalBorrowSupply({
             </BorrowInfoItem>
           ) : null}
           {transactionConfirmation?.canBeCollateral ? (
-            <BorrowInfoItem title="Use as collateral">
+            <BorrowInfoItem
+              title={intl.formatMessage({
+                id: ETranslations.defi_use_as_collateral,
+              })}
+            >
               <Icon name="CheckmarkSolid" size="$4" color="$textSuccess" />
               <EarnText
                 text={{
-                  text: 'Enabled',
+                  text: intl.formatMessage({ id: ETranslations.global_enabled }),
                   color: '$textSuccess',
                   size: '$bodyMdMedium',
                 }}
