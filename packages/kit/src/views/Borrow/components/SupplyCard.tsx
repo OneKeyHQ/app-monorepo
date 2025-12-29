@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SizableText, Switch, XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -24,6 +27,7 @@ type ISupplyAsset = IBorrowReserveItem['supply']['assets'][number];
 
 export const SupplyCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd, gtLg } = useMedia();
@@ -84,6 +88,15 @@ export const SupplyCard = () => {
     });
   }, [reserves?.supply.assets, showZeroBalance]);
 
+  const labels = useMemo(
+    () => ({
+      supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
+      balance: intl.formatMessage({ id: ETranslations.global_balance }),
+      supply: intl.formatMessage({ id: ETranslations.defi_supply }),
+    }),
+    [intl],
+  );
+
   const filterUI = useMemo(
     () => (
       <XStack ai="center" gap="$3">
@@ -118,14 +131,14 @@ export const SupplyCard = () => {
         flex: 1.5,
       },
       {
-        label: 'Supply APY',
+        label: labels.supplyApy,
         align: 'flex-end' as const,
         key: 'supplyApy',
         render: BorrowAPYField,
         flex: 1,
       },
     ],
-    [],
+    [labels],
   );
 
   // Desktop columns - all columns
@@ -138,7 +151,7 @@ export const SupplyCard = () => {
         flex: 1.5,
       },
       {
-        label: 'Balance',
+        label: labels.balance,
         align: 'flex-end' as const,
         key: 'balance',
         render: (item: ISupplyAsset) => (
@@ -150,7 +163,7 @@ export const SupplyCard = () => {
         flex: 1,
       },
       {
-        label: 'Supply APY',
+        label: labels.supplyApy,
         align: 'flex-end' as const,
         key: 'supplyApy',
         render: BorrowAPYField,
@@ -162,7 +175,7 @@ export const SupplyCard = () => {
         key: 'actions',
         render: (item: ISupplyAsset) => (
           <ActionField
-            buttonText={<EarnText text={{ text: 'Supply' }} />}
+            buttonText={<EarnText text={{ text: labels.supply }} />}
             item={item}
             onPress={() => handleManageSupply(item)}
             needAdditionButton={gtLg}
@@ -175,7 +188,7 @@ export const SupplyCard = () => {
         flex: 1,
       },
     ],
-    [handleManageSupply, gtLg, accountId, walletId, indexedAccountId],
+    [handleManageSupply, gtLg, accountId, walletId, indexedAccountId, labels],
   );
 
   return (

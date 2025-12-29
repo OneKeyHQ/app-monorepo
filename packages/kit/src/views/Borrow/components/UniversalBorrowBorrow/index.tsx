@@ -444,7 +444,11 @@ export function UniversalBorrowBorrow({
               </BorrowInfoItem>
             ) : null}
             {showApyDetail && transactionConfirmation?.apyDetail ? (
-              <BorrowInfoItem title="Supply APY">
+              <BorrowInfoItem
+                title={intl.formatMessage({
+                  id: ETranslations.defi_supply_apy,
+                })}
+              >
                 <EarnText text={transactionConfirmation.apyDetail.title} />
               </BorrowInfoItem>
             ) : null}

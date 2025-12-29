@@ -93,10 +93,33 @@ export default function BorrowTokenSelectModal() {
     });
   }, [assets, searchKeyword]);
 
+  const labels = useMemo(() => {
+    const asset = intl.formatMessage({ id: ETranslations.global_asset });
+    const borrowed = intl.formatMessage({
+      id: ETranslations.wallet_defi_asset_type_borrowed,
+    });
+    const supplied = intl.formatMessage({
+      id: ETranslations.wallet_defi_asset_type_supplied,
+    });
+    const walletBalance = `${intl.formatMessage({
+      id: ETranslations.global_wallet,
+    })} ${intl.formatMessage({ id: ETranslations.global_balance })}`;
+    const borrow = intl.formatMessage({ id: ETranslations.global_borrow });
+    return {
+      asset,
+      available: intl.formatMessage({ id: ETranslations.global_available }),
+      borrowed,
+      supplied,
+      walletBalance,
+      borrowApy: `${borrow} APY`,
+      supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
+    };
+  }, [intl]);
+
   const isBorrowAction = action === 'borrow';
-  const balanceLabel = isBorrowAction ? 'Available' : 'Wallet Balance';
-  const positionLabel = isBorrowAction ? 'Borrowed' : 'Supplied';
-  const apyLabel = isBorrowAction ? 'Borrow APY' : 'Supply APY';
+  const balanceLabel = isBorrowAction ? labels.available : labels.walletBalance;
+  const positionLabel = isBorrowAction ? labels.borrowed : labels.supplied;
+  const apyLabel = isBorrowAction ? labels.borrowApy : labels.supplyApy;
 
   const handleSelect = useCallback(
     (item: IBorrowSelectAsset) => {
@@ -126,7 +149,7 @@ export default function BorrowTokenSelectModal() {
           isLoading={Boolean(isLoading)}
           columns={[
             {
-              label: 'Asset',
+              label: labels.asset,
               key: 'asset',
               render: (item) => {
                 return (

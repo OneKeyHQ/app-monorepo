@@ -430,7 +430,11 @@ export function UniversalBorrowWithdraw({
               </BorrowInfoItem>
             ) : null}
             {showApyDetail && transactionConfirmation?.apyDetail ? (
-              <BorrowInfoItem title="Supply APY">
+              <BorrowInfoItem
+                title={intl.formatMessage({
+                  id: ETranslations.defi_supply_apy,
+                })}
+              >
                 <YStack ai="flex-end">
                   <EarnActionIcon
                     title={transactionConfirmation.apyDetail.title.text}

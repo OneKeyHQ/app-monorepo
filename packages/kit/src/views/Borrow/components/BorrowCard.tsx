@@ -1,7 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -24,6 +27,7 @@ type IBorrowAsset = IBorrowReserveItem['borrow']['assets'][number];
 
 export const BorrowCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd } = useMedia();
@@ -74,16 +78,37 @@ export const BorrowCard = () => {
 
   const showLoading = !reserves && reservesLoading;
 
+  const labels = useMemo(() => {
+    const asset = intl.formatMessage({ id: ETranslations.global_asset });
+    const available = intl.formatMessage({
+      id: ETranslations.global_available,
+    });
+    return {
+      asset,
+      available,
+      supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
+      borrow: intl.formatMessage({ id: ETranslations.global_borrow }),
+      assetsToBorrow: intl.formatMessage({
+        id: ETranslations.defi_assets_to_borrow,
+      }),
+      noAssetsToBorrow: intl.formatMessage({
+        id: ETranslations.defi_no_assets_to_borrow,
+      }),
+      assetAvailable: `${asset} / ${available}`,
+      availableWithColon: `${available}:`,
+    };
+  }, [intl]);
+
   // Mobile columns - 2 columns only
   const mobileColumns = useMemo(
     () => [
       {
-        label: 'Asset / Available',
+        label: labels.assetAvailable,
         key: 'asset',
         render: (item: IBorrowAsset) => (
           <AssetWithAmountField
             token={item.token}
-            amountLabel="Available:"
+            amountLabel={labels.availableWithColon}
             amount={item.available.title}
             amountDescription={item.available.description}
           />
@@ -91,27 +116,27 @@ export const BorrowCard = () => {
         flex: 1.5,
       },
       {
-        label: 'Supply APY',
+        label: labels.supplyApy,
         align: 'flex-end' as const,
         key: 'supplyApy',
         render: BorrowAPYField,
         flex: 1,
       },
     ],
-    [],
+    [labels],
   );
 
   // Desktop columns - all columns
   const desktopColumns = useMemo(
     () => [
       {
-        label: 'Asset', // FIXME[borrow]: i18n
+        label: labels.asset,
         key: 'asset',
         render: AssetField,
         flex: 1,
       },
       {
-        label: 'Available',
+        label: labels.available,
         align: 'flex-end' as const,
         key: 'available',
         render: (item: IBorrowAsset) => (
@@ -123,7 +148,7 @@ export const BorrowCard = () => {
         flex: 1,
       },
       {
-        label: 'Supply APY',
+        label: labels.supplyApy,
         align: 'flex-end' as const,
         key: 'supplyApy',
         render: BorrowAPYField,
@@ -135,7 +160,7 @@ export const BorrowCard = () => {
         key: 'actions',
         render: (item: IBorrowAsset) => (
           <ActionField
-            buttonText={<EarnText text={{ text: 'Borrow' }} />}
+            buttonText={<EarnText text={{ text: labels.borrow }} />}
             item={item}
             accountId={accountId}
             walletId={walletId}
@@ -147,19 +172,17 @@ export const BorrowCard = () => {
         flex: 1,
       },
     ],
-    [handleManageBorrow, accountId, walletId, indexedAccountId],
+    [handleManageBorrow, accountId, walletId, indexedAccountId, labels],
   );
 
-  // FIXME[borrow]: i18n
   return (
-    <Card title="Assets to borrow">
-      {/* FIXME[borrow]: i18n */}
+    <Card title={labels.assetsToBorrow}>
       <BorrowTableList<IBorrowAsset>
         data={reserves?.borrow.assets || []}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
-        emptyContent="No assets available to borrow" // FIXME[borrow]: i18n
+        emptyContent={labels.noAssetsToBorrow}
       />
     </Card>
   );

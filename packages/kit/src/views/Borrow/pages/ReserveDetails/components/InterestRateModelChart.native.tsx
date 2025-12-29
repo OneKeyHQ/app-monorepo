@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@tamagui/core';
+import { useIntl } from 'react-intl';
 import { View } from 'react-native';
 import WebView from 'react-native-webview';
 
@@ -13,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { LIGHTWEIGHT_CHARTS_CDN } from '@onekeyhq/kit/src/components/LightweightChart/utils/constants';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { ColorTokens } from '@tamagui/core';
 import type { WebViewMessageEvent } from 'react-native-webview';
@@ -236,6 +238,7 @@ export function InterestRateModelChart({
 }: IInterestRateModelChartProps) {
   const webViewRef = useRef<WebView>(null);
   const [webViewReady, setWebViewReady] = useState(false);
+  const intl = useIntl();
   const theme = useTheme();
 
   // Base timestamp for mapping utilization to time
@@ -308,7 +311,10 @@ export function InterestRateModelChart({
         setWebViewReady(true);
       }
     } catch (error) {
-      console.error('InterestRateModelChart: Error parsing WebView message:', error);
+      console.error(
+        'InterestRateModelChart: Error parsing WebView message:',
+        error,
+      );
     }
   }, []);
 
@@ -330,6 +336,20 @@ export function InterestRateModelChart({
     }
   }, [chartConfig, webViewReady]);
 
+  const utilizationPercentage = utilizationRatio
+    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
+        2,
+      )}%`
+    : '0.00%';
+  const supplyApyLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.defi_supply_apy }),
+    [intl],
+  );
+  const borrowApyLabel = useMemo(() => {
+    const borrow = intl.formatMessage({ id: ETranslations.global_borrow });
+    return `${borrow} APY`;
+  }, [intl]);
+
   if (isLoading) {
     return (
       <Stack height={CHART_HEIGHT}>
@@ -341,10 +361,6 @@ export function InterestRateModelChart({
   if (!borrowCurve.length || !supplyCurve.length) {
     return null;
   }
-
-  const utilizationPercentage = utilizationRatio
-    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(2)}%`
-    : '0.00%';
 
   return (
     <YStack gap="$3">
@@ -362,7 +378,7 @@ export function InterestRateModelChart({
             color={'#DA8A00C9' as ColorTokens}
           />
           <SizableText size="$bodySm" color="$textSubdued">
-            Borrow APY
+            {borrowApyLabel}
           </SizableText>
         </XStack>
         <XStack ai="center" gap="$2">
@@ -372,7 +388,7 @@ export function InterestRateModelChart({
             color={'#008347D6' as ColorTokens}
           />
           <SizableText size="$bodySm" color="$textSubdued">
-            Supply APY
+            {supplyApyLabel}
           </SizableText>
         </XStack>
         <XStack ai="center" gap="$2">
@@ -409,4 +425,3 @@ export function InterestRateModelChart({
     </YStack>
   );
 }
-

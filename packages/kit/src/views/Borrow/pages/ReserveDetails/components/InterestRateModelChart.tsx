@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useTheme } from '@tamagui/core';
 import { createChart } from 'lightweight-charts';
+import { useIntl } from 'react-intl';
 
 import {
   Icon,
@@ -16,6 +17,7 @@ import {
   createAreaSeriesOptions,
   createChartOptions,
 } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartOptions';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { ColorTokens } from '@tamagui/core';
 import type { BusinessDay, IChartApi, UTCTimestamp } from 'lightweight-charts';
@@ -74,6 +76,7 @@ export function InterestRateModelChart({
   utilizationRatio,
   isLoading,
 }: IInterestRateModelChartProps) {
+  const intl = useIntl();
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const theme = useTheme();
@@ -244,6 +247,20 @@ export function InterestRateModelChart({
     theme.iconSubdued?.val,
   ]);
 
+  const utilizationPercentage = utilizationRatio
+    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
+        2,
+      )}%`
+    : '0.00%';
+  const supplyApyLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.defi_supply_apy }),
+    [intl],
+  );
+  const borrowApyLabel = useMemo(() => {
+    const borrow = intl.formatMessage({ id: ETranslations.global_borrow });
+    return `${borrow} APY`;
+  }, [intl]);
+
   if (isLoading) {
     return (
       <Stack height={CHART_HEIGHT}>
@@ -255,12 +272,6 @@ export function InterestRateModelChart({
   if (!borrowCurve.length || !supplyCurve.length) {
     return null;
   }
-
-  const utilizationPercentage = utilizationRatio
-    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
-        2,
-      )}%`
-    : '0.00%';
 
   return (
     <YStack gap="$3">
@@ -278,7 +289,7 @@ export function InterestRateModelChart({
             color={'#DA8A00C9' as ColorTokens}
           />
           <SizableText size="$bodySm" color="$textSubdued">
-            Borrow APY
+            {borrowApyLabel}
           </SizableText>
         </XStack>
         <XStack ai="center" gap="$2">
@@ -288,7 +299,7 @@ export function InterestRateModelChart({
             color={'#008347D6' as ColorTokens}
           />
           <SizableText size="$bodySm" color="$textSubdued">
-            Supply APY
+            {supplyApyLabel}
           </SizableText>
         </XStack>
         <XStack ai="center" gap="$2">

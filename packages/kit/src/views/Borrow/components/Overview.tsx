@@ -1,5 +1,7 @@
 import { isValidElement, useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Divider,
@@ -11,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
 
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
@@ -69,6 +72,7 @@ export const Overview = () => {
   const { earnAccount } = useEarnAccount({
     networkId: market?.networkId,
   });
+  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const amountPlaceholder = useMemo(() => {
@@ -78,6 +82,14 @@ export const Overview = () => {
   const networkId = market?.networkId;
   const marketAddress = market?.marketAddress;
   const earnAccountId = earnAccount?.account.id;
+  const historyLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_history }),
+    [intl],
+  );
+  const borrowHistoryTitle = useMemo(() => {
+    const borrowLabel = intl.formatMessage({ id: ETranslations.global_borrow });
+    return `${borrowLabel} ${historyLabel}`;
+  }, [intl, historyLabel]);
 
   // Fetch health factor separately with 30s polling
   const { healthFactorData } = useBorrowHealthFactor({
@@ -132,9 +144,16 @@ export const Overview = () => {
       networkId,
       provider,
       marketAddress,
-      title: 'Borrow History', // FIXME[borrow]: i18n
+      title: borrowHistoryTitle,
     });
-  }, [navigation, provider, networkId, marketAddress, earnAccountId]);
+  }, [
+    navigation,
+    provider,
+    networkId,
+    marketAddress,
+    earnAccountId,
+    borrowHistoryTitle,
+  ]);
 
   const handleShowRewardsDialog = useCallback(() => {
     if (
@@ -322,7 +341,7 @@ export const Overview = () => {
                 color="$iconSubdued"
               />
               <SizableText size="$bodyMd" color="$textSubdued">
-                History
+                {historyLabel}
               </SizableText>
             </XStack>
           </XStack>

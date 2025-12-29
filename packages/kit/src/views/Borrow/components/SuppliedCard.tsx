@@ -1,7 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -25,8 +28,12 @@ type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
 
 const SuppliedHeader = ({
   data,
+  suppliedBalanceLabel,
+  apyLabel,
 }: {
   data?: IBorrowReserveItem['supplied'];
+  suppliedBalanceLabel: string;
+  apyLabel: string;
 }) => {
   return (
     <XStack mt="$3" mb="$5" px="$5" gap="$5">
@@ -34,7 +41,7 @@ const SuppliedHeader = ({
         <XStack gap="$1" ai="center">
           <EarnText
             text={{
-              text: 'Supplied balance',
+              text: suppliedBalanceLabel,
               size: '$bodyMd',
               color: '$textSubdued',
             }}
@@ -46,7 +53,7 @@ const SuppliedHeader = ({
         <XStack gap="$1" ai="center">
           <EarnText
             text={{
-              text: 'APY',
+              text: apyLabel,
               size: '$bodyMd',
               color: '$textSubdued',
             }}
@@ -61,6 +68,7 @@ const SuppliedHeader = ({
 
 export const SuppliedCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd } = useMedia();
@@ -111,16 +119,34 @@ export const SuppliedCard = () => {
 
   const showLoading = !reserves && reservesLoading;
 
+  const labels = useMemo(() => {
+    const asset = intl.formatMessage({ id: ETranslations.global_asset });
+    const supplied = intl.formatMessage({
+      id: ETranslations.wallet_defi_asset_type_supplied,
+    });
+    const balance = intl.formatMessage({ id: ETranslations.global_balance });
+    return {
+      asset,
+      supplied,
+      suppliedBalance: `${supplied} ${balance}`,
+      supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
+      withdraw: intl.formatMessage({ id: ETranslations.global_withdraw }),
+      apy: 'APY',
+      assetSupplied: `${asset} / ${supplied}`,
+      suppliedWithColon: `${supplied}:`,
+    };
+  }, [intl]);
+
   // Mobile columns - 2 columns only
   const mobileColumns = useMemo(
     () => [
       {
-        label: 'Asset / Supplied',
+        label: labels.assetSupplied,
         key: 'asset',
         render: (item: ISuppliedAsset) => (
           <AssetWithAmountField
             token={item.token}
-            amountLabel="Supplied:"
+            amountLabel={labels.suppliedWithColon}
             amount={item.suppliedAmount.title}
             amountDescription={item.suppliedAmount.description}
           />
@@ -128,27 +154,27 @@ export const SuppliedCard = () => {
         flex: 1.5,
       },
       {
-        label: 'Supply APY',
+        label: labels.supplyApy,
         align: 'flex-end' as const,
         key: 'supplyApy',
         render: BorrowAPYField,
         flex: 1,
       },
     ],
-    [],
+    [labels],
   );
 
   // Desktop columns - all columns
   const desktopColumns = useMemo(
     () => [
       {
-        label: 'Asset',
+        label: labels.asset,
         key: 'asset',
         render: AssetField,
         flex: 1,
       },
       {
-        label: 'Supplied',
+        label: labels.supplied,
         align: 'flex-end' as const,
         key: 'supplied',
         render: (item: ISuppliedAsset) => (
@@ -160,7 +186,7 @@ export const SuppliedCard = () => {
         flex: 1,
       },
       {
-        label: 'Supply APY',
+        label: labels.supplyApy,
         align: 'flex-end' as const,
         key: 'supplyApy',
         render: BorrowAPYField,
@@ -172,7 +198,7 @@ export const SuppliedCard = () => {
         key: 'actions',
         render: (item: ISuppliedAsset) => (
           <ActionField
-            buttonText={<EarnText text={{ text: 'Withdraw' }} />}
+            buttonText={<EarnText text={{ text: labels.withdraw }} />}
             item={item}
             accountId={accountId}
             walletId={walletId}
@@ -184,18 +210,22 @@ export const SuppliedCard = () => {
         flex: 1,
       },
     ],
-    [handleManageWithdraw, accountId, walletId, indexedAccountId],
+    [handleManageWithdraw, accountId, walletId, indexedAccountId, labels],
   );
 
-  // FIXME[borrow]: i18n
   return (
     <Card
       title="My supply"
       renderHeader={
-        !showLoading ? <SuppliedHeader data={reserves?.supplied} /> : null
+        !showLoading ? (
+          <SuppliedHeader
+            data={reserves?.supplied}
+            suppliedBalanceLabel={labels.suppliedBalance}
+            apyLabel={labels.apy}
+          />
+        ) : null
       }
     >
-      {/* FIXME[borrow]: i18n */}
       <BorrowTableList<ISuppliedAsset>
         data={reserves?.supplied.assets || []}
         isLoading={showLoading}

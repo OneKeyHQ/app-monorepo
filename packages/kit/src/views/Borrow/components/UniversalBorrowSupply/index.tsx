@@ -461,7 +461,11 @@ export function UniversalBorrowSupply({
         ) : null}
         <YStack gap="$6">
           {showApyDetail && transactionConfirmation?.apyDetail ? (
-            <BorrowInfoItem title="Supply APY">
+            <BorrowInfoItem
+              title={intl.formatMessage({
+                id: ETranslations.defi_supply_apy,
+              })}
+            >
               <EarnText text={transactionConfirmation.apyDetail.title} />
             </BorrowInfoItem>
           ) : null}

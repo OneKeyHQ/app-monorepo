@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Badge,
   SegmentControl,
@@ -11,6 +13,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ApyChartBase } from '@onekeyhq/kit/src/views/Staking/components/ApyChartBase';
 import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/GridItemV2';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { CapUsageChart } from '../../../components/CapUsageChart';
@@ -37,11 +40,20 @@ export function ChartSection({
   details,
   utilizationRatio,
 }: IChartSectionProps) {
+  const intl = useIntl();
   const [supplyTimePeriod, setSupplyTimePeriod] = useState<ITimePeriod>('week');
   const [borrowTimePeriod, setBorrowTimePeriod] = useState<ITimePeriod>('week');
   const supplyLineColor = '#008347D6';
   const borrowLineColor = '#DA8A00C9';
   const lineWidth = 2;
+  const supplyApyLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.defi_supply_apy }),
+    [intl],
+  );
+  const borrowApyLabel = useMemo(() => {
+    const borrow = intl.formatMessage({ id: ETranslations.global_borrow });
+    return `${borrow} APY`;
+  }, [intl]);
 
   const { result: supplyHistory = [], isLoading: isSupplyLoading } =
     usePromiseResult(
@@ -138,7 +150,7 @@ export function ChartSection({
           <YStack gap="$3">
             <XStack jc="space-between" ai="center">
               <SizableText size="$headingLg">
-                {Number(latestSupplyApy).toFixed(2)}% Supply APY
+                {Number(latestSupplyApy).toFixed(2)}% {supplyApyLabel}
               </SizableText>
               <SegmentControl
                 value={supplyTimePeriod}
@@ -202,7 +214,7 @@ export function ChartSection({
           <YStack gap="$3">
             <XStack jc="space-between" ai="center">
               <SizableText size="$headingLg">
-                {Number(latestBorrowApy).toFixed(2)}% Borrow APY
+                {Number(latestBorrowApy).toFixed(2)}% {borrowApyLabel}
               </SizableText>
               <SegmentControl
                 value={borrowTimePeriod}

@@ -1,7 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -25,8 +28,12 @@ export type IBorrowedAsset = IBorrowReserveItem['borrowed']['assets'][number];
 
 const BorrowedHeader = ({
   data,
+  borrowedBalanceLabel,
+  apyLabel,
 }: {
   data?: IBorrowReserveItem['borrowed'];
+  borrowedBalanceLabel: string;
+  apyLabel: string;
 }) => {
   return (
     <XStack mt="$3" mb="$5" px="$5" gap="$5">
@@ -34,7 +41,7 @@ const BorrowedHeader = ({
         <XStack gap="$1" ai="center">
           <EarnText
             text={{
-              text: 'Borrowed balance',
+              text: borrowedBalanceLabel,
               size: '$bodyMd',
               color: '$textSubdued',
             }}
@@ -46,7 +53,7 @@ const BorrowedHeader = ({
         <XStack gap="$1" ai="center">
           <EarnText
             text={{
-              text: 'APY',
+              text: apyLabel,
               size: '$bodyMd',
               color: '$textSubdued',
             }}
@@ -61,6 +68,7 @@ const BorrowedHeader = ({
 
 export const BorrowedCard = () => {
   const { reserves, market, reservesLoading } = useBorrowContext();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd } = useMedia();
@@ -111,16 +119,34 @@ export const BorrowedCard = () => {
 
   const showLoading = !reserves && reservesLoading;
 
+  const labels = useMemo(() => {
+    const asset = intl.formatMessage({ id: ETranslations.global_asset });
+    const borrowed = intl.formatMessage({
+      id: ETranslations.wallet_defi_asset_type_borrowed,
+    });
+    const balance = intl.formatMessage({ id: ETranslations.global_balance });
+    const borrow = intl.formatMessage({ id: ETranslations.global_borrow });
+    return {
+      asset,
+      borrowed,
+      borrowedBalance: `${borrowed} ${balance}`,
+      borrowApy: `${borrow} APY`,
+      apy: 'APY',
+      assetBorrowed: `${asset} / ${borrowed}`,
+      borrowedWithColon: `${borrowed}:`,
+    };
+  }, [intl]);
+
   // Mobile columns - 2 columns only
   const mobileColumns = useMemo(
     () => [
       {
-        label: 'Asset / Borrowed',
+        label: labels.assetBorrowed,
         key: 'asset',
         render: (item: IBorrowedAsset) => (
           <AssetWithAmountField
             token={item.token}
-            amountLabel="Borrowed:"
+            amountLabel={labels.borrowedWithColon}
             amount={item.borrowedAmount.title}
             amountDescription={item.borrowedAmount.description}
           />
@@ -128,27 +154,27 @@ export const BorrowedCard = () => {
         flex: 1.5,
       },
       {
-        label: 'Borrow APY',
+        label: labels.borrowApy,
         align: 'flex-end' as const,
         key: 'borrowApy',
         render: BorrowAPYField,
         flex: 1,
       },
     ],
-    [],
+    [labels],
   );
 
   // Desktop columns - all columns
   const desktopColumns = useMemo(
     () => [
       {
-        label: 'Asset', // FIXME[borrow]: i18n
+        label: labels.asset,
         key: 'asset',
         render: AssetField,
         flex: 1,
       },
       {
-        label: 'Borrowed',
+        label: labels.borrowed,
         align: 'flex-end' as const,
         key: 'borrowed',
         render: (item: IBorrowedAsset) => (
@@ -160,7 +186,7 @@ export const BorrowedCard = () => {
         flex: 1,
       },
       {
-        label: 'Borrow APY',
+        label: labels.borrowApy,
         align: 'flex-end' as const,
         key: 'borrowAPY',
         render: BorrowAPYField,
@@ -184,18 +210,22 @@ export const BorrowedCard = () => {
         flex: 1,
       },
     ],
-    [handleManageRepay, accountId, walletId, indexedAccountId],
+    [handleManageRepay, accountId, walletId, indexedAccountId, labels],
   );
 
-  // FIXME[borrow]: i18n
   return (
     <Card
       title="My borrow"
       renderHeader={
-        !showLoading ? <BorrowedHeader data={reserves?.borrowed} /> : null
+        !showLoading ? (
+          <BorrowedHeader
+            data={reserves?.borrowed}
+            borrowedBalanceLabel={labels.borrowedBalance}
+            apyLabel={labels.apy}
+          />
+        ) : null
       }
     >
-      {/* FIXME[borrow]: i18n */}
       <BorrowTableList<IBorrowedAsset>
         data={reserves?.borrowed.assets || []}
         isLoading={showLoading}

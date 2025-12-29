@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 interface IUseBorrowReserveDetailBreadcrumbParams {
@@ -13,11 +16,12 @@ export function useBorrowReserveDetailBreadcrumb({
   provider: _provider,
 }: IUseBorrowReserveDetailBreadcrumbParams) {
   const appNavigation = useAppNavigation();
+  const intl = useIntl();
 
   const breadcrumbProps = useMemo(() => {
     const items: Array<{ label: string; onClick?: () => void }> = [
       {
-        label: 'Borrow', // intl.formatMessage({ id: ETranslations.global_borrow }),
+        label: intl.formatMessage({ id: ETranslations.global_borrow }),
         onClick: () => {
           appNavigation.navigate(ETabRoutes.Earn, {
             screen: ETabEarnRoutes.EarnHome,
@@ -32,7 +36,7 @@ export function useBorrowReserveDetailBreadcrumb({
     items.push({ label: symbol });
 
     return { items };
-  }, [symbol, appNavigation]);
+  }, [symbol, appNavigation, intl]);
 
   return {
     breadcrumbProps,

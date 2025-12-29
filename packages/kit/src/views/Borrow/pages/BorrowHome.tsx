@@ -1,5 +1,7 @@
 import { memo, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   ScrollView,
   SegmentControl,
@@ -7,6 +9,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BorrowProvider } from '../BorrowProvider';
 import { BorrowCard } from '../components/BorrowCard';
@@ -21,14 +24,21 @@ type IBorrowTab = 'supply' | 'borrow';
 
 const BorrowHomeCmp = memo(() => {
   const { gtMd } = useMedia();
+  const intl = useIntl();
   const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
 
   const tabOptions = useMemo(
     () => [
-      { label: 'Supply', value: 'supply' as IBorrowTab },
-      { label: 'Borrow', value: 'borrow' as IBorrowTab },
+      {
+        label: intl.formatMessage({ id: ETranslations.defi_supply }),
+        value: 'supply' as IBorrowTab,
+      },
+      {
+        label: intl.formatMessage({ id: ETranslations.global_borrow }),
+        value: 'borrow' as IBorrowTab,
+      },
     ],
-    [],
+    [intl],
   );
 
   return (
