@@ -44,7 +44,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
-import { onHomePageRefresh, PullToRefresh } from '../components/PullToRefresh';
+import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -68,7 +68,6 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
       const handleLayout = (event: LayoutChangeEvent) => {
         setHeight(event.nativeEvent.layout.height);
       };
-
       return (
         <YStack flex={1} onLayout={handleLayout}>
           {height > 0 ? (
@@ -259,15 +258,17 @@ export function HomePageView({
         }),
         component: <TxHistoryListContainerWithProvider />,
       },
-      {
-        id: EHomeWalletTab.Approvals,
-        name: intl.formatMessage({
-          id: ETranslations.global_approval,
-        }),
-        component: <ApprovalListContainerWithProvider />,
-      },
+      isBulkRevokeApprovalEnabled
+        ? {
+            id: EHomeWalletTab.Approvals,
+            name: intl.formatMessage({
+              id: ETranslations.global_approval,
+            }),
+            component: <ApprovalListContainerWithProvider />,
+          }
+        : undefined,
     ].filter(Boolean);
-  }, [intl, isNFTEnabled]);
+  }, [intl, isNFTEnabled, isBulkRevokeApprovalEnabled]);
 
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
