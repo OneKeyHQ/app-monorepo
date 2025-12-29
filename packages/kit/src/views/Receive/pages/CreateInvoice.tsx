@@ -3,19 +3,24 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  Button,
   Form,
   Input,
   NumberSizeableText,
   Page,
   TextArea,
+  XStack,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IModalReceiveParamList,
@@ -35,6 +40,9 @@ type IFormValues = {
   amount: string;
   description: string;
 };
+
+const CREATE_INVOICE_INPUT_ACCESSORY_VIEW_ID =
+  'create-invoice-input-accessory-view';
 
 function CreateInvoice() {
   const intl = useIntl();
@@ -85,11 +93,6 @@ function CreateInvoice() {
   }, [invoiceConfig, lnUnit]);
 
   const { result } = usePromiseResult(async () => {
-    const accountAddress =
-      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       accountId,
       networkId,
@@ -139,7 +142,13 @@ function CreateInvoice() {
   );
 
   return (
-    <Page>
+    <Page
+      scrollEnabled
+      scrollProps={{
+        keyboardDismissMode: 'on-drag',
+        keyboardShouldPersistTaps: 'handled',
+      }}
+    >
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.lightning_invoice })}
       />
@@ -240,6 +249,11 @@ function CreateInvoice() {
                   label: lnUnit === ELightningUnit.BTC ? 'BTC' : 'sats',
                 },
               ]}
+              inputAccessoryViewID={
+                platformEnv.isNativeIOS
+                  ? CREATE_INVOICE_INPUT_ACCESSORY_VIEW_ID
+                  : undefined
+              }
             />
           </Form.Field>
           <Form.Field
@@ -265,6 +279,11 @@ function CreateInvoice() {
               placeholder={intl.formatMessage({
                 id: ETranslations.form_lightning_invoice_placeholder,
               })}
+              inputAccessoryViewID={
+                platformEnv.isNativeIOS
+                  ? CREATE_INVOICE_INPUT_ACCESSORY_VIEW_ID
+                  : undefined
+              }
             />
           </Form.Field>
         </Form>
@@ -273,11 +292,33 @@ function CreateInvoice() {
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_create_invoice,
         })}
-        onConfirm={() => form.handleSubmit(onSubmit)()}
+        onConfirm={() => {
+          void dismissKeyboardWithDelay(100);
+          void form.handleSubmit(onSubmit)();
+        }}
         confirmButtonProps={{
           loading: isLoading,
         }}
       />
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={CREATE_INVOICE_INPUT_ACCESSORY_VIEW_ID}>
+          <XStack
+            p="$2.5"
+            px="$3.5"
+            justifyContent="flex-end"
+            bg="$bgSubdued"
+            borderTopWidth="$px"
+            borderTopColor="$borderSubdued"
+          >
+            <Button
+              variant="tertiary"
+              onPress={() => void dismissKeyboardWithDelay(100)}
+            >
+              {intl.formatMessage({ id: ETranslations.global_done })}
+            </Button>
+          </XStack>
+        </InputAccessoryView>
+      ) : null}
     </Page>
   );
 }
