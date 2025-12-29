@@ -132,8 +132,12 @@ function AccountValue(accountValue: {
         string,
         string,
       ];
-      const deriveType: IAccountDeriveTypes =
-        (_deriveType as IAccountDeriveTypes) || 'default';
+
+      const deriveType: IAccountDeriveTypes = accountUtils.isValidDeriveType(
+        _deriveType,
+      )
+        ? (_deriveType as IAccountDeriveTypes)
+        : 'default';
       if (
         enabledNetworksCompatibleWithWalletId.some((n) => n.id === networkId) &&
         networkInfoMap[networkId] &&
