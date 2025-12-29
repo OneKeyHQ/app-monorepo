@@ -323,7 +323,7 @@ const SwapProActionButton = ({
       availableForAmount,
     );
     const resValue = `${directionText} ${formattedAmount} ${tokenSymbol}`;
-    const subValue = formattedValue ? `(${formattedValue})` : '';
+    const subValue = formattedValue;
     // Build final text
     return {
       resValue,
@@ -357,7 +357,7 @@ const SwapProActionButton = ({
           : '$bgCriticalStrong'
       }
     >
-      <YStack alignItems="center" gap="$1">
+      <YStack alignItems="center">
         <SizableText
           size="$bodyMdMedium"
           color="$textOnColor"
