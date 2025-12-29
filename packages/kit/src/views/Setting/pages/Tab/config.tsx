@@ -11,7 +11,10 @@ import type {
 } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import {
+  useKeylessWalletExistsLocal,
+  useKeylessWalletFeatureIsEnabled,
+} from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
@@ -162,6 +165,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     useCloudBackup();
 
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
   return useMemo(
     () => [
@@ -512,7 +516,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     }
                   },
                 },
-            platformEnv.isWebDappMode
+            platformEnv.isWebDappMode || !isKeylessWalletExistsLocal
               ? undefined
               : {
                   icon: 'InputOutline',
@@ -855,6 +859,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
       isKeylessWalletEnabled,
+      isKeylessWalletExistsLocal,
       startBackup,
       onPressAddressBook,
       helpCenterUrl,

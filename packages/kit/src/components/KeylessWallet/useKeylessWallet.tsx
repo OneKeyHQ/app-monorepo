@@ -38,6 +38,7 @@ import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransf
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
@@ -47,6 +48,17 @@ export function useKeylessWalletFeatureIsEnabled(): boolean {
     devSettings.enabled &&
     devSettings.settings?.isKeylessWalletFeatureEnabled === true
   );
+}
+
+export function useKeylessWalletExistsLocal(): boolean {
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const { result } = usePromiseResult(async () => {
+    if (!isKeylessWalletEnabled) {
+      return false;
+    }
+    return backgroundApiProxy.serviceAccount.isKeylessWalletExistsLocal();
+  }, [isKeylessWalletEnabled]);
+  return result ?? false;
 }
 
 export function useKeylessWalletMethods() {
@@ -526,7 +538,7 @@ export function useKeylessWallet() {
         setEnableKeylessWalletLoading(true);
 
         const exists =
-          await backgroundApiProxy.serviceAccount.isKeylessWalletExists();
+          await backgroundApiProxy.serviceAccount.isKeylessWalletExistsLocal();
         if (exists) {
           Dialog.show({
             title: 'Keyless Wallet',

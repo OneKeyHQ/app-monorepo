@@ -348,10 +348,8 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async isKeylessWalletExists(): Promise<boolean> {
-    if (process.env.NODE_ENV !== 'production') {
-      await timerUtils.wait(1500);
-    }
+  async isKeylessWalletExistsLocal(): Promise<boolean> {
+    await timerUtils.wait(1500, { devOnly: true });
     const { wallets } = await this.getAllWallets();
     return wallets.some((wallet) => wallet.isKeyless);
   }
