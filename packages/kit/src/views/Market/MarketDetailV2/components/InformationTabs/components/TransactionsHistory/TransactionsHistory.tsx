@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
+import { runOnJS, SharedValue, useAnimatedReaction } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
@@ -39,9 +39,8 @@ const useScrollEnd = platformEnv.isNative
       const scrollY = useCurrentTabScrollY();
 
       const debouncedOnScrollEnd = useDebouncedCallback(onScrollEnd, 150);
-
-      useAnimatedReaction<number>(
-        () => scrollY.value,
+      useAnimatedReaction(
+        () => (scrollY as SharedValue<number>).value,
         (current, prev) => {
           if (current !== prev) {
             runOnJS(debouncedOnScrollEnd)();
