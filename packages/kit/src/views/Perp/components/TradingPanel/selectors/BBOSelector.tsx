@@ -31,11 +31,15 @@ export const BBOSelector = memo<IBBOSelectorProps>(
     const bboOptions = useMemo(
       (): ISelectItem[] => [
         {
-          label: 'Counterparty',
+          label: intl.formatMessage({
+            id: ETranslations.Perps_BBO_Counterparty,
+          }),
           value: `counterparty-${BBO_LEVEL}`,
         },
         {
-          label: 'Queue',
+          label: intl.formatMessage({
+            id: ETranslations.Perps_BBO_Queue,
+          }),
           value: `queue-${BBO_LEVEL}`,
         },
       ],
@@ -100,7 +104,9 @@ export const BBOSelector = memo<IBBOSelectorProps>(
             value={currentValue}
             onChange={handleChange}
             disabled={disabled}
-            title="Select BBO Mode"
+            title={intl.formatMessage({
+              id: ETranslations.Perps_BBO_select_title,
+            })}
             renderTrigger={({ onPress, label, disabled: disabledTrigger }) => (
               <XStack
                 cursor="pointer"
@@ -108,9 +114,9 @@ export const BBOSelector = memo<IBBOSelectorProps>(
                 disabled={disabledTrigger}
                 h={38}
                 alignItems="center"
-                justifyContent="flex-end"
+                justifyContent="space-between"
               >
-                <SizableText size="$bodyMdMedium" color="$text">
+                <SizableText size="$bodyMd" color="$text">
                   {label}
                 </SizableText>
                 <Icon

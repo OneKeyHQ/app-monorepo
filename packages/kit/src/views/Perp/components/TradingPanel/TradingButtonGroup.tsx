@@ -175,7 +175,10 @@ function SideButtonInternal({
   ]);
 
   const buttonText = useMemo(() => {
-    if (priceError === 'bbo_unavailable') return 'bbo_unavailable'; // TODO: Localize this
+    if (priceError === 'bbo_unavailable')
+      return intl.formatMessage({
+        id: ETranslations.Perps_BBO_unavailable,
+      });
     if (isMinimumOrderNotMetForSide)
       return intl.formatMessage(
         {
