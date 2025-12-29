@@ -122,25 +122,13 @@ function OneKeyIDLoginPage() {
   const intl = useIntl();
 
   const { logout, signInWithSocialLogin } = useOneKeyAuth();
-  const {
-    checkKeylessWalletInitedOnServer,
-    checkKeylessWalletInitedOnServerForResetPin,
-  } = useKeylessWallet();
+  const { checkKeylessWalletInitedOnServer } = useKeylessWallet();
 
   const goToInputPinPage = useCallback(
     async ({ token }: { token: string }) => {
-      // For Reset PIN mode, navigate directly to CreatePin with ResetPin action
-      if (mode === EOnboardingV2OneKeyIDLoginMode.ResetPin) {
-        await checkKeylessWalletInitedOnServerForResetPin({ token });
-      } else {
-        await checkKeylessWalletInitedOnServer({ token });
-      }
+      await checkKeylessWalletInitedOnServer({ token, mode });
     },
-    [
-      checkKeylessWalletInitedOnServer,
-      checkKeylessWalletInitedOnServerForResetPin,
-      mode,
-    ],
+    [checkKeylessWalletInitedOnServer, mode],
   );
 
   const handleSocialLogin = useCallback(

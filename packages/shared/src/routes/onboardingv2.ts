@@ -21,9 +21,9 @@ export enum EOnboardingV2KeylessWalletCreationMode {
 }
 
 export enum EOnboardingV2OneKeyIDLoginMode {
-  CreateOrImportKeylessWallet = 'CreateOrImportKeylessWallet',
-  VerifyKeylessWallet = 'VerifyKeylessWallet',
-  ResetPin = 'ResetPin',
+  KeylessCreateOrRestore = 'KeylessCreateOrRestore',
+  KeylessResetPin = 'KeylessResetPin',
+  KeylessVerifyPinOnly = 'KeylessVerifyPinOnly',
 }
 
 export enum EOnboardingPagesV2 {
@@ -140,11 +140,7 @@ export type IOnboardingParamListV2 = {
     action: EKeylessFinalizeAction;
   };
   [EOnboardingPagesV2.VerifyPin]: {
-    /**
-     * 'socialLogin' - User verifies PIN after social login (with retry mechanism)
-     * 'periodic' - App periodically asks user to verify PIN (no retry mechanism)
-     */
-    verifyType?: 'socialLogin' | 'periodic';
+    mode?: EOnboardingV2OneKeyIDLoginMode;
   };
   [EOnboardingPagesV2.ResetPin]: undefined;
   [EOnboardingPagesV2.NewPinCreated]: undefined;

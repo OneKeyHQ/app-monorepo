@@ -568,7 +568,7 @@ export function useKeylessWallet() {
           });
         } else {
           goToOneKeyIDLoginPageForKeylessWallet({
-            mode: EOnboardingV2OneKeyIDLoginMode.CreateOrImportKeylessWallet,
+            mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
           });
         }
       } finally {
@@ -578,11 +578,36 @@ export function useKeylessWallet() {
   }, [goToOneKeyIDLoginPageForKeylessWallet, intl]);
 
   const checkKeylessWalletInitedOnServer = useCallback(
-    async ({ token }: { token: string }) => {
+    async ({
+      token,
+      mode,
+    }: {
+      token: string;
+      mode?: EOnboardingV2OneKeyIDLoginMode;
+    }) => {
       if (!token) {
         handleKeylessOnboardingTimeout();
         return;
       }
+      await cacheKeylessOnboardingToken({ token });
+
+      // ResetPin: skip check, go to CreatePin
+      if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin) {
+        navigation.push(EOnboardingPagesV2.CreatePin, {
+          action: EKeylessFinalizeAction.ResetPin,
+        });
+        return;
+      }
+
+      // VerifyPinOnly: skip check, go to VerifyPin
+      if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
+        navigation.push(EOnboardingPagesV2.VerifyPin, {
+          mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
+        });
+        return;
+      }
+
+      // Default: check wallet existence and navigate accordingly
       const backendShareInfo =
         await backgroundApiProxy.serviceKeylessWallet.apiGetKeylessBackendShare(
           {
@@ -590,27 +615,11 @@ export function useKeylessWallet() {
           },
         );
       const isInited = !!backendShareInfo;
-      await cacheKeylessOnboardingToken({ token });
       if (isInited) {
         navigation.push(EOnboardingPagesV2.VerifyPin);
       } else {
         navigation.push(EOnboardingPagesV2.CreatePin);
       }
-    },
-    [handleKeylessOnboardingTimeout, navigation],
-  );
-
-  // For Reset PIN flow: navigate directly to CreatePin with action=ResetPin
-  const checkKeylessWalletInitedOnServerForResetPin = useCallback(
-    async ({ token }: { token: string }) => {
-      if (!token) {
-        handleKeylessOnboardingTimeout();
-        return;
-      }
-      await cacheKeylessOnboardingToken({ token });
-      navigation.push(EOnboardingPagesV2.CreatePin, {
-        action: EKeylessFinalizeAction.ResetPin,
-      });
     },
     [handleKeylessOnboardingTimeout, navigation],
   );
@@ -700,7 +709,13 @@ export function useKeylessWallet() {
   );
 
   const verifyKeylessOnboardingPin = useCallback(
-    async ({ pin }: { pin: string }) => {
+    async ({
+      pin,
+      mode,
+    }: {
+      pin: string;
+      mode?: EOnboardingV2OneKeyIDLoginMode;
+    }) => {
       const token = await getKeylessOnboardingToken({ skipDelete: true });
       if (!token) {
         handleKeylessOnboardingTimeout();
@@ -712,13 +727,35 @@ export function useKeylessWallet() {
           pin,
         },
       );
+
+      // VerifyPinOnly: just verify, show success dialog and close modal
+      if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
+        Dialog.show({
+          title: 'PIN Verified',
+          showCancelButton: false,
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          onConfirm: () => {
+            navigation.popStack();
+          },
+        });
+        return;
+      }
+
+      // Default: continue with restore flow
       await cacheKeylessOnboardingToken({ token });
       await confirmKeylessOnboardingPin({
         pin,
         action: EKeylessFinalizeAction.Restore,
       });
     },
-    [confirmKeylessOnboardingPin, handleKeylessOnboardingTimeout],
+    [
+      confirmKeylessOnboardingPin,
+      handleKeylessOnboardingTimeout,
+      intl,
+      navigation,
+    ],
   );
 
   return {
@@ -728,8 +765,7 @@ export function useKeylessWallet() {
     enableKeylessWalletLoading,
     goToOneKeyIDLoginPageForKeylessWallet,
     checkKeylessWalletLocalExistence, // step1
-    checkKeylessWalletInitedOnServer, // step2
-    checkKeylessWalletInitedOnServerForResetPin, // step2 for Reset PIN flow
+    checkKeylessWalletInitedOnServer, // step2 (handles all modes: default, ResetPin, VerifyPinOnly)
     confirmKeylessOnboardingPin, // step3
     verifyKeylessOnboardingPin,
     finalizeKeylessWalletV2, // step4

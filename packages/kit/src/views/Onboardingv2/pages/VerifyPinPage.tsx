@@ -6,7 +6,10 @@ import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2OneKeyIDLoginMode,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
@@ -37,12 +40,15 @@ function VerifyPinPage() {
   const navigation = useAppNavigation();
   const route =
     useRoute<RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.VerifyPin>>();
-  const { verifyType = 'socialLogin' } = route.params ?? {};
+  const { mode } = route.params ?? {};
   const { verifyKeylessOnboardingPin } = useKeylessWallet();
   const [isLoading, setIsLoading] = useState(false);
   const pinInputRef = useRef<IPinInputLayoutRef | null>(null);
 
-  const isSocialLogin = verifyType === 'socialLogin';
+  const isVerifyPinOnly =
+    mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
+  // Social login mode: when mode is not VerifyPinOnly (or no mode specified)
+  const isSocialLogin = !isVerifyPinOnly;
 
   const [pin, setPin] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -134,7 +140,7 @@ function VerifyPinPage() {
   const handleVerify = useCallback(async () => {
     try {
       setIsLoading(true);
-      await verifyKeylessOnboardingPin({ pin });
+      await verifyKeylessOnboardingPin({ pin, mode });
     } finally {
       setIsLoading(false);
       setPin('');
@@ -149,7 +155,7 @@ function VerifyPinPage() {
         platformEnv.isNative ? 100 : 50,
       );
     }
-  }, [pin, pinInputRef, verifyKeylessOnboardingPin]);
+  }, [pin, mode, pinInputRef, verifyKeylessOnboardingPin]);
 
   const _handleVerifyLegacy = useCallback(() => {
     // TODO: Verify against actual stored PIN on server
