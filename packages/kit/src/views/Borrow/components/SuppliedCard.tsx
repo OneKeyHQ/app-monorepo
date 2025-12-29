@@ -231,7 +231,9 @@ export const SuppliedCard = () => {
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
-        emptyContent="Nothing supplied yet"
+        emptyContent={intl.formatMessage({
+          id: ETranslations.defi_nothing_supplied_yet,
+        })}
       />
     </Card>
   );
