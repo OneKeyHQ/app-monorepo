@@ -1,4 +1,5 @@
 import { Tabs, XStack, YStack, useMedia } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
@@ -67,7 +68,12 @@ function PortfolioContainerWithProvider() {
         <ProviderJotaiContextHistoryList>
           <ProviderJotaiContextEarn>
             <Tabs.ScrollView
-              refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
+              nestedScrollEnabled={platformEnv.isNativeAndroid}
+              refreshControl={
+                !platformEnv.isNativeAndroid ? (
+                  <PullToRefresh onRefresh={onHomePageRefresh} />
+                ) : undefined
+              }
             >
               <PortfolioContainer />
             </Tabs.ScrollView>
