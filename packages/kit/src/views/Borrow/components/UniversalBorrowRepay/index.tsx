@@ -115,6 +115,26 @@ export function UniversalBorrowRepay({
     [networkId],
   ).result;
 
+  const maxAmountValue = useMemo(() => {
+    const balanceBN = new BigNumber(balance);
+    if (balanceBN.isNaN()) {
+      return '0';
+    }
+    if (typeof decimals === 'number') {
+      return balanceBN.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed();
+    }
+    return balance;
+  }, [balance, decimals]);
+
+  const isRepayAll = useMemo(() => {
+    const amountBN = new BigNumber(amountValue);
+    const maxAmountBN = new BigNumber(maxAmountValue);
+    if (amountBN.isNaN() || maxAmountBN.isNaN()) {
+      return false;
+    }
+    return amountBN.gt(0) && amountBN.eq(maxAmountBN);
+  }, [amountValue, maxAmountValue]);
+
   const {
     transactionConfirmation,
     checkAmountMessage,
@@ -200,26 +220,6 @@ export function UniversalBorrowRepay({
     collateralAmountValue,
     setCollateralAmountValue,
   );
-
-  const maxAmountValue = useMemo(() => {
-    const balanceBN = new BigNumber(balance);
-    if (balanceBN.isNaN()) {
-      return '0';
-    }
-    if (typeof decimals === 'number') {
-      return balanceBN.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed();
-    }
-    return balance;
-  }, [balance, decimals]);
-
-  const isRepayAll = useMemo(() => {
-    const amountBN = new BigNumber(amountValue);
-    const maxAmountBN = new BigNumber(maxAmountValue);
-    if (amountBN.isNaN() || maxAmountBN.isNaN()) {
-      return false;
-    }
-    return amountBN.gt(0) && amountBN.eq(maxAmountBN);
-  }, [amountValue, maxAmountValue]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(maxAmountValue);
