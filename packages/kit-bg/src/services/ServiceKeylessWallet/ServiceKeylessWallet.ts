@@ -52,6 +52,7 @@ import ServiceBase from '../ServiceBase';
 
 import keylessAuthPackCache from './utils/keylessAuthPackCache';
 import keylessDeviceKeyStorage from './utils/keylessDeviceKeyStorage';
+import keylessMnemonicPasswordStorage from './utils/keylessMnemonicPasswordStorage';
 
 import type { IDBIndexedAccount, IDBWallet } from '../../dbs/local/types';
 import type { IKeylessDialogAtomData } from '../../states/jotai/atoms';
@@ -148,6 +149,27 @@ class ServiceKeylessWallet extends ServiceBase {
     const { shareBase64, mnemonic, missingX } = params;
     return shamirUtils.recoverMissingShare({
       entropyHex: mnemonicToEntropy(mnemonic),
+      shareBase64,
+      missingX,
+    });
+  }
+
+  /**
+   * Recover missing share using mnemonicPassword (base64) as the secret.
+   * This is used for Reset PIN flow where we have:
+   * - mnemonicPassword (stored locally)
+   * - backendShare (from server)
+   * And we need to recover juiceboxShare to upload with new PIN.
+   */
+  @backgroundMethod()
+  async recoverMissingShareFromSecret(params: {
+    secretBase64: string; // mnemonicPassword
+    shareBase64: string; // backendShare
+    missingX: number; // x-coordinate of juiceboxShare
+  }): Promise<string> {
+    const { secretBase64, shareBase64, missingX } = params;
+    return shamirUtils.recoverMissingShareFromSecret({
+      secretBase64,
       shareBase64,
       missingX,
     });
@@ -1305,11 +1327,90 @@ class ServiceKeylessWallet extends ServiceBase {
       iterations: 600_000,
     });
 
+    // Save mnemonicPassword to secure storage for Reset PIN flow
+    await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
+      ownerId,
+      mnemonicPassword,
+      backgroundApi: this.backgroundApi,
+    });
+
     return {
       mnemonic: await this.backgroundApi.servicePassword.encodeSensitiveText({
         text: mnemonic,
       }),
     };
+  }
+
+  /**
+   * Reset PIN for keyless wallet.
+   * This method:
+   * 1. Gets ownerId from social login token
+   * 2. Gets backendShare from server
+   * 3. Gets mnemonicPassword from secure storage
+   * 4. Recovers juiceboxShare using mnemonicPassword + backendShare
+   * 5. Uploads juiceboxShare with new PIN
+   */
+  @backgroundMethod()
+  @toastIfError()
+  async resetKeylessWalletPin(params: {
+    token: string | undefined;
+    newPin: string | undefined;
+  }) {
+    const { token, newPin } = params;
+    if (!token) {
+      throw new OneKeyLocalError('social login token is required');
+    }
+    if (!newPin) {
+      throw new OneKeyLocalError('new PIN is required');
+    }
+
+    // 1. Get ownerId from token
+    const ownerId = this.buildKeylessOwnerIdFromSocialToken({ token });
+
+    // 2. Get backendShare from server
+    const backendShareData = await this.apiGetKeylessBackendShare({ token });
+    if (!backendShareData) {
+      throw new OneKeyLocalError('Backend share not found');
+    }
+
+    // 3. Get mnemonicPassword from secure storage
+    const mnemonicPassword =
+      await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorage({
+        ownerId,
+        backgroundApi: this.backgroundApi,
+      });
+    if (!mnemonicPassword) {
+      throw new OneKeyLocalError(
+        'Mnemonic password not found in storage. Please restore the wallet first.',
+      );
+    }
+
+    // 4. Extract x-coordinates from backendShare
+    // In 2-of-2 split, shares have x-coordinates 1 and 2
+    // backendShare is share1 (x=1), juiceboxShare is share2 (x=2)
+    const backendShareBytes = bufferUtils.base64ToBytes(
+      backendShareData.backendShare,
+    );
+    const backendX = backendShareBytes[backendShareBytes.length - 1];
+    // juiceboxX is the other share's x-coordinate
+    // For 2-of-2 split with x-coordinates [1, 2], if backendX is 1, juiceboxX is 2
+    const juiceboxX = backendX === 1 ? 2 : 1;
+
+    // 5. Recover juiceboxShare using recoverMissingShareFromSecret
+    const juiceboxShare = await this.recoverMissingShareFromSecret({
+      secretBase64: mnemonicPassword,
+      shareBase64: backendShareData.backendShare,
+      missingX: juiceboxX,
+    });
+
+    // 6. Upload juiceboxShare with new PIN
+    await this.apiUploadKeylessJuiceboxShare({
+      token,
+      juiceboxShare,
+      pin: newPin,
+    });
+
+    return { success: true };
   }
 
   @backgroundMethod()
@@ -1359,6 +1460,13 @@ class ServiceKeylessWallet extends ServiceBase {
     const juiceboxShare: string = bufferUtils.bytesToBase64(
       mnemonicPasswordShare2,
     );
+
+    // Save mnemonicPassword to secure storage for Reset PIN flow
+    await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
+      ownerId,
+      mnemonicPassword,
+      backgroundApi: this.backgroundApi,
+    });
 
     const backendShareData: IKeylessBackendShare =
       await this.apiUploadKeylessBackendShare({

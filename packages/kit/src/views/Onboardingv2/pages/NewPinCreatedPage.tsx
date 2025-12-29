@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,14 +11,20 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 function NewPinCreatedPage() {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  // close this page 5s later automatically
+
+  const handleClose = useCallback(() => {
+    // Exit the entire onboarding flow
+    navigation.popStack();
+  }, [navigation]);
+
+  // Close this page 5s later automatically
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigation.pop();
+      handleClose();
     }, 5000);
 
     return () => clearTimeout(timer);
-  }, [navigation]);
+  }, [handleClose]);
 
   return (
     <Page>
@@ -45,7 +51,7 @@ function NewPinCreatedPage() {
                 })}
               </SizableText>
             </YStack>
-            <Button size="large" onPress={() => navigation.pop()}>
+            <Button size="large" onPress={handleClose}>
               {intl.formatMessage({ id: ETranslations.global_close })}
             </Button>
           </OnboardingLayout.ConstrainedContent>

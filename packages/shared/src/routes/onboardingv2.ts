@@ -23,6 +23,7 @@ export enum EOnboardingV2KeylessWalletCreationMode {
 export enum EOnboardingV2OneKeyIDLoginMode {
   CreateOrImportKeylessWallet = 'CreateOrImportKeylessWallet',
   VerifyKeylessWallet = 'VerifyKeylessWallet',
+  ResetPin = 'ResetPin',
 }
 
 export enum EOnboardingPagesV2 {
@@ -130,9 +131,11 @@ export type IOnboardingParamListV2 = {
     mode: EOnboardingV2OneKeyIDLoginMode;
   };
   [EOnboardingPagesV2.CreatePin]: {
-    isResetPin?: boolean;
+    action?: EKeylessFinalizeAction;
   };
-  [EOnboardingPagesV2.ConfirmPin]: undefined;
+  [EOnboardingPagesV2.ConfirmPin]: {
+    action?: EKeylessFinalizeAction;
+  };
   [EOnboardingPagesV2.CreatePasscode]: {
     action: EKeylessFinalizeAction;
   };

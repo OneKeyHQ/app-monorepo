@@ -17,10 +17,9 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   EOnboardingPagesV2,
-  EOnboardingV2OneKeyIDLoginMode,
   IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
-import { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
+import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
@@ -30,6 +29,8 @@ import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+
+import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
 
 function OptionItem({
   icon,
@@ -121,13 +122,25 @@ function OneKeyIDLoginPage() {
   const intl = useIntl();
 
   const { logout, signInWithSocialLogin } = useOneKeyAuth();
-  const { checkKeylessWalletInitedOnServer } = useKeylessWallet();
+  const {
+    checkKeylessWalletInitedOnServer,
+    checkKeylessWalletInitedOnServerForResetPin,
+  } = useKeylessWallet();
 
   const goToInputPinPage = useCallback(
     async ({ token }: { token: string }) => {
-      await checkKeylessWalletInitedOnServer({ token });
+      // For Reset PIN mode, navigate directly to CreatePin with ResetPin action
+      if (mode === EOnboardingV2OneKeyIDLoginMode.ResetPin) {
+        await checkKeylessWalletInitedOnServerForResetPin({ token });
+      } else {
+        await checkKeylessWalletInitedOnServer({ token });
+      }
     },
-    [checkKeylessWalletInitedOnServer],
+    [
+      checkKeylessWalletInitedOnServer,
+      checkKeylessWalletInitedOnServerForResetPin,
+      mode,
+    ],
   );
 
   const handleSocialLogin = useCallback(
@@ -191,6 +204,7 @@ function OneKeyIDLoginPage() {
                 onPress={handleAppleLogin}
               />
             </YStack>
+            <KeylessOnboardingDebugPanel />
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>

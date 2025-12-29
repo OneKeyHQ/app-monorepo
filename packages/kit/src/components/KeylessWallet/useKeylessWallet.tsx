@@ -527,6 +527,22 @@ export function useKeylessWallet() {
     throw new OneKeyLocalError('Keyless Wallet onboarding timed out');
   }, [intl]);
 
+  // goToOneKeyIDLoginPageForKeylessWallet
+  const goToOneKeyIDLoginPageForKeylessWallet = useCallback(
+    ({ mode }: { mode: EOnboardingV2OneKeyIDLoginMode }) => {
+      navigation.navigate(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.OneKeyIDLogin,
+          params: {
+            mode,
+          },
+        },
+      });
+    },
+    [navigation],
+  );
+
   // Renamed function, checks if KeylessWallet exists locally
   const checkKeylessWalletLocalExistence = useCallback(async () => {
     if (enableKeylessWalletLoadingRef.current) {
@@ -551,21 +567,15 @@ export function useKeylessWallet() {
             }),
           });
         } else {
-          navigation.navigate(ERootRoutes.Onboarding, {
-            screen: EOnboardingV2Routes.OnboardingV2,
-            params: {
-              screen: EOnboardingPagesV2.OneKeyIDLogin,
-              params: {
-                mode: EOnboardingV2OneKeyIDLoginMode.CreateOrImportKeylessWallet,
-              },
-            },
+          goToOneKeyIDLoginPageForKeylessWallet({
+            mode: EOnboardingV2OneKeyIDLoginMode.CreateOrImportKeylessWallet,
           });
         }
       } finally {
         setEnableKeylessWalletLoading(false);
       }
     });
-  }, [intl, navigation]);
+  }, [goToOneKeyIDLoginPageForKeylessWallet, intl]);
 
   const checkKeylessWalletInitedOnServer = useCallback(
     async ({ token }: { token: string }) => {
@@ -586,6 +596,21 @@ export function useKeylessWallet() {
       } else {
         navigation.push(EOnboardingPagesV2.CreatePin);
       }
+    },
+    [handleKeylessOnboardingTimeout, navigation],
+  );
+
+  // For Reset PIN flow: navigate directly to CreatePin with action=ResetPin
+  const checkKeylessWalletInitedOnServerForResetPin = useCallback(
+    async ({ token }: { token: string }) => {
+      if (!token) {
+        handleKeylessOnboardingTimeout();
+        return;
+      }
+      await cacheKeylessOnboardingToken({ token });
+      navigation.push(EOnboardingPagesV2.CreatePin, {
+        action: EKeylessFinalizeAction.ResetPin,
+      });
     },
     [handleKeylessOnboardingTimeout, navigation],
   );
@@ -613,6 +638,17 @@ export function useKeylessWallet() {
         });
         return;
       }
+
+      // Handle ResetPin action
+      if (action === EKeylessFinalizeAction.ResetPin) {
+        await backgroundApiProxy.serviceKeylessWallet.resetKeylessWalletPin({
+          token,
+          newPin: pin,
+        });
+        navigation.push(EOnboardingPagesV2.NewPinCreated);
+        return;
+      }
+
       let mnemonic = '';
       if (action === EKeylessFinalizeAction.Create) {
         const customMnemonic = await getKeylessOnboardingCustomMnemonic();
@@ -690,8 +726,10 @@ export function useKeylessWallet() {
     // TODO handleKeylessWalletClick
     enableKeylessWallet,
     enableKeylessWalletLoading,
+    goToOneKeyIDLoginPageForKeylessWallet,
     checkKeylessWalletLocalExistence, // step1
     checkKeylessWalletInitedOnServer, // step2
+    checkKeylessWalletInitedOnServerForResetPin, // step2 for Reset PIN flow
     confirmKeylessOnboardingPin, // step3
     verifyKeylessOnboardingPin,
     finalizeKeylessWalletV2, // step4

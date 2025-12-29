@@ -5,4 +5,5 @@ export enum EKeylessWalletEnableScene {
 export enum EKeylessFinalizeAction {
   Create = 'create',
   Restore = 'restore',
+  ResetPin = 'resetPin',
 }

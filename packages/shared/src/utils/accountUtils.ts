@@ -1015,12 +1015,21 @@ function buildKeylessDevicePackKey({
   return `OneKey_Keyless__${packSetId}`;
 }
 
+function buildKeylessMnemonicPasswordKey({
+  ownerId,
+}: {
+  ownerId: string;
+}): string {
+  return `OneKey_Keyless_MnemonicPwd__${ownerId}`;
+}
+
 export default {
   URL_ACCOUNT_ID,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
 
   getKeylessWalletPackSetId,
   buildKeylessDevicePackKey,
+  buildKeylessMnemonicPasswordKey,
   buildKeylessWalletId,
   buildAccountValueKey,
   parseAccountValueKey,

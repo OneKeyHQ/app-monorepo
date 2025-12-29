@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { SizableText } from '@onekeyhq/components';
+import { EKeylessFinalizeAction } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
@@ -20,7 +21,8 @@ function CreatePinPage() {
   const navigation = useAppNavigation();
   const route =
     useRoute<RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.CreatePin>>();
-  const { isResetPin } = route.params ?? {};
+  const { action } = route.params ?? {};
+  const isResetPin = action === EKeylessFinalizeAction.ResetPin;
   const { cacheKeylessOnboardingPin } = useKeylessWallet();
 
   const intl = useIntl();
@@ -30,9 +32,9 @@ function CreatePinPage() {
     if (pin) {
       await cacheKeylessOnboardingPin({ pin });
       setPin('');
-      navigation.push(EOnboardingPagesV2.ConfirmPin);
+      navigation.push(EOnboardingPagesV2.ConfirmPin, { action });
     }
-  }, [cacheKeylessOnboardingPin, navigation, pin]);
+  }, [action, cacheKeylessOnboardingPin, navigation, pin]);
 
   const highlightDescription = useCallback(
     (chunks: React.ReactNode) => (

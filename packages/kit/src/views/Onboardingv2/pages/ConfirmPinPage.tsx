@@ -1,25 +1,28 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog } from '@onekeyhq/components';
 import { EKeylessFinalizeAction } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
-import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import type {
+  EOnboardingPagesV2,
+  IOnboardingParamListV2,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { PinInputLayout } from '../components/PinInputLayout';
 
-import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
+import type { RouteProp } from '@react-navigation/core';
 
 function ConfirmPinPage() {
-  const navigation = useAppNavigation();
+  const route =
+    useRoute<
+      RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.ConfirmPin>
+    >();
+  const { action = EKeylessFinalizeAction.Create } = route.params ?? {};
   const {
     confirmKeylessOnboardingPin,
     getKeylessOnboardingPin,
@@ -30,6 +33,7 @@ function ConfirmPinPage() {
   const [confirmPin, setConfirmPin] = useState('');
   const [isValid, setIsValid] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handlePinChange = useCallback(
     async (filteredText: string) => {
@@ -65,11 +69,17 @@ function ConfirmPinPage() {
       handleKeylessOnboardingTimeout();
       return;
     }
-    await confirmKeylessOnboardingPin({
-      pin: originalPin || '',
-      action: EKeylessFinalizeAction.Create,
-    });
+    try {
+      setIsLoading(true);
+      await confirmKeylessOnboardingPin({
+        pin: originalPin || '',
+        action,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }, [
+    action,
     confirmKeylessOnboardingPin,
     getKeylessOnboardingPin,
     handleKeylessOnboardingTimeout,
@@ -87,6 +97,7 @@ function ConfirmPinPage() {
       onChange={handlePinChange}
       onSubmit={handleConfirm}
       isSubmitDisabled={!isValid}
+      isLoading={isLoading}
       errorMessage={errorMessage}
     />
   );

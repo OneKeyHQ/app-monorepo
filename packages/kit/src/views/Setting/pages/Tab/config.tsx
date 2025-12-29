@@ -12,6 +12,7 @@ import type {
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useKeylessWallet,
   useKeylessWalletExistsLocal,
   useKeylessWalletFeatureIsEnabled,
 } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
@@ -51,6 +52,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   EOnboardingPagesV2,
+  EOnboardingV2OneKeyIDLoginMode,
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -166,6 +168,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
 
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
+  const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
 
   return useMemo(
     () => [
@@ -522,11 +525,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   icon: 'InputOutline',
                   title: intl.formatMessage({ id: ETranslations.reset_pin }),
                   onPress: (navigation) => {
-                    navigation?.navigate(ERootRoutes.Onboarding, {
-                      screen: EOnboardingV2Routes.OnboardingV2,
-                      params: {
-                        screen: EOnboardingPagesV2.NewPinCreated,
-                      },
+                    goToOneKeyIDLoginPageForKeylessWallet({
+                      mode: EOnboardingV2OneKeyIDLoginMode.ResetPin,
                     });
                   },
                 },
@@ -842,6 +842,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     ],
     [
       intl,
+      goToOneKeyIDLoginPageForKeylessWallet,
       cloudBackupFeatureInfo?.supportCloudBackup,
       cloudBackupFeatureInfo?.icon,
       cloudBackupFeatureInfo?.title,
