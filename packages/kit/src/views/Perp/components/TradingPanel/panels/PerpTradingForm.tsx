@@ -25,8 +25,8 @@ import {
   useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type {
-  ITradingFormData,
   IBBOPriceMode,
+  ITradingFormData,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
@@ -502,31 +502,37 @@ function PerpTradingForm({
                 <Badge
                   testID="perp-bbo-toggle-button"
                   borderRadius="$2"
-                  bg={isBBOActive ? '$bgPrimary' : '$bgSubdued'}
+                  bg="$bgSubdued"
+                  borderWidth="$px"
+                  borderColor={isBBOActive ? '$borderPrimary' : '$bgSubdued'}
                   onPress={handleBBOToggle}
-                  px="$3.5"
+                  px="$3"
+                  m="$-px"
                   h={isMobile ? 38 : 50}
                   alignItems="center"
                   hoverStyle={{
-                    bg: isBBOActive ? '$bgPrimaryHover' : '$bgStrongHover',
+                    bg: '$bgHover',
                   }}
                   pressStyle={{
-                    bg: isBBOActive ? '$bgPrimaryActive' : '$bgStrongActive',
+                    bg: '$bgHover',
                   }}
                   disabled={isSubmitting}
                   cursor="pointer"
                 >
-                  <SizableText
+                  <DashText
                     size="$bodyMdMedium"
-                    color={isBBOActive ? '$textInverse' : '$text'}
-                    textDecorationLine="underline"
-                    textDecorationStyle="dashed"
+                    dashColor="$text"
+                    dashThickness={0.5}
                   >
-                    BBO
-                  </SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.Perps_BBO_button_title,
+                    })}
+                  </DashText>
                 </Badge>
               }
-              renderContent="Best-bid-offer (BBO) places a limit order at the best bid or ask price. If you use Post-Only, your order will only be placed if it adds liquidity. Due to market fluctuations, the order may fail to place if the market moves before it's confirmed."
+              renderContent={intl.formatMessage({
+                id: ETranslations.Perps_BBO_button_desc,
+              })}
               placement="top-end"
             />
           ) : null}
