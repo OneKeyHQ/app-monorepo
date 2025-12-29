@@ -6,6 +6,7 @@ import type {
   IDBAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -1015,6 +1016,21 @@ function buildKeylessDevicePackKey({
   return `OneKey_Keyless__${packSetId}`;
 }
 
+function isValidDeriveType(deriveType: string): boolean {
+  if (!deriveType) return false;
+  const validDeriveTypes: Record<IAccountDeriveTypes, true> = {
+    default: true,
+    ledgerLive: true,
+    BIP86: true,
+    BIP84: true,
+    BIP44: true,
+    kaspaOfficial: true,
+  } as const satisfies Record<IAccountDeriveTypes, true>;
+  return (
+    (validDeriveTypes[deriveType as IAccountDeriveTypes] ?? false) === true
+  );
+}
+
 export default {
   URL_ACCOUNT_ID,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
@@ -1065,6 +1081,7 @@ export default {
   isTonMnemonicCredentialId,
   isValidWalletXfp,
   isEnabledBtcFreshAddress,
+  isValidDeriveType,
 
   parseAccountId,
   parseIndexedAccountId,
