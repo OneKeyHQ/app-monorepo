@@ -577,7 +577,7 @@ export function useKeylessWallet() {
     });
   }, [goToOneKeyIDLoginPageForKeylessWallet, intl]);
 
-  const checkKeylessWalletInitedOnServer = useCallback(
+  const checkKeylessWalletCreatedOnServer = useCallback(
     async ({
       token,
       mode,
@@ -608,14 +608,13 @@ export function useKeylessWallet() {
       }
 
       // Default: check wallet existence and navigate accordingly
-      const backendShareInfo =
-        await backgroundApiProxy.serviceKeylessWallet.apiGetKeylessBackendShare(
+      const isCreated =
+        await backgroundApiProxy.serviceKeylessWallet.isKeylessWalletCreatedOnServer(
           {
             token,
           },
         );
-      const isInited = !!backendShareInfo;
-      if (isInited) {
+      if (isCreated) {
         navigation.push(EOnboardingPagesV2.VerifyPin);
       } else {
         navigation.push(EOnboardingPagesV2.CreatePin);
@@ -662,7 +661,7 @@ export function useKeylessWallet() {
       if (action === EKeylessFinalizeAction.Create) {
         const customMnemonic = await getKeylessOnboardingCustomMnemonic();
         ({ mnemonic } =
-          await backgroundApiProxy.serviceKeylessWallet.initKeylessWalletToServer(
+          await backgroundApiProxy.serviceKeylessWallet.createKeylessWalletToServer(
             {
               token,
               pin,
@@ -768,7 +767,7 @@ export function useKeylessWallet() {
     enableKeylessWalletLoading,
     goToOneKeyIDLoginPageForKeylessWallet,
     checkKeylessWalletLocalExistence, // step1
-    checkKeylessWalletInitedOnServer, // step2 (handles all modes: default, ResetPin, VerifyPinOnly)
+    checkKeylessWalletCreatedOnServer, // step2 (handles all modes: default, ResetPin, VerifyPinOnly)
     confirmKeylessOnboardingPin, // step3
     verifyKeylessOnboardingPin,
     finalizeKeylessWalletV2, // step4

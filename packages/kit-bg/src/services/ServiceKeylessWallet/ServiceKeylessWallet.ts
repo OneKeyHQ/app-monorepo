@@ -1161,9 +1161,7 @@ class ServiceKeylessWallet extends ServiceBase {
     return `${provider}:${socialAccountId}`;
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async apiGetKeylessBackendShare(params: {
+  private async apiGetKeylessBackendShare(params: {
     token: string;
   }): Promise<IKeylessBackendShare | null> {
     await timerUtils.wait(1500, { devOnly: true });
@@ -1178,9 +1176,7 @@ class ServiceKeylessWallet extends ServiceBase {
     return mockedShares[ownerId]?.backendShare || null;
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async apiGetKeylessJuiceboxShare(params: {
+  private async apiGetKeylessJuiceboxShare(params: {
     token: string;
     pin: string;
   }): Promise<IKeylessJuiceboxShare | null> {
@@ -1279,6 +1275,74 @@ class ServiceKeylessWallet extends ServiceBase {
     return juiceboxShareData;
   }
 
+  /**
+   * Reset PIN for keyless wallet.
+   * This method:
+   * 1. Gets ownerId from social login token
+   * 2. Gets backendShare from server
+   * 3. Gets mnemonicPassword from secure storage
+   * 4. Recovers juiceboxShare using mnemonicPassword + backendShare
+   * 5. Uploads juiceboxShare with new PIN
+   */
+  @backgroundMethod()
+  @toastIfError()
+  async resetKeylessWalletPin(params: {
+    token: string | undefined;
+    newPin: string | undefined;
+  }) {
+    const { token, newPin } = params;
+    if (!token) {
+      throw new OneKeyLocalError('social login token is required');
+    }
+    if (!newPin) {
+      throw new OneKeyLocalError('new PIN is required');
+    }
+
+    // 1. Get ownerId from token
+    const ownerId = this.buildKeylessOwnerIdFromSocialToken({ token });
+
+    // 2. Get backendShare from server
+    const backendShareData = await this.apiGetKeylessBackendShare({ token });
+    if (!backendShareData) {
+      throw new OneKeyLocalError('Backend share not found');
+    }
+
+    // 3. Get mnemonicPassword from secure storage
+    const mnemonicPassword =
+      await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorage({
+        ownerId,
+        backgroundApi: this.backgroundApi,
+      });
+    if (!mnemonicPassword) {
+      throw new OneKeyLocalError(
+        'Mnemonic password not found in storage. Please restore the wallet first.',
+      );
+    }
+
+    // 4. Get x-coordinates from stored data
+    // juiceboxShareX is stored in backendShareData for recovery
+    const backendShareX = keylessWalletUtils.getShareXCoordinate(
+      backendShareData.backendShare,
+    );
+
+    // 5. Recover juiceboxShare using recoverMissingShareFromSecret
+    const juiceboxShare = await this.recoverMissingShareFromSecret({
+      secretBase64: mnemonicPassword,
+      shareBase64: backendShareData.backendShare,
+      missingX: backendShareData.juiceboxShareX,
+    });
+
+    // 6. Upload juiceboxShare with new PIN
+    await this.apiUploadKeylessJuiceboxShare({
+      token,
+      juiceboxShare,
+      pin: newPin,
+      backendShareX,
+    });
+
+    return { success: true };
+  }
+
   @backgroundMethod()
   @toastIfError()
   async restoreKeylessWalletFromServer(params: {
@@ -1298,7 +1362,7 @@ class ServiceKeylessWallet extends ServiceBase {
     const mockedShares = await this.getMockedKeylessShares();
     const existingShares = mockedShares[ownerId];
     if (!existingShares?.backendShare || !existingShares?.juiceboxShare) {
-      throw new OneKeyLocalError('Keyless wallet not initialized');
+      throw new OneKeyLocalError('Keyless wallet not created');
     }
 
     // Get backend share from server
@@ -1350,78 +1414,9 @@ class ServiceKeylessWallet extends ServiceBase {
     };
   }
 
-  /**
-   * Reset PIN for keyless wallet.
-   * This method:
-   * 1. Gets ownerId from social login token
-   * 2. Gets backendShare from server
-   * 3. Gets mnemonicPassword from secure storage
-   * 4. Recovers juiceboxShare using mnemonicPassword + backendShare
-   * 5. Uploads juiceboxShare with new PIN
-   */
   @backgroundMethod()
   @toastIfError()
-  async resetKeylessWalletPin(params: {
-    token: string | undefined;
-    newPin: string | undefined;
-  }) {
-    const { token, newPin } = params;
-    if (!token) {
-      throw new OneKeyLocalError('social login token is required');
-    }
-    if (!newPin) {
-      throw new OneKeyLocalError('new PIN is required');
-    }
-
-    // 1. Get ownerId from token
-    const ownerId = this.buildKeylessOwnerIdFromSocialToken({ token });
-
-    // 2. Get backendShare from server
-    const backendShareData = await this.apiGetKeylessBackendShare({ token });
-    if (!backendShareData) {
-      throw new OneKeyLocalError('Backend share not found');
-    }
-
-    // 3. Get mnemonicPassword from secure storage
-    const mnemonicPassword =
-      await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorage({
-        ownerId,
-        backgroundApi: this.backgroundApi,
-      });
-    if (!mnemonicPassword) {
-      throw new OneKeyLocalError(
-        'Mnemonic password not found in storage. Please restore the wallet first.',
-      );
-    }
-
-    // 4. Get x-coordinates from stored data
-    // juiceboxShareX is stored in backendShareData for recovery
-    const { juiceboxShareX } = backendShareData;
-    const backendShareX = keylessWalletUtils.getShareXCoordinate(
-      backendShareData.backendShare,
-    );
-
-    // 5. Recover juiceboxShare using recoverMissingShareFromSecret
-    const juiceboxShare = await this.recoverMissingShareFromSecret({
-      secretBase64: mnemonicPassword,
-      shareBase64: backendShareData.backendShare,
-      missingX: juiceboxShareX,
-    });
-
-    // 6. Upload juiceboxShare with new PIN
-    await this.apiUploadKeylessJuiceboxShare({
-      token,
-      juiceboxShare,
-      pin: newPin,
-      backendShareX,
-    });
-
-    return { success: true };
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async initKeylessWalletToServer(params: {
+  async createKeylessWalletToServer(params: {
     token: string | undefined;
     pin: string | undefined;
     customMnemonic?: string;
@@ -1437,12 +1432,14 @@ class ServiceKeylessWallet extends ServiceBase {
     const mockedShares = await this.getMockedKeylessShares();
     const existingShares = mockedShares[ownerId];
     if (existingShares?.backendShare || existingShares?.juiceboxShare) {
-      throw new OneKeyLocalError('Keyless wallet already initialized');
+      throw new OneKeyLocalError('Keyless wallet already created');
     }
-    let mnemonic: string = generateMnemonic(256);
+    let mnemonic = '';
     const devSettings = await devSettingsPersistAtom.get();
     if (devSettings.enabled && customMnemonic && customMnemonic.trim()) {
       mnemonic = customMnemonic.trim();
+    } else {
+      mnemonic = generateMnemonic(256);
     }
     const mnemonicPasswordBytes = crypto.getRandomValues(new Uint8Array(32));
     const mnemonicPassword = bufferUtils.bytesToBase64(mnemonicPasswordBytes);
@@ -1478,6 +1475,7 @@ class ServiceKeylessWallet extends ServiceBase {
       mnemonicPassword,
       backgroundApi: this.backgroundApi,
     });
+    // TODO verify mnemonicPassword is saved successfully
 
     const _backendShareData: IKeylessBackendShare =
       await this.apiUploadKeylessBackendShare({
@@ -1487,6 +1485,7 @@ class ServiceKeylessWallet extends ServiceBase {
         juiceboxShareX, // Store the other share's x-coordinate for recovery
       });
     // TODO verify backendShareData is valid
+
     const _juiceboxShareData: IKeylessJuiceboxShare =
       await this.apiUploadKeylessJuiceboxShare({
         token,
@@ -1501,6 +1500,20 @@ class ServiceKeylessWallet extends ServiceBase {
         text: mnemonic,
       }),
     };
+    // TODO cleanup if error occurs
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async isKeylessWalletCreatedOnServer(params: {
+    token: string;
+  }): Promise<boolean> {
+    const { token } = params;
+    const backendShareInfo = await this.apiGetKeylessBackendShare({
+      token,
+    });
+    const isCreated = !!backendShareInfo;
+    return isCreated;
   }
 }
 

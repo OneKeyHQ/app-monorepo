@@ -123,13 +123,13 @@ function OneKeyIDLoginPage() {
   const intl = useIntl();
 
   const { logout, signInWithSocialLogin } = useOneKeyAuth();
-  const { checkKeylessWalletInitedOnServer } = useKeylessWallet();
+  const { checkKeylessWalletCreatedOnServer } = useKeylessWallet();
 
   const goToInputPinPage = useCallback(
     async ({ token }: { token: string }) => {
-      await checkKeylessWalletInitedOnServer({ token, mode });
+      await checkKeylessWalletCreatedOnServer({ token, mode });
     },
-    [checkKeylessWalletInitedOnServer, mode],
+    [checkKeylessWalletCreatedOnServer, mode],
   );
 
   const handleSocialLogin = useCallback(
@@ -181,7 +181,9 @@ function OneKeyIDLoginPage() {
                 icon="GoogleIllus"
                 title="Google"
                 onPress={handleGoogleLogin}
-                isLoading={loggingInProvider === EOAuthSocialLoginProvider.Google}
+                isLoading={
+                  loggingInProvider === EOAuthSocialLoginProvider.Google
+                }
               />
               <OptionItem
                 icon="AppleBrand"
@@ -191,7 +193,9 @@ function OneKeyIDLoginPage() {
                   y: -1,
                 }}
                 onPress={handleAppleLogin}
-                isLoading={loggingInProvider === EOAuthSocialLoginProvider.Apple}
+                isLoading={
+                  loggingInProvider === EOAuthSocialLoginProvider.Apple
+                }
               />
             </YStack>
             <KeylessOnboardingDebugPanel />
