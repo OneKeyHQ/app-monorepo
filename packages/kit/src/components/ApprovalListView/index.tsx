@@ -172,7 +172,7 @@ function ApprovalListViewCmp(props: IProps) {
     }
   }, []);
 
-  if (showSkeleton) {
+  if (!platformEnv.isNativeAndroid && showSkeleton) {
     return (
       <YStack style={{ flex: 1 }}>
         <ListLoading isTokenSelectorView={!tableLayout} />
@@ -185,8 +185,11 @@ function ApprovalListViewCmp(props: IProps) {
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       ref={ListComponentRef as any}
+      nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
       refreshControl={
-        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+        !platformEnv.isNativeAndroid && onRefresh ? (
+          <PullToRefresh onRefresh={onRefresh} />
+        ) : undefined
       }
       extraData={filteredApprovals?.length ?? 0}
       data={filteredApprovals}
