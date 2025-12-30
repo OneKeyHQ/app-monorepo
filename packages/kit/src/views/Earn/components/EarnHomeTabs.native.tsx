@@ -1,14 +1,11 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SegmentControl, Stack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IEarnHomeMode = 'earn' | 'borrow';
-
-// FIXME[borrow]: earn/borrow i18n
-const MODE_OPTIONS = [
-  { label: 'Earn', value: 'earn' as const },
-  { label: 'Borrow', value: 'borrow' as const },
-];
 
 export const EarnHomeTabs = ({
   earn,
@@ -21,9 +18,22 @@ export const EarnHomeTabs = ({
   defaultMode?: IEarnHomeMode;
   onModeChange?: (mode: IEarnHomeMode) => void;
 }) => {
+  const intl = useIntl();
   const activeMode = defaultMode;
 
-  const options = useMemo(() => MODE_OPTIONS, []);
+  const options = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({ id: ETranslations.earn_title }),
+        value: 'earn' as const,
+      },
+      {
+        label: intl.formatMessage({ id: ETranslations.global_borrow }),
+        value: 'borrow' as const,
+      },
+    ],
+    [intl],
+  );
 
   return (
     <YStack flex={1} pt="$2">
