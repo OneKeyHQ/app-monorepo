@@ -126,6 +126,37 @@ export const BorrowNavigation = {
     }
   },
 
+  pushToStakingHistory(
+    navigation: IAppNavigation,
+    params: {
+      accountId: string;
+      networkId: string;
+      symbol: string;
+      provider: string;
+      stakeTag?: string;
+      protocolVault?: string;
+      isModal?: boolean;
+    },
+  ) {
+    const historyParams = {
+      accountId: params.accountId,
+      networkId: params.networkId,
+      symbol: params.symbol,
+      provider: params.provider,
+      stakeTag: params.stakeTag,
+      protocolVault: params.protocolVault,
+    };
+
+    if (params.isModal) {
+      navigation.navigate(EModalStakingRoutes.HistoryList, historyParams);
+    } else {
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.HistoryList,
+        params: historyParams,
+      });
+    }
+  },
+
   pushToBorrowManagePosition(
     navigation: IAppNavigation,
     params: {

@@ -293,27 +293,48 @@ export function ManagePositionContent({
   ].includes(type);
 
   const onHistory = useMemo(() => {
+    // Return undefined if history is disabled or no account
     if (historyAction?.disabled || !earnAccount?.accountId) return undefined;
-    if (!isBorrowType || !marketAddress) return undefined;
 
-    return () => {
-      BorrowNavigation.pushToBorrowHistory(appNavigation, {
-        accountId: earnAccount?.accountId,
-        networkId,
-        provider,
-        marketAddress,
-        isModal: isInModalContext,
-      });
-    };
+    if (isBorrowType && marketAddress) {
+      return () => {
+        BorrowNavigation.pushToBorrowHistory(appNavigation, {
+          accountId: earnAccount.accountId,
+          networkId,
+          provider,
+          marketAddress,
+          isModal: isInModalContext,
+        });
+      };
+    }
+
+    if (!isBorrowType && historyAction) {
+      return () => {
+        BorrowNavigation.pushToStakingHistory(appNavigation, {
+          accountId: earnAccount.accountId,
+          networkId,
+          symbol,
+          provider,
+          stakeTag: protocolInfo?.stakeTag,
+          protocolVault: vault,
+          isModal: isInModalContext,
+        });
+      };
+    }
+
+    return undefined;
   }, [
-    historyAction?.disabled,
-    appNavigation,
+    historyAction,
     earnAccount?.accountId,
+    isBorrowType,
+    marketAddress,
+    appNavigation,
     networkId,
     provider,
-    marketAddress,
     isInModalContext,
-    isBorrowType,
+    symbol,
+    protocolInfo?.stakeTag,
+    vault,
   ]);
 
   // Ref to store refreshPending function from useStakingPendingTxs hook
