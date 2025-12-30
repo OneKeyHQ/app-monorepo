@@ -56,43 +56,42 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     result: reservesResult,
     isLoading: reservesLoading,
     run: refreshReserves,
-  } =
-    usePromiseResult(
-      async () => {
-        if (
-          !fetchKey ||
-          !marketProvider ||
-          !marketNetworkId ||
-          !marketAddress ||
-          shouldWaitForAccount
-        ) {
-          return undefined;
-        }
-        return fetchReserves({
-          provider: marketProvider,
-          networkId: marketNetworkId,
-          marketAddress,
-          accountId,
-        });
-      },
-      [
-        fetchKey,
-        marketProvider,
-        marketNetworkId,
+  } = usePromiseResult(
+    async () => {
+      if (
+        !fetchKey ||
+        !marketProvider ||
+        !marketNetworkId ||
+        !marketAddress ||
+        shouldWaitForAccount
+      ) {
+        return undefined;
+      }
+      return fetchReserves({
+        provider: marketProvider,
+        networkId: marketNetworkId,
         marketAddress,
         accountId,
-        shouldWaitForAccount,
-        fetchReserves,
-      ],
-      {
-        watchLoading: true,
-        checkIsFocused: true,
-        undefinedResultIfReRun: false,
-        undefinedResultIfError: true,
-        pollingInterval: BORROW_POLLING_INTERVAL,
-        revalidateOnFocus: true,
-      },
-    );
+      });
+    },
+    [
+      fetchKey,
+      marketProvider,
+      marketNetworkId,
+      marketAddress,
+      accountId,
+      shouldWaitForAccount,
+      fetchReserves,
+    ],
+    {
+      watchLoading: true,
+      checkIsFocused: true,
+      undefinedResultIfReRun: false,
+      undefinedResultIfError: true,
+      pollingInterval: BORROW_POLLING_INTERVAL,
+      revalidateOnFocus: true,
+    },
+  );
 
   const dataStatus = useMemo(() => {
     if (!isFocused) return EBorrowDataStatus.Idle;
@@ -170,7 +169,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
       // The simplest way to trigger re-fetch is to invalidate the cache or manually call the fetch function
       // But here we rely on the `usePromiseResult` at line 54 re-running if we had a way to trigger it.
       // However, `usePromiseResult` returns `run` (aliased as `refreshReserves` below) which we can call.
-      refreshReserves();
+      void refreshReserves();
     },
   });
 

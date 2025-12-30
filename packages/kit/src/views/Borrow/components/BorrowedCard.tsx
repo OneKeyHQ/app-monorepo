@@ -215,7 +215,7 @@ export const BorrowedCard = () => {
         flex: 1,
       },
     ],
-    [handleManageRepay, accountId, walletId, indexedAccountId, labels],
+    [handleManageRepay, accountId, walletId, indexedAccountId, labels, intl],
   );
 
   return (

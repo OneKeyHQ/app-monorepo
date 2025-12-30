@@ -518,7 +518,9 @@ export function UniversalBorrowSupply({
               <Icon name="CheckmarkSolid" size="$4" color="$textSuccess" />
               <EarnText
                 text={{
-                  text: intl.formatMessage({ id: ETranslations.global_enabled }),
+                  text: intl.formatMessage({
+                    id: ETranslations.global_enabled,
+                  }),
                   color: '$textSuccess',
                   size: '$bodyMdMedium',
                 }}
