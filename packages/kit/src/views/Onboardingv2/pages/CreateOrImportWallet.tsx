@@ -370,14 +370,33 @@ function CreateOrImportWallet() {
                     {intl.formatMessage({ id: ETranslations.global_enabled })}
                   </SizableText>
                 ) : null} */}
-                  {enableKeylessWalletLoading ? (
-                    <Spinner size="small" color="$iconDisabled" />
-                  ) : (
-                    <Icon
-                      name="ChevronRightSmallOutline"
-                      color="$iconSubdued"
-                    />
-                  )}
+                  <AnimatePresence exitBeforeEnter initial={false}>
+                    {enableKeylessWalletLoading ? (
+                      <YStack
+                        key="loading"
+                        animation="quick"
+                        animateOnly={['transform', 'opacity']}
+                        enterStyle={{ scale: 0.7, opacity: 0 }}
+                        exitStyle={{ scale: 0.7, opacity: 0 }}
+                        pr="$0.5"
+                      >
+                        <Spinner size="small" color="$iconDisabled" />
+                      </YStack>
+                    ) : (
+                      <YStack
+                        key="icon"
+                        animation="quick"
+                        animateOnly={['transform', 'opacity']}
+                        enterStyle={{ scale: 0.7, opacity: 0 }}
+                        exitStyle={{ scale: 0.7, opacity: 0 }}
+                      >
+                        <Icon
+                          name="ChevronRightSmallOutline"
+                          color="$iconSubdued"
+                        />
+                      </YStack>
+                    )}
+                  </AnimatePresence>
                 </Card.Header>
                 <Card.Body>
                   <XStack gap="$2" flexWrap="wrap">

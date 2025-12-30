@@ -88,10 +88,10 @@ export function getTitleAndDescription({
     return {
       isHwOrQr: false,
       isKeyless: true,
-      title: appLocale.intl.formatMessage({ id: ETranslations.remove_wallet }),
-      // TODO: @franco Add proper translation key for keyless wallet removal
-      description:
-        'You can restore this wallet anytime using your social account and PIN.',
+      title: appLocale.intl.formatMessage({ id: ETranslations.log_out_wallet }),
+      description: appLocale.intl.formatMessage({
+        id: ETranslations.log_out_wallet_desc,
+      }),
     };
   }
 

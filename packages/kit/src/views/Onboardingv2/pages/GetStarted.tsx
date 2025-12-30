@@ -14,6 +14,7 @@ import Svg, {
 
 import type { IYStackProps } from '@onekeyhq/components';
 import {
+  AnimatePresence,
   BlurView,
   Button,
   DecorativeOneKeyLogo,
@@ -447,11 +448,29 @@ export default function GetStarted() {
                       onPress={isGoogleLoading ? undefined : handleGoogleLogin}
                     >
                       <XStack gap="$2" alignItems="center">
-                        {isGoogleLoading ? (
-                          <Spinner size="small" />
-                        ) : (
-                          <Icon name="GoogleIllus" size="$5" />
-                        )}
+                        <AnimatePresence exitBeforeEnter initial={false}>
+                          {isGoogleLoading ? (
+                            <YStack
+                              key="loading"
+                              animation="quick"
+                              animateOnly={['transform', 'opacity']}
+                              enterStyle={{ scale: 0.7, opacity: 0 }}
+                              exitStyle={{ scale: 0.7, opacity: 0 }}
+                            >
+                              <Spinner size="small" />
+                            </YStack>
+                          ) : (
+                            <YStack
+                              key="icon"
+                              animation="quick"
+                              animateOnly={['transform', 'opacity']}
+                              enterStyle={{ scale: 0.7, opacity: 0 }}
+                              exitStyle={{ scale: 0.7, opacity: 0 }}
+                            >
+                              <Icon name="GoogleIllus" size="$5" />
+                            </YStack>
+                          )}
+                        </AnimatePresence>
                         <SizableText size="$bodyLgMedium">
                           {intl.formatMessage(
                             { id: ETranslations.continue_with_social_platform },
