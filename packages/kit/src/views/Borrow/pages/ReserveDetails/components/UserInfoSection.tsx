@@ -20,6 +20,7 @@ export const UserInfoSection = ({ userInfo }: IUserInfoSectionProps) => {
   const borrowedBalance = userInfo.borrowedBalance;
   const availableBorrowBalance = userInfo.availableBorrowBalance;
   const labels = {
+    myInfo: intl.formatMessage({ id: ETranslations.defi_my_info }),
     walletBalance: intl.formatMessage({
       id: ETranslations.global_wallet_balance,
     }),
@@ -36,7 +37,7 @@ export const UserInfoSection = ({ userInfo }: IUserInfoSectionProps) => {
 
   return (
     <YStack gap="$6">
-      <EarnText text={{ text: 'Your Info' }} size="$headingLg" />
+      <EarnText text={{ text: labels.myInfo }} size="$headingLg" />
       <XStack flexWrap="wrap" m="$-5" p="$2">
         <GridItem
           title={{ text: labels.walletBalance }}

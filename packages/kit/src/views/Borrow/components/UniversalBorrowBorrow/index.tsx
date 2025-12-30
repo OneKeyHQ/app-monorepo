@@ -304,6 +304,9 @@ export function UniversalBorrowBorrow({
             currency: currentValue ? symbol : undefined,
           }}
           enableMaxAmount
+          maxAmountText={intl.formatMessage({
+            id: ETranslations.defi_safe_max,
+          })}
           onSelectPercentageStage={onSelectPercentageStage}
         />
       </Stack>
@@ -393,33 +396,33 @@ export function UniversalBorrowBorrow({
                       </>
                     ) : null}
                   </XStack>
-                <EarnText
-                  text={
-                    transactionConfirmation.liquidationAt?.description ?? {
-                      text: intl.formatMessage({
-                        id: ETranslations.defi_liquidation_at_less_than_1_00,
-                      }),
+                  <EarnText
+                    text={
+                      transactionConfirmation.liquidationAt?.description ?? {
+                        text: intl.formatMessage({
+                          id: ETranslations.defi_liquidation_at_less_than_1_00,
+                        }),
+                      }
                     }
-                  }
-                  size="$bodySmMedium"
-                  color="$textSubdued"
-                />
-              </YStack>
-            </BorrowInfoItem>
-          ) : null}
-          {transactionConfirmation?.myBorrow ? (
-            <BorrowInfoItem
-              title={
-                <EarnText
-                  text={{
-                    text: intl.formatMessage({
-                      id: ETranslations.defi_my_borrow,
-                    }),
-                  }}
-                  color="$textText"
-                  size="$bodyLg"
-                />
-              }
+                    size="$bodySmMedium"
+                    color="$textSubdued"
+                  />
+                </YStack>
+              </BorrowInfoItem>
+            ) : null}
+            {transactionConfirmation?.myBorrow ? (
+              <BorrowInfoItem
+                title={
+                  <EarnText
+                    text={{
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_my_borrow,
+                      }),
+                    }}
+                    color="$textText"
+                    size="$bodyLg"
+                  />
+                }
               >
                 <YStack ai="flex-end">
                   <EarnText

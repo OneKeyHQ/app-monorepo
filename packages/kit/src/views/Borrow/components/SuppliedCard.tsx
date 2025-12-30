@@ -131,7 +131,7 @@ export const SuppliedCard = () => {
       suppliedBalance: `${supplied} ${balance}`,
       supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
       withdraw: intl.formatMessage({ id: ETranslations.global_withdraw }),
-      apy: 'APY',
+      apy: intl.formatMessage({ id: ETranslations.global_apy }),
       assetSupplied: `${asset} / ${supplied}`,
       suppliedWithColon: `${supplied}:`,
     };

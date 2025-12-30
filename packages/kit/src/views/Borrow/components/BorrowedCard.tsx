@@ -130,7 +130,7 @@ export const BorrowedCard = () => {
       borrowed,
       borrowedBalance: `${borrowed} ${balance}`,
       borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
-      apy: 'APY',
+      apy: intl.formatMessage({ id: ETranslations.global_apy }),
       assetBorrowed: `${asset} / ${borrowed}`,
       borrowedWithColon: `${borrowed}:`,
     };

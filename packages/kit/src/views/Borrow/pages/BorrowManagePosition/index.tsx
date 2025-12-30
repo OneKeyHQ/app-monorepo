@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
@@ -34,6 +37,7 @@ const BorrowManagePosition = () => {
     type,
     borrowReserves,
   } = route.params;
+  const intl = useIntl();
   const { earnAccount } = useEarnAccount({ networkId });
   const accountId = earnAccount?.account?.id || '';
   const indexedAccountId = earnAccount?.account?.indexedAccountId;
@@ -46,7 +50,12 @@ const BorrowManagePosition = () => {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title={symbol || 'Manage Position'} />
+      <Page.Header
+        title={
+          symbol ||
+          intl.formatMessage({ id: ETranslations.defi_manage_position })
+        }
+      />
       <Page.Body>
         <ManagePositionContent
           showApyDetail

@@ -285,6 +285,9 @@ export function UniversalBorrowWithdraw({
             currency: currentValue ? symbol : undefined,
           }}
           enableMaxAmount
+          maxAmountText={intl.formatMessage({
+            id: ETranslations.defi_safe_max,
+          })}
           onSelectPercentageStage={onSelectPercentageStage}
         />
         {amountInputDisabled ? (
@@ -426,19 +429,19 @@ export function UniversalBorrowWithdraw({
                       </>
                     ) : null}
                   </XStack>
-                <EarnText
-                  text={
-                    transactionConfirmation.liquidationAt?.description ?? {
-                      text: intl.formatMessage({
-                        id: ETranslations.defi_liquidation_at_less_than_1_00,
-                      }),
+                  <EarnText
+                    text={
+                      transactionConfirmation.liquidationAt?.description ?? {
+                        text: intl.formatMessage({
+                          id: ETranslations.defi_liquidation_at_less_than_1_00,
+                        }),
+                      }
                     }
-                  }
-                  size="$bodySmMedium"
-                  color="$textSubdued"
-                />
-              </YStack>
-            </BorrowInfoItem>
+                    size="$bodySmMedium"
+                    color="$textSubdued"
+                  />
+                </YStack>
+              </BorrowInfoItem>
             ) : null}
             {showApyDetail && transactionConfirmation?.apyDetail ? (
               <BorrowInfoItem
