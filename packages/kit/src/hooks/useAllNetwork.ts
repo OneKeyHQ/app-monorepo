@@ -278,7 +278,11 @@ function useAllNetworkRequests<T>(params: {
         if (onStartedTask) {
           await onStartedTask;
           if (onStartedError) {
-            throw onStartedError;
+            if (onStartedError instanceof Error) {
+              throw onStartedError;
+            }
+            const err = new Error('onStarted failed');
+            throw err;
           }
         }
 
