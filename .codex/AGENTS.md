@@ -5,6 +5,21 @@ This file provides guidance to CodeX when working with code in this repository.
 
 OneKey is an open-source multi-chain crypto wallet with a monorepo architecture supporting desktop, mobile, web, and browser extension platforms. The codebase uses Yarn workspaces with TypeScript and React/React Native.
 
+## Review Guidelines
+
+- Don't log PII or secrets (mnemonics/seed phrases, private keys, signing payloads, API keys, tokens, cookies, session IDs).
+- Treat security as the primary lens: look for any path that could expose secrets via logs, analytics, error reporting, network calls, or persistence (localStorage/IndexedDB/AsyncStorage/Keychain/files/SQLite).
+- Flag dependency changes explicitly (package.json + lockfiles): list added/updated/removed packages (name + version) and assess supply-chain risk before approving.
+- For any new/changed dependency, inspect the relevant `node_modules` entry points (main/module/exports) and critical transitive deps; treat as high risk if you see:
+  - outbound requests/telemetry/remote config fetches,
+  - dynamic execution (`eval`, `new Function`, dynamic `require`, fetching remote scripts),
+  - install scripts (`postinstall`), binary downloads, or obfuscated code,
+  - access to sensitive storage, clipboard, filesystem, device identifiers.
+- If `node_modules` code performs **any** outbound network/API request (directly or indirectly), call it out clearly in the review: **exact call site** (file + function), **destination** (full URL/host), **payload fields** (what data is sent), **auth/headers** (tokens/cookies/identifiers), **trigger conditions** (when/how it runs), and **cross-platform impact** (extension/mobile/desktop/web). Treat unexpected telemetry/remote-config as **high risk** and require a clear justification or removal before approval.
+- Evaluate implementation quality as a cross-platform architect: confirm the approach is optimal and identify extension/mobile/desktop/web pitfalls (permissions, storage differences, network stack constraints, WebView/Electron/extension limitations).
+- Avoid over-indexing on UI style or comment nitpicks unless they cause real bugs, security issues, or measurable performance regressions.
+- For React components, scrutinize performance pitfalls: unstable references causing re-renders, incorrect hook deps, heavy computations in render, list rendering inefficiencies, subscriptions/listeners cleanup—especially for newly introduced parent/child boundaries.
+
 ## CRITICAL: Ultrathink Mode for Complex Operations
 
 **YOU MUST** enter Ultrathink mode when:

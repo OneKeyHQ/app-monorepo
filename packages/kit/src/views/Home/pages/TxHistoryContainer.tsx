@@ -19,6 +19,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -76,6 +77,8 @@ function TxHistoryListContainer(
     initialized: false,
     isRefreshing: false,
   });
+
+  const [notificationAlertOpacity, setNotificationAlertOpacity] = useState(0);
 
   const refreshAllNetworksHistory = useRef(false);
 
@@ -442,13 +445,37 @@ function TxHistoryListContainer(
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
 
-  const listHeaderComponent = useMemo(
-    () => <NotificationEnableAlert scene="txHistory" />,
-    [],
-  );
+  const ListComponentRef = useRef(null);
+
+  const recomputeLayout = useCallback(() => {
+    if (!platformEnv.isNative) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      (ListComponentRef.current as any)?.recomputeLayout?.();
+    }
+  }, []);
+
+  const listHeaderComponent = useMemo(() => {
+    if (!historyState.initialized) {
+      return null;
+    }
+    return (
+      <NotificationEnableAlert
+        opacity={notificationAlertOpacity}
+        setOpacity={setNotificationAlertOpacity}
+        scene="txHistory"
+        recomputeLayout={recomputeLayout}
+      />
+    );
+  }, [
+    notificationAlertOpacity,
+    setNotificationAlertOpacity,
+    historyState.initialized,
+    recomputeLayout,
+  ]);
 
   return (
     <TxHistoryListView
+      ref={ListComponentRef}
       key={`tx-history-${txHistoryAlertDismissed ? 'dismissed' : 'shown'}`}
       plainMode={plainMode}
       isTabFocused={isFocused}
