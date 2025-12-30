@@ -49,4 +49,11 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: BorrowReserveDetails,
     headerShown: !platformEnv.isNative,
   },
+  {
+    name: ETabEarnRoutes.BorrowReserveDetailsShare,
+    component: BorrowReserveDetails,
+    exact: true,
+    rewrite: '/borrow/:networkId/:symbol/:provider',
+    headerShown: !platformEnv.isNative,
+  },
 ];

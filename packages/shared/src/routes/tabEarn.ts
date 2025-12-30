@@ -4,6 +4,7 @@ export enum ETabEarnRoutes {
   EarnProtocolDetails = 'EarnProtocolDetails',
   EarnProtocolDetailsShare = 'EarnProtocolDetailsShare',
   BorrowReserveDetails = 'BorrowReserveDetails',
+  BorrowReserveDetailsShare = 'BorrowReserveDetailsShare',
 }
 
 export type ITabEarnParamList = {
@@ -36,6 +37,14 @@ export type ITabEarnParamList = {
     marketAddress: string;
     reserveAddress: string;
     symbol: string;
+    logoURI?: string;
+  };
+  [ETabEarnRoutes.BorrowReserveDetailsShare]: {
+    networkId: string;
+    symbol: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
     logoURI?: string;
   };
 };

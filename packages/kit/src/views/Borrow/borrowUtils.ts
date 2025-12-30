@@ -39,6 +39,30 @@ async function safePushToBorrowRoute(
 }
 
 export const BorrowNavigation = {
+  // Navigate from deep link (when user clicks a borrow share link)
+  async pushToBorrowReserveDetailsFromDeeplink(
+    navigation: IAppNavigation,
+    params: {
+      networkId: string;
+      provider: string;
+      marketAddress: string;
+      reserveAddress: string;
+      symbol: string;
+    },
+  ) {
+    await safePushToBorrowRoute(
+      navigation,
+      ETabEarnRoutes.BorrowReserveDetails,
+      {
+        networkId: params.networkId,
+        provider: params.provider,
+        marketAddress: params.marketAddress,
+        reserveAddress: params.reserveAddress,
+        symbol: params.symbol,
+      },
+    );
+  },
+
   pushToBorrowReserveDetails(
     navigation: IAppNavigation,
     params: {
@@ -157,7 +181,11 @@ export const BorrowNavigation = {
       origin = WEB_APP_URL_DEV;
     }
 
-    // TODO: Update URL format when borrow share route is implemented
+    // URL Format: /borrow/{networkId}/{symbol}/{provider}?marketAddress=xxx&reserveAddress=xxx
+    // Example: https://app.onekey.so/borrow/evm--1/usdc/aave?marketAddress=0x...&reserveAddress=0x...
+    //
+    // Deep link route is configured in packages/kit/src/routes/Tab/Earn/router.ts
+    // as BorrowReserveDetailsShare with rewrite: '/borrow/:networkId/:symbol/:provider'
     const baseUrl = `/borrow/${networkId}/${symbol.toLowerCase()}/${provider.toLowerCase()}`;
     const queryParams = new URLSearchParams();
 

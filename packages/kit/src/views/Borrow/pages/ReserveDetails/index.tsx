@@ -35,12 +35,37 @@ import { useBorrowReserveDetailBreadcrumb } from './hooks/useBorrowReserveDetail
 const ReserveDetailsPage = () => {
   const route = useAppRoute<
     ITabEarnParamList,
-    ETabEarnRoutes.BorrowReserveDetails
+    | ETabEarnRoutes.BorrowReserveDetails
+    | ETabEarnRoutes.BorrowReserveDetailsShare
   >();
   const { gtMd } = useMedia();
   const { shareText } = useShare();
   const [devSettings] = useDevSettingsPersistAtom();
   const navigation = useAppNavigation();
+
+  // Parse route params, support both normal and share link routes
+  const resolvedParams = useMemo<{
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    symbol: string;
+    logoURI?: string;
+  }>(() => {
+    const routeParams = route.params;
+
+    // For share link route, query params are passed as route params
+    // Both path params (:networkId, :symbol, :provider) and query params
+    // (?marketAddress=xxx&reserveAddress=xxx) are in route.params
+    return {
+      networkId: routeParams.networkId,
+      provider: routeParams.provider,
+      marketAddress: routeParams.marketAddress,
+      reserveAddress: routeParams.reserveAddress,
+      symbol: routeParams.symbol,
+      logoURI: routeParams.logoURI,
+    };
+  }, [route.params]);
 
   const {
     networkId,
@@ -49,7 +74,7 @@ const ReserveDetailsPage = () => {
     reserveAddress,
     symbol,
     logoURI,
-  } = route.params;
+  } = resolvedParams;
 
   const { earnAccount } = useEarnAccount({ networkId });
   const accountId = earnAccount?.account?.id || '';
