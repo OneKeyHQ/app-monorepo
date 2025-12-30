@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent } from 'react-native';
 
 import { CanceledError } from 'axios';
 
@@ -9,6 +8,7 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   Icon,
   Page,
+  RefreshControl,
   ScrollView,
   Stack,
   Tabs,
@@ -47,6 +47,7 @@ import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
+import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -56,8 +57,37 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
+import type { LayoutChangeEvent, ScrollViewProps } from 'react-native';
+
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
+
+interface IAndroidScrollContainerProps {
+  children: React.ReactNode;
+}
+const AndroidScrollContainer = platformEnv.isNativeAndroid
+  ? ({ children }: IAndroidScrollContainerProps) => {
+      const [height, setHeight] = useState(0);
+      const handleLayout = (event: LayoutChangeEvent) => {
+        setHeight(event.nativeEvent.layout.height);
+      };
+      return (
+        <YStack flex={1} onLayout={handleLayout}>
+          {height > 0 ? (
+            <ScrollView
+              nestedScrollEnabled
+              refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
+              contentContainerStyle={{ height }}
+            >
+              {children}
+            </ScrollView>
+          ) : null}
+        </YStack>
+      );
+    }
+  : ({ children }: IAndroidScrollContainerProps) => {
+      return children;
+    };
 
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -545,5 +575,12 @@ export function HomePageView({
     homePageContent,
   ]);
 
-  return useMemo(() => <Page fullPage>{homePage}</Page>, [homePage]);
+  return useMemo(() => {
+    const content = platformEnv.isNativeAndroid ? (
+      <AndroidScrollContainer>{homePage}</AndroidScrollContainer>
+    ) : (
+      homePage
+    );
+    return <Page fullPage>{content}</Page>;
+  }, [homePage]);
 }
