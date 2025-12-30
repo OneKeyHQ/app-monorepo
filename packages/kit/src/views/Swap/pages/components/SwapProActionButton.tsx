@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText } from '@onekeyhq/components';
+import { Button, SizableText, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
@@ -263,15 +263,21 @@ const SwapProActionButton = ({
 
   const actionButtonText = useMemo(() => {
     if (!hasEnoughBalance) {
-      return intl.formatMessage({
-        id: ETranslations.swap_page_button_insufficient_balance,
-      });
+      return {
+        resValue: intl.formatMessage({
+          id: ETranslations.swap_page_button_insufficient_balance,
+        }),
+        subValue: '',
+      };
     }
 
     if (!swapProAccount?.result?.addressDetail.address) {
-      return intl.formatMessage({
-        id: ETranslations.global_select_wallet,
-      });
+      return {
+        resValue: intl.formatMessage({
+          id: ETranslations.global_select_wallet,
+        }),
+        subValue: '',
+      };
     }
 
     // Format: "Buy {amount} {fromToken} ({Value})"
@@ -316,12 +322,13 @@ const SwapProActionButton = ({
       amountFromDirection,
       availableForAmount,
     );
-
+    const resValue = `${directionText} ${formattedAmount} ${tokenSymbol}`;
+    const subValue = formattedValue;
     // Build final text
-    if (formattedValue) {
-      return `${directionText} ${formattedAmount} ${tokenSymbol} ${formattedValue}`;
-    }
-    return `${directionText} ${formattedAmount} ${tokenSymbol}`;
+    return {
+      resValue,
+      subValue,
+    };
   }, [
     hasEnoughBalance,
     swapProAccount?.result?.addressDetail.address,
@@ -350,9 +357,24 @@ const SwapProActionButton = ({
           : '$bgCriticalStrong'
       }
     >
-      <SizableText size="$bodyMdMedium" color="$textOnColor" textAlign="center">
-        {actionButtonText}
-      </SizableText>
+      <YStack alignItems="center">
+        <SizableText
+          size="$bodyMdMedium"
+          color="$textOnColor"
+          textAlign="center"
+        >
+          {actionButtonText.resValue}
+        </SizableText>
+        {actionButtonText.subValue ? (
+          <SizableText
+            size="$bodyMdMedium"
+            color="$textOnColor"
+            textAlign="center"
+          >
+            {actionButtonText.subValue}
+          </SizableText>
+        ) : null}
+      </YStack>
     </Button>
   );
 };
