@@ -4,6 +4,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Checkbox,
   DashText,
   Divider,
@@ -23,7 +24,10 @@ import {
   useTradingFormComputedAtom,
   useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type {
+  IBBOPriceMode,
+  ITradingFormData,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAssetAtom,
@@ -50,6 +54,7 @@ import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
+import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
 
@@ -88,9 +93,9 @@ function PerpTradingForm({
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
-  const currentTokenName = activeAsset?.coin;
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
+  const isBBOActive = !!formData.bboPriceMode;
   const perpsSelectedDisplayName = useMemo(
     () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
     [perpsSelectedSymbol.coin],
@@ -293,6 +298,23 @@ function PerpTradingForm({
     [updateForm],
   );
 
+  const handleBBOToggle = useCallback(() => {
+    if (formData.bboPriceMode) {
+      updateForm({ bboPriceMode: null });
+    } else {
+      updateForm({
+        bboPriceMode: { type: 'counterparty', level: 1 },
+      });
+    }
+  }, [formData.bboPriceMode, updateForm]);
+
+  const handleBBOChange = useCallback(
+    (mode: IBBOPriceMode) => {
+      updateForm({ bboPriceMode: mode });
+    },
+    [updateForm],
+  );
+
   const orderTypeOptions = useMemo(
     () => [
       {
@@ -437,26 +459,81 @@ function PerpTradingForm({
       </YStack>
 
       {formData.type === 'limit' || isMobile ? (
-        <PriceInput
-          onUseMidPrice={() => {
-            if (midPrice) {
-              updateForm({
-                price: formatPriceToSignificantDigits(midPrice),
-              });
-            }
-          }}
-          value={
-            formData.type === 'limit'
-              ? formData.price
-              : intl.formatMessage({
-                  id: ETranslations.perp_market_price,
-                })
-          }
-          onChange={(value) => updateForm({ price: value })}
-          szDecimals={universe?.szDecimals ?? 2}
-          isMobile={isMobile}
-          disabled={formData.type === 'market'}
-        />
+        <XStack alignItems="center" flex={1} gap={isMobile ? '$2.5' : '$3'}>
+          {isBBOActive && formData.type === 'limit' ? (
+            <YStack flex={1}>
+              <BBOSelector
+                value={formData.bboPriceMode ?? null}
+                onChange={handleBBOChange}
+                disabled={isSubmitting}
+                isMobile={isMobile}
+              />
+            </YStack>
+          ) : (
+            <YStack flex={1}>
+              <PriceInput
+                onUseMidPrice={() => {
+                  if (midPrice) {
+                    updateForm({
+                      price: formatPriceToSignificantDigits(midPrice),
+                    });
+                  }
+                }}
+                value={
+                  formData.type === 'limit'
+                    ? formData.price
+                    : intl.formatMessage({
+                        id: ETranslations.perp_market_price,
+                      })
+                }
+                onChange={(value) => updateForm({ price: value })}
+                szDecimals={universe?.szDecimals ?? 2}
+                isMobile={isMobile}
+                disabled={formData.type === 'market'}
+              />
+            </YStack>
+          )}
+          {formData.type === 'limit' ? (
+            <Tooltip
+              renderTrigger={
+                <Badge
+                  testID="perp-bbo-toggle-button"
+                  borderRadius="$2"
+                  bg="$bgSubdued"
+                  borderWidth="$px"
+                  borderColor={isBBOActive ? '$borderPrimary' : '$bgSubdued'}
+                  onPress={handleBBOToggle}
+                  px="$3"
+                  m="$-px"
+                  h={isMobile ? 38 : 50}
+                  alignItems="center"
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgHover',
+                  }}
+                  disabled={isSubmitting}
+                  cursor="pointer"
+                >
+                  <DashText
+                    size="$bodyMdMedium"
+                    dashColor="$text"
+                    dashThickness={0.5}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.Perps_BBO_button_title,
+                    })}
+                  </DashText>
+                </Badge>
+              }
+              renderContent={intl.formatMessage({
+                id: ETranslations.Perps_BBO_button_desc,
+              })}
+              placement="top-end"
+            />
+          ) : null}
+        </XStack>
       ) : null}
 
       <SizeInput
