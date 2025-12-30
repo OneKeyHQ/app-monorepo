@@ -573,6 +573,7 @@ export function useKeylessWallet() {
 
       // ResetPin: skip check, go to CreatePin
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin) {
+        // TODO check if keyless wallet matched with ownerId
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
@@ -587,6 +588,7 @@ export function useKeylessWallet() {
 
       // VerifyPinOnly: skip check, go to VerifyPin
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
+        // TODO check if keyless wallet matched with ownerId
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
@@ -633,21 +635,31 @@ export function useKeylessWallet() {
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
       ) {
         // Get keyless wallet to extract ownerId from keylessDetailsInfo
-        const keylessWallet =
-          await backgroundApiProxy.serviceAccount.getKeylessWallet();
+        let keylessWallet;
+        try {
+          keylessWallet =
+            await backgroundApiProxy.serviceAccount.getKeylessWallet();
+        } catch (error) {
+          // Continue to navigation if getKeylessWallet fails
+        }
         const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId || '';
 
         if (keylessWallet && ownerId) {
           // Try to refresh session if refreshToken is valid
-          const refreshResult =
-            await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
-              { ownerId },
-            );
+          let refreshResult;
+          try {
+            refreshResult =
+              await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
+                { ownerId },
+              );
+          } catch (error) {
+            // Continue to navigation if refresh fails
+          }
 
           if (
             refreshResult &&
-            refreshResult.accessToken &&
-            refreshResult.refreshToken
+            refreshResult?.accessToken &&
+            refreshResult?.refreshToken
           ) {
             // Refresh successful, proceed with checkKeylessWalletCreatedOnServer
             await checkKeylessWalletCreatedOnServer({

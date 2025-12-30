@@ -1,3 +1,5 @@
+import type { IKeylessWalletDetailsInfo } from '@onekeyhq/kit-bg/src/dbs/local/types';
+
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IConnectYourDeviceItem } from '../../types/device';
 import type { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
@@ -81,7 +83,7 @@ export type IOnboardingParamListV2 = {
     deviceData?: IConnectYourDeviceItem;
     keylessPackSetId?: string;
     keylessOwnerId?: string;
-    keylessDetailsInfo?: import('../../kit-bg/src/dbs/local/types').IKeylessWalletDetailsInfo;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
   };
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {

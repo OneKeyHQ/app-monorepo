@@ -1023,11 +1023,7 @@ function buildKeylessMnemonicPasswordKey({
   return `OneKey_Keyless_MnemonicPwd__${ownerId}`;
 }
 
-function buildKeylessRefreshTokenKey({
-  ownerId,
-}: {
-  ownerId: string;
-}): string {
+function buildKeylessRefreshTokenKey({ ownerId }: { ownerId: string }): string {
   return `OneKey_Keyless_RefreshToken__${ownerId}`;
 }
 

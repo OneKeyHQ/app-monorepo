@@ -345,14 +345,15 @@ function FinalizeWalletSetupPage({
     mnemonic,
     deviceData,
     isFirmwareVerified,
+    keylessPackSetId,
     mnemonicType,
     actions,
     isWalletBackedUp,
     isKeylessWallet,
+    keylessDetailsInfo,
     goNextStep,
     connectDevice,
     createHWWallet,
-    keylessPackSetId,
   ]);
 
   useEffect(() => {
