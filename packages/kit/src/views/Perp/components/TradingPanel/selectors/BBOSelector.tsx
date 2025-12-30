@@ -112,7 +112,7 @@ export const BBOSelector = memo<IBBOSelectorProps>(
                 cursor="pointer"
                 onPress={onPress}
                 disabled={disabledTrigger}
-                h={38}
+                h={36}
                 alignItems="center"
                 justifyContent="space-between"
               >
@@ -160,7 +160,7 @@ export const BBOSelector = memo<IBBOSelectorProps>(
             }}
           >
             <XStack
-              h={40}
+              h={32}
               alignItems="center"
               justifyContent="space-between"
               px="$2"

@@ -494,44 +494,55 @@ function PerpTradingForm({
             </YStack>
           )}
           {formData.type === 'limit' ? (
-            <Tooltip
-              renderTrigger={
-                <Badge
-                  testID="perp-bbo-toggle-button"
-                  borderRadius="$2"
-                  bg="$bgSubdued"
-                  borderWidth="$px"
-                  borderColor={isBBOActive ? '$borderPrimary' : '$bgSubdued'}
-                  onPress={handleBBOToggle}
-                  px="$3"
-                  m="$-px"
-                  h={isMobile ? 38 : 50}
-                  alignItems="center"
-                  hoverStyle={{
-                    bg: '$bgHover',
-                  }}
-                  pressStyle={{
-                    bg: '$bgHover',
-                  }}
-                  disabled={isSubmitting}
-                  cursor="pointer"
+            <Badge
+              testID="perp-bbo-toggle-button"
+              borderRadius="$2"
+              bg="$bgSubdued"
+              borderWidth="$px"
+              borderColor={isBBOActive ? '$borderPrimary' : '$bgSubdued'}
+              onPress={handleBBOToggle}
+              px="$3"
+              h={isMobile ? 38 : 40}
+              alignItems="center"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgHover',
+              }}
+              disabled={isSubmitting}
+              cursor="pointer"
+            >
+              {isMobile ? (
+                <DashText
+                  size="$bodyMdMedium"
+                  dashColor="$text"
+                  dashThickness={0}
                 >
-                  <DashText
-                    size="$bodyMdMedium"
-                    dashColor="$text"
-                    dashThickness={0.5}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.Perps_BBO_button_title,
-                    })}
-                  </DashText>
-                </Badge>
-              }
-              renderContent={intl.formatMessage({
-                id: ETranslations.Perps_BBO_button_desc,
-              })}
-              placement="top-end"
-            />
+                  {intl.formatMessage({
+                    id: ETranslations.Perps_BBO_button_title,
+                  })}
+                </DashText>
+              ) : (
+                <Tooltip
+                  renderTrigger={
+                    <DashText
+                      size="$bodyMdMedium"
+                      dashColor="$text"
+                      dashThickness={0.5}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.Perps_BBO_button_title,
+                      })}
+                    </DashText>
+                  }
+                  renderContent={intl.formatMessage({
+                    id: ETranslations.Perps_BBO_button_desc,
+                  })}
+                  placement="top-end"
+                />
+              )}
+            </Badge>
           ) : null}
         </XStack>
       ) : null}
