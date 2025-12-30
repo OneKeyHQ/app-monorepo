@@ -515,6 +515,7 @@
   "defi.supply_cap_usage": "Utilisation du plafond d'approvisionnement",
   "defi.use_as_collateral": "Utiliser comme garantie",
   "defi.utilization_ratio": "Taux d'utilisation",
+  "defi.view_reserve_details": "Afficher les détails de la réserve",
   "defi.with_collateral": "Avec garantie",
   "defi.withdrawable_today": "Retirable aujourd'hui",
   "derivation_path": "Chemin de dérivation",

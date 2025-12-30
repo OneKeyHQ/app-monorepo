@@ -520,6 +520,7 @@
   defi_supply_cap_usage = 'defi.supply_cap_usage',
   defi_use_as_collateral = 'defi.use_as_collateral',
   defi_utilization_ratio = 'defi.utilization_ratio',
+  defi_view_reserve_details = 'defi.view_reserve_details',
   defi_with_collateral = 'defi.with_collateral',
   defi_withdrawable_today = 'defi.withdrawable_today',
   derivation_path = 'derivation_path',

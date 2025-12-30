@@ -515,6 +515,7 @@
   "defi.supply_cap_usage": "供給上限使用",
   "defi.use_as_collateral": "担保として使用する",
   "defi.utilization_ratio": "利用率",
+  "defi.view_reserve_details": "準備金詳細を表示",
   "defi.with_collateral": "担保付き",
   "defi.withdrawable_today": "本日出金可能",
   "derivation_path": "導出パス",

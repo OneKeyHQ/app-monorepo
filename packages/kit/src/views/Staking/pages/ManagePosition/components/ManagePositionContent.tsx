@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -16,6 +17,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
@@ -121,6 +123,7 @@ export function ManagePositionContent({
 }: IManagePositionContentProps) {
   const appNavigation = useAppNavigation();
   const { gtMd } = useMedia();
+  const intl = useIntl();
 
   const {
     tokenInfo,
@@ -388,7 +391,9 @@ export function ManagePositionContent({
       <Button mt="$4" onPress={handleViewReserveDetails}>
         <XStack gap="$3" ai="center" flex={1} my="$2">
           <SizableText size="$bodyMdMedium" color="$text">
-            View Reserve Details
+            {intl.formatMessage({
+              id: ETranslations.defi_view_reserve_details,
+            })}
           </SizableText>
           <Icon
             ml="auto"
@@ -410,6 +415,7 @@ export function ManagePositionContent({
     fallbackTokenImageUri,
     appNavigation,
     gtMd,
+    intl,
   ]);
 
   // Create beforeFooter content for stake section

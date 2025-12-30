@@ -515,6 +515,7 @@
   "defi.supply_cap_usage": "存入上限使用",
   "defi.use_as_collateral": "用作抵押",
   "defi.utilization_ratio": "利用率",
+  "defi.view_reserve_details": "查看储备详情",
   "defi.with_collateral": "使用抵押品",
   "defi.withdrawable_today": "今日可提领",
   "derivation_path": "派生路径",

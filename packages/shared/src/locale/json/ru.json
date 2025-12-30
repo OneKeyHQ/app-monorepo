@@ -515,6 +515,7 @@
   "defi.supply_cap_usage": "Использование лимита предложения",
   "defi.use_as_collateral": "Использовать в качестве залога",
   "defi.utilization_ratio": "Коэффициент использования",
+  "defi.view_reserve_details": "Просмотреть сведения о резерве",
   "defi.with_collateral": "С залогом",
   "defi.withdrawable_today": "Доступно для вывода сегодня",
   "derivation_path": "Путь производного",

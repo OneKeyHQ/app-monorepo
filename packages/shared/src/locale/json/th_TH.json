@@ -515,6 +515,7 @@
   "defi.supply_cap_usage": "การใช้ขีดจำกัดอุปทาน",
   "defi.use_as_collateral": "ใช้เป็นหลักประกัน",
   "defi.utilization_ratio": "อัตราการใช้ประโยชน์",
+  "defi.view_reserve_details": "ดูรายละเอียดเงินสำรอง",
   "defi.with_collateral": "พร้อมหลักประกัน",
   "defi.withdrawable_today": "ถอนได้วันนี้",
   "derivation_path": "เส้นทางการสืบทอด",
