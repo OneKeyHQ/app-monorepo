@@ -1498,7 +1498,7 @@ function MoreActionButtonCmp() {
   const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const [{ isCollapsed }] = useAppSideBarStatusAtom();
-
+  const media = useMedia();
   if (!isDesktopMode) {
     return <MoreButtonWithDot />;
   }
@@ -1506,7 +1506,7 @@ function MoreActionButtonCmp() {
   // Collapsed: show tooltip; Expanded: no tooltip (text is visible)
   const trigger = isCollapsed ? (
     <Tooltip
-      placement="right"
+      placement={platformEnv.isWebDappMode || media.md ? 'bottom' : 'right'}
       renderTrigger={<MoreButtonWithDot />}
       renderContent={intl.formatMessage({
         id: ETranslations.address_book_menu_title,
