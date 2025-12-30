@@ -68,20 +68,33 @@ export const HealthFactor = ({
   const successColor = theme.bgSuccessStrong.val;
 
   const { displayValue, pointerPercent, thresholdPercent } = useMemo(() => {
-    const safeMin = min;
-    const safeMax = Math.max(max, safeMin + 0.0001);
+    const safeMin = Number.isFinite(min) ? min : 0;
+    const safeMaxInput = Number.isFinite(max) ? max : safeMin;
+    const safeMax = Math.max(safeMaxInput, safeMin + 0.0001);
     const range = safeMax - safeMin;
 
     const clampToRange = (input: number) =>
       Math.min(Math.max(input, safeMin), safeMax);
 
-    const clampedValue = clampToRange(value);
-    const clampedThreshold = clampToRange(thresholdValue);
+    const valueIsFinite = Number.isFinite(value);
+    const thresholdIsFinite = Number.isFinite(thresholdValue);
+    const clampedValue = valueIsFinite ? clampToRange(value) : safeMin;
+    const clampedThreshold = thresholdIsFinite
+      ? clampToRange(thresholdValue)
+      : safeMin;
+    const canComputePointer =
+      valueIsFinite && Number.isFinite(range) && range > 0;
+    const canComputeThreshold =
+      thresholdIsFinite && Number.isFinite(range) && range > 0;
 
     return {
-      displayValue: value.toFixed(2),
-      pointerPercent: ((clampedValue - safeMin) / range) * 100,
-      thresholdPercent: ((clampedThreshold - safeMin) / range) * 100,
+      displayValue: valueIsFinite ? value.toFixed(2) : '-',
+      pointerPercent: canComputePointer
+        ? ((clampedValue - safeMin) / range) * 100
+        : 0,
+      thresholdPercent: canComputeThreshold
+        ? ((clampedThreshold - safeMin) / range) * 100
+        : 0,
     };
   }, [max, min, thresholdValue, value]);
 
