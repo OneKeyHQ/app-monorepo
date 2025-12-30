@@ -24,7 +24,6 @@ export type IWalletAvatarProps = IWalletAvatarBaseProps & {
   status?: IWalletProps['status'];
   badge?: number | string;
   firmwareTypeBadge?: EFirmwareType;
-  socialLoginProvider?: EOAuthSocialLoginProvider;
 };
 
 export function WalletAvatarBase({
@@ -67,10 +66,10 @@ export function WalletAvatar({
   status,
   badge,
   firmwareTypeBadge,
-  socialLoginProvider,
   img,
   wallet,
 }: IWalletAvatarProps) {
+  const socialLoginProvider = wallet?.keylessDetailsInfo?.keylessProvider;
   return (
     <Stack w={size} h={size} justifyContent="center" alignItems="center">
       <WalletAvatarBase size={size} img={img} wallet={wallet} />
