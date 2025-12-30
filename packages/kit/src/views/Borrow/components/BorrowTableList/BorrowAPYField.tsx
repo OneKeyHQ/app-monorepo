@@ -1,7 +1,6 @@
 import type { IBorrowApy } from '@onekeyhq/shared/types/staking';
 
 import { AprText } from '../../../Earn/components/AprText';
-import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 
 import { FieldWrapper } from './FieldWrapper';
 

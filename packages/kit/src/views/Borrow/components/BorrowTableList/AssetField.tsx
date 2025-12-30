@@ -16,11 +16,9 @@ export const AssetField = ({ token, canBeCollateral }: IAssetFieldProps) => {
     <FieldWrapper flex={1}>
       <XStack ai="center">
         <Token size="md" tokenImageUri={token.logoURI} />
-        <YStack>
-          <SizableText ml="$3" flex={1} size="$bodyMdMedium" color="$text">
-            {token.symbol}
-          </SizableText>
-        </YStack>
+        <SizableText ml="$3" flex={1} size="$bodyMdMedium" color="$text">
+          {token.symbol}
+        </SizableText>
         {canBeCollateral ? (
           <Icon
             br="$1"
