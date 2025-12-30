@@ -26,8 +26,8 @@ export function RiskSection({ risk }: { risk?: IBorrowReserveDetail['risk'] }) {
           size="$headingLg"
         />
         <YStack gap="$3">
-          {risk.items.map((item) => (
-            <Fragment key={item.title.text}>
+          {risk.items.map((item, index) => (
+            <Fragment key={`${item.title.text}-${index}`}>
               <XStack ai="center" gap="$3">
                 <YStack flex={1} gap="$2">
                   <XStack ai="center" gap="$2">
