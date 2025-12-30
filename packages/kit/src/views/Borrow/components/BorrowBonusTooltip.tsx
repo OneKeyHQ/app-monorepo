@@ -166,7 +166,7 @@ export const BorrowBonusTooltip = ({
             )}
             {data?.distributed.map((item, index) => {
               return itemRender({
-                key: index,
+                key: `${index}-${item?.token?.address}`,
                 children: (
                   <>
                     <XStack ai="center" gap="$2.5">
