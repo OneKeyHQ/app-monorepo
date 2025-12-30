@@ -8,7 +8,6 @@ import {
   Divider,
   NumberSizeableText,
   SizableText,
-  Skeleton,
   Spinner,
   Stack,
   View,
