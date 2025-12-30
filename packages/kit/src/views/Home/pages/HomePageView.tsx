@@ -8,7 +8,6 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   Icon,
   Page,
-  RefreshControl,
   ScrollView,
   Stack,
   Tabs,
@@ -57,7 +56,7 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
-import type { LayoutChangeEvent, ScrollViewProps } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -332,7 +331,7 @@ export function HomePageView({
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
       return (
-        <ScrollView h="100%">
+        <ScrollView h="100%" nestedScrollEnabled={platformEnv.isNativeAndroid}>
           {renderHeader()}
           <NotBackedUpEmpty />
         </ScrollView>
@@ -537,7 +536,11 @@ export function HomePageView({
     );
 
     if (wallet) {
-      content = homePageContent;
+      content = platformEnv.isNative ? (
+        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
+      ) : (
+        homePageContent
+      );
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
     return (
@@ -576,11 +579,6 @@ export function HomePageView({
   ]);
 
   return useMemo(() => {
-    const content = platformEnv.isNativeAndroid ? (
-      <AndroidScrollContainer>{homePage}</AndroidScrollContainer>
-    ) : (
-      homePage
-    );
-    return <Page fullPage>{content}</Page>;
+    return <Page fullPage>{homePage}</Page>;
   }, [homePage]);
 }
