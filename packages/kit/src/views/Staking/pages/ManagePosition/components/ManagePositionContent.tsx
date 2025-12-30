@@ -285,12 +285,16 @@ export function ManagePositionContent({
     [managePageData?.history],
   );
 
-  const isBorrowType = [
-    EManagePositionType.Supply,
-    EManagePositionType.Borrow,
-    EManagePositionType.Withdraw,
-    EManagePositionType.Repay,
-  ].includes(type);
+  const isBorrowType = useMemo(
+    () =>
+      [
+        EManagePositionType.Supply,
+        EManagePositionType.Borrow,
+        EManagePositionType.Withdraw,
+        EManagePositionType.Repay,
+      ].includes(type),
+    [type],
+  );
 
   const onHistory = useMemo(() => {
     // Return undefined if history is disabled or no account
