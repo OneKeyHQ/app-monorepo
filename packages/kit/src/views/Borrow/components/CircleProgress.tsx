@@ -41,6 +41,9 @@ export function CircleProgress({
   }, [size, strokeWidth, percentage]);
 
   const center = size / 2;
+  const percentageText = useMemo(() => {
+    return Number.isFinite(percentage) ? percentage.toFixed(2) : '0.00';
+  }, [percentage]);
 
   return (
     <XStack position="relative" width={size} height={size}>
@@ -81,7 +84,7 @@ export function CircleProgress({
         justifyContent="center"
       >
         <SizableText size="$bodyMdMedium" color="$text">
-          {percentage.toFixed(2)}%
+          {percentageText}%
         </SizableText>
       </YStack>
     </XStack>
