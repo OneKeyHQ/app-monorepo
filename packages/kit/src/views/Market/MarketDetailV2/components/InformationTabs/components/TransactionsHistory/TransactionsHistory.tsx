@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { runOnJS, SharedValue, useAnimatedReaction } from 'react-native-reanimated';
+import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
@@ -27,6 +27,7 @@ import { TransactionItemNormal } from './layout/TransactionItemNormal/Transactio
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 
 import type { FlatListProps } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;
