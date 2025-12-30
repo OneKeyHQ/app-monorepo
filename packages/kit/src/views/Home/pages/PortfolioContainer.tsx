@@ -7,6 +7,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
 import { ProviderJotaiContextEarn } from '../../../states/jotai/contexts/earn';
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
+import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
 import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
@@ -17,7 +18,6 @@ import { SupportHub } from '../components/SupportHub';
 import { TokenListBlock } from '../components/TokenListBlock';
 import { Upgrade } from '../components/Upgrade';
 import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
-import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
 
 function PortfolioContainer() {
   const media = useMedia();
