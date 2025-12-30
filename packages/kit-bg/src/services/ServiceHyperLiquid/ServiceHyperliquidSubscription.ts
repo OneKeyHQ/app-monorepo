@@ -611,6 +611,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       };
       const allTypes = [
         ESubscriptionType.ALL_MIDS,
+        ESubscriptionType.BBO,
         ESubscriptionType.L2_BOOK,
         ESubscriptionType.ACTIVE_ASSET_CTX,
         ESubscriptionType.ACTIVE_ASSET_DATA,

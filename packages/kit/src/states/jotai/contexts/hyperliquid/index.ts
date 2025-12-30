@@ -2,6 +2,7 @@ export {
   ProviderJotaiContextHyperliquid,
   usePerpsAllMidsAtom,
   useL2BookAtom,
+  useBboAtom,
   useConnectionStateAtom,
   useOrderBookTickOptionsAtom,
   usePerpsActiveOpenOrdersAtom,
@@ -16,7 +17,7 @@ export {
   usePerpsLedgerUpdatesAtom,
 } from './atoms';
 
-export type { ITradingFormData } from './atoms';
+export type { ITradingFormData, IBBOPriceMode } from './atoms';
 
 export { useHyperliquidActions } from './actions';
 
