@@ -40,7 +40,10 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
-import type { IServerEstimateFeeResponse } from '@onekeyhq/shared/types/fee';
+import type {
+  IServerEstimateFeeResponse,
+  IFeeInfoUnit,
+} from '@onekeyhq/shared/types/fee';
 import type {
   IFetchServerTokenDetailParams,
   IFetchServerTokenDetailResponse,
