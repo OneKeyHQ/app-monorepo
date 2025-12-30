@@ -113,13 +113,13 @@ function ApprovalListViewCmp(props: IProps) {
     if (showSkeleton) {
       return (
         <YStack style={{ flex: 1 }}>
-          <ListLoading />
+          <ListLoading isTokenSelectorView={!tableLayout} />
         </YStack>
       );
     }
 
     return <EmptyApproval />;
-  }, [showSkeleton]);
+  }, [showSkeleton, tableLayout]);
 
   const filteredApprovals = useMemo(() => {
     let _filteredApprovals = approvals;
