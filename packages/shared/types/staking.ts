@@ -1780,10 +1780,7 @@ export interface IApyHistoryItem {
   timestamp: number;
 }
 
-export interface IBorrowApyHistoryItem {
-  timestamp: number;
-  apy: string;
-}
+export type IBorrowApyHistoryItem = IApyHistoryItem;
 
 export interface IApyHistoryResponse {
   code: number;
