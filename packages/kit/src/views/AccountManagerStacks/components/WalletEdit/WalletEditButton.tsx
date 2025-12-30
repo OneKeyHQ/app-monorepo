@@ -126,7 +126,7 @@ function WalletEditButtonView({
               label={intl.formatMessage({ id: ETranslations.reset_pin })}
               onClose={handleActionListClose}
               onPress={() => {
-                goToOneKeyIDLoginPageForKeylessWallet({
+                void goToOneKeyIDLoginPageForKeylessWallet({
                   mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
                 });
               }}
@@ -140,7 +140,7 @@ function WalletEditButtonView({
               label="Verify PIN"
               onClose={handleActionListClose}
               onPress={() => {
-                goToOneKeyIDLoginPageForKeylessWallet({
+                void goToOneKeyIDLoginPageForKeylessWallet({
                   mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
                 });
               }}

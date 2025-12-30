@@ -142,6 +142,7 @@ import type {
   IDBWalletNextIdKeys,
   IDBWalletNextIds,
   IDBWalletType,
+  IKeylessWalletDetailsInfo,
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
@@ -1019,6 +1020,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     wallet.avatarInfo = avatarInfo;
+
+    let keylessDetailsInfo: IKeylessWalletDetailsInfo | undefined;
+    if (wallet.keylessDetails) {
+      try {
+        const parsedKeylessDetails = JSON.parse(
+          wallet.keylessDetails || '{}',
+        ) as IKeylessWalletDetailsInfo;
+        if (
+          parsedKeylessDetails?.keylessOwnerId &&
+          parsedKeylessDetails?.keylessProvider
+        ) {
+          keylessDetailsInfo = parsedKeylessDetails;
+        }
+      } catch (error) {
+        console.error('refillWalletInfo keylessDetails', error);
+      }
+    }
+
+    wallet.keylessDetailsInfo = keylessDetailsInfo;
     wallet.walletOrder = wallet.walletOrderSaved ?? wallet.walletNo;
     if (accountUtils.isHwHiddenWallet({ wallet })) {
       const parentWallet = await this.getParentWalletOfHiddenWallet({
@@ -1985,6 +2005,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletHash,
       walletXfp,
       isKeylessWallet,
+      keylessDetailsInfo,
     } = params;
     const context = await this.getContext({ verifyPassword: password });
     const walletId = accountUtils.buildHdWalletId({
@@ -2018,6 +2039,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         walletNo: context.nextWalletNo,
         deprecated: false,
         isKeyless: !!isKeylessWallet,
+        keylessDetails: keylessDetailsInfo
+          ? JSON.stringify(keylessDetailsInfo)
+          : undefined,
       };
       currentWalletToCreate = _walletToCreate;
       currentAvatarInfo = options.avatar;

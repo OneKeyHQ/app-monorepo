@@ -354,6 +354,19 @@ class ServiceAccount extends ServiceBase {
     return wallets.some((wallet) => wallet.isKeyless);
   }
 
+  @backgroundMethod()
+  async getKeylessWallet(): Promise<IDBWallet | undefined> {
+    await timerUtils.wait(1500, { devOnly: true });
+    const { wallets } = await localDb.getAllWallets();
+    const wallet = wallets.find((w) => w.isKeyless);
+    if (wallet) {
+      await localDb.refillWalletInfo({
+        wallet,
+      });
+    }
+    return wallet;
+  }
+
   async getAllWallets(
     params: { refillWalletInfo?: boolean; excludeKeylessWallet?: boolean } = {},
   ) {
@@ -3028,12 +3041,14 @@ class ServiceAccount extends ServiceBase {
     isWalletBackedUp,
     isKeylessWallet,
     avatarInfo,
+    keylessDetailsInfo,
   }: {
     mnemonic: string;
     name?: string;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
     avatarInfo?: IAvatarInfo;
+    keylessDetailsInfo?: import('../../dbs/local/types').IKeylessWalletDetailsInfo;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -3075,6 +3090,7 @@ class ServiceAccount extends ServiceBase {
       isWalletBackedUp,
       isKeylessWallet,
       avatarInfo,
+      keylessDetailsInfo,
     });
   }
 
@@ -3121,6 +3137,7 @@ class ServiceAccount extends ServiceBase {
     walletXfp,
     isWalletBackedUp,
     isKeylessWallet,
+    keylessDetailsInfo,
   }: {
     rs: string;
     password: string;
@@ -3130,6 +3147,7 @@ class ServiceAccount extends ServiceBase {
     walletXfp: string;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
+    keylessDetailsInfo?: import('../../dbs/local/types').IKeylessWalletDetailsInfo;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
@@ -3186,6 +3204,7 @@ class ServiceAccount extends ServiceBase {
       walletHash,
       walletXfp,
       isKeylessWallet,
+      keylessDetailsInfo,
     });
 
     await timerUtils.wait(100);

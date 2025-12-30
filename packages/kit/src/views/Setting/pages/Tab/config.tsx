@@ -525,7 +525,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   icon: 'InputOutline',
                   title: intl.formatMessage({ id: ETranslations.reset_pin }),
                   onPress: (navigation) => {
-                    goToOneKeyIDLoginPageForKeylessWallet({
+                    void goToOneKeyIDLoginPageForKeylessWallet({
                       mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
                     });
                   },

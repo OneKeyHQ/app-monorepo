@@ -125,13 +125,6 @@ function OneKeyIDLoginPage() {
   const { logout, signInWithSocialLogin } = useOneKeyAuth();
   const { checkKeylessWalletCreatedOnServer } = useKeylessWallet();
 
-  const goToInputPinPage = useCallback(
-    async ({ token }: { token: string }) => {
-      await checkKeylessWalletCreatedOnServer({ token, mode });
-    },
-    [checkKeylessWalletCreatedOnServer, mode],
-  );
-
   const handleSocialLogin = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
       if (loggingInProviderRef.current) {
@@ -141,15 +134,17 @@ function OneKeyIDLoginPage() {
         setLoggingInProvider(provider);
         const result = await signInWithSocialLogin(provider);
         if (result?.session?.accessToken) {
-          await goToInputPinPage({
+          await checkKeylessWalletCreatedOnServer({
             token: result.session.accessToken,
+            refreshToken: result.session.refreshToken,
+            mode,
           });
         }
       } finally {
         setLoggingInProvider(null);
       }
     },
-    [goToInputPinPage, signInWithSocialLogin],
+    [checkKeylessWalletCreatedOnServer, mode, signInWithSocialLogin],
   );
 
   const handleGoogleLogin = useCallback(async () => {

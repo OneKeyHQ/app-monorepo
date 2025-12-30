@@ -178,6 +178,7 @@ function FinalizeWalletSetupPage({
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
   const isKeylessWallet = route?.params?.isKeylessWallet;
+  const keylessDetailsInfo = route?.params?.keylessDetailsInfo;
 
   const initialStep = EFinalizeWalletSetupSteps.CreatingWallet;
 
@@ -306,6 +307,7 @@ function FinalizeWalletSetupPage({
               mnemonic,
               isWalletBackedUp,
               isKeylessWallet,
+              keylessDetailsInfo,
             });
           },
         });

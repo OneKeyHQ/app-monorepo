@@ -123,5 +123,6 @@ export type ISupabaseJWTPayload = JWTPayload & {
   };
   user_metadata: {
     sub: string;
+    iss: string;
   };
 };

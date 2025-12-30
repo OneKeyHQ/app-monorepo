@@ -324,13 +324,32 @@ async function keylessOnboardingCacheSet(key: string, value: string) {
   );
 }
 
-async function cacheKeylessOnboardingToken({ token }: { token: string }) {
+async function cacheKeylessOnboardingToken({
+  token,
+  refreshToken,
+}: {
+  token: string;
+  refreshToken?: string;
+}) {
   await keylessOnboardingCacheSet('socialLoginToken', token);
+  if (refreshToken) {
+    await keylessOnboardingCacheSet('socialLoginRefreshToken', refreshToken);
+  }
 }
 
 async function getKeylessOnboardingToken(options?: { skipDelete?: boolean }) {
   const token = keylessOnboardingCacheGetAndDelete('socialLoginToken', options);
   return token;
+}
+
+async function getKeylessOnboardingRefreshToken(options?: {
+  skipDelete?: boolean;
+}) {
+  const refreshToken = keylessOnboardingCacheGetAndDelete(
+    'socialLoginRefreshToken',
+    options,
+  );
+  return refreshToken;
 }
 
 async function cacheKeylessOnboardingPin({ pin }: { pin: string }) {
@@ -523,13 +542,124 @@ export function useKeylessWallet() {
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_got_it,
       }),
+      onCancel: () => {
+        keylessOnboardingCache.clear();
+      },
+      onClose: () => {
+        keylessOnboardingCache.clear();
+      },
+      onConfirm: () => {
+        keylessOnboardingCache.clear();
+      },
     });
     throw new OneKeyLocalError('Keyless Wallet onboarding timed out');
   }, [intl]);
 
+  const checkKeylessWalletCreatedOnServer = useCallback(
+    async ({
+      token,
+      refreshToken,
+      mode,
+    }: {
+      token: string;
+      refreshToken?: string;
+      mode?: EOnboardingV2OneKeyIDLoginMode;
+    }) => {
+      if (!token) {
+        handleKeylessOnboardingTimeout();
+        return;
+      }
+      await cacheKeylessOnboardingToken({ token, refreshToken });
+
+      // ResetPin: skip check, go to CreatePin
+      if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin) {
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.CreatePin,
+            params: {
+              action: EKeylessFinalizeAction.ResetPin,
+            },
+          },
+        });
+        return;
+      }
+
+      // VerifyPinOnly: skip check, go to VerifyPin
+      if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.VerifyPin,
+            params: {
+              mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
+            },
+          },
+        });
+        return;
+      }
+
+      // Default: check wallet existence and navigate accordingly
+      const isCreated =
+        await backgroundApiProxy.serviceKeylessWallet.isKeylessWalletCreatedOnServer(
+          {
+            token,
+          },
+        );
+      if (isCreated) {
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.VerifyPin,
+          },
+        });
+      } else {
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.CreatePin,
+          },
+        });
+      }
+    },
+    [handleKeylessOnboardingTimeout, navigation],
+  );
+
   // goToOneKeyIDLoginPageForKeylessWallet
   const goToOneKeyIDLoginPageForKeylessWallet = useCallback(
-    ({ mode }: { mode: EOnboardingV2OneKeyIDLoginMode }) => {
+    async ({ mode }: { mode: EOnboardingV2OneKeyIDLoginMode }) => {
+      if (
+        mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
+        mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
+      ) {
+        // Get keyless wallet to extract ownerId from keylessDetailsInfo
+        const keylessWallet =
+          await backgroundApiProxy.serviceAccount.getKeylessWallet();
+        const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId || '';
+
+        if (keylessWallet && ownerId) {
+          // Try to refresh session if refreshToken is valid
+          const refreshResult =
+            await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
+              { ownerId },
+            );
+
+          if (
+            refreshResult &&
+            refreshResult.accessToken &&
+            refreshResult.refreshToken
+          ) {
+            // Refresh successful, proceed with checkKeylessWalletCreatedOnServer
+            await checkKeylessWalletCreatedOnServer({
+              token: refreshResult.accessToken,
+              refreshToken: refreshResult.refreshToken,
+              mode,
+            });
+            return;
+          }
+        }
+      }
+
       navigation.navigate(ERootRoutes.Onboarding, {
         screen: EOnboardingV2Routes.OnboardingV2,
         params: {
@@ -540,7 +670,7 @@ export function useKeylessWallet() {
         },
       });
     },
-    [navigation],
+    [navigation, checkKeylessWalletCreatedOnServer],
   );
 
   // Renamed function, checks if KeylessWallet exists locally
@@ -567,7 +697,7 @@ export function useKeylessWallet() {
             }),
           });
         } else {
-          goToOneKeyIDLoginPageForKeylessWallet({
+          await goToOneKeyIDLoginPageForKeylessWallet({
             mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
           });
         }
@@ -577,52 +707,6 @@ export function useKeylessWallet() {
     });
   }, [goToOneKeyIDLoginPageForKeylessWallet, intl]);
 
-  const checkKeylessWalletCreatedOnServer = useCallback(
-    async ({
-      token,
-      mode,
-    }: {
-      token: string;
-      mode?: EOnboardingV2OneKeyIDLoginMode;
-    }) => {
-      if (!token) {
-        handleKeylessOnboardingTimeout();
-        return;
-      }
-      await cacheKeylessOnboardingToken({ token });
-
-      // ResetPin: skip check, go to CreatePin
-      if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin) {
-        navigation.push(EOnboardingPagesV2.CreatePin, {
-          action: EKeylessFinalizeAction.ResetPin,
-        });
-        return;
-      }
-
-      // VerifyPinOnly: skip check, go to VerifyPin
-      if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
-        navigation.push(EOnboardingPagesV2.VerifyPin, {
-          mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
-        });
-        return;
-      }
-
-      // Default: check wallet existence and navigate accordingly
-      const isCreated =
-        await backgroundApiProxy.serviceKeylessWallet.isKeylessWalletCreatedOnServer(
-          {
-            token,
-          },
-        );
-      if (isCreated) {
-        navigation.push(EOnboardingPagesV2.VerifyPin);
-      } else {
-        navigation.push(EOnboardingPagesV2.CreatePin);
-      }
-    },
-    [handleKeylessOnboardingTimeout, navigation],
-  );
-
   const finalizeKeylessWalletV2 = useCallback(
     async ({ action }: { action: EKeylessFinalizeAction }) => {
       const token = await getKeylessOnboardingToken();
@@ -630,6 +714,7 @@ export function useKeylessWallet() {
         handleKeylessOnboardingTimeout();
         return;
       }
+      const refreshToken = await getKeylessOnboardingRefreshToken();
       const pin = await getKeylessOnboardingPin();
       if (!pin) {
         handleKeylessOnboardingTimeout();
@@ -651,37 +736,60 @@ export function useKeylessWallet() {
       if (action === EKeylessFinalizeAction.ResetPin) {
         await backgroundApiProxy.serviceKeylessWallet.resetKeylessWalletPin({
           token,
+          refreshToken,
           newPin: pin,
         });
-        navigation.push(EOnboardingPagesV2.NewPinCreated);
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.NewPinCreated,
+          },
+        });
         return;
       }
 
       let mnemonic = '';
+      let ownerId = '';
+      let keylessDetailsInfo;
       if (action === EKeylessFinalizeAction.Create) {
-        const customMnemonic = await getKeylessOnboardingCustomMnemonic();
-        ({ mnemonic } =
+        const result =
           await backgroundApiProxy.serviceKeylessWallet.createKeylessWalletToServer(
             {
               token,
+              refreshToken,
               pin,
-              customMnemonic,
+              customMnemonic: await getKeylessOnboardingCustomMnemonic(),
             },
-          ));
+          );
+        mnemonic = result.mnemonic;
+        ownerId = result.ownerId;
+        keylessDetailsInfo = result.keylessDetailsInfo;
       }
       if (action === EKeylessFinalizeAction.Restore) {
-        ({ mnemonic } =
+        const result =
           await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletFromServer(
             {
               token,
+              refreshToken,
               pin,
             },
-          ));
+          );
+        mnemonic = result.mnemonic;
+        ownerId = result.ownerId;
+        keylessDetailsInfo = result.keylessDetailsInfo;
       }
-      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-        mnemonic,
-        isWalletBackedUp: true,
-        isKeylessWallet: true,
+      navigation.navigate(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.FinalizeWalletSetup,
+          params: {
+            mnemonic,
+            isWalletBackedUp: true,
+            isKeylessWallet: true,
+            keylessOwnerId: ownerId,
+            keylessDetailsInfo,
+          },
+        },
       });
     },
     [navigation, handleKeylessOnboardingTimeout, intl],
@@ -701,7 +809,13 @@ export function useKeylessWallet() {
       if (hasCachedPassword) {
         await finalizeKeylessWalletV2({ action });
       } else {
-        navigation.push(EOnboardingPagesV2.CreatePasscode, { action });
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.CreatePasscode,
+            params: { action },
+          },
+        });
       }
     },
     [finalizeKeylessWalletV2, navigation],
@@ -720,10 +834,14 @@ export function useKeylessWallet() {
         handleKeylessOnboardingTimeout();
         return;
       }
+      const refreshToken = await getKeylessOnboardingRefreshToken({
+        skipDelete: true,
+      });
       await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
         {
           token,
           pin,
+          refreshToken,
         },
       );
 
@@ -746,7 +864,7 @@ export function useKeylessWallet() {
       }
 
       // Default: continue with restore flow
-      await cacheKeylessOnboardingToken({ token });
+      await cacheKeylessOnboardingToken({ token, refreshToken });
       await confirmKeylessOnboardingPin({
         pin,
         action: EKeylessFinalizeAction.Restore,

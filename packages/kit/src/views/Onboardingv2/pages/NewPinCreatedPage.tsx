@@ -29,7 +29,7 @@ function NewPinCreatedPage() {
   return (
     <Page>
       <OnboardingLayout>
-        <OnboardingLayout.Header />
+        <OnboardingLayout.Header showBackButton={false} />
         <OnboardingLayout.Body constrained={false} scrollable={false}>
           <OnboardingLayout.ConstrainedContent gap="$10">
             <YStack gap="$2">

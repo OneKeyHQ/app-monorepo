@@ -15,6 +15,11 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { ICloudBackupKeylessWalletPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
+import {
+  EOAuthSocialLoginProvider,
+  SUPABASE_PROJECT_URL,
+  SUPABASE_PUBLIC_API_KEY,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
@@ -34,6 +39,8 @@ import shamirUtils from '@onekeyhq/shared/src/keylessWallet/shamirUtils';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
+import { getSupabaseAuthSessionKey } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
@@ -53,6 +60,7 @@ import ServiceBase from '../ServiceBase';
 import keylessAuthPackCache from './utils/keylessAuthPackCache';
 import keylessDeviceKeyStorage from './utils/keylessDeviceKeyStorage';
 import keylessMnemonicPasswordStorage from './utils/keylessMnemonicPasswordStorage';
+import keylessRefreshTokenStorage from './utils/keylessRefreshTokenStorage';
 
 import type { IDBIndexedAccount, IDBWallet } from '../../dbs/local/types';
 import type { IKeylessDialogAtomData } from '../../states/jotai/atoms';
@@ -1156,9 +1164,42 @@ class ServiceKeylessWallet extends ServiceBase {
   buildKeylessOwnerIdFromSocialToken(params: { token: string }): string {
     const { token } = params;
     const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
-    const provider = decodedToken?.app_metadata?.provider || '';
+    const provider = this.buildKeylessProviderFromSocialToken({ token });
     const socialAccountId = decodedToken?.user_metadata?.sub || '';
     return `${provider}:${socialAccountId}`;
+  }
+
+  buildKeylessProviderFromSocialToken(params: {
+    token: string;
+  }): EOAuthSocialLoginProvider {
+    const { token } = params;
+    const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
+
+    //  "app_metadata": {
+    //      "provider": "google",
+    //      "provider": "apple",
+    const provider = decodedToken?.app_metadata?.provider || '';
+    if (provider === 'google') {
+      return EOAuthSocialLoginProvider.Google;
+    }
+    if (provider === 'apple') {
+      return EOAuthSocialLoginProvider.Apple;
+    }
+
+    // "user_metadata": {
+    //    "iss": "https://accounts.google.com",
+    //    "iss": "https://appleid.apple.com",
+    const issuer = decodedToken?.user_metadata?.iss || '';
+    if (issuer === 'https://accounts.google.com') {
+      return EOAuthSocialLoginProvider.Google;
+    }
+    if (issuer === 'https://appleid.apple.com') {
+      return EOAuthSocialLoginProvider.Apple;
+    }
+
+    throw new OneKeyLocalError(
+      `Unsupported OAuth provider: ${provider}, ${issuer}`,
+    );
   }
 
   private async apiGetKeylessBackendShare(params: {
@@ -1195,9 +1236,13 @@ class ServiceKeylessWallet extends ServiceBase {
   // apiVerifyKeylessJuiceboxPin
   @backgroundMethod()
   @toastIfError()
-  async apiVerifyKeylessJuiceboxPin(params: { token: string; pin: string }) {
+  async apiVerifyKeylessJuiceboxPin(params: {
+    token: string;
+    pin: string;
+    refreshToken?: string;
+  }) {
     await timerUtils.wait(1500, { devOnly: true });
-    const { token, pin } = params;
+    const { token, pin, refreshToken } = params;
     const ownerId = this.buildKeylessOwnerIdFromSocialToken({ token });
     // TODO: Replace with real API call
     // For now, verify PIN from mock cache
@@ -1208,6 +1253,15 @@ class ServiceKeylessWallet extends ServiceBase {
     }
     if (juiceboxShare?.pin !== pin) {
       throw new OneKeyLocalError('Invalid PIN');
+    }
+
+    // Save refresh token to secure storage
+    if (refreshToken) {
+      await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
+        ownerId,
+        refreshToken,
+        backgroundApi: this.backgroundApi,
+      });
     }
   }
 
@@ -1288,9 +1342,10 @@ class ServiceKeylessWallet extends ServiceBase {
   @toastIfError()
   async resetKeylessWalletPin(params: {
     token: string | undefined;
+    refreshToken?: string | undefined;
     newPin: string | undefined;
   }) {
-    const { token, newPin } = params;
+    const { token, refreshToken, newPin } = params;
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
     }
@@ -1340,6 +1395,15 @@ class ServiceKeylessWallet extends ServiceBase {
       backendShareX,
     });
 
+    // Save refresh token to secure storage
+    if (refreshToken) {
+      await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
+        ownerId,
+        refreshToken,
+        backgroundApi: this.backgroundApi,
+      });
+    }
+
     return { success: true };
   }
 
@@ -1347,9 +1411,10 @@ class ServiceKeylessWallet extends ServiceBase {
   @toastIfError()
   async restoreKeylessWalletFromServer(params: {
     token: string | undefined;
+    refreshToken?: string | undefined;
     pin: string | undefined;
   }) {
-    const { token, pin } = params;
+    const { token, refreshToken, pin } = params;
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
     }
@@ -1407,10 +1472,26 @@ class ServiceKeylessWallet extends ServiceBase {
       backgroundApi: this.backgroundApi,
     });
 
+    // Save refresh token to secure storage
+    if (refreshToken) {
+      await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
+        ownerId,
+        refreshToken,
+        backgroundApi: this.backgroundApi,
+      });
+    }
+
+    const keylessProvider = this.buildKeylessProviderFromSocialToken({ token });
+
     return {
+      ownerId,
       mnemonic: await this.backgroundApi.servicePassword.encodeSensitiveText({
         text: mnemonic,
       }),
+      keylessDetailsInfo: {
+        keylessOwnerId: ownerId,
+        keylessProvider,
+      },
     };
   }
 
@@ -1418,10 +1499,11 @@ class ServiceKeylessWallet extends ServiceBase {
   @toastIfError()
   async createKeylessWalletToServer(params: {
     token: string | undefined;
+    refreshToken?: string | undefined;
     pin: string | undefined;
     customMnemonic?: string;
   }) {
-    const { token, pin, customMnemonic } = params;
+    const { token, refreshToken, pin, customMnemonic } = params;
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
     }
@@ -1495,10 +1577,26 @@ class ServiceKeylessWallet extends ServiceBase {
       });
     // TODO verify juiceboxShareData is valid
 
+    // Save refresh token to secure storage
+    if (refreshToken) {
+      await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
+        ownerId,
+        refreshToken,
+        backgroundApi: this.backgroundApi,
+      });
+    }
+
+    const keylessProvider = this.buildKeylessProviderFromSocialToken({ token });
+
     return {
+      ownerId,
       mnemonic: await this.backgroundApi.servicePassword.encodeSensitiveText({
         text: mnemonic,
       }),
+      keylessDetailsInfo: {
+        keylessOwnerId: ownerId,
+        keylessProvider,
+      },
     };
     // TODO cleanup if error occurs
   }
@@ -1514,6 +1612,71 @@ class ServiceKeylessWallet extends ServiceBase {
     });
     const isCreated = !!backendShareInfo;
     return isCreated;
+  }
+
+  /**
+   * Try to refresh access token using stored refreshToken.
+   * Returns new accessToken and refreshToken if refresh is successful, null otherwise.
+   */
+  @backgroundMethod()
+  @toastIfError()
+  async tryRefreshTokenFromStorage(params: { ownerId: string }): Promise<{
+    accessToken: string;
+    refreshToken: string;
+  } | null> {
+    const { ownerId } = params;
+    if (!ownerId) {
+      throw new OneKeyLocalError('ownerId is required');
+    }
+    try {
+      // 3. Get refreshToken from secure storage
+      const storedRefreshToken =
+        await keylessRefreshTokenStorage.getRefreshTokenFromStorage({
+          ownerId,
+          backgroundApi: this.backgroundApi,
+        });
+
+      if (!storedRefreshToken) {
+        return null;
+      }
+
+      // 4. Call Supabase HTTP API to refresh token
+      const refreshUrl = `${SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
+      const response = await fetch(refreshUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // eslint-disable-next-line spellcheck/spell-checker
+          apikey: SUPABASE_PUBLIC_API_KEY,
+          Authorization: `Bearer ${SUPABASE_PUBLIC_API_KEY}`,
+        },
+        body: JSON.stringify({
+          refresh_token: storedRefreshToken,
+        }),
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const refreshResult = (await response.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+      };
+
+      if (refreshResult?.access_token && refreshResult?.refresh_token) {
+        return {
+          accessToken: refreshResult.access_token,
+          refreshToken: refreshResult.refresh_token,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      // Silently fail - return null if any error occurs
+      console.error('Failed to refresh token from storage:', error);
+      return null;
+    }
   }
 }
 

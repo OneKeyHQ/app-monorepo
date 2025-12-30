@@ -80,6 +80,8 @@ export type IOnboardingParamListV2 = {
     isFirmwareVerified?: boolean;
     deviceData?: IConnectYourDeviceItem;
     keylessPackSetId?: string;
+    keylessOwnerId?: string;
+    keylessDetailsInfo?: import('../../kit-bg/src/dbs/local/types').IKeylessWalletDetailsInfo;
   };
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {
