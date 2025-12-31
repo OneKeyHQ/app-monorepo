@@ -107,6 +107,7 @@ export type IKeylessBackendShare = {
   ownerId: string;
   encryptedMnemonic: string;
   backendShare: string;
+  // pinSalt: string; // TODO
   juiceboxShareX: number; // x-coordinate of the juicebox share for recovery
 };
 

@@ -108,6 +108,7 @@ export class JuiceboxClient {
    * @throws {RegisterError} - SDK-specific registration errors
    */
   async register(params: {
+    // TODO In the future, prefix with server user salt before using to enhance security.
     pin: string;
     secret: string; // utf8 string
     userInfo: string; // ownerId
@@ -124,6 +125,7 @@ export class JuiceboxClient {
     // Convert strings to Uint8Array
     const pinBytes = bufferUtils.utf8ToBytes(pin);
     const secretBytes = bufferUtils.utf8ToBytes(secret);
+    // TODO add juicebox token subject (sub) as prefix to userInfo, like: sub:${userInfo}
     const userInfoBytes = bufferUtils.utf8ToBytes(userInfo);
 
     // Call SDK register method
