@@ -10,13 +10,13 @@ import {
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
 
-import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import {
   useAccountSelectorActions,
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 
 export function useAutoSelectAccount({ num }: { num: number }) {
   const {

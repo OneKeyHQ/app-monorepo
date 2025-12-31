@@ -1035,7 +1035,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     const accountNetworkNotSupported =
       await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
         walletId,
-        accountId: accountId,
+        accountId,
         activeNetworkId,
       });
     if (accountNetworkNotSupported) {
