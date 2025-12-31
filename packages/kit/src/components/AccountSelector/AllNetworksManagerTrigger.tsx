@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,6 +24,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { deferHeavyWorkUntilUIIdle } from '../../utils/deferHeavyWork';
 import { NetworkAvatarBase } from '../NetworkAvatar';
 
 function AllNetworksManagerTrigger({
@@ -41,28 +42,81 @@ function AllNetworksManagerTrigger({
     activeAccount: { network, wallet, account, indexedAccount },
   } = useActiveAccount({ num });
 
+  const shouldEnableCompatQuery =
+    Boolean(network?.id) &&
+    networkUtils.isAllNetwork({ networkId: network?.id }) &&
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' });
+  const [isDeferredReady, setIsDeferredReady] = useState(
+    !shouldEnableCompatQuery,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!shouldEnableCompatQuery) {
+      setIsDeferredReady(true);
+      return;
+    }
+    setIsDeferredReady(false);
+    void (async () => {
+      await deferHeavyWorkUntilUIIdle();
+      if (cancelled) return;
+      setIsDeferredReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldEnableCompatQuery, wallet?.id, indexedAccount?.id, network?.id]);
+
+  const compatQueryWalletId = useMemo(() => {
+    if (!shouldEnableCompatQuery) {
+      return '';
+    }
+    return isDeferredReady ? wallet?.id ?? '' : '';
+  }, [isDeferredReady, shouldEnableCompatQuery, wallet?.id]);
+
   const {
     enabledNetworksCompatibleWithWalletId,
     enabledNetworksWithoutAccount,
     run,
   } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-    walletId: wallet?.id ?? '',
+    walletId: compatQueryWalletId,
     networkId: network?.id,
     indexedAccountId: indexedAccount?.id,
     filterNetworksWithoutAccount: true,
   });
 
   useEffect(() => {
-    const refresh = async () => {
+    const refreshAccountDataUpdate = async () => {
+      if (shouldEnableCompatQuery && !isDeferredReady) {
+        return;
+      }
       await run({ alwaysSetState: true });
     };
-    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
-    return () => {
-      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+    const refreshDeriveTypeChanged = async () => {
+      if (shouldEnableCompatQuery && !isDeferredReady) {
+        return;
+      }
+      await run({ alwaysSetState: true });
     };
-  }, [run]);
+    appEventBus.on(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      refreshDeriveTypeChanged,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountDataUpdate,
+      refreshAccountDataUpdate,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.NetworkDeriveTypeChanged,
+        refreshDeriveTypeChanged,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountDataUpdate,
+        refreshAccountDataUpdate,
+      );
+    };
+  }, [isDeferredReady, run, shouldEnableCompatQuery]);
 
   const handleOnPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.ChainSelectorModal, {
