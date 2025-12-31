@@ -232,7 +232,7 @@ export const BorrowedCard = () => {
       }
     >
       <BorrowTableList<IBorrowedAsset>
-        data={reserves?.borrowed.assets || []}
+        data={reserves?.borrowed?.assets || []}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}

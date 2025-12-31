@@ -150,7 +150,7 @@ export const BorrowCard = () => {
       {
         label: labels.borrowApy,
         align: 'flex-end' as const,
-        key: 'supplyApy',
+        key: 'borrowApy',
         render: BorrowAPYField,
         flex: 1,
       },

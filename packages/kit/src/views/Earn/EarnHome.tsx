@@ -265,9 +265,6 @@ function BasicEarnHome({
         onModeChange={handleModeChange}
         earn={
           <YStack flex={1}>
-            {/* {showHeader && showContent && media.md ? (
-              <Stack h={tabPageHeight} />
-            ) : null} */}
             <EarnMainTabs
               faqList={faqList || []}
               isFaqLoading={isFaqLoading}
