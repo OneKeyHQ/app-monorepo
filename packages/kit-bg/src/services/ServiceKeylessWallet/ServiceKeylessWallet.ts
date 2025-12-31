@@ -1559,14 +1559,7 @@ class ServiceKeylessWallet extends ServiceBase {
     });
     // TODO verify mnemonicPassword is saved successfully
 
-    const _backendShareData: IKeylessBackendShare =
-      await this.apiUploadKeylessBackendShare({
-        token,
-        encryptedMnemonic,
-        backendShare,
-        juiceboxShareX, // Store the other share's x-coordinate for recovery
-      });
-    // TODO verify backendShareData is valid
+    // TODO lock server creation flow, avoid multiple clients creating new wallets at the same time
 
     const _juiceboxShareData: IKeylessJuiceboxShare =
       await this.apiUploadKeylessJuiceboxShare({
@@ -1576,6 +1569,16 @@ class ServiceKeylessWallet extends ServiceBase {
         backendShareX, // Store the other share's x-coordinate for recovery
       });
     // TODO verify juiceboxShareData is valid
+
+    // make sure juiceboxShare is uploaded successfully before uploading backend share
+    const _backendShareData: IKeylessBackendShare =
+      await this.apiUploadKeylessBackendShare({
+        token,
+        encryptedMnemonic,
+        backendShare,
+        juiceboxShareX, // Store the other share's x-coordinate for recovery
+      });
+    // TODO verify backendShareData is valid
 
     // Save refresh token to secure storage
     if (refreshToken) {
