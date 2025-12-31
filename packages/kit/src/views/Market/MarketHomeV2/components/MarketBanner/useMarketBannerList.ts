@@ -30,6 +30,6 @@ export function useMarketBannerList(): {
 
   return {
     bannerList: bannerList || [],
-    isLoading,
+    isLoading: isLoading ?? false,
   };
 }
