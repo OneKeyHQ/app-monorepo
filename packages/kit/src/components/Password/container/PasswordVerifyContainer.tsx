@@ -200,7 +200,13 @@ const PasswordVerifyContainer = ({
         if (isExtLockNoCachePassword) {
           const result = await checkWebAuth();
           if (result) {
-            await onVerifyRes('');
+            if (pageMode) {
+              await onVerifyRes('');
+            } else {
+              setTimeout(() => {
+                void onVerifyRes('');
+              });
+            }
             setPasswordAtom((v) => ({
               ...v,
               passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
@@ -223,7 +229,13 @@ const PasswordVerifyContainer = ({
               });
           }
           if (biologyAuthRes) {
-            await onVerifyRes(biologyAuthRes);
+            if (pageMode) {
+              await onVerifyRes(biologyAuthRes);
+            } else {
+              setTimeout(() => {
+                void onVerifyRes(biologyAuthRes);
+              });
+            }
             setPasswordAtom((v) => ({
               ...v,
               passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
@@ -323,7 +335,13 @@ const PasswordVerifyContainer = ({
           dismissKeyboard();
           await timerUtils.wait(0);
         }
-        await onVerifyRes(verifiedPassword);
+        if (pageMode) {
+          await onVerifyRes(verifiedPassword);
+        } else {
+          setTimeout(() => {
+            void onVerifyRes(verifiedPassword);
+          });
+        }
         setPasswordAtom((v) => ({
           ...v,
           passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },

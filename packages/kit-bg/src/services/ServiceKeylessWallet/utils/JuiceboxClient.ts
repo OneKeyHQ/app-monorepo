@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Client, Configuration } from 'juicebox-sdk';
+import { isNil } from 'lodash';
 
 import {
   JUICEBOX_ALLOWED_GUESSES,
@@ -150,36 +151,48 @@ export class JuiceboxClient {
     pin: string;
     userInfo: string; // ownerId
   }): Promise<string> {
-    const { pin, userInfo } = params;
+    try {
+      const { pin, userInfo } = params;
 
-    // Validate token cache is not empty
-    if (this.juiceboxTokenCache.size === 0) {
-      throw new OneKeyLocalError(
-        'Juicebox token cache is empty, please call exchangeToken first',
+      // Validate token cache is not empty
+      if (this.juiceboxTokenCache.size === 0) {
+        throw new OneKeyLocalError(
+          'Juicebox token cache is empty, please call exchangeToken first',
+        );
+      }
+
+      // Convert strings to Uint8Array
+      const pinBytes = bufferUtils.utf8ToBytes(pin);
+      const userInfoBytes = bufferUtils.utf8ToBytes(userInfo);
+
+      // Call SDK recover method
+      const recoveredSecret: Uint8Array = await this.client.recover(
+        pinBytes,
+        userInfoBytes,
       );
+
+      if (!recoveredSecret?.length) {
+        throw new OneKeyLocalError('Recovery failed: Empty secret.');
+      }
+
+      // Convert recovered Uint8Array back to utf8 string
+      const secretUtf8 = bufferUtils.bytesToUtf8(recoveredSecret);
+
+      // Clear token cache after successful recovery
+      this.clearTokenCache();
+
+      return secretUtf8;
+    } catch (e) {
+      const error = e as
+        | { guesses_remaining: number; reason: number }
+        | undefined;
+      if (!isNil(error?.guesses_remaining)) {
+        throw new OneKeyLocalError(
+          `Incorrect PIN, you have ${error?.guesses_remaining} guesses remaining`,
+        );
+      }
+      throw e;
     }
-
-    // Convert strings to Uint8Array
-    const pinBytes = bufferUtils.utf8ToBytes(pin);
-    const userInfoBytes = bufferUtils.utf8ToBytes(userInfo);
-
-    // Call SDK recover method
-    const recoveredSecret: Uint8Array = await this.client.recover(
-      pinBytes,
-      userInfoBytes,
-    );
-
-    if (!recoveredSecret?.length) {
-      throw new OneKeyLocalError('Recovery failed: Empty secret.');
-    }
-
-    // Convert recovered Uint8Array back to utf8 string
-    const secretUtf8 = bufferUtils.bytesToUtf8(recoveredSecret);
-
-    // Clear token cache after successful recovery
-    this.clearTokenCache();
-
-    return secretUtf8;
   }
 
   /**

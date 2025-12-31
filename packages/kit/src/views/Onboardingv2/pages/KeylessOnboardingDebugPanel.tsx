@@ -77,7 +77,7 @@ export function KeylessOnboardingDebugPanel() {
             </Button>
             <Button
               onPress={() => {
-                void backgroundApiProxy.serviceKeylessWallet.clearMockedKeylessShares();
+                // TODO
               }}
             >
               重置云端钱包

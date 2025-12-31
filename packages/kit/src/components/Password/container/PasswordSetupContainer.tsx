@@ -30,7 +30,7 @@ import PasswordSetup from '../components/PasswordSetup';
 import type { IPasswordSetupForm } from '../components/PasswordSetup';
 
 interface IPasswordSetupProps {
-  onSetupRes: (password: string) => void;
+  onSetupRes: (password: string) => void | Promise<void>;
   pageMode?: boolean;
 }
 
@@ -109,9 +109,15 @@ const PasswordSetupContainer = ({
         Toast.success({
           title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
-        setTimeout(() => {
-          onSetupRes(setUpPasswordRes);
-        });
+
+        if (pageMode) {
+          await onSetupRes(setUpPasswordRes);
+        } else {
+          setTimeout(() => {
+            void onSetupRes(setUpPasswordRes);
+          });
+        }
+
         // Dialog.show({
         //   title: intl.formatMessage({
         //     id: ETranslations.auth_Passcode_protection,
@@ -165,7 +171,14 @@ const PasswordSetupContainer = ({
         setLoading(false);
       }
     },
-    [intl, isBiologyAuthSwitchOn, isSupport, onSetupRes, setWebAuthEnable],
+    [
+      intl,
+      isBiologyAuthSwitchOn,
+      isSupport,
+      onSetupRes,
+      pageMode,
+      setWebAuthEnable,
+    ],
   );
 
   return (

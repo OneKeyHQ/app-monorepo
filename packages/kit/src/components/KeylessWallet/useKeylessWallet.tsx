@@ -43,11 +43,12 @@ import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSe
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
-  const [devSettings] = useDevSettingsPersistAtom();
-  return (
-    devSettings.enabled &&
-    devSettings.settings?.isKeylessWalletFeatureEnabled === true
-  );
+  // const [devSettings] = useDevSettingsPersistAtom();
+  // return (
+  //   devSettings.enabled &&
+  //   devSettings.settings?.isKeylessWalletFeatureEnabled === true
+  // );
+  return true;
 }
 
 export function useKeylessWalletExistsLocal(): boolean {
@@ -616,6 +617,9 @@ export function useKeylessWallet() {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
             screen: EOnboardingPagesV2.VerifyPin,
+            params: {
+              mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+            },
           },
         });
       } else {
@@ -857,6 +861,7 @@ export function useKeylessWallet() {
           token,
           pin,
           refreshToken,
+          mode,
         },
       );
 
