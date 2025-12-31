@@ -159,7 +159,7 @@ export const useSupplyActions = ({
         name: token.name,
         symbol: token.symbol,
         address: token.address,
-        decimals: 18, // TODO: Get actual decimals
+        decimals: token.decimals,
         logoURI: token.logoURI,
         isNative: !token.address || token.address === '',
       };
