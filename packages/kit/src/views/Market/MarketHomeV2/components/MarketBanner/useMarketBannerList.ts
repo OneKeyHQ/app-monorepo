@@ -15,13 +15,12 @@ export function useMarketBannerList(): {
     IMarketBannerItem[]
   >(
     async () => {
-      // enableMockMarketBanner is used as dependency to trigger refetch when dev setting changes
-      void enableMockMarketBanner;
       const data: IMarketBannerItem[] =
         await backgroundApiProxy.serviceMarketV2.fetchMarketBannerList();
       return data;
     },
-    [enableMockMarketBanner],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [enableMockMarketBanner], // Used to trigger refetch when dev setting changes
     {
       watchLoading: true,
       revalidateOnReconnect: true,
