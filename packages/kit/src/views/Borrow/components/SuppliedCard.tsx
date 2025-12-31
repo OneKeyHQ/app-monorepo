@@ -213,11 +213,16 @@ export const SuppliedCard = () => {
     [handleManageWithdraw, accountId, walletId, indexedAccountId, labels],
   );
 
+  const hasData = useMemo(
+    () => (reserves?.supplied.assets || []).length > 0,
+    [reserves?.supplied.assets],
+  );
+
   return (
     <Card
       title={intl.formatMessage({ id: ETranslations.defi_my_supply })}
       renderHeader={
-        !showLoading ? (
+        !showLoading && hasData ? (
           <SuppliedHeader
             data={reserves?.supplied}
             suppliedBalanceLabel={labels.suppliedBalance}

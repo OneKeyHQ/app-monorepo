@@ -218,11 +218,16 @@ export const BorrowedCard = () => {
     [handleManageRepay, accountId, walletId, indexedAccountId, labels, intl],
   );
 
+  const hasData = useMemo(
+    () => (reserves?.borrowed?.assets || []).length > 0,
+    [reserves?.borrowed?.assets],
+  );
+
   return (
     <Card
       title={intl.formatMessage({ id: ETranslations.defi_my_borrow })}
       renderHeader={
-        !showLoading ? (
+        !showLoading && hasData ? (
           <BorrowedHeader
             data={reserves?.borrowed}
             borrowedBalanceLabel={labels.borrowedBalance}

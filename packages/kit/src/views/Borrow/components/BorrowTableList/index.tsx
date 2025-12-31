@@ -37,7 +37,7 @@ const BorrowTableList = <T,>({
   }
 
   if (!hasData) {
-    return <Empty title={emptyContent} />;
+    return <Empty title={emptyContent} titleProps={{ size: '$bodyMd' }} />;
   }
 
   return (
