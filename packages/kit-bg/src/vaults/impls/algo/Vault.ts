@@ -580,20 +580,21 @@ export default class Vault extends VaultBase {
     return result;
   }
 
-  override async activateToken(params: {
-    token: IAccountToken;
-  }): Promise<boolean> {
-    if (params.token.isNative) {
-      return Promise.resolve(true);
-    }
+  override async activateToken(params: { token: IAccountToken }): Promise<{
+    token?: IAccountToken;
+    isActivated: boolean;
+  }> {
     const { token } = params;
+    if (token.isNative) {
+      return Promise.resolve({ isActivated: true });
+    }
     const dbAccount = await this.getAccount();
     const client = await this.getClient();
     const { assets } = await client.accountInformation(dbAccount.address);
 
     for (const { 'asset-id': assetId } of assets) {
       if (assetId === parseInt(token.address, 10)) {
-        return Promise.resolve(true);
+        return Promise.resolve({ isActivated: true });
       }
     }
 
@@ -616,7 +617,7 @@ export default class Vault extends VaultBase {
           unsignedTxs: [unsignedTx],
           transferPayload: undefined,
         });
-      return !!signedTx.signedTx.txid;
+      return { isActivated: !!signedTx.signedTx.txid };
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
