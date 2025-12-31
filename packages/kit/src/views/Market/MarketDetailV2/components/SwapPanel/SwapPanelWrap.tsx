@@ -25,7 +25,7 @@ interface ISwapPanelWrapProps {
 }
 
 export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
-  const { networkId, tokenDetail } = useTokenDetail();
+  const { networkId, tokenDetail, isReady } = useTokenDetail();
   const intl = useIntl();
   const swapPanel = useSwapPanel({
     networkId: networkId || 'evm--1',
@@ -220,7 +220,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         speedSwapApproveActionLoading ||
         speedSwapApproveTransactionLoading ||
         speedSwapBuildTxLoading ||
-        checkTokenAllowanceLoading
+        checkTokenAllowanceLoading ||
+        !isReady
       }
       onSwap={handleSwap}
       isApproved={!shouldApprove}

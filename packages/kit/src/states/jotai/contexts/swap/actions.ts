@@ -1246,49 +1246,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               unit,
             };
           }
-          // if (quoteRateBN.isZero()) {
-          //   alertsRes = [
-          //     ...alertsRes,
-          //     {
-          //       title: appLocale.intl.formatMessage(
-          //         { id: ETranslations.swap_page_alert_value_drop_title },
-          //         { number: '100%' },
-          //       ),
-          //       message: appLocale.intl.formatMessage({
-          //         id: ETranslations.swap_page_alert_value_drop,
-          //       }),
-          //       alertLevel: ESwapAlertLevel.WARNING,
-          //       icon: 'ActivityOutline',
-          //       action: {
-          //         actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
-          //       },
-          //     },
-          //   ];
-          // } else if (difference.lt(swapRateDifferenceMax)) {
-          //   alertsRes = [
-          //     ...alertsRes,
-          //     {
-          //       title: appLocale.intl.formatMessage(
-          //         {
-          //           id: ETranslations.swap_page_alert_value_drop_title,
-          //         },
-          //         {
-          //           number: numberFormat(difference.absoluteValue().toFixed(), {
-          //             formatter: 'priceChange',
-          //           }) as string,
-          //         },
-          //       ),
-          //       message: appLocale.intl.formatMessage({
-          //         id: ETranslations.swap_page_alert_value_drop,
-          //       }),
-          //       alertLevel: ESwapAlertLevel.WARNING,
-          //       icon: 'ActivityOutline',
-          //       action: {
-          //         actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
-          //       },
-          //     },
-          //   ];
-          // }
         }
       }
 
