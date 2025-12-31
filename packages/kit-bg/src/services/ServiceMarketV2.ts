@@ -16,6 +16,7 @@ import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioResponse,
   IMarketAccountTokenTransactionsResponse,
+  IMarketBannerItem,
   IMarketBannerListResponse,
   IMarketBannerTokenListResponse,
   IMarketBasicConfigResponse,
@@ -36,7 +37,7 @@ import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
 
-const MOCK_MARKET_BANNER_LIST = [
+const MOCK_MARKET_BANNER_LIST: IMarketBannerItem[] = [
   {
     _id: '694e714617fa06428a8b87dc',
     title: 'mock data',
@@ -45,6 +46,7 @@ const MOCK_MARKET_BANNER_LIST = [
     payload: 'https://onekey.so/app/',
     backgroundColor: 'bg/success-subdued',
     tokenListId: '694f771417fa06428a954d31',
+    miniBundlerVersion: '',
     description: {
       text: '+0.30%',
       fontColor: 'text/success',
@@ -63,6 +65,7 @@ const MOCK_MARKET_BANNER_LIST = [
     payload: 'https://onekey.so/app/',
     backgroundColor: 'bg/info-subdued',
     tokenListId: '694f638317fa06428a8fa884',
+    miniBundlerVersion: '',
     description: {
       text: '-0.63%',
       fontColor: 'text/critical',
@@ -81,6 +84,7 @@ const MOCK_MARKET_BANNER_LIST = [
     payload: 'https://onekey.so/app/',
     backgroundColor: 'bg/critical-subdued',
     tokenListId: '694f73c417fa06428a94af35',
+    miniBundlerVersion: '',
     description: {
       text: '+0.30%',
       fontColor: 'text/success',
@@ -99,6 +103,7 @@ const MOCK_MARKET_BANNER_LIST = [
     payload: 'https://onekey.so/app/',
     backgroundColor: 'bg/caution-subdued',
     tokenListId: '694f5cc817fa06428a8decd9',
+    miniBundlerVersion: '',
     description: {
       text: '+1.69%',
       fontColor: 'text/success',
@@ -117,6 +122,7 @@ const MOCK_MARKET_BANNER_LIST = [
     payload: 'https://onekey.so/app/',
     backgroundColor: 'bg/success-subdued',
     tokenListId: '694f6eb817fa06428a9326ec',
+    miniBundlerVersion: '',
     description: {
       text: '-0.17%',
       fontColor: 'text/critical',
@@ -135,6 +141,7 @@ const MOCK_MARKET_BANNER_LIST = [
     payload: 'https://onekey.so/app/',
     backgroundColor: 'bg/info-subdued',
     tokenListId: '694f69a217fa06428a916ddc',
+    miniBundlerVersion: '',
     description: {
       text: '+0.36%',
       fontColor: 'text/success',
@@ -783,17 +790,17 @@ class ServiceMarketV2 extends ServiceBase {
   );
 
   @backgroundMethod()
-  async fetchMarketBannerList() {
+  async fetchMarketBannerList(): Promise<IMarketBannerItem[]> {
     const devSettings = await devSettingsPersistAtom.get();
     if (devSettings.enabled && devSettings.settings?.enableMockMarketBanner) {
-      return MOCK_MARKET_BANNER_LIST as any;
+      return MOCK_MARKET_BANNER_LIST;
     }
     return this.memoizedFetchMarketBannerList();
   }
 
   @backgroundMethod()
-  async clearMarketBannerCache() {
-    this.memoizedFetchMarketBannerList.clear();
+  async clearMarketBannerCache(): Promise<void> {
+    await Promise.resolve(this.memoizedFetchMarketBannerList.clear());
   }
 
   @backgroundMethod()
