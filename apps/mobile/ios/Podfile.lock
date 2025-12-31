@@ -2348,7 +2348,7 @@ PODS:
     - Yoga
   - react-native-ping (1.2.8):
     - React
-  - react-native-safe-area-context (5.4.1):
+  - react-native-safe-area-context (5.6.2):
     - boost
     - DoubleConversion
     - fast_float
@@ -2366,8 +2366,8 @@ PODS:
     - React-graphics
     - React-ImageManager
     - React-jsi
-    - react-native-safe-area-context/common (= 5.4.1)
-    - react-native-safe-area-context/fabric (= 5.4.1)
+    - react-native-safe-area-context/common (= 5.6.2)
+    - react-native-safe-area-context/fabric (= 5.6.2)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -2378,7 +2378,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-safe-area-context/common (5.4.1):
+  - react-native-safe-area-context/common (5.6.2):
     - boost
     - DoubleConversion
     - fast_float
@@ -2406,7 +2406,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-safe-area-context/fabric (5.4.1):
+  - react-native-safe-area-context/fabric (5.6.2):
     - boost
     - DoubleConversion
     - fast_float
@@ -4555,7 +4555,7 @@ SPEC CHECKSUMS:
   react-native-pager-view: 6132f46ae73440fa7c83ae9d8dfdda3edece5222
   react-native-performance-stats: 8820079bb3a8127f798f0e201d0ca1ab65735410
   react-native-ping: 589027e929c300b0b68cc5c34105f33610177055
-  react-native-safe-area-context: 45b4257b9801cbf615bfc71ddcbb6d808dd32945
+  react-native-safe-area-context: c00143b4823773bba23f2f19f85663ae89ceb460
   react-native-slider: 663776e5683e257de8df8091abc2d93ff6ec67db
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
   react-native-video: 7b821291837d8ba7b9d7574bfeb0cd651e910141
