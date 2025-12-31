@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 
@@ -16,6 +16,7 @@ import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -25,6 +26,21 @@ import { usePromiseResult } from './usePromiseResult';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
+
+type IEnabledNetworksCompatResult = {
+  networkInfoMap: Record<
+    string,
+    { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
+  >;
+  compatibleNetworks: IServerNetwork[];
+  compatibleNetworksWithoutAccount: IServerNetwork[];
+};
+
+const getEmptyEnabledNetworksResult = (): IEnabledNetworksCompatResult => ({
+  networkInfoMap: {},
+  compatibleNetworks: [],
+  compatibleNetworksWithoutAccount: [],
+});
 
 // const reorderByPinnedNetworkIds = async (items: IAllNetworkAccountInfo[]) => {
 //   const priorityNetworkIds =
@@ -145,18 +161,38 @@ function useAllNetworkRequests<T>(params: {
   } = params;
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
+  const runCountRef = useRef(0);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
   const [isLocked] = useAppIsLockedAtom();
 
   useEffect(() => {
     if (currentAccountId && currentNetworkId && currentWalletId) {
       allNetworkDataInit.current = false;
+      runCountRef.current = 0;
       perfTokenListView.markStart('useAllNetworkRequestsRun_debounceDelay');
     }
-  }, [currentAccountId, currentNetworkId, currentWalletId]);
+  }, [
+    currentAccountId,
+    currentNetworkId,
+    currentWalletId,
+    isAllNetworks,
+    isNFTRequests,
+    isDeFiRequests,
+  ]);
 
   const { run, result } = usePromiseResult(
     async () => {
+      const shouldDebounceWait =
+        !disabled &&
+        !isFetching.current &&
+        !!currentAccountId &&
+        !!currentNetworkId &&
+        !!currentWalletId &&
+        !!isAllNetworks &&
+        runCountRef.current > 0;
+      if (shouldDebounceWait) {
+        await timerUtils.wait(POLLING_DEBOUNCE_INTERVAL);
+      }
       perfTokenListView.markEnd(
         'useAllNetworkRequestsRun_debounceDelay',
         '执行 useAllNetworkRequests 的 usePromiseResult debounced 延迟: POLLING_DEBOUNCE_INTERVAL',
@@ -175,218 +211,240 @@ function useAllNetworkRequests<T>(params: {
       if (isFetching.current) return;
       if (!currentAccountId || !currentNetworkId || !currentWalletId) return;
       if (!isAllNetworks) return;
+      runCountRef.current += 1;
       isFetching.current = true;
 
-      if (!allNetworkDataInit.current) {
-        clearAllNetworkData();
-      }
-
-      abortAllNetworkRequests?.();
-
-      perf.markStart('getAllNetworkAccountsWithEnabledNetworks');
-
-      const {
-        accountsInfo,
-        accountsInfoBackendIndexed,
-        accountsInfoBackendNotIndexed,
-        allAccountsInfo,
-      } = await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-        accountId: currentAccountId,
-        networkId: currentNetworkId,
-        deriveType: undefined,
-        nftEnabledOnly: isNFTRequests,
-        DeFiEnabledOnly: isDeFiRequests,
-        // disable test network in all networks
-        excludeTestNetwork: true,
-        // For single network accounts, display all available network data without filtering
-        networksEnabledOnly: !accountUtils.isOthersAccount({
-          accountId: currentAccountId,
-        }),
-      });
-      perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
-
-      setIsEmptyAccount(false);
-
-      allNetworkAccountsData?.({
-        accounts: accountsInfo,
-        allAccounts: allAccountsInfo,
-      });
-
-      if (!accountsInfo || isEmpty(accountsInfo)) {
-        setIsEmptyAccount(true);
-        isFetching.current = false;
-      }
-
-      let resp: Array<T> | null = null;
-
-      // if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
-      if (accountsInfo.length === 0) {
-        setIsEmptyAccount(true);
-        isFetching.current = false;
-      }
-
-      await onStarted?.({
-        accountId: currentAccountId,
-        networkId: currentNetworkId,
-      });
-
-      if (!allNetworkDataInit.current) {
-        try {
-          perf.markStart('allNetworkCacheRequests');
-          const cachedData = (
-            await Promise.all(
-              Array.from(accountsInfo).map(
-                async (networkDataString: IAllNetworkAccountInfo) => {
-                  const {
-                    accountId,
-                    networkId,
-                    accountXpub,
-                    apiAddress,
-                    dbAccount,
-                  } = networkDataString;
-                  const cachedDataResult = await allNetworkCacheRequests?.({
-                    dbAccount,
-                    accountId,
-                    networkId,
-                    xpub: accountXpub,
-                    accountAddress: apiAddress,
-                  });
-                  return cachedDataResult as unknown;
-                },
-              ),
-            )
-          ).filter(Boolean);
-          perf.markEnd('allNetworkCacheRequests');
-
-          if (cachedData && !isEmpty(cachedData)) {
-            allNetworkDataInit.current = true;
-            perf.done();
-            perfTokenListView.markEnd(
-              'useAllNetworkRequestsRun',
-              '执行时间明细请查看 EPerformanceTimerLogNames.allNetwork__useAllNetworkRequests',
-            );
-            await allNetworkCacheData?.({
-              data: cachedData,
-              accountId: currentAccountId,
-              networkId: currentNetworkId,
-            });
-          }
-        } catch (e) {
-          console.error(e);
-          // pass
+      try {
+        if (!allNetworkDataInit.current) {
+          clearAllNetworkData();
         }
-      }
 
-      currentRequestsUUID.current = requestsUUID;
-      // console.log(
-      //   'currentRequestsUUID set: =====>>>>>: ',
-      //   currentRequestsUUID.current,
-      // );
-      if (allNetworkDataInit.current) {
-        const allNetworks = accountsInfo;
-        const requests = allNetworks.map((networkDataString) => {
-          const { accountId, networkId, dbAccount } = networkDataString;
-          return allNetworkRequests({
-            accountId,
-            networkId,
-            dbAccount,
+        abortAllNetworkRequests?.();
+
+        let onStartedError: unknown;
+        let onStartedTask: Promise<void> | undefined;
+        if (onStarted) {
+          onStartedTask = onStarted({
+            accountId: currentAccountId,
+            networkId: currentNetworkId,
             allNetworkDataInit: allNetworkDataInit.current,
+          }).catch((err) => {
+            onStartedError = err;
           });
+        }
+
+        perf.markStart('getAllNetworkAccountsWithEnabledNetworks');
+        const accountsTask =
+          backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+            accountId: currentAccountId,
+            networkId: currentNetworkId,
+            deriveType: undefined,
+            nftEnabledOnly: isNFTRequests,
+            DeFiEnabledOnly: isDeFiRequests,
+            // disable test network in all networks
+            excludeTestNetwork: true,
+            // For single network accounts, display all available network data without filtering
+            networksEnabledOnly: !accountUtils.isOthersAccount({
+              accountId: currentAccountId,
+            }),
+          });
+
+        const {
+          accountsInfo,
+          accountsInfoBackendIndexed,
+          accountsInfoBackendNotIndexed,
+          allAccountsInfo,
+        } = await accountsTask;
+        perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
+
+        setIsEmptyAccount(false);
+
+        allNetworkAccountsData?.({
+          accounts: accountsInfo,
+          allAccounts: allAccountsInfo,
         });
 
-        try {
-          resp = (
-            await promiseAllSettledEnhanced(requests, {
+        if (!accountsInfo || isEmpty(accountsInfo)) {
+          setIsEmptyAccount(true);
+        }
+
+        let resp: Array<T> | null = null;
+
+        // if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
+        if (accountsInfo.length === 0) {
+          setIsEmptyAccount(true);
+        }
+
+        if (onStartedTask) {
+          await onStartedTask;
+          if (onStartedError) {
+            if (onStartedError instanceof Error) {
+              throw onStartedError;
+            }
+            const err = new Error('onStarted failed');
+            throw err;
+          }
+        }
+
+        if (!allNetworkDataInit.current) {
+          try {
+            perf.markStart('allNetworkCacheRequests');
+            const cachedData = (
+              await Promise.all(
+                Array.from(accountsInfo).map(
+                  async (networkDataString: IAllNetworkAccountInfo) => {
+                    const {
+                      accountId,
+                      networkId,
+                      accountXpub,
+                      apiAddress,
+                      dbAccount,
+                    } = networkDataString;
+                    const cachedDataResult = await allNetworkCacheRequests?.({
+                      dbAccount,
+                      accountId,
+                      networkId,
+                      xpub: accountXpub,
+                      accountAddress: apiAddress,
+                    });
+                    return cachedDataResult as unknown;
+                  },
+                ),
+              )
+            ).filter(Boolean);
+            perf.markEnd('allNetworkCacheRequests');
+
+            if (cachedData && !isEmpty(cachedData)) {
+              allNetworkDataInit.current = true;
+              perf.done();
+              perfTokenListView.markEnd(
+                'useAllNetworkRequestsRun',
+                '执行时间明细请查看 EPerformanceTimerLogNames.allNetwork__useAllNetworkRequests',
+              );
+              await allNetworkCacheData?.({
+                data: cachedData,
+                accountId: currentAccountId,
+                networkId: currentNetworkId,
+              });
+            }
+          } catch (e) {
+            console.error(e);
+            // pass
+          }
+        }
+
+        currentRequestsUUID.current = requestsUUID;
+        // console.log(
+        //   'currentRequestsUUID set: =====>>>>>: ',
+        //   currentRequestsUUID.current,
+        // );
+        if (allNetworkDataInit.current) {
+          const allNetworks = accountsInfo;
+          const requests = allNetworks.map((networkDataString) => {
+            const { accountId, networkId, dbAccount } = networkDataString;
+            return allNetworkRequests({
+              accountId,
+              networkId,
+              dbAccount,
+              allNetworkDataInit: allNetworkDataInit.current,
+            });
+          });
+
+          try {
+            resp = (
+              await promiseAllSettledEnhanced(requests, {
+                continueOnError: true,
+              })
+            ).filter(Boolean);
+          } catch (e) {
+            console.error(e);
+            resp = null;
+            abortAllNetworkRequests?.();
+          }
+        } else {
+          try {
+            const promises = Array.from(accountsInfoBackendIndexed).map(
+              (networkDataString) => {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { accountId, networkId, apiAddress } = networkDataString;
+                return allNetworkRequests({
+                  accountId,
+                  networkId,
+                  allNetworkDataInit: allNetworkDataInit.current,
+                });
+              },
+            );
+            await promiseAllSettledEnhanced(promises, {
               continueOnError: true,
-            })
-          ).filter(Boolean);
-        } catch (e) {
-          console.error(e);
-          resp = null;
-          abortAllNetworkRequests?.();
-        }
-      } else {
-        try {
-          const promises = Array.from(accountsInfoBackendIndexed).map(
-            (networkDataString) => {
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              const { accountId, networkId, apiAddress } = networkDataString;
-              return allNetworkRequests({
-                accountId,
-                networkId,
-                allNetworkDataInit: allNetworkDataInit.current,
-              });
-            },
-          );
-          await promiseAllSettledEnhanced(promises, {
-            continueOnError: true,
-          });
-        } catch (e) {
-          console.error(e);
-          // pass
-        }
+            });
+          } catch (e) {
+            console.error(e);
+            // pass
+          }
 
-        try {
-          const promises = Array.from(accountsInfoBackendNotIndexed).map(
-            (networkDataString) => {
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              const { accountId, networkId, apiAddress } = networkDataString;
-              return allNetworkRequests({
-                accountId,
-                networkId,
-                allNetworkDataInit: allNetworkDataInit.current,
-              });
-            },
-          );
-          await promiseAllSettledEnhanced(promises, {
-            continueOnError: true,
-          });
-        } catch (e) {
-          console.error(e);
-          // pass
-        }
+          try {
+            const promises = Array.from(accountsInfoBackendNotIndexed).map(
+              (networkDataString) => {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { accountId, networkId, apiAddress } = networkDataString;
+                return allNetworkRequests({
+                  accountId,
+                  networkId,
+                  allNetworkDataInit: allNetworkDataInit.current,
+                });
+              },
+            );
+            await promiseAllSettledEnhanced(promises, {
+              continueOnError: true,
+            });
+          } catch (e) {
+            console.error(e);
+            // pass
+          }
 
-        // // 处理顺序请求的网络
-        // await (async (uuid: string) => {
-        // for (const networkDataString of sequentialNetworks) {
-        //   console.log(
-        //     'currentRequestsUUID for: =====>>>>>: ',
-        //     currentRequestsUUID.current,
-        //     uuid,
-        //     networkDataString.networkId,
-        //     networkDataString.apiAddress,
-        //   );
-        //   if (
-        //     currentRequestsUUID.current &&
-        //     currentRequestsUUID.current !== uuid
-        //   ) {
-        //     break;
-        //   }
-        //   const { accountId, networkId } = networkDataString;
-        //   try {
-        //     await allNetworkRequests({
-        //       accountId,
-        //       networkId,
-        //       allNetworkDataInit: allNetworkDataInit.current,
-        //     });
-        //   } catch (e) {
-        //     console.error(e);
-        //     // pass
-        //   }
-        //   await waitAsync(interval);
-        // }
-        // })(requestsUUID);
+          // // 处理顺序请求的网络
+          // await (async (uuid: string) => {
+          // for (const networkDataString of sequentialNetworks) {
+          //   console.log(
+          //     'currentRequestsUUID for: =====>>>>>: ',
+          //     currentRequestsUUID.current,
+          //     uuid,
+          //     networkDataString.networkId,
+          //     networkDataString.apiAddress,
+          //   );
+          //   if (
+          //     currentRequestsUUID.current &&
+          //     currentRequestsUUID.current !== uuid
+          //   ) {
+          //     break;
+          //   }
+          //   const { accountId, networkId } = networkDataString;
+          //   try {
+          //     await allNetworkRequests({
+          //       accountId,
+          //       networkId,
+          //       allNetworkDataInit: allNetworkDataInit.current,
+          //     });
+          //   } catch (e) {
+          //     console.error(e);
+          //     // pass
+          //   }
+          //   await waitAsync(interval);
+          // }
+          // })(requestsUUID);
+        }
+        if (accountsInfo.length && accountsInfo.length > 0) {
+          allNetworkDataInit.current = true;
+        }
+        await onFinished?.({
+          accountId: currentAccountId,
+          networkId: currentNetworkId,
+        });
+
+        return resp;
+      } finally {
+        isFetching.current = false;
       }
-      if (accountsInfo.length && accountsInfo.length > 0) {
-        allNetworkDataInit.current = true;
-      }
-      isFetching.current = false;
-      await onFinished?.({
-        accountId: currentAccountId,
-        networkId: currentNetworkId,
-      });
-
-      return resp;
     },
     [
       disabled,
@@ -407,8 +465,7 @@ function useAllNetworkRequests<T>(params: {
     ],
     {
       revalidateOnFocus,
-      debounced: POLLING_DEBOUNCE_INTERVAL,
-      // debounced: 0,
+      debounced: 0,
       overrideIsFocused: (isPageFocused) =>
         (isPageFocused || !!shouldAlwaysFetch) && !isLocked,
     },
@@ -428,34 +485,44 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
   filterNetworksWithoutAccount,
   indexedAccountId,
   withNetworksInfo = false,
+  deferMs = 0,
 }: {
   walletId: string;
   networkId?: string;
   filterNetworksWithoutAccount?: boolean;
   indexedAccountId?: string;
   withNetworksInfo?: boolean;
+  deferMs?: number;
 }) {
+  const initResult = useMemo(() => getEmptyEnabledNetworksResult(), []);
+
   const { result, run } = usePromiseResult(
     async () => {
+      if (!walletId) {
+        return getEmptyEnabledNetworksResult();
+      }
       const networkInfoMap: Record<
         string,
         { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
       > = {};
       if (networkId && !networkUtils.isAllNetwork({ networkId })) {
-        return {
-          networkInfoMap,
-          compatibleNetworks: [],
-          compatibleNetworksWithoutAccount: [],
-        };
+        return getEmptyEnabledNetworksResult();
       }
 
-      const { enabledNetworks, disabledNetworks } =
-        await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
-      const { networks } =
-        await backgroundApiProxy.serviceNetwork.getAllNetworks({
-          excludeTestNetwork: true,
-          excludeAllNetworkItem: true,
-        });
+      const [{ enabledNetworks, disabledNetworks }, networksResp] =
+        await Promise.all([
+          backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+          backgroundApiProxy.serviceNetwork.getAllNetworks({
+            excludeTestNetwork: true,
+            excludeAllNetworkItem: true,
+          }),
+        ]);
+      const { networks } = networksResp;
+
+      if (deferMs > 0) {
+        await timerUtils.wait(deferMs);
+      }
+
       const enabledNetworkIds = networks
         .filter((n) =>
           isEnabledNetworksInAllNetworks({
@@ -555,11 +622,12 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         }
       }
 
-      return {
+      const resultValue = {
         networkInfoMap,
         compatibleNetworks: mainnetItems,
         compatibleNetworksWithoutAccount,
       };
+      return resultValue;
     },
     [
       walletId,
@@ -567,13 +635,10 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       filterNetworksWithoutAccount,
       indexedAccountId,
       withNetworksInfo,
+      deferMs,
     ],
     {
-      initResult: {
-        networkInfoMap: {},
-        compatibleNetworks: [],
-        compatibleNetworksWithoutAccount: [],
-      },
+      initResult,
     },
   );
 
