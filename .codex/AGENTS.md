@@ -7,6 +7,8 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 
 ## Review Guidelines
 
+- Review scope: treat `x` as the base (main) branch. Always review the PR as the diff between the current branch (HEAD) and `x` (i.e., changes introduced by this branch vs `x`).
+- Use PR semantics when generating the diff: `git fetch origin && git diff origin/x...HEAD` (triple-dot) to review only the changes introduced on this branch relative to `x`.
 - Don't log PII or secrets (mnemonics/seed phrases, private keys, signing payloads, API keys, tokens, cookies, session IDs).
 - Treat security as the primary lens: look for any path that could expose secrets via logs, analytics, error reporting, network calls, or persistence (localStorage/IndexedDB/AsyncStorage/Keychain/files/SQLite).
 - Flag dependency changes explicitly (package.json + lockfiles): list added/updated/removed packages (name + version) and assess supply-chain risk before approving.
@@ -19,6 +21,9 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 - Evaluate implementation quality as a cross-platform architect: confirm the approach is optimal and identify extension/mobile/desktop/web pitfalls (permissions, storage differences, network stack constraints, WebView/Electron/extension limitations).
 - Avoid over-indexing on UI style or comment nitpicks unless they cause real bugs, security issues, or measurable performance regressions.
 - For React components, scrutinize performance pitfalls: unstable references causing re-renders, incorrect hook deps, heavy computations in render, list rendering inefficiencies, subscriptions/listeners cleanup—especially for newly introduced parent/child boundaries.
+- For React Native dependencies (or any package with native bindings), inspect the native code (iOS/Android) for security and performance: confirm there are no unexpected outbound requests, no access to wallet secrets/private keys, and no risky dynamic behavior. If needed, go deeper into third-party native dependencies (e.g., CocoaPods/pods, Gradle/Maven artifacts) and review their source/entry points.
+- For browser extension changes, if `manifest.json` permissions/host_permissions change, call it out **prominently** and treat it as the **highest-priority** review item: enumerate added/removed permissions, explain the new capabilities, and assess whether least-privilege is maintained (including potential data access/exfil paths enabled by the new permissions).
+
 
 ## CRITICAL: Ultrathink Mode for Complex Operations
 
