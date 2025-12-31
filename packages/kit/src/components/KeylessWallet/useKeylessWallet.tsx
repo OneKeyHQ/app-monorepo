@@ -544,16 +544,19 @@ export function useKeylessWallet() {
       }),
       onCancel: () => {
         keylessOnboardingCache.clear();
+        navigation.popStack();
       },
       onClose: () => {
         keylessOnboardingCache.clear();
+        navigation.popStack();
       },
       onConfirm: () => {
         keylessOnboardingCache.clear();
+        navigation.popStack();
       },
     });
     throw new OneKeyLocalError('Keyless Wallet onboarding timed out');
-  }, [intl]);
+  }, [intl, navigation]);
 
   const checkKeylessWalletCreatedOnServer = useCallback(
     async ({

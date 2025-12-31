@@ -1,9 +1,7 @@
 import { isEqual } from 'lodash';
-import { LRUCache } from 'lru-cache';
 
 import {
   decryptStringAsync,
-  encryptAsync,
   encryptStringAsync,
   generateMnemonic,
   mnemonicToEntropy,
@@ -17,8 +15,8 @@ import type { ICloudBackupKeylessWalletPayload } from '@onekeyhq/shared/src/clou
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import {
   EOAuthSocialLoginProvider,
-  SUPABASE_PROJECT_URL,
-  SUPABASE_PUBLIC_API_KEY,
+  KEYLESS_SUPABASE_PROJECT_URL,
+  KEYLESS_SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -39,18 +37,15 @@ import shamirUtils from '@onekeyhq/shared/src/keylessWallet/shamirUtils';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
-import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
-import { getSupabaseAuthSessionKey } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { findMismatchedPaths } from '@onekeyhq/shared/src/utils/miscUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
 import { keylessDialogAtom, primePersistAtom } from '../../states/jotai/atoms';
@@ -1317,15 +1312,31 @@ class ServiceKeylessWallet extends ServiceBase {
       juiceboxShare,
       backendShareX,
     };
-    const mockedShares = await this.getMockedKeylessShares();
-    if (!mockedShares[ownerId]) {
-      mockedShares[ownerId] = {} as {
-        backendShare: IKeylessBackendShare;
-        juiceboxShare: IKeylessJuiceboxShare;
-      };
+    // const mockedShares = await this.getMockedKeylessShares();
+    // if (!mockedShares[ownerId]) {
+    //   mockedShares[ownerId] = {} as {
+    //     backendShare: IKeylessBackendShare;
+    //     juiceboxShare: IKeylessJuiceboxShare;
+    //   };
+    // }
+    // mockedShares[ownerId].juiceboxShare = juiceboxShareData;
+    // await this.saveMockedKeylessShares(mockedShares);
+
+    const { JuiceboxClient } = await import('./utils/JuiceboxClient');
+    const juiceboxClient = new JuiceboxClient();
+    await juiceboxClient.exchangeToken(token);
+    try {
+      const secret = `${juiceboxShare}--${backendShareX}`;
+      await juiceboxClient.register({
+        pin,
+        secret,
+        userInfo: ownerId,
+      });
+    } catch (e) {
+      console.error(e);
+      throw e;
     }
-    mockedShares[ownerId].juiceboxShare = juiceboxShareData;
-    await this.saveMockedKeylessShares(mockedShares);
+
     return juiceboxShareData;
   }
 
@@ -1644,14 +1655,13 @@ class ServiceKeylessWallet extends ServiceBase {
       }
 
       // 4. Call Supabase HTTP API to refresh token
-      const refreshUrl = `${SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
+      const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
       const response = await fetch(refreshUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           // eslint-disable-next-line spellcheck/spell-checker
-          apikey: SUPABASE_PUBLIC_API_KEY,
-          Authorization: `Bearer ${SUPABASE_PUBLIC_API_KEY}`,
+          apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
         },
         body: JSON.stringify({
           refresh_token: storedRefreshToken,

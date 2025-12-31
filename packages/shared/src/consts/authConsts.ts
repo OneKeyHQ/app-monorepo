@@ -175,6 +175,42 @@ export const SUPABASE_PUBLIC_API_KEY = IS_DEV
     'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN' // local test
   : 'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN';
 
+export const KEYLESS_SUPABASE_PROJECT_URL =
+  'https://wtspqckturkzhstyjabx.supabase.co';
+export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+  'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN';
+
+type IJuiceBoxRealmConfig = {
+  id: string;
+  address: string;
+  public_key?: string;
+};
+
+type IJuiceBoxConfigJSON = {
+  realms: IJuiceBoxRealmConfig[];
+  register_threshold: number;
+  recover_threshold: number;
+  pin_hashing_mode: 'Standard2019' | 'FastInsecure';
+};
+
+export const JUICEBOX_AUTH_SERVER = 'https://juicebox.onekeytest.com';
+export const JUICEBOX_CONFIG: IJuiceBoxConfigJSON = {
+  realms: [
+    {
+      id: '37ce3a59ff08d57b77bac0b8451ff2d8',
+      address: 'https://juicebox-sw-realm-a.onekeytest.com',
+    },
+    {
+      id: '6b47cc201434428be7beee2190f95685',
+      address: 'https://juicebox-sw-realm-b.onekeytest.com',
+    },
+  ],
+  register_threshold: 2, // At least 2 realms must succeed to register
+  recover_threshold: 2, // At least 2 realms must succeed to recover
+  pin_hashing_mode: 'Standard2019',
+};
+export const JUICEBOX_ALLOWED_GUESSES = 10; // Number of allowed PIN guess attempts
+
 // Supabase OAuth Providers
 // https://supabase.com/dashboard/project/_/auth/providers
 

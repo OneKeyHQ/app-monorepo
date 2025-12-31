@@ -7630,6 +7630,7 @@ __metadata:
     jest-html-reporter: "npm:^3.10.2"
     jotai: "npm:^2.5.0"
     js-md5: "npm:^0.8.3"
+    juicebox-sdk: "npm:^0.3.4"
     lightweight-charts: "npm:^3.8.0"
     long: "npm:^5.2.1"
     lru-cache: "npm:^10.2.0"
@@ -29221,6 +29222,13 @@ __metadata:
     readable-stream: "npm:~2.3.6"
     setimmediate: "npm:^1.0.5"
   checksum: 10/bfbfbb9b0a27121330ac46ab9cdb3b4812433faa9ba4a54742c87ca441e31a6194ff70ae12acefa5fe25406c432290e68003900541d948a169b23d30c34dd984
+  languageName: node
+  linkType: hard
+
+"juicebox-sdk@npm:^0.3.4":
+  version: 0.3.4
+  resolution: "juicebox-sdk@npm:0.3.4"
+  checksum: 10/c5531e7da88ab80a5af9409cdc3d3219cfd766830b29b3ff39c21bf646c8afef080c4d1200aa0f809a7bc5c94e81eb39d1566c2046835399524597e00f3c6526
   languageName: node
   linkType: hard
 

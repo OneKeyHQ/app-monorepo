@@ -18,9 +18,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { JuiceboxClient } from '@onekeyhq/kit-bg/src/services/ServiceKeylessWallet/utils/JuiceboxClient';
 import {
   EOAuthSocialLoginProvider,
   GOOGLE_OAUTH_CLIENT_IDS,
+  KEYLESS_SUPABASE_PROJECT_URL,
+  KEYLESS_SUPABASE_PUBLIC_API_KEY,
   SUPABASE_PROJECT_URL,
   SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
@@ -161,6 +166,22 @@ function OneKeyIDApiTests() {
           </SizableText>
           <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
             {SUPABASE_PUBLIC_API_KEY || '(empty)'}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            KEYLESS_SUPABASE_PROJECT_URL:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {KEYLESS_SUPABASE_PROJECT_URL || '(empty)'}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            KEYLESS_SUPABASE_PUBLIC_API_KEY:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {KEYLESS_SUPABASE_PUBLIC_API_KEY || '(empty)'}
           </SizableText>
         </XStack>
         <XStack gap="$2">
@@ -490,27 +511,94 @@ function OneKeyIDApiTests() {
         >
           Refresh Session
         </Button>
+      </XStack>
 
+      <SizableText size="$headingMd" mt="$4">
+        Juicebox Test
+      </SizableText>
+      <XStack gap="$3" flexWrap="wrap">
         <Button
-          loading={loading === 'signOut'}
-          disabled={loading !== null}
-          variant="destructive"
           onPress={async () => {
             try {
-              setLoading('signOut');
-              // Sign out from both Supabase and Prime service
-              await logout();
-              demoLog({ success: true }, 'logout');
+              setLoading('juiceboxExchange');
+              const juicebox = new JuiceboxClient();
+              await juicebox.exchangeToken(accessToken);
+              demoLog({ success: true }, 'Juicebox exchangeToken');
             } catch (e) {
-              demoError(e, 'logout');
+              demoError(e, 'Juicebox exchangeToken');
             } finally {
               setLoading(null);
             }
           }}
         >
-          Sign Out
+          Juicebox exchangeToken
+        </Button>
+        <Button
+          loading={loading === 'juiceboxRegister'}
+          disabled={loading !== null || !accessToken}
+          onPress={async () => {
+            try {
+              setLoading('juiceboxRegister');
+              const juicebox = new JuiceboxClient();
+              await juicebox.exchangeToken(accessToken);
+              await juicebox.register({
+                pin: '123456',
+                secret: 'YXNkZg==', // asdf in base64
+                userInfo: 'test-user',
+              });
+              demoLog({ success: true }, 'Juicebox register');
+            } catch (e) {
+              demoError(e, 'Juicebox register');
+            } finally {
+              setLoading(null);
+            }
+          }}
+        >
+          Juicebox Register
+        </Button>
+        <Button
+          loading={loading === 'juiceboxRecover'}
+          disabled={loading !== null || !accessToken}
+          onPress={async () => {
+            try {
+              setLoading('juiceboxRecover');
+              const juicebox = new JuiceboxClient();
+              await juicebox.exchangeToken(accessToken);
+              const secret = await juicebox.recover({
+                pin: '123456',
+                userInfo: 'test-user',
+              });
+              demoLog({ secret }, 'Juicebox recover');
+            } catch (e) {
+              demoError(e, 'Juicebox recover');
+            } finally {
+              setLoading(null);
+            }
+          }}
+        >
+          Juicebox Recover
         </Button>
       </XStack>
+
+      <Button
+        loading={loading === 'signOut'}
+        disabled={loading !== null}
+        variant="destructive"
+        onPress={async () => {
+          try {
+            setLoading('signOut');
+            // Sign out from both Supabase and Prime service
+            await logout();
+            demoLog({ success: true }, 'logout');
+          } catch (e) {
+            demoError(e, 'logout');
+          } finally {
+            setLoading(null);
+          }
+        }}
+      >
+        Sign Out
+      </Button>
 
       <SizableText size="$headingMd" mt="$4">
         Onboarding Test
