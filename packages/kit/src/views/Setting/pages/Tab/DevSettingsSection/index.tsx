@@ -819,6 +819,15 @@ const BaseDevSettingsSection = () => {
                 }}
               />
 
+              <SectionFieldItem
+                icon="ChartColumnarOutline"
+                name="enableMockMarketBanner"
+                title="Mock Market Banner Data"
+                subtitle="使用假数据测试 Market Banner UI"
+              >
+                <Switch size={ESwitchSize.small} />
+              </SectionFieldItem>
+
               <SectionPressItem
                 icon="DeleteOutline"
                 title="Clear App Data (E2E release only)"
