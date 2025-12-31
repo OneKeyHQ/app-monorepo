@@ -93,6 +93,7 @@ import { WalletAvatar } from '../WalletAvatar';
 
 import type { IDeviceManagementListModalItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 function MoreActionProvider({ children }: PropsWithChildren) {
   return (
@@ -1038,7 +1039,7 @@ const MoreActionWalletGrid = () => {
     },
     [navigation, user, network?.id],
   );
-  const openBulkCopyAddressesModal = useCallback(async () => {
+  const openBulkCopyAddressesModule = useCallback(async () => {
     const networkId = networkUtils.toNetworkIdFallback({
       networkId: network?.id,
       allNetworkFallbackToBtc: true,
@@ -1056,6 +1057,21 @@ const MoreActionWalletGrid = () => {
       },
     });
   }, [network?.id, checkIsPrimeUser, navigation, wallet?.id]);
+
+  const openBulkSendModule = useCallback(async () => {
+    const networkId = networkUtils.toNetworkIdFallback({
+      networkId: network?.id,
+      allNetworkFallbackId: getNetworkIdsMap().eth,
+    });
+
+    if (!networkId) return;
+
+    if (!checkIsPrimeUser(EPrimeFeatures.BulkSend)) {
+      // return;
+    }
+
+    // TODO: navigate to bulk send module
+  }, [network?.id, checkIsPrimeUser]);
 
   const items = useMemo(() => {
     return [
@@ -1108,9 +1124,26 @@ const MoreActionWalletGrid = () => {
                   entryPoint: 'moreActions',
                 });
               }
-              void openBulkCopyAddressesModal();
+              void openBulkCopyAddressesModule();
             },
             trackID: 'bulk-copy-addresses-in-more-action',
+            isPrimeFeature: true,
+          },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: 'Bulk Send',
+            icon: 'ChevronDoubleUpOutline' as const,
+            onPress: () => {
+              if (!isPrimeUser) {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.BulkSend,
+                  entryPoint: 'moreActions',
+                });
+              }
+              void openBulkSendModule();
+            },
+            trackID: 'bulk-send-in-more-action',
             isPrimeFeature: true,
           },
     ].filter(Boolean);
@@ -1122,7 +1155,8 @@ const MoreActionWalletGrid = () => {
     handleSecurity,
     intl,
     isPrimeUser,
-    openBulkCopyAddressesModal,
+    openBulkCopyAddressesModule,
+    openBulkSendModule,
   ]);
   return (
     <BaseMoreActionGrid
