@@ -126,6 +126,15 @@ export class SimpleDb {
     return value;
   }
 
+  get swapProSelectToken() {
+    const SimpleDbEntitySwapProSelectToken = (
+      require('../entity/SimpleDbEntitySwapProSelectToken') as unknown as typeof import('../entity/SimpleDbEntitySwapProSelectToken')
+    ).SimpleDbEntitySwapProSelectToken;
+    const value = new SimpleDbEntitySwapProSelectToken();
+    Object.defineProperty(this, 'swapProSelectToken', { value });
+    return value;
+  }
+
   get localTokens() {
     const SimpleDbEntityLocalTokens = (
       require('../entity/SimpleDbEntityLocalTokens') as unknown as typeof import('../entity/SimpleDbEntityLocalTokens')
