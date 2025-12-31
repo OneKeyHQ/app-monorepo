@@ -151,6 +151,7 @@ export function UniversalBorrowRepay({
     reserveAddress: borrowReserveAddress,
     amount: amountValue,
     isDisabled,
+    repayAll: isRepayAll,
   });
 
   const actionLabel = useMemo(

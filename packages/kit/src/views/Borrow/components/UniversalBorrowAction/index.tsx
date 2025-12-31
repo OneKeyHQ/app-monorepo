@@ -21,6 +21,7 @@ export type IUniversalBorrowActionParams = {
   reserveAddress: string;
   amount: string;
   isDisabled?: boolean;
+  repayAll?: boolean;
 };
 
 export type IUniversalBorrowActionState = {
@@ -46,6 +47,7 @@ export function useUniversalBorrowAction({
   reserveAddress,
   amount,
   isDisabled = false,
+  repayAll,
 }: IUniversalBorrowActionParams): IUniversalBorrowActionState {
   const [estimateFeeResp, setEstimateFeeResp] = useState<
     IEarnEstimateFeeResp | undefined
@@ -203,6 +205,7 @@ export function useUniversalBorrowAction({
           accountId,
           action,
           amount: value,
+          repayAll: action === 'repay' ? repayAll : undefined,
         });
 
       if (Number(response.code) === 0) {
@@ -229,7 +232,7 @@ export function useUniversalBorrowAction({
     }
 
     void checkAmount(amount);
-  }, [amount, checkAmount, isReady]);
+  }, [amount, checkAmount, isReady, repayAll]);
 
   const isCheckAmountMessageError = useMemo(
     () => amount.length > 0 && !!checkAmountMessage,

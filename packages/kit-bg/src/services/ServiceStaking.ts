@@ -2319,8 +2319,9 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     action: 'supply' | 'withdraw' | 'borrow' | 'repay';
     amount: string;
+    repayAll?: boolean;
   }) {
-    const { accountId, amount, ...rest } = params;
+    const { accountId, amount, repayAll, ...rest } = params;
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2340,6 +2341,7 @@ class ServiceStaking extends ServiceBase {
         ...rest,
         amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
         accountAddress,
+        ...(repayAll !== undefined ? { repayAll } : {}),
       },
     });
     return response.data;
