@@ -4,7 +4,11 @@ import { SizableText, Tabs, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const TabWrapper = ({ children }: { children: React.ReactNode }) => {
-  return <YStack pt="$6">{children}</YStack>;
+  return (
+    <YStack pt="$6" overflow="hidden">
+      {children}
+    </YStack>
+  );
 };
 
 export const EarnHomeTabs = ({

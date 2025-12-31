@@ -160,7 +160,7 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
   ]);
 
   return (
-    <Stack width="100%" onLayout={handleLayout}>
+    <Stack width="100%" onLayout={handleLayout} overflow="hidden">
       {content}
     </Stack>
   );
