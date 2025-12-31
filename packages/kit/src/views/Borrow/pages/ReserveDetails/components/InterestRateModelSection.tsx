@@ -13,7 +13,7 @@ interface IInterestRateModelSectionProps {
   provider: string;
   marketAddress: string;
   reserveAddress: string;
-  utilizationRatio: string;
+  utilizationRatio?: string;
 }
 
 export function InterestRateModelSection({

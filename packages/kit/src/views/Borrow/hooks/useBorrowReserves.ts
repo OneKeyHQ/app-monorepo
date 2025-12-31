@@ -6,10 +6,7 @@ import type { IBorrowReserveRequestParams } from '@onekeyhq/shared/types/staking
 export const useBorrowReserves = () => {
   const fetchReserves = useCallback(
     async (params: IBorrowReserveRequestParams) => {
-      const result = await backgroundApiProxy.serviceStaking.getBorrowReserves(
-        params,
-      );
-      return result;
+      return backgroundApiProxy.serviceStaking.getBorrowReserves(params);
     },
     [],
   );

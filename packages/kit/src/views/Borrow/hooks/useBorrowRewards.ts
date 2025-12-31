@@ -24,17 +24,17 @@ export const useBorrowRewards = ({
         return null;
       }
 
-      const result = await backgroundApiProxy.serviceStaking.getBorrowRewards({
+      return backgroundApiProxy.serviceStaking.getBorrowRewards({
         networkId,
         provider,
         marketAddress,
         accountId,
       });
-      return result;
     },
     [networkId, provider, marketAddress, accountId, enabled],
     {
       initResult: null,
+      watchLoading: true,
     },
   );
 

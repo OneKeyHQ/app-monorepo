@@ -11,8 +11,7 @@ export const useBorrowMarkets = () => {
     run: refetchMarkets,
   } = usePromiseResult(
     async () => {
-      const result = await backgroundApiProxy.serviceStaking.getBorrowMarkets();
-      return result;
+      return backgroundApiProxy.serviceStaking.getBorrowMarkets();
     },
     [],
     {

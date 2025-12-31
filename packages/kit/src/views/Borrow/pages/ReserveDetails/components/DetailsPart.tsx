@@ -83,7 +83,6 @@ const DetailsPartComponent = ({
                 marketAddress={marketAddress}
                 reserveAddress={reserveAddress}
                 details={details}
-                utilizationRatio={details.utilizationRatio}
               />
             </YStack>
             <DailyCapsSection details={details} />

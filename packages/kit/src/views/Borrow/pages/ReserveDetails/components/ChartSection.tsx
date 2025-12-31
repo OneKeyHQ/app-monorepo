@@ -29,7 +29,6 @@ interface IChartSectionProps {
   marketAddress: string;
   reserveAddress: string;
   details?: IBorrowReserveDetail;
-  utilizationRatio: string;
 }
 
 export function ChartSection({
@@ -38,7 +37,6 @@ export function ChartSection({
   marketAddress,
   reserveAddress,
   details,
-  utilizationRatio,
 }: IChartSectionProps) {
   const intl = useIntl();
   const [supplyTimePeriod, setSupplyTimePeriod] = useState<ITimePeriod>('week');
@@ -266,7 +264,7 @@ export function ChartSection({
         provider={provider}
         marketAddress={marketAddress}
         reserveAddress={reserveAddress}
-        utilizationRatio={utilizationRatio}
+        utilizationRatio={details?.utilizationRatio}
       />
     </YStack>
   );
