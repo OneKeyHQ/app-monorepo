@@ -19,6 +19,7 @@ function EarnListView() {
     return (
       <Recommended
         withHeader={false}
+        enableFetch={false}
         recommendedItemContainerProps={{
           bg: '$bgSubdued',
           borderColor: '$neutral3',
