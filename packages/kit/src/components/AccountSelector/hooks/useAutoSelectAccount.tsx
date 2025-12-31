@@ -5,8 +5,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EAccountSelectorAutoSelectTriggerBy } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorAutoSelectTriggerBy,
+  EAccountSelectorSceneName,
+} from '@onekeyhq/shared/types';
 
+import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import {
   useAccountSelectorActions,
   useAccountSelectorSceneInfo,
@@ -28,7 +32,22 @@ export function useAutoSelectAccount({ num }: { num: number }) {
     if (!storageReady || !activeAccountReady) {
       return;
     }
-    void actions.current.autoSelectNextAccount({ num, sceneName, sceneUrl });
+    let cancelled = false;
+    const run = async () => {
+      if (sceneName === EAccountSelectorSceneName.home) {
+        await deferHeavyWorkUntilUIIdle();
+        if (cancelled) return;
+      }
+      await actions.current.autoSelectNextAccount({
+        num,
+        sceneName,
+        sceneUrl,
+      });
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [actions, activeAccountReady, num, sceneName, sceneUrl, storageReady]);
 
   // **** autoSelectAccount after WalletUpdate

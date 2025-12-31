@@ -97,7 +97,10 @@ const SwapQuoteResultRate = ({
               ? toToken?.symbol?.toUpperCase() ?? '-'
               : fromToken?.symbol?.toUpperCase() ?? '-'
           } = `}
-          <NumberSizeableText size="$bodyMd" formatter="balance">
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter={rateBN.gte(1000) ? 'marketCap' : 'balance'}
+          >
             {isReverse
               ? new BigNumber(1).div(rateBN).toFixed()
               : rateBN.toFixed()}

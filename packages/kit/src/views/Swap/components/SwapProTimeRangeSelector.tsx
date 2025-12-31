@@ -1,12 +1,10 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
 
-import {
-  Icon,
-  Popover,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import type { ISelectRenderTriggerProps } from '@onekeyhq/components';
+import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
 import { defaultTimeRangeItem } from '../../../states/jotai/contexts/swap';
@@ -24,94 +22,51 @@ const SwapProTimeRangeSelector = ({
   onChange,
   isNative,
 }: ISwapProTimeRangeSelectorProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const intl = useIntl();
 
-  const handleItemPress = (value: ESwapProTimeRange) => {
-    onChange(value);
-    setIsOpen(false);
-  };
+  const renderTrigger = useCallback(
+    (props: ISelectRenderTriggerProps) => (
+      <XStack
+        px="$3"
+        cursor="pointer"
+        userSelect="none"
+        borderRadius="$2"
+        onPress={isNative ? undefined : props.onPress}
+        h="$8"
+        alignItems="center"
+        justifyContent="space-between"
+        bg="$bgStrong"
+        hoverStyle={{
+          bg: '$bgStrongHover',
+        }}
+        pressStyle={{
+          bg: '$bgStrongActive',
+        }}
+        focusStyle={{
+          bg: '$bgStrongActive',
+        }}
+      >
+        <SizableText size="$bodyMd">
+          {isNative ? defaultTimeRangeItem.label : selectedValue.label}
+        </SizableText>
+        {isNative ? null : (
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        )}
+      </XStack>
+    ),
+    [isNative, selectedValue.label],
+  );
 
   return (
-    <Popover
-      title=""
-      showHeader={false}
-      open={isOpen}
-      onOpenChange={(open) => {
-        if (isNative) {
-          return;
-        }
-        setIsOpen(open);
+    <Select
+      items={items}
+      value={selectedValue.value}
+      onChange={(value) => {
+        onChange(value as ESwapProTimeRange);
       }}
-      renderTrigger={
-        <XStack
-          px="$3"
-          cursor="pointer"
-          userSelect="none"
-          borderRadius="$2"
-          onPress={() => setIsOpen((prev) => !prev)}
-          h="$8"
-          alignItems="center"
-          justifyContent="space-between"
-          bg="$bgStrong"
-          hoverStyle={{
-            bg: '$bgStrongHover',
-          }}
-          pressStyle={{
-            bg: '$bgStrongActive',
-          }}
-          focusStyle={{
-            bg: '$bgStrongActive',
-          }}
-        >
-          <SizableText size="$bodyMd">
-            {isNative ? defaultTimeRangeItem.label : selectedValue.label}
-          </SizableText>
-          {isNative ? null : (
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$4"
-              color="$iconSubdued"
-            />
-          )}
-        </XStack>
-      }
-      renderContent={({ closePopover }) => (
-        <YStack $md={{ p: '$3' }}>
-          {items.map((item) => (
-            <XStack
-              key={item.value}
-              px="$2"
-              py="$1.5"
-              borderRadius="$2"
-              $md={{
-                py: '$2.5',
-                borderRadius: '$3',
-              }}
-              bg={item.value === selectedValue.value ? '$bgActive' : '$bg'}
-              hoverStyle={{
-                bg: '$bgHover',
-              }}
-              pressStyle={{
-                bg: '$bgActive',
-              }}
-              onPress={() => {
-                handleItemPress(item.value);
-              }}
-              alignItems="center"
-              cursor="pointer"
-            >
-              <SizableText
-                size="$bodyMd"
-                color={
-                  item.value === selectedValue.value ? '$text' : '$textSubdued'
-                }
-              >
-                {item.label}
-              </SizableText>
-            </XStack>
-          ))}
-        </YStack>
-      )}
+      disabled={isNative}
+      title={intl.formatMessage({ id: ETranslations.global_time_range })}
+      renderTrigger={renderTrigger}
       floatingPanelProps={{
         width: '$56',
       }}

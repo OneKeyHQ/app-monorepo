@@ -1,10 +1,13 @@
-import { Tabs, XStack, YStack, useMedia } from '@onekeyhq/components';
+import { useMemo } from 'react';
+
+import { Stack, Tabs, XStack, YStack, useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
 import { ProviderJotaiContextEarn } from '../../../states/jotai/contexts/earn';
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
+import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
 import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
@@ -21,6 +24,12 @@ function PortfolioContainer() {
 
   const tableLayout = media.gtMd;
   const showRecentHistory = media.gtXl;
+
+  const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
+  const addPaddingOnListFooter = useMemo(
+    () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
+    [extensionActiveTabDAppInfo?.showFloatingPanel],
+  );
 
   if (tableLayout) {
     return (
@@ -41,6 +50,7 @@ function PortfolioContainer() {
             <RecentHistory />
           </YStack>
         ) : null}
+        {addPaddingOnListFooter ? <Stack h="$16" /> : null}
       </XStack>
     );
   }
@@ -53,6 +63,7 @@ function PortfolioContainer() {
       <EarnListView />
       <Upgrade />
       <SupportHub />
+      {addPaddingOnListFooter ? <Stack h="$16" /> : null}
     </YStack>
   );
 }
