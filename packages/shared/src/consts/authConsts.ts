@@ -152,12 +152,14 @@ export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
 // TODO: Search for all occurrences of 'apps.googleusercontent.com' in the project and consolidate all discovered OAuth client IDs here for unified management.
 
 const GOOGLE_OAUTH_CLIENT_WEB =
-  '244450898872-d22ubafv8ca38s6fp0kflhdr6e3s386u.apps.googleusercontent.com';
+  '94391474021-6106ge2amfsgl9gjviojmai2mqbh2lte.apps.googleusercontent.com';
+const GOOGLE_OAUTH_CLIENT_IOS =
+  '94391474021-kbgarvu23k3mblp1m2tiknemae99p826.apps.googleusercontent.com';
 export const GOOGLE_OAUTH_CLIENT_IDS = {
   WEB: GOOGLE_OAUTH_CLIENT_WEB,
   EXTENSION: GOOGLE_OAUTH_CLIENT_WEB, // oauth web client, not extension client
   ANDROID: GOOGLE_OAUTH_CLIENT_WEB,
-  IOS: '244450898872-1jvugg12bmstu8nfqfmcpf1o7tcsoltt.apps.googleusercontent.com',
+  IOS: GOOGLE_OAUTH_CLIENT_IOS,
 };
 
 // Supabase (OneKeyAuth)
