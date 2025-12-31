@@ -20,6 +20,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EOAuthSocialLoginProvider,
+  GOOGLE_OAUTH_CLIENT_IDS,
   SUPABASE_PROJECT_URL,
   SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
@@ -148,7 +149,7 @@ function OneKeyIDApiTests() {
       >
         <XStack gap="$2">
           <SizableText size="$bodySm" color="$textSubdued">
-            PROJECT_URL:
+            SUPABASE_PROJECT_URL:
           </SizableText>
           <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
             {SUPABASE_PROJECT_URL || '(empty)'}
@@ -156,10 +157,26 @@ function OneKeyIDApiTests() {
         </XStack>
         <XStack gap="$2">
           <SizableText size="$bodySm" color="$textSubdued">
-            PUBLIC_API_KEY:
+            SUPABASE_PUBLIC_API_KEY:
           </SizableText>
           <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
             {SUPABASE_PUBLIC_API_KEY || '(empty)'}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            GOOGLE_OAUTH_CLIENT_WEB:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {GOOGLE_OAUTH_CLIENT_IDS.WEB || '(empty)'}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            GOOGLE_OAUTH_CLIENT_IOS:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {GOOGLE_OAUTH_CLIENT_IDS.IOS || '(empty)'}
           </SizableText>
         </XStack>
       </YStack>
