@@ -1163,15 +1163,27 @@ class ServiceKeylessWallet extends ServiceBase {
       },
     );
 
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
     const backendShareStr = res?.data?.data;
-    if (backendShareStr) {
+
+    // {"code":0,"message":"success","data":""}
+    if (isSuccess && backendShareStr === '') {
+      return null;
+    }
+
+    if (isSuccess && backendShareStr) {
       try {
-        return JSON.parse(backendShareStr) as IKeylessBackendShare;
+        const result = JSON.parse(backendShareStr) as
+          | IKeylessBackendShare
+          | undefined;
+        if (result) {
+          return result;
+        }
       } catch (e) {
-        console.error('Failed to parse keyless backend share', e);
+        throw new OneKeyLocalError('Failed to parse keyless backend share');
       }
     }
-    return null;
+    throw new OneKeyLocalError('Failed to get keyless backend share');
   }
 
   @backgroundMethod()
