@@ -1,32 +1,14 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  RefreshControl,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  ETabEarnRoutes,
-  ITabEarnParamList,
+import {
+  type ETabEarnRoutes,
+  ETabRoutes,
+  type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ETabDiscoveryRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -37,7 +19,7 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
-import { TabPageHeader } from '../../components/TabPageHeader';
+import { LazyPageContainer } from '../../components/LazyPageContainer';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAppRoute } from '../../hooks/useAppRoute';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
@@ -61,7 +43,6 @@ import { useFAQListInfo } from './hooks/useFAQListInfo';
 import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
 
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
-import type { LayoutChangeEvent } from 'react-native';
 
 function BasicEarnHome({
   showHeader,
@@ -75,7 +56,6 @@ function BasicEarnHome({
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const media = useMedia();
   const actions = useEarnActions();
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
@@ -83,7 +63,7 @@ function BasicEarnHome({
 
   const { earnBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
-  const [isEarnTabFocused, setIsEarnTabFocused] = useState(true);
+  const [isEarnTabFocused, setIsEarnTabFocused] = useState(false);
   const wasFocusedRef = useRef(false);
   const portfolioData = useEarnPortfolio({ isActive: isEarnTabFocused });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
@@ -125,6 +105,8 @@ function BasicEarnHome({
   const navigation = useAppNavigation();
 
   const defaultTab = overrideDefaultTab || route.params?.tab;
+
+  const media = useMedia();
 
   const accountSelectorActions = useAccountSelectorActions();
 
@@ -279,33 +261,36 @@ function BasicEarnHome({
   }
 
   return (
-    <EarnPageContainer
-      sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Earn}
-      disableMaxWidth
-      refreshControl={
-        <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
-      }
-    >
-      <YStack flex={1}>
-        <YStack>
-          <XStack px="$5">
-            <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
-          </XStack>
-          {banners ? (
-            <YStack borderRadius="$3" width="100%" borderCurve="continuous">
-              {banners}
-            </YStack>
-          ) : null}
+    <LazyPageContainer>
+      <EarnPageContainer
+        showTabPageHeader={media.gtMd}
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Earn}
+        disableMaxWidth
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
+        }
+      >
+        <YStack flex={1}>
+          <YStack>
+            <XStack px="$5">
+              <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+            </XStack>
+            {banners ? (
+              <YStack borderRadius="$3" width="100%" borderCurve="continuous">
+                {banners}
+              </YStack>
+            ) : null}
+          </YStack>
+          <EarnMainTabs
+            faqList={faqList || []}
+            isFaqLoading={isFaqLoading}
+            defaultTab={defaultTab}
+            portfolioData={portfolioData}
+          />
         </YStack>
-        <EarnMainTabs
-          faqList={faqList || []}
-          isFaqLoading={isFaqLoading}
-          defaultTab={defaultTab}
-          portfolioData={portfolioData}
-        />
-      </YStack>
-    </EarnPageContainer>
+      </EarnPageContainer>
+    </LazyPageContainer>
   );
 }
 
@@ -337,31 +322,6 @@ export function EarnHomeWithProvider({
   );
 }
 
-const useNavigateToNativeEarnPage = platformEnv.isNative
-  ? () => {
-      const navigation = useAppNavigation();
-      const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
-      const tabParam = route.params?.tab;
-
-      useLayoutEffect(() => {
-        navigation.navigate(
-          ETabRoutes.Discovery,
-          {
-            screen: ETabDiscoveryRoutes.TabDiscovery,
-            params: {
-              defaultTab: ETranslations.global_earn,
-              earnTab: tabParam,
-            },
-          },
-          {
-            pop: true,
-          },
-        );
-      }, [navigation, tabParam]);
-    }
-  : () => {};
-
 export default function EarnHome() {
-  useNavigateToNativeEarnPage();
   return platformEnv.isNative ? null : <EarnHomeWithProvider />;
 }

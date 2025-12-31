@@ -35,6 +35,7 @@ export function useMarketNetworks() {
       {
         initResult: [] as IServerNetwork[],
         watchLoading: true,
+        revalidateOnReconnect: true,
       },
     );
 

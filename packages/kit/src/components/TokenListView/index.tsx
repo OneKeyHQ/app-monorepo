@@ -106,6 +106,7 @@ type IProps = {
     }
   >;
   hideZeroBalanceTokens?: boolean;
+  hideDeFiMarkedTokens?: boolean;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   keepDefaultZeroBalanceTokens?: boolean;
   withAggregateBadge?: boolean;
@@ -113,6 +114,7 @@ type IProps = {
   searchKeyLengthThreshold?: number;
   plainMode?: boolean;
   limit?: number;
+  deferTokenManagement?: boolean;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -142,6 +144,7 @@ function TokenListViewCmp(props: IProps) {
     showNetworkIcon,
     allAggregateTokenMap,
     hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
     homeDefaultTokenMap,
     keepDefaultZeroBalanceTokens = true,
     withAggregateBadge,
@@ -152,6 +155,7 @@ function TokenListViewCmp(props: IProps) {
     searchKeyLengthThreshold,
     plainMode,
     limit,
+    deferTokenManagement,
   } = props;
 
   const intl = useIntl();
@@ -174,10 +178,13 @@ function TokenListViewCmp(props: IProps) {
   const [searchKey] = useSearchKeyAtom();
   const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
 
+  const tokenManagementEnabled =
+    !deferTokenManagement || tokenListState.initialized;
   const { customTokens } = useTokenManagement({
     accountId,
     networkId,
     indexedAccountId,
+    enabled: tokenManagementEnabled,
   });
 
   const tokens = useMemo(() => {
@@ -237,12 +244,17 @@ function TokenListViewCmp(props: IProps) {
       });
     }
 
+    if (hideDeFiMarkedTokens) {
+      resultTokens = resultTokens.filter((item) => !item.defiMarked);
+    }
+
     return resultTokens;
   }, [
     showActiveAccountTokenList,
     isTokenSelector,
     searchKey,
     hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
     activeAccountTokenList.tokens,
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
@@ -493,6 +505,7 @@ function TokenListViewCmp(props: IProps) {
           <TokenListFooter
             tableLayout={tableLayout}
             hideZeroBalanceTokens={hideZeroBalanceTokens}
+            hideDeFiMarkedTokens={hideDeFiMarkedTokens}
             hasTokens={filteredTokens.length > 0}
             manageTokenEnabled={manageTokenEnabled}
             plainMode={plainMode}
@@ -540,6 +553,7 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchKey,
     footerTipText,
     intl,
+    hideDeFiMarkedTokens,
   ]);
 
   if (plainMode) {

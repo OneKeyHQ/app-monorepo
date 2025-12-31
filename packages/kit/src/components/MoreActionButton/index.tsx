@@ -10,6 +10,7 @@ import type {
   IKeyOfIcons,
   IStackProps,
   IStackStyle,
+  IYStackProps,
 } from '@onekeyhq/components';
 import {
   Divider,
@@ -134,6 +135,7 @@ function MoreActionContentHeader({
   const intl = useIntl();
   const media = useMedia();
   const onLock = useOnLock();
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
 
   const handleLock = useCallback(async () => {
     await onLock();
@@ -269,7 +271,7 @@ function MoreActionContentHeader({
       pb="$2"
       ai="center"
       jc="space-between"
-      bg="$bgApp"
+      bg={isDesktopMode ? '$bg' : '$bgApp'}
       zIndex={10}
       borderTopLeftRadius="$3"
       borderTopRightRadius="$3"
@@ -330,7 +332,7 @@ function MoreActionContentFooter() {
     <XStack
       px="$1"
       pb="$1"
-      bg="$bgApp"
+      bg={isDesktopMode ? '$bg' : '$bgApp'}
       borderBottomLeftRadius="$3"
       borderBottomRightRadius="$3"
       borderTopWidth={StyleSheet.hairlineWidth}
@@ -531,12 +533,17 @@ function MoreActionDivider() {
 function MoreActionOneKeyId() {
   const intl = useIntl();
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
-  const { isPrimeAvailable } = usePrimeAvailable();
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
 
   const { closePopover } = usePopoverContext();
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+    }
+  }, [isLoggedIn]);
 
   const displayName = useMemo(() => {
     if (!isLoggedIn) {
@@ -552,15 +559,15 @@ function MoreActionOneKeyId() {
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const navigation = useAppNavigation();
-  const showPrimeProfileDialog = useEditPrimeProfileDialog();
+  const showEditPrimeProfileDialog = useEditPrimeProfileDialog();
 
   const handleAvatarPress = useCallback(
     async (e: GestureResponderEvent) => {
       e.stopPropagation();
       await closePopover?.();
-      await showPrimeProfileDialog();
+      await showEditPrimeProfileDialog();
     },
-    [closePopover, showPrimeProfileDialog],
+    [closePopover, showEditPrimeProfileDialog],
   );
 
   const handleNavigateToOneKeyId = useCallback(async () => {
@@ -586,12 +593,17 @@ function MoreActionOneKeyId() {
     networkId: network?.id,
   });
 
-  const handlePrimeButtonPressed = useCallback(async () => {
-    await closePopover?.();
-    await onPrimeButtonPressed();
-  }, [closePopover, onPrimeButtonPressed]);
+  const handlePrimeButtonPressed = useCallback(
+    async (e: GestureResponderEvent) => {
+      e.stopPropagation();
+      await closePopover?.();
+      await onPrimeButtonPressed();
+    },
+    [closePopover, onPrimeButtonPressed],
+  );
 
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const isPrimeDeviceLimitExceeded = user?.isPrimeDeviceLimitExceeded === true;
 
   if (!isLoggedIn) {
     return (
@@ -650,7 +662,7 @@ function MoreActionOneKeyId() {
       px="$4"
       mx="$1"
       mt="$1"
-      gap="$6"
+      gap="$5"
       userSelect="none"
       justifyContent="space-between"
       onPress={handleNavigateToOneKeyId}
@@ -668,13 +680,19 @@ function MoreActionOneKeyId() {
         </Stack>
 
         <YStack flex={1} gap="$1">
-          <XStack alignItems="center" gap="$2">
+          <XStack
+            alignItems="center"
+            gap="$1.5"
+            alignSelf="flex-start"
+            maxWidth="100%"
+          >
             <SizableText
               size="$headingLg"
               color="$text"
               numberOfLines={1}
               ellipsizeMode="tail"
               userSelect="none"
+              flexShrink={1}
             >
               {displayName}
             </SizableText>
@@ -685,14 +703,33 @@ function MoreActionOneKeyId() {
                 gap="$1"
                 px="$2"
                 h={22}
-                bg="$brand2"
+                opacity={isPrimeDeviceLimitExceeded ? 0.7 : 1}
+                bg={
+                  isPrimeDeviceLimitExceeded ? '$bgCautionSubdued' : '$brand2'
+                }
                 borderRadius="$full"
                 borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$brand4"
+                borderColor={
+                  isPrimeDeviceLimitExceeded
+                    ? '$borderCautionSubdued'
+                    : '$brand4'
+                }
+                flexShrink={0}
                 onPress={handlePrimeButtonPressed}
               >
-                <Icon name={icon} size="$4" />
-                <SizableText size="$bodyMdMedium" color="$brand12">
+                <Icon
+                  name={isPrimeDeviceLimitExceeded ? 'PrimeSolid' : icon}
+                  size="$4"
+                  color={
+                    isPrimeDeviceLimitExceeded ? '$iconCaution' : undefined
+                  }
+                />
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={
+                    isPrimeDeviceLimitExceeded ? '$textCaution' : '$brand12'
+                  }
+                >
                   Prime
                 </SizableText>
               </XStack>
@@ -842,11 +879,7 @@ function BaseMoreActionGrid({
       <YStack gap="$2" px="$4">
         {Array.from({ length: Math.ceil(displayItems.length / 4) }).map(
           (_, rowIndex) => (
-            <XStack
-              key={rowIndex}
-              justifyContent="space-evenly"
-              flexWrap="nowrap"
-            >
+            <XStack key={rowIndex} flexWrap="nowrap">
               {displayItems
                 .slice(rowIndex * 4, (rowIndex + 1) * 4)
                 .map((item, colIndex) =>
@@ -919,13 +952,15 @@ function MoreActionGeneralGrid() {
         onPress: handleScan,
         trackID: 'wallet-scan',
       },
-      {
-        title: 'Prime',
-        icon: 'PrimeOutline' as const,
-        onPress: handlePrime,
-        trackID: 'wallet-prime',
-      },
-    ];
+      !platformEnv.isWebDappMode
+        ? {
+            title: 'Prime',
+            icon: 'PrimeOutline' as const,
+            onPress: handlePrime,
+            trackID: 'wallet-prime',
+          }
+        : undefined,
+    ].filter(Boolean);
   }, [handlePrime, handleScan, handleSettings, intl]);
   return (
     <BaseMoreActionGrid
@@ -1024,14 +1059,14 @@ const MoreActionWalletGrid = () => {
 
   const items = useMemo(() => {
     return [
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_backup }),
             icon: 'CloudUploadOutline' as const,
             onPress: handleBackup,
           },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({
@@ -1040,7 +1075,7 @@ const MoreActionWalletGrid = () => {
             icon: 'ContactsOutline' as const,
             onPress: handleAddressBook,
           },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_network }),
@@ -1052,12 +1087,14 @@ const MoreActionWalletGrid = () => {
         icon: 'SliderThreeOutline' as const,
         onPress: handlePreferences,
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_security }),
-        icon: 'Shield2CheckOutline' as const,
-        onPress: handleSecurity,
-      },
-      platformEnv.isWeb
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({ id: ETranslations.global_security }),
+            icon: 'Shield2CheckOutline' as const,
+            onPress: handleSecurity,
+          },
+      platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({
@@ -1261,8 +1298,8 @@ function BaseMoreActionContent() {
   return (
     <YStack flex={1}>
       <ScrollView overflow="scroll" flex={1}>
-        <UpdateReminders />
-        <MoreActionOneKeyId />
+        {platformEnv.isWebDappMode ? null : <UpdateReminders />}
+        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
         {isDesktopMode ? null : <MoreActionDevice />}
         <MoreActionDivider />
         <MoreActionGeneralGrid />
@@ -1287,14 +1324,18 @@ export function MoreActionContentPage() {
   );
 }
 
-function MoreActionContent() {
+function MoreActionContent({
+  containerStyle,
+}: {
+  containerStyle?: IYStackProps;
+}) {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return (
     <MoreActionProvider>
-      <YStack minHeight={560}>
+      <YStack minHeight={560} {...containerStyle}>
         <MoreActionContentHeader />
-        <UpdateReminders />
-        <MoreActionOneKeyId />
+        {platformEnv.isWebDappMode ? null : <UpdateReminders />}
+        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
         {isDesktopMode ? null : <MoreActionDevice />}
         <MoreActionDivider />
         <MoreActionGeneralGrid />
@@ -1457,7 +1498,7 @@ function MoreActionButtonCmp() {
   const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const [{ isCollapsed }] = useAppSideBarStatusAtom();
-
+  const media = useMedia();
   if (!isDesktopMode) {
     return <MoreButtonWithDot />;
   }
@@ -1465,7 +1506,7 @@ function MoreActionButtonCmp() {
   // Collapsed: show tooltip; Expanded: no tooltip (text is visible)
   const trigger = isCollapsed ? (
     <Tooltip
-      placement="right"
+      placement={platformEnv.isWebDappMode || media.md ? 'bottom' : 'right'}
       renderTrigger={<MoreButtonWithDot />}
       renderContent={intl.formatMessage({
         id: ETranslations.address_book_menu_title,
@@ -1479,6 +1520,7 @@ function MoreActionButtonCmp() {
     <Popover
       title={intl.formatMessage({ id: ETranslations.address_book_menu_title })}
       showHeader={false}
+      keepChildrenMounted
       floatingPanelProps={{
         maxWidth: 384,
         width: 384,
@@ -1487,9 +1529,11 @@ function MoreActionButtonCmp() {
         overflow: 'hidden',
         style: { transformOrigin: 'bottom left' },
       }}
-      placement="right-end"
+      placement={platformEnv.isWebDappMode ? 'bottom-end' : 'right-end'}
       renderTrigger={trigger}
-      renderContent={<MoreActionContent />}
+      renderContent={
+        <MoreActionContent containerStyle={{ maxWidth: 384, width: 384 }} />
+      }
     />
   );
 }

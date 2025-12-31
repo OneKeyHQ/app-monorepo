@@ -110,8 +110,16 @@ function ApprovalListViewCmp(props: IProps) {
   }, [approvalListState.initialized, approvalListState.isRefreshing]);
 
   const EmptyComponentElement = useMemo(() => {
+    if (showSkeleton) {
+      return (
+        <YStack style={{ flex: 1 }}>
+          <ListLoading isTokenSelectorView={!tableLayout} />
+        </YStack>
+      );
+    }
+
     return <EmptyApproval />;
-  }, []);
+  }, [showSkeleton, tableLayout]);
 
   const filteredApprovals = useMemo(() => {
     let _filteredApprovals = approvals;
@@ -172,21 +180,16 @@ function ApprovalListViewCmp(props: IProps) {
     }
   }, []);
 
-  if (showSkeleton) {
-    return (
-      <YStack style={{ flex: 1 }}>
-        <ListLoading isTokenSelectorView={!tableLayout} />
-      </YStack>
-    );
-  }
-
   return (
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       ref={ListComponentRef as any}
+      nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
       refreshControl={
-        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+        !platformEnv.isNativeAndroid && onRefresh ? (
+          <PullToRefresh onRefresh={onRefresh} />
+        ) : undefined
       }
       extraData={filteredApprovals?.length ?? 0}
       data={filteredApprovals}

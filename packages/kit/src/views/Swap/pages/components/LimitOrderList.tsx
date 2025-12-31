@@ -34,7 +34,7 @@ import LimitOrderCancelDialog from './LimitOrderCancelDialog';
 interface ILimitOrderListProps {
   onClickCell: (item: IFetchLimitOrderRes) => void;
   isLoading?: boolean;
-  filterToken?: ISwapToken;
+  filterToken?: ISwapToken[];
   type: 'open' | 'history';
 }
 
@@ -132,14 +132,18 @@ const LimitOrderList = ({
     if (filterToken) {
       filteredData = filteredData.filter(
         (order) =>
-          equalTokenNoCaseSensitive({
-            token1: order.fromTokenInfo,
-            token2: filterToken,
-          }) ||
-          equalTokenNoCaseSensitive({
-            token1: order.toTokenInfo,
-            token2: filterToken,
-          }),
+          filterToken.some((t) =>
+            equalTokenNoCaseSensitive({
+              token1: t,
+              token2: order.fromTokenInfo,
+            }),
+          ) ||
+          filterToken.some((t) =>
+            equalTokenNoCaseSensitive({
+              token1: t,
+              token2: order.toTokenInfo,
+            }),
+          ),
       );
     }
     return (

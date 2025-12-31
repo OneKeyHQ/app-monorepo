@@ -354,9 +354,12 @@ class ServiceStaking extends ServiceBase {
       paramsToSend.vault = protocolVault;
     }
 
-    const walletReferralCode =
-      await this.backgroundApi.serviceReferralCode.checkAndUpdateReferralCode({
+    const walletReferralCode = await this.backgroundApi.serviceReferralCode
+      .checkAndUpdateReferralCode({
         accountId,
+      })
+      .catch((e) => {
+        // ignore
       });
     if (walletReferralCode) {
       paramsToSend.bindedAccountAddress = walletReferralCode.address;
@@ -1480,8 +1483,8 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  fetchEarnHomePageBannerList() {
-    return this._fetchEarnHomePageBannerList();
+  fetchEarnHomePageBannerList({ theme }: { theme?: string } = {}) {
+    return this._fetchEarnHomePageBannerList({ theme });
   }
 
   @backgroundMethod()
@@ -1490,10 +1493,13 @@ class ServiceStaking extends ServiceBase {
   }
 
   _fetchEarnHomePageBannerList = memoizee(
-    async () => {
+    async ({ theme }: { theme?: string } = {}) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const res = await client.get<{ data: IDiscoveryBanner[] }>(
         '/utility/v1/earn-banner/list',
+        {
+          headers: theme ? { 'X-Onekey-Request-Theme': theme } : {},
+        },
       );
       return res.data.data;
     },

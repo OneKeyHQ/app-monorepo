@@ -24,10 +24,14 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IDeFiAsset, IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 import { EDeFiAssetType } from '@onekeyhq/shared/types/defi';
 
@@ -79,20 +83,15 @@ function Protocol({
         ) => {
           let type = '';
           let typeColor = '$blue10';
+          // show en value instead of translation id
           if (record.type === EDeFiAssetType.DEBT) {
-            type = intl.formatMessage({
-              id: ETranslations.wallet_defi_asset_type_borrowed,
-            });
+            type = 'Borrowed';
             typeColor = '$orange10';
           } else if (record.type === EDeFiAssetType.REWARD) {
-            type = intl.formatMessage({
-              id: ETranslations.wallet_defi_position_module_rewards,
-            });
+            type = 'Rewards';
             typeColor = '$teal10';
           } else if (record.type === EDeFiAssetType.ASSET) {
-            type = intl.formatMessage({
-              id: ETranslations.wallet_defi_asset_type_supplied,
-            });
+            type = 'Supplied';
             typeColor = '$blue10';
           } else {
             type = category;
@@ -363,7 +362,13 @@ function Protocol({
                 <XStack
                   onPress={(event: GestureResponderEvent) => {
                     event.stopPropagation();
-                    openUrlExternal(protocolInfo?.protocolUrl);
+                    if (platformEnv.isDesktop || platformEnv.isNative) {
+                      openUrlInDiscovery({
+                        url: protocolInfo?.protocolUrl,
+                      });
+                    } else {
+                      openUrlExternal(protocolInfo?.protocolUrl);
+                    }
                   }}
                   cursor="pointer"
                   borderRadius="$full"

@@ -26,6 +26,8 @@ import {
   useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
 
+import { useEarnAccountKey } from './useEarnAccountKey';
+
 let currentAccountDataFetcher: (() => void) | null = null;
 let accountDataUpdateListenerRegistered = false;
 const handleAccountDataUpdateGlobal = () => {
@@ -372,22 +374,7 @@ export const useEarnPortfolio = ({
   const actions = useEarnActions();
   const [{ earnAccount }] = useEarnAtom();
   const [portfolioCache, setPortfolioCache] = useEarnPortfolioInvestmentsAtom();
-  const earnAccountKey = useMemo(
-    () =>
-      actions.current.buildEarnAccountsKey({
-        accountId: accountIdValue || undefined,
-        indexAccountId:
-          accountIndexedAccountIdValue || indexedAccountIdValue || undefined,
-        networkId: allNetworkId,
-      }),
-    [
-      actions,
-      accountIdValue,
-      accountIndexedAccountIdValue,
-      indexedAccountIdValue,
-      allNetworkId,
-    ],
-  );
+  const earnAccountKey = useEarnAccountKey();
   const currentOverviewData =
     earnAccountKey && earnAccount ? earnAccount[earnAccountKey] : undefined;
   const cachedInvestments = useMemo(() => {
@@ -546,6 +533,7 @@ export const useEarnPortfolio = ({
 
   const fetchAndUpdateInvestments = useCallback(
     async (options?: IRefreshOptions) => {
+      if (!isActive) return;
       if (!isMountedRef.current) return;
 
       const requestId = hasAccountChanged()
@@ -743,6 +731,7 @@ export const useEarnPortfolio = ({
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      isActive,
       accountIdValue,
       indexedAccountIdValue,
       accountIndexedAccountIdValue,
@@ -763,6 +752,7 @@ export const useEarnPortfolio = ({
   usePromiseResult(
     fetchAndUpdateInvestments,
     [
+      isActive,
       accountIdValue,
       indexedAccountIdValue,
       allNetworkId,
@@ -771,6 +761,7 @@ export const useEarnPortfolio = ({
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
+      overrideIsFocused: (isFocused) => isFocused && isActive,
     },
   );
 

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent } from 'react-native';
+
+import { CanceledError } from 'axios';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
@@ -41,9 +42,11 @@ import {
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
+import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
 import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -53,8 +56,37 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
+
+interface IAndroidScrollContainerProps {
+  children: React.ReactNode;
+}
+const AndroidScrollContainer = platformEnv.isNativeAndroid
+  ? ({ children }: IAndroidScrollContainerProps) => {
+      const [height, setHeight] = useState(0);
+      const handleLayout = (event: LayoutChangeEvent) => {
+        setHeight(event.nativeEvent.layout.height);
+      };
+      return (
+        <YStack flex={1} onLayout={handleLayout}>
+          {height > 0 ? (
+            <ScrollView
+              nestedScrollEnabled
+              refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
+              contentContainerStyle={{ height }}
+            >
+              {children}
+            </ScrollView>
+          ) : null}
+        </YStack>
+      );
+    }
+  : ({ children }: IAndroidScrollContainerProps) => {
+      return children;
+    };
 
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -80,8 +112,11 @@ export function HomePageView({
 
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
-
   const tabsRef = useRef<ITabContainerRef | null>(null);
+  const hasRiskApprovalsRef = useRef(hasRiskApprovals);
+  useEffect(() => {
+    hasRiskApprovalsRef.current = hasRiskApprovals;
+  }, [hasRiskApprovals]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -117,26 +152,6 @@ export function HomePageView({
     };
   }, [network, indexedAccount]);
 
-  usePromiseResult(async () => {
-    if (network?.id && account?.id) {
-      const resp =
-        await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
-          networkId: network.id,
-          accountId: account.id,
-          indexedAccountId: indexedAccount?.id,
-          accountAddress: account.address,
-        });
-
-      const riskApprovals = resp.contractApprovals.filter(
-        (item) => item.isRiskContract,
-      );
-
-      updateApprovalsInfo({
-        hasRiskApprovals: !!(riskApprovals && riskApprovals.length > 0),
-      });
-    }
-  }, [network?.id, indexedAccount?.id, account, updateApprovalsInfo]);
-
   const { vaultSettings, networkAccounts } = result.result ?? {};
 
   const isNFTEnabled =
@@ -170,6 +185,56 @@ export function HomePageView({
     network?.id,
     account?.id,
     account?.createAtNetwork,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // Keep the red-dot state from becoming stale across account/network switches.
+    if (hasRiskApprovalsRef.current) {
+      updateApprovalsInfo({ hasRiskApprovals: false });
+    }
+
+    const run = async () => {
+      if (!isBulkRevokeApprovalEnabled) return;
+      if (!account?.id || !network?.id) return;
+
+      await deferHeavyWorkUntilUIIdle();
+      if (cancelled) return;
+
+      try {
+        const resp = await backgroundApiProxy.serviceApproval.fetchAccountApprovals(
+          {
+            networkId: network.id,
+            accountId: account.id,
+            indexedAccountId: indexedAccount?.id,
+            accountAddress: account.address,
+          },
+        );
+        if (cancelled) return;
+        updateApprovalsInfo({
+          hasRiskApprovals: resp.contractApprovals.some((i) => i.isRiskContract),
+        });
+      } catch (error) {
+        if (error instanceof CanceledError) {
+          return;
+        }
+        throw error;
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    account?.address,
+    account?.id,
+    indexedAccount?.id,
+    isBulkRevokeApprovalEnabled,
+    network?.id,
+    updateApprovalsInfo,
   ]);
 
   const isRequiredValidation = vaultSettings?.validationRequired;
@@ -266,7 +331,7 @@ export function HomePageView({
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
       return (
-        <ScrollView h="100%">
+        <ScrollView h="100%" nestedScrollEnabled={platformEnv.isNativeAndroid}>
           {renderHeader()}
           <NotBackedUpEmpty />
         </ScrollView>
@@ -471,7 +536,11 @@ export function HomePageView({
     );
 
     if (wallet) {
-      content = homePageContent;
+      content = platformEnv.isNative ? (
+        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
+      ) : (
+        homePageContent
+      );
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
     return (
@@ -509,5 +578,7 @@ export function HomePageView({
     homePageContent,
   ]);
 
-  return useMemo(() => <Page fullPage>{homePage}</Page>, [homePage]);
+  return useMemo(() => {
+    return <Page fullPage>{homePage}</Page>;
+  }, [homePage]);
 }

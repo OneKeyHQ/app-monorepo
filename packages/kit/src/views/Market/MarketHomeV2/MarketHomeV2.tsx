@@ -8,6 +8,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
@@ -120,9 +121,21 @@ const useMarketHomeLayoutProps = () => {
   );
 };
 
-function BasicMarketHome() {
+function BaseMarketHomeLayout() {
   const { md, mobileProps, desktopProps } = useMarketHomeLayoutProps();
 
+  return (
+    <LazyPageContainer>
+      {md || platformEnv.isNative ? (
+        <MobileLayout {...mobileProps} />
+      ) : (
+        <DesktopLayout {...desktopProps} />
+      )}
+    </LazyPageContainer>
+  );
+}
+
+function BaseMarketHome() {
   return (
     <Page>
       <TabPageHeader
@@ -130,11 +143,7 @@ function BasicMarketHome() {
         tabRoute={ETabRoutes.Market}
       />
       <Page.Body>
-        {md || platformEnv.isNative ? (
-          <MobileLayout {...mobileProps} />
-        ) : (
-          <DesktopLayout {...desktopProps} />
-        )}
+        <BaseMarketHomeLayout />
       </Page.Body>
     </Page>
   );
@@ -152,7 +161,7 @@ export function MarketHomeV2() {
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <BasicMarketHome />
+        <BaseMarketHome />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );

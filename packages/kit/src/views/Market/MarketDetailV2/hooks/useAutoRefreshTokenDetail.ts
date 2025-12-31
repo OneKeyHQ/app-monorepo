@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
@@ -9,6 +11,32 @@ interface IUseMarketDetailDataProps {
 
 export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   const { current: tokenDetailActions } = useTokenDetailActions();
+
+  // Track previous token to detect when switching to a different token
+  const prevTokenRef = useRef<{ tokenAddress: string; networkId: string }>({
+    tokenAddress: '',
+    networkId: '',
+  });
+
+  // Clear cached token detail when switching to a different token
+  // This prevents showing stale data from the previous token
+  useEffect(() => {
+    const prevToken = prevTokenRef.current;
+    const isTokenChanged =
+      prevToken.tokenAddress !== data.tokenAddress ||
+      prevToken.networkId !== data.networkId;
+
+    if (isTokenChanged && prevToken.tokenAddress !== '') {
+      // Clear old token data immediately when switching tokens
+      tokenDetailActions.clearTokenDetail();
+    }
+
+    // Update ref for next comparison
+    prevTokenRef.current = {
+      tokenAddress: data.tokenAddress,
+      networkId: data.networkId,
+    };
+  }, [data.tokenAddress, data.networkId, tokenDetailActions]);
 
   return usePromiseResult(
     async () => {

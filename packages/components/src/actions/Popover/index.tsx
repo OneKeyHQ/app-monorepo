@@ -78,6 +78,7 @@ export interface IPopoverProps extends TMPopoverProps {
 }
 
 interface IPopoverContext {
+  open?: boolean;
   closePopover?: () => Promise<void>;
 }
 
@@ -158,8 +159,9 @@ const useContentDisplay = platformEnv.isNative
     };
 
 export const usePopoverContext = () => {
-  const { closePopover } = useContext(PopoverContext);
+  const { closePopover, open } = useContext(PopoverContext);
   return {
+    open,
     closePopover,
   };
 };
@@ -315,9 +317,10 @@ function RawPopover({
     typeof renderContent === 'function' ? renderContent : null;
   const popoverContextValue = useMemo(
     () => ({
+      open: isOpen,
       closePopover: handleClosePopover,
     }),
-    [handleClosePopover],
+    [handleClosePopover, isOpen],
   );
   const { gtMd } = useMedia();
 

@@ -1,30 +1,16 @@
-import { useEffect, useState } from 'react';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import { Page, XStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import { useWebDappWalletSelector } from './useWebDappWalletSelector';
 import { WalletDetails } from './WalletDetails';
 import { AccountSelectorWalletListSideBar } from './WalletList';
-
-const useSafeAreaInsetsTop = platformEnv.isNativeAndroid
-  ? () => {
-      const { top } = useSafeAreaInsets();
-      return top;
-    }
-  : () => {
-      return undefined;
-    };
 
 export function AccountSelectorStack({
   num,
@@ -33,14 +19,19 @@ export function AccountSelectorStack({
   num: number;
   hideNonBackedUpWallet?: boolean;
 }) {
-  const top = useSafeAreaInsetsTop();
+  const { selectedAccount } = useSelectedAccount({ num });
+  const { shouldHideWalletList } = useWebDappWalletSelector({
+    num,
+    focusedWallet: selectedAccount.focusedWallet,
+  });
+
   return (
-    <Page lazyLoad safeAreaEnabled>
+    <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header headerShown={false} />
       <Page.Body>
-        <XStack flex={1} top={top}>
+        <XStack flex={1}>
           {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
-          {platformEnv.isWebDappMode ? null : (
+          {shouldHideWalletList ? null : (
             <AccountSelectorWalletListSideBar
               num={num}
               hideNonBackedUpWallet={hideNonBackedUpWallet}

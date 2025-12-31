@@ -18,6 +18,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useDialogInstance,
   useForm,
   useInPageDialog,
 } from '@onekeyhq/components';
@@ -38,10 +39,7 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import {
-  OneKeyIdAvatar,
-  OneKeyIdFallbackAvatar,
-} from '../../views/Setting/pages/OneKeyId/OneKeyIdAvatar';
+import { OneKeyIdFallbackAvatar } from '../../views/Setting/pages/OneKeyId/OneKeyIdAvatar';
 import { buildChangeHistoryInputAddon } from '../ChangeHistoryDialog/ChangeHistoryDialog';
 import { NetworkAvatar } from '../NetworkAvatar';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
@@ -266,6 +264,7 @@ interface IPrimeProfileFormValues {
 }
 
 function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
+  const dialogInstance = useDialogInstance();
   const formOption = useMemo(
     () => ({
       defaultValues: {
@@ -275,14 +274,29 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
       onSubmit: async (form: UseFormReturn<IPrimeProfileFormValues>) => {
         const values = form.getValues();
         if (values.avatar && values.nickname) {
-          await backgroundApiProxy.servicePrime.updatePrimeUserProfile({
-            avatar: values.avatar,
-            nickname: values.nickname,
-          });
+          try {
+            await backgroundApiProxy.servicePrime.updatePrimeUserProfile({
+              avatar: values.avatar,
+              nickname: values.nickname,
+            });
+            Toast.success({
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.feedback_change_saved,
+              }),
+            });
+            await dialogInstance.close();
+          } catch (error) {
+            console.error(error);
+            Toast.error({
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.global_update_failed,
+              }),
+            });
+          }
         }
       },
     }),
-    [user?.avatar, user?.nickname],
+    [dialogInstance, user?.avatar, user?.nickname],
   );
   const form = useForm<IPrimeProfileFormValues>(formOption);
   const handlePickAvatar = useCallback(async () => {
@@ -307,7 +321,6 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
       preventClose();
       await form.trigger();
       await form.submit?.();
-      await close();
     },
     [form],
   );
@@ -315,16 +328,16 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
     <>
       <Form form={form}>
         <YStack gap="$4">
-          <XStack jc="center" onPress={handlePickAvatar} cursor="pointer">
-            <Image
-              size="$20"
-              borderRadius="$full"
-              borderWidth={1}
-              borderColor="$neutral3"
-              source={userAvatar ? { uri: userAvatar } : undefined}
-              fallback={<OneKeyIdFallbackAvatar size="$20" />}
-            />
-            <XStack position="relative">
+          <XStack jc="center">
+            <Stack position="relative" onPress={handlePickAvatar}>
+              <Image
+                size="$20"
+                borderRadius="$full"
+                borderWidth={1}
+                borderColor="$neutral3"
+                source={userAvatar ? { uri: userAvatar } : undefined}
+                fallback={<OneKeyIdFallbackAvatar size="$20" />}
+              />
               <XStack
                 bg="$bg"
                 w={30}
@@ -340,7 +353,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
               >
                 <Icon name="EditOutline" size="$4" color="$icon" />
               </XStack>
-            </XStack>
+            </Stack>
           </XStack>
           <Form.Field
             label={appLocale.intl.formatMessage({

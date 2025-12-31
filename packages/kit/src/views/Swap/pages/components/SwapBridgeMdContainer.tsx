@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { type ScrollView as ScrollViewNative } from 'react-native';
 
 import { EPageType, ScrollView, YStack } from '@onekeyhq/components';
-import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   ISwapAlertState,
+  ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -17,7 +17,6 @@ import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGrou
 
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
-import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -50,6 +49,7 @@ interface ISwapBridgeMdContainerProps {
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
+  supportNetworksList: ISwapNetwork[];
 }
 
 const SwapBridgeMdContainer = ({
@@ -71,9 +71,8 @@ const SwapBridgeMdContainer = ({
   onOpenOrdersClick,
   fromTokenAmountValue,
   swapRecentTokenPairs,
+  supportNetworksList,
 }: ISwapBridgeMdContainerProps) => {
-  const [shouldRenderHeavyComponents, setShouldRenderHeavyComponents] =
-    useState(false);
   const scrollViewRef = useRef<ScrollViewNative>(null);
   const onSearchClickCallback = useCallback(() => {
     onSelectToken(ESwapDirectionType.FROM);
@@ -92,15 +91,6 @@ const SwapBridgeMdContainer = ({
     },
     [onTokenPress],
   );
-  // Delay rendering heavy components after initial render
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShouldRenderHeavyComponents(true);
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, []);
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
@@ -147,17 +137,13 @@ const SwapBridgeMdContainer = ({
           tokenPairs={swapRecentTokenPairs}
           fromTokenAmount={fromTokenAmountValue}
         />
-        <SwapPendingHistoryListComponent pageType={pageType} />
-        {shouldRenderHeavyComponents ? (
-          <>
-            {platformEnv.isNative && !fromTokenAmountValue ? (
-              <SwapProTabListContainer
-                onTokenPress={onTokenPressCallback}
-                onOpenOrdersClick={onOpenOrdersClick}
-                onSearchClick={onSearchClickCallback}
-              />
-            ) : null}
-          </>
+        {platformEnv.isNative && !fromTokenAmountValue ? (
+          <SwapProTabListContainer
+            onTokenPress={onTokenPressCallback}
+            onOpenOrdersClick={onOpenOrdersClick}
+            onSearchClick={onSearchClickCallback}
+            supportNetworksList={supportNetworksList}
+          />
         ) : null}
       </YStack>
     </ScrollView>

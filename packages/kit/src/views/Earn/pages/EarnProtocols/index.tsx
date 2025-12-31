@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -148,9 +148,9 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   networkId={item.network.networkId}
                 />
               </Stack>
-              <YStack mr="$2">
-                <XStack ai="center" gap="$2">
-                  <SizableText size="$bodyLgMedium">
+              <YStack mr="$2" flex={1} minWidth={0}>
+                <XStack ai="center" gap="$2" minWidth={0}>
+                  <SizableText size="$bodyLgMedium" flexShrink={0}>
                     {normalizeToEarnProvider(item.provider.name)}
                   </SizableText>
                   {item.provider.badges?.map((badge) => (
@@ -159,11 +159,18 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                       key={badge.tag}
                       badgeType={badge.badgeType}
                       badgeSize="sm"
+                      flexShrink={1}
+                      minWidth={0}
                     >
                       <Badge.Text>{badge.tag}</Badge.Text>
                     </Badge>
                   ))}
                 </XStack>
+                {isDesktopLayout && item?.provider?.vaultName ? (
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                    {item.provider.vaultName}
+                  </SizableText>
+                ) : null}
                 {!isDesktopLayout && item?.provider?.description ? (
                   <SizableText size="$bodySmMedium" color="$textSubdued">
                     {item.provider.description}
@@ -334,6 +341,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       pageTitle={customHeaderLeft}
+      customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
       breadcrumbProps={{
         items: [
           {

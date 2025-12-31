@@ -26,7 +26,7 @@ import {
   XStack,
   YStack,
   useMedia,
-  useThemeValue,
+  useTheme,
 } from '@onekeyhq/components';
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -327,8 +327,9 @@ export default function GetStarted() {
   }, [navigation]);
 
   // Cache theme values to avoid multiple useThemeValue calls during render
-  const neutral6 = useThemeValue('$neutral6');
-  const bgColor = useThemeValue('$bgApp');
+  const theme = useTheme();
+  const neutral6 = theme.neutral6.val;
+  const bgColor = theme.bgApp.val;
 
   return (
     <Page>

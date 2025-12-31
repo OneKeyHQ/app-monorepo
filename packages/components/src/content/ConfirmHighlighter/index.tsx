@@ -1,10 +1,12 @@
 import { MotiView } from 'moti';
 
-import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  getTokenValue,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
 import type { Token } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../hooks';
 import { Stack } from '../../primitives';
 
 import type { IStackProps } from '../../primitives';
@@ -20,7 +22,8 @@ export function ConfirmHighlighter({
   borderRadius,
   ...rest
 }: IConfirmHighlighter) {
-  const highlightColor = useThemeValue('brand11');
+  const theme = useTheme();
+  const highlightColor = theme.brand11.val;
 
   return (
     <Stack borderRadius={borderRadius} {...rest}>

@@ -44,8 +44,14 @@ import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
-  const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
-    useTokenDetail();
+  const {
+    tokenAddress,
+    networkId,
+    tokenDetail,
+    isNative,
+    websocketConfig,
+    isReady,
+  } = useTokenDetail();
   const intl = useIntl();
   const { accountAddress } = useNetworkAccountAddress(networkId);
   const { portfolioData, isRefreshing } = usePortfolioData({
@@ -68,11 +74,16 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
 
   const { top, bottom } = useSafeAreaInsets();
 
+  // Skip top inset for iOS modal pages, as modal has its own safe area handling
+  const isIOSModalPage = platformEnv.isNativeIOS && isModalPage;
+
   const height = useMemo(() => {
-    return platformEnv.isNative
-      ? Dimensions.get('window').height - top - bottom - 158
-      : 'calc(100vh - 96px - 74px)';
-  }, [bottom, top]);
+    if (platformEnv.isNative) {
+      const topInset = isIOSModalPage ? 0 : top;
+      return Dimensions.get('window').height - topInset - bottom - 158;
+    }
+    return 'calc(100vh - 96px - 74px)';
+  }, [bottom, top, isIOSModalPage]);
 
   const width = useMemo(() => {
     return Dimensions.get('window').width;
@@ -239,7 +250,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         ))}
       </ScrollView>
 
-      {isNative ? null : (
+      {isNative || !isReady ? null : (
         <SwapPanel
           swapToken={toSwapPanelToken}
           portfolioData={portfolioData}
@@ -247,7 +258,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
           onShowSwapDialog={showSwapDialog}
         />
       )}
-      {platformEnv.isNative && !disableTrade && !isNative ? (
+      {platformEnv.isNative && !disableTrade && !isNative && isReady ? (
         <SwapFlashBtn
           buttonProps={{
             style: { position: 'absolute', bottom: 100, right: 20 },

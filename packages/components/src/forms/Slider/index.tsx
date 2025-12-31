@@ -79,7 +79,6 @@ export const Slider = ({
     (event: LayoutChangeEvent) => {
       setLayout?.(event.nativeEvent.layout);
       onLayout?.(event);
-      console.log('layout', event.nativeEvent.layout);
     },
     [onLayout],
   );

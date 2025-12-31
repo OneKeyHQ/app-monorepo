@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactElement } from 'react';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -77,4 +77,6 @@ export interface ITabNavigatorProps<RouteName extends string> {
   config: ITabNavigatorConfig<RouteName>[];
   extraConfig?: ITabNavigatorExtraConfig<RouteName>;
   showTabBar?: boolean;
+  bottomMenu: ReactElement;
+  webPageTabBar: ReactElement;
 }

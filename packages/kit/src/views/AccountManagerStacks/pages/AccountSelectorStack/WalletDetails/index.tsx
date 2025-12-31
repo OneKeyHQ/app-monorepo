@@ -356,7 +356,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   //   }
   // }, [scrollToLocation, sectionData]);
 
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
 
   // const isEmptyData = useMemo(() => {
   //   let count = 0;
@@ -694,7 +694,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     <Stack
       key={focusedWalletInfo?.wallet?.id}
       flex={1}
-      pb={bottom}
+      pt={platformEnv.isNativeAndroid ? top : undefined}
+      pb={Math.max(bottom, 8)}
       testID="account-selector-accountList"
     >
       <WalletDetailsHeader
@@ -705,6 +706,18 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         num={num}
         title={title}
       />
+
+      {platformEnv.isWebDappMode &&
+      accountUtils.isHwWallet({ walletId: focusedWalletInfo?.wallet?.id }) ? (
+        <Alert
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.global_web_access_for_hardware_wallet_disconnected,
+          })}
+          mx="$5"
+          mb="$2"
+        />
+      ) : null}
 
       {focusedWalletInfo?.wallet?.id && isHiddenWallet && editable ? (
         <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />

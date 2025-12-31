@@ -187,7 +187,7 @@ export const EditableListItem = ({
       bg={networkId === item.id ? '$bgActive' : undefined}
     >
       <XStack gap="$5">
-        {isCustomNetworkEditable && isEditMode && !isDisabled ? (
+        {isCustomNetworkEditable && !isDisabled ? (
           <ListItem.IconButton
             icon="PencilOutline"
             title={intl.formatMessage({ id: ETranslations.global_edit })}

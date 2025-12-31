@@ -15,6 +15,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 import { EARN_PAGE_MAX_WIDTH } from '../EarnConfig';
 
 import type { RefreshControlProps } from 'react-native';
@@ -32,6 +33,7 @@ interface IEarnPageContainerProps {
   customHeaderRightItems?: React.ReactNode;
   maxWidth?: number | string;
   disableMaxWidth?: boolean;
+  showTabPageHeader?: boolean;
 }
 
 export function EarnPageContainer({
@@ -47,6 +49,7 @@ export function EarnPageContainer({
   customHeaderRightItems,
   maxWidth,
   disableMaxWidth,
+  showTabPageHeader = true,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -84,15 +87,22 @@ export function EarnPageContainer({
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={sceneName}
-        tabRoute={tabRoute}
-        customHeaderLeftItems={customHeaderLeft}
-        customHeaderRightItems={customHeaderRightItems}
-      />
+      {showTabPageHeader ? (
+        <TabPageHeader
+          sceneName={sceneName}
+          tabRoute={tabRoute}
+          customHeaderLeftItems={customHeaderLeft}
+          customHeaderRightItems={customHeaderRightItems}
+        />
+      ) : (
+        <YStack mx="$5" mt="$2" mb="$1">
+          <Page.Header headerShown={false} />
+          <LegacyUniversalSearchInput size="medium" initialTab="dapp" />
+        </YStack>
+      )}
       <Page.Body>
         <ScrollView
-          contentContainerStyle={{ py: '$6' }}
+          contentContainerStyle={{ py: media.gtMd ? '$6' : 0 }}
           refreshControl={refreshControl}
         >
           <YStack w="100%" mx="auto" maxWidth={containerMaxWidth}>

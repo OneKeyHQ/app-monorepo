@@ -31,7 +31,6 @@ import InAppNotification from './InAppNotification';
 import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
-import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
@@ -68,7 +67,7 @@ function DetailRouter() {
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <CloudBackupContainer />
-      <PortalBodyContainer />
+      {/* <PortalBodyContainer /> */}
       <PageTrackerContainer />
       <ErrorToastContainer />
       <GlobalErrorHandlerContainer />

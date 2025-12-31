@@ -493,7 +493,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       overrideIsFocused: (isPageFocused) =>
         (isPageFocused && isFocused) || shouldAlwaysFetch,
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      revalidateOnFocus: true,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
   );
@@ -1874,7 +1873,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      revalidateOnFocus: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
   );
@@ -2001,12 +1999,14 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         inTabList
         hideValue
         withSwapAction
+        hideDeFiMarkedTokens
         accountId={account?.id ?? ''}
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}
         allAggregateTokenMap={allAggregateTokenMap}
         showNetworkIcon={!!network?.isAllNetworks}
         hideZeroBalanceTokens={!!network?.isAllNetworks}
+        deferTokenManagement={!!network?.isAllNetworks}
         manageTokenEnabled={manageTokenEnabled}
         onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}

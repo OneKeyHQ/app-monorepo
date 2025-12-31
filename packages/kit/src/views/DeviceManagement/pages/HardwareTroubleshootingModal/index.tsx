@@ -115,9 +115,7 @@ function HardwareTroubleshootingModal() {
       },
       {
         title: intl.formatMessage({
-          // TODO @franco missing translation?
-          // @ts-ignore
-          id: ETranslations.global_faqs_reset_wallet,
+          id: ETranslations.global_faqs_reset_device,
         }),
         icon: 'RepeatOutline',
         link: 'https://help.onekey.so/articles/11461116',

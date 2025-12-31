@@ -18,6 +18,8 @@ import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Footer } from '../../components/Footer';
 import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
+import { BottomMenu } from '../../provider/Container/PortalBodyContainer/BottomMenu';
+import { WebPageTabBar } from '../../provider/Container/PortalBodyContainer/WebPageTabBar';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
 
 import { tabExtraConfig, useTabRouterConfig } from './router';
@@ -86,6 +88,8 @@ export function TabNavigator() {
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
         showTabBar={!(isTabletDetailView && isLandscape)}
+        bottomMenu={<BottomMenu />}
+        webPageTabBar={<WebPageTabBar />}
       />
       {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
       <InPageTabContainer />

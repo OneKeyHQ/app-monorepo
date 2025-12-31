@@ -43,7 +43,7 @@ interface ISectionData {
 interface ISwapMarketHistoryListProps {
   showType?: 'swap' | 'bridge';
   isPushModal?: boolean;
-  filterToken?: ISwapToken;
+  filterToken?: ISwapToken[];
 }
 
 const SwapMarketHistoryList = ({
@@ -84,14 +84,18 @@ const SwapMarketHistoryList = ({
     if (filterToken) {
       filterData = filterData.filter(
         (item) =>
-          equalTokenNoCaseSensitive({
-            token1: item.baseInfo?.fromToken,
-            token2: filterToken,
-          }) ||
-          equalTokenNoCaseSensitive({
-            token1: item.baseInfo?.toToken,
-            token2: filterToken,
-          }),
+          filterToken.some((t) =>
+            equalTokenNoCaseSensitive({
+              token1: t,
+              token2: item.baseInfo?.fromToken,
+            }),
+          ) ||
+          filterToken.some((t) =>
+            equalTokenNoCaseSensitive({
+              token1: t,
+              token2: item.baseInfo?.toToken,
+            }),
+          ),
       );
     }
     const pendingData =

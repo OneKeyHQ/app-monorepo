@@ -240,16 +240,6 @@ const OnboardingLayoutBody = memo(
         ) : (
           content
         )}
-        {/* {scrollable ? (
-        <LinearGradient
-          position="absolute"
-          left={41}
-          right={41}
-          bottom={0}
-          h="$10"
-          colors={['$transparent', '$bgApp']}
-        />
-      ) : null} */}
       </YStack>
     );
   },

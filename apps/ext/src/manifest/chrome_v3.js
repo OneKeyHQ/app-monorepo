@@ -105,7 +105,6 @@ module.exports = {
   },
   'permissions': [
     'offscreen',
-    'identity',
     // 'https://dapp-server.onekey.so/*', // allow CORS requests in firefox
     // 'http://localhost:8545/',
     // 'https://*.infura.io/',

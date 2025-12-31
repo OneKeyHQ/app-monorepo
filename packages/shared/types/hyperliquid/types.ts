@@ -22,8 +22,8 @@ export enum ESubscriptionType {
   OPEN_ORDERS = 'openOrders',
   ALL_DEXS_ASSET_CTXS = 'allDexsAssetCtxs',
   TWAP_STATES = 'twapStates',
+  BBO = 'bbo',
   // TRADES = 'trades',
-  // BBO = 'bbo',
   // USER_EVENTS = 'userEvents',
   // USER_NOTIFICATIONS = 'userNotifications',
 }

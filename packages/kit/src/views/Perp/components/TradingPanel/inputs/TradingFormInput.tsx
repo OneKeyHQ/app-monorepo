@@ -238,7 +238,7 @@ export const TradingFormInput = memo(
       >
         <YStack>
           <Input
-            h={40}
+            h={32}
             placeholder={placeholder}
             textAlign="right"
             leftAddOnProps={{

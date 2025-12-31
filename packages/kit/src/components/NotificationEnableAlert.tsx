@@ -1,6 +1,6 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
-import { noop } from 'lodash';
+import { isUndefined, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Alert, Stack } from '@onekeyhq/components';
@@ -8,8 +8,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 
+import useAppNavigation from '../hooks/useAppNavigation';
 import { usePromiseResult } from '../hooks/usePromiseResult';
 
 export type INotificationAlertScene =
@@ -36,10 +38,17 @@ const i18nKeyMap: Record<INotificationAlertScene, ETranslations> = {
 
 function BasicNotificationEnableAlert({
   scene,
+  recomputeLayout,
+  opacity,
+  setOpacity,
 }: {
   scene: INotificationAlertScene;
+  recomputeLayout?: () => void;
+  opacity?: number;
+  setOpacity?: (opacity: number) => void;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [notificationsData, setNotificationsData] = useNotificationsAtom();
 
   const dismissedKey = dismissedKeyMap[scene];
@@ -55,48 +64,60 @@ function BasicNotificationEnableAlert({
 
     noop(lastSettingsUpdateTime);
 
-    const [permission, serverSettings] = await Promise.all([
-      backgroundApiProxy.serviceNotification.getPermission(),
-      backgroundApiProxy.serviceNotification.fetchServerNotificationSettingsWithCache(),
-    ]);
+    const serverSettings =
+      await backgroundApiProxy.serviceNotification.fetchServerNotificationSettingsWithCache();
 
-    const isPushEnabled = !!serverSettings?.pushEnabled;
-    const isPermissionGranted =
-      permission.isSupported &&
-      permission.permission === ENotificationPermission.granted;
-
-    let isSceneNotificationDisabled = false;
-    if (scene === 'txHistory' || scene === 'swapHistory') {
-      if (isPushEnabled && !serverSettings?.accountActivityPushEnabled) {
-        isSceneNotificationDisabled = true;
-      }
-    } else if (scene === 'perpHistory') {
-      if (isPushEnabled && !serverSettings?.perpsEnabled) {
-        isSceneNotificationDisabled = true;
-      }
+    // If serverSettings is undefined (API failed), don't show the alert
+    if (!serverSettings) {
+      return {
+        shouldShow: false,
+      };
     }
 
-    const shouldShow =
-      !isSceneNotificationDisabled && (!isPushEnabled || !isPermissionGranted);
+    const shouldShow = !serverSettings.pushEnabled;
 
     return {
       shouldShow,
-      isPushEnabled,
-      isPermissionGranted,
     };
-  }, [lastSettingsUpdateTime, scene]);
+  }, [lastSettingsUpdateTime]);
 
   const handleClose = useCallback(() => {
     setNotificationsData((v) => ({
       ...v,
       [dismissedKey]: true,
     }));
-  }, [setNotificationsData, dismissedKey]);
+    setTimeout(() => {
+      recomputeLayout?.();
+    }, 350);
+  }, [setNotificationsData, dismissedKey, recomputeLayout]);
+
+  const handleEnablePress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingNotifications,
+    });
+  }, [navigation]);
+
+  const alertAction = useMemo(
+    () => ({
+      primary: intl.formatMessage({ id: ETranslations.global_enable }),
+      onPrimaryPress: handleEnablePress,
+    }),
+    [intl, handleEnablePress],
+  );
 
   const shouldShowAlert = useMemo(
     () => !isDismissed && result?.shouldShow,
     [isDismissed, result?.shouldShow],
   );
+
+  useEffect(() => {
+    setTimeout(() => {
+      recomputeLayout?.();
+      if (shouldShowAlert) {
+        setOpacity?.(1);
+      }
+    }, 350);
+  }, [recomputeLayout, shouldShowAlert, setOpacity]);
 
   if (!shouldShowAlert) {
     return null;
@@ -106,12 +127,14 @@ function BasicNotificationEnableAlert({
     <Stack px="$2" pb="$2">
       <Alert
         type="info"
+        opacity={isUndefined(opacity) ? 1 : opacity}
         icon="InfoCircleOutline"
         title={intl.formatMessage({
           id: i18nKeyMap[scene],
         })}
         closable
         onClose={handleClose}
+        action={alertAction}
       />
     </Stack>
   );

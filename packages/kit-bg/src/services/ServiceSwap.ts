@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -522,14 +523,17 @@ export default class ServiceSwap extends ServiceBase {
           checkInscriptionProtectionEnabled && inscriptionProtection;
         params.withCheckInscription = withCheckInscription;
       }
+      let fetchSignal: AbortSignal | undefined;
+      if (direction === ESwapDirectionType.FROM) {
+        fetchSignal = this._tokenDetailAbortControllerMap.from?.signal;
+      } else if (direction === ESwapDirectionType.TO) {
+        fetchSignal = this._tokenDetailAbortControllerMap.to?.signal;
+      }
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
         '/swap/v1/token/detail',
         {
           params,
-          signal:
-            direction === ESwapDirectionType.FROM
-              ? this._tokenDetailAbortControllerMap.from?.signal
-              : this._tokenDetailAbortControllerMap.to?.signal,
+          signal: fetchSignal,
           headers:
             await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
@@ -2199,6 +2203,18 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSpeedSwapConfig(params: { networkId: string }) {
+    const defaultConfig = {
+      provider: '',
+      speedConfig: {
+        slippage: 0.5,
+        spenderAddress: '',
+        defaultTokens: [],
+        defaultLimitTokens: [],
+        swapMevNetConfig: mevSwapNetworks,
+      },
+      supportSpeedSwap: false,
+      speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
+    };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const res = await client.get<{ data: ISpeedSwapConfig }>(
@@ -2207,21 +2223,10 @@ export default class ServiceSwap extends ServiceBase {
           params: { networkId: params.networkId },
         },
       );
-      return res.data.data;
+      return res?.data?.data || defaultConfig;
     } catch (error) {
       console.error(error);
-      return {
-        provider: '',
-        speedConfig: {
-          slippage: 0.5,
-          spenderAddress: '',
-          defaultTokens: [],
-          defaultLimitTokens: [],
-          swapMevNetConfig: mevSwapNetworks,
-        },
-        supportSpeedSwap: false,
-        speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
-      };
+      return defaultConfig;
     }
   }
 
@@ -2454,9 +2459,12 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data;
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
-        throw new Error('perp deposit quote cancel', {
-          cause: ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL,
+        throw new OneKeyError({
+          message: 'perp deposit quote cancel',
+          autoToast: false,
+          data: {
+            cause: ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL,
+          },
         });
       }
       throw e;

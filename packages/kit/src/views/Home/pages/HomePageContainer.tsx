@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -57,9 +57,11 @@ function SelectedAccountsMapTest() {
 function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
 
-  useFocusEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
-  });
+  useFocusEffect(
+    useCallback(() => {
+      void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+    }, []),
+  );
 
   useDebugComponentRemountLog({ name: 'HomePageContainer' });
 

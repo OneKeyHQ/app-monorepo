@@ -85,10 +85,16 @@ function SwitchHomeAccountButton({
             navigation.popStack();
             navigation.popStack();
             navigation.popStack();
-            navigation.navigate(ERootRoutes.Main, {
-              screen: ETabRoutes.Home,
-              params: {},
-            });
+            navigation.navigate(
+              ERootRoutes.Main,
+              {
+                screen: ETabRoutes.Home,
+                params: {},
+              },
+              {
+                pop: true,
+              },
+            );
 
             setTimeout(async () => {
               await actions.current.confirmAccountSelect({

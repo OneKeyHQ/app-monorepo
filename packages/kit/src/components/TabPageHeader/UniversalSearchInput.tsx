@@ -12,6 +12,7 @@ import {
   useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -53,14 +54,22 @@ export function UniversalSearchInput({
       {...(containerProps as IXStackProps)}
     >
       <SearchBar
-        size="small"
+        size={size === 'medium' ? 'medium' : 'small'}
+        containerProps={{ h: size === 'medium' ? 40 : 32 }}
+        py="$2"
         key="searchInput"
         placeholder={intl.formatMessage({
-          id: ETranslations.global_universal_search_placeholder,
+          id: platformEnv.isWebDappMode
+            ? ETranslations.global_search
+            : ETranslations.global_search_everything,
         })}
         addOns={[
           {
-            label: <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />,
+            label: (
+              <View justifyContent="center">
+                <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />
+              </View>
+            ),
           },
         ]}
       />

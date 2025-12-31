@@ -74,7 +74,6 @@ module.exports = {
     // 'webRequest',
     'idle',
   ],
-
 };
 /*
 action:{

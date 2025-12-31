@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IInputRef } from '@onekeyhq/components';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
@@ -24,7 +25,6 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -50,6 +50,7 @@ import {
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
 import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
+import type { TextInput } from 'react-native';
 
 interface ISwapProInputContainerProps {
   defaultTokens: ISwapTokenBase[];
@@ -77,6 +78,7 @@ const SwapProInputContainer = ({
   const [swapProUseSelectBuyToken, setSwapProUseSelectBuyToken] =
     useSwapProUseSelectBuyTokenAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const inputRef = useRef<IInputRef & TextInput>(null);
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
   const defaultTokensFromType = useMemo(() => {
@@ -154,20 +156,29 @@ const SwapProInputContainer = ({
       inputToken?.decimals,
     ],
   );
-  const [, setInAppNotification] = useInAppNotificationAtom();
-  const onInputFocus = useCallback(() => {
-    setInAppNotification((v) => ({
-      ...v,
-      swapPercentageInputStageShowForNative: true,
-    }));
-  }, [setInAppNotification]);
+
+  const isFocusedRef = useRef(false);
+  const inputValue = useMemo(() => {
+    return swapProTradeType === ESwapProTradeType.MARKET
+      ? swapProInputAmount
+      : fromInputAmount.value;
+  }, [swapProTradeType, swapProInputAmount, fromInputAmount.value]);
+
+  // Reset scroll position to show text from the beginning when value changes and input is not focused
+  useEffect(() => {
+    if (!isFocusedRef.current) {
+      inputRef.current?.setSelection?.(0, 0);
+    }
+  }, [inputValue]);
 
   const onInputBlur = useCallback(() => {
-    setInAppNotification((v) => ({
-      ...v,
-      swapPercentageInputStageShowForNative: false,
-    }));
-  }, [setInAppNotification]);
+    isFocusedRef.current = false;
+    inputRef.current?.setSelection?.(0, 0);
+  }, []);
+
+  const onInputFocus = useCallback(() => {
+    isFocusedRef.current = true;
+  }, []);
 
   useSwapLimitPriceCheck(inputToken, toToken);
 
@@ -175,6 +186,7 @@ const SwapProInputContainer = ({
     <YStack borderRadius="$2" bg="$bgStrong" mb="$2">
       <XStack borderTopLeftRadius="$2" borderTopRightRadius="$2">
         <Input
+          ref={inputRef}
           size="small"
           containerProps={{
             flex: 1,
@@ -187,9 +199,12 @@ const SwapProInputContainer = ({
               ? swapProInputAmount
               : fromInputAmount.value
           }
-          onFocus={onInputFocus}
           onBlur={onInputBlur}
+          onFocus={onInputFocus}
           onChangeText={handleInputChange}
+          inputAccessoryViewID={
+            platformEnv.isNativeIOS ? SwapAmountInputAccessoryViewID : undefined
+          }
           placeholder={intl.formatMessage({
             id: ETranslations.content__amount,
           })}
