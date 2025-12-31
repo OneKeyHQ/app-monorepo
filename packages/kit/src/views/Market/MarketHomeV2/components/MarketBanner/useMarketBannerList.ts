@@ -2,10 +2,15 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
-export function useMarketBannerList() {
-  const { result: bannerList, isLoading } = usePromiseResult(
+export function useMarketBannerList(): {
+  bannerList: IMarketBannerItem[];
+  isLoading: boolean;
+} {
+  const { result: bannerList, isLoading } = usePromiseResult<
+    IMarketBannerItem[]
+  >(
     async () => {
-      const data =
+      const data: IMarketBannerItem[] =
         await backgroundApiProxy.serviceMarketV2.fetchMarketBannerList();
       return data;
     },
@@ -17,7 +22,7 @@ export function useMarketBannerList() {
   );
 
   return {
-    bannerList: bannerList || ([] as IMarketBannerItem[]),
+    bannerList: bannerList || [],
     isLoading,
   };
 }

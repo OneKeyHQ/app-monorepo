@@ -1,7 +1,6 @@
 import { memo } from 'react';
 
 import { ScrollView, XStack, useMedia } from '@onekeyhq/components';
-import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
@@ -69,7 +68,7 @@ function MarketBannerListComponent() {
           gap: '$3',
         }}
       >
-        {bannerList.map((item: IMarketBannerItem) => (
+        {bannerList.map((item) => (
           <MarketBannerItem
             key={item._id}
             item={item}
@@ -82,7 +81,7 @@ function MarketBannerListComponent() {
 
   return (
     <XStack pt="$4" pb="$2" px="$5" gap="$3" overflow="scroll">
-      {bannerList.map((item: IMarketBannerItem) => (
+      {bannerList.map((item) => (
         <MarketBannerItem
           key={item._id}
           item={item}
