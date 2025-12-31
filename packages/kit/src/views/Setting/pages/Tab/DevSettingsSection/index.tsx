@@ -824,6 +824,9 @@ const BaseDevSettingsSection = () => {
                 name="enableMockMarketBanner"
                 title="Mock Market Banner Data"
                 subtitle="使用假数据测试 Market Banner UI"
+                onValueChange={() => {
+                  void backgroundApiProxy.serviceMarketV2.clearMarketBannerCache();
+                }}
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>

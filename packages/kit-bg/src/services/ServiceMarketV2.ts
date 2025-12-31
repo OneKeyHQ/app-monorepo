@@ -792,6 +792,11 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
+  async clearMarketBannerCache() {
+    this.memoizedFetchMarketBannerList.clear();
+  }
+
+  @backgroundMethod()
   async fetchMarketBannerTokenList({ tokenListId }: { tokenListId: string }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{

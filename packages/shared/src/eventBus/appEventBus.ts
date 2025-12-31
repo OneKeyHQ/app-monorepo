@@ -219,6 +219,7 @@ export interface IAppEventBusPayload {
     id: EHomeWalletTab;
   };
   [EAppEventBusNames.RefreshMarketWatchList]: undefined;
+  [EAppEventBusNames.RefreshMarketBannerList]: undefined;
   [EAppEventBusNames.RefreshCustomRpcList]: undefined;
   [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
   [EAppEventBusNames.TxFeeInfoChanged]: {

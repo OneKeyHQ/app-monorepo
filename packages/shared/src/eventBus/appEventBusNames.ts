@@ -48,6 +48,7 @@ export enum EAppEventBusNames {
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   SwitchWalletHomeTab = 'SwitchWalletHomeTab',
   RefreshMarketWatchList = 'RefreshMarketWatchList',
+  RefreshMarketBannerList = 'RefreshMarketBannerList',
   RefreshCustomRpcList = 'RefreshCustomRpcList',
   ClearLocalHistoryPendingTxs = 'ClearLocalHistoryPendingTxs',
   TxFeeInfoChanged = 'TxFeeInfoChanged',
