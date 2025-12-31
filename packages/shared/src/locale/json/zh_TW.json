@@ -2081,6 +2081,8 @@
   "ln.authorize_access_network_error": "驗證失敗，請檢查您的網路連線並再試一次",
   "ln.payment_received_label": "已收到付款",
   "log_out_confirmation_text": "您確定要登出 {email} 嗎?",
+  "log_out_wallet": "登出錢包",
+  "log_out_wallet_desc": "這將從當前裝置移除錢包。你可以隨時使用社群帳號和 PIN 重新登入。",
   "logged_out_feedback": "已成功登出",
   "login.forgot_passcode": "忘記密碼？",
   "login.forgot_password": "忘記密碼？",

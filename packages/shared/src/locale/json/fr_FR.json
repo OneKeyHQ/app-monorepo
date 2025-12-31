@@ -2081,6 +2081,8 @@
   "ln.authorize_access_network_error": "L'authentification a échoué, vérifiez votre connexion réseau et essayez à nouveau",
   "ln.payment_received_label": "Paiement reçu",
   "log_out_confirmation_text": "Voulez-vous vraiment vous déconnecter de {email} ?",
+  "log_out_wallet": "Déconnecter le portefeuille",
+  "log_out_wallet_desc": "Cela supprimera le portefeuille de cet appareil. Vous pouvez vous reconnecter à tout moment en utilisant votre compte social et votre code PIN.",
   "logged_out_feedback": "Déconnexion réussie",
   "login.forgot_passcode": "Mot de passe oublié ?",
   "login.forgot_password": "Mot de passe oublié ?",

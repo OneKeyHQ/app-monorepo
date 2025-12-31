@@ -2081,6 +2081,8 @@
   "ln.authorize_access_network_error": "Authentifizierung fehlgeschlagen, überprüfen Sie Ihre Netzwerkverbindung und versuchen Sie es erneut",
   "ln.payment_received_label": "Zahlung erhalten",
   "log_out_confirmation_text": "Möchten Sie sich wirklich von {email} abmelden?",
+  "log_out_wallet": "Wallet abmelden",
+  "log_out_wallet_desc": "Dadurch wird die Wallet von diesem Gerät entfernt. Du kannst dich jederzeit wieder mit deinem Social-Media-Konto und deiner PIN anmelden.",
   "logged_out_feedback": "Erfolgreich abgemeldet",
   "login.forgot_passcode": "Passcode vergessen?",
   "login.forgot_password": "Passwort vergessen?",

@@ -2081,6 +2081,8 @@
   "ln.authorize_access_network_error": "身份认证失败，请检查网络连接后重试",
   "ln.payment_received_label": "已收到付款",
   "log_out_confirmation_text": "您确定要退出 {email} 的登录吗?",
+  "log_out_wallet": "退出钱包",
+  "log_out_wallet_desc": "这将从当前设备移除钱包。你可以随时使用社交账号和 PIN 重新登录。",
   "logged_out_feedback": "已成功退出登录",
   "login.forgot_passcode": "忘记密码？",
   "login.forgot_password": "忘记密码？",

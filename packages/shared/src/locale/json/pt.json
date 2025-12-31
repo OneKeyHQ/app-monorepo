@@ -2081,6 +2081,8 @@
   "ln.authorize_access_network_error": "A autenticação falhou, verifique sua conexão de rede e tente novamente",
   "ln.payment_received_label": "Pagamento recebido",
   "log_out_confirmation_text": "Tem certeza de que deseja sair de {email}?",
+  "log_out_wallet": "Sair da carteira",
+  "log_out_wallet_desc": "Isso removerá a carteira deste dispositivo. Você pode fazer login novamente a qualquer momento usando sua conta social e PIN.",
   "logged_out_feedback": "Sessão encerrada com sucesso",
   "login.forgot_passcode": "Esqueceu o código de acesso?",
   "login.forgot_password": "Esqueceu a senha?",

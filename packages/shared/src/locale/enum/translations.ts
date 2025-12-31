@@ -2086,6 +2086,8 @@
   ln_authorize_access_network_error = 'ln.authorize_access_network_error',
   ln_payment_received_label = 'ln.payment_received_label',
   log_out_confirmation_text = 'log_out_confirmation_text',
+  log_out_wallet = 'log_out_wallet',
+  log_out_wallet_desc = 'log_out_wallet_desc',
   logged_out_feedback = 'logged_out_feedback',
   login_forgot_passcode = 'login.forgot_passcode',
   login_forgot_password = 'login.forgot_password',

@@ -2081,6 +2081,8 @@
   "ln.authorize_access_network_error": "Authentication failed, check your network connection and try again",
   "ln.payment_received_label": "Payment received",
   "log_out_confirmation_text": "Are you sure you want to log out of {email}?",
+  "log_out_wallet": "Log out wallet",
+  "log_out_wallet_desc": "This will remove the wallet from this device. You can log back in anytime using your social account and PIN.",
   "logged_out_feedback": "Logged out successfully",
   "login.forgot_passcode": "Forgot passcode?",
   "login.forgot_password": "Forgot password?",
