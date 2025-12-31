@@ -1871,6 +1871,7 @@ export interface IBorrowEstimateFee {
 export interface IBorrowCheckAmount {
   result: boolean;
   alerts: ICheckAmountAlert[];
+  riskOfLiquidationAlert?: boolean;
 }
 
 export interface IBorrowReserveItem {

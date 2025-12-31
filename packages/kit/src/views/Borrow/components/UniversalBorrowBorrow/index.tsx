@@ -45,6 +45,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { BorrowInfoItem } from '../BorrowInfoItem';
+import { showLiquidationRiskDialog } from '../showLiquidationRiskDialog';
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
 type IUniversalBorrowBorrowProps = {
@@ -125,6 +126,7 @@ export function UniversalBorrowBorrow({
     checkAmountLoading,
     isCheckAmountMessageError,
     checkAmountResult,
+    riskOfLiquidationAlert,
   } = useUniversalBorrowAction({
     action: 'borrow',
     accountId,
@@ -228,13 +230,22 @@ export function UniversalBorrowBorrow({
 
     try {
       Keyboard.dismiss();
+
+      // Check if liquidation risk alert is needed
+      if (riskOfLiquidationAlert) {
+        const confirmed = await showLiquidationRiskDialog(intl);
+        if (!confirmed) {
+          return; // User cancelled
+        }
+      }
+
       setSubmitting(true);
       await onConfirm(amountValue);
       setAmountValue('');
     } finally {
       setSubmitting(false);
     }
-  }, [amountValue, onConfirm]);
+  }, [amountValue, onConfirm, riskOfLiquidationAlert, intl]);
 
   const token = useMemo(
     () => tokenInfo?.token as IToken | undefined,

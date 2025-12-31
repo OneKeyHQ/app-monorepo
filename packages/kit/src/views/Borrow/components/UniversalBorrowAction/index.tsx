@@ -32,6 +32,7 @@ export type IUniversalBorrowActionState = {
   checkAmountLoading: boolean;
   isCheckAmountMessageError: boolean;
   checkAmountResult?: boolean;
+  riskOfLiquidationAlert?: boolean;
 };
 
 const isAmountInvalid = (amount: string) =>
@@ -61,6 +62,9 @@ export function useUniversalBorrowAction({
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const [checkAmountResult, setCheckAmountResult] = useState<
+    boolean | undefined
+  >(undefined);
+  const [riskOfLiquidationAlert, setRiskOfLiquidationAlert] = useState<
     boolean | undefined
   >(undefined);
 
@@ -212,10 +216,12 @@ export function useUniversalBorrowAction({
         setCheckAmountMessage('');
         setCheckAmountAlerts(response.data?.alerts || []);
         setCheckAmountResult(response.data?.result);
+        setRiskOfLiquidationAlert(response.data?.riskOfLiquidationAlert);
       } else {
         setCheckAmountMessage(response.message);
         setCheckAmountAlerts([]);
         setCheckAmountResult(false);
+        setRiskOfLiquidationAlert(undefined);
       }
     } finally {
       setCheckAmountLoading(false);
@@ -228,6 +234,7 @@ export function useUniversalBorrowAction({
       setCheckAmountAlerts([]);
       setCheckAmountLoading(false);
       setCheckAmountResult(undefined);
+      setRiskOfLiquidationAlert(undefined);
       return;
     }
 
@@ -247,5 +254,6 @@ export function useUniversalBorrowAction({
     checkAmountLoading,
     isCheckAmountMessageError,
     checkAmountResult,
+    riskOfLiquidationAlert,
   };
 }
