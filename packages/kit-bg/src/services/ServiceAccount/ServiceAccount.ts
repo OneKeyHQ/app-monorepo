@@ -5488,12 +5488,18 @@ class ServiceAccount extends ServiceBase {
     accountImpl,
     featuresInfoCache,
     activeNetworkId,
+    limitOptions = {
+      allowWatchingWallet: true,
+    },
   }: {
     accountId?: string;
     walletId?: string;
     accountImpl?: string;
     featuresInfoCache?: IOneKeyDeviceFeatures;
     activeNetworkId: string;
+    limitOptions?: {
+      allowWatchingWallet?: boolean;
+    };
   }): Promise<
     | {
         networkImpl: string;
@@ -5513,14 +5519,20 @@ class ServiceAccount extends ServiceBase {
       finalWalletId = accountUtils.getWalletIdFromAccountId({ accountId });
     }
 
-    // Early returns for watching wallet
-    if (finalWalletId === WALLET_TYPE_WATCHING) {
-      return undefined;
-    }
-
     const { impl: activeNetworkImpl } = networkUtils.parseNetworkId({
       networkId: activeNetworkId ?? '',
     });
+
+    // Early returns for watching wallet
+    if (accountUtils.isWatchingWallet({ walletId: finalWalletId })) {
+      if (limitOptions?.allowWatchingWallet) {
+        return undefined;
+      }
+
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
 
     // other account maybe not have accountId only have walletId
     if (accountId && accountUtils.isOthersAccount({ accountId })) {

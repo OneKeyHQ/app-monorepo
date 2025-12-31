@@ -1035,7 +1035,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     const accountNetworkNotSupported =
       await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
         walletId,
-        accountId,
+        accountId: accountId,
         activeNetworkId,
       });
     if (accountNetworkNotSupported) {
@@ -1110,6 +1110,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           quoteId: quoteResult?.quoteId ?? '',
         });
         return;
+      }
+
+      if (
+        fromToken &&
+        !swapFromAddressInfo.address &&
+        !accountUtils.isHdWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isQrWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        })
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_alert_account_does_not_support_swap,
+            }),
+            alertLevel: ESwapAlertLevel.ERROR,
+          },
+        ];
       }
 
       if (fromToken && swapFromAddressInfo.accountInfo?.wallet?.id) {
