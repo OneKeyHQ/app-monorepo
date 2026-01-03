@@ -220,8 +220,8 @@ export const SuppliedCard = () => {
   );
 
   const hasData = useMemo(
-    () => (reserves?.supplied.assets || []).length > 0,
-    [reserves?.supplied.assets],
+    () => (reserves?.supplied?.assets || []).length > 0,
+    [reserves?.supplied?.assets],
   );
 
   return (
@@ -238,7 +238,7 @@ export const SuppliedCard = () => {
       }
     >
       <BorrowTableList<ISuppliedAsset>
-        data={reserves?.supplied.assets || []}
+        data={reserves?.supplied?.assets || []}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}

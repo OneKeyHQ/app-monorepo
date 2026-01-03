@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import BigNumber from 'bignumber.js';
 
 import { useIntl } from 'react-intl';
 
@@ -81,12 +82,13 @@ export const SupplyCard = () => {
 
   // Filter data based on showZeroBalance
   const filteredAssets = useMemo(() => {
-    if (!reserves?.supply.assets) return [];
+    if (!reserves?.supply?.assets) return [];
     if (showZeroBalance) return reserves.supply.assets;
     return reserves.supply.assets.filter((asset) => {
-      return parseFloat(asset?.walletBalance?.title?.text) > 0;
+      const balance = new BigNumber(asset?.walletBalance?.title?.text || '0');
+      return balance.gt(0);
     });
-  }, [reserves?.supply.assets, showZeroBalance]);
+  }, [reserves?.supply?.assets, showZeroBalance]);
 
   const labels = useMemo(
     () => ({
@@ -210,7 +212,10 @@ export const SupplyCard = () => {
   );
 
   return (
-    <Card title={labels.assetsToSupply} renderFilter={filterUI}>
+    <Card
+      title={labels.assetsToSupply}
+      renderFilter={filteredAssets.length > 0 ? filterUI : null}
+    >
       <BorrowTableList<ISupplyAsset>
         data={filteredAssets}
         isLoading={showLoading}
