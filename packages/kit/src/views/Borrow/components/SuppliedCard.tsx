@@ -149,6 +149,7 @@ export const SuppliedCard = () => {
             amountLabel={labels.suppliedWithColon}
             amount={item.suppliedAmount.title}
             amountDescription={item.suppliedAmount.description}
+            platformBonusApy={item.platformBonusApy}
           />
         ),
         flex: 1.5,
@@ -170,7 +171,12 @@ export const SuppliedCard = () => {
       {
         label: labels.asset,
         key: 'asset',
-        render: AssetField,
+        render: (item: ISuppliedAsset) => (
+          <AssetField
+            token={item.token}
+            platformBonusApy={item.platformBonusApy}
+          />
+        ),
         flex: 1,
       },
       {

@@ -111,6 +111,7 @@ export const BorrowCard = () => {
             amountLabel={labels.availableWithColon}
             amount={item.available.title}
             amountDescription={item.available.description}
+            platformBonusApy={item.platformBonusApy}
           />
         ),
         flex: 1.5,
@@ -132,7 +133,12 @@ export const BorrowCard = () => {
       {
         label: labels.asset,
         key: 'asset',
-        render: AssetField,
+        render: (item: IBorrowAsset) => (
+          <AssetField
+            token={item.token}
+            platformBonusApy={item.platformBonusApy}
+          />
+        ),
         flex: 1,
       },
       {

@@ -1930,6 +1930,10 @@ export interface IBorrowReserveItem {
       liquidationLtv?: string;
       canBeCollateral?: boolean;
       withdrawButton: IEarnWithdrawActionData;
+      platformBonusApy?: {
+        title: IEarnText;
+        logoURI: string;
+      };
     }[];
   };
   borrowed: {
@@ -1949,6 +1953,10 @@ export interface IBorrowReserveItem {
       borrowedAmount: IBorrowBalance;
       borrowFactor?: string;
       repayButton: IEarnRepayActionData;
+      platformBonusApy?: {
+        title: IEarnText;
+        logoURI: string;
+      };
     }[];
   };
   supply: {
@@ -1962,6 +1970,10 @@ export interface IBorrowReserveItem {
       canBeCollateral: boolean;
       liquidationLtv?: string;
       supplyButton: IEarnSupplyActionData;
+      platformBonusApy?: {
+        title: IEarnText;
+        logoURI: string;
+      };
     }[];
   };
   borrow: {

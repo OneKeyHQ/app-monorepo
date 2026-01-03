@@ -138,6 +138,7 @@ export const SupplyCard = () => {
             amount={item.walletBalance.title}
             amountDescription={item.walletBalance.description}
             showWalletIcon
+            platformBonusApy={item.platformBonusApy}
           />
         ),
         flex: 1.5,
@@ -159,7 +160,12 @@ export const SupplyCard = () => {
       {
         label: labels.assetCanBeCollateral,
         key: 'asset',
-        render: AssetField,
+        render: (item: ISupplyAsset) => (
+          <AssetField
+            token={item.token}
+            platformBonusApy={item.platformBonusApy}
+          />
+        ),
         flex: 1.5,
       },
       {
