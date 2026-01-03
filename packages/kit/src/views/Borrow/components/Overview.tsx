@@ -86,10 +86,6 @@ export const Overview = () => {
     () => intl.formatMessage({ id: ETranslations.global_history }),
     [intl],
   );
-  const borrowHistoryTitle = useMemo(() => {
-    const borrowLabel = intl.formatMessage({ id: ETranslations.global_borrow });
-    return `${borrowLabel} ${historyLabel}`;
-  }, [intl, historyLabel]);
   const labels = useMemo(
     () => ({
       netWorth: intl.formatMessage({ id: ETranslations.defi_net_worth }),
@@ -157,7 +153,7 @@ export const Overview = () => {
       networkId,
       provider,
       marketAddress,
-      title: borrowHistoryTitle,
+      title: historyLabel,
     });
   }, [
     navigation,
@@ -165,7 +161,7 @@ export const Overview = () => {
     networkId,
     marketAddress,
     earnAccountId,
-    borrowHistoryTitle,
+    historyLabel,
   ]);
 
   const handleShowRewardsDialog = useCallback(() => {
