@@ -49,17 +49,25 @@ const BorrowHomeCmp = memo(() => {
             <Markets />
             <Overview />
             {gtMd ? (
-              // Desktop layout - side by side
-              <XStack flex={1} gap="$5">
-                <YStack flex={1} gap="$5">
-                  <SuppliedCard />
-                  <SupplyCard />
-                </YStack>
-                <YStack flex={1} gap="$5">
-                  <BorrowedCard />
-                  <BorrowCard />
-                </YStack>
-              </XStack>
+              // Desktop layout - 4 equal-width columns using flex
+              <YStack gap="$5">
+                <XStack gap="$5">
+                  <YStack flex={1} flexShrink={0} flexBasis={0}>
+                    <SuppliedCard />
+                  </YStack>
+                  <YStack flex={1} flexShrink={0} flexBasis={0}>
+                    <BorrowedCard />
+                  </YStack>
+                </XStack>
+                <XStack gap="$5">
+                  <YStack flex={1} flexShrink={0} flexBasis={0}>
+                    <SupplyCard />
+                  </YStack>
+                  <YStack flex={1} flexShrink={0} flexBasis={0}>
+                    <BorrowCard />
+                  </YStack>
+                </XStack>
+              </YStack>
             ) : (
               // Mobile layout - tabbed
               <YStack flex={1} gap="$5">

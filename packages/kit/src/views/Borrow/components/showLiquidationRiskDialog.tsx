@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
 
-import type { IntlShape } from 'react-intl';
-
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import type { IntlShape } from 'react-intl';
 
 function LiquidationRiskDialogContent({
   onConfirm,
