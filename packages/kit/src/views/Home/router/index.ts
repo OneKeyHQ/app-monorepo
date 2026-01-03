@@ -29,6 +29,10 @@ const ReferralLanding = LazyLoadPage(async () => {
   return { default: ReferralLandingPage };
 });
 
+const BulkSendAddressesInput = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAddressesInput'),
+);
+
 export const urlAccountRoutes = [
   {
     name: ETabHomeRoutes.TabHomeUrlAccountPage,
@@ -86,5 +90,11 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: ReferralLanding,
     rewrite: referralLandingRewriteCodeOnly,
     exact: true,
+  },
+  {
+    name: ETabHomeRoutes.TabHomeBulkSend,
+    component: BulkSendAddressesInput,
+    exact: true,
+    rewrite: '/bulk-send',
   },
 ];

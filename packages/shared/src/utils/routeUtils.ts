@@ -11,6 +11,7 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
   ETabDeveloperRoutes,
+  ETabHomeRoutes,
   ETabMarketRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
@@ -246,6 +247,12 @@ export const buildAllowList = (
               }
             : {}),
         }),
+
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHomeBulkSend}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isExtension) {

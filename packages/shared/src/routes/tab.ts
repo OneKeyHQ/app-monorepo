@@ -23,6 +23,7 @@ export enum ETabRoutes {
   MultiTabBrowser = 'MultiTabBrowser',
   DeviceManagement = 'DeviceManagement',
   ReferFriends = 'ReferFriends',
+  HomeBulkSend = 'HomeBulkSend',
 }
 
 export type ITabStackParamList = {

@@ -75,6 +75,7 @@ import { useOnLock } from '../../hooks/useOnLock';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
+import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { useOnPrimeButtonPressed } from '../../views/Prime/components/PrimeHeaderIconButton/PrimeHeaderIconButton';
@@ -93,7 +94,6 @@ import { WalletAvatar } from '../WalletAvatar';
 
 import type { IDeviceManagementListModalItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 function MoreActionProvider({ children }: PropsWithChildren) {
   return (
@@ -974,6 +974,7 @@ function MoreActionGeneralGrid() {
 const MoreActionWalletGrid = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const navigateToBulkSend = useNavigateToBulkSend();
   const handleBackup = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListSubModal,
@@ -1019,7 +1020,7 @@ const MoreActionWalletGrid = () => {
   const { user } = useOneKeyAuth();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
   const {
-    activeAccount: { wallet, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
   const checkIsPrimeUser = useCallback(
     (showFeature: EPrimeFeatures) => {
@@ -1049,7 +1050,7 @@ const MoreActionWalletGrid = () => {
 
     if (!checkIsPrimeUser(EPrimeFeatures.BulkCopyAddresses)) return;
 
-    navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
+    navigation.push(EModalRoutes.BulkCopyAddressesModal, {
       screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
       params: {
         walletId: wallet?.id,
@@ -1059,19 +1060,15 @@ const MoreActionWalletGrid = () => {
   }, [network?.id, checkIsPrimeUser, navigation, wallet?.id]);
 
   const openBulkSendModule = useCallback(async () => {
-    const networkId = networkUtils.toNetworkIdFallback({
-      networkId: network?.id,
-      allNetworkFallbackId: getNetworkIdsMap().eth,
-    });
-
-    if (!networkId) return;
-
     if (!checkIsPrimeUser(EPrimeFeatures.BulkSend)) {
-      // return;
+      return;
     }
 
-    // TODO: navigate to bulk send module
-  }, [network?.id, checkIsPrimeUser]);
+    void navigateToBulkSend({
+      networkId: network?.id,
+      accountId: account?.id,
+    });
+  }, [network?.id, account?.id, navigateToBulkSend, checkIsPrimeUser]);
 
   const items = useMemo(() => {
     return [

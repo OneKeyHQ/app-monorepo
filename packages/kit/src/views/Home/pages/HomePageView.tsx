@@ -203,17 +203,18 @@ export function HomePageView({
       if (cancelled) return;
 
       try {
-        const resp = await backgroundApiProxy.serviceApproval.fetchAccountApprovals(
-          {
+        const resp =
+          await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
             networkId: network.id,
             accountId: account.id,
             indexedAccountId: indexedAccount?.id,
             accountAddress: account.address,
-          },
-        );
+          });
         if (cancelled) return;
         updateApprovalsInfo({
-          hasRiskApprovals: resp.contractApprovals.some((i) => i.isRiskContract),
+          hasRiskApprovals: resp.contractApprovals.some(
+            (i) => i.isRiskContract,
+          ),
         });
       } catch (error) {
         if (error instanceof CanceledError) {

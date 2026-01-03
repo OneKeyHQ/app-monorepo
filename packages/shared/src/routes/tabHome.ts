@@ -1,3 +1,5 @@
+import type { IToken } from '@onekeyhq/shared/types/token';
+
 export enum ETabHomeRoutes {
   TabHome = 'TabHome',
   TabHomeUrlAccountPage = 'TabHomeUrlAccountPage',
@@ -5,6 +7,7 @@ export enum ETabHomeRoutes {
   TabHomeReferralLanding = 'TabHomeReferralLanding',
   TabHomeReferralLandingWithoutPage = 'TabHomeReferralLandingWithoutPage',
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
+  TabHomeBulkSend = 'TabHomeBulkSend',
 }
 
 export type ITabHomeUrlAccountParamList = {
@@ -30,5 +33,10 @@ export type ITabHomeParamList = {
   };
   [ETabHomeRoutes.TabHomeReferralLandingCodeOnly]: {
     code: string;
+  };
+  [ETabHomeRoutes.TabHomeBulkSend]: {
+    networkId: string | undefined;
+    accountId: string | undefined;
+    tokenInfo?: IToken;
   };
 } & ITabHomeUrlAccountParamList;
