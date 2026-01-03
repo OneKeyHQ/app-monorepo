@@ -334,6 +334,16 @@ async function _detectNetworkByAddress({
   }
   */
 
+  // Stellar secret seed (S... 56 chars, base32)
+  if (/^S[0-9A-Z]{55}$/.test(a)) {
+    return [
+      {
+        networkId: presetNetworksMap.stellar.id,
+        impl: presetNetworksMap.stellar.impl,
+      },
+    ];
+  }
+
   // EVM (0x + 40 hex)
   if (/^0x[0-9a-fA-F]{40}$/.test(a)) {
     return [
@@ -478,6 +488,11 @@ async function detectNetworkByPrivateKeyFn({
   // Ripple (66 hex chars, uppercase, no 0x)
   if (/^[0-9A-F]{66}$/.test(pk)) {
     return [buildDetectedNetwork(presetNetworksMap.ripple)];
+  }
+
+  // Stellar secret seed (S... 56 chars, base32)
+  if (/^S[0-9A-Z]{55}$/.test(pk)) {
+    return [buildDetectedNetwork(presetNetworksMap.stellar)];
   }
 
   return [];

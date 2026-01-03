@@ -414,6 +414,18 @@ describe('Network Detection by Private Key', () => {
       );
     });
   });
+  describe('Stellar - Secret Seed', () => {
+    test('detects Stellar (S... 56 chars, base32)', async () => {
+      const privateKey =
+        'SDK6NSLLKX5UE3DSXGK56MEMTZBOJ6XT3LLA33BEAZUYGO6TXMHNRUPB';
+      const result = await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.stellar),
+      );
+    });
+  });
 
   describe('Edge Cases', () => {
     test('returns empty array for empty string', async () => {
