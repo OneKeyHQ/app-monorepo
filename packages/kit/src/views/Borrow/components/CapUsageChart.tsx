@@ -44,7 +44,7 @@ export function CapUsageChart({
 
   return (
     <XStack gap="$3" ai="center">
-      <CircleProgress percentage={percentageValue} size={64} strokeWidth={4} />
+      <CircleProgress percentage={percentageValue} size={80} strokeWidth={6} />
       <YStack gap="$1.5" flex={1}>
         <XStack ai="center" gap="$1.5">
           <SizableText size="$bodyMd" color="$textSubdued">
