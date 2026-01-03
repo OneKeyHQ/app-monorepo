@@ -257,29 +257,31 @@ export const Overview = () => {
 
         {/* Row 2: Health factor + Platform bonus */}
         <XStack gap="$6">
-          <YStack gap="$1" flex={1}>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {labels.healthFactor}
-            </SizableText>
-            <XStack ai="center" gap="$1">
-              <EarnText
-                text={
-                  healthFactorData?.healthFactor?.text ?? {
-                    text: '-',
-                    color: '$textDisabled',
+          {healthFactorData?.healthFactor ? (
+            <YStack gap="$1" flex={1}>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {labels.healthFactor}
+              </SizableText>
+              <XStack ai="center" gap="$1">
+                <EarnText
+                  text={
+                    healthFactorData.healthFactor.text ?? {
+                      text: '-',
+                      color: '$textDisabled',
+                    }
                   }
-                }
-                size="$headingLg"
-                color="$textSuccess"
-              />
-              <BorrowHealthFactorTooltip
-                detail={
-                  healthFactorData?.healthFactor?.button?.data
-                    .healthFactorDetail
-                }
-              />
-            </XStack>
-          </YStack>
+                  size="$headingLg"
+                  color="$textSuccess"
+                />
+                <BorrowHealthFactorTooltip
+                  detail={
+                    healthFactorData.healthFactor.button?.data
+                      .healthFactorDetail
+                  }
+                />
+              </XStack>
+            </YStack>
+          ) : null}
           <YStack gap="$1" flex={1}>
             <SizableText size="$bodyMd" color="$textSubdued">
               {labels.platformBonus}
@@ -382,23 +384,25 @@ export const Overview = () => {
           reserves?.overview?.netApy ?? { text: '-', color: '$textDisabled' }
         }
       />
-      <OverviewItem
-        needDivider
-        title={{ text: labels.healthFactor }}
-        text={
-          healthFactorData?.healthFactor?.text ?? {
-            text: amountPlaceholder,
-            color: '$textDisabled',
-          }
-        }
-        tooltip={
-          <BorrowHealthFactorTooltip
-            detail={
-              healthFactorData?.healthFactor?.button?.data.healthFactorDetail
+      {healthFactorData?.healthFactor ? (
+        <OverviewItem
+          needDivider
+          title={{ text: labels.healthFactor }}
+          text={
+            healthFactorData.healthFactor.text ?? {
+              text: amountPlaceholder,
+              color: '$textDisabled',
             }
-          />
-        }
-      />
+          }
+          tooltip={
+            <BorrowHealthFactorTooltip
+              detail={
+                healthFactorData.healthFactor.button?.data.healthFactorDetail
+              }
+            />
+          }
+        />
+      ) : null}
       <OverviewItem
         needDivider={!!borrowRewards}
         title={
