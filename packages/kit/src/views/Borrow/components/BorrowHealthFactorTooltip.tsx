@@ -58,17 +58,13 @@ export const BorrowHealthFactorTooltip = ({
       placement="bottom"
       title={healthFactorLabel}
       renderTrigger={
-        <XStack cursor="pointer" ai="center">
+        <XStack cursor="pointer" ai="center" gap="$1">
           <EarnText
             size="$bodySmMedium"
             color="$textSubdued"
             text={{ text: detailsLabel }}
           />
-          <Icon
-            size="$bodySmMedium"
-            name="ChevronDownSmallOutline"
-            color="$iconSubdued"
-          />
+          <Icon size="$4" name="InfoCircleOutline" color="$iconSubdued" />
         </XStack>
       }
       renderContent={

@@ -48,7 +48,7 @@ const OverviewItem = ({
     <>
       <YStack gap="$1" flexShrink={0}>
         <EarnText text={title} size="$bodyMd" color="$textSubdued" />
-        <XStack gap="$2">
+        <XStack gap="$2" ai="center">
           <EarnText text={text} size="$headingLg" color="$textText" />
           {isValidElement(tooltip) ? (
             tooltip
@@ -273,12 +273,14 @@ export const Overview = () => {
                   size="$headingLg"
                   color="$textSuccess"
                 />
-                <BorrowHealthFactorTooltip
-                  detail={
-                    healthFactorData.healthFactor.button?.data
-                      .healthFactorDetail
-                  }
-                />
+                <XStack mt="$1">
+                  <BorrowHealthFactorTooltip
+                    detail={
+                      healthFactorData.healthFactor.button?.data
+                        .healthFactorDetail
+                    }
+                  />
+                </XStack>
               </XStack>
             </YStack>
           ) : null}
@@ -297,13 +299,15 @@ export const Overview = () => {
                 }
                 size="$headingLg"
               />
-              <BorrowBonusTooltip
-                data={reserves?.overview?.platformBonus}
-                accountId={earnAccountId}
-                networkId={networkId}
-                provider={provider}
-                marketAddress={marketAddress}
-              />
+              <XStack mt="$1">
+                <BorrowBonusTooltip
+                  data={reserves?.overview?.platformBonus}
+                  accountId={earnAccountId}
+                  networkId={networkId}
+                  provider={provider}
+                  marketAddress={marketAddress}
+                />
+              </XStack>
             </XStack>
           </YStack>
         </XStack>

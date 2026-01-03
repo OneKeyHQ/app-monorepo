@@ -101,7 +101,7 @@ export const BorrowBonusTooltip = ({
         onOpenChange={setOpen}
         placement="bottom-end"
         renderTrigger={
-          <XStack cursor="pointer" ai="center">
+          <XStack cursor="pointer" ai="center" gap="$1">
             <EarnText
               size="$bodySmMedium"
               color="$textSubdued"
@@ -109,11 +109,7 @@ export const BorrowBonusTooltip = ({
                 text: intl.formatMessage({ id: ETranslations.global_details }),
               }}
             />
-            <Icon
-              size="$bodySmMedium"
-              name="ChevronDownSmallOutline"
-              color="$iconSubdued"
-            />
+            <Icon size="$4" name="InfoCircleOutline" color="$iconSubdued" />
           </XStack>
         }
         title={intl.formatMessage({ id: ETranslations.earn_referral_bonus })}
