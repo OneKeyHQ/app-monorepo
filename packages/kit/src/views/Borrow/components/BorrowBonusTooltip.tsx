@@ -90,7 +90,7 @@ export const BorrowBonusTooltip = ({
     return String(Math.max(0, days));
   }, [data?.data?.endsIn]);
 
-  if (!data || isEmpty(data?.distributed)) {
+  if (!data) {
     return null;
   }
 
@@ -160,39 +160,45 @@ export const BorrowBonusTooltip = ({
 
             {/* Distributed section */}
             {isEmpty(data?.distributed) ? null : (
-              <SizableText mx="$5" size="$bodyMdMedium" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.referral_distributed })}
-              </SizableText>
+              <>
+                <SizableText mx="$5" size="$bodyMdMedium" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_distributed,
+                  })}
+                </SizableText>
+                {data?.distributed.map((item, index) => {
+                  return itemRender({
+                    key: `${index}-${item?.token?.address}`,
+                    children: (
+                      <>
+                        <XStack ai="center" gap="$2.5">
+                          <Token size="sm" tokenImageUri={item.token.logoURI} />
+                          <EarnText
+                            size="$bodyMdMedium"
+                            color="$text"
+                            text={item.title}
+                          />
+                        </XStack>
+                        <EarnText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          text={item.description}
+                        />
+                      </>
+                    ),
+                  });
+                })}
+                <YStack px="$5" mt="$2">
+                  <EarnText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    text={data.description}
+                  />
+                  <Divider mt="$5" mb="$3.5" />
+                </YStack>
+              </>
             )}
-            {data?.distributed.map((item, index) => {
-              return itemRender({
-                key: `${index}-${item?.token?.address}`,
-                children: (
-                  <>
-                    <XStack ai="center" gap="$2.5">
-                      <Token size="sm" tokenImageUri={item.token.logoURI} />
-                      <EarnText
-                        size="$bodyMdMedium"
-                        color="$text"
-                        text={item.title}
-                      />
-                    </XStack>
-                    <EarnText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      text={item.description}
-                    />
-                  </>
-                ),
-              });
-            })}
-            <Stack mt="$2" px="$5" mb="$5">
-              <EarnText
-                size="$bodySm"
-                color="$textSubdued"
-                text={data.description}
-              />
-              <Divider mt="$5" mb="$3.5" />
+            <Stack px="$5" mb="$5">
               <YStack gap="$3">
                 {/* Platform bonus info card */}
                 <XStack ai="center">
