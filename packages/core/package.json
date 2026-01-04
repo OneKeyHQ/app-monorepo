@@ -33,6 +33,7 @@
     "@solana/spl-token": "^0.4.8",
     "@solana/web3.js": "1.98.2",
     "@starcoin/starcoin": "^2.3.7",
+    "@stellar/stellar-base": "^14.0.3",
     "@ton/core": "^0.61.0",
     "@ton/crypto": "^3.3.0",
     "@ton/ton": "^15.3.1",

@@ -2863,6 +2863,27 @@ const neoN3: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const stellar: IServerNetwork = {
+  'impl': 'stellar',
+  'chainId': 'stellar',
+  'id': 'stellar--mainnet',
+  'code': 'stellar',
+  'decimals': 7,
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/stellar.png',
+  'name': 'Stellar',
+  'shortcode': 'stellar',
+  'shortname': 'XLM',
+  'symbol': 'XLM',
+  'feeMeta': {
+    'decimals': 7,
+    'symbol': 'XLM',
+  },
+  'defaultEnabled': true,
+  'isCustomNetwork': false,
+  'status': ENetworkStatus.LISTED,
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
 ];
@@ -2985,6 +3006,7 @@ export const presetNetworksMap = {
   scdo,
   benfen,
   neoN3,
+  stellar,
 };
 
 export const getDefaultEnabledNetworksInAllNetworks = memoFn(
@@ -3182,6 +3204,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     scdo,
     benfen,
     neoN3,
+    stellar,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 

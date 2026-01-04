@@ -1029,4 +1029,8 @@ module.exports = [
   'stakefish',
   'Dropdown',
   'Deregistration',
+  'trustline',
+  'Soroban',
+  'stroops',
+  'timebounds',
 ];
