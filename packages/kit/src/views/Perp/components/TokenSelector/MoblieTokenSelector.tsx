@@ -32,7 +32,11 @@ import {
   XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-import { usePerpTokenSelector } from '../../hooks';
+import {
+  type IFavoriteItem,
+  usePerpTokenSelector,
+  usePerpsFavorites,
+} from '../../hooks';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
@@ -41,6 +45,7 @@ import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 import type { ITokenSelectorListItem } from './PerpTokenSelector';
 
 const TAB_LABELS = {
+  favorites: 'Favs',
   all: 'PERPS',
   hip3: 'HIP3',
 } as const;
@@ -98,12 +103,13 @@ function MobileTokenSelectorModal({
 
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
+  const { favoriteItems } = usePerpsFavorites();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
   const setActiveTab = useCallback(
-    (tab: 'all' | 'hip3') => {
+    (tab: 'all' | 'hip3' | 'favorites') => {
       setSelectorConfig((prev) => ({
         field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
         direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
@@ -210,29 +216,43 @@ function MobileTokenSelectorModal({
     );
 
     const sortField = selectorConfig?.field ?? '';
+    let result: { dexIndex: number; index: number; assetId: number }[];
     if (!sortField) {
-      return combinedEntries.map((entry) => ({
+      result = combinedEntries.map((entry) => ({
+        dexIndex: entry.dexIndex,
+        index: entry.index,
+        assetId: entry.assetId,
+      }));
+    } else {
+      const sorted = [...combinedEntries].sort((a, b) =>
+        sortCompare(
+          { asset: a.asset, sortValues: a.sortValues },
+          { asset: b.asset, sortValues: b.sortValues },
+        ),
+      );
+      result = sorted.map((entry) => ({
         dexIndex: entry.dexIndex,
         index: entry.index,
         assetId: entry.assetId,
       }));
     }
-    const sorted = [...combinedEntries].sort((a, b) =>
-      sortCompare(
-        { asset: a.asset, sortValues: a.sortValues },
-        { asset: b.asset, sortValues: b.sortValues },
-      ),
-    );
-    return sorted.map((entry) => ({
-      dexIndex: entry.dexIndex,
-      index: entry.index,
-      assetId: entry.assetId,
-    }));
+
+    if (activeTab === 'favorites') {
+      const favoriteAssetIds = new Set(
+        favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
+      );
+      return result.filter((item) =>
+        favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
+      );
+    }
+
+    return result;
   }, [
     activeTab,
     assetCtxsByDex,
     assetsByDex,
     computeSortValues,
+    favoriteItems,
     sortCompare,
     selectorConfig?.field,
   ]);
@@ -304,7 +324,7 @@ function MobileTokenSelectorModal({
         borderBottomColor="$borderSubdued"
       >
         <XStack flex={1}>
-          {(['all', 'hip3'] as const).map((tabKey) => (
+          {(['all', 'hip3', 'favorites'] as const).map((tabKey) => (
             <TabItem
               key={tabKey}
               name={TAB_LABELS[tabKey]}
