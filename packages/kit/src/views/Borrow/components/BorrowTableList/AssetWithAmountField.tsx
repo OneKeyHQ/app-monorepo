@@ -10,7 +10,7 @@ type IAssetFieldToken = Pick<IBorrowToken, 'logoURI' | 'symbol'>;
 type IAssetWithAmountFieldProps = {
   token: IAssetFieldToken;
   canBeCollateral?: boolean;
-  amountLabel?: string;
+  amountLabel?: IEarnText;
   amount?: IEarnText;
   amountDescription?: IEarnText;
   showWalletIcon?: boolean;
@@ -70,16 +70,14 @@ export const AssetWithAmountField = ({
             {showWalletIcon ? (
               <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
             ) : null}
-            {amountLabel ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {amountLabel}
-              </SizableText>
-            ) : null}
+            <EarnText text={amountLabel} size="$bodySm" color="$textSubdued" />
             <EarnText text={amount} size="$bodySm" color="$textSubdued" />
-            {amountDescription?.text ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                ({amountDescription.text})
-              </SizableText>
+            {amountDescription ? (
+              <EarnText
+                text={{ text: `(${amountDescription.text})` }}
+                size="$bodySm"
+                color="$textSubdued"
+              />
             ) : null}
           </XStack>
         </YStack>
