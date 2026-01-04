@@ -606,19 +606,16 @@ function BasicEarnActionIcon({
     case 'history':
       return (
         <XStack
-          gap="$0.5"
+          gap="$1"
           cursor="pointer"
+          ai="center"
           onPress={() => onHistory?.({ filterType: 'rebate' })}
         >
+          <Icon name="ClockTimeHistoryOutline" size="$4" color="$iconSubdued" />
           <EarnText
             text={actionIcon?.text}
             size="$bodyMd"
             color="$textSubdued"
-          />
-          <Icon
-            name="ChevronRightSmallOutline"
-            color="$iconSubdued"
-            size="$5"
           />
         </XStack>
       );

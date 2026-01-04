@@ -85,7 +85,7 @@ function OrderConfirmContent({
     }
 
     if (formData.bboPriceMode) {
-      const { type, level } = formData.bboPriceMode;
+      const { type } = formData.bboPriceMode;
       const modeName = intl.formatMessage({
         id:
           type === 'counterparty'
@@ -95,9 +95,7 @@ function OrderConfirmContent({
 
       return (
         <YStack alignItems="flex-end" gap="$1">
-          <SizableText size="$bodyMdMedium">
-            {modeName} {level}
-          </SizableText>
+          <SizableText size="$bodyMdMedium">{modeName}</SizableText>
         </YStack>
       );
     }

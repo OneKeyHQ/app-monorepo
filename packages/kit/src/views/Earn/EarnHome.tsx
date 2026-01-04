@@ -20,6 +20,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { LazyPageContainer } from '../../components/LazyPageContainer';
+import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAppRoute } from '../../hooks/useAppRoute';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
@@ -28,9 +29,11 @@ import {
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions } from '../../states/jotai/contexts/earn';
+import { BorrowHome } from '../Borrow/pages/BorrowHome';
 
 import { BannerV2 } from './components/BannerV2';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
+import { EarnHomeTabs } from './components/EarnHomeTabs';
 import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnPageContainer } from './components/EarnPageContainer';
 import { Overview } from './components/Overview';
@@ -105,6 +108,15 @@ function BasicEarnHome({
   const navigation = useAppNavigation();
 
   const defaultTab = overrideDefaultTab || route.params?.tab;
+  const defaultMode = route.params?.mode || 'earn';
+
+  const handleModeChange = useCallback(
+    (mode: 'earn' | 'borrow') => {
+      // Use setParams to update mode without navigation - prevents remount flash
+      navigation.setParams({ mode, tab: route.params?.tab });
+    },
+    [navigation, route.params?.tab],
+  );
 
   const media = useMedia();
 
@@ -248,15 +260,39 @@ function BasicEarnHome({
 
   if (platformEnv.isNative) {
     return (
-      <YStack flex={1}>
-        <EarnMainTabs
-          faqList={faqList || []}
-          isFaqLoading={isFaqLoading}
-          defaultTab={defaultTab}
-          portfolioData={portfolioData}
-          containerProps={mobileContainerProps}
-        />
-      </YStack>
+      <EarnHomeTabs
+        defaultMode={defaultMode}
+        onModeChange={handleModeChange}
+        earn={
+          <YStack flex={1}>
+            <EarnMainTabs
+              faqList={faqList || []}
+              isFaqLoading={isFaqLoading}
+              defaultTab={defaultTab}
+              portfolioData={portfolioData}
+              containerProps={mobileContainerProps}
+            />
+
+            {showHeader && showContent && media.md ? (
+              <YStack
+                position="absolute"
+                top={-20}
+                left={0}
+                bg="$bgApp"
+                pt="$5"
+                width="100%"
+                // onLayout={handleTabPageLayout}
+              >
+                <TabPageHeader
+                  sceneName={EAccountSelectorSceneName.home}
+                  tabRoute={ETabRoutes.Earn}
+                />
+              </YStack>
+            ) : null}
+          </YStack>
+        }
+        borrow={<BorrowHome />}
+      />
     );
   }
 
@@ -267,28 +303,42 @@ function BasicEarnHome({
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
         disableMaxWidth
+        contentContainerStyle={{
+          py: 0,
+        }}
         refreshControl={
           <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
         }
       >
-        <YStack flex={1}>
-          <YStack>
-            <XStack px="$5">
-              <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
-            </XStack>
-            {banners ? (
-              <YStack borderRadius="$3" width="100%" borderCurve="continuous">
-                {banners}
+        <EarnHomeTabs
+          defaultMode={defaultMode}
+          onModeChange={handleModeChange}
+          earn={
+            <YStack flex={1}>
+              <YStack>
+                <XStack px="$5">
+                  <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+                </XStack>
+                {banners ? (
+                  <YStack
+                    borderRadius="$3"
+                    width="100%"
+                    borderCurve="continuous"
+                  >
+                    {banners}
+                  </YStack>
+                ) : null}
               </YStack>
-            ) : null}
-          </YStack>
-          <EarnMainTabs
-            faqList={faqList || []}
-            isFaqLoading={isFaqLoading}
-            defaultTab={defaultTab}
-            portfolioData={portfolioData}
-          />
-        </YStack>
+              <EarnMainTabs
+                faqList={faqList || []}
+                isFaqLoading={isFaqLoading}
+                defaultTab={defaultTab}
+                portfolioData={portfolioData}
+              />
+            </YStack>
+          }
+          borrow={<BorrowHome />}
+        />
       </EarnPageContainer>
     </LazyPageContainer>
   );
