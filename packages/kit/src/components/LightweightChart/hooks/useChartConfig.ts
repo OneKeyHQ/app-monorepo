@@ -13,6 +13,8 @@ interface IUseChartConfigProps {
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;
+  lineWidth?: number;
+  showPriceScale?: boolean;
 }
 
 export function useChartConfig({
@@ -20,6 +22,8 @@ export function useChartConfig({
   lineColor = DEFAULT_CHART_COLORS.lineColor,
   topColor = DEFAULT_CHART_COLORS.topColor,
   bottomColor = DEFAULT_CHART_COLORS.bottomColor,
+  lineWidth = 3,
+  showPriceScale = false,
 }: IUseChartConfigProps): ILightweightChartConfig {
   const theme = useTheme();
 
@@ -33,6 +37,8 @@ export function useChartConfig({
         topColor,
         bottomColor,
       },
+      lineWidth,
+      showPriceScale,
       data: data.map(([time, value]: [number, number]) => ({ time, value })),
     }),
     [
@@ -42,6 +48,8 @@ export function useChartConfig({
       lineColor,
       topColor,
       bottomColor,
+      lineWidth,
+      showPriceScale,
     ],
   );
 }

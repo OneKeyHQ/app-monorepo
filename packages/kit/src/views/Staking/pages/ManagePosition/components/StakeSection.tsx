@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import { UniversalBorrowBorrow } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowBorrow';
+import { UniversalBorrowSupply } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowSupply';
+import {
+  useUniversalBorrowBorrow,
+  useUniversalBorrowSupply,
+} from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -13,6 +19,7 @@ import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
+  IBorrowReserveItem,
   IEarnSelectField,
   IEarnTokenInfo,
   IProtocolInfo,
@@ -20,6 +27,7 @@ import type {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalStake } from '../../../components/UniversalStake';
+import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
 
 export const StakeSection = ({
@@ -34,6 +42,12 @@ export const StakeSection = ({
   isInModalContext,
   fallbackTokenImageUri,
   ongoingValidator,
+  useBorrowApi,
+  borrowMarketAddress,
+  borrowReserveAddress,
+  borrowAction,
+  borrowReserves,
+  borrowActionLabel,
 }: {
   accountId: string;
   networkId: string;
@@ -46,10 +60,35 @@ export const StakeSection = ({
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
   ongoingValidator?: IEarnSelectField;
+  useBorrowApi?: boolean;
+  borrowMarketAddress?: string;
+  borrowReserveAddress?: string;
+  borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
+  borrowReserves?: IBorrowReserveItem;
+  borrowActionLabel?: string;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
   const hasRequiredData = tokenInfo && protocolInfo;
+  const providerName = useMemo(
+    () => protocolInfo?.provider ?? '',
+    [protocolInfo?.provider],
+  );
+  const borrowApiCtx = useBorrowApiParams({
+    useBorrowApi,
+    networkId,
+    provider: providerName,
+    marketAddress: borrowMarketAddress,
+    reserveAddress: borrowReserveAddress,
+    accountId,
+    action: borrowAction,
+  });
+  const isBorrowStake =
+    borrowApiCtx.isBorrow &&
+    (borrowApiCtx.borrowApiParams.action === 'supply' ||
+      borrowApiCtx.borrowApiParams.action === 'borrow');
+  const BorrowStakeComponent =
+    borrowAction === 'borrow' ? UniversalBorrowBorrow : UniversalBorrowSupply;
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!hasRequiredData || !networkUtils.isBTCNetwork(networkId)) {
@@ -143,6 +182,8 @@ export const StakeSection = ({
   );
 
   const handleStake = useUniversalStake({ accountId, networkId });
+  const handleBorrowSupply = useUniversalBorrowSupply({ accountId, networkId });
+  const handleBorrowBorrow = useUniversalBorrowBorrow({ accountId, networkId });
 
   const onConfirm = useCallback(
     async ({
@@ -155,9 +196,10 @@ export const StakeSection = ({
     }: IApproveConfirmFnParams) => {
       if (!hasRequiredData) return;
 
-      const providerName = protocolInfo?.provider ?? '';
       const token = tokenInfo?.token as IToken;
       const symbol = tokenInfo?.token.symbol || '';
+
+      if (borrowApiCtx.isBorrow) return;
 
       await handleStake({
         amount,
@@ -231,13 +273,82 @@ export const StakeSection = ({
       removePermitCache,
       accountId,
       networkId,
-      protocolInfo?.provider,
+      providerName,
       protocolInfo?.stakeTag,
+      borrowApiCtx.isBorrow,
+    ],
+  );
+
+  const onBorrowConfirm = useCallback(
+    async (amount: string) => {
+      if (!hasRequiredData || !borrowApiCtx.isBorrow) return;
+
+      const token = tokenInfo?.token as IToken;
+      const { provider, marketAddress, reserveAddress, action } =
+        borrowApiCtx.borrowApiParams;
+
+      await (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
+        amount,
+        provider,
+        marketAddress,
+        reserveAddress,
+        stakingInfo: token
+          ? {
+              label:
+                action === 'borrow' ? EEarnLabels.Withdraw : EEarnLabels.Stake,
+              protocol: earnUtils.getEarnProviderName({
+                providerName: provider,
+              }),
+              protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+              ...(action === 'borrow'
+                ? { receive: { token, amount } }
+                : { send: { token, amount } }),
+              tags: [protocolInfo?.stakeTag || ''],
+            }
+          : undefined,
+        onSuccess: async () => {
+          onSuccess?.();
+        },
+      });
+    },
+    [
+      borrowApiCtx,
+      handleBorrowBorrow,
+      handleBorrowSupply,
+      hasRequiredData,
+      onSuccess,
+      protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.stakeTag,
+      tokenInfo?.token,
     ],
   );
 
   // If no required data, render placeholder to maintain layout
   if (!hasRequiredData) {
+    if (
+      useBorrowApi &&
+      borrowMarketAddress &&
+      borrowReserveAddress &&
+      (borrowAction === 'supply' || borrowAction === 'borrow')
+    ) {
+      return (
+        <BorrowStakeComponent
+          accountId={accountId}
+          networkId={networkId}
+          providerName=""
+          balance="0"
+          price="0"
+          tokenImageUri={fallbackTokenImageUri}
+          tokenSymbol={tokenInfo?.token.symbol}
+          isDisabled
+          borrowMarketAddress={borrowMarketAddress}
+          borrowReserveAddress={borrowReserveAddress}
+          beforeFooter={beforeFooter}
+          borrowReserves={borrowReserves}
+          actionLabel={borrowActionLabel}
+        />
+      );
+    }
     return (
       <UniversalStake
         accountId={accountId}
@@ -258,40 +369,70 @@ export const StakeSection = ({
   }
 
   return (
-    <UniversalStake
-      accountId={accountId}
-      networkId={networkId}
-      decimals={
-        protocolInfo?.protocolInputDecimals ?? tokenInfo?.token?.decimals
-      }
-      balance={tokenInfo?.balanceParsed ?? ''}
-      tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
-      tokenSymbol={tokenInfo?.token.symbol}
-      providerLogo={protocolInfo?.providerDetail.logoURI}
-      providerName={protocolInfo?.provider}
-      onConfirm={onConfirm}
-      approveType={protocolInfo?.approve?.approveType}
-      currentAllowance={result?.allowanceParsed}
-      minTransactionFee={protocolInfo?.minTransactionFee}
-      estimateFeeUTXO={estimateFeeUTXO}
-      onFeeRateChange={onFeeRateChange}
-      tokenInfo={tokenInfo}
-      protocolInfo={protocolInfo}
-      isDisabled={isDisabled}
-      approveTarget={{
-        accountId,
-        networkId,
-        spenderAddress: earnUtils.isVaultBasedProvider({
-          providerName: protocolInfo?.provider || '',
-        })
-          ? protocolInfo?.vault ?? ''
-          : protocolInfo?.approve?.approveTarget ?? '',
-        token: tokenInfo?.token,
-      }}
-      beforeFooter={beforeFooter}
-      showApyDetail={showApyDetail}
-      isInModalContext={isInModalContext}
-      ongoingValidator={ongoingValidator}
-    />
+    <>
+      {isBorrowStake ? (
+        <BorrowStakeComponent
+          accountId={accountId}
+          networkId={networkId}
+          providerName={providerName}
+          decimals={
+            protocolInfo?.protocolInputDecimals ?? tokenInfo?.token?.decimals
+          }
+          balance={tokenInfo?.balanceParsed ?? ''}
+          tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
+          tokenSymbol={tokenInfo?.token.symbol}
+          price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
+          onConfirm={onBorrowConfirm}
+          tokenInfo={tokenInfo}
+          isDisabled={isDisabled}
+          borrowMarketAddress={
+            borrowApiCtx.borrowApiParams?.marketAddress ?? ''
+          }
+          borrowReserveAddress={
+            borrowApiCtx.borrowApiParams?.reserveAddress ?? ''
+          }
+          beforeFooter={beforeFooter}
+          showApyDetail={showApyDetail}
+          borrowReserves={borrowReserves}
+          actionLabel={borrowActionLabel}
+        />
+      ) : (
+        <UniversalStake
+          accountId={accountId}
+          networkId={networkId}
+          decimals={
+            protocolInfo?.protocolInputDecimals ?? tokenInfo?.token?.decimals
+          }
+          balance={tokenInfo?.balanceParsed ?? ''}
+          tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
+          tokenSymbol={tokenInfo?.token.symbol}
+          providerLogo={protocolInfo?.providerDetail.logoURI}
+          providerName={protocolInfo?.provider}
+          onConfirm={onConfirm}
+          approveType={protocolInfo?.approve?.approveType}
+          currentAllowance={result?.allowanceParsed}
+          minTransactionFee={protocolInfo?.minTransactionFee}
+          estimateFeeUTXO={estimateFeeUTXO}
+          onFeeRateChange={onFeeRateChange}
+          tokenInfo={tokenInfo}
+          protocolInfo={protocolInfo}
+          isDisabled={isDisabled}
+          approveTarget={{
+            accountId,
+            networkId,
+            spenderAddress: earnUtils.isVaultBasedProvider({
+              providerName: protocolInfo?.provider || '',
+            })
+              ? protocolInfo?.vault ?? ''
+              : protocolInfo?.approve?.approveTarget ?? '',
+            token: tokenInfo?.token,
+          }}
+          beforeFooter={beforeFooter}
+          showApyDetail={showApyDetail}
+          isInModalContext={isInModalContext}
+          ongoingValidator={ongoingValidator}
+        />
+      )}
+    </>
   );
 };
