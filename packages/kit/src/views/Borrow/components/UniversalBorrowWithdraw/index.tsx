@@ -277,7 +277,9 @@ export function UniversalBorrowWithdraw({
           }}
           balanceProps={{
             value: balance,
-            iconText: actionLabel,
+            iconText: intl.formatMessage({
+              id: ETranslations.global_available,
+            }),
             onPress: onMax,
           }}
           valueProps={{
