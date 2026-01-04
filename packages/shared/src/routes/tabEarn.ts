@@ -3,6 +3,8 @@ export enum ETabEarnRoutes {
   EarnProtocols = 'EarnProtocols',
   EarnProtocolDetails = 'EarnProtocolDetails',
   EarnProtocolDetailsShare = 'EarnProtocolDetailsShare',
+  BorrowReserveDetails = 'BorrowReserveDetails',
+  BorrowReserveDetailsShare = 'BorrowReserveDetailsShare',
 }
 
 export type ITabEarnParamList = {
@@ -10,6 +12,7 @@ export type ITabEarnParamList = {
     | undefined
     | {
         tab?: 'assets' | 'portfolio' | 'faqs';
+        mode?: 'earn' | 'borrow';
       };
   [ETabEarnRoutes.EarnProtocols]: {
     symbol: string;
@@ -27,5 +30,21 @@ export type ITabEarnParamList = {
     symbol: string;
     provider: string;
     vault?: string;
+  };
+  [ETabEarnRoutes.BorrowReserveDetails]: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    symbol: string;
+    logoURI?: string;
+  };
+  [ETabEarnRoutes.BorrowReserveDetailsShare]: {
+    networkId: string;
+    symbol: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    logoURI?: string;
   };
 };

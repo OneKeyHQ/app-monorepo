@@ -443,6 +443,10 @@ async function detectNetworkByPrivateKeyFn({
     return [buildDetectedNetwork(presetNetworksMap.doge)];
   }
 
+  if (/^ed25519-priv-0x[0-9a-fA-F]{64}$/.test(pk)) {
+    return [...buildSameImplResults(presetNetworksMap.aptos)];
+  }
+
   // 0x + 64 hex chars (MANY chains use this format)
   // Default to ETH, but could be: Cosmos family, Polkadot family, Aptos, Sui,
   // Conflux, BenFen, Nervos, and many others

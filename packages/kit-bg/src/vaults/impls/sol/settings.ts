@@ -1,6 +1,9 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EMPTY_NATIVE_TOKEN_ADDRESS,
+  SolanaUSDC,
+} from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_SOL,
   IMPL_SOL,
@@ -107,6 +110,17 @@ const settings: IVaultSettings = {
               tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: true,
               withdrawWithTx: true,
+              claimWithTx: true,
+            },
+          },
+        },
+        [EEarnProviderEnum.Kamino]: {
+          supportedSymbols: ['USDC'],
+          configs: {
+            'USDC': {
+              enabled: true,
+              tokenAddress: SolanaUSDC,
+              displayProfit: true,
               claimWithTx: true,
             },
           },

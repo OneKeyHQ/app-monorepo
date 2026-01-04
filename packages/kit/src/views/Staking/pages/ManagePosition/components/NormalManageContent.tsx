@@ -8,7 +8,9 @@ import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
+  IBorrowReserveItem,
   IEarnHistoryActionIcon,
+  IEarnManagePageResponse,
   IEarnSelectField,
   IEarnTokenInfo,
   IProtocolInfo,
@@ -16,15 +18,21 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 
+import { EManagePositionType } from '../hooks/useManagePage';
+
 import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
 import { WithdrawSection } from './WithdrawSection';
+
+type IBorrowAction = 'supply' | 'withdraw' | 'borrow' | 'repay';
 
 interface INormalManageContentProps {
   networkId: string;
   symbol: string;
   provider: string;
   vault?: string;
+  marketAddress?: string;
+  reserveAddress?: string;
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   earnAccount?: {
@@ -48,6 +56,9 @@ interface INormalManageContentProps {
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
   ongoingValidator?: IEarnSelectField;
+  managePageData?: IEarnManagePageResponse;
+  type?: EManagePositionType;
+  borrowReserves?: IBorrowReserveItem;
 }
 
 export function NormalManageContent({
@@ -55,6 +66,8 @@ export function NormalManageContent({
   symbol,
   provider,
   vault,
+  marketAddress,
+  reserveAddress,
   tokenInfo,
   protocolInfo,
   earnAccount,
@@ -76,8 +89,82 @@ export function NormalManageContent({
   showApyDetail,
   fallbackTokenImageUri,
   ongoingValidator,
+  managePageData,
+  borrowReserves,
+  type = EManagePositionType.Staking,
 }: INormalManageContentProps) {
   const intl = useIntl();
+  const useBorrowApi = useMemo(
+    () => type !== EManagePositionType.Staking,
+    [type],
+  );
+  const borrowActionPrimary = useMemo<IBorrowAction | undefined>(() => {
+    if (!useBorrowApi) {
+      return undefined;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return 'supply';
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return 'borrow';
+    }
+    return undefined;
+  }, [type, useBorrowApi]);
+
+  const borrowActionSecondary = useMemo<IBorrowAction | undefined>(() => {
+    if (!useBorrowApi) {
+      return undefined;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return 'withdraw';
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return 'repay';
+    }
+    return undefined;
+  }, [type, useBorrowApi]);
+
+  const borrowActionLabelPrimary = useMemo<string | undefined>(() => {
+    if (!useBorrowApi || !managePageData) {
+      return undefined;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return managePageData.supply?.text?.text;
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return managePageData.borrow?.text?.text;
+    }
+    return undefined;
+  }, [type, useBorrowApi, managePageData]);
+
+  const borrowActionLabelSecondary = useMemo<string | undefined>(() => {
+    if (!useBorrowApi || !managePageData) {
+      return undefined;
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return managePageData.withdraw?.text?.text;
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return managePageData.repay?.text?.text;
+    }
+    return undefined;
+  }, [type, useBorrowApi, managePageData]);
 
   const [selectedTabIndex, setSelectedTabIndex] = useState(() => {
     if (defaultTab === 'withdraw') return 1;
@@ -92,8 +179,41 @@ export function NormalManageContent({
     }
   }, [defaultTab]);
 
-  const tabData = useMemo(
-    () => [
+  const tabData = useMemo(() => {
+    if (managePageData) {
+      if (
+        [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(
+          type,
+        )
+      ) {
+        return [
+          {
+            title: managePageData.supply?.text?.text ?? '',
+            type: EStakingActionType.Supply,
+          },
+          {
+            title: managePageData.withdraw?.text?.text ?? '',
+            type: EStakingActionType.Withdraw,
+          },
+        ];
+      }
+      if (
+        [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+      ) {
+        return [
+          {
+            title: managePageData.borrow?.text?.text ?? '',
+            type: EStakingActionType.Borrow,
+          },
+          {
+            title: managePageData.repay?.text?.text ?? '',
+            type: EStakingActionType.Repay,
+          },
+        ];
+      }
+    }
+
+    return [
       {
         title: intl.formatMessage({ id: ETranslations.earn_deposit }),
         type: EStakingActionType.Deposit,
@@ -102,9 +222,8 @@ export function NormalManageContent({
         title: intl.formatMessage({ id: ETranslations.global_withdraw }),
         type: EStakingActionType.Withdraw,
       },
-    ],
-    [intl],
-  );
+    ];
+  }, [intl, managePageData, type]);
 
   const tabNames = useMemo(() => tabData.map((item) => item.title), [tabData]);
 
@@ -237,6 +356,12 @@ export function NormalManageContent({
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
           ongoingValidator={ongoingValidator}
+          useBorrowApi={useBorrowApi}
+          borrowMarketAddress={marketAddress}
+          borrowReserveAddress={reserveAddress}
+          borrowAction={borrowActionPrimary}
+          borrowReserves={borrowReserves}
+          borrowActionLabel={borrowActionLabelPrimary}
         />
       ) : null}
       {selectedTabIndex === 1 ? (
@@ -251,6 +376,11 @@ export function NormalManageContent({
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          useBorrowApi={useBorrowApi}
+          borrowMarketAddress={marketAddress}
+          borrowReserveAddress={reserveAddress}
+          borrowAction={borrowActionSecondary}
+          borrowActionLabel={borrowActionLabelSecondary}
         />
       ) : null}
     </>
