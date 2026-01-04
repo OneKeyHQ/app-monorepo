@@ -2,6 +2,11 @@
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty, isNaN, orderBy } from 'lodash';
+
+import type {
+  IEncodedTxStellar,
+  IStellarAsset,
+} from '@onekeyhq/core/src/chains/stellar/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveTextAsync,
@@ -21,11 +26,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import type {
-  IEncodedTxStellar,
-  IStellarAsset,
-} from '@onekeyhq/core/src/chains/stellar/types';
 import type {
   IAddressValidation,
   IFetchServerAccountDetailsParams,
@@ -41,8 +41,8 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type {
-  IServerEstimateFeeResponse,
   IFeeInfoUnit,
+  IServerEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchServerTokenDetailParams,
