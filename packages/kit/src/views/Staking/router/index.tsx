@@ -25,6 +25,15 @@ const ManagePosition = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ManagePosition'),
 );
 
+const BorrowManagePosition = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowManagePosition'),
+);
+
+const BorrowTokenSelectModal = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Borrow/pages/modal/BorrowTokenSelectModal'),
+);
+
 const Withdraw = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/Withdraw'),
 );
@@ -57,6 +66,14 @@ const HistoryList = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/HistoryList'),
 );
 
+const BorrowHistoryList = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowHistoryList'),
+);
+
+const BorrowReserveDetails = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Borrow/pages/ReserveDetails'),
+);
+
 export const StakingModalRouter: IModalFlowNavigatorConfig<
   EModalStakingRoutes | EModalAssetDetailRoutes,
   IModalStakingParamList & IModalAssetDetailsParamList
@@ -83,6 +100,19 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.ManagePosition,
     component: ManagePosition,
     exact: true,
+  },
+  {
+    name: EModalStakingRoutes.BorrowManagePosition,
+    component: BorrowManagePosition,
+    exact: true,
+  },
+  {
+    name: EModalStakingRoutes.BorrowTokenSelect,
+    component: BorrowTokenSelectModal,
+  },
+  {
+    name: EModalStakingRoutes.BorrowReserveDetails,
+    component: BorrowReserveDetails,
   },
   {
     name: EModalStakingRoutes.Stake,
@@ -119,6 +149,10 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.HistoryList,
     component: HistoryList,
+  },
+  {
+    name: EModalStakingRoutes.BorrowHistoryList,
+    component: BorrowHistoryList,
   },
   ...(ModalAssetDetailsStack as IModalFlowNavigatorConfig<
     EModalStakingRoutes | EModalAssetDetailRoutes,

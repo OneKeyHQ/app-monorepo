@@ -1,4 +1,8 @@
+import type { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
+
 import type {
+  IBorrowAsset,
+  IBorrowReserveItem,
   IEarnAlert,
   IEarnTokenInfo,
   IProtocolInfo,
@@ -10,6 +14,9 @@ export enum EModalStakingRoutes {
   Stake = 'Stake',
   Withdraw = 'Withdraw',
   ManagePosition = 'ManagePosition',
+  BorrowManagePosition = 'BorrowManagePosition',
+  BorrowTokenSelect = 'BorrowTokenSelect',
+  BorrowReserveDetails = 'BorrowReserveDetails',
   Claim = 'Claim',
   ProtocolDetails = 'ProtocolDetails',
   ProtocolDetailsV2 = 'ProtocolDetailsV2',
@@ -19,6 +26,7 @@ export enum EModalStakingRoutes {
   WithdrawOptions = 'WithdrawOptions',
   PortfolioDetails = 'PortfolioDetails',
   HistoryList = 'HistoryList',
+  BorrowHistoryList = 'BorrowHistoryList',
 }
 
 type IBaseRouteParams = {
@@ -64,6 +72,31 @@ export type IModalStakingParamList = {
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
   };
+  [EModalStakingRoutes.BorrowManagePosition]: IBaseRouteParams & {
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    symbol: string;
+    logoURI?: string;
+    providerLogoURI?: string;
+    type?: EManagePositionType;
+    borrowReserves?: IBorrowReserveItem;
+  };
+  [EModalStakingRoutes.BorrowTokenSelect]: IBaseRouteParams & {
+    provider: string;
+    marketAddress: string;
+    action: 'supply' | 'borrow';
+    currentReserveAddress?: string;
+    onSelect?: (asset: IBorrowAsset) => void;
+  };
+  [EModalStakingRoutes.BorrowReserveDetails]: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    symbol: string;
+    logoURI?: string;
+  };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;
     onSuccess?: () => void;
@@ -106,5 +139,11 @@ export type IModalStakingParamList = {
     filterType?: string;
     title?: string;
     alerts?: IEarnAlert[];
+  };
+  [EModalStakingRoutes.BorrowHistoryList]: IBaseRouteParams & {
+    provider: string;
+    marketAddress: string;
+    title?: string;
+    type?: string;
   };
 };
