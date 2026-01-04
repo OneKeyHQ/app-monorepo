@@ -28,14 +28,20 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
-import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import {
+  useKeylessWallet,
+  useKeylessWalletFeatureIsEnabled,
+} from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
@@ -301,7 +307,7 @@ export const AnimatedDeviceAvatar = memo(
 
 AnimatedDeviceAvatar.displayName = 'AnimatedDeviceAvatar';
 
-export default function GetStarted() {
+function GetStarted() {
   const navigation = useAppNavigation();
   const handleGetStarted = () => {
     navigation.push(EOnboardingPagesV2.PickYourDevice);
@@ -310,21 +316,18 @@ export default function GetStarted() {
   const { gtMd } = useMedia();
   const intl = useIntl();
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const { enableKeylessWalletLoading, checkKeylessWalletLocalExistence } =
+    useKeylessWallet();
 
   const handleCreateOrImportWallet = () => {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-
-  const handleGoogleLogin = useCallback(() => {
-    setIsGoogleLoading(true);
-    // TODO: Implement actual Google login
-    setTimeout(() => {
-      setIsGoogleLoading(false);
-      navigation.push(EOnboardingPagesV2.VerifyPin);
-    }, 1000);
-  }, [navigation]);
+  const handleGoogleLogin = useCallback(async () => {
+    await checkKeylessWalletLocalExistence({
+      signInProvider: EOAuthSocialLoginProvider.Google,
+    });
+  }, [checkKeylessWalletLocalExistence]);
 
   // Cache theme values to avoid multiple useThemeValue calls during render
   const theme = useTheme();
@@ -446,11 +449,15 @@ export default function GetStarted() {
                       pressStyle={{ bg: '$gray5' }}
                       size="large"
                       childrenAsText={false}
-                      onPress={isGoogleLoading ? undefined : handleGoogleLogin}
+                      onPress={
+                        enableKeylessWalletLoading
+                          ? undefined
+                          : handleGoogleLogin
+                      }
                     >
                       <XStack gap="$2" alignItems="center">
                         <AnimatePresence exitBeforeEnter initial={false}>
-                          {isGoogleLoading ? (
+                          {enableKeylessWalletLoading ? (
                             <YStack
                               key="loading"
                               animation="quick"
@@ -522,3 +529,17 @@ export default function GetStarted() {
     </Page>
   );
 }
+
+function GetStartedWithContext() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <GetStarted />
+    </AccountSelectorProviderMirror>
+  );
+}
+export default GetStartedWithContext;

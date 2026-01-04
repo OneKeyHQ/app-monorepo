@@ -8,6 +8,7 @@ import {
   devSettingsPersistAtom,
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyLocalError,
@@ -394,7 +395,7 @@ if (process.env.NODE_ENV !== 'production') {
 export function useKeylessWallet() {
   const methods = useKeylessWalletMethods();
   const actions = useAccountSelectorActions();
-  const { loginOneKeyId } = useOneKeyAuth();
+  const { loginOneKeyId, signInWithSocialLogin } = useOneKeyAuth();
   const isKeylessWalletCreated = useCallback(async () => {
     const user = await primePersistAtom.get();
     return !!user?.keylessWalletId;
@@ -693,38 +694,61 @@ export function useKeylessWallet() {
   );
 
   // Renamed function, checks if KeylessWallet exists locally
-  const checkKeylessWalletLocalExistence = useCallback(async () => {
-    if (enableKeylessWalletLoadingRef.current) {
-      return;
-    }
-    await errorToastUtils.withErrorAutoToast(async () => {
-      try {
-        enableKeylessWalletLoadingRef.current = true;
-        setEnableKeylessWalletLoading(true);
-
-        const exists =
-          await backgroundApiProxy.serviceAccount.isKeylessWalletExistsLocal();
-        if (exists) {
-          Dialog.show({
-            title: 'Keyless Wallet',
-            // TODO @franco 本地已经添加无私钥钱包，如果需要使用其他无私钥钱包，请先删除当前钱包
-            description:
-              'A Keyless Wallet is already added. To use another Keyless Wallet, please delete the current one first.',
-            showCancelButton: false,
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.global_got_it,
-            }),
-          });
-        } else {
-          await goToOneKeyIDLoginPageForKeylessWallet({
-            mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
-          });
-        }
-      } finally {
-        setEnableKeylessWalletLoading(false);
+  const checkKeylessWalletLocalExistence = useCallback(
+    async ({
+      signInProvider,
+    }: {
+      signInProvider?: EOAuthSocialLoginProvider;
+    } = {}) => {
+      if (enableKeylessWalletLoadingRef.current) {
+        return;
       }
-    });
-  }, [goToOneKeyIDLoginPageForKeylessWallet, intl]);
+      await errorToastUtils.withErrorAutoToast(async () => {
+        try {
+          enableKeylessWalletLoadingRef.current = true;
+          setEnableKeylessWalletLoading(true);
+
+          const exists =
+            await backgroundApiProxy.serviceAccount.isKeylessWalletExistsLocal();
+          if (exists) {
+            Dialog.show({
+              title: 'Keyless Wallet',
+              // TODO @franco 本地已经添加无私钥钱包，如果需要使用其他无私钥钱包，请先删除当前钱包
+              description:
+                'A Keyless Wallet is already added. To use another Keyless Wallet, please delete the current one first.',
+              showCancelButton: false,
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_got_it,
+              }),
+            });
+          } else {
+            if (signInProvider) {
+              const result = await signInWithSocialLogin(signInProvider);
+              if (result?.session?.accessToken) {
+                await checkKeylessWalletCreatedOnServer({
+                  token: result.session.accessToken,
+                  refreshToken: result.session.refreshToken,
+                  mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+                });
+              }
+              return;
+            }
+            await goToOneKeyIDLoginPageForKeylessWallet({
+              mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+            });
+          }
+        } finally {
+          setEnableKeylessWalletLoading(false);
+        }
+      });
+    },
+    [
+      checkKeylessWalletCreatedOnServer,
+      goToOneKeyIDLoginPageForKeylessWallet,
+      intl,
+      signInWithSocialLogin,
+    ],
+  );
 
   const finalizeKeylessWalletV2 = useCallback(
     async ({ action }: { action: EKeylessFinalizeAction }) => {
