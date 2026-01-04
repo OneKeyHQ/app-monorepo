@@ -60,6 +60,9 @@ export enum EEarnLabels {
   Claim = 'Claim',
   Redeem = 'Redeem',
   Withdraw = 'Withdraw',
+  Supply = 'Supply',
+  Borrow = 'Borrow',
+  Repay = 'Repay',
   Unknown = 'Unknown',
 }
 

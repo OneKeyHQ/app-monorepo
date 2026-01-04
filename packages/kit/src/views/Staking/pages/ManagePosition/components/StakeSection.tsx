@@ -295,7 +295,7 @@ export const StakeSection = ({
         stakingInfo: token
           ? {
               label:
-                action === 'borrow' ? EEarnLabels.Withdraw : EEarnLabels.Stake,
+                action === 'borrow' ? EEarnLabels.Borrow : EEarnLabels.Supply,
               protocol: earnUtils.getEarnProviderName({
                 providerName: provider,
               }),

@@ -151,8 +151,7 @@ export function UniversalBorrowRepay({
 
   const actionLabel = useMemo(
     () =>
-      actionLabelProp ||
-      intl.formatMessage({ id: ETranslations.global_withdraw }),
+      actionLabelProp || intl.formatMessage({ id: ETranslations.defi_repay }),
     [actionLabelProp, intl],
   );
 

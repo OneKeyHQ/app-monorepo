@@ -164,7 +164,7 @@ export const WithdrawSection = ({
           repayAll,
           stakingInfo: token
             ? {
-                label: EEarnLabels.Stake,
+                label: EEarnLabels.Repay,
                 protocol: earnUtils.getEarnProviderName({
                   providerName: provider,
                 }),

@@ -140,7 +140,8 @@ export function UniversalBorrowBorrow({
 
   const actionLabel = useMemo(
     () =>
-      actionLabelProp || intl.formatMessage({ id: ETranslations.earn_deposit }),
+      actionLabelProp ||
+      intl.formatMessage({ id: ETranslations.global_borrow }),
     [actionLabelProp, intl],
   );
 
