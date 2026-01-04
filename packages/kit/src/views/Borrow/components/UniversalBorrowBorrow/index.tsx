@@ -307,7 +307,9 @@ export function UniversalBorrowBorrow({
           }}
           balanceProps={{
             value: balance,
-            iconText: actionLabel,
+            iconText: intl.formatMessage({
+              id: ETranslations.global_available,
+            }),
             onPress: amountInputDisabled ? undefined : onMax,
           }}
           valueProps={{
