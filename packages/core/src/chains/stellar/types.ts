@@ -35,9 +35,3 @@ export type IEncodedTxStellar = {
   // Indicates if transaction is from dApp (should not be modified)
   isFromDapp?: boolean;
 };
-
-export type IUnsignedMessageStellar = {
-  type: EMessageTypesStellar;
-  message: string;
-  networkPassphrase?: string;
-};

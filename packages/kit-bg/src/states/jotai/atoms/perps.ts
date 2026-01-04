@@ -259,6 +259,21 @@ export const {
   },
 });
 
+export interface IPerpTokenFavorites {
+  favorites: string[];
+}
+
+export const {
+  target: perpTokenFavoritesPersistAtom,
+  use: usePerpTokenFavoritesPersistAtom,
+} = globalAtom<IPerpTokenFavorites>({
+  name: EAtomNames.perpTokenFavoritesPersistAtom,
+  persist: true,
+  initialValue: {
+    favorites: [],
+  },
+});
+
 export type IPerpsActiveOrderBookOptionsAtom =
   | (IL2BookOptions & {
       coin: string;
