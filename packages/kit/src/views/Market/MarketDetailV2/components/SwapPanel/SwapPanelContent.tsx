@@ -1,19 +1,26 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
-import { YStack } from '@onekeyhq/components';
+import { Divider, XStack, YStack } from '@onekeyhq/components';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
-import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ISwapNativeTokenReserveGas,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { ActionButton } from './components/ActionButton';
 import { ApproveButton } from './components/ApproveButton';
 import { BalanceDisplay } from './components/BalanceDisplay';
 import { RateDisplay } from './components/RateDisplay';
+import SellForSelector from './components/SellForSelector';
 import { SlippageSetting } from './components/SlippageSetting';
+import SwapPanelTop from './components/SwapPanelTop';
 import {
   type ITokenInputSectionRef,
   TokenInputSection,
@@ -48,6 +55,7 @@ export type ISwapPanelContentProps = {
     toTokenSymbol?: string;
     loading?: boolean;
   };
+  hasInitialReady: boolean;
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -68,6 +76,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     priceRate,
     onWrappedSwap,
     isWrapped,
+    hasInitialReady,
   } = props;
 
   const {
@@ -80,7 +89,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     setSlippage,
     networkId,
   } = swapPanel;
-
+  const intl = useIntl();
   const tokenInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
 
@@ -134,8 +143,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {/* Trade type selector */}
       <TradeTypeSelector value={tradeType} onChange={setTradeType} />
 
-      <YStack gap="$2">
+      <YStack gap="$2" mt="$2">
         {/* Token input section */}
+        <SwapPanelTop
+          balance={balance}
+          balanceToken={balanceToken}
+          balanceLoading={balanceLoading}
+          handleBalanceClick={handleBalanceClick}
+        />
         <TokenInputSection
           ref={tokenInputRef}
           tradeType={tradeType}
@@ -159,16 +174,19 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         />
 
         {/* Balance display */}
-        <BalanceDisplay
-          balance={balance}
-          token={balanceToken}
-          isLoading={balanceLoading}
-          onBalanceClick={handleBalanceClick}
-        />
+        {tradeType === ESwapDirection.SELL ? (
+          <SellForSelector
+            defaultTokens={defaultTokens}
+            currentSelectToken={balanceToken as ISwapTokenBase}
+            onTokenSelect={(token) => setPaymentToken(token as IToken)}
+            symbol={paymentToken?.symbol ?? '-'}
+            isLoading={isLoading}
+          />
+        ) : null}
       </YStack>
 
       {/* Unsupported swap warning */}
-      {!isLoading && !supportSpeedSwap.enabled ? (
+      {hasInitialReady && !supportSpeedSwap.enabled ? (
         <UnsupportedSwapWarning
           customMessage={supportSpeedSwap.warningMessage}
         />

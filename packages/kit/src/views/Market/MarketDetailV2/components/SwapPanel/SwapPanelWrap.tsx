@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -30,6 +30,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const swapPanel = useSwapPanel({
     networkId: networkId || 'evm--1',
   });
+  const [hasInitialReady, setHasInitialReady] = useState(false);
 
   const {
     setPaymentToken,
@@ -41,7 +42,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   } = swapPanel;
 
   const {
-    isLoading,
+    isLoading: speedSwapInitLoading,
     speedConfig,
     supportSpeedSwap: originalSupportSpeedSwap,
     defaultTokens,
@@ -167,8 +168,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   }, [defaultTokens, networkId, tokenDetail]);
 
   useEffect(() => {
-    if (filterDefaultTokens.length > 0 && !paymentToken) {
+    if (filterDefaultTokens.length > 0 && !paymentToken?.networkId) {
       setPaymentToken(filterDefaultTokens[0]);
+      return;
     }
     if (
       filterDefaultTokens.length > 0 &&
@@ -180,7 +182,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     ) {
       setPaymentToken(filterDefaultTokens[0]);
     }
-  }, [paymentToken, setPaymentToken, filterDefaultTokens]);
+  }, [
+    paymentToken?.networkId,
+    paymentToken?.contractAddress,
+    setPaymentToken,
+    filterDefaultTokens,
+  ]);
 
   useEffect(() => {
     if (speedConfig?.slippage) {
@@ -206,6 +213,30 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     };
   }, []);
 
+  const isActionLoading = useMemo(() => {
+    return (
+      speedSwapInitLoading ||
+      speedSwapApproveActionLoading ||
+      speedSwapApproveTransactionLoading ||
+      speedSwapBuildTxLoading ||
+      checkTokenAllowanceLoading
+    );
+  }, [
+    speedSwapInitLoading,
+    speedSwapApproveActionLoading,
+    speedSwapApproveTransactionLoading,
+    speedSwapBuildTxLoading,
+    checkTokenAllowanceLoading,
+  ]);
+
+  useEffect(() => {
+    if (!isActionLoading && isReady) {
+      setTimeout(() => {
+        setHasInitialReady(true);
+      }, 300);
+    }
+  }, [isActionLoading, isReady]);
+
   return (
     <SwapPanelContent
       priceRate={priceRate}
@@ -215,14 +246,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
-      isLoading={
-        isLoading ||
-        speedSwapApproveActionLoading ||
-        speedSwapApproveTransactionLoading ||
-        speedSwapBuildTxLoading ||
-        checkTokenAllowanceLoading ||
-        !isReady
-      }
+      isLoading={isActionLoading}
+      hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
       isApproved={!shouldApprove}
       slippageAutoValue={speedConfig?.slippage}
