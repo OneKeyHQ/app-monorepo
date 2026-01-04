@@ -112,6 +112,44 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     | ReturnType<typeof setTimeout>
     | undefined;
 
+  // Set swap pro select token with persistence
+  // If token is provided: set to atom and save to db
+  // If token is not provided: load from db, if db is empty, use defaultToken
+  setSwapProSelectToken = contextAtomMethod(
+    async (get, set, token?: ISwapToken, defaultToken?: ISwapToken) => {
+      // Remove realtime properties before saving to db
+      const getTokenForStorage = (t: ISwapToken): ISwapToken => {
+        const {
+          balanceParsed,
+          price,
+          fiatValue,
+          reservationValue,
+          accountAddress,
+          ...rest
+        } = t;
+        return rest;
+      };
+
+      if (token) {
+        set(swapProSelectTokenAtom(), token);
+        await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
+          getTokenForStorage(token),
+        );
+      } else {
+        const savedToken =
+          await backgroundApiProxy.simpleDb.swapProSelectToken.getSwapProSelectToken();
+        if (savedToken) {
+          set(swapProSelectTokenAtom(), savedToken);
+        } else if (defaultToken) {
+          set(swapProSelectTokenAtom(), defaultToken);
+          await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
+            getTokenForStorage(defaultToken),
+          );
+        }
+      }
+    },
+  );
+
   syncNetworksSort = contextAtomMethod(async (get, set, netWorkId: string) => {
     if (!netWorkId) return;
     const networks = get(swapNetworks());
@@ -2135,6 +2173,7 @@ export const useSwapActions = () => {
     actions.swapProLoadSupportNetworksTokenList.use();
   const quoteSpeedAction = actions.quoteSpeedAction.use();
   const cleanSpeedQuote = actions.cleanSpeedQuote.use();
+  const setSwapProSelectToken = actions.setSwapProSelectToken.use();
   const {
     cleanQuoteInterval,
     closeQuoteEvent,
@@ -2166,5 +2205,6 @@ export const useSwapActions = () => {
     quoteSpeedAction,
     cancelSpeedQuote,
     cleanSpeedQuote,
+    setSwapProSelectToken,
   });
 };

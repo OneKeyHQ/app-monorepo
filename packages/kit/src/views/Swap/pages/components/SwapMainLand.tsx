@@ -170,8 +170,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapStepData] = useSwapStepsAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
-  const [swapProSelectToken, setSwapProSelectToken] =
-    useSwapProSelectTokenAtom();
+  const { setSwapProSelectToken } = useSwapActions().current;
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const swapProFromToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const [swapProInputAmount, setSwapProInputAmount] =
