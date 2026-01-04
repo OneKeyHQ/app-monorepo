@@ -472,7 +472,11 @@ function MobileBrowser() {
           width="100%"
           onLayout={handleTabPageLayout}
         >
-          <Stack position="absolute" top={top} px="$5">
+          <Stack
+            position="absolute"
+            top={platformEnv.isNativeAndroid ? top + 5 : top}
+            px="$5"
+          >
             <LegacyUniversalSearchInput
               size="medium"
               initialTab={searchInitialTab}

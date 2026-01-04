@@ -50,7 +50,7 @@ type IProps = {
   data: IAccountHistoryTx[];
   isLoading?: boolean;
   tableLayout?: boolean;
-  ListHeaderComponent?: ReactElement;
+  ListHeaderComponent?: ReactElement | null;
   showHeader?: boolean;
   showFooter?: boolean;
   showIcon?: boolean;

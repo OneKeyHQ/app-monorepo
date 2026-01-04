@@ -145,11 +145,13 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
       />
 
       <Stack flex={1} minWidth={0}>
-        <XStack alignItems="center" gap="$1" bg="red3">
+        <XStack alignItems="center" gap="$1">
           <SizableText
             size="$bodyLgMedium"
             numberOfLines={1}
             ellipsizeMode="tail"
+            maxWidth="$32"
+            flexShrink={1}
           >
             {symbol}
           </SizableText>
