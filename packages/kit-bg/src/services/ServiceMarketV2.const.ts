@@ -1,0 +1,118 @@
+import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
+
+export const MOCK_MARKET_BANNER_LIST: IMarketBannerItem[] = [
+  {
+    _id: '694e714617fa06428a8b87dc',
+    title: 'mock data',
+    rank: 6,
+    mode: 4,
+    payload: 'https://onekey.so/app/',
+    backgroundColor: 'bg/success-subdued',
+    tokenListId: '694f771417fa06428a954d31',
+    miniBundlerVersion: '',
+    description: {
+      text: '+0.30%',
+      fontColor: 'text/success',
+    },
+    tokenLogos: [
+      'https://static.oklink.com/cdn/web3/currency/token/large/501-XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB-107/type=default_90_0?v=1767088266549',
+      'https://static.oklink.com/cdn/web3/currency/token/large/501-XsueG8BtpquVJX9LVLLEGuViXUungE6WmK5YZ3p3bd1-107/type=default_90_0?v=1767088736203',
+      'https://static.oklink.com/cdn/web3/currency/token/large/501-Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh-107/type=default_90_0?v=1767087495698',
+    ],
+  },
+  {
+    _id: '694e711b17fa06428a8b8755',
+    title: 'Binance Alpha',
+    rank: 5,
+    mode: 4,
+    payload: 'https://onekey.so/app/',
+    backgroundColor: 'bg/info-subdued',
+    tokenListId: '694f638317fa06428a8fa884',
+    miniBundlerVersion: '',
+    description: {
+      text: '-0.63%',
+      fontColor: 'text/critical',
+    },
+    tokenLogos: [
+      'https://static.oklink.com/cdn/web3/currency/token/large/56-0x22b1458e780f8fa71e2f84502cee8b5a3cc731fa-106/type=default_90_0?v=1767118691844',
+      'https://static.oklink.com/cdn/web3/currency/token/large/56-0xd82544bf0dfe8385ef8fa34d67e6e4940cc63e16-106/type=default_90_0?v=1767111694214',
+      'https://static.oklink.com/cdn/web3/currency/token/large/8453-0x940181a94a35a4569e4529a3cdfb74e38fd98631-106/type=default_90_0?v=1767110420256',
+    ],
+  },
+  {
+    _id: '694e70ed17fa06428a8b86ce',
+    title: 'Privacy',
+    rank: 4,
+    mode: 4,
+    payload: 'https://onekey.so/app/',
+    backgroundColor: 'bg/critical-subdued',
+    tokenListId: '694f73c417fa06428a94af35',
+    miniBundlerVersion: '',
+    description: {
+      text: '+0.30%',
+      fontColor: 'text/success',
+    },
+    tokenLogos: [
+      'https://static.oklink.com/cdn/web3/currency/token/small/9004-0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d-105?v=1749148896150',
+      'https://static.oklink.com/cdn/web3/currency/token/large/1-0xcf5104d094e3864cfcbda43b82e1cefd26a016eb-106/type=default_90_0?v=1767117135996',
+      'https://static.oklink.com/cdn/web3/currency/token/large/1-0xf57e7e7c23978c3caec3c3548e3d615c346e79ff-106/type=default_90_0?v=1767110477654',
+    ],
+  },
+  {
+    _id: '694e70c117fa06428a8b8647',
+    title: 'Memes',
+    rank: 3,
+    mode: 4,
+    payload: 'https://onekey.so/app/',
+    backgroundColor: 'bg/caution-subdued',
+    tokenListId: '694f5cc817fa06428a8decd9',
+    miniBundlerVersion: '',
+    description: {
+      text: '+1.69%',
+      fontColor: 'text/success',
+    },
+    tokenLogos: [
+      'https://static.oklink.com/cdn/web3/currency/token/large/8453-0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce-110/type=default_90_0?v=1766385055704',
+      'https://static.oklink.com/cdn/web3/currency/token/large/56-0x22b1458e780f8fa71e2f84502cee8b5a3cc731fa-106/type=default_90_0?v=1767118691844',
+      'https://static.oklink.com/cdn/web3/currency/token/large/501-pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn-107/type=default_90_0?v=1766891581031',
+    ],
+  },
+  {
+    _id: '694e709017fa06428a8b85aa',
+    title: 'RWA',
+    rank: 2,
+    mode: 4,
+    payload: 'https://onekey.so/app/',
+    backgroundColor: 'bg/success-subdued',
+    tokenListId: '694f6eb817fa06428a9326ec',
+    miniBundlerVersion: '',
+    description: {
+      text: '-0.17%',
+      fontColor: 'text/critical',
+    },
+    tokenLogos: [
+      'https://static.coinall.ltd/cdn/wallet/logo/LINK-20220328.png',
+      'https://static.oklink.com/cdn/web3/currency/token/large/1-0x68749665ff8d2d112fa859aa293f07a622782f38-106/type=default_90_0?v=1767110478441',
+      'https://static.oklink.com/cdn/web3/currency/token/large/1-0xfaba6f8e4a5e8ab82f62fe7c39859fa577269be3-107/type=default_90_0?v=1760965919091',
+    ],
+  },
+  {
+    _id: '694e705617fa06428a8b8523',
+    title: 'DeFi',
+    rank: 1,
+    mode: 4,
+    payload: 'https://onekey.so/app/',
+    backgroundColor: 'bg/info-subdued',
+    tokenListId: '694f69a217fa06428a916ddc',
+    miniBundlerVersion: '',
+    description: {
+      text: '+0.36%',
+      fontColor: 'text/success',
+    },
+    tokenLogos: [
+      'https://static.oklink.com/cdn/web3/currency/token/large/1-0xae7ab96520de3a18e5e111b5eaab095312d7fe84-106/type=default_90_0?v=1767110481365',
+      'https://static.oklink.com/cdn/web3/currency/token/large/1-0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0-107/type=default_90_0?v=1753850278448',
+      'https://static.coinall.ltd/cdn/wallet/logo/LINK-20220328.png',
+    ],
+  },
+];
