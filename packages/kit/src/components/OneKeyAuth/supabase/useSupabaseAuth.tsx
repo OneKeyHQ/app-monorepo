@@ -14,6 +14,10 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  createTemporarySupabaseClient,
+  getSupabaseClient,
+} from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 
 import {
   getOAuthRedirectUrlDesktop,
@@ -36,10 +40,6 @@ import {
   openOAuthPopupWeb,
 } from '../openOAuthPopupWeb';
 
-import {
-  createTemporarySupabaseClient,
-  getSupabaseClient,
-} from './getSupabaseClient';
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
 import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
