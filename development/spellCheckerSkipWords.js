@@ -1033,4 +1033,5 @@ module.exports = [
   'Soroban',
   'stroops',
   'timebounds',
+  'stablecoin',
 ];
