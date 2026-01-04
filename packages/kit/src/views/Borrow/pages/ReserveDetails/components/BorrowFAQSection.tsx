@@ -61,6 +61,7 @@ export function BorrowFAQSection({
   return (
     <DetailsSectionContainer
       title={intl.formatMessage({ id: ETranslations.global_faqs })}
+      titleTextProps={{ size: '$headingLg', color: '$text' }}
       showDivider={false}
     >
       {isLoading && !hasFaqList ? (
