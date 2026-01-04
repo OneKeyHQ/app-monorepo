@@ -84,6 +84,7 @@ import { ImagePanel } from './ImagePanel';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { RegistrationID } from './RegistrationID';
+import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
@@ -985,6 +986,18 @@ const BaseDevSettingsSection = () => {
                 title="Reset Hidden Sites in Floating icon"
                 onPress={() => {
                   void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
+                }}
+              />
+              <ResetInstanceId />
+              <SectionPressItem
+                icon="RefreshCcwOutline"
+                title="Reset IP Table Cache"
+                subtitle="清除 IP 直连缓存，解决网络切换后请求失败问题"
+                onPress={async () => {
+                  await backgroundApiProxy.serviceIpTable.reset();
+                  Toast.success({
+                    title: 'IP Table cache cleared',
+                  });
                 }}
               />
             </Accordion.Content>
