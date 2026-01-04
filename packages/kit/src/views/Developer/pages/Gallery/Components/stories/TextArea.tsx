@@ -25,6 +25,7 @@ const TextAreaGallery = () => (
             />
             <TextArea error />
             <TextAreaInput
+              onPaste={(event) => alert(JSON.stringify(event.nativeEvent))}
               addOns={[
                 {
                   testID: 'account-key-show-btn',
