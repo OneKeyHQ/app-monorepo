@@ -310,7 +310,6 @@ export function UniversalBorrowSupply({
           }}
           balanceProps={{
             value: balance,
-            iconText: actionLabel,
             onPress: amountInputDisabled ? undefined : onMax,
           }}
           valueProps={{
