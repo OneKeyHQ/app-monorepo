@@ -1,6 +1,27 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
+// Warning limit configuration
+const INITIAL_MAX_WARNINGS = 690;
+const WEEKLY_REDUCTION = 30;
+const START_YEAR = 2026;
+
+function getMaxWarnings() {
+  const now = new Date();
+  const startOfYear = new Date(START_YEAR, 0, 1);
+
+  if (now < startOfYear) {
+    return INITIAL_MAX_WARNINGS;
+  }
+
+  // Calculate weeks since start of 2026
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const weeksSinceStart = Math.floor((now - startOfYear) / msPerWeek);
+
+  const maxWarnings = INITIAL_MAX_WARNINGS - weeksSinceStart * WEEKLY_REDUCTION;
+  return Math.max(0, maxWarnings); // Never go below 0
+}
+
 // lint results example:
 // app-monorepo/apps/desktop/app/libs/react-native-mmkv-mock.ts
 //    9:15  warning  'options' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
@@ -24,40 +45,86 @@ function handleProblems(result) {
   const errorCount = errorMatch ? Number(errorMatch[1]) : 0;
   const warningCount = warningMatch ? Number(warningMatch[1]) : 0;
 
-  // Only output if there are errors
-  if (errorCount > 0) {
-    // Group lines by file and filter files that contain errors
-    const lines = result.split('\n');
-    const fileGroups = [];
-    let currentGroup = [];
+  // Group lines by file
+  const lines = result.split('\n');
+  const fileGroups = [];
+  let currentGroup = [];
 
-    for (const line of lines) {
-      // File path line: not empty, doesn't start with space, and doesn't start with ✖
-      if (line && !line.startsWith(' ') && !line.startsWith('✖')) {
-        // Save previous group if exists
-        if (currentGroup.length > 0) {
-          fileGroups.push(currentGroup);
-        }
-        // Start new group with file path
-        currentGroup = [line];
-      } else if (line.trim() && !line.startsWith('✖')) {
-        // Add problem line to current group (skip summary line)
-        currentGroup.push(line);
+  for (const line of lines) {
+    // File path line: not empty, doesn't start with space, and doesn't start with ✖
+    if (line && !line.startsWith(' ') && !line.startsWith('✖')) {
+      // Save previous group if exists
+      if (currentGroup.length > 0) {
+        fileGroups.push(currentGroup);
+      }
+      // Start new group with file path
+      currentGroup = [line];
+    } else if (line.trim() && !line.startsWith('✖')) {
+      // Add problem line to current group (skip summary line)
+      currentGroup.push(line);
+    }
+  }
+  // Add last group
+  if (currentGroup.length > 0) {
+    fileGroups.push(currentGroup);
+  }
+
+  // Categorize file groups
+  const errorGroups = [];
+  const warningOnlyGroups = [];
+
+  for (const group of fileGroups) {
+    const hasError = group.some((line) => line.includes(' error '));
+    if (hasError) {
+      errorGroups.push(group);
+    } else {
+      // Count warnings in this group
+      const warningLines = group.filter((line) => line.includes(' warning '));
+      if (warningLines.length > 0) {
+        warningOnlyGroups.push({ group, warningCount: warningLines.length });
       }
     }
-    // Add last group
-    if (currentGroup.length > 0) {
-      fileGroups.push(currentGroup);
+  }
+
+  // Check warning limit
+  const maxWarnings = getMaxWarnings();
+  const warningOverflow = warningCount - maxWarnings;
+
+  // Determine which warning-only groups to display
+  const selectedWarningGroups = [];
+  if (warningOverflow > 0) {
+    // Need to show some warning files to alert user
+    // Randomly select files until we cover the overflow
+    const shuffled = [...warningOnlyGroups].sort(() => Math.random() - 0.5);
+    let accumulatedWarnings = 0;
+
+    for (const item of shuffled) {
+      selectedWarningGroups.push(item.group);
+      accumulatedWarnings += item.warningCount;
+      if (accumulatedWarnings >= warningOverflow) {
+        break;
+      }
+    }
+  }
+
+  // Output results
+  const hasOutput = errorCount > 0 || warningOverflow > 0;
+
+  if (hasOutput) {
+    // Output error groups
+    if (errorGroups.length > 0) {
+      const output = errorGroups.map((group) => group.join('\n')).join('\n\n');
+      console.log(output);
     }
 
-    // Filter: only keep file groups that contain errors
-    const filteredGroups = fileGroups.filter((group) => {
-      return group.some((line) => line.includes(' error '));
-    });
-
-    // Output filtered groups
-    const output = filteredGroups.map((group) => group.join('\n')).join('\n\n');
-    if (output) {
+    // Output selected warning groups if any
+    if (selectedWarningGroups.length > 0) {
+      if (errorGroups.length > 0) {
+        console.log(''); // Add spacing
+      }
+      const output = selectedWarningGroups
+        .map((group) => group.join('\n'))
+        .join('\n\n');
       console.log(output);
     }
 
@@ -67,18 +134,37 @@ function handleProblems(result) {
       console.log(`\n${summaryLine}`);
     }
 
-    // Show warning count
+    // Show warning limit status
     if (warningCount > 0) {
-      console.log(`ℹ ${warningCount} warning(s) in total`);
+      console.log(
+        `ℹ ${warningCount} warning(s) in total (limit: ${maxWarnings})`,
+      );
+
+      if (warningOverflow > 0) {
+        console.log(
+          `⚠️  WARNING LIMIT EXCEEDED by ${warningOverflow}! Showing ${selectedWarningGroups.length} random file(s) with warnings.`,
+        );
+        console.log(
+          `Please fix these warnings! Limit reduces by ${WEEKLY_REDUCTION} every week.`,
+        );
+      }
     }
 
-    console.log('\nHope you can fix the ESLint problems before this merge.');
-    if (process.env.NODE_ENV === 'production') {
+    if (errorCount > 0) {
+      console.log('\nHope you can fix the ESLint problems before this merge.');
+    }
+
+    if (
+      process.env.NODE_ENV === 'production' &&
+      (errorCount > 0 || warningOverflow > 0)
+    ) {
       exit(1);
     }
   } else if (warningCount > 0) {
-    // If only warnings, just show the count
-    console.log(`ℹ ${warningCount} warning(s) found (no errors)`);
+    // Warnings exist but within limit
+    console.log(
+      `ℹ ${warningCount} warning(s) found (limit: ${maxWarnings}, no errors)`,
+    );
   }
 }
 
