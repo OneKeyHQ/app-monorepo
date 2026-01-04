@@ -13,7 +13,7 @@ index 05bddcb..5211253 100644
        registrationName: 'onChangeSync',
      },
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
-index 6e9c384..8598d0e 100644
+index 6e9c384..c36ea75 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 @@ -13,6 +13,10 @@
@@ -27,41 +27,60 @@ index 6e9c384..8598d0e 100644
  @implementation RCTUITextView {
    UILabel *_placeholderView;
    UITextView *_detachedTextView;
-@@ -210,6 +214,33 @@ - (void)paste:(id)sender
+@@ -209,9 +213,52 @@ - (void)scrollRangeToVisible:(NSRange)range
+ - (void)paste:(id)sender
  {
    _textWasPasted = YES;
-   [super paste:sender];
-+
 +  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
-+   if (clipboard.hasImages) {
-+    for (NSItemProvider *itemProvider in clipboard.itemProviders) {
-+      if ([itemProvider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeImage]) {
-+        for (NSString *identifier in itemProvider.registeredTypeIdentifiers) {
-+          if (UTTypeConformsTo((__bridge CFStringRef)identifier, kUTTypeImage)) {
-+            NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
-+            NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
-+            NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
-+            NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
-+            NSURL *fileURL = [NSURL fileURLWithPath:filePath];
-+            NSData *fileData = [clipboard dataForPasteboardType:identifier];
-+            [fileData writeToFile:filePath atomically:YES];
-+            [_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
-+            break;
-+          }
-+        }
-+        break;
-+      }
-+    }
-+  } else {
-+    if (clipboard.hasStrings) {
-+      [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
-+    }
-+    [super paste:sender];
++
++  // Handle image paste
++  if (clipboard.hasImages && [self processImagePaste:clipboard]) {
++    return;
 +  }
++
++  // Handle text paste
++  if (clipboard.hasStrings) {
++    [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
++  }
+   [super paste:sender];
  }
  
++- (BOOL)processImagePaste:(UIPasteboard *)clipboard
++{
++  for (NSItemProvider *itemProvider in clipboard.itemProviders) {
++    if (![itemProvider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeImage]) {
++      continue;
++    }
++
++    for (NSString *identifier in itemProvider.registeredTypeIdentifiers) {
++      if (!UTTypeConformsTo((__bridge CFStringRef)identifier, kUTTypeImage)) {
++        continue;
++      }
++
++      NSData *fileData = [clipboard dataForPasteboardType:identifier];
++      if (!fileData) {
++        continue;
++      }
++
++      NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
++      NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
++      NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
++      NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
++
++      if ([fileData writeToFile:filePath atomically:YES]) {
++        NSURL *fileURL = [NSURL fileURLWithPath:filePath];
++        [_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
++        return YES;
++      }
++    }
++  }
++  return NO;
++}
++
  // Turn off scroll animation to fix flaky scrolling.
-@@ -297,6 +328,10 @@ - (CGSize)sizeThatFits:(CGSize)size
+ // This is only necessary for iOS < 14.
+ #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED < 140000
+@@ -297,6 +344,10 @@ - (CGSize)sizeThatFits:(CGSize)size
  
  - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
  {
