@@ -231,21 +231,22 @@ export const Overview = () => {
                 color: '$textDisabled',
               }
             }
-            size="$heading3xl"
+            size="$headingLg"
+            color="$textText"
           />
           {reserves?.overview?.netApy ? (
             <XStack ai="center" gap="$1">
               <EarnText
                 text={reserves.overview.netApy}
-                size="$bodyMd"
-                color="$textSubdued"
+                size="$headingLg"
+                color="$textText"
               />
               <SizableText size="$bodyMd" color="$textSubdued">
                 {labels.netApy}
               </SizableText>
             </XStack>
           ) : (
-            <SizableText size="$bodyMd" color="$textDisabled">
+            <SizableText size="$headingLg" color="$textDisabled">
               -
             </SizableText>
           )}
@@ -267,7 +268,7 @@ export const Overview = () => {
                     }
                   }
                   size="$headingLg"
-                  color="$textSuccess"
+                  color="$textText"
                 />
                 <XStack mt="$1">
                   <BorrowHealthFactorTooltip
@@ -294,6 +295,7 @@ export const Overview = () => {
                   }
                 }
                 size="$headingLg"
+                color="$textText"
               />
               <XStack mt="$1">
                 <BorrowBonusTooltip
@@ -320,8 +322,8 @@ export const Overview = () => {
               <XStack ai="center" gap="$1">
                 <EarnText
                   text={borrowRewards.description}
-                  size="$bodyMd"
-                  color="$textSubdued"
+                  size="$headingLg"
+                  color="$textText"
                 />
                 <Button
                   p="0"

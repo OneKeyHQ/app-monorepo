@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import BigNumber from 'bignumber.js';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Switch, XStack, useMedia } from '@onekeyhq/components';
