@@ -1114,7 +1114,7 @@ class ServiceKeylessWallet extends ServiceBase {
     const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
     const provider = this.buildKeylessProviderFromSocialToken({ token });
     const socialAccountId = decodedToken?.user_metadata?.sub || '';
-    return `${provider}:${socialAccountId}`;
+    return `${provider}--${socialAccountId}`;
   }
 
   buildKeylessProviderFromSocialToken(params: {
