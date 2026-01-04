@@ -44,7 +44,7 @@ try {
   ).toString('utf-8');
   handleProblems(result);
 } catch (error) {
-  console.log(error.stdout.toString('utf-8'));
+  handleProblems(error.stdout.toString('utf-8'));
   exit(1);
 }
 
