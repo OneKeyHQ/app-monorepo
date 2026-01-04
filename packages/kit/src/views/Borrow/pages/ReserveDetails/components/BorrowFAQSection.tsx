@@ -1,11 +1,27 @@
 import { useIntl } from 'react-intl';
 
+import { SizableText, Skeleton, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { FAQContent } from '@onekeyhq/kit/src/views/Earn/components/FAQContent';
+import { FAQAccordion } from '@onekeyhq/kit/src/views/Staking/components/FAQAccordion';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DetailsSectionContainer } from './DetailsSectionContainer';
+
+function FAQPanelSkeleton() {
+  return (
+    <YStack gap="$4">
+      <Skeleton width={80} height={24} borderRadius="$2" />
+      <YStack gap="$2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <YStack key={index} gap="$2">
+            <Skeleton width="100%" height={32} borderRadius="$2" />
+          </YStack>
+        ))}
+      </YStack>
+    </YStack>
+  );
+}
 
 export function BorrowFAQSection({
   networkId,
@@ -36,8 +52,9 @@ export function BorrowFAQSection({
   );
 
   const faqList = faqData?.list;
+  const hasFaqList = Boolean(faqList?.length);
 
-  if (!isLoading && !faqList?.length) {
+  if (!isLoading && !hasFaqList) {
     return null;
   }
 
@@ -46,7 +63,28 @@ export function BorrowFAQSection({
       title={intl.formatMessage({ id: ETranslations.global_faqs })}
       showDivider={false}
     >
-      <FAQContent faqList={faqList} isLoading={isLoading} />
+      {isLoading && !hasFaqList ? (
+        <FAQPanelSkeleton />
+      ) : (
+        <FAQAccordion
+          items={faqList}
+          renderTitle={(item, { open }) => (
+            <SizableText
+              textAlign="left"
+              flex={1}
+              size="$headingMd"
+              color={open ? '$text' : '$textSubdued'}
+            >
+              {item.question}
+            </SizableText>
+          )}
+          renderContent={(item) => (
+            <SizableText size="$bodyMd" color="$text" whiteSpace="pre-line">
+              {item.answer}
+            </SizableText>
+          )}
+        />
+      )}
     </DetailsSectionContainer>
   );
 }
