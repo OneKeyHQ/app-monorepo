@@ -108,7 +108,7 @@ export const BorrowCard = () => {
         render: (item: IBorrowAsset) => (
           <AssetWithAmountField
             token={item.token}
-            amountLabel={labels.availableWithColon}
+            amountLabel={{ text: labels.availableWithColon }}
             amount={item.available.title}
             amountDescription={item.available.description}
             platformBonusApy={item.platformBonusApy}

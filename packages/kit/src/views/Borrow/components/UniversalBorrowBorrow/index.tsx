@@ -140,7 +140,8 @@ export function UniversalBorrowBorrow({
 
   const actionLabel = useMemo(
     () =>
-      actionLabelProp || intl.formatMessage({ id: ETranslations.earn_deposit }),
+      actionLabelProp ||
+      intl.formatMessage({ id: ETranslations.global_borrow }),
     [actionLabelProp, intl],
   );
 
@@ -307,7 +308,9 @@ export function UniversalBorrowBorrow({
           }}
           balanceProps={{
             value: balance,
-            iconText: actionLabel,
+            iconText: intl.formatMessage({
+              id: ETranslations.global_available,
+            }),
             onPress: amountInputDisabled ? undefined : onMax,
           }}
           valueProps={{

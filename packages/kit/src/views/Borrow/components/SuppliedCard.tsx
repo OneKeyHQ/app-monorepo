@@ -146,7 +146,7 @@ export const SuppliedCard = () => {
         render: (item: ISuppliedAsset) => (
           <AssetWithAmountField
             token={item.token}
-            amountLabel={labels.suppliedWithColon}
+            amountLabel={{ text: labels.suppliedWithColon }}
             amount={item.suppliedAmount.title}
             amountDescription={item.suppliedAmount.description}
             platformBonusApy={item.platformBonusApy}
