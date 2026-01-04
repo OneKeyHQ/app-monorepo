@@ -34,6 +34,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       loading?: boolean;
     };
     enableMaxAmount?: boolean;
+    maxAmountText?: string;
     valueProps?: {
       value?: string;
       color?: string;
@@ -71,6 +72,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
 export function AmountInput({
   inputProps,
   enableMaxAmount,
+  maxAmountText,
   tokenSelectorTriggerProps,
   reversible,
   onChange,
@@ -362,7 +364,8 @@ export function AmountInput({
           </>
           {enableMaxAmount ? (
             <SizableText pl="$1" size="$bodySmMedium" color="$textInteractive">
-              {intl.formatMessage({ id: ETranslations.send_max })}
+              {maxAmountText ??
+                intl.formatMessage({ id: ETranslations.send_max })}
             </SizableText>
           ) : null}
         </XStack>
@@ -380,7 +383,7 @@ export function AmountInput({
       return contentComponent;
     }
     return null;
-  }, [balanceHelperProps, balanceProps, enableMaxAmount, intl]);
+  }, [balanceHelperProps, balanceProps, enableMaxAmount, intl, maxAmountText]);
 
   const balanceHelper = useMemo(() => {
     if (!balanceHelperProps) {

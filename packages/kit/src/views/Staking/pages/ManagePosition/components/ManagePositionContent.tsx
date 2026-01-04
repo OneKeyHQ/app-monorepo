@@ -1,18 +1,30 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
-import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
-import { useManagePage } from '../hooks/useManagePage';
+import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
 
 import { AdaManageContent } from './AdaManageContent';
 import { NormalManageContent } from './NormalManageContent';
@@ -28,11 +40,20 @@ export interface IManagePositionContentProps {
   indexedAccountId?: string;
   isInModalContext?: boolean;
 
+  // Type of manage position (Staking or Borrow)
+  type?: EManagePositionType;
+
+  // Borrow-specific params
+  reserveAddress?: string;
+  marketAddress?: string;
+  borrowReserves?: IBorrowReserveItem;
+
   // Optional configurations
   defaultTab?: 'deposit' | 'withdraw';
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
+  providerLogoUri?: string;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -87,15 +108,22 @@ export function ManagePositionContent({
   vault,
   accountId,
   indexedAccountId,
+  type = EManagePositionType.Staking,
+  reserveAddress,
+  marketAddress,
+  borrowReserves,
   defaultTab,
   onTabChange,
   showApyDetail = false,
   fallbackTokenImageUri,
+  providerLogoUri,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
 }: IManagePositionContentProps) {
   const appNavigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const intl = useIntl();
 
   const {
     tokenInfo,
@@ -118,7 +146,29 @@ export function ManagePositionContent({
     symbol: symbol as ISupportedSymbol,
     provider,
     vault,
+    type,
+    reserveAddress,
+    marketAddress,
   });
+
+  const resolvedProtocolInfo = useMemo(() => {
+    if (!protocolInfo) {
+      return undefined;
+    }
+    if (!providerLogoUri) {
+      return protocolInfo;
+    }
+    if (protocolInfo.providerDetail?.logoURI) {
+      return protocolInfo;
+    }
+    return {
+      ...protocolInfo,
+      providerDetail: {
+        ...protocolInfo.providerDetail,
+        logoURI: providerLogoUri,
+      },
+    };
+  }, [protocolInfo, providerLogoUri]);
 
   // Handle create address
   const handleCreateAddress = useCallback(async () => {
@@ -171,6 +221,7 @@ export function ManagePositionContent({
       totalSupply: '0',
       riskLevel: 0,
       coingeckoId: '',
+      networkId,
     };
 
     if (tokenInfo) {
@@ -237,41 +288,60 @@ export function ManagePositionContent({
     [managePageData?.history],
   );
 
-  const onHistory = useMemo(() => {
-    if (historyAction?.disabled || !earnAccount?.accountId) return undefined;
-    return (params?: { filterType?: string }) => {
-      const { filterType } = params || {};
-      const historyParams = {
-        accountId: earnAccount?.accountId,
-        networkId,
-        symbol,
-        provider,
-        stakeTag: protocolInfo?.stakeTag || '',
-        protocolVault: vault,
-        filterType,
-      };
+  const isBorrowType = useMemo(
+    () =>
+      [
+        EManagePositionType.Supply,
+        EManagePositionType.Borrow,
+        EManagePositionType.Withdraw,
+        EManagePositionType.Repay,
+      ].includes(type),
+    [type],
+  );
 
-      if (isInModalContext) {
-        // We're already in a modal, use push to navigate within the modal stack
-        appNavigation.push(EModalStakingRoutes.HistoryList, historyParams);
-      } else {
-        // We're in a regular page (like EarnProtocolDetails), use pushModal
-        appNavigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.HistoryList,
-          params: historyParams,
+  const onHistory = useMemo(() => {
+    // Return undefined if history is disabled or no account
+    if (historyAction?.disabled || !earnAccount?.accountId) return undefined;
+
+    if (isBorrowType && marketAddress) {
+      return () => {
+        BorrowNavigation.pushToBorrowHistory(appNavigation, {
+          accountId: earnAccount.accountId,
+          networkId,
+          provider,
+          marketAddress,
+          isModal: isInModalContext,
         });
-      }
-    };
+      };
+    }
+
+    if (!isBorrowType && historyAction) {
+      return () => {
+        BorrowNavigation.pushToStakingHistory(appNavigation, {
+          accountId: earnAccount.accountId,
+          networkId,
+          symbol,
+          provider,
+          stakeTag: protocolInfo?.stakeTag,
+          protocolVault: vault,
+          isModal: isInModalContext,
+        });
+      };
+    }
+
+    return undefined;
   }, [
-    historyAction?.disabled,
-    appNavigation,
+    historyAction,
     earnAccount?.accountId,
+    isBorrowType,
+    marketAddress,
+    appNavigation,
     networkId,
-    protocolInfo?.stakeTag,
     provider,
-    symbol,
-    vault,
     isInModalContext,
+    symbol,
+    protocolInfo?.stakeTag,
+    vault,
   ]);
 
   // Ref to store refreshPending function from useStakingPendingTxs hook
@@ -292,39 +362,119 @@ export function ManagePositionContent({
     appNavigation,
   ]);
 
+  // Create "View Reserve Details" button for borrow type in mobile modal
+  const viewReserveDetailsButton = useMemo(() => {
+    // Only show on mobile (not desktop)
+    if (
+      !isBorrowType ||
+      !isInModalContext ||
+      gtMd ||
+      !reserveAddress ||
+      !marketAddress
+    ) {
+      return null;
+    }
+
+    const handleViewReserveDetails = () => {
+      BorrowNavigation.pushToBorrowReserveDetails(appNavigation, {
+        networkId,
+        provider,
+        marketAddress,
+        reserveAddress,
+        symbol,
+        logoURI: fallbackTokenImageUri,
+        isModal: isInModalContext,
+      });
+    };
+
+    return (
+      <Button mt="$4" onPress={handleViewReserveDetails}>
+        <XStack gap="$3" ai="center" flex={1} my="$2">
+          <SizableText size="$bodyMdMedium" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.defi_view_reserve_details,
+            })}
+          </SizableText>
+          <Icon
+            ml="auto"
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+          />
+        </XStack>
+      </Button>
+    );
+  }, [
+    isBorrowType,
+    isInModalContext,
+    reserveAddress,
+    marketAddress,
+    networkId,
+    provider,
+    symbol,
+    fallbackTokenImageUri,
+    appNavigation,
+    gtMd,
+    intl,
+  ]);
+
   // Create beforeFooter content for stake section
   const stakeBeforeFooter = useMemo(() => {
     // If should show warning (no address or BTC-only firmware), return the warning element
     if (shouldShowWarning) {
-      return warningElement;
+      return (
+        <YStack>
+          {warningElement}
+          {viewReserveDetailsButton}
+        </YStack>
+      );
     }
     if (!isEmpty(alertsStake) || !isEmpty(alerts)) {
       return (
         <YStack>
           <EarnAlert alerts={alerts} />
           <EarnAlert alerts={alertsStake} />
+          {viewReserveDetailsButton}
         </YStack>
       );
     }
-    return null;
-  }, [shouldShowWarning, warningElement, alertsStake, alerts]);
+    return viewReserveDetailsButton;
+  }, [
+    shouldShowWarning,
+    warningElement,
+    alertsStake,
+    alerts,
+    viewReserveDetailsButton,
+  ]);
 
   // Create beforeFooter content for withdraw section
   const withdrawBeforeFooter = useMemo(() => {
     // If should show warning (no address or BTC-only firmware), return the warning element
     if (shouldShowWarning) {
-      return warningElement;
+      return (
+        <YStack>
+          {warningElement}
+          {viewReserveDetailsButton}
+        </YStack>
+      );
     }
     if (!isEmpty(alertsWithdraw) || !isEmpty(alerts)) {
       return (
         <YStack>
           <EarnAlert alerts={alerts} />
           <EarnAlert alerts={alertsWithdraw} />
+          {viewReserveDetailsButton}
         </YStack>
       );
     }
-    return null;
-  }, [shouldShowWarning, warningElement, alertsWithdraw, alerts]);
+    return viewReserveDetailsButton;
+  }, [
+    shouldShowWarning,
+    warningElement,
+    alertsWithdraw,
+    alerts,
+    viewReserveDetailsButton,
+  ]);
 
   // Create beforeFooter content for special layout (USDe, ADA)
   const specialBeforeFooter = useMemo(() => {
@@ -365,7 +515,7 @@ export function ManagePositionContent({
         vault={vault}
         onHistory={onHistory}
         indicatorAccountId={earnAccount?.accountId}
-        stakeTag={protocolInfo?.stakeTag}
+        stakeTag={resolvedProtocolInfo?.stakeTag}
         onIndicatorRefresh={refreshManageData}
         onRefreshPendingRef={refreshPendingRef}
         onActionSuccess={handleOperationSuccess}
@@ -393,10 +543,10 @@ export function ManagePositionContent({
         isInModalContext={isInModalContext}
         beforeFooter={specialBeforeFooter}
         fallbackTokenImageUri={fallbackTokenImageUri}
-        protocolInfo={protocolInfo}
+        protocolInfo={resolvedProtocolInfo}
         tokenInfo={resolvedTokenInfo}
         indicatorAccountId={earnAccount?.accountId}
-        stakeTag={protocolInfo?.stakeTag}
+        stakeTag={resolvedProtocolInfo?.stakeTag}
         onIndicatorRefresh={refreshManageData}
         onRefreshPendingRef={refreshPendingRef}
       />
@@ -410,10 +560,14 @@ export function ManagePositionContent({
       symbol={symbol}
       provider={provider}
       vault={vault}
+      type={type}
+      marketAddress={marketAddress}
+      reserveAddress={reserveAddress}
       tokenInfo={resolvedTokenInfo}
       fallbackTokenImageUri={resolvedTokenImageUri}
-      protocolInfo={protocolInfo}
+      protocolInfo={resolvedProtocolInfo}
       earnAccount={earnAccount ?? undefined}
+      borrowReserves={borrowReserves}
       depositDisabled={depositDisabled}
       withdrawDisabled={withdrawDisabled}
       stakeBeforeFooter={stakeBeforeFooter}
@@ -421,7 +575,7 @@ export function ManagePositionContent({
       historyAction={historyAction}
       onHistory={onHistory}
       indicatorAccountId={earnAccount?.accountId}
-      stakeTag={protocolInfo?.stakeTag}
+      stakeTag={resolvedProtocolInfo?.stakeTag}
       onIndicatorRefresh={refreshManageData}
       onRefreshPendingRef={refreshPendingRef}
       onSuccess={handleOperationSuccess}
@@ -431,6 +585,7 @@ export function ManagePositionContent({
       appNavigation={appNavigation}
       showApyDetail={showApyDetail}
       ongoingValidator={ongoingValidator}
+      managePageData={managePageData}
     />
   );
 }

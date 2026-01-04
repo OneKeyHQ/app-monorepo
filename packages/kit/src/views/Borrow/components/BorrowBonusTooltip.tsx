@@ -1,0 +1,278 @@
+import { useCallback, useMemo, useState } from 'react';
+
+import { differenceInDays } from 'date-fns';
+import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
+
+import {
+  Divider,
+  Icon,
+  Popover,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
+
+import { ListItem } from '../../../components/ListItem';
+import { Token } from '../../../components/Token';
+import { EarnIcon } from '../../Staking/components/ProtocolDetails/EarnIcon';
+import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { BorrowNavigation } from '../borrowUtils';
+
+export const BorrowBonusTooltip = ({
+  data,
+  accountId,
+  networkId,
+  provider,
+  marketAddress,
+}: {
+  data?: IBorrowReserveItem['overview']['platformBonus'];
+  accountId?: string;
+  networkId?: string;
+  provider?: string;
+  marketAddress?: string;
+}) => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const [open, setOpen] = useState(false);
+
+  const handleHistoryClick = useCallback(() => {
+    if (!accountId || !networkId || !provider || !marketAddress) return;
+    setOpen(false);
+    BorrowNavigation.pushToBorrowHistory(navigation, {
+      accountId,
+      networkId,
+      provider,
+      marketAddress,
+      title: intl.formatMessage({ id: ETranslations.global_history }),
+      type: 'platformBonus',
+    });
+  }, [accountId, networkId, provider, marketAddress, intl, navigation]);
+
+  const itemRender = useCallback(
+    ({
+      children,
+      key,
+      needDivider,
+    }: {
+      children: React.ReactNode;
+      key: string | number;
+      needDivider?: boolean;
+    }) => {
+      return (
+        <>
+          <ListItem
+            my="$2"
+            key={key}
+            ai="center"
+            jc="space-between"
+            borderWidth="$0"
+          >
+            {children}
+          </ListItem>
+          {needDivider ? <Divider mx="$5" my="$2.5" /> : null}
+        </>
+      );
+    },
+    [],
+  );
+
+  const endsInDays = useMemo(() => {
+    if (!data?.data?.endsIn) return '';
+
+    const days = differenceInDays(data.data.endsIn, new Date());
+
+    return String(Math.max(0, days));
+  }, [data?.data?.endsIn]);
+
+  if (!data) {
+    return null;
+  }
+
+  return (
+    <XStack flexShrink={0}>
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        placement="bottom-end"
+        renderTrigger={
+          <XStack cursor="pointer" ai="center" gap="$1">
+            <EarnText
+              size="$bodySmMedium"
+              color="$textSubdued"
+              text={{
+                text: intl.formatMessage({ id: ETranslations.global_details }),
+              }}
+            />
+            <Icon size="$4" name="InfoCircleOutline" color="$iconSubdued" />
+          </XStack>
+        }
+        title={intl.formatMessage({ id: ETranslations.earn_referral_bonus })}
+        renderContent={
+          <YStack mt="$2.5" overflow="hidden" borderRadius="$3">
+            {/* Total received header with History button */}
+            <XStack mx="$5" mb="$3" jc="space-between" ai="center">
+              <YStack gap="$1.5" w="100%">
+                <SizableText size="$bodySmMedium" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_total_received,
+                  })}
+                </SizableText>
+                <XStack jc="space-between">
+                  <EarnText
+                    text={data.totalReceived.description}
+                    size="$headingXl"
+                    color="$text"
+                  />
+                  {data.totalReceived.button ? (
+                    <XStack
+                      ai="center"
+                      gap="$1"
+                      cursor="pointer"
+                      onPress={handleHistoryClick}
+                    >
+                      <EarnText
+                        text={data.totalReceived.button.text}
+                        size="$bodyMd"
+                        color="$textSubdued"
+                      />
+                      <Icon
+                        name="ChevronRightSmallOutline"
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    </XStack>
+                  ) : null}
+                </XStack>
+              </YStack>
+            </XStack>
+
+            <Divider mx="$5" mb="$3" />
+
+            {/* Distributed section */}
+            {isEmpty(data?.distributed) ? null : (
+              <>
+                <SizableText mx="$5" size="$bodyMdMedium" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_distributed,
+                  })}
+                </SizableText>
+                {data?.distributed.map((item, index) => {
+                  return itemRender({
+                    key: `${index}-${item?.token?.address}`,
+                    children: (
+                      <>
+                        <XStack ai="center" gap="$2.5">
+                          <Token size="sm" tokenImageUri={item.token.logoURI} />
+                          <EarnText
+                            size="$bodyMdMedium"
+                            color="$text"
+                            text={item.title}
+                          />
+                        </XStack>
+                        <EarnText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          text={item.description}
+                        />
+                      </>
+                    ),
+                  });
+                })}
+                <YStack px="$5" mt="$2">
+                  <EarnText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    text={data.description}
+                  />
+                  <Divider mt="$5" mb="$3.5" />
+                </YStack>
+              </>
+            )}
+            <Stack px="$5" mb="$5">
+              <YStack gap="$3">
+                {/* Platform bonus info card */}
+                <XStack ai="center">
+                  <EarnIcon
+                    icon={{
+                      icon: 'Ai2StarSolid',
+                      color: '$success10',
+                      size: '$3.5',
+                    }}
+                    mr="$1.5"
+                  />
+                  <EarnText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    text={data.data.title}
+                  />
+                  <Divider vertical h="$3" mx="$3" />
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.earn_event_ends_in,
+                    })}
+                  </SizableText>
+                  <EarnText
+                    size="$bodySmMedium"
+                    color="$textSuccess"
+                    ml="$1"
+                    text={{
+                      text: intl.formatMessage(
+                        { id: ETranslations.earn_number_days },
+                        { number: endsInDays },
+                      ),
+                    }}
+                  />
+                </XStack>
+                {!isEmpty(data.data.rewards) ? (
+                  <YStack jc="center">
+                    {data.data.rewards.map((reward, index) => {
+                      return (
+                        <XStack gap="$1.5" key={index} ai="center">
+                          <Token size="xs" tokenImageUri={reward.logoURI} />
+                          <EarnText
+                            text={reward.type}
+                            size="$bodySm"
+                            color="$textSubdued"
+                          />
+                          <EarnText
+                            text={reward.title}
+                            size="$bodySmMedium"
+                            color="$text"
+                          />
+                          <EarnText
+                            text={reward.description}
+                            size="$bodySm"
+                            color="$textSubdued"
+                          />
+                        </XStack>
+                      );
+                    })}
+                  </YStack>
+                ) : null}
+                {data.data.button ? (
+                  <XStack
+                    gap="$0.5"
+                    cursor="pointer"
+                    onPress={() => openUrlExternal(data.data.button.data.link)}
+                  >
+                    <EarnText
+                      text={data.data.button.text}
+                      size="$bodyMdMedium"
+                      color="$textInfo"
+                    />
+                  </XStack>
+                ) : null}
+              </YStack>
+            </Stack>
+          </YStack>
+        }
+      />
+    </XStack>
+  );
+};

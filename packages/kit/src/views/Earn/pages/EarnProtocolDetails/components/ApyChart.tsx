@@ -61,17 +61,16 @@ const ApyChartComponent = ({ apyHistory }: IApyChartProps) => {
     if (!hoverData || !containerWidth) return null;
 
     const POPOVER_WIDTH = 120;
-    const OFFSET = 10; // Distance from cursor
+    const OFFSET = 10;
     const isLeftHalf = hoverData.x < containerWidth / 2;
 
     return {
       left: isLeftHalf ? hoverData.x + OFFSET : hoverData.x - OFFSET,
-      translateXValue: isLeftHalf ? 0 : -POPOVER_WIDTH, // Left align or right align
+      translateXValue: isLeftHalf ? 0 : -POPOVER_WIDTH,
       top: Math.max(10, hoverData.y - 70),
     };
   }, [hoverData, containerWidth]);
 
-  // Format date for popover with i18n
   const formatPopoverDate = useCallback(
     (timestamp: number) => {
       const date = new Date(timestamp * 1000);
@@ -103,7 +102,6 @@ const ApyChartComponent = ({ apyHistory }: IApyChartProps) => {
 
   return (
     <>
-      {/* Chart Skeleton - show during loading */}
       {isLoading && !chartData ? (
         <Stack
           $gtMd={{ height: 200 }}
@@ -116,7 +114,6 @@ const ApyChartComponent = ({ apyHistory }: IApyChartProps) => {
           enterStyle={{ opacity: 0 }}
         >
           <Skeleton w="100%" h="100%" borderRadius="$2" />
-          {/* Simulated chart curve overlay for better visual */}
           <Stack
             position="absolute"
             bottom={0}
@@ -130,7 +127,6 @@ const ApyChartComponent = ({ apyHistory }: IApyChartProps) => {
         </Stack>
       ) : null}
 
-      {/* Chart - show when data is loaded */}
       {chartData && !isLoading ? (
         <YStack
           position="relative"
@@ -144,7 +140,6 @@ const ApyChartComponent = ({ apyHistory }: IApyChartProps) => {
             }
           }}
         >
-          {/* Hover Popover - follows cursor/touch position with boundary detection */}
           {hoverData && popoverPosition ? (
             <YStack
               position="absolute"
@@ -179,6 +174,10 @@ const ApyChartComponent = ({ apyHistory }: IApyChartProps) => {
             data={chartData.marketChartData}
             height={200}
             onHover={handleHover}
+            lineColor="#008347D6"
+            topColor="#00834726"
+            bottomColor="#00834700"
+            lineWidth={2}
           />
           <Divider mt="$8" />
         </YStack>

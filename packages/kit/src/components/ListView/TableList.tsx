@@ -93,10 +93,14 @@ export interface ITableListProps<T> {
   // Row styling
   rowGap?: string;
   enableDrillIn?: boolean;
-  listItemProps?: Omit<
-    ComponentProps<typeof ListItem>,
-    'children' | 'gap' | 'onPress'
-  >;
+  listItemProps?:
+    | Omit<ComponentProps<typeof ListItem>, 'children' | 'gap' | 'onPress'>
+    | ((
+        item: T,
+        index: number,
+      ) =>
+        | Omit<ComponentProps<typeof ListItem>, 'children' | 'gap' | 'onPress'>
+        | undefined);
 
   // Actions column
   actions?: {
@@ -261,7 +265,6 @@ interface ITableListHeaderProps<T> {
   rowGap?: string;
   enableDrillIn?: boolean;
   actions?: ITableListProps<T>['actions'];
-  listItemProps?: ITableListProps<T>['listItemProps'];
   headerProps?: ITableListProps<T>['headerProps'];
   expandable?: ITableListProps<T>['expandable'];
 }
@@ -403,7 +406,10 @@ interface ITableListRowProps<T> {
   rowGap?: string;
   enableDrillIn?: boolean;
   actions?: ITableListProps<T>['actions'];
-  listItemProps?: ITableListProps<T>['listItemProps'];
+  listItemProps?: Omit<
+    ComponentProps<typeof ListItem>,
+    'children' | 'gap' | 'onPress'
+  >;
   expandable?: ITableListProps<T>['expandable'];
   isExpanded?: boolean;
   onToggleExpand?: () => void;
@@ -612,7 +618,6 @@ function BasicTableList<T>({
           rowGap={rowGap}
           enableDrillIn={enableDrillIn}
           actions={actions}
-          listItemProps={listItemProps}
           headerProps={headerProps}
           expandable={expandable}
         />
@@ -629,7 +634,6 @@ function BasicTableList<T>({
     rowGap,
     enableDrillIn,
     actions,
-    listItemProps,
     headerProps,
     expandable,
   ]);
@@ -656,6 +660,11 @@ function BasicTableList<T>({
         return mobileRenderItem(item, index);
       }
 
+      const resolvedListItemProps =
+        typeof listItemProps === 'function'
+          ? listItemProps(item, index)
+          : listItemProps;
+
       // Default table row renderer
       return (
         <TableListRow
@@ -666,7 +675,7 @@ function BasicTableList<T>({
           rowGap={rowGap}
           enableDrillIn={enableDrillIn}
           actions={actions}
-          listItemProps={listItemProps}
+          listItemProps={resolvedListItemProps}
           expandable={expandable}
           isExpanded={expandedRowIndex === index}
           onToggleExpand={() => handleToggleExpand(index)}
@@ -731,7 +740,8 @@ const compareTableListProps = (
     prevProps.sortDirection === nextProps.sortDirection &&
     prevProps.enableDrillIn === nextProps.enableDrillIn &&
     prevProps.withHeader === nextProps.withHeader &&
-    prevProps.rowGap === nextProps.rowGap;
+    prevProps.rowGap === nextProps.rowGap &&
+    prevProps.listItemProps === nextProps.listItemProps;
   if (!simplePropsEqual) {
     return false;
   }
