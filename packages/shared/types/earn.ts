@@ -12,6 +12,7 @@ export enum EEarnProviderEnum {
   Momentum = 'Momentum',
   Lista = 'Lista',
   Stakefish = 'Stakefish',
+  Kamino = 'Kamino',
 }
 
 export type ISupportedSymbol =
