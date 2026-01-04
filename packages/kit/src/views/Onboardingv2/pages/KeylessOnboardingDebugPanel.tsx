@@ -1,14 +1,26 @@
 import { useCallback } from 'react';
 
-import { Button, Dialog, Input, Toast, YStack } from '@onekeyhq/components';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  Input,
+  Toast,
+  YStack,
+} from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
-export function KeylessOnboardingDebugPanel() {
+export function KeylessOnboardingDebugPanel({
+  isResetMode,
+  onResetModeChange,
+}: {
+  isResetMode?: boolean;
+  onResetModeChange?: (val: boolean) => void;
+}) {
   const navigation = useAppNavigation();
   const { cacheKeylessOnboardingCustomMnemonic } = useKeylessWallet();
 
@@ -68,20 +80,25 @@ export function KeylessOnboardingDebugPanel() {
         showDevBgColor
         debugComponent={
           <YStack gap="$2" py="$4">
+            <Checkbox
+              label="重置云端无私钥钱包（先勾选，再登录 Google 或 Apple 生效）"
+              value={isResetMode}
+              onChange={(checked) => {
+                onResetModeChange?.(!!checked);
+              }}
+            />
+
             <Button
-              onPress={() => {
-                void backgroundApiProxy.servicePassword.clearCachedPassword();
+              onPress={async () => {
+                await backgroundApiProxy.servicePassword.clearCachedPassword();
+                Toast.success({
+                  title: '已清空内存密码',
+                });
               }}
             >
               清空内存密码
             </Button>
-            <Button
-              onPress={() => {
-                // TODO
-              }}
-            >
-              重置云端钱包
-            </Button>
+
             <Button onPress={handleImportCustomMnemonic}>
               自定义助记词创建钱包
             </Button>

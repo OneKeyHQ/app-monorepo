@@ -7,10 +7,12 @@ import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Anchor,
   AnimatePresence,
+  Dialog,
   Icon,
   Page,
   SizableText,
   Spinner,
+  Toast,
   YStack,
 } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
@@ -22,6 +24,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '../../../components/ListItem';
@@ -113,6 +116,7 @@ function OneKeyIDLoginPage() {
   const navigation = useAppNavigation();
   const [loggingInProvider, setLoggingInProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
+  const [isResetMode, setIsResetMode] = useState(false);
   const route = useAppRoute<
     IOnboardingParamListV2,
     EOnboardingPagesV2.OneKeyIDLogin
@@ -134,17 +138,34 @@ function OneKeyIDLoginPage() {
         setLoggingInProvider(provider);
         const result = await signInWithSocialLogin(provider);
         if (result?.session?.accessToken) {
-          await checkKeylessWalletCreatedOnServer({
-            token: result.session.accessToken,
-            refreshToken: result.session.refreshToken,
-            mode,
-          });
+          if (isResetMode) {
+            await backgroundApiProxy.serviceKeylessWallet.apiResetKeylessBackendShare(
+              {
+                token: result.session.accessToken,
+              },
+            );
+            Toast.success({
+              title: 'Reset Success',
+            });
+            setIsResetMode(false);
+          } else {
+            await checkKeylessWalletCreatedOnServer({
+              token: result.session.accessToken,
+              refreshToken: result.session.refreshToken,
+              mode,
+            });
+          }
         }
       } finally {
         setLoggingInProvider(null);
       }
     },
-    [checkKeylessWalletCreatedOnServer, mode, signInWithSocialLogin],
+    [
+      checkKeylessWalletCreatedOnServer,
+      isResetMode,
+      mode,
+      signInWithSocialLogin,
+    ],
   );
 
   const handleGoogleLogin = useCallback(async () => {
@@ -193,7 +214,10 @@ function OneKeyIDLoginPage() {
                 }
               />
             </YStack>
-            <KeylessOnboardingDebugPanel />
+            <KeylessOnboardingDebugPanel
+              isResetMode={isResetMode}
+              onResetModeChange={setIsResetMode}
+            />
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>

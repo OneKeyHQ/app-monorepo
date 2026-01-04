@@ -7898,6 +7898,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    "@phantom/react-native-juicebox-sdk": "npm:0.3.17"
     "@react-native-async-storage/async-storage": "npm:2.2.0"
     "@react-native-community/netinfo": "npm:11.4.1"
     "@react-native-community/slider": "npm:5.0.1"
@@ -8705,6 +8706,16 @@ __metadata:
     tslib: "npm:^2.6.2"
     webcrypto-core: "npm:^1.8.0"
   checksum: 10/a6658390c37b1d386f46066e796985eb56f6f86a772e1373c364ec9a8257adf8623f156596613d2828b489e2b5f32f9d2b0820289b4981646001cba7d21ae2f6
+  languageName: node
+  linkType: hard
+
+"@phantom/react-native-juicebox-sdk@npm:0.3.17":
+  version: 0.3.17
+  resolution: "@phantom/react-native-juicebox-sdk@npm:0.3.17"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/973046a3144b24dcab4c804ee81e8b108c3ce10408929e409c02ac41e5d636138486f30f5b43f27cef69fda729fdcb16c4d9767712de3eff45d56eeb490136cb
   languageName: node
   linkType: hard
 

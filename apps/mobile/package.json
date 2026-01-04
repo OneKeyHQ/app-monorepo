@@ -54,6 +54,7 @@
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "@onekeyhq/shared": "*",
+    "@phantom/react-native-juicebox-sdk": "0.3.17",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.4.1",
     "@react-native-community/slider": "5.0.1",

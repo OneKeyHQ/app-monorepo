@@ -1188,6 +1188,32 @@ class ServiceKeylessWallet extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async apiResetKeylessBackendShare(params: {
+    token: string;
+  }): Promise<{ ok: boolean }> {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError('Dev settings is not enabled');
+    }
+    const { token } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    // /prime/v1/keyless-wallet/resetKeylessBackendShare
+    const res = await client.post<IApiClientResponse<{ ok: undefined }>>(
+      '/prime/v1/keyless-wallet/resetKeylessBackendShare',
+      {
+        token,
+      },
+    );
+
+    if (res?.data?.code === 0 && res?.data?.message === 'success') {
+      return { ok: true };
+    }
+
+    throw new OneKeyLocalError('Failed to reset keyless backend share');
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async apiUploadKeylessBackendShare(params: {
     token: string;
     encryptedMnemonic: string;
@@ -1266,10 +1292,10 @@ class ServiceKeylessWallet extends ServiceBase {
         juiceboxShare,
         backendShareX,
       };
-    } catch (e) {
-      const error = e as { guesses_remaining: number; reason: number };
-      console.error(e);
-      throw e;
+    } catch (_error) {
+      const error = _error as { guesses_remaining: number; reason: number };
+      console.error(_error);
+      throw _error;
     }
   }
 

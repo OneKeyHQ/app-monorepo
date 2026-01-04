@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { Client, Configuration } from 'juicebox-sdk';
 import { isNil } from 'lodash';
 
 import {
@@ -10,6 +9,8 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
+
+import { Client, Configuration } from './juicebox-sdk';
 
 /**
  * JuiceboxClient - Wrapper for juicebox-sdk to handle keyless wallet shares
