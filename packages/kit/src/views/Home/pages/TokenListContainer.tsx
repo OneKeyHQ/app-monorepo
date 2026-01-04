@@ -1932,24 +1932,24 @@ function TokenListContainer({
   ]);
 
   return (
-      <TokenListView
-        withHeader
-        withFooter
-        withPrice
-        inTabList
-        hideValue
-        withSwapAction
-        accountId={account?.id ?? ''}
-        networkId={network?.id ?? ''}
-        indexedAccountId={indexedAccount?.id ?? ''}
-        allAggregateTokenMap={allAggregateTokenMap}
-        showNetworkIcon={!!network?.isAllNetworks}
-        hideZeroBalanceTokens={!!network?.isAllNetworks}
-        deferTokenManagement={!!network?.isAllNetworks}
-        onRefresh={onHomePageRefresh}
-        manageTokenEnabled={manageTokenEnabled}
-        onManageToken={handleOnManageToken}
-        onPressToken={handleOnPressToken}
+    <TokenListView
+      withHeader
+      withFooter
+      withPrice
+      inTabList
+      hideValue
+      withSwapAction
+      accountId={account?.id ?? ''}
+      networkId={network?.id ?? ''}
+      indexedAccountId={indexedAccount?.id ?? ''}
+      allAggregateTokenMap={allAggregateTokenMap}
+      showNetworkIcon={!!network?.isAllNetworks}
+      hideZeroBalanceTokens={!!network?.isAllNetworks}
+      deferTokenManagement={!!network?.isAllNetworks}
+      onRefresh={onHomePageRefresh}
+      manageTokenEnabled={manageTokenEnabled}
+      onManageToken={handleOnManageToken}
+      onPressToken={handleOnPressToken}
       isAllNetworks={network?.isAllNetworks}
       homeDefaultTokenMap={homeDefaultTokenMap}
       {...(media.gtLg && {

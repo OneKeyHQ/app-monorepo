@@ -24,6 +24,7 @@ import CoreChainNexa from '../chains/nexa';
 import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
 // import CoreChainStc from '../chains/stc';
+import CoreChainStellar from '../chains/stellar';
 import CoreChainSui from '../chains/sui';
 import CoreChainTon from '../chains/ton';
 import CoreChainTron from '../chains/tron';
@@ -92,4 +93,6 @@ export class CoreChainApiHub {
   bfc = new CoreChainBfc();
 
   neo = new CoreChainNeo();
+
+  stellar = new CoreChainStellar();
 }

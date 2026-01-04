@@ -7,6 +7,7 @@ import type {
 
 export function createChartOptions(
   theme: ILightweightChartTheme,
+  showPriceScale = false,
 ): DeepPartial<ChartOptions> {
   return {
     layout: {
@@ -38,7 +39,8 @@ export function createChartOptions(
       lockVisibleTimeRangeOnResize: true,
     },
     rightPriceScale: {
-      visible: false,
+      visible: showPriceScale,
+      borderVisible: false,
     },
     leftPriceScale: {
       visible: false,
@@ -64,12 +66,13 @@ export function createChartOptions(
 
 export function createAreaSeriesOptions(
   theme: ILightweightChartTheme,
+  lineWidth = 3,
 ): AreaSeriesPartialOptions {
   return {
     topColor: theme.topColor,
     bottomColor: theme.bottomColor,
     lineColor: theme.lineColor,
-    lineWidth: 3 as any,
+    lineWidth: lineWidth as any,
     lastValueVisible: false,
     priceLineVisible: false,
     priceFormat: {

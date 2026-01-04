@@ -4,6 +4,7 @@ import {
   resolveTradingSizeBN,
   sanitizeManualSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IConnectionState,
@@ -289,3 +290,31 @@ export const {
     sliderEnabled: maxSizeBN.isFinite() && maxSizeBN.gte(0),
   };
 });
+
+export const perpsCtxByCoinAtomCache = new Map<
+  string,
+  ReturnType<typeof contextAtomComputed<HL.IPerpsAssetCtx | null>>
+>();
+
+function getOrCreateCtxByCoinAtom(dexIndex: number, assetId: number) {
+  const key = `${dexIndex}-${assetId}`;
+  let entry = perpsCtxByCoinAtomCache.get(key);
+  if (!entry) {
+    const ctxIndex = dexIndex === 1 ? assetId - XYZ_ASSET_ID_OFFSET : assetId;
+    entry = contextAtomComputed((get) => {
+      const { assetCtxsByDex } = get(perpsAllAssetCtxsAtom());
+      return assetCtxsByDex?.[dexIndex]?.[ctxIndex] ?? null;
+    });
+    perpsCtxByCoinAtomCache.set(key, entry);
+  }
+  return entry;
+}
+
+export function usePerpsCtxByCoin(
+  dexIndex: number,
+  assetId: number,
+): HL.IPerpsAssetCtx | null {
+  const { use } = getOrCreateCtxByCoinAtom(dexIndex, assetId);
+  const [ctx] = use();
+  return ctx;
+}
