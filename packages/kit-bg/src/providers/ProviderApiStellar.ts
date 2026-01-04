@@ -241,12 +241,18 @@ class ProviderApiStellar extends ProviderApiBase {
     // const { accountInfo: { accountId, networkId, address } = {} } = (
     //   await this.getAccountsInfo(request)
     // )[0];
+    // let resolvedNetworkPassphrase = networkPassphrase;
+    // if (!resolvedNetworkPassphrase) {
+    //   resolvedNetworkPassphrase = getNetworkPassphrase(networkId ?? '');
+    // }
     // const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
     //   request,
     //   unsignedMessage: {
     //     type: EMessageTypesStellar.SIGN_AUTH_ENTRY,
     //     message: authEntry,
-    //     networkPassphrase: networkPassphrase ?? '',
+    //     payload: {
+    //       networkPassphrase: resolvedNetworkPassphrase,
+    //     },
     //   },
     //   accountId: accountId ?? '',
     //   networkId: networkId ?? '',
@@ -264,7 +270,7 @@ class ProviderApiStellar extends ProviderApiBase {
   ): Promise<ISignMessageResult> {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
-    const { message, networkPassphrase } = params;
+    const { message } = params;
 
     if (!message) {
       throw web3Errors.rpc.invalidParams('Message is required');
@@ -279,9 +285,6 @@ class ProviderApiStellar extends ProviderApiBase {
       unsignedMessage: {
         type: EMessageTypesStellar.SIGN_MESSAGE,
         message,
-        payload: {
-          networkPassphrase,
-        },
       },
       accountId: accountId ?? '',
       networkId: networkId ?? '',
