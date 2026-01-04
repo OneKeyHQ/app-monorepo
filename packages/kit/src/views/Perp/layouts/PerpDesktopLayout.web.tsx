@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
+import { FavoritesBar } from '../components/FavoritesBar/FavoritesBar.web';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBookResizable } from '../components/PerpOrderBookResizable.web';
@@ -208,7 +209,7 @@ function PerpDesktopLayout() {
     <YStack flex={1} bg="$bgApp">
       <YStack>
         <PerpTips />
-        <PerpTickerBar />
+        <FavoritesBar />
       </YStack>
 
       <Stack ref={containerRef} flex={1} display="flex">
@@ -240,7 +241,11 @@ function PerpDesktopLayout() {
                     borderBottomColor="$borderSubdued"
                   >
                     <YStack flex={1} position="relative">
-                      <PerpCandles />
+                      <YStack flex={1}>
+                        <PerpTickerBar />
+                        <PerpCandles />
+                      </YStack>
+
                       {gtXl ? (
                         <Stack
                           position="absolute"
