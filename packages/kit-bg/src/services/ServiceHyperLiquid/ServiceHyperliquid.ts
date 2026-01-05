@@ -1624,39 +1624,4 @@ export default class ServiceHyperliquid extends ServiceBase {
       priceScale,
     });
   }
-
-  // ============ Referral Promotion Methods ============
-
-  @backgroundMethod()
-  async checkAccountHasBalance({
-    userAddress,
-  }: {
-    userAddress: string;
-  }): Promise<boolean> {
-    try {
-      const balance =
-        await this.backgroundApi.serviceWebviewPerp.getAccountBalance({
-          userAddress,
-        });
-      return (
-        Number(balance.accountValue) > 0 || Number(balance.withdrawable) > 0
-      );
-    } catch {
-      return false;
-    }
-  }
-
-  @backgroundMethod()
-  async getUserReferralInfo({
-    userAddress,
-  }: {
-    userAddress: string;
-  }): Promise<{ referredBy?: string } | null> {
-    // TODO: Implement Hyperliquid API call to get user referral info
-    // Expected endpoint: POST https://api.hyperliquid.xyz/info
-    // Body: { "type": "referral", "user": userAddress }
-    // For now, return null to indicate no referrer (will show checkbox)
-    void userAddress;
-    return { referredBy: undefined };
-  }
 }

@@ -1,5 +1,6 @@
 import { HttpTransport } from '@nktkas/hyperliquid';
 import { createL1ActionHash } from '@nktkas/hyperliquid/signing';
+import BigNumber from 'bignumber.js';
 
 import {
   backgroundClass,
@@ -91,8 +92,7 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     }
 
     // Condition 4: Account has balance
-    // TODO: Enable real check after testing
-    const hasBalance = true; // await this.checkAccountHasBalance({ userAddress });
+    const hasBalance = await this.checkAccountHasBalance({ userAddress });
     if (!hasBalance) {
       console.log(logPrefix, 'Not showing - account has no balance', {
         userAddress,
@@ -101,8 +101,7 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     }
 
     // Condition 5: No existing referrer
-    // TODO: Implement real check after researching Hyperliquid API
-    const referralInfo = { referredBy: undefined }; // await this.getUserReferralInfo({ userAddress });
+    const referralInfo = await this.getUserReferralInfo({ userAddress });
     if (referralInfo?.referredBy) {
       console.log(logPrefix, 'Not showing - already has referrer', {
         referredBy: referralInfo.referredBy,
@@ -221,11 +220,64 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     return result;
   }
 
-  /**
-   * Get the default referral code.
-   */
   @backgroundMethod()
   async getReferralCode(): Promise<string> {
     return HYPERLIQUID_REFERRAL_CODE;
+  }
+
+  @backgroundMethod()
+  async checkAccountHasBalance({
+    userAddress,
+  }: {
+    userAddress: string;
+  }): Promise<boolean> {
+    // try {
+    //   const balance =
+    //     await this.backgroundApi.serviceWebviewPerp.getAccountBalance({
+    //       userAddress,
+    //     });
+
+    //   const accountValueBN = new BigNumber(balance.accountValue ?? 0);
+    //   const withdrawableBN = new BigNumber(balance.withdrawable ?? 0);
+
+    //   return (
+    //     (accountValueBN.isFinite() && accountValueBN.gt(0)) ||
+    //     (withdrawableBN.isFinite() && withdrawableBN.gt(0))
+    //   );
+    // } catch {
+    //   return false;
+    // }
+    return true;
+  }
+
+  @backgroundMethod()
+  async getUserReferralInfo({
+    userAddress,
+  }: {
+    userAddress: string;
+  }): Promise<{ referredBy?: string } | null> {
+    try {
+      const transport = new HttpTransport();
+      const result = await transport.request<{
+        referredBy?: string | null;
+        [key: string]: unknown;
+      }>('info', {
+        type: 'referral',
+        user: userAddress,
+      });
+
+      console.log('[HyperliquidReferral] getUserReferralInfo result:', {
+        userAddress,
+        referredBy: result?.referredBy,
+      });
+
+      return {
+        referredBy: result?.referredBy ?? undefined,
+      };
+    } catch (error) {
+      console.warn('[HyperliquidReferral] Failed to get referral info:', error);
+      // Return null on error to allow showing checkbox (fail-open)
+      return null;
+    }
   }
 }
