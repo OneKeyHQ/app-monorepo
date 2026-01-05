@@ -4,10 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  usePasswordPersistAtom,
-  usePasswordWebAuthInfoAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { usePasswordWebAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -23,7 +20,6 @@ const WebAuthSwitchContainer = ({
 }: IWebAuthSwitchContainerProps) => {
   const intl = useIntl();
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
-  const [{ webAuthCredentialId: credId }] = usePasswordPersistAtom();
   const { setWebAuthEnable, clearWebAuthCredentialId } = useWebAuthActions();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const onChange = useCallback(

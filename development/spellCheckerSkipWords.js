@@ -1047,4 +1047,5 @@ module.exports = [
   'sponsorable',
   'myonekey',
   'alltime',
+  'Metaplex',
 ];
