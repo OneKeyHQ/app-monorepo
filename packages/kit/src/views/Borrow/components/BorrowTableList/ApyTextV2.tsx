@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -253,7 +253,7 @@ export const ApyTextV2 = ({ apyDetail }: IApyTextV2Props) => {
   }, [deprecated]);
 
   // Render highlight with optional popover
-  const renderHighlightWithPopover = () => {
+  const renderHighlightWithPopover = useCallback(() => {
     if (!highlightElement) return null;
 
     const content = hasDetail ? (
@@ -269,7 +269,7 @@ export const ApyTextV2 = ({ apyDetail }: IApyTextV2Props) => {
     );
 
     return content;
-  };
+  }, [hasDetail, highlightElement, intl, open, popupData, setOpen]);
 
   // Case 1: Both highlight and deprecated exist
   if (highlight && deprecated) {
