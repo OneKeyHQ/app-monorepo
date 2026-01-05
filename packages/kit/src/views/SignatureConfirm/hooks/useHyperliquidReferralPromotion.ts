@@ -7,6 +7,7 @@ import {
   HYPER_LIQUID_ORIGIN,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 interface IUseHyperliquidReferralPromotionParams {
@@ -73,6 +74,12 @@ export function useHyperliquidReferralPromotion({
   const bindReferralCodeAfterSign = useCallback(async () => {
     if (!userAddress || !accountId) return;
 
+    defaultLogger.perp.hyperliquid.referralBindingStep({
+      step: 'start',
+      userAddress,
+      message: 'Starting referral code binding flow',
+    });
+
     try {
       // Update last shown time first
       await backgroundApiProxy.simpleDb.perp.setReferralPromptLastShownTime(
@@ -81,6 +88,12 @@ export function useHyperliquidReferralPromotion({
       );
 
       // Step 1: Build the TypedData for setReferrer
+      defaultLogger.perp.hyperliquid.referralBindingStep({
+        step: 'build_typed_data',
+        userAddress,
+        message: `Building typed data for referral code: ${HYPERLIQUID_REFERRAL_CODE}`,
+      });
+
       const { typedData, action, nonce } =
         await backgroundApiProxy.serviceHyperliquidReferral.buildSetReferrerTypedData(
           {
@@ -89,6 +102,12 @@ export function useHyperliquidReferralPromotion({
         );
 
       // Step 2: Sign the TypedData using serviceSend.signMessage
+      defaultLogger.perp.hyperliquid.referralBindingStep({
+        step: 'sign_message',
+        userAddress,
+        message: `Signing setReferrer typed data: ${JSON.stringify(typedData)}`,
+      });
+
       const signatureHex = await backgroundApiProxy.serviceSend.signMessage({
         unsignedMessage: {
           type: EMessageTypesEth.TYPED_DATA_V4,
@@ -100,11 +119,27 @@ export function useHyperliquidReferralPromotion({
       });
 
       if (!signatureHex || typeof signatureHex !== 'string') {
-        console.warn('[HyperliquidReferral] Failed to sign setReferrer');
+        defaultLogger.perp.hyperliquid.referralBindingStep({
+          step: 'error',
+          userAddress,
+          error: 'Failed to sign setReferrer - invalid signature',
+        });
+        defaultLogger.perp.hyperliquid.referralBindingResult({
+          userAddress,
+          success: false,
+          referralCode: HYPERLIQUID_REFERRAL_CODE,
+          errorMessage: 'Invalid signature returned',
+        });
         return;
       }
 
       // Step 3: Submit the signed request to Hyperliquid API
+      defaultLogger.perp.hyperliquid.referralBindingStep({
+        step: 'submit_request',
+        userAddress,
+        message: `Submitting setReferrer request to Hyperliquid API, signature: ${signatureHex}`,
+      });
+
       const submitResult =
         await backgroundApiProxy.serviceHyperliquidReferral.submitSetReferrerWithSignature(
           {
@@ -115,18 +150,45 @@ export function useHyperliquidReferralPromotion({
         );
 
       if (submitResult.status === 'ok') {
-        console.log('[HyperliquidReferral] Successfully bound referral code');
+        defaultLogger.perp.hyperliquid.referralBindingStep({
+          step: 'complete',
+          userAddress,
+          message: `Successfully bound referral code: ${JSON.stringify(
+            submitResult,
+          )}`,
+        });
+        defaultLogger.perp.hyperliquid.referralBindingResult({
+          userAddress,
+          success: true,
+          referralCode: HYPERLIQUID_REFERRAL_CODE,
+        });
       } else {
-        console.warn(
-          '[HyperliquidReferral] Failed to bind referral code:',
-          submitResult,
-        );
+        defaultLogger.perp.hyperliquid.referralBindingStep({
+          step: 'error',
+          userAddress,
+          error: `API returned non-ok status: ${JSON.stringify(submitResult)}`,
+        });
+        defaultLogger.perp.hyperliquid.referralBindingResult({
+          userAddress,
+          success: false,
+          referralCode: HYPERLIQUID_REFERRAL_CODE,
+          errorMessage: `API status: ${submitResult.status}`,
+        });
       }
     } catch (error) {
-      console.warn(
-        '[HyperliquidReferral] Failed to bind referral code:',
-        error,
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      defaultLogger.perp.hyperliquid.referralBindingStep({
+        step: 'error',
+        userAddress,
+        error: errorMessage,
+      });
+      defaultLogger.perp.hyperliquid.referralBindingResult({
+        userAddress,
+        success: false,
+        referralCode: HYPERLIQUID_REFERRAL_CODE,
+        errorMessage,
+      });
       // Silent failure - don't affect signing result
     }
   }, [userAddress, accountId]);

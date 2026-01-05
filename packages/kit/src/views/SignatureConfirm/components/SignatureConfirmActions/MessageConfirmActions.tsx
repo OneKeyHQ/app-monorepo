@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   validateSignMessageData,
@@ -103,6 +104,39 @@ function MessageConfirmActions(props: IProps) {
     userAddress: accountAddress ?? '',
     unsignedMessage: unsignedMessage.message,
   });
+
+  // Log when referral checkbox is shown
+  const hasLoggedShownRef = useRef(false);
+  useEffect(() => {
+    if (
+      shouldShowReferralCheckbox &&
+      accountAddress &&
+      !hasLoggedShownRef.current
+    ) {
+      hasLoggedShownRef.current = true;
+      defaultLogger.perp.hyperliquid.referralCheckboxInteraction({
+        userAddress: accountAddress,
+        isChecked: isReferralChecked,
+        action: 'shown',
+      });
+    }
+  }, [shouldShowReferralCheckbox, accountAddress, isReferralChecked]);
+
+  // Handler for referral checkbox change with logging
+  const handleReferralCheckboxChange = useCallback(
+    (checked: boolean | 'indeterminate') => {
+      const isChecked = !!checked;
+      setIsReferralChecked(isChecked);
+      if (accountAddress) {
+        defaultLogger.perp.hyperliquid.referralCheckboxInteraction({
+          userAddress: accountAddress,
+          isChecked,
+          action: isChecked ? 'checked' : 'unchecked',
+        });
+      }
+    },
+    [setIsReferralChecked, accountAddress],
+  );
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -317,7 +351,7 @@ function MessageConfirmActions(props: IProps) {
                 id: ETranslations.wallet_use_onekey_hl_discount,
               })}
               value={isReferralChecked}
-              onChange={(checked) => setIsReferralChecked(!!checked)}
+              onChange={handleReferralCheckboxChange}
             />
           ) : null}
         </Stack>

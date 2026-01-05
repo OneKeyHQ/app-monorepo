@@ -1,6 +1,5 @@
 import { HttpTransport } from '@nktkas/hyperliquid';
 import { createL1ActionHash } from '@nktkas/hyperliquid/signing';
-import BigNumber from 'bignumber.js';
 
 import {
   backgroundClass,
@@ -10,6 +9,7 @@ import {
   HYPERLIQUID_REFERRAL_CODE,
   HYPER_LIQUID_ORIGIN,
 } from '@onekeyhq/shared/src/consts/perp';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -44,15 +44,8 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     userAddress: string;
     isApproveAgentSign: boolean;
   }): Promise<{ shouldShow: boolean; reason?: string }> {
-    const logPrefix = '[HyperliquidReferral] checkReferralPromotionConditions:';
-
     // Condition 1: Origin must be Hyperliquid and must be approveAgent sign
     if (origin !== HYPER_LIQUID_ORIGIN || !isApproveAgentSign) {
-      console.log(
-        logPrefix,
-        'Not showing - origin mismatch or not approveAgent sign',
-        { origin, expected: HYPER_LIQUID_ORIGIN, isApproveAgentSign },
-      );
       return { shouldShow: false, reason: 'not_hyperliquid_approve_agent' };
     }
 
@@ -62,11 +55,13 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     const isImported = accountUtils.isImportedAccount({ accountId });
     const isValidAccountType = isHd || isHw || isImported;
     if (!isValidAccountType) {
-      console.log(logPrefix, 'Not showing - invalid account type', {
-        accountId,
-        isHd,
-        isHw,
-        isImported,
+      defaultLogger.perp.hyperliquid.referralConditionCheck({
+        userAddress,
+        condition: 'account_type',
+        passed: false,
+        reason: `isHd=${String(isHd)}, isHw=${String(
+          isHw,
+        )}, isImported=${String(isImported)}`,
       });
       return { shouldShow: false, reason: 'invalid_account_type' };
     }
@@ -81,12 +76,13 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
       Date.now() - lastShownTime < REFERRAL_PROMPT_COOLDOWN_MS
     ) {
       const daysSinceLastShown = Math.floor(
-        (Date.now() - lastShownTime) / (24 * 60 * 60 * 1000),
+        (Date.now() - lastShownTime) / timerUtils.getTimeDurationMs({ day: 1 }),
       );
-      console.log(logPrefix, 'Not showing - shown recently', {
-        daysSinceLastShown,
-        cooldownDays: 7,
+      defaultLogger.perp.hyperliquid.referralConditionCheck({
         userAddress,
+        condition: 'cooldown_period',
+        passed: false,
+        reason: `daysSinceLastShown=${daysSinceLastShown}, cooldownDays=7`,
       });
       return { shouldShow: false, reason: 'shown_recently' };
     }
@@ -94,8 +90,11 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     // Condition 4: Account has balance
     const hasBalance = await this.checkAccountHasBalance({ userAddress });
     if (!hasBalance) {
-      console.log(logPrefix, 'Not showing - account has no balance', {
+      defaultLogger.perp.hyperliquid.referralConditionCheck({
         userAddress,
+        condition: 'account_balance',
+        passed: false,
+        reason: 'no_balance',
       });
       return { shouldShow: false, reason: 'no_balance' };
     }
@@ -103,14 +102,20 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     // Condition 5: No existing referrer
     const referralInfo = await this.getUserReferralInfo({ userAddress });
     if (referralInfo?.referredBy) {
-      console.log(logPrefix, 'Not showing - already has referrer', {
-        referredBy: referralInfo.referredBy,
+      defaultLogger.perp.hyperliquid.referralConditionCheck({
         userAddress,
+        condition: 'existing_referrer',
+        passed: false,
+        reason: `referredBy=${referralInfo.referredBy}`,
       });
       return { shouldShow: false, reason: 'already_has_referrer' };
     }
 
-    console.log(logPrefix, 'Showing referral checkbox', { userAddress });
+    defaultLogger.perp.hyperliquid.referralConditionCheck({
+      userAddress,
+      condition: 'all_conditions',
+      passed: true,
+    });
     return { shouldShow: true };
   }
 
@@ -193,6 +198,12 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     nonce: number;
     signatureHex: string;
   }): Promise<{ status: string; response?: unknown }> {
+    defaultLogger.perp.hyperliquid.referralBindingStep({
+      step: 'submit_request',
+      userAddress: 'service',
+      message: `Submitting setReferrer with code: ${action.code}`,
+    });
+
     // Parse signature hex to r, s, v format
     const sig = signatureHex.startsWith('0x')
       ? signatureHex.slice(2)
@@ -217,10 +228,11 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
       nonce,
     });
 
-    console.log(
-      '[HyperliquidReferral] submitSetReferrerWithSignature result: ',
-      result,
-    );
+    defaultLogger.perp.hyperliquid.referralBindingStep({
+      step: 'complete',
+      userAddress: 'service',
+      message: `Submit result status: ${result.status}`,
+    });
 
     return result;
   }
@@ -271,16 +283,25 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
         user: userAddress,
       });
 
-      console.log('[HyperliquidReferral] getUserReferralInfo result:', {
+      defaultLogger.perp.hyperliquid.referralConditionCheck({
         userAddress,
-        referredBy: result?.referredBy,
+        condition: 'get_referral_info',
+        passed: true,
+        reason: `referredBy=${result?.referredBy ?? 'none'}`,
       });
 
       return {
         referredBy: result?.referredBy ?? undefined,
       };
     } catch (error) {
-      console.warn('[HyperliquidReferral] Failed to get referral info:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      defaultLogger.perp.hyperliquid.referralConditionCheck({
+        userAddress,
+        condition: 'get_referral_info',
+        passed: false,
+        reason: `error: ${errorMessage}`,
+      });
       // Return null on error to allow showing checkbox (fail-open)
       return null;
     }
