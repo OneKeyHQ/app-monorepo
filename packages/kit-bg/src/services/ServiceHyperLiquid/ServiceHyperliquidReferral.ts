@@ -1,5 +1,6 @@
 import { HttpTransport } from '@nktkas/hyperliquid';
 import { createL1ActionHash } from '@nktkas/hyperliquid/signing';
+import BigNumber from 'bignumber.js';
 
 import {
   backgroundClass,
@@ -358,23 +359,22 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
   }: {
     userAddress: string;
   }): Promise<boolean> {
-    // try {
-    //   const balance =
-    //     await this.backgroundApi.serviceWebviewPerp.getAccountBalance({
-    //       userAddress,
-    //     });
+    try {
+      const balance =
+        await this.backgroundApi.serviceWebviewPerp.getAccountBalance({
+          userAddress,
+        });
 
-    //   const accountValueBN = new BigNumber(balance.accountValue ?? 0);
-    //   const withdrawableBN = new BigNumber(balance.withdrawable ?? 0);
+      const accountValueBN = new BigNumber(balance.accountValue ?? 0);
+      const withdrawableBN = new BigNumber(balance.withdrawable ?? 0);
 
-    //   return (
-    //     (accountValueBN.isFinite() && accountValueBN.gt(0)) ||
-    //     (withdrawableBN.isFinite() && withdrawableBN.gt(0))
-    //   );
-    // } catch {
-    //   return false;
-    // }
-    return true;
+      return (
+        (accountValueBN.isFinite() && accountValueBN.gt(0)) ||
+        (withdrawableBN.isFinite() && withdrawableBN.gt(0))
+      );
+    } catch {
+      return false;
+    }
   }
 
   @backgroundMethod()
