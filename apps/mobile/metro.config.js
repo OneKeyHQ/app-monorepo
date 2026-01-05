@@ -10,6 +10,7 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
 const path = require('path');
 const fs = require('fs-extra');
+const { resolve } = require('metro-resolver');
 const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 // const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
@@ -52,6 +53,18 @@ config.resolver.extraNodeModules = {
 
 // Fix for Metro resolver with "subpath exports"
 config.resolver.unstable_enablePackageExports = false;
+
+// Manual alias for a subpath export when package exports are disabled.
+const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === '@nktkas/hyperliquid/signing') {
+    return {
+      type: 'sourceFile',
+      filePath: hyperliquidSigningPath,
+    };
+  }
+  return resolve(context, moduleName, platform);
+};
 
 // ---- Optional monorepo setup for Yarn workspaces (commented) ----
 // const workspaceRoot = path.resolve(projectRoot, '../..');

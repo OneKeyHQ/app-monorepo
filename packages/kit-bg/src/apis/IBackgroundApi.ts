@@ -45,6 +45,7 @@ import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
+import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
@@ -223,6 +224,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   servicePrimeTransfer: ServicePrimeTransfer;
   serviceHyperliquid: ServiceHyperliquid;
   serviceHyperliquidExchange: ServiceHyperliquidExchange;
+  serviceHyperliquidReferral: ServiceHyperliquidReferral;
   serviceHyperliquidWallet: ServiceHyperliquidWallet;
   serviceHyperliquidSubscription: ServiceHyperliquidSubscription;
 
