@@ -325,7 +325,7 @@ function MobileTokenSelectorModal({
         borderBottomColor="$borderSubdued"
       >
         <XStack flex={1}>
-          {(['all', 'hip3', 'favorites'] as const).map((tabKey) => (
+          {(['favorites', 'all', 'hip3'] as const).map((tabKey) => (
             <TabItem
               key={tabKey}
               name={TAB_LABELS[tabKey]}

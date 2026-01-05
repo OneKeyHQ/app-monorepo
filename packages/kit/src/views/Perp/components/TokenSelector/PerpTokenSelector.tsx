@@ -544,6 +544,11 @@ function BasePerpTokenSelectorContent({
             />
           )}
         >
+          <Tabs.Tab name={tabNames.favorites}>
+            {activeTab === 'favorites'
+              ? renderTokenList(listDataByTab.favorites, listRefFavorites)
+              : null}
+          </Tabs.Tab>
           <Tabs.Tab name={tabNames.all}>
             {activeTab === 'all'
               ? renderTokenList(listDataByTab.all, listRefAll, false)
@@ -552,11 +557,6 @@ function BasePerpTokenSelectorContent({
           <Tabs.Tab name={tabNames.hip3}>
             {activeTab === 'hip3'
               ? renderTokenList(listDataByTab.hip3, listRefHip3, false)
-              : null}
-          </Tabs.Tab>
-          <Tabs.Tab name={tabNames.favorites}>
-            {activeTab === 'favorites'
-              ? renderTokenList(listDataByTab.favorites, listRefFavorites, true)
               : null}
           </Tabs.Tab>
         </Tabs.Container>
