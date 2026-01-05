@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, SizableText } from '@onekeyhq/components';
+import { Alert } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 

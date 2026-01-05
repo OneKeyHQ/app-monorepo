@@ -21,8 +21,6 @@ interface IEmptyHistoryProps {
   showViewInExplorer?: boolean;
   isSingleAccount?: boolean;
   tokenMap?: Record<string, ITokenFiat>;
-  emptyTitle?: string;
-  emptyDescription?: string;
 }
 
 function EmptyHistory({
@@ -33,8 +31,6 @@ function EmptyHistory({
   isSingleAccount,
   tokenMap,
   showViewInExplorer,
-  emptyTitle,
-  emptyDescription,
 }: IEmptyHistoryProps) {
   const intl = useIntl();
   const { account, network, vaultSettings } = useAccountData({
