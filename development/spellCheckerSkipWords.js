@@ -1046,4 +1046,5 @@ module.exports = [
   'Megafuel',
   'sponsorable',
   'myonekey',
+  'alltime',
 ];
