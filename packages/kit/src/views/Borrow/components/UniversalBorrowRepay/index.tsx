@@ -7,7 +7,6 @@ import { Keyboard, StyleSheet } from 'react-native';
 
 import {
   Alert,
-  Divider,
   Icon,
   Page,
   Stack,
@@ -29,7 +28,6 @@ import {
   useOnBlurAmountValue,
 } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
-import { TradeOrBuy } from '@onekeyhq/kit/src/views/Staking/components/TradeOrBuy';
 import { countDecimalPlaces } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -37,7 +35,6 @@ import type {
   IBorrowAsset,
   IEarnTokenInfo,
 } from '@onekeyhq/shared/types/staking';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
@@ -268,11 +265,6 @@ export function UniversalBorrowRepay({
       setSubmitting(false);
     }
   }, [amountValue, isRepayAll, onConfirm]);
-
-  const token = useMemo(
-    () => tokenInfo?.token as IToken | undefined,
-    [tokenInfo?.token],
-  );
 
   // Wrap onTokenSelect to clear amount when token changes
   const handleTokenSelectInternal = useCallback(
@@ -542,22 +534,6 @@ export function UniversalBorrowRepay({
             </BorrowInfoItem>
           ) : null}
         </YStack>
-        {token &&
-        (transactionConfirmation?.healthFactor ||
-          transactionConfirmation?.myBorrow ||
-          (showApyDetail && transactionConfirmation?.apyDetail)) ? (
-          <Divider my="$5" />
-        ) : null}
-        {token ? (
-          <TradeOrBuy
-            token={token}
-            accountId={accountId}
-            networkId={networkId}
-            containerStyle={{
-              pt: '$0',
-            }}
-          />
-        ) : null}
       </YStack>
 
       {beforeFooter}
