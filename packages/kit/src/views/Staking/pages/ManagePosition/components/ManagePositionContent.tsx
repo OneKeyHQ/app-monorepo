@@ -423,6 +423,8 @@ export function ManagePositionContent({
     symbol,
     fallbackTokenImageUri,
     appNavigation,
+    accountId,
+    indexedAccountId,
     gtMd,
     intl,
   ]);

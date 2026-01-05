@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useTheme } from '@tamagui/core';
-import { createChart, LineType } from 'lightweight-charts';
+import { LineType, createChart } from 'lightweight-charts';
 import { useIntl } from 'react-intl';
 
 import {
