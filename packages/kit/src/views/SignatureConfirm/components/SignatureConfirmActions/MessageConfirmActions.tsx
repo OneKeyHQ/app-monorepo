@@ -313,7 +313,9 @@ function MessageConfirmActions(props: IProps) {
           ) : null}
           {shouldShowReferralCheckbox ? (
             <Checkbox
-              label="Bind OneKey referral code for trading rebates"
+              label={intl.formatMessage({
+                id: ETranslations.wallet_use_onekey_hl_discount,
+              })}
               value={isReferralChecked}
               onChange={(checked) => setIsReferralChecked(!!checked)}
             />

@@ -217,6 +217,11 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
       nonce,
     });
 
+    console.log(
+      '[HyperliquidReferral] submitSetReferrerWithSignature result: ',
+      result,
+    );
+
     return result;
   }
 
