@@ -73,6 +73,36 @@ function OrderConfirmContent({
     return sizeString;
   }, [computedSizeForSide, szDecimals, selectedSymbol?.coin]);
 
+  const priceDisplay = useMemo(() => {
+    if (formData.type === 'market' || !formData.price) {
+      return (
+        <SizableText size="$bodyMdMedium">
+          {appLocale.intl.formatMessage({
+            id: ETranslations.perp_trade_market,
+          })}
+        </SizableText>
+      );
+    }
+
+    if (formData.bboPriceMode) {
+      const { type } = formData.bboPriceMode;
+      const modeName = intl.formatMessage({
+        id:
+          type === 'counterparty'
+            ? ETranslations.Perps_BBO_Counterparty
+            : ETranslations.Perps_BBO_Queue,
+      });
+
+      return (
+        <YStack alignItems="flex-end" gap="$1">
+          <SizableText size="$bodyMdMedium">{modeName}</SizableText>
+        </YStack>
+      );
+    }
+
+    return <SizableText size="$bodyMdMedium">$ {formData.price}</SizableText>;
+  }, [formData.type, formData.price, formData.bboPriceMode, intl]);
+
   const buttonText = useMemo(() => {
     if (isSubmitting) {
       return appLocale.intl.formatMessage({
@@ -132,15 +162,7 @@ function OrderConfirmContent({
               id: ETranslations.perp_orderbook_price,
             })}
           </SizableText>
-          {formData.type === 'market' || !formData.price ? (
-            <SizableText size="$bodyMdMedium">
-              {appLocale.intl.formatMessage({
-                id: ETranslations.perp_trade_market,
-              })}
-            </SizableText>
-          ) : (
-            <SizableText size="$bodyMdMedium">$ {formData.price}</SizableText>
-          )}
+          {priceDisplay}
         </XStack>
 
         {/* Liquidation Price */}

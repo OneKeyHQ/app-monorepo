@@ -17,6 +17,8 @@ export interface ILightweightChartData {
 export interface ILightweightChartConfig {
   theme: ILightweightChartTheme;
   data: ILightweightChartData[];
+  lineWidth: number;
+  showPriceScale?: boolean;
 }
 
 export interface ILightweightChartProps {
@@ -25,6 +27,8 @@ export interface ILightweightChartProps {
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;
+  lineWidth?: number;
+  showPriceScale?: boolean;
   onHover?: (data: {
     time?: number;
     price?: number;

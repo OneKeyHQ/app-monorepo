@@ -2006,6 +2006,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         allAggregateTokenMap={allAggregateTokenMap}
         showNetworkIcon={!!network?.isAllNetworks}
         hideZeroBalanceTokens={!!network?.isAllNetworks}
+        deferTokenManagement={!!network?.isAllNetworks}
         manageTokenEnabled={manageTokenEnabled}
         onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}

@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
+  bboAtom,
   connectionStateAtom,
   contextAtomMethod,
   l2BookAtom,
@@ -425,6 +426,42 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(l2BookAtom(), null);
       }
     }
+  });
+
+  updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo) => {
+    const activeAsset = await perpsActiveAssetAtom.get();
+    if (!data) {
+      return;
+    }
+    if (activeAsset?.coin !== data.coin) {
+      const currentBbo = get(bboAtom());
+      if (currentBbo?.coin && currentBbo?.coin !== activeAsset?.coin) {
+        set(bboAtom(), null);
+      }
+      return;
+    }
+
+    // Only update if price changes (ignore size and count changes)
+    const currentBbo = get(bboAtom());
+    if (currentBbo) {
+      const currentBidPx = currentBbo.bbo[0]?.px;
+      const currentAskPx = currentBbo.bbo[1]?.px;
+      const newBidPx = data.bbo[0]?.px;
+      const newAskPx = data.bbo[1]?.px;
+
+      if (
+        currentBidPx != null &&
+        currentAskPx != null &&
+        newBidPx != null &&
+        newAskPx != null &&
+        currentBidPx === newBidPx &&
+        currentAskPx === newAskPx
+      ) {
+        return;
+      }
+    }
+
+    set(bboAtom(), data);
   });
 
   ensureOrderBookTickOptionsLoaded = contextAtomMethod(async (_get, set) => {
@@ -1273,6 +1310,7 @@ export function useHyperliquidActions() {
   const markAllAssetCtxsRequired = actions.markAllAssetCtxsRequired.use();
   const markAllAssetCtxsNotRequired = actions.markAllAssetCtxsNotRequired.use();
   const updateL2Book = actions.updateL2Book.use();
+  const updateBbo = actions.updateBbo.use();
   const updateConnectionState = actions.updateConnectionState.use();
 
   const updateSubscriptions = actions.updateSubscriptions.use();
@@ -1322,6 +1360,7 @@ export function useHyperliquidActions() {
     updateWebData2,
     updateLedgerUpdates,
     updateL2Book,
+    updateBbo,
     updateConnectionState,
     changeActiveAsset,
     changeActivePerpsAccount,

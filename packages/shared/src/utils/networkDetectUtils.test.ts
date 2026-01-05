@@ -234,6 +234,17 @@ describe('Network Detection by Private Key', () => {
       );
     });
 
+    test('detects Aptos (ed25519-priv-0x-prefixed)', async () => {
+      const privateKey =
+        'ed25519-priv-0x25cb5c737d8bff654fc62a6af4b00224f3a4b5c963a898a7e8ea9f08cbda5b2a';
+      const result = await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.aptos),
+      );
+    });
+
     test('detects Sui (0x-prefixed)', async () => {
       const privateKey =
         '0x644fedb8ebfec83d4a1cc983beb499048f8199bf72c8e8e57d5775603b8c5dd1';
@@ -411,6 +422,18 @@ describe('Network Detection by Private Key', () => {
       });
       expect(result.networks).toContainEqual(
         networkDetectUtils.buildDetectedNetwork(presetNetworksMap.ripple),
+      );
+    });
+  });
+  describe('Stellar - Secret Seed', () => {
+    test('detects Stellar (S... 56 chars, base32)', async () => {
+      const privateKey =
+        'SDK6NSLLKX5UE3DSXGK56MEMTZBOJ6XT3LLA33BEAZUYGO6TXMHNRUPB';
+      const result = await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.stellar),
       );
     });
   });

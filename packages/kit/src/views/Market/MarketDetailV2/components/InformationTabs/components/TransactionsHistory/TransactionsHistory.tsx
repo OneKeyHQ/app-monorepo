@@ -27,6 +27,7 @@ import { TransactionItemNormal } from './layout/TransactionItemNormal/Transactio
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 
 import type { FlatListProps } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 
 interface ITransactionsHistoryProps {
   tokenAddress: string;
@@ -39,9 +40,8 @@ const useScrollEnd = platformEnv.isNative
       const scrollY = useCurrentTabScrollY();
 
       const debouncedOnScrollEnd = useDebouncedCallback(onScrollEnd, 150);
-
       useAnimatedReaction(
-        () => scrollY.value,
+        () => (scrollY as SharedValue<number>).value,
         (current, prev) => {
           if (current !== prev) {
             runOnJS(debouncedOnScrollEnd)();

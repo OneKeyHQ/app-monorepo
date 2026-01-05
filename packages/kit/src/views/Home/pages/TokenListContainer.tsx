@@ -1945,6 +1945,7 @@ function TokenListContainer({
       allAggregateTokenMap={allAggregateTokenMap}
       showNetworkIcon={!!network?.isAllNetworks}
       hideZeroBalanceTokens={!!network?.isAllNetworks}
+      deferTokenManagement={!!network?.isAllNetworks}
       onRefresh={onHomePageRefresh}
       manageTokenEnabled={manageTokenEnabled}
       onManageToken={handleOnManageToken}

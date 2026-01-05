@@ -22,8 +22,8 @@ export enum ESubscriptionType {
   OPEN_ORDERS = 'openOrders',
   ALL_DEXS_ASSET_CTXS = 'allDexsAssetCtxs',
   TWAP_STATES = 'twapStates',
+  BBO = 'bbo',
   // TRADES = 'trades',
-  // BBO = 'bbo',
   // USER_EVENTS = 'userEvents',
   // USER_NOTIFICATIONS = 'userNotifications',
 }
@@ -219,7 +219,7 @@ export enum EPerpsSizeInputMode {
 }
 
 // Token Selector Types
-export type IPerpTokenSelectorTab = 'all' | 'hip3';
+export type IPerpTokenSelectorTab = 'all' | 'hip3' | 'favorites';
 
 export type IPerpTokenSortField =
   | 'name'

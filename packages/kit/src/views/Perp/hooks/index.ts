@@ -2,6 +2,7 @@ export { usePerpsActivePositionAtom } from '../../../states/jotai/contexts/hyper
 export { usePerpsActiveOpenOrdersAtom } from '../../../states/jotai/contexts/hyperliquid/atoms';
 export { usePerpTokenSelector } from './usePerpTokenSelector';
 export { usePerpSession } from './usePerpSession';
+export { usePerpsFavorites, type IFavoriteItem } from './usePerpsFavorites';
 
 export { useFundingCountdown } from './useFundingCountdown';
 export { useOrderConfirm } from './useOrderConfirm';
