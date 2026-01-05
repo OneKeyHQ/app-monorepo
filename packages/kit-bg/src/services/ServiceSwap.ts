@@ -68,6 +68,7 @@ import type {
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  ILMTronObject,
   IOKXTransactionObject,
   IPerpDepositQuoteResponse,
   IPopularTrading,
@@ -1888,6 +1889,21 @@ export default class ServiceSwap extends ServiceBase {
       okxTx: params.okxTx,
       fromTokenInfo: params.fromTokenInfo,
       type: params.type,
+    });
+  }
+
+  @backgroundMethod()
+  async buildLMSwapEncodedTx(params: {
+    accountId: string;
+    networkId: string;
+    lmTx: ILMTronObject;
+  }) {
+    const vault = await vaultFactory.getVault({
+      accountId: params.accountId,
+      networkId: params.networkId,
+    });
+    return vault.buildLiquidMeshSwapEncodedTx({
+      lmTx: params.lmTx,
     });
   }
 
