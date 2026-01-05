@@ -136,6 +136,13 @@ function MessageConfirmActions(props: IProps) {
             action: isChecked ? 'checked' : 'unchecked',
           },
         );
+        // Save opt-out preference when user unchecks the checkbox
+        void backgroundApiProxy.serviceHyperliquidReferral.setReferralPromptOptedOut(
+          {
+            userAddress: accountAddress,
+            optedOut: !isChecked,
+          },
+        );
       }
     },
     [setIsReferralChecked, accountAddress],

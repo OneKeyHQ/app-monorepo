@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -7,6 +9,7 @@ import {
   HYPER_LIQUID_ORIGIN,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
+import type { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 interface IUseHyperliquidReferralPromotionParams {
@@ -30,7 +33,7 @@ export function useHyperliquidReferralPromotion({
   userAddress,
   unsignedMessage,
 }: IUseHyperliquidReferralPromotionParams): IUseHyperliquidReferralPromotionResult {
-  const [isReferralChecked, setIsReferralChecked] = useState(true); // Default checked
+  const [isReferralChecked, setIsReferralChecked] = useState(true); // Default checked, will be updated by opt-out check
 
   // Check if this is a Hyperliquid approveAgent signature
   const isApproveAgentSign = useMemo(() => {
@@ -50,6 +53,25 @@ export function useHyperliquidReferralPromotion({
       return false;
     }
   }, [origin, unsignedMessage]);
+
+  // Check opt-out preference and set default checkbox state
+  const { result: optOutResult } = usePromiseResult(async () => {
+    if (!userAddress) {
+      return { optedOut: false };
+    }
+    const optedOut =
+      await backgroundApiProxy.serviceHyperliquidReferral.getReferralPromptOptedOut(
+        { userAddress },
+      );
+    return { optedOut };
+  }, [userAddress]);
+
+  // Update checkbox state based on opt-out preference
+  useEffect(() => {
+    if (optOutResult?.optedOut) {
+      setIsReferralChecked(false);
+    }
+  }, [optOutResult?.optedOut]);
 
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -214,6 +236,20 @@ export function useHyperliquidReferralPromotion({
           errorMessage,
         },
       );
+
+      // If user rejected/cancelled signing (HW wallet rejection or user cancel),
+      // save opt-out preference so checkbox defaults to unchecked next time
+      const isUserRejection =
+        (error as OneKeyHardwareError)?.code ===
+        HardwareErrorCode.ActionCancelled;
+      if (isUserRejection) {
+        void backgroundApiProxy.serviceHyperliquidReferral.setReferralPromptOptedOut(
+          {
+            userAddress,
+            optedOut: true,
+          },
+        );
+      }
       // Silent failure - don't affect signing result
     }
   }, [userAddress, accountId]);

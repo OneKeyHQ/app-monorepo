@@ -314,6 +314,44 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     });
   }
 
+  /**
+   * Get whether user has opted out of referral promotion
+   */
+  @backgroundMethod()
+  async getReferralPromptOptedOut({
+    userAddress,
+  }: {
+    userAddress: string;
+  }): Promise<boolean> {
+    return this.backgroundApi.simpleDb.perp.getReferralPromptOptedOut(
+      userAddress,
+    );
+  }
+
+  /**
+   * Set user's referral promotion opt-out preference
+   * Called when user unchecks the checkbox or HW wallet rejects signature
+   */
+  @backgroundMethod()
+  async setReferralPromptOptedOut({
+    userAddress,
+    optedOut,
+  }: {
+    userAddress: string;
+    optedOut: boolean;
+  }): Promise<void> {
+    await this.backgroundApi.simpleDb.perp.setReferralPromptOptedOut(
+      userAddress,
+      optedOut,
+    );
+    defaultLogger.perp.hyperliquid.referralConditionCheck({
+      userAddress,
+      condition: 'opt_out_preference_set',
+      passed: !optedOut,
+      reason: `optedOut=${String(optedOut)}`,
+    });
+  }
+
   @backgroundMethod()
   async checkAccountHasBalance({
     userAddress,
