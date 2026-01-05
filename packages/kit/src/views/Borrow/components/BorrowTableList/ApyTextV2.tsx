@@ -167,7 +167,10 @@ function ApyDetailPopoverContent({
       />
 
       {/* Collateral Bonus section */}
-      <ApyDetailSection section={popupData?.apyDetail.collateralBonus} />
+      <ApyDetailSection
+        section={popupData?.apyDetail.collateralBonus}
+        showDivider={!!popupData?.apyDetail.supplyBonus}
+      />
 
       {/* Supply Bonus section */}
       <ApyDetailSection section={popupData?.apyDetail.supplyBonus} />
