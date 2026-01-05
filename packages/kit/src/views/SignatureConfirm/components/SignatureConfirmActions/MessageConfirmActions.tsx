@@ -161,13 +161,9 @@ function MessageConfirmActions(props: IProps) {
           networkId,
           accountId,
         });
-        void dappApprove.resolve({
-          result,
-        });
-        isSubmitted.current = true;
-        onSuccess?.(result);
 
-        // Bind referral code after successful approveAgent signature
+        // Bind referral code BEFORE resolving dappApprove
+        // This ensures the referral binding completes before the window closes
         if (isReferralChecked && shouldShowReferralCheckbox) {
           try {
             await bindReferralCodeAfterSign();
@@ -179,6 +175,12 @@ function MessageConfirmActions(props: IProps) {
             );
           }
         }
+
+        void dappApprove.resolve({
+          result,
+        });
+        isSubmitted.current = true;
+        onSuccess?.(result);
 
         try {
           await backgroundApiProxy.serviceSignature.addItemFromSignMessage({

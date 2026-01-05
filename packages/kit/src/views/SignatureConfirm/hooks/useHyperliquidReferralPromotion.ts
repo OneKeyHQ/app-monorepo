@@ -57,7 +57,7 @@ export function useHyperliquidReferralPromotion({
         return { shouldShow: false };
       }
 
-      return backgroundApiProxy.serviceHyperliquid.checkReferralPromotionConditions(
+      return backgroundApiProxy.serviceHyperliquidReferral.checkReferralPromotionConditions(
         {
           origin,
           accountId,
@@ -82,9 +82,11 @@ export function useHyperliquidReferralPromotion({
 
       // Step 1: Build the TypedData for setReferrer
       const { typedData, action, nonce } =
-        await backgroundApiProxy.serviceHyperliquid.buildSetReferrerTypedData({
-          code: HYPERLIQUID_REFERRAL_CODE,
-        });
+        await backgroundApiProxy.serviceHyperliquidReferral.buildSetReferrerTypedData(
+          {
+            code: HYPERLIQUID_REFERRAL_CODE,
+          },
+        );
 
       // Step 2: Sign the TypedData using serviceSend.signMessage
       const signatureHex = await backgroundApiProxy.serviceSend.signMessage({
@@ -104,7 +106,7 @@ export function useHyperliquidReferralPromotion({
 
       // Step 3: Submit the signed request to Hyperliquid API
       const submitResult =
-        await backgroundApiProxy.serviceHyperliquid.submitSetReferrerWithSignature(
+        await backgroundApiProxy.serviceHyperliquidReferral.submitSetReferrerWithSignature(
           {
             action,
             nonce,
