@@ -19,6 +19,7 @@
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache && yarn android:clean",
     "android:clean": "./android/gradlew clean -p ./android",
     "android:dependencies": "./android/gradlew dependencies -p ./android",
+    "eas-build-pre-install": "git config --global url.\"https://github.com/juicebox-systems/\".insteadOf \"git@github.com:juicebox-systems/\"",
     "eas-build-post-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/@onekeyfe/react-native-lite-card/keys/keys.secret",
     "_folderslint": "yarn folderslint"
   },
