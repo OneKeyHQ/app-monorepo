@@ -1,3 +1,5 @@
+import { createL1ActionHash } from '@nktkas/hyperliquid/signing';
+import { HttpTransport } from '@nktkas/hyperliquid';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
 import { isEqual, isNil, omit } from 'lodash';
@@ -1623,5 +1625,209 @@ export default class ServiceHyperliquid extends ServiceBase {
       symbol,
       priceScale,
     });
+  }
+
+  // ============ Referral Promotion Methods ============
+
+  @backgroundMethod()
+  async checkAccountHasBalance({
+    userAddress,
+  }: {
+    userAddress: string;
+  }): Promise<boolean> {
+    try {
+      const balance =
+        await this.backgroundApi.serviceWebviewPerp.getAccountBalance({
+          userAddress,
+        });
+      return (
+        Number(balance.accountValue) > 0 || Number(balance.withdrawable) > 0
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  @backgroundMethod()
+  async getUserReferralInfo({
+    userAddress,
+  }: {
+    userAddress: string;
+  }): Promise<{ referredBy?: string } | null> {
+    // TODO: Implement Hyperliquid API call to get user referral info
+    // Expected endpoint: POST https://api.hyperliquid.xyz/info
+    // Body: { "type": "referral", "user": userAddress }
+    // For now, return null to indicate no referrer (will show checkbox)
+    void userAddress;
+    return { referredBy: undefined };
+  }
+
+  @backgroundMethod()
+  async checkReferralPromotionConditions({
+    origin,
+    accountId,
+    userAddress,
+    isApproveAgentSign,
+  }: {
+    origin: string;
+    accountId: string;
+    userAddress: string;
+    isApproveAgentSign: boolean;
+  }): Promise<{
+    shouldShow: boolean;
+    reason?: string;
+  }> {
+    const { HYPER_LIQUID_ORIGIN } = await import(
+      '@onekeyhq/shared/src/consts/perp'
+    );
+
+    // Condition 0: Must be approveAgent sign (setReferrer requires Agent authorization)
+    if (!isApproveAgentSign) {
+      return { shouldShow: false, reason: 'not_approve_agent_sign' };
+    }
+
+    // Condition 1: Origin check
+    if (origin !== HYPER_LIQUID_ORIGIN) {
+      return { shouldShow: false, reason: 'not_hyperliquid_origin' };
+    }
+
+    // Condition 2: Account type check (HD, HW, or Imported only)
+    const isValidAccountType =
+      accountUtils.isHdAccount({ accountId }) ||
+      accountUtils.isHwAccount({ accountId }) ||
+      accountUtils.isImportedAccount({ accountId });
+
+    if (!isValidAccountType) {
+      return { shouldShow: false, reason: 'invalid_account_type' };
+    }
+
+    // Condition 3: Time interval check (7 days)
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const lastShownTime =
+      await this.backgroundApi.simpleDb.perp.getReferralPromptLastShownTime(
+        userAddress,
+      );
+    if (lastShownTime && Date.now() - lastShownTime < SEVEN_DAYS_MS) {
+      return { shouldShow: false, reason: 'shown_recently' };
+    }
+
+    // Condition 4: Account has balance
+    // TODO: Enable real check after testing
+    const hasBalance = true; // await this.checkAccountHasBalance({ userAddress });
+    if (!hasBalance) {
+      return { shouldShow: false, reason: 'no_balance' };
+    }
+
+    // Condition 5: No existing referrer
+    // TODO: Implement real check after researching Hyperliquid API
+    const referralInfo = { referredBy: undefined }; // await this.getUserReferralInfo({ userAddress });
+    if (referralInfo?.referredBy) {
+      return { shouldShow: false, reason: 'already_has_referrer' };
+    }
+
+    return { shouldShow: true };
+  }
+
+  /**
+   * Build EIP-712 TypedData for setReferrer L1 action.
+   * This is used for two-step signing flow when binding referral code
+   * after approveAgent sign from DApp (app.hyperliquid.xyz).
+   */
+  @backgroundMethod()
+  async buildSetReferrerTypedData({ code }: { code: string }): Promise<{
+    typedData: {
+      types: {
+        EIP712Domain: { name: string; type: string }[];
+        Agent: { name: string; type: string }[];
+      };
+      primaryType: string;
+      domain: {
+        name: string;
+        version: string;
+        chainId: number;
+        verifyingContract: string;
+      };
+      message: {
+        source: string;
+        connectionId: string;
+      };
+    };
+    action: { type: string; code: string };
+    nonce: number;
+  }> {
+    const action = { type: 'setReferrer', code };
+    const nonce = Date.now();
+
+    // Create the L1 action hash (same as SDK's createL1ActionHash)
+    const connectionId = createL1ActionHash({
+      action,
+      nonce,
+    });
+
+    const typedData = {
+      types: {
+        EIP712Domain: [
+          { name: 'name', type: 'string' },
+          { name: 'version', type: 'string' },
+          { name: 'chainId', type: 'uint256' },
+          { name: 'verifyingContract', type: 'address' },
+        ],
+        Agent: [
+          { name: 'source', type: 'string' },
+          { name: 'connectionId', type: 'bytes32' },
+        ],
+      },
+      primaryType: 'Agent',
+      domain: {
+        name: 'Exchange',
+        version: '1',
+        chainId: 1337, // Hyperliquid requires chainId to be 1337
+        verifyingContract: '0x0000000000000000000000000000000000000000',
+      },
+      message: {
+        source: 'a', // 'a' for mainnet, 'b' for testnet
+        connectionId,
+      },
+    };
+
+    return { typedData, action, nonce };
+  }
+
+  /**
+   * Submit setReferrer request to Hyperliquid API with pre-signed signature.
+   * This is the second step of the two-step signing flow.
+   */
+  @backgroundMethod()
+  async submitSetReferrerWithSignature({
+    action,
+    nonce,
+    signatureHex,
+  }: {
+    action: { type: string; code: string };
+    nonce: number;
+    signatureHex: string;
+  }): Promise<{ status: string; response?: unknown }> {
+    // Parse signature hex to r, s, v format
+    const sig = signatureHex.startsWith('0x')
+      ? signatureHex.slice(2)
+      : signatureHex;
+    const r = `0x${sig.slice(0, 64)}`;
+    const s = `0x${sig.slice(64, 128)}`;
+    const vHex = sig.slice(128, 130);
+    const vInt = parseInt(vHex, 16);
+    // Normalize v value
+    const v = vInt < 27 ? vInt + 27 : vInt;
+
+    const signature = { r, s, v };
+
+    // Use SDK's HttpTransport to make the request
+    const transport = new HttpTransport();
+    const result = (await transport.request('exchange', {
+      action,
+      signature,
+      nonce,
+    })) as { status: string; response?: unknown };
+
+    return result;
   }
 }
