@@ -37,7 +37,6 @@ import {
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
-import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -167,10 +166,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
   });
 
   const customTokensRawData = useRef<ICustomTokenDBStruct | undefined>(
-    undefined,
-  );
-
-  const localTokensRawData = useRef<ISimpleDBLocalTokens | undefined>(
     undefined,
   );
 
@@ -898,10 +893,9 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     }) => {
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
-      let [c, r, l, a] = await Promise.all([
+      let [c, r, a] = await Promise.all([
         backgroundApiProxy.simpleDb.customTokens.getRawData(),
         backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
-        backgroundApiProxy.simpleDb.localTokens.getRawData(),
         backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
       ]);
 
@@ -917,7 +911,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         unblockedTokens: r?.unblockedTokens ?? {},
         blockedTokens: r?.blockedTokens ?? {},
       };
-      localTokensRawData.current = l ?? undefined;
       aggregateTokenRawData.current = a ?? undefined;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
@@ -949,7 +942,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       perf.markStart('getAccountLocalTokens', {
         networkId,
         accountAddress,
-        rawDataExist: !!localTokensRawData.current,
       });
       const localTokens =
         await backgroundApiProxy.serviceToken.getAccountLocalTokens({
@@ -957,7 +949,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
           networkId,
           accountAddress,
           xpub,
-          simpleDbLocalTokensRawData: localTokensRawData.current,
         });
       perf.markEnd('getAccountLocalTokens');
 
