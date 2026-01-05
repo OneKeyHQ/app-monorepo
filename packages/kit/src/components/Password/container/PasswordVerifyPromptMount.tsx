@@ -1,13 +1,6 @@
-import {
-  PropsWithChildren,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-} from 'react';
+import { Suspense, useCallback, useEffect, useRef } from 'react';
 
 import { isNil } from 'lodash';
-import { createPortal } from 'react-dom';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Portal, Spinner } from '@onekeyhq/components';

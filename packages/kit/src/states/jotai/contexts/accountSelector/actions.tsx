@@ -1459,7 +1459,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         num,
         sceneName,
-        sceneUrl,
       }: {
         num: number;
         sceneName: EAccountSelectorSceneName;
@@ -2090,7 +2089,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             (await serviceAccount.isWalletHasIndexedAccounts({
               walletId: selectedWalletId,
             }));
-          const currentFocusWallet = selectedAccount?.focusedWallet;
 
           // auto select hd hw wallet if current wallet not contains next available account
           if (!selectedWalletId || !hasIndexedAccounts) {

@@ -5,7 +5,6 @@ import {
   Icon,
   Image,
   SizableText,
-  Skeleton,
   Tooltip,
   XStack,
   YStack,
