@@ -209,22 +209,32 @@ const SwapProActionButton = ({
       }
       return quoteToAmountBN.multipliedBy(toPrice).toFixed();
     }
+    // For limit order SELL direction - use limitPriceUseRate to calculate value
+    if (
+      swapProTradeType === ESwapProTradeType.LIMIT &&
+      limitPriceUseRate?.rate
+    ) {
+      if (toPrice.isZero() || toPrice.isNaN()) {
+        return '';
+      }
+      const inputFromAmountBN = new BigNumber(swapFromInputAmount.value || '0');
+      if (inputFromAmountBN.isNaN() || inputFromAmountBN.isZero()) {
+        return '';
+      }
+      const limitToAmount = inputFromAmountBN.multipliedBy(
+        limitPriceUseRate.rate,
+      );
+      return limitToAmount.multipliedBy(toPrice).toFixed();
+    }
+    // For market order SELL direction
     if (inputPrice.isNaN() || inputPrice.isZero()) {
       return '';
     }
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      const inputProAmountBN = new BigNumber(inputAmount || '0');
-      if (inputProAmountBN.isNaN() || inputProAmountBN.isZero()) {
-        return '';
-      }
-      return inputPrice.multipliedBy(inputProAmountBN).toFixed();
-    }
-    // For limit order SELL direction
-    const inputFromAmountBN = new BigNumber(swapFromInputAmount.value || '0');
-    if (inputFromAmountBN.isNaN() || inputFromAmountBN.isZero()) {
+    const inputProAmountBN = new BigNumber(inputAmount || '0');
+    if (inputProAmountBN.isNaN() || inputProAmountBN.isZero()) {
       return '';
     }
-    return inputPrice.multipliedBy(inputFromAmountBN).toFixed();
+    return inputPrice.multipliedBy(inputProAmountBN).toFixed();
   }, [
     inputToken?.price,
     toToken?.price,

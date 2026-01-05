@@ -19,3 +19,15 @@ export const { target: swapProJumpTokenAtom, use: useSwapProJumpTokenAtom } =
       direction: ESwapProJumpTokenDirection.BUY,
     },
   });
+
+export const {
+  target: swapFromMarketJumpTokenAtom,
+  use: useSwapFromMarketJumpTokenAtom,
+} = globalAtom<{
+  token: ISwapToken | undefined;
+}>({
+  name: EAtomNames.swapFromMarketJumpTokenAtom,
+  initialValue: {
+    token: undefined,
+  },
+});

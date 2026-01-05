@@ -45,6 +45,7 @@ interface ISwapProContainerProps {
     isLoading: boolean;
     speedConfig: ISwapProSpeedConfig;
     balanceLoading: boolean;
+    supportSpeedSwap: boolean;
     isMEV: boolean;
     hasEnoughBalance: boolean;
   };
@@ -62,8 +63,14 @@ const SwapProContainer = ({
   supportNetworksList,
   config,
 }: ISwapProContainerProps) => {
-  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
-    config;
+  const {
+    isLoading,
+    speedConfig,
+    balanceLoading,
+    isMEV,
+    hasEnoughBalance,
+    supportSpeedSwap,
+  } = config;
   const [refreshing, setRefreshing] = useState(false);
   const [limitPriceUseMarketPrice, setLimitPriceUseMarketPrice] = useState({
     value: '',
@@ -229,7 +236,8 @@ const SwapProContainer = ({
         </YStack>
       </XStack>
       <SwapProErrorAlert
-        isNative={swapProSelectToken?.isNative}
+        supportSpeedSwap={supportSpeedSwap}
+        actionToken={swapProSelectToken}
         title={swapProErrorAlert?.title}
         message={swapProErrorAlert?.message}
       />

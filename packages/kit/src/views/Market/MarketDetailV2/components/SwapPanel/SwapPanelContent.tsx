@@ -1,22 +1,20 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 
-import { Divider, XStack, YStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ISwapNativeTokenReserveGas,
+  ISwapToken,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { ActionButton } from './components/ActionButton';
 import { ApproveButton } from './components/ApproveButton';
-import { BalanceDisplay } from './components/BalanceDisplay';
 import { RateDisplay } from './components/RateDisplay';
 import SellForSelector from './components/SellForSelector';
 import { SlippageSetting } from './components/SlippageSetting';
@@ -38,6 +36,8 @@ export type ISwapPanelContentProps = {
   supportSpeedSwap: {
     enabled: boolean;
     warningMessage?: string;
+    actionTranslationId?: string;
+    actionToken?: ISwapToken;
   };
   isApproved: boolean;
   defaultTokens: IToken[];
@@ -89,7 +89,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     setSlippage,
     networkId,
   } = swapPanel;
-  const intl = useIntl();
   const tokenInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
 
@@ -189,6 +188,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {hasInitialReady && !supportSpeedSwap.enabled ? (
         <UnsupportedSwapWarning
           customMessage={supportSpeedSwap.warningMessage}
+          actionTranslationId={supportSpeedSwap.actionTranslationId}
+          actionToken={supportSpeedSwap.actionToken}
         />
       ) : null}
 

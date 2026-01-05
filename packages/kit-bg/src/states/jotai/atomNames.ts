@@ -93,6 +93,7 @@ export enum EAtomNames {
 
   // swap
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
+  swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
 }

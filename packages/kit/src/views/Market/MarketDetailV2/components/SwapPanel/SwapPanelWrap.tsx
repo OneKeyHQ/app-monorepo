@@ -9,6 +9,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -49,7 +50,6 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     provider,
     swapMevNetConfig,
   } = useSpeedSwapInit(networkId || '', true);
-
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
@@ -96,16 +96,37 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
     }
+    let actionTranslationId;
+    let actionToken: ISwapToken | undefined;
+    if (!speedSwapEnabled) {
+      actionTranslationId = ETranslations.promode_swap_unsupported_message;
+      actionToken = {
+        networkId: networkId || '',
+        contractAddress: tokenDetail?.address || '',
+        symbol: tokenDetail?.symbol || '',
+        decimals: tokenDetail?.decimals || 0,
+        logoURI: tokenDetail?.logoUrl || '',
+        isNative: !!tokenDetail?.isNative,
+      };
+    }
     return {
       enabled: isEnabled,
       warningMessage,
+      actionTranslationId,
+      actionToken,
     };
   }, [
     accountNetworkNotSupported,
     intl,
+    networkId,
     originalSupportSpeedSwap,
+    tokenDetail?.address,
+    tokenDetail?.decimals,
+    tokenDetail?.isNative,
+    tokenDetail?.logoUrl,
     tokenDetail?.supportSwap?.enable,
     tokenDetail?.supportSwap?.warningMessage,
+    tokenDetail?.symbol,
   ]);
 
   const useSpeedSwapActionsParams = {

@@ -635,6 +635,8 @@ export function useSwapInit(params?: ISwapInitParams) {
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
+      console.log('swap__isFocus', isFocus);
+      console.log('swap_isHiddenModel', isHiddenModel);
       if (!isModalPage) {
         if (isFocus) {
           if (isHiddenModel) {

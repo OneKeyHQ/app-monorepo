@@ -1261,6 +1261,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             balanceLoading,
             isMEV,
             hasEnoughBalance,
+            supportSpeedSwap,
           }}
         />
       ) : (
