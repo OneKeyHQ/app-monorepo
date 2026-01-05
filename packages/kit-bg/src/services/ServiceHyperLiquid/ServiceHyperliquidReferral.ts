@@ -242,6 +242,78 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     return HYPERLIQUID_REFERRAL_CODE;
   }
 
+  /**
+   * Log referral checkbox interaction from UI layer
+   */
+  @backgroundMethod()
+  async logReferralCheckboxInteraction({
+    userAddress,
+    isChecked,
+    action,
+  }: {
+    userAddress: string;
+    isChecked: boolean;
+    action: 'shown' | 'checked' | 'unchecked';
+  }): Promise<void> {
+    defaultLogger.perp.hyperliquid.referralCheckboxInteraction({
+      userAddress,
+      isChecked,
+      action,
+    });
+  }
+
+  /**
+   * Log referral binding flow step from UI layer
+   */
+  @backgroundMethod()
+  async logReferralBindingStep({
+    step,
+    userAddress,
+    message,
+    error,
+  }: {
+    step:
+      | 'start'
+      | 'build_typed_data'
+      | 'sign_message'
+      | 'submit_request'
+      | 'complete'
+      | 'error';
+    userAddress: string;
+    message?: string;
+    error?: string;
+  }): Promise<void> {
+    defaultLogger.perp.hyperliquid.referralBindingStep({
+      step,
+      userAddress,
+      message,
+      error,
+    });
+  }
+
+  /**
+   * Log referral binding result from UI layer
+   */
+  @backgroundMethod()
+  async logReferralBindingResult({
+    userAddress,
+    success,
+    referralCode,
+    errorMessage,
+  }: {
+    userAddress: string;
+    success: boolean;
+    referralCode: string;
+    errorMessage?: string;
+  }): Promise<void> {
+    defaultLogger.perp.hyperliquid.referralBindingResult({
+      userAddress,
+      success,
+      referralCode,
+      errorMessage,
+    });
+  }
+
   @backgroundMethod()
   async checkAccountHasBalance({
     userAddress,

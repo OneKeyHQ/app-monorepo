@@ -17,7 +17,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   validateSignMessageData,
@@ -114,11 +113,13 @@ function MessageConfirmActions(props: IProps) {
       !hasLoggedShownRef.current
     ) {
       hasLoggedShownRef.current = true;
-      defaultLogger.perp.hyperliquid.referralCheckboxInteraction({
-        userAddress: accountAddress,
-        isChecked: isReferralChecked,
-        action: 'shown',
-      });
+      void backgroundApiProxy.serviceHyperliquidReferral.logReferralCheckboxInteraction(
+        {
+          userAddress: accountAddress,
+          isChecked: isReferralChecked,
+          action: 'shown',
+        },
+      );
     }
   }, [shouldShowReferralCheckbox, accountAddress, isReferralChecked]);
 
@@ -128,11 +129,13 @@ function MessageConfirmActions(props: IProps) {
       const isChecked = !!checked;
       setIsReferralChecked(isChecked);
       if (accountAddress) {
-        defaultLogger.perp.hyperliquid.referralCheckboxInteraction({
-          userAddress: accountAddress,
-          isChecked,
-          action: isChecked ? 'checked' : 'unchecked',
-        });
+        void backgroundApiProxy.serviceHyperliquidReferral.logReferralCheckboxInteraction(
+          {
+            userAddress: accountAddress,
+            isChecked,
+            action: isChecked ? 'checked' : 'unchecked',
+          },
+        );
       }
     },
     [setIsReferralChecked, accountAddress],
