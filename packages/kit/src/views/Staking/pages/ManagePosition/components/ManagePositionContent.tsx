@@ -388,15 +388,22 @@ export function ManagePositionContent({
     };
 
     return (
-      <Button mt="$4" onPress={handleViewReserveDetails}>
-        <XStack gap="$3" ai="center" flex={1} my="$2">
+      <Button
+        mt="$4"
+        w="100%"
+        px="$3.5"
+        py="$3.5"
+        borderRadius="$3"
+        childrenAsText={false}
+        onPress={handleViewReserveDetails}
+      >
+        <XStack w="100%" ai="center" jc="space-between">
           <SizableText size="$bodyMdMedium" color="$text">
             {intl.formatMessage({
               id: ETranslations.defi_view_reserve_details,
             })}
           </SizableText>
           <Icon
-            ml="auto"
             name="ChevronRightSmallOutline"
             size="$5"
             color="$iconSubdued"
