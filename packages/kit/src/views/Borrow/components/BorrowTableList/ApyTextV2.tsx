@@ -252,7 +252,6 @@ export const ApyTextV2 = ({ apyDetail }: IApyTextV2Props) => {
       <Popover
         open={open}
         onOpenChange={setOpen}
-        placement="bottom-end"
         renderTrigger={<Stack cursor="pointer">{highlightElement}</Stack>}
         title={intl.formatMessage({ id: ETranslations.global_details })}
         renderContent={<ApyDetailPopoverContent popupData={popupData} />}
