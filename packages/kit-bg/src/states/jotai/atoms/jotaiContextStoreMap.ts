@@ -21,6 +21,7 @@ export enum EJotaiContextStoreNames {
   sendConfirm = 'sendConfirm',
   signatureConfirm = 'signatureConfirm',
   perps = 'perps',
+  bulkSend = 'bulkSend',
 }
 export type IJotaiContextStoreData = {
   storeName: EJotaiContextStoreNames;

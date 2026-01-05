@@ -1,31 +1,18 @@
-import { useMemo } from 'react';
+import { SizableText, Stack, YStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { NavBackButton, XStack, useMedia } from '@onekeyhq/components';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import { TabPageHeader } from '../../../components/TabPageHeader';
-import { useBulkSendBackNavigation } from '../hooks/useBulkSendBackNavigation';
-
-export function BulkSendHeader() {
-  const { handleBackPress } = useBulkSendBackNavigation();
-  const media = useMedia();
-
-  const customHeaderLeft = useMemo(
-    () => (
-      <XStack gap="$3" ai="center">
-        <NavBackButton onPress={handleBackPress} />
-      </XStack>
-    ),
-    [handleBackPress],
-  );
-
+function BulkSendHeader() {
+  const intl = useIntl();
   return (
-    <TabPageHeader
-      sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Home}
-      customHeaderLeftItems={customHeaderLeft}
-      hideSearch={!media.gtMd}
-    />
+    <YStack gap="$1.5">
+      <SizableText size="$bodyMdMedium">
+        {intl.formatMessage({
+          id: ETranslations.global_asset,
+        })}
+      </SizableText>
+    </YStack>
   );
 }
+
+export default BulkSendHeader;
