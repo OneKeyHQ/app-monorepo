@@ -34,25 +34,12 @@ const SwapProErrorAlert = ({
   const { selectToToken } = useSwapActions().current;
   const [swapSelectToken, setSwapSelectFromToken] =
     useSwapSelectFromTokenAtom();
-  const [swapSelectToToken] = useSwapSelectToTokenAtom();
 
   const handleAlertAction = useCallback(
     (actionName: string) => {
       if (actionName === 'bridge_action') {
         void setSwapTypeSwitch(ESwapTabSwitchType.BRIDGE);
         if (
-          !equalTokenNoCaseSensitive({
-            token1: swapSelectToken,
-            token2: actionToken,
-          }) &&
-          !equalTokenNoCaseSensitive({
-            token1: swapSelectToToken,
-            token2: actionToken,
-          }) &&
-          actionToken
-        ) {
-          void selectToToken(actionToken);
-        } else if (
           equalTokenNoCaseSensitive({
             token1: swapSelectToken,
             token2: actionToken,
@@ -60,6 +47,8 @@ const SwapProErrorAlert = ({
           actionToken
         ) {
           void setSwapSelectFromToken(undefined);
+        }
+        if (actionToken) {
           void selectToToken(actionToken);
         }
       }
@@ -69,7 +58,6 @@ const SwapProErrorAlert = ({
       setSwapSelectFromToken,
       selectToToken,
       setSwapTypeSwitch,
-      swapSelectToToken,
       swapSelectToken,
     ],
   );

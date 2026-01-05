@@ -8,7 +8,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSwapFromMarketJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapTabSwitchType,
+  type ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 export function UnsupportedSwapWarning({
   customMessage,
@@ -27,6 +30,7 @@ export function UnsupportedSwapWarning({
       if (actionName === 'bridge_action') {
         setSwapFromMarketJumpTokenAtom({
           token: actionToken,
+          type: ESwapTabSwitchType.BRIDGE,
         });
         navigation.switchTab(ETabRoutes.Swap);
       }
@@ -44,14 +48,16 @@ export function UnsupportedSwapWarning({
   }, [actionTranslationId, customMessage, intl]);
   const descriptionComponent = useMemo(() => {
     if (actionTranslationId) {
-      <HyperlinkText
-        size="$bodyMd"
-        color="$textSubdued"
-        translationId={ETranslations.promode_swap_unsupported_message}
-        onAction={(actionName) => {
-          void handleAlertAction(actionName);
-        }}
-      />;
+      return (
+        <HyperlinkText
+          size="$bodyMd"
+          color="$textSubdued"
+          translationId={ETranslations.promode_swap_unsupported_message}
+          onAction={(actionName) => {
+            void handleAlertAction(actionName);
+          }}
+        />
+      );
     }
     return undefined;
   }, [actionTranslationId, handleAlertAction]);

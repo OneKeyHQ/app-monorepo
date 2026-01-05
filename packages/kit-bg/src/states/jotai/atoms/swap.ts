@@ -1,3 +1,4 @@
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
@@ -25,9 +26,11 @@ export const {
   use: useSwapFromMarketJumpTokenAtom,
 } = globalAtom<{
   token: ISwapToken | undefined;
+  type: ESwapTabSwitchType;
 }>({
   name: EAtomNames.swapFromMarketJumpTokenAtom,
   initialValue: {
     token: undefined,
+    type: ESwapTabSwitchType.SWAP,
   },
 });
