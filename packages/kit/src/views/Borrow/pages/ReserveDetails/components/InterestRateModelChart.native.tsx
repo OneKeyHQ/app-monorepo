@@ -191,8 +191,9 @@ function generateChartHTML(config: IChartConfig): string {
 
         const minTime = BASE_TIMESTAMP;
         const maxTime = BASE_TIMESTAMP + UTILIZATION_RANGE;
-        const lineStartTime = Math.max(minTime, currentUtilTime - 1);
-        const lineEndTime = Math.min(maxTime, currentUtilTime + 1);
+        const lineTimeDelta = Math.max(Number.EPSILON * currentUtilTime, Number.EPSILON);
+        const lineStartTime = Math.max(minTime, currentUtilTime - lineTimeDelta);
+        const lineEndTime = Math.min(maxTime, currentUtilTime + lineTimeDelta);
 
         const verticalLineSeries = chart.addLineSeries({
           color: config.theme.verticalLineColor,
@@ -200,6 +201,7 @@ function generateChartHTML(config: IChartConfig): string {
           priceLineVisible: false,
           lastValueVisible: false,
           crosshairMarkerVisible: false,
+          lineType: LightweightCharts.LineType.WithSteps,
           lineStyle: 0,
         });
 
