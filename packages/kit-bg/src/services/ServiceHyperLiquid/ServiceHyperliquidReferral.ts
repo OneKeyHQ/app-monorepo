@@ -18,9 +18,8 @@ import ServiceBase from '../ServiceBase';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
-// 7 days in milliseconds
 const REFERRAL_PROMPT_COOLDOWN_MS = timerUtils.getTimeDurationMs({
-  seconds: 0,
+  day: 7,
 });
 
 @backgroundClass()
