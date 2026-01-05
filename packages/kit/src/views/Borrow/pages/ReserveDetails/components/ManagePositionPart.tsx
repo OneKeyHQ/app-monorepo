@@ -10,18 +10,18 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { BorrowNavigation } from '../../../borrowUtils';
 
 interface IManagePositionPartProps {
   accountId: string;
+  userInfo?: IBorrowReserveDetail['userInfo'];
   networkId: string;
   provider: string;
   marketAddress: string;
@@ -32,6 +32,7 @@ interface IManagePositionPartProps {
 
 export const ManagePositionPart = ({
   accountId,
+  userInfo,
   networkId,
   provider,
   marketAddress,
@@ -41,21 +42,6 @@ export const ManagePositionPart = ({
 }: IManagePositionPartProps) => {
   const navigation = useAppNavigation();
   const intl = useIntl();
-
-  const { result: details } = usePromiseResult(
-    async () => {
-      if (!accountId) return undefined;
-      return backgroundApiProxy.serviceStaking.getBorrowReserveDetails({
-        networkId,
-        provider,
-        marketAddress,
-        reserveAddress,
-        accountId,
-      });
-    },
-    [networkId, provider, marketAddress, reserveAddress, accountId],
-    { revalidateOnFocus: true },
-  );
 
   const handleSupply = useCallback(() => {
     BorrowNavigation.pushToBorrowManagePosition(navigation, {
@@ -103,7 +89,6 @@ export const ManagePositionPart = ({
     logoURI,
   ]);
 
-  const userInfo = details?.userInfo;
   const labels = {
     myInfo: intl.formatMessage({ id: ETranslations.defi_my_info }),
     walletBalance: intl.formatMessage({
