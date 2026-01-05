@@ -1,5 +1,4 @@
 /* eslint-disable spellcheck/spell-checker */
-import platformEnv from '../platformEnv';
 
 export const GoogleSignInConfigure = {
   scopes: ['https://www.googleapis.com/auth/drive.file'],

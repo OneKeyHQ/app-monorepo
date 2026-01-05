@@ -5614,6 +5614,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           },
         });
 
+        // eslint-disable-next-line no-constant-condition
         if (true) throw new OneKeyLocalError('test error');
       },
     );

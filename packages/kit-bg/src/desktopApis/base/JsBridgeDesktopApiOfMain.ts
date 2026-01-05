@@ -30,7 +30,7 @@ export class JsBridgeDesktopApiOfMain extends JsBridgeBase {
   }
 
   setup() {
-    ipcMain.on(CALL_DESKTOP_API_EVENT_NAME, (event, payload, ...others) => {
+    ipcMain.on(CALL_DESKTOP_API_EVENT_NAME, (event, payload) => {
       const responsePayload = payload as IJsBridgeMessagePayload;
       const sender:
         | {
