@@ -1846,6 +1846,13 @@ export function useSwapBuildTx() {
                 fromTokenInfo: buildSwapRes.result.fromTokenInfo,
                 type: swapTypeSwitch,
               });
+          } else if (buildSwapRes?.LMTronObject) {
+            encodedTx =
+              await backgroundApiProxy.serviceSwap.buildLMSwapEncodedTx({
+                accountId: fromAccountId ?? '',
+                networkId: buildSwapRes.result.fromTokenInfo.networkId,
+                lmTx: buildSwapRes.LMTronObject,
+              });
           } else if (buildSwapRes.tronTxData) {
             transferInfo = undefined;
             encodedTx = buildSwapRes.tronTxData;
