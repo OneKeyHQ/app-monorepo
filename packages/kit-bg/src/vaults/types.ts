@@ -43,6 +43,7 @@ import type {
   ESwapTabSwitchType,
   EWrappedType,
   IFetchBuildTxResult,
+  ILMTronObject,
   IOKXTransactionObject,
   ISwapTokenBase,
   ISwapTxInfo,
@@ -741,4 +742,8 @@ export type IBuildOkxSwapEncodedTxParams = {
   okxTx: IOKXTransactionObject;
   fromTokenInfo: ISwapTokenBase;
   type: ESwapTabSwitchType;
+};
+
+export type IBuildLMSwapEncodedTxParams = {
+  lmTx: ILMTronObject;
 };

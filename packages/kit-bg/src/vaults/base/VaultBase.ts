@@ -126,6 +126,7 @@ import type {
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
+  IBuildLMSwapEncodedTxParams,
   IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
@@ -1480,6 +1481,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async buildOkxSwapEncodedTx(
     params: IBuildOkxSwapEncodedTxParams,
+  ): Promise<IEncodedTx> {
+    throw new NotImplemented();
+  }
+
+  async buildLiquidMeshSwapEncodedTx(
+    params: IBuildLMSwapEncodedTxParams,
   ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }
