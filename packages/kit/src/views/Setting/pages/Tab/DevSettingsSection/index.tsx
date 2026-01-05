@@ -820,6 +820,18 @@ const BaseDevSettingsSection = () => {
                 }}
               />
 
+              <SectionFieldItem
+                icon="ChartColumnarOutline"
+                name="enableMockMarketBanner"
+                title="Mock Market Banner Data"
+                subtitle="Use mock data to test Market Banner UI"
+                onValueChange={() => {
+                  void backgroundApiProxy.serviceMarketV2.clearMarketBannerCache();
+                }}
+              >
+                <Switch size={ESwitchSize.small} />
+              </SectionFieldItem>
+
               <SectionPressItem
                 icon="DeleteOutline"
                 title="Clear App Data (E2E release only)"
