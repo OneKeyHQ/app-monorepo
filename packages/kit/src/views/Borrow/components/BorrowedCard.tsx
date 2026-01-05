@@ -108,13 +108,15 @@ export const BorrowedCard = () => {
           reserveAddress: item.reserveAddress,
           symbol: item.token.symbol,
           logoURI: item.token.logoURI,
+          accountId: accountId || undefined,
+          indexedAccountId,
         });
       } else {
         // Mobile: open Repay dialog
         handleManageRepay(item);
       }
     },
-    [navigation, market, gtMd, handleManageRepay],
+    [navigation, market, gtMd, handleManageRepay, accountId, indexedAccountId],
   );
 
   const showLoading = !reserves && reservesLoading;

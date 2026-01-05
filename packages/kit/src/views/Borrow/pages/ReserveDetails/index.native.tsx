@@ -46,19 +46,21 @@ const ReserveDetailsPage = () => {
     reserveAddress,
     symbol,
     logoURI,
+    accountId: routeAccountId,
+    indexedAccountId,
   } = route.params;
 
   const { earnAccount, details, userInfo, isLoading, refreshData } =
     useBorrowReserveDetailData({
-      accountId: '',
+      accountId: routeAccountId,
       networkId,
-      indexedAccountId: undefined,
+      indexedAccountId,
       provider,
       marketAddress,
       reserveAddress,
     });
 
-  const accountId = earnAccount?.account?.id || '';
+  const accountId = routeAccountId || earnAccount?.account?.id || '';
 
   const shareUrl = useMemo(() => {
     if (!symbol || !provider || !networkId || !marketAddress || !reserveAddress)

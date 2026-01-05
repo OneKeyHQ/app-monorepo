@@ -13,20 +13,21 @@ export function useBorrowReserveDetailData({
   marketAddress,
   reserveAddress,
 }: {
-  accountId: string;
+  accountId?: string;
   networkId: string;
   indexedAccountId?: string;
   provider: string;
   marketAddress: string;
   reserveAddress: string;
 }) {
+  const normalizedAccountId = accountId?.trim() || undefined;
   const {
     earnAccount,
     refreshAccount,
     isLoading: isAccountLoading,
   } = useEarnAccount({
     networkId,
-    accountId,
+    accountId: normalizedAccountId,
     indexedAccountId,
   });
 
@@ -41,9 +42,9 @@ export function useBorrowReserveDetailData({
         provider,
         marketAddress,
         reserveAddress,
-        ...(accountId ? { accountId } : {}),
+        ...(normalizedAccountId ? { accountId: normalizedAccountId } : {}),
       }),
-    [networkId, provider, marketAddress, reserveAddress, accountId],
+    [networkId, provider, marketAddress, reserveAddress, normalizedAccountId],
     { watchLoading: true, revalidateOnFocus: true },
   );
 
@@ -57,7 +58,7 @@ export function useBorrowReserveDetailData({
     details,
     userInfo,
     isLoading:
-      (accountId || indexedAccountId ? isAccountLoading : false) ||
+      (normalizedAccountId || indexedAccountId ? isAccountLoading : false) ||
       isDetailLoading,
     refreshData: run,
     refreshAccount,

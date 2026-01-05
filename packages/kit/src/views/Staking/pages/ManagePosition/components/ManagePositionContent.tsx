@@ -384,6 +384,8 @@ export function ManagePositionContent({
         symbol,
         logoURI: fallbackTokenImageUri,
         isModal: isInModalContext,
+        accountId: accountId || undefined,
+        indexedAccountId,
       });
     };
 

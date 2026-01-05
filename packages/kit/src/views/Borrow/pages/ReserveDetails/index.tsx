@@ -48,6 +48,8 @@ const ReserveDetailsPage = () => {
     reserveAddress: string;
     symbol: string;
     logoURI?: string;
+    accountId?: string;
+    indexedAccountId?: string;
   }>(() => {
     const routeParams = route.params;
 
@@ -61,6 +63,8 @@ const ReserveDetailsPage = () => {
       reserveAddress: routeParams.reserveAddress,
       symbol: routeParams.symbol,
       logoURI: routeParams.logoURI,
+      accountId: routeParams.accountId,
+      indexedAccountId: routeParams.indexedAccountId,
     };
   }, [route.params]);
 
@@ -71,19 +75,21 @@ const ReserveDetailsPage = () => {
     reserveAddress,
     symbol,
     logoURI,
+    accountId: routeAccountId,
+    indexedAccountId,
   } = resolvedParams;
 
   const { earnAccount, details, userInfo, isLoading, refreshData } =
     useBorrowReserveDetailData({
-      accountId: '',
+      accountId: routeAccountId,
       networkId,
-      indexedAccountId: undefined,
+      indexedAccountId,
       provider,
       marketAddress,
       reserveAddress,
     });
 
-  const accountId = earnAccount?.account?.id || '';
+  const accountId = routeAccountId || earnAccount?.account?.id || '';
 
   const shareUrl = useMemo(() => {
     if (!symbol || !provider || !networkId || !marketAddress || !reserveAddress)

@@ -73,6 +73,8 @@ export const BorrowNavigation = {
       symbol: string;
       logoURI?: string;
       isModal?: boolean;
+      accountId?: string;
+      indexedAccountId?: string;
     },
   ) {
     const routeParams = {
@@ -82,6 +84,8 @@ export const BorrowNavigation = {
       reserveAddress: params.reserveAddress,
       symbol: params.symbol,
       logoURI: params.logoURI,
+      accountId: params.accountId,
+      indexedAccountId: params.indexedAccountId,
     };
 
     if (params.isModal) {
