@@ -773,6 +773,14 @@ export interface IOKXTransactionObject {
   randomKeyAccount?: string[];
   signatureData?: string[];
 }
+
+export interface ILMTronObject {
+  from: string;
+  to: string;
+  value: string;
+  data: string;
+}
+
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
   tx?: ITransaction;
@@ -780,6 +788,7 @@ export interface IFetchBuildTxResponse {
   swftOrder?: IFetchBuildTxOrderResponse;
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
   OKXTxObject?: IOKXTransactionObject;
+  LMTronObject?: ILMTronObject;
   ctx?: any;
   tronTxData?: IEncodedTxTron;
   xrpTxData?: IEncodedTxXrp;
