@@ -382,6 +382,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
+  async forceReloadCandlesWebview(): Promise<void> {
+    await perpsCandlesWebviewReloadHookAtom.set({
+      reloadHook: Date.now(),
+    });
+  }
+
+  @backgroundMethod()
   async getSubscriptionsHandlerDisabledCount(): Promise<number> {
     return this.subscriptionsHandlerDisabledCount;
   }
