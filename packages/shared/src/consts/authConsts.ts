@@ -152,9 +152,9 @@ export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
 // TODO: Search for all occurrences of 'apps.googleusercontent.com' in the project and consolidate all discovered OAuth client IDs here for unified management.
 
 const GOOGLE_OAUTH_CLIENT_WEB =
-  '94391474021-6106ge2amfsgl9gjviojmai2mqbh2lte.apps.googleusercontent.com';
+  '244450898872-vmpg9dgocpqtqhm5pk42u4s6hvprogp6.apps.googleusercontent.com';
 const GOOGLE_OAUTH_CLIENT_IOS =
-  '94391474021-kbgarvu23k3mblp1m2tiknemae99p826.apps.googleusercontent.com';
+  '244450898872-5uo9r8ekdc82huckjcr4br67edvf3vlg.apps.googleusercontent.com';
 export const GOOGLE_OAUTH_CLIENT_IDS = {
   WEB: GOOGLE_OAUTH_CLIENT_WEB,
   EXTENSION: GOOGLE_OAUTH_CLIENT_WEB, // oauth web client, not extension client
@@ -176,9 +176,9 @@ export const SUPABASE_PUBLIC_API_KEY = IS_DEV
   : 'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN';
 
 export const KEYLESS_SUPABASE_PROJECT_URL =
-  'https://wtspqckturkzhstyjabx.supabase.co';
+  'https://supabase.onekey-internal.com';
 export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
-  'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
 
 type IJuiceBoxRealmConfig = {
   id: string;

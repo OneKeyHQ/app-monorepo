@@ -218,7 +218,7 @@ target 'OneKeyWallet' do
       if target.name == 'RNZipArchive'
         target.source_build_phase.files.each do |file|
           if file.settings && file.settings['COMPILER_FLAGS']
-              file.settings['COMPILER_FLAGS'] = ''
+            file.settings['COMPILER_FLAGS'] = ''
           end
         end
       end

@@ -110,6 +110,7 @@ export function useSupabaseAuth() {
       }
 
       const authUrl = oauthUrlResult.data.url;
+
       if (!authUrl) {
         throw new OneKeyLocalError('Failed to get OAuth URL');
       }

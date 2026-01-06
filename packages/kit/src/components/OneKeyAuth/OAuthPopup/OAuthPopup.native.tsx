@@ -164,15 +164,22 @@ export class OAuthPopup extends OAuthPopupBase {
    * The hash is passed to OAuth provider, and the raw nonce to Supabase.
    * This is required for ID token validation.
    */
-  private static async generateNonce(): Promise<{
-    rawNonce: string;
-    hashedNonce: string;
+  private static async generateNonce({
+    options,
+  }: {
+    options: IOAuthPopupOptions;
+  }): Promise<{
+    rawNonce: string | undefined;
+    hashedNonce: string | undefined;
   }> {
     const rawNonce = Crypto.randomUUID();
     const hashedNonce = await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,
       rawNonce,
     );
+    if (platformEnv.isNativeIOS && options.provider === 'google') {
+      // return { rawNonce: undefined, hashedNonce: undefined };
+    }
     return { rawNonce, hashedNonce };
   }
 
@@ -255,7 +262,7 @@ export class OAuthPopup extends OAuthPopupBase {
       let hashedNonce: string | undefined;
 
       if (APPLE_SIGNIN_USE_NONCE) {
-        const nonceResult = await OAuthPopup.generateNonce();
+        const nonceResult = await OAuthPopup.generateNonce({ options });
         rawNonce = nonceResult.rawNonce;
         hashedNonce = nonceResult.hashedNonce;
       }
@@ -457,7 +464,9 @@ export class OAuthPopup extends OAuthPopupBase {
 
     // Generate nonce for security validation (required for iOS)
     // The hashed nonce is passed to Google, raw nonce is passed to Supabase
-    const { rawNonce, hashedNonce } = await OAuthPopup.generateNonce();
+    const { rawNonce, hashedNonce } = await OAuthPopup.generateNonce({
+      options,
+    });
 
     try {
       // Check if Google Play Services is available (Android only)
@@ -514,6 +523,8 @@ export class OAuthPopup extends OAuthPopupBase {
       const { data, error } = await client.auth.signInWithIdToken({
         provider: 'google',
         token: idToken,
+        // Passed nonce and nonce in id_token should either both exist or not.
+        // Nonces mismatch
         nonce: rawNonce,
       });
 
