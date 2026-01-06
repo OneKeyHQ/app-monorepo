@@ -4,44 +4,73 @@ import { useIntl } from 'react-intl';
 
 import { Alert } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import { HyperlinkText } from '../../../components/HyperlinkText';
-import { useSwapTypeSwitchAtom } from '../../../states/jotai/contexts/swap';
+import {
+  useSwapActions,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
+  useSwapTypeSwitchAtom,
+} from '../../../states/jotai/contexts/swap';
 
 interface ISwapProErrorAlertProps {
   title?: string;
   message?: string;
-  isNative?: boolean;
+  supportSpeedSwap?: boolean;
+  actionToken?: ISwapToken;
 }
 
 const SwapProErrorAlert = ({
   title,
   message,
-  isNative,
+  supportSpeedSwap,
+  actionToken,
 }: ISwapProErrorAlertProps) => {
   const intl = useIntl();
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
+  const { selectToToken } = useSwapActions().current;
+  const [swapSelectToken, setSwapSelectFromToken] =
+    useSwapSelectFromTokenAtom();
+
   const handleAlertAction = useCallback(
     (actionName: string) => {
-      if (actionName === 'swap_action') {
-        void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-      } else if (actionName === 'bridge_action') {
+      if (actionName === 'bridge_action') {
         void setSwapTypeSwitch(ESwapTabSwitchType.BRIDGE);
+        if (
+          equalTokenNoCaseSensitive({
+            token1: swapSelectToken,
+            token2: actionToken,
+          }) &&
+          actionToken
+        ) {
+          void setSwapSelectFromToken(undefined);
+        }
+        if (actionToken) {
+          void selectToToken(actionToken);
+        }
       }
     },
-    [setSwapTypeSwitch],
+    [
+      actionToken,
+      setSwapSelectFromToken,
+      selectToToken,
+      setSwapTypeSwitch,
+      swapSelectToken,
+    ],
   );
   const titleValue = useMemo(() => {
-    if (isNative) {
+    if (!supportSpeedSwap) {
       return intl.formatMessage({
         id: ETranslations.promode_swap_unsupported_title,
       });
     }
     return title;
-  }, [isNative, intl, title]);
+  }, [supportSpeedSwap, title, intl]);
   const messageComponent = useMemo(() => {
-    if (isNative) {
+    if (!supportSpeedSwap) {
       return (
         <HyperlinkText
           size="$bodyMd"
@@ -54,7 +83,7 @@ const SwapProErrorAlert = ({
       );
     }
     return undefined;
-  }, [isNative, handleAlertAction]);
+  }, [supportSpeedSwap, handleAlertAction]);
 
   if (!titleValue && !message) {
     return null;

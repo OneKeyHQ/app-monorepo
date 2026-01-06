@@ -121,8 +121,8 @@ const SwapCommonInfoItem = ({
 
       <XStack gap="$2">
         {isLoading ? (
-          <Stack py={valueProps?.size === '$bodySmMedium' ? '$0' : '$1'}>
-            <Skeleton h="$3" w="$24" />
+          <Stack {...containerProps}>
+            <Skeleton h="$2" w="$24" />
           </Stack>
         ) : (
           rightTrigger

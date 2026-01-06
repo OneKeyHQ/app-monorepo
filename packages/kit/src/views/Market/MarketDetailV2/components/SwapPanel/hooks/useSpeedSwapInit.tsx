@@ -39,8 +39,8 @@ export function useSpeedSwapInit(
       const config = await backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({
         networkId,
       });
-      setSpeedSwapConfigLoading(false);
       setSpeedSwapConfig(config);
+      setSpeedSwapConfigLoading(false);
     })();
   }, [enableNoNetworkCheck, networkId]);
 
