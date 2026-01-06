@@ -1,18 +1,18 @@
 import { useCallback, useMemo } from 'react';
 
 import {
+  IconButton,
   Page,
   SizableText,
   Stack,
   XStack,
+  YStack,
   useMedia,
   useShare,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ETabEarnRoutes,
@@ -38,7 +38,6 @@ const ReserveDetailsPage = () => {
   const { gtMd } = useMedia();
   const { shareText } = useShare();
   const [devSettings] = useDevSettingsPersistAtom();
-  const navigation = useAppNavigation();
 
   // Parse route params, support both normal and share link routes
   const resolvedParams = useMemo<{
@@ -133,51 +132,53 @@ const ReserveDetailsPage = () => {
     [symbol, logoURI],
   );
 
-  const handleSupply = useCallback(() => {
-    BorrowNavigation.pushToBorrowManagePosition(navigation, {
-      accountId,
-      networkId,
-      provider,
-      marketAddress,
-      reserveAddress,
-      symbol,
-      logoURI,
-      providerLogoURI: logoURI,
-      type: EManagePositionType.Supply,
-    });
-  }, [
-    navigation,
-    accountId,
-    networkId,
-    provider,
-    marketAddress,
-    reserveAddress,
-    symbol,
-    logoURI,
-  ]);
+  const headerTitle = useCallback(
+    () => (
+      <XStack gap="$2" alignItems="center">
+        <Token size="sm" tokenImageUri={logoURI} />
+        <SizableText size="$headingLg" numberOfLines={1}>
+          {symbol}
+        </SizableText>
+      </XStack>
+    ),
+    [symbol, logoURI],
+  );
 
-  const handleBorrow = useCallback(() => {
-    BorrowNavigation.pushToBorrowManagePosition(navigation, {
-      accountId,
-      networkId,
-      provider,
-      marketAddress,
-      reserveAddress,
-      symbol,
-      logoURI,
-      providerLogoURI: logoURI,
-      type: EManagePositionType.Borrow,
-    });
-  }, [
-    navigation,
-    accountId,
-    networkId,
-    provider,
-    marketAddress,
-    reserveAddress,
-    symbol,
-    logoURI,
-  ]);
+  const headerRight = useCallback(
+    () => (
+      <IconButton
+        icon="ShareOutline"
+        size="small"
+        variant="tertiary"
+        iconColor="$iconSubdued"
+        onPress={handleShare}
+      />
+    ),
+    [handleShare],
+  );
+
+  if (!gtMd) {
+    return (
+      <Page>
+        <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+        <Page.Body>
+          <YStack flex={1}>
+            <DetailsPart
+              details={details}
+              isLoading={isLoading ?? false}
+              onRefresh={refreshData}
+              networkId={networkId}
+              provider={provider}
+              marketAddress={marketAddress}
+              reserveAddress={reserveAddress}
+              symbol={symbol}
+              logoURI={logoURI}
+            />
+          </YStack>
+        </Page.Body>
+      </Page>
+    );
+  }
 
   return (
     <EarnPageContainer
@@ -187,8 +188,8 @@ const ReserveDetailsPage = () => {
       tabRoute={ETabRoutes.Earn}
       showBackButton
     >
-      <XStack flexDirection={gtMd ? 'row' : 'column'}>
-        <Stack w="100%" width={gtMd ? '65%' : undefined}>
+      <XStack flexDirection="row">
+        <Stack w="100%" width="65%">
           <DetailsPart
             details={details}
             isLoading={isLoading ?? false}
@@ -202,20 +203,18 @@ const ReserveDetailsPage = () => {
             onShare={handleShare}
           />
         </Stack>
-        {gtMd ? (
-          <Stack width="35%">
-            <ManagePositionPart
-              accountId={accountId}
-              userInfo={userInfo}
-              networkId={networkId}
-              provider={provider}
-              marketAddress={marketAddress}
-              reserveAddress={reserveAddress}
-              symbol={symbol}
-              logoURI={logoURI}
-            />
-          </Stack>
-        ) : null}
+        <Stack width="35%">
+          <ManagePositionPart
+            accountId={accountId}
+            userInfo={userInfo}
+            networkId={networkId}
+            provider={provider}
+            marketAddress={marketAddress}
+            reserveAddress={reserveAddress}
+            symbol={symbol}
+            logoURI={logoURI}
+          />
+        </Stack>
       </XStack>
     </EarnPageContainer>
   );
