@@ -7,6 +7,7 @@ import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { OAuthPopup } from '../OAuthPopup';
@@ -158,8 +159,10 @@ export function useSupabaseAuth() {
       provider: EOAuthSocialLoginProvider,
       options?: IOAuthSignInOptions,
     ): Promise<IOAuthSignInResult> => {
-      const oauthResult = await performOAuthSignIn(provider, options);
-      return oauthResult;
+      return errorToastUtils.withErrorAutoToast(async () => {
+        const oauthResult = await performOAuthSignIn(provider, options);
+        return oauthResult;
+      });
     },
     [performOAuthSignIn],
   );
