@@ -1,7 +1,6 @@
 import type { IBorrowApy } from '@onekeyhq/shared/types/staking';
 
-import { AprText } from '../../../Earn/components/AprText';
-
+import { ApyTextV2 } from './ApyTextV2';
 import { FieldWrapper } from './FieldWrapper';
 
 type IBorrowAPYFieldProps = {
@@ -11,12 +10,7 @@ type IBorrowAPYFieldProps = {
 export const BorrowAPYField = ({ apyDetail }: IBorrowAPYFieldProps) => {
   return (
     <FieldWrapper ai="flex-end">
-      <AprText
-        asset={{
-          aprWithoutFee: apyDetail.apy,
-          aprInfo: apyDetail,
-        }}
-      />
+      <ApyTextV2 apyDetail={apyDetail} />
     </FieldWrapper>
   );
 };

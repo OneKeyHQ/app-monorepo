@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { UniversalBorrowRepay } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowRepay';
 import { UniversalBorrowWithdraw } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowWithdraw';
 import {
@@ -10,7 +12,10 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
+  type EBorrowActionsEnum,
   EEarnLabels,
+  type IBorrowAsset,
+  type IBorrowAssetsList,
   type IEarnTokenInfo,
   type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -60,12 +65,63 @@ export const WithdrawSection = ({
     () => protocolInfo?.provider ?? '',
     [protocolInfo?.provider],
   );
+
+  // State for selected asset from popover (override the default)
+  const [selectedAsset, setSelectedAsset] = useState<IBorrowAsset | null>(null);
+
+  // Fetch selectable assets for Withdraw/Repay popover
+  const { result: assetsList, isLoading: assetsListLoading } =
+    usePromiseResult<IBorrowAssetsList>(
+      async () => {
+        if (
+          !accountId ||
+          !networkId ||
+          !providerName ||
+          !borrowMarketAddress ||
+          !useBorrowApi ||
+          (borrowAction !== 'withdraw' && borrowAction !== 'repay')
+        ) {
+          return { assets: [] };
+        }
+        return backgroundApiProxy.serviceStaking.getBorrowAssetsList({
+          accountId,
+          networkId,
+          provider: providerName,
+          marketAddress: borrowMarketAddress,
+          action: borrowAction as EBorrowActionsEnum,
+        });
+      },
+      [
+        accountId,
+        networkId,
+        providerName,
+        borrowMarketAddress,
+        useBorrowApi,
+        borrowAction,
+      ],
+      {
+        initResult: { assets: [] },
+        watchLoading: true,
+      },
+    );
+
+  // Determine the effective reserve address (selected or default)
+  const effectiveReserveAddress = useMemo(
+    () => selectedAsset?.reserveAddress ?? borrowReserveAddress,
+    [selectedAsset, borrowReserveAddress],
+  );
+
+  // Handle token selection from popover
+  const handleTokenSelect = useCallback((item: IBorrowAsset) => {
+    setSelectedAsset(item);
+  }, []);
+
   const borrowApiCtx = useBorrowApiParams({
     useBorrowApi,
     networkId,
     provider: providerName,
     marketAddress: borrowMarketAddress,
-    reserveAddress: borrowReserveAddress,
+    reserveAddress: effectiveReserveAddress,
     accountId,
     action: borrowAction,
   });
@@ -76,6 +132,37 @@ export const WithdrawSection = ({
   const BorrowWithdrawComponent =
     borrowAction === 'repay' ? UniversalBorrowRepay : UniversalBorrowWithdraw;
   const token = useMemo(() => tokenInfo?.token as IToken, [tokenInfo]);
+
+  // Determine the effective token info (from selected asset or default)
+  const effectiveTokenSymbol = useMemo(
+    () => selectedAsset?.token?.symbol ?? token?.symbol ?? '',
+    [selectedAsset, token],
+  );
+  const effectiveTokenImageUri = useMemo(
+    () =>
+      selectedAsset?.token?.logoURI ?? token?.logoURI ?? fallbackTokenImageUri,
+    [selectedAsset, token, fallbackTokenImageUri],
+  );
+  const effectiveDecimals = useMemo(
+    () =>
+      selectedAsset?.token?.decimals ??
+      protocolInfo?.protocolInputDecimals ??
+      token?.decimals,
+    [selectedAsset, protocolInfo?.protocolInputDecimals, token?.decimals],
+  );
+
+  // Determine the effective balance (from selected asset or default)
+  const effectiveBalance = useMemo(() => {
+    if (selectedAsset) {
+      if (borrowAction === 'repay') {
+        // For repay, use borrowed balance
+        return selectedAsset.borrowed?.title?.text ?? '0';
+      }
+      // For withdraw, use supplied balance
+      return selectedAsset.supplied?.title?.text ?? '0';
+    }
+    return protocolInfo?.activeBalance ?? '0';
+  }, [selectedAsset, borrowAction, protocolInfo?.activeBalance]);
   const symbol = useMemo(() => token?.symbol || '', [token]);
   const vault = useMemo(() => protocolInfo?.vault || '', [protocolInfo?.vault]);
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
@@ -140,6 +227,18 @@ export const WithdrawSection = ({
     ],
   );
 
+  // Build token for staking info (use selected asset or default)
+  const effectiveToken = useMemo<IToken | undefined>(() => {
+    if (selectedAsset) {
+      return {
+        ...selectedAsset.token,
+        isNative: false,
+        networkId,
+      } as IToken;
+    }
+    return token;
+  }, [selectedAsset, token, networkId]);
+
   const onBorrowConfirm = useCallback(
     async ({
       amount,
@@ -150,10 +249,11 @@ export const WithdrawSection = ({
       withdrawAll?: boolean;
       repayAll?: boolean;
     }) => {
-      if (!hasRequiredData || !borrowApiCtx.isBorrow) return;
+      if (!borrowApiCtx.isBorrow) return;
 
-      const { provider, marketAddress, reserveAddress, action } =
-        borrowApiCtx.borrowApiParams;
+      const { provider, marketAddress, action } = borrowApiCtx.borrowApiParams;
+      // Use effective reserve address (from selected asset or default)
+      const reserveAddress = effectiveReserveAddress ?? '';
 
       if (action === 'repay') {
         await handleBorrowRepay({
@@ -162,14 +262,14 @@ export const WithdrawSection = ({
           marketAddress,
           reserveAddress,
           repayAll,
-          stakingInfo: token
+          stakingInfo: effectiveToken
             ? {
                 label: EEarnLabels.Repay,
                 protocol: earnUtils.getEarnProviderName({
                   providerName: provider,
                 }),
                 protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-                send: { token, amount },
+                send: { token: effectiveToken, amount },
                 tags: [protocolInfo?.stakeTag || ''],
               }
             : undefined,
@@ -186,14 +286,14 @@ export const WithdrawSection = ({
         marketAddress,
         reserveAddress,
         withdrawAll,
-        stakingInfo: token
+        stakingInfo: effectiveToken
           ? {
               label: EEarnLabels.Withdraw,
               protocol: earnUtils.getEarnProviderName({
                 providerName: provider,
               }),
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-              receive: { token, amount },
+              receive: { token: effectiveToken, amount },
               tags: [protocolInfo?.stakeTag || ''],
             }
           : undefined,
@@ -204,13 +304,13 @@ export const WithdrawSection = ({
     },
     [
       borrowApiCtx,
+      effectiveReserveAddress,
+      effectiveToken,
       handleBorrowRepay,
       handleBorrowWithdraw,
-      hasRequiredData,
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,
-      token,
     ],
   );
 
@@ -263,12 +363,12 @@ export const WithdrawSection = ({
       {isBorrowWithdraw ? (
         <BorrowWithdrawComponent
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
-          decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
-          balance={protocolInfo?.activeBalance || '0'}
+          decimals={effectiveDecimals}
+          balance={effectiveBalance}
           accountId={accountId}
           networkId={networkId}
-          tokenSymbol={symbol || ''}
-          tokenImageUri={token?.logoURI || fallbackTokenImageUri}
+          tokenSymbol={effectiveTokenSymbol}
+          tokenImageUri={effectiveTokenImageUri}
           providerName={providerName}
           onConfirm={onBorrowConfirm}
           tokenInfo={tokenInfo}
@@ -276,12 +376,13 @@ export const WithdrawSection = ({
           borrowMarketAddress={
             borrowApiCtx.borrowApiParams?.marketAddress ?? ''
           }
-          borrowReserveAddress={
-            borrowApiCtx.borrowApiParams?.reserveAddress ?? ''
-          }
+          borrowReserveAddress={effectiveReserveAddress ?? ''}
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           actionLabel={borrowActionLabel}
+          selectableAssets={assetsList.assets}
+          selectableAssetsLoading={assetsListLoading}
+          onTokenSelect={handleTokenSelect}
         />
       ) : (
         <UniversalWithdraw
