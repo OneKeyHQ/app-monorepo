@@ -19,14 +19,14 @@
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "7.0.2",
     "react-native-root-siblings": "^5.0.1",
-    "react-native-svg": "15.12.1",
+    "react-native-svg": "*",
     "react-native-tab-view": "^3.5.1"
   },
   "devDependencies": {
     "@svgr/cli": "8.1.0",
     "@types/qrcode": "^1.4.2",
-    "folderslint": "^1.2.0",
-    "rimraf": "^3"
+    "folderslint": "*",
+    "rimraf": "*"
   },
   "scripts": {
     "icon:build": "rimraf src/primitives/Icon/react && svgr --config-file .svgrrc.json -d src/primitives/Icon/react svg && node src/primitives/Icon/script.js",
