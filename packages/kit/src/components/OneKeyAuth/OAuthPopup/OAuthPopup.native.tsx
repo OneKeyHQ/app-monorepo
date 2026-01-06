@@ -178,7 +178,7 @@ export class OAuthPopup extends OAuthPopupBase {
       rawNonce,
     );
     if (platformEnv.isNativeIOS && options.provider === 'google') {
-      // return { rawNonce: undefined, hashedNonce: undefined };
+      return { rawNonce: undefined, hashedNonce: undefined };
     }
     return { rawNonce, hashedNonce };
   }
@@ -523,8 +523,11 @@ export class OAuthPopup extends OAuthPopupBase {
       const { data, error } = await client.auth.signInWithIdToken({
         provider: 'google',
         token: idToken,
-        // Passed nonce and nonce in id_token should either both exist or not.
-        // Nonces mismatch
+        // check generateNonce() function
+        // if rawNonce=undefined:
+        //     Passed nonce and nonce in id_token should either both exist or not.
+        // if rawNonce exists:
+        //     Nonces mismatch
         nonce: rawNonce,
       });
 

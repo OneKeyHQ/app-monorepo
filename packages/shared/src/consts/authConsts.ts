@@ -151,10 +151,17 @@ export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
 
 // TODO: Search for all occurrences of 'apps.googleusercontent.com' in the project and consolidate all discovered OAuth client IDs here for unified management.
 
+// ================================================
+// Google OAuth Clients
+// -----------------------------------------------
+
 const GOOGLE_OAUTH_CLIENT_WEB =
   '244450898872-vmpg9dgocpqtqhm5pk42u4s6hvprogp6.apps.googleusercontent.com';
 const GOOGLE_OAUTH_CLIENT_IOS =
   '244450898872-5uo9r8ekdc82huckjcr4br67edvf3vlg.apps.googleusercontent.com';
+
+// ================================================
+
 export const GOOGLE_OAUTH_CLIENT_IDS = {
   WEB: GOOGLE_OAUTH_CLIENT_WEB,
   EXTENSION: GOOGLE_OAUTH_CLIENT_WEB, // oauth web client, not extension client
@@ -164,21 +171,29 @@ export const GOOGLE_OAUTH_CLIENT_IDS = {
 
 // Supabase (OneKeyAuth)
 // Project URL at https://supabase.com/dashboard/project/_/settings/api
-export const SUPABASE_PROJECT_URL = IS_DEV
-  ? process.env.SUPABASE_PROJECT_URL ||
-    'https://bwgpgzbzdgkisozswlck.supabase.co' // local test
-  : 'https://bwgpgzbzdgkisozswlck.supabase.co';
+export const SUPABASE_PROJECT_URL = 'https://bwgpgzbzdgkisozswlck.supabase.co';
 
 // Publishable key at https://supabase.com/dashboard/project/_/settings/api-keys/new
-export const SUPABASE_PUBLIC_API_KEY = IS_DEV
-  ? process.env.SUPABASE_PUBLIC_API_KEY ||
-    'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN' // local test
-  : 'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN';
+export const SUPABASE_PUBLIC_API_KEY =
+  'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN';
 
+// ================================================
+// Keyless Supabase
+// -----------------------------------------------
+
+// --- onekeytest
 export const KEYLESS_SUPABASE_PROJECT_URL =
-  'https://supabase.onekey-internal.com';
+  'https://supabase.onekey-internal.com'; // onekeytest
 export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
+
+// --- localtest
+// export const KEYLESS_SUPABASE_PROJECT_URL =
+//   'https://wtspqckturkzhstyjabx.supabase.co';
+// export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+//   'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN';
+
+// ================================================
 
 type IJuiceBoxRealmConfig = {
   id: string;
