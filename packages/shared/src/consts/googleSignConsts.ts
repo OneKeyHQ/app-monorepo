@@ -1,5 +1,4 @@
 /* eslint-disable spellcheck/spell-checker */
-import platformEnv from '../platformEnv';
 
 import { GOOGLE_OAUTH_CLIENT_IDS } from './authConsts';
 

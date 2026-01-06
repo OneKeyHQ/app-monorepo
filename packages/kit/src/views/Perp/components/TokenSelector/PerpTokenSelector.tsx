@@ -46,8 +46,13 @@ import {
   XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-import { usePerpTokenSelector } from '../../hooks';
+import {
+  type IFavoriteItem,
+  usePerpTokenSelector,
+  usePerpsFavorites,
+} from '../../hooks';
 
+import { FavoritesEmptyState } from './FavoritesEmptyState';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 import { SortableHeaderCell } from './SortableHeaderCell';
 
@@ -160,6 +165,7 @@ function BasePerpTokenSelectorContent({
 
   const tabNames = useMemo(
     () => ({
+      favorites: 'Favs',
       all: 'PERPS',
       hip3: 'HIP3',
     }),
@@ -167,7 +173,7 @@ function BasePerpTokenSelectorContent({
   );
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const setActiveTab = useCallback(
-    (tab: 'all' | 'hip3') => {
+    (tab: 'all' | 'hip3' | 'favorites') => {
       setSelectorConfig((prev) => ({
         field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
         direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
@@ -194,6 +200,11 @@ function BasePerpTokenSelectorContent({
     [closePopover, actions, onLoadingChange],
   );
 
+  const { favoriteItems } = usePerpsFavorites();
+
+  const listRefFavorites = useRef<IListViewRef<ITokenSelectorListItem> | null>(
+    null,
+  );
   const listRefAll = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
   const listRefHip3 = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
   const activeTabRef = useRef(activeTab);
@@ -211,10 +222,12 @@ function BasePerpTokenSelectorContent({
     }
     lastSortRef.current = { field, direction };
 
-    const ref =
-      activeTabRef.current === 'hip3'
-        ? listRefHip3.current
-        : listRefAll.current;
+    let ref = listRefAll.current;
+    if (activeTabRef.current === 'hip3') {
+      ref = listRefHip3.current;
+    } else if (activeTabRef.current === 'favorites') {
+      ref = listRefFavorites.current;
+    }
     ref?.scrollToOffset?.({ offset: 0, animated: false });
   }, [selectorConfig?.direction, selectorConfig?.field]);
 
@@ -396,7 +409,15 @@ function BasePerpTokenSelectorContent({
       }));
     })();
 
+    const favoriteAssetIds = new Set(
+      favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
+    );
+    const listFavorites = listAll.filter((item) =>
+      favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
+    );
+
     return {
+      favorites: listFavorites,
       all: listAll,
       hip3: listHip3,
     };
@@ -405,6 +426,7 @@ function BasePerpTokenSelectorContent({
     assetsByDex,
     buildListData,
     computeSortValues,
+    favoriteItems,
     sortCompare,
     selectorConfig?.field,
   ]);
@@ -421,43 +443,53 @@ function BasePerpTokenSelectorContent({
     (
       data: ITokenSelectorListItem[],
       listRef: React.MutableRefObject<IListViewRef<ITokenSelectorListItem> | null>,
-    ) => (
-      <Tabs.ScrollView>
-        <YStack>
-          <TokenListHeader />
-          <YStack height={350}>
-            <ListView
-              useFlashList
-              ref={listRef}
-              keyExtractor={keyExtractor}
-              data={data}
-              renderItem={({ item: mockedToken }) => (
-                <PerpTokenSelectorRow
-                  mockedToken={mockedToken}
-                  onPress={(name) => handleSelectToken(name)}
+      isFavoritesTab = false,
+    ) => {
+      const showFavoritesEmpty =
+        isFavoritesTab && data.length === 0 && !searchQuery;
+
+      return (
+        <Tabs.ScrollView>
+          <YStack>
+            {!isFavoritesTab || data.length > 0 ? <TokenListHeader /> : null}
+            <YStack height={350}>
+              {showFavoritesEmpty ? (
+                <FavoritesEmptyState />
+              ) : (
+                <ListView
+                  useFlashList
+                  ref={listRef}
+                  keyExtractor={keyExtractor}
+                  data={data}
+                  renderItem={({ item: mockedToken }) => (
+                    <PerpTokenSelectorRow
+                      mockedToken={mockedToken}
+                      onPress={(name) => handleSelectToken(name)}
+                    />
+                  )}
+                  ListEmptyComponent={
+                    <XStack p="$4" justifyContent="center">
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {searchQuery
+                          ? intl.formatMessage({
+                              id: ETranslations.perp_token_selector_empty,
+                            })
+                          : intl.formatMessage({
+                              id: ETranslations.perp_token_selector_loading,
+                            })}
+                      </SizableText>
+                    </XStack>
+                  }
+                  contentContainerStyle={{
+                    paddingBottom: 10,
+                  }}
                 />
               )}
-              ListEmptyComponent={
-                <XStack p="$4" justifyContent="center">
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {searchQuery
-                      ? intl.formatMessage({
-                          id: ETranslations.perp_token_selector_empty,
-                        })
-                      : intl.formatMessage({
-                          id: ETranslations.perp_token_selector_loading,
-                        })}
-                  </SizableText>
-                </XStack>
-              }
-              contentContainerStyle={{
-                paddingBottom: 10,
-              }}
-            />
+            </YStack>
           </YStack>
-        </YStack>
-      </Tabs.ScrollView>
-    ),
+        </Tabs.ScrollView>
+      );
+    },
     [handleSelectToken, intl, keyExtractor, searchQuery],
   );
 
@@ -481,10 +513,18 @@ function BasePerpTokenSelectorContent({
           />
         </XStack>
         <Tabs.Container
-          initialTabName={activeTab === 'hip3' ? tabNames.hip3 : tabNames.all}
+          initialTabName={(() => {
+            if (activeTab === 'hip3') return tabNames.hip3;
+            if (activeTab === 'favorites') return tabNames.favorites;
+            return tabNames.all;
+          })()}
           onTabChange={({ tabName }) => {
             if (tabName === tabNames.hip3) {
               setActiveTab('hip3');
+              return;
+            }
+            if (tabName === tabNames.favorites) {
+              setActiveTab('favorites');
               return;
             }
             setActiveTab('all');
@@ -506,12 +546,17 @@ function BasePerpTokenSelectorContent({
         >
           <Tabs.Tab name={tabNames.all}>
             {activeTab === 'all'
-              ? renderTokenList(listDataByTab.all, listRefAll)
+              ? renderTokenList(listDataByTab.all, listRefAll, false)
               : null}
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.hip3}>
             {activeTab === 'hip3'
-              ? renderTokenList(listDataByTab.hip3, listRefHip3)
+              ? renderTokenList(listDataByTab.hip3, listRefHip3, false)
+              : null}
+          </Tabs.Tab>
+          <Tabs.Tab name={tabNames.favorites}>
+            {activeTab === 'favorites'
+              ? renderTokenList(listDataByTab.favorites, listRefFavorites, true)
               : null}
           </Tabs.Tab>
         </Tabs.Container>

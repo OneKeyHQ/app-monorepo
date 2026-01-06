@@ -7,7 +7,10 @@ import { Page, SearchBar, Stack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { useSwapProSelectTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapActions,
+  useSwapProSelectTokenAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -37,8 +40,8 @@ const SwapProSelectTokenPage = ({
   autoSearch,
 }: ISwapProSelectTokenPageProps) => {
   const intl = useIntl();
-  const [swapProTokenSelect, setSwapProSelectToken] =
-    useSwapProSelectTokenAtom();
+  const { setSwapProSelectToken } = useSwapActions().current;
+  const [swapProTokenSelect] = useSwapProSelectTokenAtom();
   const [selectedNetworkId, setSelectedNetworkId] = useState<
     string | undefined
   >(swapProTokenSelect?.networkId ?? 'evm--1');
@@ -55,7 +58,7 @@ const SwapProSelectTokenPage = ({
   );
   const navigation = useAppNavigation();
   const handleTokenSelect = (token: IMarketToken) => {
-    setSwapProSelectToken({
+    void setSwapProSelectToken({
       networkId: token.networkId,
       contractAddress: token.address,
       decimals: token.decimals,
@@ -71,7 +74,7 @@ const SwapProSelectTokenPage = ({
   const handleSearchTokenSelect = (
     token: IMarketSearchV2Token & { networkLogoURI: string },
   ) => {
-    setSwapProSelectToken({
+    void setSwapProSelectToken({
       networkId: token.network,
       contractAddress: token.address,
       decimals: token.decimals,

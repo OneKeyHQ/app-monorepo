@@ -30,6 +30,7 @@ import type {
   IChangedPendingTxInfo,
 } from '@onekeyhq/shared/types/history';
 import type {
+  EBorrowActionsEnum,
   ECheckAmountActionType,
   EInternalDappEnum,
   EInternalStakingAction,
@@ -37,6 +38,21 @@ import type {
   IApyHistoryResponse,
   IAvailableAsset,
   IBabylonPortfolioItem,
+  IBorrowApyHistoryItem,
+  IBorrowAssetsList,
+  IBorrowCheckAmount,
+  IBorrowEstimateFee,
+  IBorrowFaqList,
+  IBorrowHealthFactor,
+  IBorrowHistory,
+  IBorrowManagePage,
+  IBorrowMarketItem,
+  IBorrowReserveDetail,
+  IBorrowReserveItem,
+  IBorrowReserveRequestParams,
+  IBorrowRewards,
+  IBorrowTransactionConfirmation,
+  IBorrowUnsignedTransaction,
   IBuildPermit2ApproveSignDataParams,
   IBuildRegisterSignMessageParams,
   ICheckAmountAlert,
@@ -788,6 +804,7 @@ class ServiceStaking extends ServiceBase {
     accountId?: string;
     indexedAccountId?: string;
     filterNetworkId?: string;
+    skipStakingConfigFilter?: boolean;
   }) {
     let allItems: IStakeProtocolListItem[] = [];
     try {
@@ -811,6 +828,10 @@ class ServiceStaking extends ServiceBase {
       allItems = allItems.filter(
         (item) => item.network.networkId === params.filterNetworkId,
       );
+    }
+
+    if (params.skipStakingConfigFilter) {
+      return allItems;
     }
 
     // Check enabled status for all items
@@ -1940,6 +1961,514 @@ class ServiceStaking extends ServiceBase {
       },
     );
 
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowMarkets() {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: {
+        markets: IBorrowMarketItem[];
+      };
+    }>('/earn/v1/borrow/markets');
+    return response.data.data?.markets || [];
+  }
+
+  @backgroundMethod()
+  async getBorrowReserves(params: IBorrowReserveRequestParams) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress = accountId
+      ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId: params.networkId,
+          accountId,
+        })
+      : undefined;
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowReserveItem;
+    }>('/earn/v1/borrow/reserves', {
+      params: {
+        ...rest,
+        ...(accountAddress ? { accountAddress } : {}),
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowHistory(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+    type?: string;
+  }) {
+    const { accountId, type, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const data: Record<string, string | undefined> & { type?: string } = {
+      ...rest,
+      accountAddress,
+    };
+
+    if (type) {
+      data.type = type;
+    }
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowHistory;
+    }>('/earn/v1/borrow/histories', {
+      params: data,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowApyHistory(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    action: 'supply' | 'borrow';
+    days: 'week' | 'month' | 'quarter' | 'half-year' | 'year';
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+
+    const response = await client.get<{
+      data: {
+        items: IBorrowApyHistoryItem[];
+      };
+    }>('/earn/v1/borrow/apy/history', {
+      params,
+    });
+
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowReserveDetails(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId?: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress = accountId
+      ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId: params.networkId,
+          accountId,
+        })
+      : undefined;
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowReserveDetail;
+    }>('/earn/v1/borrow/reserve-detail', {
+      params: {
+        ...rest,
+        ...(accountAddress ? { accountAddress } : {}),
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowTransactionConfirmation(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    action: 'supply' | 'withdraw' | 'borrow' | 'repay';
+    amount: string;
+  }) {
+    const { accountId, amount, ...rest } = params;
+
+    const amountNumber = BigNumber(amount || 0);
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowTransactionConfirmation;
+    }>('/earn/v1/borrow/transaction-confirmation', {
+      params: {
+        ...rest,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async borrowBuildSupplyTransaction(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    amount: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IBorrowUnsignedTransaction;
+    }>('/earn/v1/borrow/build-supply-transaction', {
+      ...rest,
+      accountAddress,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async borrowBuildWithdrawTransaction(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    amount: string;
+    withdrawAll?: boolean;
+  }) {
+    const { accountId, withdrawAll, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IBorrowUnsignedTransaction;
+    }>('/earn/v1/borrow/build-withdraw-transaction', {
+      ...rest,
+      accountAddress,
+      ...(withdrawAll !== undefined ? { withdrawAll } : {}),
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async borrowBuildBorrowTransaction(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    amount: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IBorrowUnsignedTransaction;
+    }>('/earn/v1/borrow/build-borrow-transaction', {
+      ...rest,
+      accountAddress,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async borrowBuildRepayTransaction(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    amount: string;
+    repayAll?: boolean;
+  }) {
+    const { accountId, repayAll, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IBorrowUnsignedTransaction;
+    }>('/earn/v1/borrow/build-repay-transaction', {
+      ...rest,
+      accountAddress,
+      ...(repayAll !== undefined ? { repayAll } : {}),
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async borrowBuildClaimTransaction(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+    ids: string[];
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IBorrowUnsignedTransaction;
+    }>('/earn/v1/borrow/build-claim-transaction', {
+      ...rest,
+      accountAddress,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowManagePage(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    type: 'supply' | 'withdraw' | 'borrow' | 'repay';
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowManagePage;
+    }>('/earn/v1/borrow/manage-page', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowHealthFactor(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowHealthFactor;
+    }>('/earn/v1/borrow/health-factor', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowCheckAmount(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    action: 'supply' | 'withdraw' | 'borrow' | 'repay';
+    amount: string;
+    repayAll?: boolean;
+  }) {
+    const { accountId, amount, repayAll, ...rest } = params;
+
+    const amountNumber = BigNumber(amount || 0);
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IBorrowCheckAmount;
+    }>('/earn/v1/borrow/check-amount', {
+      params: {
+        ...rest,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+        accountAddress,
+        ...(repayAll !== undefined ? { repayAll } : {}),
+      },
+    });
+    return response.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowEstimateFee(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    accountId: string;
+    action: 'supply' | 'withdraw' | 'borrow' | 'repay';
+    amount: string;
+  }) {
+    const { accountId, amount, ...rest } = params;
+
+    const amountNumber = BigNumber(amount || 0);
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IBorrowEstimateFee;
+    }>('/earn/v1/borrow/estimate-fee', {
+      params: {
+        ...rest,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowRewards(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowRewards;
+    }>('/earn/v1/borrow/rewards', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowAssetsList(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+    action: EBorrowActionsEnum;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowAssetsList;
+    }>('/earn/v1/borrow/asset-list', {
+      params: {
+        ...rest,
+        accountAddress,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowFaqList(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IBorrowFaqList;
+    }>('/earn/v1/borrow/faq/list', {
+      params,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getBorrowInterestRateCurve(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: {
+        borrowCurve: [number, string][];
+        supplyCurve: [number, string][];
+      };
+    }>('/earn/v1/borrow/interest-rate/curve', {
+      params,
+    });
     return response.data.data;
   }
 }

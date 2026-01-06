@@ -68,6 +68,8 @@ export interface IDevSettings {
   // Force IP Table strict mode: always use IP even if runtime.selections is empty
   // Fallback to first available IP from config when no selection exists
   forceIpTableStrict?: boolean;
+  // Enable mock market banner data for UI testing
+  enableMockMarketBanner?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

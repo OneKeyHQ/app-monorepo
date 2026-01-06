@@ -240,6 +240,18 @@ export function getStakingActionLabel({
       return appLocale.intl.formatMessage({
         id: ETranslations.global_withdraw,
       });
+    case EEarnLabels.Supply:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.defi_supply,
+      });
+    case EEarnLabels.Borrow:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.global_borrow,
+      });
+    case EEarnLabels.Repay:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.defi_repay,
+      });
     default:
       return appLocale.intl.formatMessage({
         id: ETranslations.global_unknown,

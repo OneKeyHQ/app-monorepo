@@ -4,10 +4,9 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Icon,
+  Badge,
   NumberSizeableText,
   SizableText,
-  XStack,
   YStack,
 } from '@onekeyhq/components';
 import {
@@ -25,7 +24,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
-import { TokenSelectorPopover } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenSelectorPopover';
+import SellForSelector from '../../../Market/MarketDetailV2/components/SwapPanel/components/SellForSelector';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import {
@@ -42,7 +41,6 @@ interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
   defaultTokens: ISwapTokenBase[];
   defaultLimitTokens: ISwapTokenBase[];
-  cleanInputAmount: () => void;
   onBalanceMax: () => void;
 }
 
@@ -50,11 +48,9 @@ const SwapProTradeInfoGroup = ({
   balanceLoading,
   onBalanceMax,
   defaultTokens,
-  cleanInputAmount,
   defaultLimitTokens,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
@@ -150,19 +146,30 @@ const SwapProTradeInfoGroup = ({
   }, [toTokenAmount?.value, swapProQuoteResult?.toAmount, swapProTradeType]);
   const tradingFeeValue = useMemo(() => {
     const tradingFee = swapProQuoteResult?.fee?.percentageFee;
-    if (!tradingFee) {
-      return '--';
+    const tradingFeeBN = new BigNumber(tradingFee || '0');
+    const isFreeOneKeyFee = tradingFeeBN.isZero() || tradingFeeBN.isNaN();
+    if (isFreeOneKeyFee) {
+      return {
+        valueComponent: (
+          <Badge badgeSize="sm" badgeType="info">
+            {intl.formatMessage({
+              id: ETranslations.swap_stablecoin_0_fee,
+            })}
+          </Badge>
+        ),
+      };
     }
-    return `${tradingFee}%`;
-  }, [swapProQuoteResult?.fee?.percentageFee]);
+
+    return {
+      value: `${tradingFee ?? '0'}%`,
+    };
+  }, [intl, swapProQuoteResult?.fee?.percentageFee]);
 
   const handleTokenSelect = useCallback(
     (token: IToken) => {
-      cleanInputAmount();
       setSwapProSellToToken(token);
-      setIsPopoverOpen(false);
     },
-    [cleanInputAmount, setSwapProSellToToken],
+    [setSwapProSellToToken],
   );
 
   return (
@@ -255,61 +262,28 @@ const SwapProTradeInfoGroup = ({
         }}
       />
       {swapProDirection === ESwapDirection.SELL ? (
-        <SwapCommonInfoItem
-          title={intl.formatMessage({
-            id: ETranslations.promode_limit_sell_for,
-          })}
-          valueComponent={
-            <XStack
-              alignItems="center"
-              gap="$1"
-              {...(defaultTokensFromType.length > 1
-                ? {
-                    cursor: 'pointer',
-                    onPress: () => setIsPopoverOpen(true),
-                    hoverStyle: { opacity: 0.7 },
-                    pressStyle: { opacity: 0.5 },
-                  }
-                : {})}
-            >
-              <SizableText size={ITEM_VALUE_PROPS.size}>
-                {swapProSellToToken?.symbol ?? '-'}
-              </SizableText>
-              {defaultTokensFromType.length > 1 ? (
-                <Icon
-                  name="ChevronDownSmallOutline"
-                  size="$4"
-                  color="$iconSubdued"
-                />
-              ) : null}
-            </XStack>
-          }
-          titleProps={ITEM_TITLE_PROPS}
+        <SellForSelector
+          defaultTokens={defaultTokensFromType}
+          currentSelectToken={swapProSelectToken as ISwapTokenBase}
+          onTokenSelect={(token) => handleTokenSelect(token as IToken)}
+          symbol={swapProSellToToken?.symbol ?? '-'}
           isLoading={swapProQuoteFetching}
-          containerProps={{
-            py: '$1',
-          }}
+          itemTitleProps={ITEM_TITLE_PROPS}
+          itemValueProps={ITEM_VALUE_PROPS}
         />
       ) : null}
       <SwapCommonInfoItem
         title={intl.formatMessage({
           id: ETranslations.provider_ios_popover_wallet_fee,
         })}
-        value={tradingFeeValue}
+        value={tradingFeeValue.value}
+        valueComponent={tradingFeeValue.valueComponent}
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
         isLoading={swapProQuoteFetching}
         containerProps={{
           py: '$1',
         }}
-      />
-      <TokenSelectorPopover
-        currentSelectToken={swapProSelectToken}
-        isOpen={isPopoverOpen}
-        onOpenChange={setIsPopoverOpen}
-        tokens={defaultTokensFromType as IToken[]}
-        onTokenPress={handleTokenSelect}
-        disabledOnSwitchToTrade
       />
     </YStack>
   );

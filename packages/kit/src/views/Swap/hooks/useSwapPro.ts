@@ -83,13 +83,13 @@ export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
   const [, setSwapProDirection] = useSwapProDirectionAtom();
   const { networkList } = useMarketBasicConfig();
-  const [swapProSelectToken, setSwapProSelectToken] =
-    useSwapProSelectTokenAtom();
+  const { setSwapProSelectToken } = useSwapActions().current;
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
   const swapSwitchProToken = useCallback(
     (payload: { token: ISwapToken }) => {
       setSwapSwitchType(ESwapTabSwitchType.LIMIT);
-      setSwapProSelectToken(payload.token);
+      void setSwapProSelectToken(payload.token);
     },
     [setSwapSwitchType, setSwapProSelectToken],
   );
@@ -497,8 +497,8 @@ export function useSwapProTokenInfoSync() {
 }
 
 export function useSwapProTokenInit() {
-  const [swapProSelectToken, setSwapProSelectToken] =
-    useSwapProSelectTokenAtom();
+  const { setSwapProSelectToken } = useSwapActions().current;
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
@@ -601,7 +601,7 @@ export function useSwapProTokenInit() {
       !swapProSelectToken &&
       speedDefaultSelectToken
     ) {
-      setSwapProSelectToken(speedDefaultSelectToken);
+      void setSwapProSelectToken(undefined, speedDefaultSelectToken);
     }
   }, [
     swapProJumpToken,
@@ -896,6 +896,7 @@ export function useSwapProTokenTransactionList(
   tokenAddress: string,
   networkId: string,
   enableWebSocket: boolean,
+  supportSpeedSwap?: boolean,
 ) {
   const currencyInfo = useCurrency();
   const [, setSwapProTokenTransactionPrice] =
@@ -914,7 +915,7 @@ export function useSwapProTokenTransactionList(
     run: fetchTransactions,
   } = usePromiseResult(
     async () => {
-      if (!networkId) {
+      if (!networkId || !supportSpeedSwap) {
         return undefined;
       }
       try {
@@ -931,7 +932,7 @@ export function useSwapProTokenTransactionList(
         return { list: [] };
       }
     },
-    [tokenAddress, networkId],
+    [networkId, supportSpeedSwap, tokenAddress],
     {
       watchLoading: true,
     },
@@ -974,7 +975,7 @@ export function useSwapProTokenTransactionList(
   useTransactionsWebSocket({
     networkId,
     tokenAddress,
-    enabled: enableWebSocket,
+    enabled: enableWebSocket && supportSpeedSwap,
     currency: currencyInfo.id,
     onNewTransaction: addNewTransaction,
   });
@@ -1164,28 +1165,19 @@ export function useSwapProSupportNetworksTokenList(
 export function useSwapProPositionsListFilter(filterToken?: ISwapToken[]) {
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const focusSwapPro = useMemo(() => {
-    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
-  }, [swapTypeSwitch]);
   const filterDefaultTokenList = useMemo(() => {
-    let filterMinValueTokenList = swapProSupportNetworksTokenList.filter(
+    const filterMinValueTokenList = swapProSupportNetworksTokenList.filter(
       (token) => {
         return new BigNumber(token.fiatValue || '0').gt(
           swapProPositionsListMinValue,
         );
       },
     );
-    if (focusSwapPro) {
-      filterMinValueTokenList = filterMinValueTokenList.filter((token) => {
-        return !token.isNative;
-      });
-    }
     if (filterMinValueTokenList.length <= swapProPositionsListMaxCount) {
       return filterMinValueTokenList;
     }
     return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
-  }, [focusSwapPro, swapProSupportNetworksTokenList]);
+  }, [swapProSupportNetworksTokenList]);
 
   const finallyTokenList = useMemo(
     () =>

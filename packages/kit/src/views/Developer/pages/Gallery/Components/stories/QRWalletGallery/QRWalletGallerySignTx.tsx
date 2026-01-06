@@ -267,7 +267,7 @@ export function QRWalletGallerySignTx() {
           const r = signature.slice(0, 64);
           const s = signature.slice(64, 64 + 64);
           const v = signature.slice(64 + 64);
-
+          console.log(`r: ${r}, s: ${s} v: ${v}`);
           // const typedTx = TransactionFactory.fromTxData({
           //   ...txShared,
           //   type: txShared.type,

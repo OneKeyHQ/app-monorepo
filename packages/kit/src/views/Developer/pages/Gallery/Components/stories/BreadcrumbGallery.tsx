@@ -20,14 +20,6 @@ const BreadcrumbGallery = () => {
     setCurrentPath(currentPath.slice(0, index + 1));
   };
 
-  const addPath = (newPath: string) => {
-    setCurrentPath([...currentPath, newPath]);
-  };
-
-  const resetPath = () => {
-    setCurrentPath(['Home']);
-  };
-
   const sampleItems: IBreadcrumbItem[] = [
     { label: 'Home', onClick: () => handleBreadcrumbClick(0) },
     { label: 'Products', onClick: () => handleBreadcrumbClick(1) },
@@ -35,26 +27,6 @@ const BreadcrumbGallery = () => {
     { label: 'Smartphones', onClick: () => handleBreadcrumbClick(3) },
     { label: 'iPhone', onClick: () => handleBreadcrumbClick(4) },
   ];
-
-  const longItems: IBreadcrumbItem[] = [
-    { label: 'Home', onClick: () => console.log('Home clicked') },
-    { label: 'Products', onClick: () => console.log('Products clicked') },
-    { label: 'Electronics', onClick: () => console.log('Electronics clicked') },
-    { label: 'Smartphones', onClick: () => console.log('Smartphones clicked') },
-    { label: 'Apple', onClick: () => console.log('Apple clicked') },
-    { label: 'iPhone', onClick: () => console.log('iPhone clicked') },
-    { label: 'iPhone 15', onClick: () => console.log('iPhone 15 clicked') },
-    {
-      label: 'iPhone 15 Pro',
-      onClick: () => console.log('iPhone 15 Pro clicked'),
-    },
-    { label: '256GB', onClick: () => console.log('256GB clicked') },
-  ];
-
-  const dynamicItems: IBreadcrumbItem[] = currentPath.map((path, index) => ({
-    label: path,
-    onClick: () => handleBreadcrumbClick(index),
-  }));
 
   return (
     <Page>

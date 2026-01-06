@@ -85,6 +85,7 @@ export enum EAtomNames {
   perpsCandlesWebviewMountedAtom = 'perpsCandlesWebviewMountedAtom',
   perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
   perpTokenSelectorConfigPersistAtom = 'perpTokenSelectorConfigPersistAtom',
+  perpTokenFavoritesPersistAtom = 'perpTokenFavoritesPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
@@ -93,6 +94,7 @@ export enum EAtomNames {
 
   // swap
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
+  swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
 }

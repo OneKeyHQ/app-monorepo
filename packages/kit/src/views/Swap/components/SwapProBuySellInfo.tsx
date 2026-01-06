@@ -17,7 +17,7 @@ import { useCurrency } from '../../../components/Currency';
 interface ISwapProBuySellInfoProps {
   tokenDetailInfo?: IMarketTokenDetail;
   timeRange: ESwapProTimeRange;
-  isNative?: boolean;
+  supportSpeedSwap?: boolean;
 }
 
 const getCountByTimeRange = (
@@ -31,9 +31,9 @@ const getCountByTimeRange = (
 };
 
 const SwapProBuySellInfo = ({
+  supportSpeedSwap,
   tokenDetailInfo,
   timeRange,
-  isNative,
 }: ISwapProBuySellInfoProps) => {
   const currencyInfo = useCurrency();
   const buyVolume = useMemo(() => {
@@ -52,14 +52,14 @@ const SwapProBuySellInfo = ({
         formatter={isAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: currencyInfo.symbol }}
       >
-        {isNative ? '--' : buyVolumeValue}
+        {!supportSpeedSwap ? '--' : buyVolumeValue}
       </NumberSizeableText>
     );
     return {
       value: buyVolumeValue,
       formattedValue: formattedBuyVolume,
     };
-  }, [tokenDetailInfo, timeRange, currencyInfo.symbol, isNative]);
+  }, [tokenDetailInfo, timeRange, currencyInfo.symbol, supportSpeedSwap]);
   const sellVolume = useMemo(() => {
     const sellVolumeValue = getCountByTimeRange(
       tokenDetailInfo,
@@ -76,14 +76,14 @@ const SwapProBuySellInfo = ({
         formatter={isAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: currencyInfo.symbol }}
       >
-        {isNative ? '--' : sellVolumeValue}
+        {!supportSpeedSwap ? '--' : sellVolumeValue}
       </NumberSizeableText>
     );
     return {
       value: sellVolumeValue,
       formattedValue: formattedSellVolume,
     };
-  }, [tokenDetailInfo, timeRange, currencyInfo.symbol, isNative]);
+  }, [tokenDetailInfo, timeRange, currencyInfo.symbol, supportSpeedSwap]);
   const totalVolume = useMemo(() => {
     const buyVBN = new BigNumber(buyVolume.value);
     const sellVBN = new BigNumber(sellVolume.value);
@@ -154,7 +154,7 @@ const SwapProBuySellInfo = ({
             ml="$0.5"
             fontFamily="$monoRegular"
           >
-            {isNative ? '--' : buyPercentage.toFixed(2)}%
+            {!supportSpeedSwap ? '--' : buyPercentage.toFixed(2)}%
           </SizableText>
         </XStack>
         <XStack
@@ -170,7 +170,7 @@ const SwapProBuySellInfo = ({
             mr="$0.5"
             fontFamily="$monoRegular"
           >
-            {isNative ? '--' : sellPercentage.toFixed(2)}%
+            {!supportSpeedSwap ? '--' : sellPercentage.toFixed(2)}%
           </SizableText>
           <Stack
             w="$4.5"

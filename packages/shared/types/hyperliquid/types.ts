@@ -219,7 +219,7 @@ export enum EPerpsSizeInputMode {
 }
 
 // Token Selector Types
-export type IPerpTokenSelectorTab = 'all' | 'hip3';
+export type IPerpTokenSelectorTab = 'all' | 'hip3' | 'favorites';
 
 export type IPerpTokenSortField =
   | 'name'

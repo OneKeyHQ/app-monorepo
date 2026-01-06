@@ -2,12 +2,14 @@ import {
   type PropsWithChildren,
   createContext,
   memo,
+  useCallback,
   useContext,
   useMemo,
 } from 'react';
 
 import {
   DebugRenderTracker,
+  IconButton,
   NumberSizeableText,
   SizableText,
   SkeletonContainer,
@@ -17,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpTokenFavoritesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   NUMBER_FORMATTER,
@@ -83,6 +86,37 @@ function TokenSelectorRowProvider({
   );
 }
 
+const FavoriteButton = memo(
+  ({ coin, isMobile }: { coin: string; isMobile?: boolean }) => {
+    const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
+    const isFavorite = favorites.favorites.includes(coin);
+
+    const handleToggle = useCallback(() => {
+      setFavorites((prev) => ({
+        favorites: isFavorite
+          ? prev.favorites.filter((f) => f !== coin)
+          : [...prev.favorites, coin],
+      }));
+    }, [coin, isFavorite, setFavorites]);
+
+    return (
+      <IconButton
+        icon={isFavorite ? 'StarSolid' : 'StarOutline'}
+        variant="tertiary"
+        size="small"
+        iconProps={{
+          color: isFavorite ? '$icon' : '$iconSubdued',
+          size: isMobile ? '$5' : '$3',
+        }}
+        onPress={handleToggle}
+        stopPropagation
+      />
+    );
+  },
+);
+
+FavoriteButton.displayName = 'FavoriteButton';
+
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
   const { token } = useTokenSelectorRowContext();
@@ -100,6 +134,7 @@ const TokenInfoCellDesktop = memo(() => {
           gap="$1.5"
           alignItems="center"
         >
+          <FavoriteButton coin={token.name} />
           <Token
             size="xs"
             borderRadius="$full"
@@ -146,7 +181,7 @@ const TokenInfoCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.maxLeverage, token.dexLabel],
+    [token.displayName, token.maxLeverage, token.dexLabel, token.name],
   );
   return content;
 });
@@ -366,15 +401,18 @@ const TokenImageMobile = memo(() => {
         name="TokenImageMobile"
         offsetY={10}
       >
-        <Token
-          size="lg"
-          borderRadius="$full"
-          tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
-          fallbackIcon="CryptoCoinOutline"
-        />
+        <XStack gap="$2" alignItems="center">
+          <FavoriteButton coin={token.name} isMobile />
+          <Token
+            size="lg"
+            borderRadius="$full"
+            tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
+            fallbackIcon="CryptoCoinOutline"
+          />
+        </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName],
+    [token.displayName, token.name],
   );
   return content;
 });
@@ -557,7 +595,7 @@ const TokenSelectorRowMobile = memo(() => {
           pressStyle={{
             bg: '$bgHover',
           }}
-          gap="$4"
+          gap="$2.5"
         >
           <TokenImageMobile />
           <XStack gap="$2" alignItems="center" justifyContent="center">

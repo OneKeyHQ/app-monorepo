@@ -98,7 +98,6 @@ export const EditableListItem = ({
     onEditCustomNetwork,
     accountNetworkValues,
     accountNetworkValueCurrency,
-    frequentlyUsedItemsIds,
     accountDeFiOverview,
   } = useContext(EditableChainSelectorContext);
 

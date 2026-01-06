@@ -74,7 +74,6 @@ function TokenInputSectionComponent(
   const [internalValue, setInternalValue] = useState('');
   const inputRef = useRef<IInputRef>(null);
   const isPresetSelectionRef = useRef(false);
-
   useImperativeHandle(
     ref,
     () => ({

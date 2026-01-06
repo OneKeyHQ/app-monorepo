@@ -7,7 +7,6 @@ import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type {
   ESwapDirectionType,
-  IFetchLimitOrderRes,
   IFetchQuoteResult,
   ISwapAlertState,
   ISwapToken,

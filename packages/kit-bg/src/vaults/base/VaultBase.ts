@@ -126,6 +126,7 @@ import type {
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
+  IBuildLMSwapEncodedTxParams,
   IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
@@ -1289,7 +1290,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(params.encodedTx);
   }
 
-  async activateToken(params: { token: IAccountToken }): Promise<boolean> {
+  async activateToken(params: { token: IAccountToken }): Promise<{
+    token?: IAccountToken;
+    isActivated: boolean;
+  }> {
     throw new NotImplemented();
   }
 
@@ -1477,6 +1481,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async buildOkxSwapEncodedTx(
     params: IBuildOkxSwapEncodedTxParams,
+  ): Promise<IEncodedTx> {
+    throw new NotImplemented();
+  }
+
+  async buildLiquidMeshSwapEncodedTx(
+    params: IBuildLMSwapEncodedTxParams,
   ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }

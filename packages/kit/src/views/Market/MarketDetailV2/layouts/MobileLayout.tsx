@@ -44,14 +44,8 @@ import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
-  const {
-    tokenAddress,
-    networkId,
-    tokenDetail,
-    isNative,
-    websocketConfig,
-    isReady,
-  } = useTokenDetail();
+  const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
+    useTokenDetail();
   const intl = useIntl();
   const { accountAddress } = useNetworkAccountAddress(networkId);
   const { portfolioData, isRefreshing } = usePortfolioData({
@@ -249,16 +243,13 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
           </YStack>
         ))}
       </ScrollView>
-
-      {isNative || !isReady ? null : (
-        <SwapPanel
-          swapToken={toSwapPanelToken}
-          portfolioData={portfolioData}
-          disableTrade={disableTrade}
-          onShowSwapDialog={showSwapDialog}
-        />
-      )}
-      {platformEnv.isNative && !disableTrade && !isNative && isReady ? (
+      <SwapPanel
+        swapToken={toSwapPanelToken}
+        portfolioData={portfolioData}
+        disableTrade={disableTrade}
+        onShowSwapDialog={showSwapDialog}
+      />
+      {platformEnv.isNative && !disableTrade ? (
         <SwapFlashBtn
           buttonProps={{
             style: { position: 'absolute', bottom: 100, right: 20 },
