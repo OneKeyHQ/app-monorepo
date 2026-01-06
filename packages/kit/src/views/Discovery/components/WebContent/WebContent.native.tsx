@@ -110,12 +110,7 @@ function WebContent({
 
   const onShouldStartLoadWithRequest = useCallback(
     (navigationStateChangeEvent: ShouldStartLoadRequest) => {
-      const {
-        url: navUrl,
-        isTopFrame,
-        navigationType,
-        mainDocumentURL,
-      } = navigationStateChangeEvent;
+      const { url: navUrl, isTopFrame } = navigationStateChangeEvent;
       const validateState = validateWebviewSrc({
         url: navUrl,
         isTopFrame,

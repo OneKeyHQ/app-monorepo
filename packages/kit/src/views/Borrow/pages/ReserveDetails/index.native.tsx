@@ -22,11 +22,11 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { BorrowNavigation } from '../../borrowUtils';
 
 import { DetailsPart } from './components/DetailsPart';
 import { ManagePositionPart } from './components/ManagePositionPart';
+import { useBorrowReserveDetailData } from './hooks/useBorrowReserveDetailData';
 
 const ReserveDetailsPage = () => {
   // Support both tab route and modal route
@@ -46,10 +46,21 @@ const ReserveDetailsPage = () => {
     reserveAddress,
     symbol,
     logoURI,
+    accountId: routeAccountId,
+    indexedAccountId,
   } = route.params;
 
-  const { earnAccount } = useEarnAccount({ networkId });
-  const accountId = earnAccount?.account?.id || '';
+  const { earnAccount, details, userInfo, isLoading, refreshData } =
+    useBorrowReserveDetailData({
+      accountId: routeAccountId,
+      networkId,
+      indexedAccountId,
+      provider,
+      marketAddress,
+      reserveAddress,
+    });
+
+  const accountId = routeAccountId || earnAccount?.account?.id || '';
 
   const shareUrl = useMemo(() => {
     if (!symbol || !provider || !networkId || !marketAddress || !reserveAddress)
@@ -98,7 +109,9 @@ const ReserveDetailsPage = () => {
             <XStack flexDirection={gtMd ? 'row' : 'column'}>
               <Stack w="100%" width={gtMd ? '65%' : undefined}>
                 <DetailsPart
-                  accountId={accountId}
+                  details={details}
+                  isLoading={isLoading ?? false}
+                  onRefresh={refreshData}
                   networkId={networkId}
                   provider={provider}
                   marketAddress={marketAddress}
@@ -112,6 +125,7 @@ const ReserveDetailsPage = () => {
                 <Stack width="35%">
                   <ManagePositionPart
                     accountId={accountId}
+                    userInfo={userInfo}
                     networkId={networkId}
                     provider={provider}
                     marketAddress={marketAddress}

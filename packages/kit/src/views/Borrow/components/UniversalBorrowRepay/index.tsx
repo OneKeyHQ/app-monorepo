@@ -7,10 +7,8 @@ import { Keyboard, StyleSheet } from 'react-native';
 
 import {
   Alert,
-  Divider,
   Icon,
   Page,
-  SegmentControl,
   Stack,
   XStack,
   YStack,
@@ -30,15 +28,17 @@ import {
   useOnBlurAmountValue,
 } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
-import { TradeOrBuy } from '@onekeyhq/kit/src/views/Staking/components/TradeOrBuy';
 import { countDecimalPlaces } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IEarnTokenInfo } from '@onekeyhq/shared/types/staking';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type {
+  IBorrowAsset,
+  IEarnTokenInfo,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
+import { createBorrowAssetSelectPopoverContent } from '../BorrowAssetSelectPopover';
 import { BorrowInfoItem } from '../BorrowInfoItem';
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
@@ -58,6 +58,9 @@ type IUniversalBorrowRepayProps = {
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
   actionLabel?: string;
+  selectableAssets?: IBorrowAsset[];
+  selectableAssetsLoading?: boolean;
+  onTokenSelect?: (item: IBorrowAsset) => void;
   onConfirm?: (params: {
     amount: string;
     withdrawAll?: boolean;
@@ -68,8 +71,6 @@ type IUniversalBorrowRepayProps = {
 const isAmountInvalid = (amount: string) =>
   BigNumber(amount).isNaN() ||
   (typeof amount === 'string' && amount.endsWith('.'));
-
-type IRepaySource = 'wallet' | 'collateral';
 
 export function UniversalBorrowRepay({
   accountId,
@@ -87,6 +88,9 @@ export function UniversalBorrowRepay({
   beforeFooter,
   showApyDetail = false,
   actionLabel: actionLabelProp,
+  selectableAssets,
+  selectableAssetsLoading,
+  onTokenSelect,
   onConfirm,
 }: IUniversalBorrowRepayProps) {
   const intl = useIntl();
@@ -94,9 +98,7 @@ export function UniversalBorrowRepay({
   const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
   const [amountValue, setAmountValue] = useState('');
-  const [collateralAmountValue, setCollateralAmountValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [repaySource, setRepaySource] = useState<IRepaySource>('wallet');
 
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const amountInputDisabled = !!isDisabled;
@@ -156,8 +158,7 @@ export function UniversalBorrowRepay({
 
   const actionLabel = useMemo(
     () =>
-      actionLabelProp ||
-      intl.formatMessage({ id: ETranslations.global_withdraw }),
+      actionLabelProp || intl.formatMessage({ id: ETranslations.defi_repay }),
     [actionLabelProp, intl],
   );
 
@@ -189,47 +190,11 @@ export function UniversalBorrowRepay({
     [decimals],
   );
 
-  const onChangeCollateralAmountValue = useCallback(
-    (value: string) => {
-      if (!validateAmountInputForStaking(value, decimals)) {
-        return;
-      }
-
-      const valueBN = new BigNumber(value);
-      if (valueBN.isNaN()) {
-        if (value === '') {
-          setCollateralAmountValue('');
-        }
-        return;
-      }
-
-      const isOverflowDecimals = Boolean(
-        decimals &&
-          Number(decimals) > 0 &&
-          countDecimalPlaces(value) > decimals,
-      );
-      if (isOverflowDecimals) {
-        return;
-      }
-
-      setCollateralAmountValue(value);
-    },
-    [decimals],
-  );
-
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
-  const onBlurCollateralAmountValue = useOnBlurAmountValue(
-    collateralAmountValue,
-    setCollateralAmountValue,
-  );
 
   const onMax = useCallback(() => {
     onChangeAmountValue(maxAmountValue);
   }, [maxAmountValue, onChangeAmountValue]);
-
-  const onMaxCollateral = useCallback(() => {
-    onChangeCollateralAmountValue(maxAmountValue);
-  }, [maxAmountValue, onChangeCollateralAmountValue]);
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
@@ -244,19 +209,6 @@ export function UniversalBorrowRepay({
     [balance, decimals, onChangeAmountValue],
   );
 
-  const onSelectCollateralPercentageStage = useCallback(
-    (percent: number) => {
-      onChangeCollateralAmountValue(
-        calcPercentBalance({
-          balance,
-          percent,
-          decimals,
-        }),
-      );
-    },
-    [balance, decimals, onChangeCollateralAmountValue],
-  );
-
   const currentValue = useMemo<string | undefined>(() => {
     if (Number(amountValue) > 0 && Number(price) > 0) {
       return BigNumber(amountValue)
@@ -267,9 +219,6 @@ export function UniversalBorrowRepay({
   }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo(() => {
-    if (repaySource !== 'wallet') {
-      return false;
-    }
     const amountBN = new BigNumber(amountValue);
     const balanceBN = new BigNumber(balance);
 
@@ -278,7 +227,7 @@ export function UniversalBorrowRepay({
     }
 
     return amountBN.gt(balanceBN);
-  }, [amountValue, balance, repaySource]);
+  }, [amountValue, balance]);
 
   const isDisable = useMemo(
     () =>
@@ -317,130 +266,118 @@ export function UniversalBorrowRepay({
     }
   }, [amountValue, isRepayAll, onConfirm]);
 
-  const token = useMemo(
-    () => tokenInfo?.token as IToken | undefined,
-    [tokenInfo?.token],
+  // Wrap onTokenSelect to clear amount when token changes
+  const handleTokenSelectInternal = useCallback(
+    (item: IBorrowAsset) => {
+      setAmountValue(''); // Clear input value when switching token
+      onTokenSelect?.(item);
+    },
+    [onTokenSelect],
   );
-  const onRepaySourceChange = useCallback((value: string | number) => {
-    setRepaySource(value as IRepaySource);
-  }, []);
-  const segmentOptions = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.defi_from_wallet_balance,
-        }),
-        value: 'wallet',
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.defi_with_collateral }),
-        value: 'collateral',
-      },
-    ],
+
+  // Memoize popover content to avoid re-creating on every render
+  const popoverContent = useMemo(() => {
+    if (!selectableAssets || selectableAssets.length <= 1) {
+      return undefined;
+    }
+    return createBorrowAssetSelectPopoverContent({
+      assets: selectableAssets,
+      isLoading: selectableAssetsLoading,
+      selectedReserveAddress: borrowReserveAddress,
+      action: 'repay',
+      onSelect: handleTokenSelectInternal,
+    });
+  }, [
+    selectableAssets,
+    selectableAssetsLoading,
+    borrowReserveAddress,
+    handleTokenSelectInternal,
+  ]);
+
+  const popoverTitle = useMemo(
+    () => intl.formatMessage({ id: ETranslations.token_selector_title }),
     [intl],
+  );
+
+  const tokenSelectorTriggerProps = useMemo(
+    () => ({
+      selectedTokenImageUri: tokenImageUri,
+      selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+      selectedNetworkImageUri: network?.logoURI,
+      disabled:
+        !selectableAssets ||
+        selectableAssets.length <= 1 ||
+        selectableAssetsLoading,
+      popover: popoverContent
+        ? {
+            title: popoverTitle,
+            content: popoverContent,
+          }
+        : undefined,
+    }),
+    [
+      tokenImageUri,
+      tokenSymbol,
+      network?.logoURI,
+      selectableAssets,
+      selectableAssetsLoading,
+      popoverContent,
+      popoverTitle,
+    ],
+  );
+
+  const inputProps = useMemo(
+    () => ({
+      placeholder: '0',
+      autoFocus: !amountInputDisabled,
+    }),
+    [amountInputDisabled],
+  );
+
+  const balanceIconText = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_available }),
+    [intl],
+  );
+
+  const balanceProps = useMemo(
+    () => ({
+      value: balance,
+      iconText: balanceIconText,
+      onPress: onMax,
+    }),
+    [balance, balanceIconText, onMax],
+  );
+
+  const valueProps = useMemo(
+    () => ({
+      value: currentValue,
+      currency: currentValue ? symbol : undefined,
+    }),
+    [currentValue, symbol],
   );
 
   return (
     <StakingFormWrapper>
       <YStack gap="$3">
-        <SegmentControl
-          fullWidth
-          value={repaySource}
-          options={segmentOptions}
-          onChange={onRepaySourceChange}
-        />
-        {repaySource === 'wallet' ? (
-          <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-            <StakingAmountInput
-              title={actionLabel}
-              disabled={amountInputDisabled}
-              hasError={isInsufficientBalance || isCheckAmountMessageError}
-              value={amountValue}
-              onChange={onChangeAmountValue}
-              onBlur={onBlurAmountValue}
-              tokenSelectorTriggerProps={{
-                selectedTokenImageUri: tokenImageUri,
-                selectedTokenSymbol: tokenSymbol?.toUpperCase(),
-                selectedNetworkImageUri: network?.logoURI,
-              }}
-              inputProps={{
-                placeholder: '0',
-                autoFocus: !amountInputDisabled,
-              }}
-              balanceProps={{
-                value: balance,
-                iconText: actionLabel,
-                onPress: onMax,
-              }}
-              valueProps={{
-                value: currentValue,
-                currency: currentValue ? symbol : undefined,
-              }}
-              enableMaxAmount
-              onSelectPercentageStage={onSelectPercentageStage}
-            />
-            {amountInputDisabled ? (
-              <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-            ) : null}
-          </Stack>
-        ) : (
-          <YStack gap="$2.5">
-            <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-              <StakingAmountInput
-                title={intl.formatMessage({ id: ETranslations.global_from })}
-                disabled={amountInputDisabled}
-                value={collateralAmountValue}
-                onChange={onChangeCollateralAmountValue}
-                onBlur={onBlurCollateralAmountValue}
-                tokenSelectorTriggerProps={{
-                  selectedTokenImageUri: tokenImageUri,
-                  selectedTokenSymbol: tokenSymbol?.toUpperCase(),
-                  selectedNetworkImageUri: network?.logoURI,
-                }}
-                inputProps={{
-                  placeholder: '0',
-                  autoFocus: !amountInputDisabled,
-                }}
-                balanceProps={{
-                  value: balance,
-                  iconText: actionLabel,
-                  onPress: onMaxCollateral,
-                }}
-                enableMaxAmount
-                onSelectPercentageStage={onSelectCollateralPercentageStage}
-              />
-              {amountInputDisabled ? (
-                <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-              ) : null}
-            </Stack>
-            <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-              <StakingAmountInput
-                title={intl.formatMessage({ id: ETranslations.global_to })}
-                disabled={amountInputDisabled}
-                hasError={isCheckAmountMessageError}
-                value={amountValue}
-                onChange={onChangeAmountValue}
-                onBlur={onBlurAmountValue}
-                tokenSelectorTriggerProps={{
-                  selectedTokenImageUri: tokenImageUri,
-                  selectedTokenSymbol: tokenSymbol?.toUpperCase(),
-                  selectedNetworkImageUri: network?.logoURI,
-                }}
-                inputProps={{
-                  placeholder: '0',
-                }}
-                valueProps={{
-                  value: currentValue,
-                  currency: currentValue ? symbol : undefined,
-                }}
-                onSelectPercentageStage={() => {}}
-              />
-              {amountInputDisabled ? (
-                <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-              ) : null}
-            </Stack>
-          </YStack>
-        )}
+        <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+          <StakingAmountInput
+            title={actionLabel}
+            disabled={amountInputDisabled}
+            hasError={isInsufficientBalance || isCheckAmountMessageError}
+            value={amountValue}
+            onChange={onChangeAmountValue}
+            onBlur={onBlurAmountValue}
+            tokenSelectorTriggerProps={tokenSelectorTriggerProps}
+            inputProps={inputProps}
+            balanceProps={balanceProps}
+            valueProps={valueProps}
+            enableMaxAmount
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+          {amountInputDisabled ? (
+            <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+          ) : null}
+        </Stack>
       </YStack>
 
       {isCheckAmountMessageError ? (
@@ -597,22 +534,6 @@ export function UniversalBorrowRepay({
             </BorrowInfoItem>
           ) : null}
         </YStack>
-        {token &&
-        (transactionConfirmation?.healthFactor ||
-          transactionConfirmation?.myBorrow ||
-          (showApyDetail && transactionConfirmation?.apyDetail)) ? (
-          <Divider my="$5" />
-        ) : null}
-        {token ? (
-          <TradeOrBuy
-            token={token}
-            accountId={accountId}
-            networkId={networkId}
-            containerStyle={{
-              pt: '$0',
-            }}
-          />
-        ) : null}
       </YStack>
 
       {beforeFooter}
@@ -627,11 +548,7 @@ export function UniversalBorrowRepay({
           }}
         />
         <PercentageStageOnKeyboard
-          onSelectPercentageStage={
-            repaySource === 'collateral'
-              ? onSelectCollateralPercentageStage
-              : onSelectPercentageStage
-          }
+          onSelectPercentageStage={onSelectPercentageStage}
         />
       </Page.Footer>
     </StakingFormWrapper>

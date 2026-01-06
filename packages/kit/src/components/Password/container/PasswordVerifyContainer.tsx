@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Spinner, Stack } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
@@ -49,7 +49,6 @@ interface IPasswordVerifyProps {
 
 const PasswordVerifyContainer = ({
   onVerifyRes,
-  onLayout,
   name,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
@@ -397,8 +396,7 @@ const PasswordVerifyContainer = ({
     ],
   );
 
-  const [isPasswordEncryptorReady, setIsPasswordEncryptorReady] =
-    useState(false);
+  const [_, setIsPasswordEncryptorReady] = useState(false);
   const [passwordEncryptorInitError, setPasswordEncryptorInitError] =
     useState('');
   useEffect(() => {

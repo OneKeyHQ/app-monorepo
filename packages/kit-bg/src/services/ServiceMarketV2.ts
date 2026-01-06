@@ -16,6 +16,7 @@ import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioResponse,
   IMarketAccountTokenTransactionsResponse,
+  IMarketBannerItem,
   IMarketBannerListResponse,
   IMarketBannerTokenListResponse,
   IMarketBasicConfigResponse,
@@ -32,8 +33,10 @@ import type {
 import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
+import { MOCK_MARKET_BANNER_LIST } from './ServiceMarketV2.const';
 
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
@@ -671,8 +674,19 @@ class ServiceMarketV2 extends ServiceBase {
   );
 
   @backgroundMethod()
-  async fetchMarketBannerList() {
+  async fetchMarketBannerList(): Promise<IMarketBannerItem[]> {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (devSettings.enabled && devSettings.settings?.enableMockMarketBanner) {
+      return MOCK_MARKET_BANNER_LIST;
+    }
     return this.memoizedFetchMarketBannerList();
+  }
+
+  @backgroundMethod()
+  async clearMarketBannerCache(): Promise<void> {
+    // memoizee's clear() is synchronous, returns void
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    this.memoizedFetchMarketBannerList.clear();
   }
 
   @backgroundMethod()

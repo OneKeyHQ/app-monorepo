@@ -1,14 +1,10 @@
 import { useMemo } from 'react';
 
-import { colord, extend } from 'colord';
-import mixPlugin from 'colord/plugins/mix';
-
 import {
   Icon,
   LinearGradient,
   SizableText,
   Stack,
-  XStack,
   YStack,
   useTheme,
 } from '@onekeyhq/components';
@@ -16,31 +12,12 @@ import type { IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 
-extend([mixPlugin]);
-
 type IHealthFactorProps = {
   value: number;
   min?: number;
   max?: number;
   thresholdValue?: number;
   liquidationText?: IEarnText;
-};
-
-const getGradientColorAtPercent = (
-  percent: number,
-  startColor: string,
-  middleColor: string,
-  endColor: string,
-) => {
-  const ratio = Math.min(Math.max(percent / 100, 0), 1);
-  if (ratio <= 0.5) {
-    return colord(startColor)
-      .mix(middleColor, ratio * 2)
-      .toRgbString();
-  }
-  return colord(middleColor)
-    .mix(endColor, (ratio - 0.5) * 2)
-    .toRgbString();
 };
 
 const getTextAlignment = (
@@ -98,17 +75,6 @@ export const HealthFactor = ({
     };
   }, [max, min, thresholdValue, value]);
 
-  const thresholdIndicatorColor = useMemo(
-    () =>
-      getGradientColorAtPercent(
-        thresholdPercent,
-        criticalColor,
-        cautionColor,
-        successColor,
-      ),
-    [cautionColor, criticalColor, successColor, thresholdPercent],
-  );
-
   const pointerTextAlignment = getTextAlignment(pointerPercent);
   const thresholdTextAlignment = getTextAlignment(thresholdPercent);
 
@@ -130,7 +96,7 @@ export const HealthFactor = ({
             <Icon
               name="ChevronTriangleDownSmallOutline"
               size="$4"
-              color="$bgInverse"
+              color="$text"
             />
           </YStack>
         </Stack>
@@ -159,7 +125,7 @@ export const HealthFactor = ({
             <Icon
               name="ChevronTriangleUpSmallOutline"
               size="$4"
-              style={{ color: thresholdIndicatorColor }}
+              color="$iconCritical"
             />
             {liquidationText ? (
               <EarnText

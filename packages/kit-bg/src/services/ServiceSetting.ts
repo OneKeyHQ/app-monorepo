@@ -34,6 +34,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -133,6 +134,16 @@ class ServiceSetting extends ServiceBase {
   public async getInstanceId() {
     const { instanceId } = await settingsPersistAtom.get();
     return instanceId;
+  }
+
+  @backgroundMethod()
+  public async resetInstanceId() {
+    const newInstanceId = generateUUID();
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      instanceId: newInstanceId,
+    }));
+    return newInstanceId;
   }
 
   @backgroundMethod()

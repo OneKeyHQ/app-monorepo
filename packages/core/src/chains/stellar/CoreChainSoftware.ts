@@ -24,7 +24,8 @@ import { hashMessage } from './utils/message';
 import { assembleSignedTransaction } from './utils/signing';
 import { extractTransactionHash } from './utils/transaction';
 
-import type { IEncodedTxStellar, IUnsignedMessageStellar } from './types';
+import type { IEncodedTxStellar } from './types';
+import type { IUnsignedMessageStellar } from '../../types/coreTypesMessage';
 
 const curve: ICurveName = 'ed25519';
 
@@ -105,10 +106,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
 
     const unsignedMsg = payload.unsignedMsg as IUnsignedMessageStellar;
+
     const messageHash: Buffer = hashMessage({
       messageType: unsignedMsg.type,
       message: unsignedMsg.message,
-      networkPassphrase: unsignedMsg.networkPassphrase ?? '',
+      networkPassphrase: unsignedMsg.payload?.networkPassphrase ?? '',
     });
     const [signature] = await signer.sign(messageHash);
 

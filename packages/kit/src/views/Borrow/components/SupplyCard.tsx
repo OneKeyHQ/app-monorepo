@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import BigNumber from 'bignumber.js';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Switch, XStack, useMedia } from '@onekeyhq/components';
@@ -69,13 +69,15 @@ export const SupplyCard = () => {
           reserveAddress: item.reserveAddress,
           symbol: item.token.symbol,
           logoURI: item.token.logoURI,
+          accountId: accountId || undefined,
+          indexedAccountId,
         });
       } else {
         // Mobile: open Supply dialog
         handleManageSupply(item);
       }
     },
-    [navigation, market, gtMd, handleManageSupply],
+    [navigation, market, gtMd, handleManageSupply, accountId, indexedAccountId],
   );
 
   const showLoading = !reserves && reservesLoading;

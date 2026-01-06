@@ -1,4 +1,3 @@
-import { rootNavigationRef } from '@onekeyhq/components';
 import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
@@ -7,36 +6,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalStakingRoutes,
-  ERootRoutes,
   ETabEarnRoutes,
-  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
+
+import { safePushToEarnRoute } from '../Earn/earnUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/useManagePage';
-
-async function safePushToBorrowRoute(
-  navigation: IAppNavigation,
-  route: ETabEarnRoutes,
-  params?: any,
-) {
-  const targetTab = platformEnv.isNative
-    ? ETabRoutes.Discovery
-    : ETabRoutes.Earn;
-
-  navigation.switchTab(targetTab);
-  await timerUtils.wait(0);
-
-  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-    screen: targetTab,
-    params: {
-      screen: route,
-      params,
-    },
-  });
-}
 
 export const BorrowNavigation = {
   // Navigate from deep link (when user clicks a borrow share link)
@@ -50,17 +27,13 @@ export const BorrowNavigation = {
       symbol: string;
     },
   ) {
-    await safePushToBorrowRoute(
-      navigation,
-      ETabEarnRoutes.BorrowReserveDetails,
-      {
-        networkId: params.networkId,
-        provider: params.provider,
-        marketAddress: params.marketAddress,
-        reserveAddress: params.reserveAddress,
-        symbol: params.symbol,
-      },
-    );
+    await safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowReserveDetails, {
+      networkId: params.networkId,
+      provider: params.provider,
+      marketAddress: params.marketAddress,
+      reserveAddress: params.reserveAddress,
+      symbol: params.symbol,
+    });
   },
 
   pushToBorrowReserveDetails(
@@ -73,6 +46,8 @@ export const BorrowNavigation = {
       symbol: string;
       logoURI?: string;
       isModal?: boolean;
+      accountId?: string;
+      indexedAccountId?: string;
     },
   ) {
     const routeParams = {
@@ -82,12 +57,14 @@ export const BorrowNavigation = {
       reserveAddress: params.reserveAddress,
       symbol: params.symbol,
       logoURI: params.logoURI,
+      accountId: params.accountId,
+      indexedAccountId: params.indexedAccountId,
     };
 
     if (params.isModal) {
       navigation.push(EModalStakingRoutes.BorrowReserveDetails, routeParams);
     } else {
-      void safePushToBorrowRoute(
+      void safePushToEarnRoute(
         navigation,
         ETabEarnRoutes.BorrowReserveDetails,
         routeParams,

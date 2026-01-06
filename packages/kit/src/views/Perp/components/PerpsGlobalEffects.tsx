@@ -30,6 +30,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -54,6 +55,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady';
+import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
@@ -571,6 +573,16 @@ function AutoPauseSubscriptions() {
       void onFocusHandler({ isFocus: isFocusedRef.current });
     }
   });
+
+  const handleAppActiveFromBackground = useCallback(() => {
+    if (isFocusedRef.current) {
+      void onFocusHandler({ isFocus: true });
+    }
+  }, [onFocusHandler]);
+
+  useHandleAppStateActive(
+    platformEnv.isNative ? handleAppActiveFromBackground : undefined,
+  );
 
   const [isLocked] = useAppIsLockedAtom();
 

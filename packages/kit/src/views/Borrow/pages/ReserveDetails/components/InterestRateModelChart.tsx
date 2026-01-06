@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useTheme } from '@tamagui/core';
-import { createChart } from 'lightweight-charts';
+import { LineType, createChart } from 'lightweight-charts';
 import { useIntl } from 'react-intl';
 
 import {
@@ -52,7 +52,8 @@ const convertTimeToUtilization = (time: UTCTimestamp | BusinessDay): number => {
   return Math.max(0, Math.min(1, util));
 };
 
-const UTILIZATION_LINE_TIME_DELTA = 1;
+const getUtilizationLineTimeDelta = (timeValue: number) =>
+  Math.max(Number.EPSILON * timeValue, Number.EPSILON);
 
 const toTimestamp = (value: number) => value as UTCTimestamp;
 
@@ -197,11 +198,12 @@ export function InterestRateModelChart({
       const minTime = BASE_TIMESTAMP;
       const maxTime = BASE_TIMESTAMP + UTILIZATION_RANGE;
       const currentUtilTimeValue = Number(currentUtilTime);
+      const lineTimeDelta = getUtilizationLineTimeDelta(currentUtilTimeValue);
       const lineStartTime = toTimestamp(
-        Math.max(minTime, currentUtilTimeValue - UTILIZATION_LINE_TIME_DELTA),
+        Math.max(minTime, currentUtilTimeValue - lineTimeDelta),
       );
       const lineEndTime = toTimestamp(
-        Math.min(maxTime, currentUtilTimeValue + UTILIZATION_LINE_TIME_DELTA),
+        Math.min(maxTime, currentUtilTimeValue + lineTimeDelta),
       );
 
       // Add a vertical line series at the current utilization position
@@ -211,6 +213,7 @@ export function InterestRateModelChart({
         priceLineVisible: false,
         lastValueVisible: false,
         crosshairMarkerVisible: false,
+        lineType: LineType.WithSteps,
         lineStyle: 0, // Solid line
       });
 
