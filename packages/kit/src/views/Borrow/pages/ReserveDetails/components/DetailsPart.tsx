@@ -60,6 +60,7 @@ const DetailsPartComponent = ({
                 availableLiquidity={details.liquidity}
                 utilizationRatio={details.utilizationRatio}
                 platformBonus={details.platformBonus}
+                managers={details.managers}
               />
               <Divider mb="$8" />
               <ChartSection

@@ -16,6 +16,7 @@ interface IReserveProtocolHeaderProps {
   availableLiquidity?: string;
   utilizationRatio?: string;
   platformBonus?: IBorrowReserveDetail['platformBonus'];
+  managers?: IBorrowReserveDetail['managers'];
 }
 
 const HeaderField = ({
@@ -35,6 +36,7 @@ const HeaderField = ({
   );
 };
 
+// Web version: managers prop accepted but not displayed (used for interface consistency)
 export const ReserveProtocolHeader = ({
   symbol,
   logoURI,

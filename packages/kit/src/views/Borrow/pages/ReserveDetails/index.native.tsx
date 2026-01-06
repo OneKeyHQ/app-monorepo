@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import {
+  IconButton,
   Page,
   ScrollView,
   SizableText,
@@ -100,9 +101,22 @@ const ReserveDetailsPage = () => {
     [symbol, logoURI],
   );
 
+  const headerRight = useCallback(
+    () => (
+      <IconButton
+        icon="ShareOutline"
+        size="small"
+        variant="tertiary"
+        iconColor="$iconSubdued"
+        onPress={handleShare}
+      />
+    ),
+    [handleShare],
+  );
+
   return (
     <Page>
-      <Page.Header headerTitle={headerTitle} headerRight={() => null} />
+      <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
       <Page.Body>
         <ScrollView>
           <YStack py="$4" gap="$6">
@@ -118,7 +132,6 @@ const ReserveDetailsPage = () => {
                   reserveAddress={reserveAddress}
                   symbol={symbol}
                   logoURI={logoURI}
-                  onShare={handleShare}
                 />
               </Stack>
               {gtMd ? (
