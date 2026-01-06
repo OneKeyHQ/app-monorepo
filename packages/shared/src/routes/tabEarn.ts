@@ -38,6 +38,8 @@ export type ITabEarnParamList = {
     reserveAddress: string;
     symbol: string;
     logoURI?: string;
+    accountId?: string;
+    indexedAccountId?: string;
   };
   [ETabEarnRoutes.BorrowReserveDetailsShare]: {
     networkId: string;
@@ -46,5 +48,7 @@ export type ITabEarnParamList = {
     marketAddress: string;
     reserveAddress: string;
     logoURI?: string;
+    accountId?: string;
+    indexedAccountId?: string;
   };
 };

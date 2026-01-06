@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Stack, useSafeAreaInsets } from '@onekeyhq/components';
+import { Page, Stack, useMedia, useSafeAreaInsets } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -23,6 +23,7 @@ import type {
 import {
   AmountField,
   AssetField,
+  AssetWithAmountField,
   BorrowAPYField,
   BorrowTableList,
 } from '../../components/BorrowTableList';
@@ -41,6 +42,7 @@ export default function BorrowTokenSelectModal() {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
+  const { gtMd } = useMedia();
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.BorrowTokenSelect
@@ -93,6 +95,8 @@ export default function BorrowTokenSelectModal() {
     });
   }, [assets, searchKeyword]);
 
+  const isBorrowAction = action === 'borrow';
+
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });
     const borrowed = intl.formatMessage({
@@ -104,18 +108,22 @@ export default function BorrowTokenSelectModal() {
     const walletBalance = `${intl.formatMessage({
       id: ETranslations.global_wallet,
     })} ${intl.formatMessage({ id: ETranslations.global_balance })}`;
+    const available = intl.formatMessage({
+      id: ETranslations.global_available,
+    });
     return {
       asset,
-      available: intl.formatMessage({ id: ETranslations.global_available }),
+      available,
       borrowed,
       supplied,
       walletBalance,
       borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
       supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
+      assetAvailable: `${asset} / ${available}`,
+      availableWithColon: `${available}:`,
     };
   }, [intl]);
 
-  const isBorrowAction = action === 'borrow';
   const balanceLabel = isBorrowAction ? labels.available : labels.walletBalance;
   const positionLabel = isBorrowAction ? labels.borrowed : labels.supplied;
   const apyLabel = isBorrowAction ? labels.borrowApy : labels.supplyApy;
@@ -135,6 +143,129 @@ export default function BorrowTokenSelectModal() {
     [navigation, onSelect],
   );
 
+  // Extract platformBonusApy from apyDetail if available
+  const getPlatformBonusApy = useCallback((item: IBorrowSelectAsset) => {
+    const platformBonus =
+      item.apyDetail?.button?.data?.apyDetail?.platformBonus;
+    if (platformBonus?.items?.[0]) {
+      const bonusItem = platformBonus.items[0];
+      return {
+        title: bonusItem.value.text,
+        logoURI: bonusItem.logoURI ?? '',
+      };
+    }
+    return undefined;
+  }, []);
+
+  // Mobile columns - 2 columns only (Asset with amount + APY)
+  const mobileColumns = useMemo(
+    () => [
+      {
+        label: labels.assetAvailable,
+        key: 'asset',
+        render: (item: IBorrowSelectAsset) => {
+          const balance = isBorrowAction
+            ? item.available ?? emptyBalance
+            : item.walletBalance ?? item.balance ?? emptyBalance;
+          return (
+            <AssetWithAmountField
+              token={item.token}
+              canBeCollateral={item.canBeCollateral}
+              amountLabel={{ text: labels.availableWithColon }}
+              amount={balance.title}
+              amountDescription={balance.description}
+              platformBonusApy={getPlatformBonusApy(item)}
+            />
+          );
+        },
+        flex: 1.5,
+      },
+      {
+        label: apyLabel,
+        align: 'flex-end' as const,
+        key: 'apy',
+        render: (item: IBorrowSelectAsset) => (
+          <BorrowAPYField apyDetail={item.apyDetail} />
+        ),
+        flex: 1,
+      },
+    ],
+    [labels, isBorrowAction, apyLabel, getPlatformBonusApy],
+  );
+
+  // Desktop columns - all 4 columns
+  const desktopColumns = useMemo(
+    () => [
+      {
+        label: labels.asset,
+        key: 'asset',
+        render: (item: IBorrowSelectAsset) => {
+          return (
+            <AssetField
+              token={item.token}
+              canBeCollateral={item.canBeCollateral}
+              platformBonusApy={getPlatformBonusApy(item)}
+            />
+          );
+        },
+        flex: 1.5,
+      },
+      {
+        label: balanceLabel,
+        align: 'flex-end' as const,
+        key: 'walletBalance',
+        render: (item: IBorrowSelectAsset) => {
+          const balance = isBorrowAction
+            ? item.available ?? emptyBalance
+            : item.walletBalance ?? item.balance ?? emptyBalance;
+          return (
+            <AmountField
+              title={balance.title}
+              description={balance.description}
+            />
+          );
+        },
+        flex: 1,
+      },
+      {
+        label: positionLabel,
+        align: 'flex-end' as const,
+        key: 'position',
+        render: (item: IBorrowSelectAsset) => {
+          const positionBalance = isBorrowAction
+            ? item.borrowed ?? emptyBalance
+            : item.supplied ?? emptyBalance;
+          return (
+            <AmountField
+              title={positionBalance.title}
+              description={positionBalance.description}
+            />
+          );
+        },
+        flex: 1,
+      },
+      {
+        label: apyLabel,
+        align: 'flex-end' as const,
+        key: 'apy',
+        render: (item: IBorrowSelectAsset) => (
+          <BorrowAPYField apyDetail={item.apyDetail} />
+        ),
+        flex: 1,
+      },
+    ],
+    [
+      labels,
+      balanceLabel,
+      positionLabel,
+      apyLabel,
+      isBorrowAction,
+      getPlatformBonusApy,
+    ],
+  );
+
+  const columns = gtMd ? desktopColumns : mobileColumns;
+
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
@@ -153,62 +284,7 @@ export default function BorrowTokenSelectModal() {
         <BorrowTableList<IBorrowSelectAsset>
           data={filteredAssets}
           isLoading={Boolean(isLoading)}
-          columns={[
-            {
-              label: labels.asset,
-              key: 'asset',
-              render: (item) => {
-                return (
-                  <AssetField
-                    token={item.token}
-                    canBeCollateral={item.canBeCollateral}
-                  />
-                );
-              },
-              flex: 1.5,
-            },
-            {
-              label: balanceLabel,
-              align: 'flex-end',
-              key: 'walletBalance',
-              render: (item) => {
-                const balance = isBorrowAction
-                  ? item.available ?? emptyBalance
-                  : item.walletBalance ?? item.balance ?? emptyBalance;
-                return (
-                  <AmountField
-                    title={balance.title}
-                    description={balance.description}
-                  />
-                );
-              },
-              flex: 1,
-            },
-            {
-              label: positionLabel,
-              align: 'flex-end',
-              key: 'position',
-              render: (item) => {
-                const positionBalance = isBorrowAction
-                  ? item.borrowed ?? emptyBalance
-                  : item.supplied ?? emptyBalance;
-                return (
-                  <AmountField
-                    title={positionBalance.title}
-                    description={positionBalance.description}
-                  />
-                );
-              },
-              flex: 1,
-            },
-            {
-              label: apyLabel,
-              align: 'flex-end',
-              key: 'supplyApy',
-              render: (item) => <BorrowAPYField apyDetail={item.apyDetail} />,
-              flex: 1,
-            },
-          ]}
+          columns={columns}
           onPressRow={(item) => {
             if (item.reserveAddress === currentReserveAddress) return;
             handleSelect(item);

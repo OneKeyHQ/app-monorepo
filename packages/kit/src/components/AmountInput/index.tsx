@@ -1,3 +1,4 @@
+import type { ComponentType, ReactElement } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -26,6 +27,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { LetterAvatar } from '../LetterAvatar';
+
+export type ITokenSelectorPopoverProps = {
+  title: string;
+  content:
+    | ReactElement
+    | ComponentType<{ isOpen?: boolean; closePopover: () => void }>
+    | null;
+};
 
 export type IAmountInputFormItemProps = IFormFieldProps<
   string,
@@ -64,6 +73,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       isCustomNetwork?: boolean;
       loading?: boolean;
       disabled?: boolean;
+      popover?: ITokenSelectorPopoverProps;
     } & IXStackProps;
     reversible?: boolean;
   } & IStackProps
@@ -192,7 +202,12 @@ export function AmountInput({
       );
     }
 
-    return (
+    const { popover: popoverProps, ...restTriggerProps } =
+      tokenSelectorTriggerProps ?? {};
+    const hasPopover = !!popoverProps?.content;
+    const hasOnPress = !!restTriggerProps.onPress || hasPopover;
+
+    const triggerContent = (
       <XStack
         alignItems="center"
         m="$1.5"
@@ -200,10 +215,10 @@ export function AmountInput({
         p="$2"
         borderRadius="$2"
         userSelect="none"
-        {...(tokenSelectorTriggerProps?.selectedTokenSymbol && {
+        {...(restTriggerProps.selectedTokenSymbol && {
           maxWidth: '$44',
         })}
-        {...(tokenSelectorTriggerProps?.onPress && {
+        {...(hasOnPress && {
           role: 'button',
           hoverStyle: {
             bg: '$bgHover',
@@ -212,15 +227,15 @@ export function AmountInput({
             bg: '$bgActive',
           },
         })}
-        disabled={tokenSelectorTriggerProps?.disabled}
-        onPress={tokenSelectorTriggerProps?.onPress}
+        disabled={restTriggerProps.disabled}
+        onPress={hasPopover ? undefined : restTriggerProps.onPress}
       >
         <Stack mr="$2">
           <Image
             size="$7"
             borderRadius="$full"
             source={{
-              uri: tokenSelectorTriggerProps?.selectedTokenImageUri,
+              uri: restTriggerProps.selectedTokenImageUri,
             }}
             fallback={
               <Image.Fallback
@@ -238,7 +253,7 @@ export function AmountInput({
               </Image.Fallback>
             }
           />
-          {tokenSelectorTriggerProps?.selectedNetworkImageUri ? (
+          {restTriggerProps.selectedNetworkImageUri ? (
             <Stack
               position="absolute"
               right="$-1"
@@ -252,7 +267,7 @@ export function AmountInput({
                 size="$3"
                 borderRadius="$full"
                 source={{
-                  uri: tokenSelectorTriggerProps?.selectedNetworkImageUri,
+                  uri: restTriggerProps.selectedNetworkImageUri,
                 }}
                 fallback={
                   <Image.Fallback bg="$gray5" delayMs={1000}>
@@ -266,8 +281,8 @@ export function AmountInput({
               />
             </Stack>
           ) : null}
-          {tokenSelectorTriggerProps?.isCustomNetwork &&
-          tokenSelectorTriggerProps?.selectedNetworkName ? (
+          {restTriggerProps.isCustomNetwork &&
+          restTriggerProps.selectedNetworkName ? (
             <Stack
               position="absolute"
               right="$-1"
@@ -279,17 +294,16 @@ export function AmountInput({
             >
               <LetterAvatar
                 size="$3"
-                letter={tokenSelectorTriggerProps.selectedNetworkName[0]}
+                letter={restTriggerProps.selectedNetworkName[0]}
               />
             </Stack>
           ) : null}
         </Stack>
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
-          {tokenSelectorTriggerProps?.selectedTokenSymbol ||
+          {restTriggerProps.selectedTokenSymbol ||
             intl.formatMessage({ id: ETranslations.token_selector_title })}
         </SizableText>
-        {tokenSelectorTriggerProps?.onPress &&
-        !tokenSelectorTriggerProps.disabled ? (
+        {hasOnPress && !restTriggerProps.disabled ? (
           <Icon
             flexShrink={0}
             name="ChevronDownSmallOutline"
@@ -300,17 +314,23 @@ export function AmountInput({
         ) : null}
       </XStack>
     );
-  }, [
-    intl,
-    tokenSelectorTriggerProps?.disabled,
-    tokenSelectorTriggerProps?.isCustomNetwork,
-    tokenSelectorTriggerProps?.loading,
-    tokenSelectorTriggerProps?.onPress,
-    tokenSelectorTriggerProps?.selectedNetworkImageUri,
-    tokenSelectorTriggerProps?.selectedNetworkName,
-    tokenSelectorTriggerProps?.selectedTokenImageUri,
-    tokenSelectorTriggerProps?.selectedTokenSymbol,
-  ]);
+
+    // Wrap with Popover if popover prop is provided
+    if (hasPopover && !restTriggerProps.disabled) {
+      return (
+        <Popover
+          title={popoverProps.title}
+          renderTrigger={triggerContent}
+          renderContent={popoverProps.content}
+          floatingPanelProps={{
+            w: '$72',
+          }}
+        />
+      );
+    }
+
+    return triggerContent;
+  }, [intl, tokenSelectorTriggerProps]);
 
   const BalanceElement = useMemo(() => {
     if (!balanceProps) {

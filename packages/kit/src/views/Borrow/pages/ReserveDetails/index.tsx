@@ -8,13 +8,10 @@ import {
   useMedia,
   useShare,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -25,12 +22,12 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnPageContainer } from '../../../Earn/components/EarnPageContainer';
-import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { BorrowNavigation } from '../../borrowUtils';
 
 import { DetailsPart } from './components/DetailsPart';
 import { ManagePositionPart } from './components/ManagePositionPart';
 import { useBorrowReserveDetailBreadcrumb } from './hooks/useBorrowReserveDetailBreadcrumb';
+import { useBorrowReserveDetailData } from './hooks/useBorrowReserveDetailData';
 
 const ReserveDetailsPage = () => {
   const route = useAppRoute<
@@ -51,6 +48,8 @@ const ReserveDetailsPage = () => {
     reserveAddress: string;
     symbol: string;
     logoURI?: string;
+    accountId?: string;
+    indexedAccountId?: string;
   }>(() => {
     const routeParams = route.params;
 
@@ -64,6 +63,8 @@ const ReserveDetailsPage = () => {
       reserveAddress: routeParams.reserveAddress,
       symbol: routeParams.symbol,
       logoURI: routeParams.logoURI,
+      accountId: routeParams.accountId,
+      indexedAccountId: routeParams.indexedAccountId,
     };
   }, [route.params]);
 
@@ -74,26 +75,21 @@ const ReserveDetailsPage = () => {
     reserveAddress,
     symbol,
     logoURI,
+    accountId: routeAccountId,
+    indexedAccountId,
   } = resolvedParams;
 
-  const { earnAccount } = useEarnAccount({ networkId });
-  const accountId = earnAccount?.account?.id || '';
+  const { earnAccount, details, userInfo, isLoading, refreshData } =
+    useBorrowReserveDetailData({
+      accountId: routeAccountId,
+      networkId,
+      indexedAccountId,
+      provider,
+      marketAddress,
+      reserveAddress,
+    });
 
-  const { result: details } = usePromiseResult(
-    async () => {
-      return backgroundApiProxy.serviceStaking.getBorrowReserveDetails({
-        networkId,
-        provider,
-        marketAddress,
-        reserveAddress,
-        ...(accountId ? { accountId } : {}),
-      });
-    },
-    [networkId, provider, marketAddress, reserveAddress, accountId],
-    { revalidateOnFocus: true },
-  );
-
-  const userInfo = details?.userInfo;
+  const accountId = routeAccountId || earnAccount?.account?.id || '';
 
   const shareUrl = useMemo(() => {
     if (!symbol || !provider || !networkId || !marketAddress || !reserveAddress)
@@ -194,7 +190,9 @@ const ReserveDetailsPage = () => {
       <XStack flexDirection={gtMd ? 'row' : 'column'}>
         <Stack w="100%" width={gtMd ? '65%' : undefined}>
           <DetailsPart
-            accountId={accountId}
+            details={details}
+            isLoading={isLoading ?? false}
+            onRefresh={refreshData}
             networkId={networkId}
             provider={provider}
             marketAddress={marketAddress}
@@ -208,6 +206,7 @@ const ReserveDetailsPage = () => {
           <Stack width="35%">
             <ManagePositionPart
               accountId={accountId}
+              userInfo={userInfo}
               networkId={networkId}
               provider={provider}
               marketAddress={marketAddress}

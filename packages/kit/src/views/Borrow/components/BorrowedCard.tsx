@@ -71,7 +71,7 @@ export const BorrowedCard = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
-  const { gtMd } = useMedia();
+  const { gtMd, gtLg } = useMedia();
   const accountId = earnAccount?.account?.id || '';
   const walletId = earnAccount?.walletId || '';
   const indexedAccountId = earnAccount?.account?.indexedAccountId;
@@ -108,13 +108,15 @@ export const BorrowedCard = () => {
           reserveAddress: item.reserveAddress,
           symbol: item.token.symbol,
           logoURI: item.token.logoURI,
+          accountId: accountId || undefined,
+          indexedAccountId,
         });
       } else {
         // Mobile: open Repay dialog
         handleManageRepay(item);
       }
     },
-    [navigation, market, gtMd, handleManageRepay],
+    [navigation, market, gtMd, handleManageRepay, accountId, indexedAccountId],
   );
 
   const showLoading = !reserves && reservesLoading;
@@ -215,13 +217,22 @@ export const BorrowedCard = () => {
             walletId={walletId}
             indexedAccountId={indexedAccountId}
             onPress={() => handleManageRepay(item)}
+            needAdditionButton={gtLg}
             disabled={item.repayButton?.disabled}
           />
         ),
         flex: 1,
       },
     ],
-    [handleManageRepay, accountId, walletId, indexedAccountId, labels, intl],
+    [
+      handleManageRepay,
+      accountId,
+      walletId,
+      indexedAccountId,
+      labels,
+      intl,
+      gtLg,
+    ],
   );
 
   const hasData = useMemo(
