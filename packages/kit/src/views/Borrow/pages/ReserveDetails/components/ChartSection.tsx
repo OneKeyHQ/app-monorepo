@@ -99,7 +99,7 @@ export function ChartSection({
       </DetailsSectionContainer>
 
       <DetailsSectionContainer
-        title="Borrow info"
+        title={intl.formatMessage({ id: ETranslations.defi_borrow_info })}
         titleAfter={borrowBadge}
         showDivider={false}
       >
