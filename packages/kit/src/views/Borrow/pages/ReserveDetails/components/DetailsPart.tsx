@@ -1,14 +1,13 @@
 import { memo } from 'react';
 
 import { Divider, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   PageFrame,
   isErrorState,
   isLoadingState,
 } from '@onekeyhq/kit/src/views/Staking/components/PageFrame';
 import { OverviewSkeleton } from '@onekeyhq/kit/src/views/Staking/components/StakingSkeleton';
+import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { BorrowFAQSection } from './BorrowFAQSection';
 import { ChartSection } from './ChartSection';
@@ -17,7 +16,9 @@ import { ReserveProtocolHeader } from './ReserveProtocolHeader';
 import { RiskSection } from './RiskSection';
 
 interface IDetailsPartProps {
-  accountId: string;
+  details: IBorrowReserveDetail | undefined;
+  isLoading: boolean;
+  onRefresh: () => void;
   networkId: string;
   provider: string;
   marketAddress: string;
@@ -28,7 +29,9 @@ interface IDetailsPartProps {
 }
 
 const DetailsPartComponent = ({
-  accountId,
+  details,
+  isLoading,
+  onRefresh,
   networkId,
   provider,
   marketAddress,
@@ -37,31 +40,13 @@ const DetailsPartComponent = ({
   logoURI,
   onShare,
 }: IDetailsPartProps) => {
-  const {
-    result: details,
-    isLoading,
-    run: refreshData,
-  } = usePromiseResult(
-    async () => {
-      return backgroundApiProxy.serviceStaking.getBorrowReserveDetails({
-        networkId,
-        provider,
-        marketAddress,
-        reserveAddress,
-        ...(accountId ? { accountId } : {}),
-      });
-    },
-    [networkId, provider, marketAddress, reserveAddress, accountId],
-    { watchLoading: true, revalidateOnFocus: true },
-  );
-
   return (
     <YStack flex={6} gap="$5" px="$5">
       <PageFrame
         LoadingSkeleton={OverviewSkeleton}
         loading={isLoadingState({ result: details, isLoading })}
         error={isErrorState({ result: details, isLoading })}
-        onRefresh={refreshData}
+        onRefresh={onRefresh}
       >
         {details ? (
           <YStack gap="$8">

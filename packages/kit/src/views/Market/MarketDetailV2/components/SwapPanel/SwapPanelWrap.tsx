@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -30,6 +31,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const swapPanel = useSwapPanel({
     networkId: networkId || 'evm--1',
   });
+  const [hasInitialReady, setHasInitialReady] = useState(false);
 
   const {
     setPaymentToken,
@@ -41,14 +43,13 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   } = swapPanel;
 
   const {
-    isLoading,
+    isLoading: speedSwapInitLoading,
     speedConfig,
     supportSpeedSwap: originalSupportSpeedSwap,
     defaultTokens,
     provider,
     swapMevNetConfig,
   } = useSpeedSwapInit(networkId || '', true);
-
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
@@ -95,16 +96,37 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
     }
+    let actionTranslationId;
+    let actionToken: ISwapToken | undefined;
+    if (!speedSwapEnabled) {
+      actionTranslationId = ETranslations.promode_swap_unsupported_message;
+      actionToken = {
+        networkId: networkId || '',
+        contractAddress: tokenDetail?.address || '',
+        symbol: tokenDetail?.symbol || '',
+        decimals: tokenDetail?.decimals || 0,
+        logoURI: tokenDetail?.logoUrl || '',
+        isNative: !!tokenDetail?.isNative,
+      };
+    }
     return {
       enabled: isEnabled,
       warningMessage,
+      actionTranslationId,
+      actionToken,
     };
   }, [
     accountNetworkNotSupported,
     intl,
+    networkId,
     originalSupportSpeedSwap,
+    tokenDetail?.address,
+    tokenDetail?.decimals,
+    tokenDetail?.isNative,
+    tokenDetail?.logoUrl,
     tokenDetail?.supportSwap?.enable,
     tokenDetail?.supportSwap?.warningMessage,
+    tokenDetail?.symbol,
   ]);
 
   const useSpeedSwapActionsParams = {
@@ -167,8 +189,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   }, [defaultTokens, networkId, tokenDetail]);
 
   useEffect(() => {
-    if (filterDefaultTokens.length > 0 && !paymentToken) {
+    if (filterDefaultTokens.length > 0 && !paymentToken?.networkId) {
       setPaymentToken(filterDefaultTokens[0]);
+      return;
     }
     if (
       filterDefaultTokens.length > 0 &&
@@ -180,7 +203,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     ) {
       setPaymentToken(filterDefaultTokens[0]);
     }
-  }, [paymentToken, setPaymentToken, filterDefaultTokens]);
+  }, [
+    paymentToken?.networkId,
+    paymentToken?.contractAddress,
+    setPaymentToken,
+    filterDefaultTokens,
+  ]);
 
   useEffect(() => {
     if (speedConfig?.slippage) {
@@ -206,8 +234,33 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     };
   }, []);
 
+  const isActionLoading = useMemo(() => {
+    return (
+      speedSwapInitLoading ||
+      speedSwapApproveActionLoading ||
+      speedSwapApproveTransactionLoading ||
+      speedSwapBuildTxLoading ||
+      checkTokenAllowanceLoading
+    );
+  }, [
+    speedSwapInitLoading,
+    speedSwapApproveActionLoading,
+    speedSwapApproveTransactionLoading,
+    speedSwapBuildTxLoading,
+    checkTokenAllowanceLoading,
+  ]);
+
+  useEffect(() => {
+    if (!isActionLoading && isReady) {
+      setTimeout(() => {
+        setHasInitialReady(true);
+      }, 300);
+    }
+  }, [isActionLoading, isReady]);
+
   return (
     <SwapPanelContent
+      onCloseDialog={onCloseDialog}
       priceRate={priceRate}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
@@ -215,14 +268,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balance={balance ?? new BigNumber(0)}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
-      isLoading={
-        isLoading ||
-        speedSwapApproveActionLoading ||
-        speedSwapApproveTransactionLoading ||
-        speedSwapBuildTxLoading ||
-        checkTokenAllowanceLoading ||
-        !isReady
-      }
+      isLoading={isActionLoading}
+      hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
       isApproved={!shouldApprove}
       slippageAutoValue={speedConfig?.slippage}

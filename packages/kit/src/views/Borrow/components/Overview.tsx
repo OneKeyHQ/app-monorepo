@@ -218,52 +218,98 @@ export const Overview = () => {
   // Mobile layout
   if (!gtMd) {
     return (
-      <YStack mt="$2" mb="$5" gap="$3">
+      <YStack mt="$2" mb="$5">
         {/* Row 1: Net worth */}
-        <YStack gap="$1">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {labels.netWorth}
-          </SizableText>
-          <EarnText
-            text={
-              reserves?.overview?.netWorth ?? {
-                text: amountPlaceholder,
-                color: '$textDisabled',
-              }
-            }
-            size="$headingLg"
-            color="$textText"
-          />
-          {reserves?.overview?.netApy ? (
-            <XStack ai="center" gap="$1">
-              <EarnText
-                text={reserves.overview.netApy}
-                size="$headingLg"
-                color="$textText"
-              />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {labels.netApy}
-              </SizableText>
-            </XStack>
-          ) : (
-            <SizableText size="$headingLg" color="$textDisabled">
-              -
+        <XStack ai="flex-start" jc="space-between" mb="$5">
+          <YStack>
+            <SizableText size="$bodyMdMedium" color="$textText" mb="$1">
+              {labels.netWorth}
             </SizableText>
-          )}
-        </YStack>
+            <EarnText
+              text={
+                reserves?.overview?.netWorth ?? {
+                  text: amountPlaceholder,
+                  color: '$textDisabled',
+                }
+              }
+              size="$heading3xl"
+              color="$textText"
+              mb="$1.5"
+            />
+            {reserves?.overview?.netApy ? (
+              <XStack ai="center" gap="$1">
+                <EarnText
+                  text={reserves.overview.netApy}
+                  size="$bodyMdMedium"
+                  color="$textText"
+                />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {labels.netApy}
+                </SizableText>
+              </XStack>
+            ) : (
+              <SizableText size="$bodyMdMedium" color="$textDisabled">
+                -
+              </SizableText>
+            )}
+          </YStack>
+          <XStack
+            ai="center"
+            gap="$1"
+            cursor="pointer"
+            onPress={handleHistoryPress}
+          >
+            <Icon
+              name="ClockTimeHistoryOutline"
+              size="$4"
+              color="$iconSubdued"
+            />
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {historyLabel}
+            </SizableText>
+          </XStack>
+        </XStack>
 
-        {/* Row 2: Health factor + Platform bonus */}
-        <XStack gap="$6">
-          {healthFactorData?.healthFactor ? (
+        {/* Grid: Health factor + Platform bonus + Claimable rewards */}
+        <YStack gap="$4">
+          <XStack gap="$6">
+            {healthFactorData?.healthFactor ? (
+              <YStack gap="$1" flex={1}>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {labels.healthFactor}
+                </SizableText>
+                <XStack ai="center" gap="$1">
+                  <EarnText
+                    text={
+                      healthFactorData.healthFactor.text ?? {
+                        text: '-',
+                        color: '$textDisabled',
+                      }
+                    }
+                    size="$headingLg"
+                    color="$textText"
+                  />
+                  <XStack mt="$1">
+                    <BorrowHealthFactorTooltip
+                      detail={
+                        healthFactorData.healthFactor.button?.data
+                          .healthFactorDetail
+                      }
+                    />
+                  </XStack>
+                </XStack>
+              </YStack>
+            ) : null}
             <YStack gap="$1" flex={1}>
               <SizableText size="$bodyMd" color="$textSubdued">
-                {labels.healthFactor}
+                {labels.platformBonus}
               </SizableText>
               <XStack ai="center" gap="$1">
                 <EarnText
                   text={
-                    healthFactorData.healthFactor.text ?? {
-                      text: '-',
+                    reserves?.overview?.platformBonus?.totalReceived
+                      .description ?? {
+                      text: amountPlaceholder,
                       color: '$textDisabled',
                     }
                   }
@@ -271,49 +317,19 @@ export const Overview = () => {
                   color="$textText"
                 />
                 <XStack mt="$1">
-                  <BorrowHealthFactorTooltip
-                    detail={
-                      healthFactorData.healthFactor.button?.data
-                        .healthFactorDetail
-                    }
+                  <BorrowBonusTooltip
+                    data={reserves?.overview?.platformBonus}
+                    accountId={earnAccountId}
+                    networkId={networkId}
+                    provider={provider}
+                    marketAddress={marketAddress}
                   />
                 </XStack>
               </XStack>
             </YStack>
-          ) : null}
-          <YStack gap="$1" flex={1}>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {labels.platformBonus}
-            </SizableText>
-            <XStack ai="center" gap="$1">
-              <EarnText
-                text={
-                  reserves?.overview?.platformBonus?.totalReceived
-                    .description ?? {
-                    text: amountPlaceholder,
-                    color: '$textDisabled',
-                  }
-                }
-                size="$headingLg"
-                color="$textText"
-              />
-              <XStack mt="$1">
-                <BorrowBonusTooltip
-                  data={reserves?.overview?.platformBonus}
-                  accountId={earnAccountId}
-                  networkId={networkId}
-                  provider={provider}
-                  marketAddress={marketAddress}
-                />
-              </XStack>
-            </XStack>
-          </YStack>
-        </XStack>
-
-        {/* Row 3: Rewards + History */}
-        {borrowRewards ? (
-          <XStack jc="space-between" ai="flex-start">
-            <YStack gap="$1" flex={1}>
+          </XStack>
+          {borrowRewards ? (
+            <YStack gap="$1">
               <EarnText
                 text={borrowRewards.title}
                 size="$bodyMd"
@@ -344,23 +360,8 @@ export const Overview = () => {
                 </Button>
               </XStack>
             </YStack>
-            <XStack
-              ai="center"
-              gap="$1"
-              cursor="pointer"
-              onPress={handleHistoryPress}
-            >
-              <Icon
-                name="ClockTimeHistoryOutline"
-                size="$4"
-                color="$iconSubdued"
-              />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {historyLabel}
-              </SizableText>
-            </XStack>
-          </XStack>
-        ) : null}
+          ) : null}
+        </YStack>
       </YStack>
     );
   }

@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IBorrowToken } from '@onekeyhq/shared/types/staking';
 import {
   ESwapSource,
@@ -23,6 +24,35 @@ type IUseSupplyActionsParams = {
   indexedAccountId?: string;
 };
 
+// Build native token from network info (dynamically, not hardcoded)
+function buildNativeSwapToken(network: IServerNetwork) {
+  return {
+    networkId: network.id,
+    contractAddress: '',
+    isNative: true,
+    symbol: network.symbol,
+    name: network.name,
+    decimals: network.decimals,
+    logoURI: network.logoURI,
+    networkLogoURI: network.logoURI,
+  };
+}
+
+// Build swap token from borrow token
+function buildSwapToken(token: IBorrowToken, network: IServerNetwork) {
+  const isNative = !token.address || token.address === '';
+  return {
+    networkId: network.id,
+    contractAddress: token.address,
+    isNative,
+    symbol: token.symbol,
+    name: token.name,
+    decimals: token.decimals,
+    logoURI: isNative ? network.logoURI : token.logoURI,
+    networkLogoURI: network.logoURI,
+  };
+}
+
 export const useSupplyActions = ({
   accountId,
   walletId,
@@ -39,7 +69,6 @@ export const useSupplyActions = ({
       }
 
       const { token } = item;
-      const isNative = !token.address || token.address === '';
 
       // Check if network supports swap
       const { isSupportSwap, isSupportCrossChain } =
@@ -60,16 +89,8 @@ export const useSupplyActions = ({
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
-          importFromToken: {
-            ...onekeyNetwork,
-            logoURI: isNative ? onekeyNetwork.logoURI : token.logoURI,
-            contractAddress: token.address,
-            networkId,
-            isNative,
-            networkLogoURI: onekeyNetwork.logoURI,
-            symbol: token.symbol,
-            name: token.name,
-          },
+          importFromToken: buildNativeSwapToken(onekeyNetwork),
+          importToToken: buildSwapToken(token, onekeyNetwork),
           swapTabSwitchType: isSupportSwap
             ? ESwapTabSwitchType.SWAP
             : ESwapTabSwitchType.BRIDGE,
@@ -88,7 +109,6 @@ export const useSupplyActions = ({
       }
 
       const { token } = item;
-      const isNative = !token.address || token.address === '';
 
       // Check if network supports cross-chain
       const { isSupportCrossChain } =
@@ -109,16 +129,8 @@ export const useSupplyActions = ({
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
-          importFromToken: {
-            ...onekeyNetwork,
-            logoURI: isNative ? onekeyNetwork.logoURI : token.logoURI,
-            contractAddress: token.address,
-            networkId,
-            isNative,
-            networkLogoURI: onekeyNetwork.logoURI,
-            symbol: token.symbol,
-            name: token.name,
-          },
+          importFromToken: buildNativeSwapToken(onekeyNetwork),
+          importToToken: buildSwapToken(token, onekeyNetwork),
           swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
           swapSource: ESwapSource.MARKET,
         },
