@@ -40,6 +40,7 @@ import {
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
+import { FavoritesEmptyState } from './FavoritesEmptyState';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
 import type { ITokenSelectorListItem } from './PerpTokenSelector';
@@ -425,17 +426,21 @@ function MobileTokenSelectorModal({
               />
             )}
             ListEmptyComponent={
-              <XStack p="$5" justifyContent="center">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {searchQuery
-                    ? intl.formatMessage({
-                        id: ETranslations.perp_token_selector_empty,
-                      })
-                    : intl.formatMessage({
-                        id: ETranslations.perp_token_selector_loading,
-                      })}
-                </SizableText>
-              </XStack>
+              activeTab === 'favorites' && !searchQuery ? (
+                <FavoritesEmptyState isMobile />
+              ) : (
+                <XStack p="$5" justifyContent="center">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {searchQuery
+                      ? intl.formatMessage({
+                          id: ETranslations.perp_token_selector_empty,
+                        })
+                      : intl.formatMessage({
+                          id: ETranslations.dexmarket_details_nodata,
+                        })}
+                  </SizableText>
+                </XStack>
+              )
             }
           />
         </YStack>
