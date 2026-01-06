@@ -896,6 +896,7 @@ export function useSwapProTokenTransactionList(
   tokenAddress: string,
   networkId: string,
   enableWebSocket: boolean,
+  supportSpeedSwap?: boolean,
 ) {
   const currencyInfo = useCurrency();
   const [, setSwapProTokenTransactionPrice] =
@@ -914,7 +915,7 @@ export function useSwapProTokenTransactionList(
     run: fetchTransactions,
   } = usePromiseResult(
     async () => {
-      if (!networkId) {
+      if (!networkId || !supportSpeedSwap) {
         return undefined;
       }
       try {
@@ -931,7 +932,7 @@ export function useSwapProTokenTransactionList(
         return { list: [] };
       }
     },
-    [tokenAddress, networkId],
+    [networkId, supportSpeedSwap, tokenAddress],
     {
       watchLoading: true,
     },
@@ -974,7 +975,7 @@ export function useSwapProTokenTransactionList(
   useTransactionsWebSocket({
     networkId,
     tokenAddress,
-    enabled: enableWebSocket,
+    enabled: enableWebSocket && supportSpeedSwap,
     currency: currencyInfo.id,
     onNewTransaction: addNewTransaction,
   });

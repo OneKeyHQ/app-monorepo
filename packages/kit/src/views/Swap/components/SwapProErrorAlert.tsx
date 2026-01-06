@@ -62,7 +62,7 @@ const SwapProErrorAlert = ({
     ],
   );
   const titleValue = useMemo(() => {
-    if (supportSpeedSwap) {
+    if (!supportSpeedSwap) {
       return intl.formatMessage({
         id: ETranslations.promode_swap_unsupported_title,
       });
@@ -70,7 +70,7 @@ const SwapProErrorAlert = ({
     return title;
   }, [supportSpeedSwap, title, intl]);
   const messageComponent = useMemo(() => {
-    if (supportSpeedSwap) {
+    if (!supportSpeedSwap) {
       return (
         <HyperlinkText
           size="$bodyMd"

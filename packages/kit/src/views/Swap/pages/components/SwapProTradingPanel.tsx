@@ -136,7 +136,6 @@ const SwapProTradingPanel = ({
         <SwapProTradeInfoGroup
           balanceLoading={balanceLoading}
           onBalanceMax={onBalanceMax}
-          cleanInputAmount={cleanInputAmount}
           defaultTokens={swapProConfig.defaultTokens}
           defaultLimitTokens={swapProConfig.defaultLimitTokens}
         />

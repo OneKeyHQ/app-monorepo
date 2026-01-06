@@ -260,6 +260,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   return (
     <SwapPanelContent
+      onCloseDialog={onCloseDialog}
       priceRate={priceRate}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}

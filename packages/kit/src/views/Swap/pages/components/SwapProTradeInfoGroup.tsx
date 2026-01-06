@@ -3,7 +3,12 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  NumberSizeableText,
+  SizableText,
+  YStack,
+} from '@onekeyhq/components';
 import {
   useSwapLimitPriceUseRateAtom,
   useSwapProDirectionAtom,
@@ -36,7 +41,6 @@ interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
   defaultTokens: ISwapTokenBase[];
   defaultLimitTokens: ISwapTokenBase[];
-  cleanInputAmount: () => void;
   onBalanceMax: () => void;
 }
 
@@ -44,7 +48,6 @@ const SwapProTradeInfoGroup = ({
   balanceLoading,
   onBalanceMax,
   defaultTokens,
-  cleanInputAmount,
   defaultLimitTokens,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
@@ -143,11 +146,24 @@ const SwapProTradeInfoGroup = ({
   }, [toTokenAmount?.value, swapProQuoteResult?.toAmount, swapProTradeType]);
   const tradingFeeValue = useMemo(() => {
     const tradingFee = swapProQuoteResult?.fee?.percentageFee;
-    if (!tradingFee) {
-      return '--';
+    const tradingFeeBN = new BigNumber(tradingFee || '0');
+    const isFreeOneKeyFee = tradingFeeBN.isZero() || tradingFeeBN.isNaN();
+    if (isFreeOneKeyFee) {
+      return {
+        valueComponent: (
+          <Badge badgeSize="sm" badgeType="info">
+            {intl.formatMessage({
+              id: ETranslations.swap_stablecoin_0_fee,
+            })}
+          </Badge>
+        ),
+      };
     }
-    return `${tradingFee}%`;
-  }, [swapProQuoteResult?.fee?.percentageFee]);
+
+    return {
+      value: `${tradingFee ?? '0'}%`,
+    };
+  }, [intl, swapProQuoteResult?.fee?.percentageFee]);
 
   const handleTokenSelect = useCallback(
     (token: IToken) => {
@@ -260,7 +276,8 @@ const SwapProTradeInfoGroup = ({
         title={intl.formatMessage({
           id: ETranslations.provider_ios_popover_wallet_fee,
         })}
-        value={tradingFeeValue}
+        value={tradingFeeValue.value}
+        valueComponent={tradingFeeValue.valueComponent}
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}
         isLoading={swapProQuoteFetching}

@@ -17,16 +17,19 @@ export function UnsupportedSwapWarning({
   customMessage,
   actionToken,
   actionTranslationId,
+  onCloseDialog,
 }: {
   customMessage?: string;
   actionToken?: ISwapToken;
   actionTranslationId?: string;
+  onCloseDialog?: () => void;
 }) {
   const intl = useIntl();
   const [, setSwapFromMarketJumpTokenAtom] = useSwapFromMarketJumpTokenAtom();
   const navigation = useAppNavigation();
   const handleAlertAction = useCallback(
     (actionName: string) => {
+      onCloseDialog?.();
       if (actionName === 'bridge_action') {
         setSwapFromMarketJumpTokenAtom({
           token: actionToken,
@@ -35,7 +38,7 @@ export function UnsupportedSwapWarning({
         navigation.switchTab(ETabRoutes.Swap);
       }
     },
-    [navigation, actionToken, setSwapFromMarketJumpTokenAtom],
+    [onCloseDialog, setSwapFromMarketJumpTokenAtom, actionToken, navigation],
   );
   const description = useMemo(() => {
     if (actionTranslationId) {

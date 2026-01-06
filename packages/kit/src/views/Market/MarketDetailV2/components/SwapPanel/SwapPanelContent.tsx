@@ -49,6 +49,7 @@ export type ISwapPanelContentProps = {
   swapMevNetConfig: string[];
   swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
   isWrapped: boolean;
+  onCloseDialog?: () => void;
   priceRate?: {
     rate?: number;
     fromTokenSymbol?: string;
@@ -77,6 +78,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     onWrappedSwap,
     isWrapped,
     hasInitialReady,
+    onCloseDialog,
   } = props;
 
   const {
@@ -190,6 +192,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           customMessage={supportSpeedSwap.warningMessage}
           actionTranslationId={supportSpeedSwap.actionTranslationId}
           actionToken={supportSpeedSwap.actionToken}
+          onCloseDialog={onCloseDialog}
         />
       ) : null}
 

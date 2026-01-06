@@ -192,6 +192,7 @@ const SwapProContainer = ({
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
           {shouldRenderHeavyComponents ? (
             <SwapProTradeInfoPanel
+              supportSpeedSwap={supportSpeedSwap}
               onPricePress={(price) => {
                 if (swapProTradeType === ESwapProTradeType.LIMIT) {
                   setLimitPriceUseMarketPrice((prev) => ({
