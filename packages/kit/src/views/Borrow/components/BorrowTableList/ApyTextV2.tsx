@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import Svg, { Line } from 'react-native-svg';
 
 import {
   Divider,
@@ -10,6 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useTheme,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { AprText } from '@onekeyhq/kit/src/views/Earn/components/AprText';
@@ -195,31 +197,65 @@ function ApyDetailPopoverContent({
   );
 }
 
+// SVG Dotted line component for cross-platform consistency
+function DottedLine({ color, width }: { color: string; width: number }) {
+  return (
+    <Svg height={3} width={width}>
+      <Line
+        x1={1}
+        y1={1.5}
+        x2={width - 1}
+        y2={1.5}
+        stroke={color}
+        strokeWidth={1.5}
+        strokeDasharray="0.1,4"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+// Text with dotted underline component
+function TextWithDottedUnderline({
+  text,
+  color,
+  size = '$bodyLgMedium',
+}: {
+  text: string;
+  color?: string;
+  size?: '$bodyLgMedium' | '$bodyMd';
+}) {
+  const theme = useTheme();
+  const [textWidth, setTextWidth] = useState(0);
+
+  // Get the actual color value from theme token
+  const colorValue = useMemo(() => {
+    if (!color) return theme.text.val;
+    const colorKey = color.replace('$', '') as keyof typeof theme;
+    return (theme[colorKey] as { val: string })?.val || color;
+  }, [color, theme]);
+
+  return (
+    <YStack alignItems="flex-end" gap="$0.5">
+      <Stack onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}>
+        <SizableText size={size} textAlign="right" color={color || '$text'}>
+          {text}
+        </SizableText>
+      </Stack>
+      {textWidth > 0 ? (
+        <DottedLine color={colorValue} width={textWidth} />
+      ) : null}
+    </YStack>
+  );
+}
+
 // Reusable highlight content component
 function HighlightContent({ text, color }: { text: string; color?: string }) {
   return (
-    <YStack ai="flex-end" gap="$0.5">
-      <XStack alignItems="center" gap="$1">
-        <Icon name="Ai2StarSolid" size="$4" color="$iconSuccess" />
-        <SizableText
-          size="$bodyLgMedium"
-          textAlign="right"
-          color={color || '$textSuccess'}
-        >
-          {text}
-        </SizableText>
-      </XStack>
-      <Stack
-        width="100%"
-        height={0}
-        borderBottomWidth="$0.5"
-        borderBottomColor={color || '$textSuccess'}
-        borderStyle="dotted"
-        borderTopWidth={0}
-        borderLeftWidth={0}
-        borderRightWidth={0}
-      />
-    </YStack>
+    <XStack alignItems="flex-start" gap="$1">
+      <Icon name="Ai2StarSolid" size="$4" color="$iconSuccess" mt="$1" />
+      <TextWithDottedUnderline text={text} color={color || '$textSuccess'} />
+    </XStack>
   );
 }
 
@@ -287,6 +323,33 @@ export const ApyTextV2 = ({ apyDetail }: IApyTextV2Props) => {
   }
 
   // Case 3: Fallback to AprText for other cases
+  // If hasDetail, render text with dotted underline and popover
+  if (hasDetail) {
+    // Get the text to display - prefer normal.text, fallback to apy
+    const displayText = apyDetail.normal?.text || apyDetail.apy;
+    const displayColor = apyDetail.normal?.color || '$text';
+
+    return (
+      <YStack ai="flex-end">
+        <Popover
+          open={open}
+          onOpenChange={setOpen}
+          renderTrigger={
+            <Stack cursor="pointer">
+              <TextWithDottedUnderline
+                text={displayText}
+                color={displayColor}
+              />
+            </Stack>
+          }
+          title={intl.formatMessage({ id: ETranslations.global_details })}
+          renderContent={<ApyDetailPopoverContent popupData={popupData} />}
+        />
+      </YStack>
+    );
+  }
+
+  // No detail, use AprText without underline
   return (
     <YStack ai="flex-end">
       <AprText

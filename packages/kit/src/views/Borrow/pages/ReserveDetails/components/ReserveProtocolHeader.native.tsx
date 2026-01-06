@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
