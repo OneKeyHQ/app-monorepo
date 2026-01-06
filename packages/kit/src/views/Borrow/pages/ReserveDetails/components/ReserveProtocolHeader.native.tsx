@@ -1,6 +1,10 @@
+import { Fragment } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
@@ -9,12 +13,12 @@ import { PlatformBonusSection } from './PlatformBonusSection';
 interface IReserveProtocolHeaderProps {
   symbol: string;
   logoURI?: string;
-  onShare?: () => void;
   oraclePrice?: string;
   reserveSize?: string;
   availableLiquidity?: string;
   utilizationRatio?: string;
   platformBonus?: IBorrowReserveDetail['platformBonus'];
+  managers?: IBorrowReserveDetail['managers'];
 }
 
 const HeaderField = ({
@@ -34,81 +38,111 @@ const HeaderField = ({
   );
 };
 
-// Native version: Token + Symbol is displayed in Page.Header (modal header)
-// So we only show Oracle Price and other fields here
+// Native version shows Token + Symbol below managers section
 export const ReserveProtocolHeader = ({
-  onShare,
+  symbol,
+  logoURI,
   oraclePrice,
   reserveSize,
   availableLiquidity,
   utilizationRatio,
   platformBonus,
+  managers,
 }: IReserveProtocolHeaderProps) => {
   const intl = useIntl();
   const labels = {
-    oraclePrice: `${intl.formatMessage({
+    oraclePrice: intl.formatMessage({
       id: ETranslations.defi_oracle_price,
-    })}:`,
-    reserveSize: `${intl.formatMessage({
+    }),
+    reserveSize: intl.formatMessage({
       id: ETranslations.defi_reserve_size,
-    })}:`,
-    availableLiquidity: `${intl.formatMessage({
+    }),
+    availableLiquidity: intl.formatMessage({
       id: ETranslations.defi_available_liquidity,
-    })}:`,
-    utilizationRatio: `${intl.formatMessage({
+    }),
+    utilizationRatio: intl.formatMessage({
       id: ETranslations.defi_utilization_ratio,
-    })}:`,
+    }),
   };
 
   return (
     <YStack>
       <YStack jc="center">
-        {/* Oracle Price + Share button row */}
-        <XStack gap="$2" ai="center">
-          {oraclePrice ? (
-            <XStack gap="$1" ai="center">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {labels.oraclePrice}
-              </SizableText>
-              <SizableText size="$bodySmMedium">{oraclePrice}</SizableText>
-            </XStack>
-          ) : null}
-          {onShare ? (
-            <IconButton
-              icon="ShareOutline"
-              size="small"
-              variant="tertiary"
-              iconColor="$iconSubdued"
-              onPress={onShare}
-            />
-          ) : null}
+        {/* Managers Section (e.g., Kamino Managed • Kamino Oracle Aggregated) */}
+        {managers?.items?.length ? (
+          <XStack gap="$1" ai="center" mb="$4">
+            {managers.items.map((item, index) => (
+              <Fragment key={index}>
+                <XStack gap="$1" ai="center">
+                  <Image
+                    size="$4"
+                    borderRadius="$1"
+                    source={{ uri: item.logoURI }}
+                  />
+                  <EarnText text={item.title} size="$bodySm" />
+                  <EarnText text={item.description} size="$bodySm" />
+                </XStack>
+                {/* Separator dot - don't show after last item */}
+                {index !== managers.items.length - 1 ? (
+                  <XStack w="$4" h="$4" ai="center" jc="center">
+                    <XStack
+                      w="$1"
+                      h="$1"
+                      borderRadius="$full"
+                      bg="$iconSubdued"
+                    />
+                  </XStack>
+                ) : null}
+              </Fragment>
+            ))}
+          </XStack>
+        ) : null}
+        {/* Token icon + Symbol */}
+        <XStack gap="$2" ai="center" my="$6">
+          <Token size="lg" tokenImageUri={logoURI} />
+          <SizableText size="$heading2xl">{symbol}</SizableText>
         </XStack>
-        <XStack gap="$6" mt="$5" mb="$8">
-          {reserveSize ? (
-            <YStack flex={1} gap="$1" jc="center">
-              <HeaderField
-                title={labels.reserveSize}
-                description={reserveSize}
-              />
-            </YStack>
-          ) : null}
-          {availableLiquidity ? (
-            <YStack flex={1} gap="$1" jc="center">
-              <HeaderField
-                title={labels.availableLiquidity}
-                description={availableLiquidity}
-              />
-            </YStack>
-          ) : null}
-          {utilizationRatio ? (
-            <YStack flex={1} gap="$1" jc="center">
-              <HeaderField
-                title={labels.utilizationRatio}
-                description={utilizationRatio}
-              />
-            </YStack>
-          ) : null}
-        </XStack>
+        {/* Statistics grid (2x2 layout) */}
+        <YStack gap="$6" mb="$8">
+          {/* Row 1: Reserve size | Available liquidity */}
+          <XStack>
+            {reserveSize ? (
+              <YStack flex={1}>
+                <HeaderField
+                  title={labels.reserveSize}
+                  description={reserveSize}
+                />
+              </YStack>
+            ) : null}
+            {availableLiquidity ? (
+              <YStack flex={1}>
+                <HeaderField
+                  title={labels.availableLiquidity}
+                  description={availableLiquidity}
+                />
+              </YStack>
+            ) : null}
+          </XStack>
+          {/* Row 2: Utilization ratio | Oracle price */}
+          <XStack>
+            {utilizationRatio ? (
+              <YStack flex={1}>
+                <HeaderField
+                  title={labels.utilizationRatio}
+                  description={utilizationRatio}
+                />
+              </YStack>
+            ) : null}
+            {oraclePrice ? (
+              <YStack flex={1}>
+                <HeaderField
+                  title={labels.oraclePrice}
+                  description={oraclePrice}
+                />
+              </YStack>
+            ) : null}
+          </XStack>
+        </YStack>
         <PlatformBonusSection platformBonus={platformBonus} />
       </YStack>
     </YStack>
