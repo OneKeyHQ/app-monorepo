@@ -219,7 +219,7 @@ function TokenInputSectionComponent(
                   />
                 ) : null}
                 <SizableText size="$bodyLg">
-                  {selectedToken?.symbol}
+                  {selectedToken?.symbol.slice(0, 15)}...
                 </SizableText>
                 {isTokenSelectorVisible ? (
                   <Icon
