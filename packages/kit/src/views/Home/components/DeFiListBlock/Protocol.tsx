@@ -359,29 +359,31 @@ function Protocol({
                 <SizableText size="$headingMd">
                   {protocolInfo?.protocolName ?? protocol.protocol}
                 </SizableText>
-                <XStack
-                  onPress={(event: GestureResponderEvent) => {
-                    event.stopPropagation();
-                    if (platformEnv.isDesktop || platformEnv.isNative) {
-                      openUrlInDiscovery({
-                        url: protocolInfo?.protocolUrl,
-                      });
-                    } else {
-                      openUrlExternal(protocolInfo?.protocolUrl);
-                    }
-                  }}
-                  cursor="pointer"
-                  borderRadius="$full"
-                  p="$1"
-                  hoverStyle={{
-                    bg: '$bgHover',
-                  }}
-                  pressStyle={{
-                    bg: '$bgActive',
-                  }}
-                >
-                  <Icon name="OpenOutline" size="$5" color="$iconSubdued" />
-                </XStack>
+                {protocolInfo?.protocolUrl ? (
+                  <XStack
+                    onPress={(event: GestureResponderEvent) => {
+                      event.stopPropagation();
+                      if (platformEnv.isDesktop || platformEnv.isNative) {
+                        openUrlInDiscovery({
+                          url: protocolInfo?.protocolUrl,
+                        });
+                      } else {
+                        openUrlExternal(protocolInfo?.protocolUrl);
+                      }
+                    }}
+                    cursor="pointer"
+                    borderRadius="$full"
+                    p="$1"
+                    hoverStyle={{
+                      bg: '$bgHover',
+                    }}
+                    pressStyle={{
+                      bg: '$bgActive',
+                    }}
+                  >
+                    <Icon name="OpenOutline" size="$5" color="$iconSubdued" />
+                  </XStack>
+                ) : null}
               </XStack>
               <XStack alignItems="center" gap="$3">
                 <NumberSizeableTextWrapper
