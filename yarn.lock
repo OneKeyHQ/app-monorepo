@@ -7772,7 +7772,7 @@ __metadata:
     react-native-confirmation-code-field: "npm:^7.4.0"
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.3"
-    react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@1.1.11"
+    react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@1.1.14"
     react-native-reanimated: "npm:4.2.1"
     react-native-screens: "npm:4.19.0"
     react-native-web: "npm:0.21.1"
@@ -34728,17 +34728,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/349517d8e0b3ed5282bc3f8536945dee3439c9cfe773fe26f248a4ccb53049169d484371bb0612a081c3860eff492db7f4dcbac528ff9b5ff1d504d04eb06f5f
-  languageName: node
-  linkType: hard
-
-"react-native-get-random-values@npm:@onekeyfe/react-native-get-random-values@1.1.11":
-  version: 1.1.11
-  resolution: "@onekeyfe/react-native-get-random-values@npm:1.1.11"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: ^0.31.10
-  checksum: 10/11187eea7a45eda50f6ea96033fc794bbfd2f125e8cf8c73a076d046c9cbff72996f395782448972e0bd937b732c7b4f96c4302b11f131caed4a737726148450
   languageName: node
   linkType: hard
 

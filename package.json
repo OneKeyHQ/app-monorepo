@@ -143,7 +143,7 @@
     "react-native": "0.81.5",
     "react-native-confirmation-code-field": "^7.4.0",
     "react-native-draggable-flatlist": "4.0.3",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@1.1.11",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@1.1.14",
     "react-native-reanimated": "4.2.1",
     "react-native-screens": "4.19.0",
     "react-native-web": "0.21.1",
