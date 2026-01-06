@@ -426,17 +426,9 @@ export function UniversalBorrowBorrow({
             ) : null}
             {transactionConfirmation?.myBorrow ? (
               <BorrowInfoItem
-                title={
-                  <EarnText
-                    text={{
-                      text: intl.formatMessage({
-                        id: ETranslations.defi_my_borrow,
-                      }),
-                    }}
-                    color="$textText"
-                    size="$bodyLg"
-                  />
-                }
+                title={intl.formatMessage({
+                  id: ETranslations.defi_my_borrow,
+                })}
               >
                 <YStack ai="flex-end">
                   <EarnText
