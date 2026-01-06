@@ -4,14 +4,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IBorrowToken } from '@onekeyhq/shared/types/staking';
 import {
   ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
-
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 // Generic type for any asset with a token
 export type IAssetWithToken = {
