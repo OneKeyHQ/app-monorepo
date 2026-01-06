@@ -218,8 +218,12 @@ function TokenInputSectionComponent(
                     borderRadius="$full"
                   />
                 ) : null}
-                <SizableText size="$bodyLg">
-                  {selectedToken?.symbol.slice(0, 15)}...
+                <SizableText
+                  size="$bodyLg"
+                  numberOfLines={1}
+                  maxWidth="$20"
+                >
+                  {selectedToken?.symbol}
                 </SizableText>
                 {isTokenSelectorVisible ? (
                   <Icon
