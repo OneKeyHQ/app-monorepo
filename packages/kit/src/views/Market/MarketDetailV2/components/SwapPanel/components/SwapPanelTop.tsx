@@ -35,6 +35,7 @@ const SwapPanelTop = ({
           token={balanceToken}
           isLoading={balanceLoading}
           onBalanceClick={handleBalanceClick}
+          useIcon
         />
       </XStack>
       <Divider />
