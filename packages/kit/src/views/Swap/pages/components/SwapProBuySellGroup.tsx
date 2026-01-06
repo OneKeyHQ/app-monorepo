@@ -1,6 +1,5 @@
 import { YStack } from '@onekeyhq/components';
 import {
-  useSwapProSelectTokenAtom,
   useSwapProTimeRangeAtom,
   useSwapProTokenMarketDetailInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -9,19 +8,22 @@ import { swapProTimeRangeItems } from '@onekeyhq/shared/types/swap/SwapProvider.
 import SwapProBuySellInfo from '../../components/SwapProBuySellInfo';
 import SwapProTimeRangeSelector from '../../components/SwapProTimeRangeSelector';
 
-const SwapProBuySellGroup = () => {
+const SwapProBuySellGroup = ({
+  supportSpeedSwap,
+}: {
+  supportSpeedSwap?: boolean;
+}) => {
   const [swapProTokenMarketDetailInfo] = useSwapProTokenMarketDetailInfoAtom();
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTimeRange, setSwapProTimeRange] = useSwapProTimeRangeAtom();
   return (
     <YStack gap="$2">
       <SwapProBuySellInfo
-        isNative={swapProSelectToken?.isNative}
+        supportSpeedSwap={supportSpeedSwap}
         tokenDetailInfo={swapProTokenMarketDetailInfo}
         timeRange={swapProTimeRange.value}
       />
       <SwapProTimeRangeSelector
-        isNative={swapProSelectToken?.isNative}
+        supportSpeedSwap={supportSpeedSwap}
         items={swapProTimeRangeItems}
         selectedValue={swapProTimeRange}
         onChange={(value) =>
