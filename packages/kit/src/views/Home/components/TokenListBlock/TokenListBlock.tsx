@@ -89,7 +89,13 @@ import { RichBlock } from '../RichBlock/RichBlock';
 
 const networkIdsMap = getNetworkIdsMap();
 
-function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
+function TokenListBlock({
+  tableLayout,
+  showRecentHistory,
+}: {
+  tableLayout?: boolean;
+  showRecentHistory?: boolean;
+}) {
   const [settings] = useSettingsPersistAtom();
 
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
@@ -1838,30 +1844,22 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
 
   usePromiseResult(
     async () => {
+      // refresh will be handled in RecentHistory
+      if (showRecentHistory) return;
+
       if (!account || !network) return;
 
       if (!network.isAllNetworks) return;
 
       if (isNil(allNetworkAccounts)) return;
 
-      const pendingTxs =
-        await backgroundApiProxy.serviceHistory.getAllNetworksPendingTxs({
-          accountId: account.id,
-          networkId: network.id,
-          allNetworkAccounts,
-        });
-
-      if (isEmpty(pendingTxs)) return;
-
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
       });
 
-      if (r.accountsWithChangedPendingTxs.length > 0) {
-        void handleRefreshAllNetworkDataByAccounts(
-          r.accountsWithChangedPendingTxs,
-        );
+      if (r.accountsWithChangedTxs.length > 0) {
+        void handleRefreshAllNetworkDataByAccounts(r.accountsWithChangedTxs);
       }
     },
     [
@@ -1869,6 +1867,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       allNetworkAccounts,
       handleRefreshAllNetworkDataByAccounts,
       network,
+      showRecentHistory,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
