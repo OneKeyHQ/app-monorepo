@@ -63,7 +63,10 @@ export function ChartSection({
 
   return (
     <YStack gap="$8">
-      <DetailsSectionContainer title="Supply info" titleAfter={supplyBadge}>
+      <DetailsSectionContainer
+        title={intl.formatMessage({ id: ETranslations.defi_supply_info })}
+        titleAfter={supplyBadge}
+      >
         <YStack pt="$4">
           <ApyChartSection
             apyValue={supplyData.latestApy}
