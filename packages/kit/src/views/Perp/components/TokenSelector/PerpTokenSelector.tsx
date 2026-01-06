@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   DebugRenderTracker,
   type IListViewRef,
   Icon,
@@ -12,6 +13,7 @@ import {
   SearchBar,
   SizableText,
   Spinner,
+  Stack,
   Tabs,
   XStack,
   YStack,
@@ -25,6 +27,7 @@ import {
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
+  usePerpTokenFavoritesPersistAtom,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -142,6 +145,149 @@ function TokenListHeader() {
         width={120}
       />
     </XStack>
+  );
+}
+
+type IQuickAddToken = {
+  symbol: string;
+  coinName: string;
+  label: string;
+};
+
+const QUICK_ADD_TOKENS: IQuickAddToken[] = [
+  { symbol: 'BTC', coinName: 'BTC', label: 'BTCUSDT' },
+  { symbol: 'ETH', coinName: 'ETH', label: 'ETHUSDT' },
+  { symbol: 'BNB', coinName: 'BNB', label: 'BNBUSDT' },
+  { symbol: 'SOL', coinName: 'SOL', label: 'SOLUSDT' },
+];
+
+function FavoritesEmptyState() {
+  const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
+  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
+
+  const handleToggleToken = useCallback((coinName: string) => {
+    setSelectedTokens((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(coinName)) {
+        newSet.delete(coinName);
+      } else {
+        newSet.add(coinName);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleAddToFavorites = useCallback(() => {
+    if (selectedTokens.size === 0) return;
+
+    const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
+    const tokensToAdd: string[] = [];
+
+    selectedTokens.forEach((coinName) => {
+      for (const assets of assetsByDexTyped) {
+        const foundAsset = assets.find((a) => a.name === coinName);
+        if (foundAsset && !favorites.favorites.includes(foundAsset.name)) {
+          tokensToAdd.push(foundAsset.name);
+          break;
+        }
+      }
+    });
+
+    if (tokensToAdd.length > 0) {
+      setFavorites((prev) => ({
+        favorites: [...prev.favorites, ...tokensToAdd],
+      }));
+
+      // Clear selection after adding to favorites
+      setSelectedTokens(new Set());
+    }
+  }, [selectedTokens, assetsByDex, favorites.favorites, setFavorites]);
+
+  return (
+    <YStack flex={1} gap="$3" alignItems="center">
+      <XStack px="$4" py="$4" gap="$2.5" flexWrap="wrap" width="100%">
+        {QUICK_ADD_TOKENS.map((token) => {
+          const isSelected = selectedTokens.has(token.coinName);
+          return (
+            <XStack
+              key={token.coinName}
+              flex={1}
+              minWidth="48%"
+              maxWidth="48%"
+              px="$4"
+              py="$3"
+              bg="$bg"
+              borderRadius="$3"
+              borderWidth="$px"
+              borderColor={isSelected ? '$borderActive' : '$borderSubdued'}
+              justifyContent="space-between"
+              alignItems="center"
+              onPress={() => handleToggleToken(token.coinName)}
+              cursor="pointer"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+            >
+              <XStack gap="$3" alignItems="center">
+                <Token
+                  size="sm"
+                  borderRadius="$full"
+                  tokenImageUri={getHyperliquidTokenImageUrl(token.symbol)}
+                  fallbackIcon="CryptoCoinOutline"
+                />
+                <YStack>
+                  <SizableText size="$bodySmMedium" color="$text">
+                    {token.label}
+                  </SizableText>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    PERPS
+                  </SizableText>
+                </YStack>
+              </XStack>
+              <Stack
+                width={16}
+                height={16}
+                borderRadius="$1"
+                borderWidth="$px"
+                borderColor={isSelected ? '$borderActive' : '$borderSubdued'}
+                bg={isSelected ? '$bgPrimary' : '$bg'}
+                justifyContent="center"
+                alignItems="center"
+              >
+                {isSelected ? (
+                  <Icon
+                    name="CheckLargeOutline"
+                    size="$2.5"
+                    color="$iconInverse"
+                  />
+                ) : null}
+              </Stack>
+            </XStack>
+          );
+        })}
+      </XStack>
+
+      <YStack
+        px="$4"
+        pb="$4"
+        width={200}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Button
+          size="small"
+          variant="primary"
+          onPress={handleAddToFavorites}
+          disabled={selectedTokens.size === 0}
+        >
+          Add to favorites
+        </Button>
+      </YStack>
+    </YStack>
   );
 }
 
@@ -442,43 +588,53 @@ function BasePerpTokenSelectorContent({
     (
       data: ITokenSelectorListItem[],
       listRef: React.MutableRefObject<IListViewRef<ITokenSelectorListItem> | null>,
-    ) => (
-      <Tabs.ScrollView>
-        <YStack>
-          <TokenListHeader />
-          <YStack height={350}>
-            <ListView
-              useFlashList
-              ref={listRef}
-              keyExtractor={keyExtractor}
-              data={data}
-              renderItem={({ item: mockedToken }) => (
-                <PerpTokenSelectorRow
-                  mockedToken={mockedToken}
-                  onPress={(name) => handleSelectToken(name)}
+      isFavoritesTab = false,
+    ) => {
+      const showFavoritesEmpty =
+        isFavoritesTab && data.length === 0 && !searchQuery;
+
+      return (
+        <Tabs.ScrollView>
+          <YStack>
+            {!isFavoritesTab || data.length > 0 ? <TokenListHeader /> : null}
+            <YStack height={350}>
+              {showFavoritesEmpty ? (
+                <FavoritesEmptyState />
+              ) : (
+                <ListView
+                  useFlashList
+                  ref={listRef}
+                  keyExtractor={keyExtractor}
+                  data={data}
+                  renderItem={({ item: mockedToken }) => (
+                    <PerpTokenSelectorRow
+                      mockedToken={mockedToken}
+                      onPress={(name) => handleSelectToken(name)}
+                    />
+                  )}
+                  ListEmptyComponent={
+                    <XStack p="$4" justifyContent="center">
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {searchQuery
+                          ? intl.formatMessage({
+                              id: ETranslations.perp_token_selector_empty,
+                            })
+                          : intl.formatMessage({
+                              id: ETranslations.perp_token_selector_loading,
+                            })}
+                      </SizableText>
+                    </XStack>
+                  }
+                  contentContainerStyle={{
+                    paddingBottom: 10,
+                  }}
                 />
               )}
-              ListEmptyComponent={
-                <XStack p="$4" justifyContent="center">
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {searchQuery
-                      ? intl.formatMessage({
-                          id: ETranslations.perp_token_selector_empty,
-                        })
-                      : intl.formatMessage({
-                          id: ETranslations.perp_token_selector_loading,
-                        })}
-                  </SizableText>
-                </XStack>
-              }
-              contentContainerStyle={{
-                paddingBottom: 10,
-              }}
-            />
+            </YStack>
           </YStack>
-        </YStack>
-      </Tabs.ScrollView>
-    ),
+        </Tabs.ScrollView>
+      );
+    },
     [handleSelectToken, intl, keyExtractor, searchQuery],
   );
 
@@ -535,17 +691,17 @@ function BasePerpTokenSelectorContent({
         >
           <Tabs.Tab name={tabNames.all}>
             {activeTab === 'all'
-              ? renderTokenList(listDataByTab.all, listRefAll)
+              ? renderTokenList(listDataByTab.all, listRefAll, false)
               : null}
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.hip3}>
             {activeTab === 'hip3'
-              ? renderTokenList(listDataByTab.hip3, listRefHip3)
+              ? renderTokenList(listDataByTab.hip3, listRefHip3, false)
               : null}
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.favorites}>
             {activeTab === 'favorites'
-              ? renderTokenList(listDataByTab.favorites, listRefFavorites)
+              ? renderTokenList(listDataByTab.favorites, listRefFavorites, true)
               : null}
           </Tabs.Tab>
         </Tabs.Container>
