@@ -130,7 +130,17 @@ export function BasicPage({
   const isIpadModalPage = useIsIpadModalPage();
   const content = useMemo(() => {
     return (
-      <Stack bg="$bgApp" flex={1}>
+      <Stack
+        bg="$bgApp"
+        flex={1}
+        onLayout={(event) => {
+          console.log('onlayout', event.nativeEvent.layout);
+        }}
+        minHeight={746}
+        maxHeight={746}
+        minWidth={402}
+        maxWidth={402}
+      >
         {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
         {lazyLoad ? (
           <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
