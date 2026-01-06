@@ -66,7 +66,9 @@ export function showLiquidationRiskDialog(intl: IntlShape): Promise<boolean> {
     let confirmed = false;
     const dialog = Dialog.show({
       icon: 'InfoCircleOutline',
-      title: 'Liquidation reminder',
+      title: intl.formatMessage({
+        id: ETranslations.defi_liquidation_reminder,
+      }),
       showFooter: false,
       onClose: () => resolve(confirmed),
       renderContent: (
