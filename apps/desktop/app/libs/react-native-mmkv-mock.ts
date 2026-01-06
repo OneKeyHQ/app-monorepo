@@ -6,7 +6,7 @@ class MMKV {
 
   private listeners: Set<(changedKey: string) => void>;
 
-  constructor(options: { id: string }) {
+  constructor(_: { id: string }) {
     this.storage = new Map();
     this.listeners = new Set();
   }

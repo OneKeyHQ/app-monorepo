@@ -284,8 +284,6 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     ref,
     plainMode,
-    emptyTitle,
-    emptyDescription,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -402,8 +400,6 @@ function BaseTxHistoryListView(props: IProps) {
         indexedAccountId={indexedAccountId}
         isSingleAccount={isSingleAccount}
         tokenMap={tokenMap}
-        emptyTitle={emptyTitle}
-        emptyDescription={emptyDescription}
       />
     );
   }, [
@@ -419,8 +415,6 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     tableLayout,
     plainMode,
-    emptyTitle,
-    emptyDescription,
   ]);
 
   if (plainMode) {

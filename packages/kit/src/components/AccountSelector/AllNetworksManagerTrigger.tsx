@@ -29,7 +29,6 @@ import { NetworkAvatarBase } from '../NetworkAvatar';
 
 function AllNetworksManagerTrigger({
   num,
-  containerProps,
   showSkeleton,
 }: {
   num: number;
