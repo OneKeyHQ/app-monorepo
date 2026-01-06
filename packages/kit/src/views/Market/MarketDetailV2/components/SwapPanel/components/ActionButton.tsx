@@ -3,12 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  SizableText,
-  rootNavigationRef,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, rootNavigationRef, useMedia } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -106,14 +101,32 @@ export function ActionButton({
     amountBN,
   ]);
 
+  // Truncate symbol if it exceeds 20 characters
+  const truncatedSymbol = useMemo(() => {
+    const symbol = token?.symbol || '';
+    if (symbol.length > 20) {
+      return `${symbol.slice(0, 17)}...`;
+    }
+    return symbol;
+  }, [token?.symbol]);
+
+  // Truncate tokenDetail symbol if it exceeds 20 characters
+  const truncatedTokenDetailSymbol = useMemo(() => {
+    const symbol = tokenDetail?.symbol || '';
+    if (symbol.length > 20) {
+      return `${symbol.slice(0, 17)}...`;
+    }
+    return symbol;
+  }, [tokenDetail?.symbol]);
+
   const tokenFormatter: INumberFormatProps = useMemo(() => {
     return {
       formatter: 'balance',
       formatterOptions: {
-        tokenSymbol: token?.symbol || '',
+        tokenSymbol: truncatedSymbol,
       },
     };
-  }, [token?.symbol]);
+  }, [truncatedSymbol]);
 
   const currencyFormatter: INumberFormatProps = useMemo(() => {
     return {
@@ -212,7 +225,7 @@ export function ActionButton({
 
   if (!hasAmount && !hasClickedWithoutAmount) {
     shouldUseColoredStyle = true;
-    buttonText = `${actionText} ${tokenDetail?.symbol || ''}`.trim();
+    buttonText = `${actionText} ${truncatedTokenDetailSymbol}`.trim();
     isButtonDisabled = false;
   }
 
@@ -311,9 +324,7 @@ export function ActionButton({
       {...otherProps}
       {...buttonStyleProps}
     >
-      <SizableText numberOfLines={1} color="inherit">
-        {buttonText}
-      </SizableText>
+      {buttonText}
     </Button>
   );
 }
