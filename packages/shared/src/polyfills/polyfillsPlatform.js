@@ -290,4 +290,13 @@ if (platformEnv.isNative) {
   }
 }
 
+// Polyfill crypto.subtle for React Native
+// This must be loaded AFTER the crypto polyfill (line 145-154) because it extends the crypto object.
+// Purpose: Enable Supabase Auth PKCE flow to use SHA-256 code_challenge (s256 method)
+// instead of falling back to plain method when crypto.subtle is unavailable.
+// @see @supabase/auth-js GoTrueClient.ts - checks crypto.subtle.digest for PKCE support
+if (platformEnv.isNative) {
+  require('@onekeyhq/shared/src/appCrypto/cryptoSubtlePolyfill');
+}
+
 console.log('polyfillsPlatform.native shim loaded');

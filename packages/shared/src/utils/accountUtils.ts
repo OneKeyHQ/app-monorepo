@@ -1016,6 +1016,18 @@ function buildKeylessDevicePackKey({
   return `OneKey_Keyless__${packSetId}`;
 }
 
+function buildKeylessMnemonicPasswordKey({
+  ownerId,
+}: {
+  ownerId: string;
+}): string {
+  return `OneKey_Keyless_MnemonicPwd__${ownerId}`;
+}
+
+function buildKeylessRefreshTokenKey({ ownerId }: { ownerId: string }): string {
+  return `OneKey_Keyless_RefreshToken__${ownerId}`;
+}
+
 function isValidDeriveType(deriveType: string): boolean {
   if (!deriveType) return false;
   const validDeriveTypes: Record<IAccountDeriveTypes, true> = {
@@ -1037,6 +1049,8 @@ export default {
 
   getKeylessWalletPackSetId,
   buildKeylessDevicePackKey,
+  buildKeylessMnemonicPasswordKey,
+  buildKeylessRefreshTokenKey,
   buildKeylessWalletId,
   buildAccountValueKey,
   parseAccountValueKey,

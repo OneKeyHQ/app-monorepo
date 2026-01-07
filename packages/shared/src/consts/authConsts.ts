@@ -8,9 +8,30 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 export const OAUTH_CALLBACK_DESKTOP_CHANNEL =
   'oauth:desktop_localhost_server:callback';
 
+/**
+ * OAuth callback path for desktop localhost server
+ */
+export const OAUTH_CALLBACK_DESKTOP_PATH = '/oauth_callback_desktop';
+
+/**
+ * OAuth callback path for web platform
+ */
+export const OAUTH_CALLBACK_WEB_PATH = '/oauth_callback_web/';
+
+/**
+ * OAuth callback path for native platforms (iOS/Android)
+ */
+export const OAUTH_CALLBACK_NATIVE_PATH = 'oauth_callback_native';
+
 // ============================================================================
 // OAuth shared constants (OneKeyAuth)
 // ============================================================================
+
+// OAuth provider types (used by OneKeyAuth)
+export enum EOAuthSocialLoginProvider {
+  Google = 'google',
+  Apple = 'apple',
+}
 
 // OAuth method enums (used by OneKeyAuth)
 export enum EDesktopOAuthMethod {
@@ -21,7 +42,7 @@ export enum EDesktopOAuthMethod {
   LOCALHOST_SERVER = 'LOCALHOST_SERVER',
 
   // Use in-app webview to handle OAuth
-  // Intercepts navigation to onekey-wallet://auth/callback
+  // Intercepts navigation to onekey-wallet://oauth_callback_native
   WEBVIEW = 'WEBVIEW',
 
   // Use system browser + deep link callback
@@ -49,6 +70,16 @@ export enum EExtensionOAuthMethod {
   DIRECT_EXTENSION_SCHEME = 'DIRECT_EXTENSION_SCHEME',
 }
 
+export enum ENativeOAuthMethod {
+  // ✅ RECOMMENDED: Use @react-native-google-signin/google-signin or expo-apple-authentication with signInWithIdToken
+  NATIVE_SDK = 'NATIVE_SDK',
+
+  // Fallback: Use expo-web-browser.openAuthSessionAsync
+  // Opens in-app browser for OAuth, uses deep link callback
+  // Redirect URL: onekey-wallet://oauth_callback_native
+  WEB_BROWSER = 'WEB_BROWSER',
+}
+
 // 5 minutes OAuth timeout (used by web/desktop/ext flows)
 export const OAUTH_FLOW_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -62,6 +93,10 @@ export const OAUTH_DESKTOP_WEBVIEW_HEIGHT = 640;
 
 // Poll / focus interval used by web popup + extension OAuth window focusing
 export const OAUTH_POLL_INTERVAL_MS = 500;
+
+// OneKey-owned state (defense-in-depth) used for OAuth flows where the upstream provider
+// does not reliably include `state` in the authorize URL / callback.
+export const ONEKEY_OAUTH_STATE_KEY = 'onekey_oauth_state';
 
 // Common OAuth callback token keys (hash/search params)
 export const OAUTH_TOKEN_KEY_ACCESS_TOKEN = 'access_token';
@@ -84,6 +119,17 @@ export const GOOGLE_OAUTH_DEFAULT_SCOPES = [
 
 export const EXTENSION_OAUTH_USE_PKCE_FLOW = true;
 
+// Apple Sign-In nonce support
+// When enabled, a nonce will be generated and passed to Apple Sign-In for replay attack protection
+// Reference: https://developer.apple.com/documentation/authenticationservices/asauthorizationopenidrequest/nonce
+export const APPLE_SIGNIN_USE_NONCE = true;
+
+// Desktop native Apple Sign-In (macOS only)
+// When enabled, macOS will use native ASAuthorizationController for Apple Sign-In
+// instead of opening the browser. Provides better UX with system UI and Touch ID.
+// Set to false to always use browser OAuth flow.
+export const MAC_DESKTOP_USE_NATIVE_APPLE_SIGNIN = false;
+
 // Email OTP
 export const EMAIL_OTP_COUNTDOWN_SECONDS = 60;
 
@@ -92,6 +138,8 @@ export const DEFAULT_EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
   EExtensionOAuthMethod.CHROME_IDENTITY_API;
 export const DEFAULT_DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod =
   EDesktopOAuthMethod.LOCALHOST_SERVER;
+export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
+  ENativeOAuthMethod.NATIVE_SDK;
 
 // Google OAuth clients
 //  - https://console.cloud.google.com/auth/clients
@@ -100,22 +148,83 @@ export const DEFAULT_DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod =
 // - OAuth client: https://console.cloud.google.com/apis/credentials
 // - Authorized redirect URIs (for chrome.identity.launchWebAuthFlow):
 //   https://<extension-id>.chromiumapp.org  (no trailing slash)
-export const GOOGLE_CHROME_EXTENSION_CLIENT_ID =
-  '244450898872-d22ubafv8ca38s6fp0kflhdr6e3s386u.apps.googleusercontent.com'; // oauth web client, not extension client
+
 // TODO: Search for all occurrences of 'apps.googleusercontent.com' in the project and consolidate all discovered OAuth client IDs here for unified management.
+
+// ================================================
+// Google OAuth Clients
+// -----------------------------------------------
+
+const GOOGLE_OAUTH_CLIENT_WEB =
+  '244450898872-vmpg9dgocpqtqhm5pk42u4s6hvprogp6.apps.googleusercontent.com';
+const GOOGLE_OAUTH_CLIENT_IOS =
+  '244450898872-5uo9r8ekdc82huckjcr4br67edvf3vlg.apps.googleusercontent.com';
+
+// ================================================
+
+export const GOOGLE_OAUTH_CLIENT_IDS = {
+  WEB: GOOGLE_OAUTH_CLIENT_WEB,
+  EXTENSION: GOOGLE_OAUTH_CLIENT_WEB, // oauth web client, not extension client
+  ANDROID: GOOGLE_OAUTH_CLIENT_WEB,
+  IOS: GOOGLE_OAUTH_CLIENT_IOS,
+};
 
 // Supabase (OneKeyAuth)
 // Project URL at https://supabase.com/dashboard/project/_/settings/api
-export const SUPABASE_PROJECT_URL = IS_DEV
-  ? process.env.SUPABASE_PROJECT_URL ||
-    'https://bwgpgzbzdgkisozswlck.supabase.co' // local test
-  : 'https://bwgpgzbzdgkisozswlck.supabase.co';
+export const SUPABASE_PROJECT_URL = 'https://bwgpgzbzdgkisozswlck.supabase.co';
 
 // Publishable key at https://supabase.com/dashboard/project/_/settings/api-keys/new
-export const SUPABASE_PUBLIC_API_KEY = IS_DEV
-  ? process.env.SUPABASE_PUBLIC_API_KEY ||
-    'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN' // local test
-  : 'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN';
+export const SUPABASE_PUBLIC_API_KEY =
+  'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN';
+
+// ================================================
+// Keyless Supabase
+// -----------------------------------------------
+
+// --- onekeytest
+export const KEYLESS_SUPABASE_PROJECT_URL =
+  'https://supabase.onekey-internal.com'; // onekeytest
+export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
+
+// --- localtest
+// export const KEYLESS_SUPABASE_PROJECT_URL =
+//   'https://wtspqckturkzhstyjabx.supabase.co';
+// export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+//   'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN';
+
+// ================================================
+
+type IJuiceBoxRealmConfig = {
+  id: string;
+  address: string;
+  public_key?: string;
+};
+
+type IJuiceBoxConfigJSON = {
+  realms: IJuiceBoxRealmConfig[];
+  register_threshold: number;
+  recover_threshold: number;
+  pin_hashing_mode: 'Standard2019' | 'FastInsecure';
+};
+
+export const JUICEBOX_AUTH_SERVER = 'https://juicebox.onekeytest.com';
+export const JUICEBOX_CONFIG: IJuiceBoxConfigJSON = {
+  realms: [
+    {
+      id: '37ce3a59ff08d57b77bac0b8451ff2d8',
+      address: 'https://juicebox-sw-realm-a.onekeytest.com',
+    },
+    {
+      id: '6b47cc201434428be7beee2190f95685',
+      address: 'https://juicebox-sw-realm-b.onekeytest.com',
+    },
+  ],
+  register_threshold: 2, // At least 2 realms must succeed to register
+  recover_threshold: 2, // At least 2 realms must succeed to recover
+  pin_hashing_mode: 'Standard2019',
+};
+export const JUICEBOX_ALLOWED_GUESSES = 10; // Number of allowed PIN guess attempts
 
 // Supabase OAuth Providers
 // https://supabase.com/dashboard/project/_/auth/providers
@@ -125,3 +234,4 @@ export const SUPABASE_PUBLIC_API_KEY = IS_DEV
 
 // Supabase DOCS
 // - https://supabase.com/docs/guides/auth/social-login/auth-google
+// - https://react-native-google-signin.github.io/docs/setting-up/ios

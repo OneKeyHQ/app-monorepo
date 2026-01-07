@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ComponentRef, ForwardedRef } from 'react';
 
 import { SkeletonView } from '@onekeyfe/react-native-skeleton';
 
@@ -18,11 +19,10 @@ const baseColors = {
   dark: ['#111111', '#333333'],
   light: ['#fafafa', '#cdcdcd'],
 };
-export function BaseSkeleton({
-  colorMode,
-  children,
-  ...props
-}: ISkeletonProps) {
+export function BaseSkeleton(
+  { colorMode, children, ...props }: ISkeletonProps,
+  ref: ForwardedRef<ComponentRef<typeof Stack>>,
+) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
@@ -43,6 +43,7 @@ export function BaseSkeleton({
   const isGroupLoading = useIsGroupLoading();
   return isGroupLoading === undefined || isGroupLoading ? (
     <Stack
+      ref={ref}
       bg="$bg"
       style={style as any}
       height={(style.height as number) || DEFAULT_SKELETON_SIZE}

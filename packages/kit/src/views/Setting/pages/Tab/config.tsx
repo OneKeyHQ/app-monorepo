@@ -11,7 +11,11 @@ import type {
 } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import {
+  useKeylessWallet,
+  useKeylessWalletExistsLocal,
+  useKeylessWalletFeatureIsEnabled,
+} from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
@@ -46,6 +50,10 @@ import {
   EModalKeyTagRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2OneKeyIDLoginMode,
+  EOnboardingV2Routes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -156,6 +164,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
 
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
+  const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
 
   return useMemo(
     () => [
@@ -506,6 +516,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     }
                   },
                 },
+            platformEnv.isWebDappMode || !isKeylessWalletExistsLocal
+              ? undefined
+              : {
+                  icon: 'InputOutline',
+                  title: intl.formatMessage({ id: ETranslations.reset_pin }),
+                  onPress: (navigation) => {
+                    void goToOneKeyIDLoginPageForKeylessWallet({
+                      mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
+                    });
+                  },
+                },
           ],
           [
             platformEnv.isWebDappMode
@@ -818,6 +839,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     ],
     [
       intl,
+      goToOneKeyIDLoginPageForKeylessWallet,
       cloudBackupFeatureInfo?.supportCloudBackup,
       cloudBackupFeatureInfo?.icon,
       cloudBackupFeatureInfo?.title,
@@ -835,6 +857,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
       isKeylessWalletEnabled,
+      isKeylessWalletExistsLocal,
       startBackup,
       onPressAddressBook,
       helpCenterUrl,

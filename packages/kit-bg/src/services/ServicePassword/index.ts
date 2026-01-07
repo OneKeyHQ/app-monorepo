@@ -250,6 +250,11 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
+  async hasCachedPassword(): Promise<boolean> {
+    return !!this.cachedPassword;
+  }
+
+  @backgroundMethod()
   async getCachedPasswordOrDeviceParams({ walletId }: { walletId: string }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     let password: string | undefined = '';

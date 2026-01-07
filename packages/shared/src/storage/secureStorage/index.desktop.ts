@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '../../errors';
+import platformEnv from '../../platformEnv';
 
 import type { ISecureStorage } from './types';
 
@@ -18,7 +19,13 @@ const getSecureItem = async (key: string) => {
 const removeSecureItem = async (key: string) =>
   globalThis?.desktopApiProxy?.storage?.secureDelItemAsync(key);
 
-const supportSecureStorage = async () => true;
+const supportSecureStorage = async () => {
+  // The secure storage of the desktop in the development environment does not work, the data written only has the key, and the value is always empty
+  if (platformEnv.isDesktop && platformEnv.isDev) {
+    return false;
+  }
+  return true;
+};
 
 const storage: ISecureStorage = {
   setSecureItem,

@@ -2,6 +2,7 @@ import type {
   IBip39RevealableSeed,
   IBip39RevealableSeedEncryptHex,
 } from '@onekeyhq/core/src/secret';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -133,6 +134,10 @@ export type IDBWalletNextIdKeys =
   | 'accountGlobalNum'
   | 'hiddenWalletNum';
 export type IDBWalletNextIds = Partial<Record<IDBWalletNextIdKeys, number>>;
+export type IKeylessWalletDetailsInfo = {
+  keylessOwnerId: string;
+  keylessProvider: EOAuthSocialLoginProvider;
+};
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
@@ -155,6 +160,9 @@ export type IDBWallet = IDBBaseObjectWithName & {
   dbIndexedAccounts?: IDBIndexedAccount[]; // readonly field
   isTemp?: boolean;
   isMocked?: boolean;
+  isKeyless?: boolean;
+  keylessDetails?: string; // JSON.stringify(keylessDetailsInfo)
+  keylessDetailsInfo?: IKeylessWalletDetailsInfo; // readonly field
   passphraseState?: string;
   walletNo: number;
   walletOrderSaved?: number; // db field
@@ -175,6 +183,8 @@ export type IDBCreateHDWalletParams = {
   walletHash: string;
   walletXfp: string;
   avatar?: IAvatarInfo;
+  isKeylessWallet?: boolean;
+  keylessDetailsInfo?: IKeylessWalletDetailsInfo;
 };
 export type IDBCreateKeylessWalletParams = {
   password: string;
