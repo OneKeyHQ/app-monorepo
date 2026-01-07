@@ -9,6 +9,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
+import { DevTestAccountSelector } from './DevTestAccountSelector';
+
 export interface IOneKeyIDLoginContentProps {
   onEmailSubmit: (email: string) => void;
 }
@@ -84,6 +86,7 @@ export function OneKeyIDLoginContent({
           }}
         />
       </ListItem>
+      <DevTestAccountSelector />
       <Form form={form}>
         <Form.Field
           name="email"

@@ -12,6 +12,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { DevOTPAutoFill } from './DevOTPAutoFill';
+
 const COUNTDOWN_TIME = 60;
 
 export interface IOneKeyIDVerifyCodeContentProps {
@@ -183,6 +185,8 @@ export function OneKeyIDVerifyCodeContent({
             })}
           </SizableText>
         ) : null}
+
+        <DevOTPAutoFill email={email} />
       </YStack>
 
       <XStack gap="$2.5">

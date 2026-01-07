@@ -16,6 +16,8 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { DevOTPAutoFill } from '../OneKeyIDLoginDialog/DevOTPAutoFill';
+
 const COUNTDOWN_TIME = 60;
 
 export function PrimeLoginEmailCodeDialogV2(props: {
@@ -213,6 +215,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             setState({ status: 'initial' });
           }}
         />
+
+        <DevOTPAutoFill email={email} />
 
         {state.status === 'error' ? (
           <SizableText size="$bodyMd" color="$red9">

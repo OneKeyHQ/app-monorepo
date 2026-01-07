@@ -11,6 +11,7 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKey
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { DevTestAccountSelector } from '../OneKeyIDLoginDialog/DevTestAccountSelector';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 function PrimeLoginEmailDialogV2(props: {
@@ -125,6 +126,7 @@ function PrimeLoginEmailDialogV2(props: {
         </Dialog.Description>
       </Dialog.Header>
       <Stack>
+        <DevTestAccountSelector />
         <Form form={form}>
           <Form.Field
             name="email"
