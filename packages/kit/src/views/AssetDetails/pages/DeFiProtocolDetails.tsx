@@ -21,7 +21,6 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalAssetDetailRoutes,
@@ -75,23 +74,25 @@ function DeFiProtocolDetails() {
               </NumberSizeableTextWrapper>
             </YStack>
           </XStack>
-          <IconButton
-            title={intl.formatMessage({
-              id: ETranslations.global_view_in_blockchain_explorer,
-            })}
-            variant="tertiary"
-            icon="OpenOutline"
-            size="small"
-            onPress={() => {
-              if (platformEnv.isDesktop || platformEnv.isNative) {
-                openUrlInDiscovery({
-                  url: protocolInfo?.protocolUrl,
-                });
-              } else {
-                openUrlExternal(protocolInfo?.protocolUrl);
-              }
-            }}
-          />
+          {protocolInfo?.protocolUrl ? (
+            <IconButton
+              title={intl.formatMessage({
+                id: ETranslations.global_view_in_blockchain_explorer,
+              })}
+              variant="tertiary"
+              icon="OpenOutline"
+              size="small"
+              onPress={() => {
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  openUrlInDiscovery({
+                    url: protocolInfo?.protocolUrl,
+                  });
+                } else {
+                  openUrlExternal(protocolInfo?.protocolUrl);
+                }
+              }}
+            />
+          ) : null}
         </XStack>
         <Divider />
       </>
