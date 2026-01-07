@@ -45,7 +45,11 @@ const settings: IVaultSettings = {
   hasFrozenBalance: true, // trustline count * 0.5XLM is frozen balance
 
   withMemo: true,
-  memoMaxLength: 28,
+  supportsMemoValidation: true, // Use Vault.validateMemo() for precise validation
+  memoMaxLimit: {
+    bytes: 28, // Stellar TEXT memo max byte length
+    number: '18446744073709551615', // Stellar ID memo max value (uint64)
+  },
 
   accountDeriveInfo,
   customRpcEnabled: true,

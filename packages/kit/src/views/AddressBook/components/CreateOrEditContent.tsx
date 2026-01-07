@@ -188,13 +188,22 @@ export function CreateOrEditContent({
 
   const renderMemoForm = useCallback(() => {
     if (!vaultSettings?.withMemo) return null;
+
+    // Support both character-based and byte-based limits
     const maxLength = vaultSettings?.memoMaxLength || 256;
+    const maxBytes = vaultSettings?.memoMaxLimit?.bytes;
+    const maxNumber = vaultSettings?.memoMaxLimit?.number;
+
     const validateErrMsg = vaultSettings?.numericOnlyMemo
       ? intl.formatMessage({
           id: ETranslations.send_field_only_integer,
         })
       : undefined;
     const memoRegExp = vaultSettings?.numericOnlyMemo ? /^[0-9]+$/ : undefined;
+
+    const getByteLength = (text: string): number => {
+      return new TextEncoder().encode(text).length;
+    };
 
     return (
       <>
@@ -203,21 +212,62 @@ export function CreateOrEditContent({
           optional
           name="memo"
           rules={{
-            maxLength: {
-              value: maxLength,
-              message: intl.formatMessage(
-                {
-                  id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+            maxLength: maxBytes
+              ? undefined
+              : {
+                  value: maxLength,
+                  message: intl.formatMessage(
+                    {
+                      id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+                    },
+                    {
+                      number: maxLength,
+                    },
+                  ),
                 },
-                {
-                  number: maxLength,
-                },
-              ),
-            },
-            validate: (value) => {
-              if (!value || !memoRegExp) return undefined;
-              const result = !memoRegExp.test(value);
-              return result ? validateErrMsg : undefined;
+            validate: async (value) => {
+              if (!value) return undefined;
+
+              // Try Vault-level validation first (if available)
+              try {
+                const vault = await backgroundApiProxy.serviceAccount.getVault({
+                  accountId: item.id || '',
+                  networkId,
+                });
+                const validationResult = await vault.validateMemo(value);
+                if (!validationResult.isValid) {
+                  return validationResult.errorMessage;
+                }
+                return undefined;
+              } catch (error) {
+                // Fallback to client-side validation if Vault validation fails
+                console.warn(
+                  'Vault validateMemo failed, using fallback:',
+                  error,
+                );
+              }
+
+              // Fallback: Check numeric-only pattern
+              if (memoRegExp && !memoRegExp.test(value)) {
+                return validateErrMsg;
+              }
+
+              // Fallback: Check byte length limit if configured
+              if (maxBytes) {
+                const byteLength = getByteLength(value);
+                if (byteLength > maxBytes) {
+                  return intl.formatMessage(
+                    {
+                      id: ETranslations.send_memo_up_to_length,
+                    },
+                    {
+                      number: `${maxBytes} bytes`,
+                    },
+                  );
+                }
+              }
+
+              return undefined;
             },
           }}
         >
@@ -233,8 +283,12 @@ export function CreateOrEditContent({
     );
   }, [
     intl,
+    item.id,
     media.gtMd,
+    networkId,
     vaultSettings?.memoMaxLength,
+    vaultSettings?.memoMaxLimit?.bytes,
+    vaultSettings?.memoMaxLimit?.number,
     vaultSettings?.numericOnlyMemo,
     vaultSettings?.withMemo,
   ]);

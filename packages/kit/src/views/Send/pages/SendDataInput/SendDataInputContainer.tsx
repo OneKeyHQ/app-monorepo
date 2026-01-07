@@ -105,6 +105,7 @@ import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/
 import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
+import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 
 export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';
 const showTxMessageFaq = (isContractTo: boolean) => {
@@ -236,6 +237,7 @@ function SendDataInputContainer() {
     displayMemoForm,
     displayPaymentIdForm,
     memoMaxLength,
+    memoMaxLimit,
     numericOnlyMemo,
     displayNoteForm,
     noteMaxLength,
@@ -245,6 +247,7 @@ function SendDataInputContainer() {
       vaultSettings?.withMemo,
       vaultSettings?.withPaymentId,
       vaultSettings?.memoMaxLength,
+      vaultSettings?.memoMaxLimit,
       vaultSettings?.numericOnlyMemo,
       vaultSettings?.withNote,
       vaultSettings?.noteMaxLength,
@@ -1354,15 +1357,47 @@ function SendDataInputContainer() {
     return null;
   }, [form, intl, isLoadingAssets, nft?.collectionType, nftDetails?.amount]);
 
+  const validateMemoField = useCallback(
+    async (value: string): Promise<string | undefined> => {
+      if (vaultSettings?.supportsMemoValidation) {
+        try {
+          const vault = await vaultFactory.getVault({
+            networkId: currentAccount.networkId,
+            accountId: currentAccount.accountId,
+          });
+          const result = await vault.validateMemo(value);
+          if (!result.isValid) {
+            return result.errorMessage;
+          }
+          return undefined;
+        } catch (error) {
+          console.error('Vault memo validation failed:', error);
+        }
+      }
+
+      const validateErrMsg = numericOnlyMemo
+        ? intl.formatMessage({
+            id: ETranslations.send_field_only_integer,
+          })
+        : undefined;
+      const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
+
+      if (!value || !memoRegExp) return undefined;
+      const result = !memoRegExp.test(value);
+      return result ? validateErrMsg : undefined;
+    },
+    [
+      currentAccount.accountId,
+      currentAccount.networkId,
+      intl,
+      numericOnlyMemo,
+      vaultSettings?.supportsMemoValidation,
+    ],
+  );
+
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
     const maxLength = memoMaxLength || 256;
-    const validateErrMsg = numericOnlyMemo
-      ? intl.formatMessage({
-          id: ETranslations.send_field_only_integer,
-        })
-      : undefined;
-    const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
 
     return (
       <>
@@ -1382,11 +1417,7 @@ function SendDataInputContainer() {
                 },
               ),
             },
-            validate: (value) => {
-              if (!value || !memoRegExp) return undefined;
-              const result = !memoRegExp.test(value);
-              return result ? validateErrMsg : undefined;
-            },
+            validate: validateMemoField,
           }}
         >
           <TextArea
@@ -1399,7 +1430,7 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl, media.gtMd, memoMaxLength, numericOnlyMemo]);
+  }, [displayMemoForm, intl, media.gtMd, memoMaxLength, validateMemoField]);
 
   const renderPaymentIdForm = useCallback(() => {
     if (!displayPaymentIdForm) return null;

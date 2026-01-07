@@ -1074,6 +1074,29 @@ export default class Vault extends VaultBase {
     return result;
   }
 
+  override async validateMemo(memo: string): Promise<{
+    isValid: boolean;
+    errorMessage?: string;
+  }> {
+    if (!memo || !memo.trim()) {
+      return { isValid: true }; // Empty memo is valid
+    }
+
+    const trimmed = memo.trim();
+
+    // Text memo: check byte length
+    const { getUtf8ByteLength, MEMO_TEXT_MAX_BYTES } = await import('./utils');
+    const byteLength = getUtf8ByteLength(trimmed);
+    if (byteLength > MEMO_TEXT_MAX_BYTES) {
+      return {
+        isValid: false,
+        errorMessage: `Memo exceeds ${MEMO_TEXT_MAX_BYTES} bytes (current: ${byteLength} bytes)`,
+      };
+    }
+
+    return { isValid: true };
+  }
+
   // ========== LOCAL DEVELOPMENT RPC SUPPORT ==========
   private _getCustomClientCache = memoizee(
     async (url: string): Promise<ClientStellar> => {
