@@ -1,46 +1,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@tamagui/core';
-import { useIntl } from 'react-intl';
 import { View } from 'react-native';
 import WebView from 'react-native-webview';
 
-import {
-  Icon,
-  SizableText,
-  Skeleton,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Skeleton, Stack, YStack } from '@onekeyhq/components';
 import { LIGHTWEIGHT_CHARTS_CDN } from '@onekeyhq/kit/src/components/LightweightChart/utils/constants';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import type { ColorTokens } from '@tamagui/core';
+import {
+  BASE_TIMESTAMP,
+  CHART_HEIGHT,
+  INTEREST_RATE_CHART_COLORS,
+  InterestRateModelHeader,
+  InterestRateModelLegend,
+  InterestRateModelTooltip,
+  UTILIZATION_RANGE,
+  calculatePopoverPosition,
+  convertUtilizationToTime,
+  normalizeApyToPercent,
+  normalizeUtilization,
+  useInterestRateModelLabels,
+} from './InterestRateModelChartShared';
+
+import type {
+  IHoverData,
+  IInterestRateModelChartProps,
+} from './InterestRateModelChartShared';
 import type { WebViewMessageEvent } from 'react-native-webview';
-
-interface IInterestRateModelChartProps {
-  borrowCurve: [number, string][];
-  supplyCurve: [number, string][];
-  utilizationRatio?: string;
-  isLoading?: boolean;
-}
-
-const CHART_HEIGHT = 280;
-
-const normalizeUtilization = (value: number) => {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return value > 1 ? value / 100 : value;
-};
-
-const normalizeApyToPercent = (value: number) => {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return value;
-};
 
 interface IChartConfig {
   supplyData: Array<{ time: number; value: number }>;
@@ -58,14 +44,6 @@ interface IChartConfig {
     borrowBottomColor: string;
     verticalLineColor: string;
   };
-}
-
-interface IHoverData {
-  utilizationRatio: number;
-  supplyApy: number;
-  borrowApy: number;
-  x: number;
-  y: number;
 }
 
 function generateChartHTML(config: IChartConfig): string {
@@ -90,8 +68,8 @@ function generateChartHTML(config: IChartConfig): string {
       const container = document.getElementById('chart');
 
       // Base timestamp and range for mapping utilization (0-1) to time axis
-      const BASE_TIMESTAMP = 1000000000;
-      const UTILIZATION_RANGE = 1000000;
+      const BASE_TIMESTAMP = ${BASE_TIMESTAMP};
+      const UTILIZATION_RANGE = ${UTILIZATION_RANGE};
       
       const convertUtilizationToTime = (util) => {
         const clampedUtil = Math.max(0, Math.min(1, util));
@@ -274,34 +252,22 @@ export function InterestRateModelChart({
   const [webViewReady, setWebViewReady] = useState(false);
   const [hoverData, setHoverData] = useState<IHoverData | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
-  const intl = useIntl();
   const theme = useTheme();
 
-  // Base timestamp for mapping utilization to time
-  const BASE_TIMESTAMP = 1_000_000_000;
-  const UTILIZATION_RANGE = 1_000_000;
+  const {
+    utilizationRatioLabel,
+    currentUtilizationLabel,
+    supplyApyLabel,
+    borrowApyLabel,
+  } = useInterestRateModelLabels();
 
-  const convertUtilizationToTime = useCallback(
-    (util: number) => {
-      const clampedUtil = Math.max(0, Math.min(1, util));
-      return BASE_TIMESTAMP + Math.round(clampedUtil * UTILIZATION_RANGE);
-    },
-    [BASE_TIMESTAMP, UTILIZATION_RANGE],
+  const popoverPosition = useMemo(
+    () =>
+      hoverData
+        ? calculatePopoverPosition(hoverData.x, hoverData.y, containerWidth)
+        : null,
+    [hoverData, containerWidth],
   );
-
-  const popoverPosition = useMemo(() => {
-    if (!hoverData || !containerWidth) return null;
-
-    const POPOVER_WIDTH = 160;
-    const OFFSET = 10;
-    const isLeftHalf = hoverData.x < containerWidth / 2;
-
-    return {
-      left: isLeftHalf ? hoverData.x + OFFSET : hoverData.x - OFFSET,
-      translateXValue: isLeftHalf ? 0 : -POPOVER_WIDTH,
-      top: Math.max(10, hoverData.y - 70),
-    };
-  }, [hoverData, containerWidth]);
 
   const chartConfig = useMemo((): IChartConfig | null => {
     if (!borrowCurve.length || !supplyCurve.length) {
@@ -330,12 +296,12 @@ export function InterestRateModelChart({
         bgColor: 'transparent',
         textColor: theme.text?.val || '#000000',
         textSubduedColor: theme.textSubdued?.val || '#666666',
-        supplyLineColor: '#008347D6',
-        supplyTopColor: '#00834726',
-        supplyBottomColor: '#00834700',
-        borrowLineColor: '#DA8A00C9',
-        borrowTopColor: '#DA8A0026',
-        borrowBottomColor: '#DA8A0000',
+        supplyLineColor: INTEREST_RATE_CHART_COLORS.supply.line,
+        supplyTopColor: INTEREST_RATE_CHART_COLORS.supply.top,
+        supplyBottomColor: INTEREST_RATE_CHART_COLORS.supply.bottom,
+        borrowLineColor: INTEREST_RATE_CHART_COLORS.borrow.line,
+        borrowTopColor: INTEREST_RATE_CHART_COLORS.borrow.top,
+        borrowBottomColor: INTEREST_RATE_CHART_COLORS.borrow.bottom,
         verticalLineColor: theme.iconSubdued?.val || '#8C8CA1',
       },
     };
@@ -343,7 +309,6 @@ export function InterestRateModelChart({
     borrowCurve,
     supplyCurve,
     utilizationRatio,
-    convertUtilizationToTime,
     theme.text?.val,
     theme.textSubdued?.val,
     theme.iconSubdued?.val,
@@ -394,26 +359,8 @@ export function InterestRateModelChart({
   }, [chartConfig, webViewReady]);
 
   const utilizationPercentage = utilizationRatio
-    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
-        2,
-      )}%`
+    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(2)}%`
     : '0.00%';
-  const utilizationRatioLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.defi_utilization_ratio }),
-    [intl],
-  );
-  const currentUtilizationLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.defi_current_utilization }),
-    [intl],
-  );
-  const supplyApyLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.defi_supply_apy }),
-    [intl],
-  );
-  const borrowApyLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
-    [intl],
-  );
 
   if (isLoading) {
     return (
@@ -428,45 +375,17 @@ export function InterestRateModelChart({
   }
 
   return (
-    <YStack gap="$3">
-      {/* Header showing current utilization */}
-      <SizableText size="$headingLg">
-        {utilizationPercentage} {utilizationRatioLabel}
-      </SizableText>
+    <YStack gap="$6">
+      <InterestRateModelHeader
+        utilizationPercentage={utilizationPercentage}
+        utilizationRatioLabel={utilizationRatioLabel}
+      />
 
-      {/* Legend */}
-      <XStack mt="$3" gap="$6" ai="center">
-        <XStack ai="center" gap="$2">
-          <Icon
-            name="CirclePlaceholderOnSolid"
-            size="$1.5"
-            color={'#DA8A00C9' as ColorTokens}
-          />
-          <SizableText size="$bodySm" color="$textSubdued">
-            {borrowApyLabel}
-          </SizableText>
-        </XStack>
-        <XStack ai="center" gap="$2">
-          <Icon
-            name="CirclePlaceholderOnSolid"
-            size="$1.5"
-            color={'#008347D6' as ColorTokens}
-          />
-          <SizableText size="$bodySm" color="$textSubdued">
-            {supplyApyLabel}
-          </SizableText>
-        </XStack>
-        <XStack ai="center" gap="$2">
-          <Icon
-            name="CirclePlaceholderOnSolid"
-            size="$1.5"
-            color="$iconSubdued"
-          />
-          <SizableText size="$bodySm" color="$textSubdued">
-            {currentUtilizationLabel}
-          </SizableText>
-        </XStack>
-      </XStack>
+      <InterestRateModelLegend
+        borrowApyLabel={borrowApyLabel}
+        supplyApyLabel={supplyApyLabel}
+        currentUtilizationLabel={currentUtilizationLabel}
+      />
 
       <Stack
         width="100%"
@@ -480,52 +399,13 @@ export function InterestRateModelChart({
         }}
       >
         {hoverData && popoverPosition ? (
-          <YStack
-            position="absolute"
-            top={popoverPosition.top}
-            left={popoverPosition.left}
-            transform={[{ translateX: popoverPosition.translateXValue }]}
-            bg="$bg"
-            borderRadius="$2"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            px="$3"
-            py="$2"
-            shadowColor="$shadowDefault"
-            shadowOffset={{ width: 0, height: 2 }}
-            shadowOpacity={0.1}
-            shadowRadius={8}
-            zIndex={9999}
-            pointerEvents="none"
-            minWidth={160}
-          >
-            <YStack gap="$1">
-              <XStack jc="space-between" ai="center" gap="$4">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {utilizationRatioLabel}
-                </SizableText>
-                <SizableText size="$bodySmMedium" color="$text">
-                  {(hoverData.utilizationRatio * 100).toFixed(2)}%
-                </SizableText>
-              </XStack>
-              <XStack jc="space-between" ai="center" gap="$4">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {borrowApyLabel}
-                </SizableText>
-                <SizableText size="$bodySmMedium" color="$text">
-                  {hoverData.borrowApy.toFixed(2)}%
-                </SizableText>
-              </XStack>
-              <XStack jc="space-between" ai="center" gap="$4">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {supplyApyLabel}
-                </SizableText>
-                <SizableText size="$bodySmMedium" color="$text">
-                  {hoverData.supplyApy.toFixed(2)}%
-                </SizableText>
-              </XStack>
-            </YStack>
-          </YStack>
+          <InterestRateModelTooltip
+            hoverData={hoverData}
+            popoverPosition={popoverPosition}
+            utilizationRatioLabel={utilizationRatioLabel}
+            borrowApyLabel={borrowApyLabel}
+            supplyApyLabel={supplyApyLabel}
+          />
         ) : null}
         <View style={{ flex: 1 }}>
           <WebView

@@ -56,6 +56,9 @@ interface IApyChartSectionProps {
 
   // Optional: APY detail for popover
   apyDetail?: IBorrowApy;
+
+  // Optional: Tooltip label for hover
+  tooltipLabel?: string;
 }
 
 function ApyChartSectionComponent({
@@ -75,6 +78,7 @@ function ApyChartSectionComponent({
   capUsageLabel,
   metrics,
   apyDetail,
+  tooltipLabel,
 }: IApyChartSectionProps) {
   const intl = useIntl();
 
@@ -94,8 +98,8 @@ function ApyChartSectionComponent({
       {/* APY Chart */}
       <YStack gap="$3">
         <XStack jc="space-between" ai="center">
-          <XStack ai="center" gap="$1">
-            <SizableText size="$headingLg">
+          <XStack ai="center" gap="$2">
+            <SizableText size="$headingXl">
               {Number(apyValue).toFixed(2)}% {apyLabel}
             </SizableText>
             <ApyDetailPopoverTrigger apyDetail={apyDetail} />
@@ -115,6 +119,7 @@ function ApyChartSectionComponent({
           lineWidth={lineWidth}
           showPriceScale
           showDivider={showDivider}
+          tooltipLabel={tooltipLabel}
         />
 
         {/* Supply Metrics (optional) */}
