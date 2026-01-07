@@ -1156,6 +1156,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     isMEV,
     hasEnoughBalance,
     supportSpeedSwap,
+    onlySupportCrossChain,
   } = useSwapProTokenInit();
 
   useSwapProErrorAlert(!supportSpeedSwap);
@@ -1297,6 +1298,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             isMEV,
             hasEnoughBalance,
             supportSpeedSwap,
+            onlySupportCrossChain,
           }}
         />
       ) : (

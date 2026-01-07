@@ -63,6 +63,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     syncNetworksSort,
     needChangeToken,
     selectToToken,
+    selectFromToken,
     swapTypeSwitchAction,
   } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -640,6 +641,14 @@ export function useSwapInit(params?: ISwapInitParams) {
   ]);
   const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
     useSwapFromMarketJumpTokenAtom();
+  const swapFromMarketJumpTokenRef = useRef<{
+    token: ISwapToken | undefined;
+    type: ESwapTabSwitchType;
+    direction: 'from' | 'to';
+  }>(undefined);
+  if (swapFromMarketJumpTokenRef.current !== swapFromMarketJumpToken) {
+    swapFromMarketJumpTokenRef.current = swapFromMarketJumpToken;
+  }
   const isModalPage = useIsOverlayPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
@@ -654,20 +663,33 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
       }
       if (isFocus) {
-        if (swapFromMarketJumpToken.token) {
-          if (
-            equalTokenNoCaseSensitive({
-              token1: swapFromMarketJumpToken.token,
-              token2: fromTokenRef.current,
-            })
-          ) {
-            void setSwapFromToken(undefined);
+        if (swapFromMarketJumpTokenRef.current?.token) {
+          void swapTypeSwitchAction(swapFromMarketJumpTokenRef.current.type);
+          if (swapFromMarketJumpTokenRef.current.direction === 'from') {
+            if (
+              equalTokenNoCaseSensitive({
+                token1: swapFromMarketJumpTokenRef.current.token,
+                token2: toTokenRef.current,
+              })
+            ) {
+              void setToToken(undefined);
+            }
+            void selectFromToken(swapFromMarketJumpTokenRef.current.token);
+          } else {
+            if (
+              equalTokenNoCaseSensitive({
+                token1: swapFromMarketJumpTokenRef.current.token,
+                token2: fromTokenRef.current,
+              })
+            ) {
+              void setSwapFromToken(undefined);
+            }
+            void selectToToken(swapFromMarketJumpTokenRef.current.token);
           }
-          void swapTypeSwitchAction(swapFromMarketJumpToken.type);
-          void selectToToken(swapFromMarketJumpToken.token);
           setSwapFromMarketJumpToken({
             token: undefined,
             type: ESwapTabSwitchType.SWAP,
+            direction: 'from',
           });
         }
       }
