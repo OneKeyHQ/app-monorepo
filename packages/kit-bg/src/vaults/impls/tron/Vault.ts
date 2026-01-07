@@ -953,10 +953,16 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxTron> {
     const { lmTx } = params;
     const { from, to, value, data } = lmTx;
-    const ownerHex = TronWeb.utils.address.toHex(from);
-    const ownerAddress = TronWeb.utils.address.fromHex(ownerHex);
-    const contractHex = TronWeb.utils.address.toHex(to);
-    const contractAddress = TronWeb.utils.address.fromHex(contractHex);
+
+    const convertEvmToTronAddress = (address: string): string => {
+      if (address.toLowerCase().startsWith('0x')) {
+        return TronWeb.utils.address.fromHex(`41${address.slice(2)}`);
+      }
+      return address;
+    };
+
+    const ownerAddress = convertEvmToTronAddress(from);
+    const contractAddress = convertEvmToTronAddress(to);
 
     const callValue = parseInt(value, 16);
 
