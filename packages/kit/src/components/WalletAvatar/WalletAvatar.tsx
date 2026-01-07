@@ -5,6 +5,7 @@ import type { SizeTokens } from '@onekeyhq/components';
 import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -68,6 +69,7 @@ export function WalletAvatar({
   img,
   wallet,
 }: IWalletAvatarProps) {
+  const socialLoginProvider = wallet?.keylessDetailsInfo?.keylessProvider;
   return (
     <Stack w={size} h={size} justifyContent="center" alignItems="center">
       <WalletAvatarBase size={size} img={img} wallet={wallet} />
@@ -115,7 +117,7 @@ export function WalletAvatar({
           </SizableText>
         </Stack>
       ) : null}
-      {/* Keyless wallet cloud icon */}
+      {/* Keyless wallet social login provider icon */}
       {status === 'keyless' ? (
         <Stack
           position="absolute"
@@ -126,7 +128,11 @@ export function WalletAvatar({
           borderRadius="$full"
           zIndex="$1"
         >
-          <Icon name="CloudOutline" size="$3.5" color="$iconInfo" />
+          {socialLoginProvider === EOAuthSocialLoginProvider.Google ? (
+            <Icon name="GoogleIllus" size="$3.5" />
+          ) : (
+            <Icon name="AppleBrand" size="$3.5" color="$iconActive" />
+          )}
         </Stack>
       ) : null}
     </Stack>

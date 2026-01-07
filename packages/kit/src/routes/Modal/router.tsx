@@ -5,6 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { keylessOnboardingCache } from '../../components/KeylessWallet/useKeylessWallet';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
 import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/router';
@@ -262,6 +263,7 @@ export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Ro
         console.log('OnboardingModal onMounted');
       },
       onUnmounted: async () => {
+        void keylessOnboardingCache.clear();
         await v4migrationAtom.set((v) => ({
           ...v,
           isProcessing: false,

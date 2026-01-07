@@ -842,9 +842,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         mnemonic,
         isWalletBackedUp,
+        isKeylessWallet,
+        keylessDetailsInfo,
       }: {
         mnemonic: string;
         isWalletBackedUp?: boolean;
+        isKeylessWallet?: boolean;
+        keylessDetailsInfo?: import('@onekeyhq/kit-bg/src/dbs/local/types').IKeylessWalletDetailsInfo;
       },
     ) =>
       this.withFinalizeWalletSetupStep.call(set, {
@@ -853,6 +857,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await serviceAccount.createHDWallet({
               mnemonic,
               isWalletBackedUp,
+              isKeylessWallet,
+              keylessDetailsInfo,
             });
           await this.autoSelectToCreatedWallet.call(set, {
             wallet,

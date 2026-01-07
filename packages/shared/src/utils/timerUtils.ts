@@ -86,8 +86,12 @@ function getTimeDurationMs({
   );
 }
 
-const wait = (ms: number) =>
+const wait = (ms: number, options?: { devOnly?: boolean }) =>
   new Promise((resolve) => {
+    if (options?.devOnly && process.env.NODE_ENV === 'production') {
+      resolve(void 0);
+      return;
+    }
     setTimeout(resolve, ms);
   });
 
