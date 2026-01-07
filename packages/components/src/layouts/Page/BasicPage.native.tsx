@@ -112,10 +112,12 @@ function LoadingScreen({
       () => {
         changeChildrenVisibleStatus(true);
         setTimeout(() => {
-          changeLoadingVisibleStatus(false);
-        }, 250);
+          requestIdleCallback(() => {
+            changeLoadingVisibleStatus(false);
+          });
+        }, 120);
       },
-      platformEnv.isNativeAndroid ? 80 : 0,
+      platformEnv.isNativeAndroid ? 10 : 0,
     );
   }, []);
 
@@ -146,10 +148,10 @@ const AbsoluteLoadingContainer = platformEnv.isNativeIOS
         }
         setTimeout(() => {
           changeChildrenVisibleStatus(true);
-          setTimeout(() => {
+          requestIdleCallback(() => {
             changeLoadingVisibleStatus(false);
-          }, 120);
-        }, 10);
+          });
+        }, 1);
       }, [isModalPage, pageType]);
 
       return isModalPage ? (
