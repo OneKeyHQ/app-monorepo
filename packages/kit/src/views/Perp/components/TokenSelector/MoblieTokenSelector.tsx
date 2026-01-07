@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpTokenSelectorConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IPerpTokenSelectorConfig,
   IPerpTokenSortField,
@@ -325,7 +326,7 @@ function MobileTokenSelectorModal({
         borderBottomColor="$borderSubdued"
       >
         <XStack flex={1}>
-          {(['all', 'hip3', 'favorites'] as const).map((tabKey) => (
+          {(['favorites', 'all', 'hip3'] as const).map((tabKey) => (
             <TabItem
               key={tabKey}
               name={TAB_LABELS[tabKey]}
@@ -405,13 +406,20 @@ function MobileTokenSelectorModal({
       <Page.Body>
         <YStack flex={1} mt="$2">
           <ListView
+            // Force FlashList recreation on native to fix recycling pool bug
+            key={
+              platformEnv.isNative
+                ? `${activeTab}-${selectorConfig?.field ?? ''}-${
+                    selectorConfig?.direction ?? ''
+                  }`
+                : undefined
+            }
             useFlashList
             ref={listRef}
             keyExtractor={keyExtractor}
             estimatedItemSize={44}
-            windowSize={4}
-            initialNumToRender={10}
-            removeClippedSubviews
+            windowSize={5}
+            initialNumToRender={15}
             decelerationRate="normal"
             showsVerticalScrollIndicator
             contentContainerStyle={{
