@@ -141,7 +141,7 @@ export function BasicPage({
     );
   }, [children, lazyLoad, fullPage]);
   return isIpadModalPage ? (
-    <YStack flex={1} onLayout={onPageLayout} height={802}>
+    <YStack flex={1} onLayout={onPageLayout}>
       <iPadModalPageContext.Provider value={layout}>
         {content}
       </iPadModalPageContext.Provider>
