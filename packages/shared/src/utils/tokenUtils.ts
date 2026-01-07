@@ -499,13 +499,108 @@ export const checkWrappedTokenPair = ({
   return !!fromTokenIsWrapped && !!toTokenIsWrapped;
 };
 
+export function nestAggregateTokensMap({
+  aggregateTokenMap,
+  networkId,
+}: {
+  aggregateTokenMap: Record<string, ITokenFiat>;
+  networkId: string;
+}): Record<string, Record<string, ITokenFiat>> {
+  const result: Record<string, Record<string, ITokenFiat>> = {};
+
+  Object.entries(aggregateTokenMap).forEach(([aggregateKey, tokenFiat]) => {
+    result[aggregateKey] = {
+      [networkId]: tokenFiat,
+    };
+  });
+
+  return result;
+}
+
+export function flattenAggregateTokensMap(aggregateTokensMap: {
+  [key: string]: {
+    [key: string]: ITokenFiat;
+  };
+}): { [key: string]: ITokenFiat } {
+  const result: { [key: string]: ITokenFiat } = {};
+
+  Object.entries(aggregateTokensMap).forEach(([aggregateKey, networkMap]) => {
+    const networkEntries = Object.values(networkMap);
+    if (networkEntries.length === 0) return;
+
+    const firstEntry = networkEntries[0];
+    const aggregated: ITokenFiat = {
+      balance: '0',
+      balanceParsed: '0',
+      fiatValue: '0',
+      price: firstEntry.price,
+      price24h: firstEntry.price24h,
+    };
+
+    networkEntries.forEach((tokenFiat) => {
+      aggregated.balance = new BigNumber(aggregated.balance)
+        .plus(tokenFiat.balance)
+        .toFixed();
+      aggregated.balanceParsed = new BigNumber(aggregated.balanceParsed)
+        .plus(tokenFiat.balanceParsed)
+        .toFixed();
+      aggregated.fiatValue = new BigNumber(aggregated.fiatValue)
+        .plus(tokenFiat.fiatValue)
+        .toFixed();
+
+      if (tokenFiat.frozenBalance) {
+        aggregated.frozenBalance = new BigNumber(aggregated.frozenBalance ?? 0)
+          .plus(tokenFiat.frozenBalance)
+          .toFixed();
+      }
+      if (tokenFiat.frozenBalanceParsed) {
+        aggregated.frozenBalanceParsed = new BigNumber(
+          aggregated.frozenBalanceParsed ?? 0,
+        )
+          .plus(tokenFiat.frozenBalanceParsed)
+          .toFixed();
+      }
+      if (tokenFiat.frozenBalanceFiatValue) {
+        aggregated.frozenBalanceFiatValue = new BigNumber(
+          aggregated.frozenBalanceFiatValue ?? 0,
+        )
+          .plus(tokenFiat.frozenBalanceFiatValue)
+          .toFixed();
+      }
+      if (tokenFiat.totalBalance) {
+        aggregated.totalBalance = new BigNumber(aggregated.totalBalance ?? 0)
+          .plus(tokenFiat.totalBalance)
+          .toFixed();
+      }
+      if (tokenFiat.totalBalanceParsed) {
+        aggregated.totalBalanceParsed = new BigNumber(
+          aggregated.totalBalanceParsed ?? 0,
+        )
+          .plus(tokenFiat.totalBalanceParsed)
+          .toFixed();
+      }
+      if (tokenFiat.totalBalanceFiatValue) {
+        aggregated.totalBalanceFiatValue = new BigNumber(
+          aggregated.totalBalanceFiatValue ?? 0,
+        )
+          .plus(tokenFiat.totalBalanceFiatValue)
+          .toFixed();
+      }
+    });
+
+    result[aggregateKey] = aggregated;
+  });
+
+  return result;
+}
+
 export function getMergedDeriveTokenData(params: {
   data: IFetchAccountTokensResp[];
   mergeDeriveAssetsEnabled: boolean;
 }) {
   const { data, mergeDeriveAssetsEnabled } = params;
 
-  let aggregateTokenMap: Record<string, ITokenFiat> = {};
+  let aggregateTokenMap: Record<string, Record<string, ITokenFiat>> = {};
   let aggregateTokenListMap: Record<
     string,
     {
@@ -626,8 +721,12 @@ export function getMergedDeriveTokenData(params: {
     });
 
     if (r.aggregateTokenMap) {
-      aggregateTokenMap = mergeAggregateTokenMap({
-        sourceMap: r.aggregateTokenMap,
+      const nestedAggregateTokenMap = nestAggregateTokensMap({
+        aggregateTokenMap: r.aggregateTokenMap,
+        networkId: r.networkId ?? '',
+      });
+      aggregateTokenMap = mergeNestedAggregateTokenMap({
+        sourceMap: nestedAggregateTokenMap,
         targetMap: aggregateTokenMap,
       });
     }
@@ -657,7 +756,7 @@ export function getMergedDeriveTokenData(params: {
     ...tokenListMap,
     ...smallBalanceTokenListMap,
     ...riskyTokenListMap,
-    ...aggregateTokenMap,
+    ...flattenAggregateTokensMap(aggregateTokenMap),
   };
 
   return {
@@ -994,101 +1093,6 @@ export function filterAccountTokenListByLimit({
     filteredRiskyTokenList,
     filteredTokenListMap,
   };
-}
-
-export function nestAggregateTokensMap({
-  aggregateTokenMap,
-  networkId,
-}: {
-  aggregateTokenMap: Record<string, ITokenFiat>;
-  networkId: string;
-}): Record<string, Record<string, ITokenFiat>> {
-  const result: Record<string, Record<string, ITokenFiat>> = {};
-
-  Object.entries(aggregateTokenMap).forEach(([aggregateKey, tokenFiat]) => {
-    result[aggregateKey] = {
-      [networkId]: tokenFiat,
-    };
-  });
-
-  return result;
-}
-
-export function flattenAggregateTokensMap(aggregateTokensMap: {
-  [key: string]: {
-    [key: string]: ITokenFiat;
-  };
-}): { [key: string]: ITokenFiat } {
-  const result: { [key: string]: ITokenFiat } = {};
-
-  Object.entries(aggregateTokensMap).forEach(([aggregateKey, networkMap]) => {
-    const networkEntries = Object.values(networkMap);
-    if (networkEntries.length === 0) return;
-
-    const firstEntry = networkEntries[0];
-    const aggregated: ITokenFiat = {
-      balance: '0',
-      balanceParsed: '0',
-      fiatValue: '0',
-      price: firstEntry.price,
-      price24h: firstEntry.price24h,
-    };
-
-    networkEntries.forEach((tokenFiat) => {
-      aggregated.balance = new BigNumber(aggregated.balance)
-        .plus(tokenFiat.balance)
-        .toFixed();
-      aggregated.balanceParsed = new BigNumber(aggregated.balanceParsed)
-        .plus(tokenFiat.balanceParsed)
-        .toFixed();
-      aggregated.fiatValue = new BigNumber(aggregated.fiatValue)
-        .plus(tokenFiat.fiatValue)
-        .toFixed();
-
-      if (tokenFiat.frozenBalance) {
-        aggregated.frozenBalance = new BigNumber(aggregated.frozenBalance ?? 0)
-          .plus(tokenFiat.frozenBalance)
-          .toFixed();
-      }
-      if (tokenFiat.frozenBalanceParsed) {
-        aggregated.frozenBalanceParsed = new BigNumber(
-          aggregated.frozenBalanceParsed ?? 0,
-        )
-          .plus(tokenFiat.frozenBalanceParsed)
-          .toFixed();
-      }
-      if (tokenFiat.frozenBalanceFiatValue) {
-        aggregated.frozenBalanceFiatValue = new BigNumber(
-          aggregated.frozenBalanceFiatValue ?? 0,
-        )
-          .plus(tokenFiat.frozenBalanceFiatValue)
-          .toFixed();
-      }
-      if (tokenFiat.totalBalance) {
-        aggregated.totalBalance = new BigNumber(aggregated.totalBalance ?? 0)
-          .plus(tokenFiat.totalBalance)
-          .toFixed();
-      }
-      if (tokenFiat.totalBalanceParsed) {
-        aggregated.totalBalanceParsed = new BigNumber(
-          aggregated.totalBalanceParsed ?? 0,
-        )
-          .plus(tokenFiat.totalBalanceParsed)
-          .toFixed();
-      }
-      if (tokenFiat.totalBalanceFiatValue) {
-        aggregated.totalBalanceFiatValue = new BigNumber(
-          aggregated.totalBalanceFiatValue ?? 0,
-        )
-          .plus(tokenFiat.totalBalanceFiatValue)
-          .toFixed();
-      }
-    });
-
-    result[aggregateKey] = aggregated;
-  });
-
-  return result;
 }
 
 export function calculateAccountTokensValue({
