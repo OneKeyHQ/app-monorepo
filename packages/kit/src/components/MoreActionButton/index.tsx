@@ -1050,7 +1050,7 @@ const MoreActionWalletGrid = () => {
 
     if (!checkIsPrimeUser(EPrimeFeatures.BulkCopyAddresses)) return;
 
-    navigation.push(EModalRoutes.BulkCopyAddressesModal, {
+    navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
       screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
       params: {
         walletId: wallet?.id,

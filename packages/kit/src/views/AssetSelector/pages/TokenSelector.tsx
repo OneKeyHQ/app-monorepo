@@ -32,6 +32,7 @@ import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTo
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const num = 0;
 
@@ -329,9 +330,13 @@ function TokenSelector() {
         initialized: false,
         isRefreshing: true,
       });
+      refreshActiveAccountTokenList({
+        tokens: [],
+        keys: '',
+      });
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-        accountId,
-        networkId,
+        accountId: activeAccountId,
+        networkId: activeNetworkId,
         indexedAccountId,
         flag: 'token-selector',
       });
@@ -353,11 +358,9 @@ function TokenSelector() {
       });
     }
   }, [
-    accountId,
     activeAccountId,
     activeNetworkId,
     indexedAccountId,
-    networkId,
     refreshActiveAccountTokenList,
     refreshTokenListMap,
     showActiveAccountTokenList,

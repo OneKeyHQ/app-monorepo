@@ -9,6 +9,8 @@ export type IBulkSendContext = {
   setSelectedNetworkId: (networkId: string | undefined) => void;
   selectedToken: IToken | undefined;
   setSelectedToken: (token: IToken | undefined) => void;
+  selectedIndexedAccountId: string | undefined;
+  setSelectedIndexedAccountId: (indexedAccountId: string | undefined) => void;
 };
 export const BulkSendContext = createContext<IBulkSendContext>({
   selectedAccountId: undefined,
@@ -17,6 +19,8 @@ export const BulkSendContext = createContext<IBulkSendContext>({
   setSelectedNetworkId: () => {},
   selectedToken: undefined,
   setSelectedToken: () => {},
+  selectedIndexedAccountId: undefined,
+  setSelectedIndexedAccountId: () => {},
 });
 
 export const useBulkSendContext = () => useContext(BulkSendContext);

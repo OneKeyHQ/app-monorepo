@@ -1,20 +1,36 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItem } from '../../../components/ListItem';
+import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import useConfigurableChainSelector from '../../ChainSelector/hooks/useChainSelector';
 
 import { useBulkSendContext } from './BulkSendContext';
-import { Token } from '../../../components/Token';
 
 function AssetSelectorTrigger() {
   const intl = useIntl();
   const media = useMedia();
-  const { selectedNetworkId, selectedToken } = useBulkSendContext();
+  const {
+    selectedNetworkId,
+    selectedToken,
+    setSelectedToken,
+    selectedIndexedAccountId,
+    setSelectedAccountId,
+    setSelectedNetworkId,
+  } = useBulkSendContext();
+  const navigation = useAppNavigation();
+
+  const openChainSelector = useConfigurableChainSelector();
 
   const { network } = useAccountData({
     networkId: selectedNetworkId,
@@ -30,7 +46,56 @@ function AssetSelectorTrigger() {
       : intl.formatMessage({ id: ETranslations.token_selector_title });
   }, [selectedToken, media.gtMd, intl]);
 
-  const handleSelectAsset = () => {};
+  const availableNetworkIds = useMemo(() => {
+    return bulkSendUtils.getBulkSendSupportedNetworkIds();
+  }, []);
+
+  const handleSelectAsset = useCallback(() => {
+    openChainSelector({
+      networkIds: availableNetworkIds,
+      defaultNetworkId: selectedNetworkId,
+      onSelect: async (_network) => {
+        const networkAccounts =
+          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+            {
+              networkIds: [_network.id],
+              indexedAccountId: selectedIndexedAccountId ?? '',
+            },
+          );
+
+        if (networkAccounts[0].account) {
+          navigation.push(EChainSelectorPages.TokenSelector, {
+            activeAccountId: networkAccounts[0]?.account?.id ?? '',
+            activeNetworkId: _network.id,
+            indexedAccountId: selectedIndexedAccountId ?? '',
+            onSelect: (token: IToken) => {
+              setSelectedToken(token);
+              setSelectedAccountId(networkAccounts[0]?.account?.id ?? '');
+              setSelectedNetworkId(_network.id);
+              navigation.popStack();
+            },
+          });
+        } else {
+          navigation.popStack();
+          setSelectedAccountId(undefined);
+          setSelectedNetworkId(_network.id);
+          setSelectedToken(undefined);
+        }
+      },
+      excludeAllNetworkItem: true,
+      grouped: false,
+      closeAfterSelect: false,
+    });
+  }, [
+    openChainSelector,
+    availableNetworkIds,
+    selectedNetworkId,
+    selectedIndexedAccountId,
+    navigation,
+    setSelectedToken,
+    setSelectedAccountId,
+    setSelectedNetworkId,
+  ]);
 
   return (
     <ListItem
@@ -55,7 +120,7 @@ function AssetSelectorTrigger() {
       onPress={media.gtMd ? undefined : handleSelectAsset}
     >
       {media.gtMd ? (
-        <Button size="small" variant="secondary">
+        <Button size="small" variant="secondary" onPress={handleSelectAsset}>
           {intl.formatMessage({
             id: ETranslations.send_to_contacts_selector_account_title,
           })}

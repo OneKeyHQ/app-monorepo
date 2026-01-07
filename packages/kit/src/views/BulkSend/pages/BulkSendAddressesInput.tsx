@@ -31,15 +31,21 @@ function BaseBulkSendAddressesInput() {
 
   const { activeAccount } = useActiveAccount({ num: 0 });
 
-  const { accountId, networkId, tokenInfo } = route.params ?? {};
+  const { accountId, networkId, indexedAccountId, tokenInfo } =
+    route.params ?? {};
 
-  const { setSelectedAccountId, setSelectedNetworkId, setSelectedToken } =
-    useBulkSendContext();
+  const {
+    setSelectedAccountId,
+    setSelectedNetworkId,
+    setSelectedToken,
+    setSelectedIndexedAccountId,
+  } = useBulkSendContext();
 
   const initBulkSendInfo = useCallback(async () => {
     let _selectedAccountId: string | undefined;
     let _selectedNetworkId: string | undefined;
     let _selectedTokenInfo: IToken | undefined;
+    let _selectedIndexedAccountId: string | undefined;
 
     if (accountId) {
       _selectedAccountId = accountId;
@@ -56,6 +62,12 @@ function BaseBulkSendAddressesInput() {
       networkId: _selectedNetworkId ?? '',
     });
 
+    if (indexedAccountId) {
+      _selectedIndexedAccountId = indexedAccountId;
+    } else if (activeAccount?.account?.indexedAccountId) {
+      _selectedIndexedAccountId = activeAccount?.account?.indexedAccountId;
+    }
+
     if (tokenInfo) {
       _selectedTokenInfo = tokenInfo;
     } else if (_selectedNetworkId && _selectedAccountId) {
@@ -71,15 +83,19 @@ function BaseBulkSendAddressesInput() {
     setSelectedAccountId(_selectedAccountId);
     setSelectedNetworkId(_selectedNetworkId);
     setSelectedToken(_selectedTokenInfo);
+    setSelectedIndexedAccountId(_selectedIndexedAccountId);
   }, [
     accountId,
     activeAccount?.account?.id,
+    activeAccount?.account?.indexedAccountId,
     activeAccount?.network?.id,
     networkId,
+    indexedAccountId,
+    tokenInfo,
     setSelectedAccountId,
     setSelectedNetworkId,
     setSelectedToken,
-    tokenInfo,
+    setSelectedIndexedAccountId,
   ]);
 
   useEffect(() => {
@@ -109,6 +125,9 @@ function BulkSendAddressesInput() {
   const [selectedToken, setSelectedToken] = useState<IToken | undefined>(
     undefined,
   );
+  const [selectedIndexedAccountId, setSelectedIndexedAccountId] = useState<
+    string | undefined
+  >(undefined);
   const context = useMemo(
     () => ({
       selectedAccountId,
@@ -117,8 +136,19 @@ function BulkSendAddressesInput() {
       setSelectedNetworkId,
       selectedToken,
       setSelectedToken,
+      selectedIndexedAccountId,
+      setSelectedIndexedAccountId,
     }),
-    [selectedAccountId, selectedNetworkId, selectedToken],
+    [
+      selectedAccountId,
+      selectedNetworkId,
+      selectedToken,
+      selectedIndexedAccountId,
+      setSelectedAccountId,
+      setSelectedNetworkId,
+      setSelectedToken,
+      setSelectedIndexedAccountId,
+    ],
   );
 
   return (

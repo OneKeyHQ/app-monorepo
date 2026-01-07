@@ -16,14 +16,11 @@ export function useBulkSendBackNavigation() {
   const isTabletDetailView = useIsTabletDetailView();
 
   const handleBackPress = useCallback(() => {
-    debugger;
-    // In tablet split view mode, always use pop for back navigation
     if (isTabletDetailView) {
       navigation.pop();
       return;
     }
 
-    // Check if the previous route is Market home
     const state = reactNavigation.getState();
 
     if (state && state.routes && state.index > 0) {
