@@ -19,7 +19,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { usePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
+import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { HyperliquidTermsOverlay } from '../components/HyperliquidTerms';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
@@ -130,7 +130,7 @@ function ExtPerpNull() {
 }
 
 export default function Perp() {
-  const canRenderPerp = usePerpFeatureGuard();
+  const canRenderPerp = useNativePerpFeatureGuard();
   if (!canRenderPerp) {
     return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
   }
