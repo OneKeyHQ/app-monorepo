@@ -49,7 +49,6 @@ export interface ISimpleDbPerpData {
   hyperliquidTermsAccepted?: boolean;
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
-  referralPromptLastShownTime?: Record<string, number>; // user address -> last shown timestamp for referral promotion
   referralPromptOptedOut?: Record<string, boolean>; // user address -> whether user has opted out of referral promotion
 }
 
@@ -260,30 +259,6 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         dexAbstractionEnabledUsers: {
           ...(prev?.dexAbstractionEnabledUsers ?? {}),
           [userAddress.toLowerCase()]: enabled,
-        },
-      }),
-    );
-  }
-
-  @backgroundMethod()
-  async getReferralPromptLastShownTime(
-    userAddress: string,
-  ): Promise<number | undefined> {
-    const config = await this.getPerpData();
-    return config.referralPromptLastShownTime?.[userAddress.toLowerCase()];
-  }
-
-  @backgroundMethod()
-  async setReferralPromptLastShownTime(
-    userAddress: string,
-    timestamp: number,
-  ): Promise<void> {
-    await this.setPerpData(
-      (prev): ISimpleDbPerpData => ({
-        ...prev,
-        referralPromptLastShownTime: {
-          ...(prev?.referralPromptLastShownTime ?? {}),
-          [userAddress.toLowerCase()]: timestamp,
         },
       }),
     );
