@@ -1,3 +1,4 @@
+import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
@@ -7,6 +8,7 @@ const {
   Provider: ProviderJotaiContextTokenList,
   withProvider: withTokenListProvider,
   contextAtom,
+  contextAtomComputed,
   contextAtomMethod,
 } = createJotaiContext();
 export {
@@ -130,8 +132,22 @@ export const {
 
 export const { atom: aggregateTokensMapAtom, use: useAggregateTokensMapAtom } =
   contextAtom<{
-    [key: string]: ITokenFiat;
+    // aggregate token key
+    [key: string]: {
+      // networkId
+      [key: string]: ITokenFiat;
+    };
   }>({});
+
+export const {
+  atom: flattenAggregateTokensMapAtom,
+  use: useFlattenAggregateTokensMapAtom,
+} = contextAtomComputed<{
+  [key: string]: ITokenFiat;
+}>((get) => {
+  const aggregateTokensMap = get(aggregateTokensMapAtom());
+  return flattenAggregateTokensMap(aggregateTokensMap);
+});
 
 export const {
   atom: activeAccountTokenListStateAtom,

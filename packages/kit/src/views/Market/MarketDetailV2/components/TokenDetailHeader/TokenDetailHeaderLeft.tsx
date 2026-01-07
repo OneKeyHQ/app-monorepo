@@ -118,7 +118,13 @@ export function TokenDetailHeaderLeft({
 
         <YStack>
           <XStack ai="center" gap="$1">
-            <SizableText size="$bodyLgMedium" color="$text">
+            <SizableText
+              size="$bodyLgMedium"
+              color="$text"
+              numberOfLines={1}
+              maxWidth="$60"
+              flexShrink={1}
+            >
               {symbol}
             </SizableText>
             {communityRecognized ? <CommunityRecognizedBadge /> : null}

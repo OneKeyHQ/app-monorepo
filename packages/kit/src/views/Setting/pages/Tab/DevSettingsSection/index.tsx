@@ -81,6 +81,7 @@ import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
+import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { RegistrationID } from './RegistrationID';
@@ -570,6 +571,18 @@ const BaseDevSettingsSection = () => {
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
               <SectionPressItem
+                icon="RefreshCcwOutline"
+                title="Reset IP Table Cache"
+                subtitle="清除 IP 直连缓存，解决网络切换后请求失败问题"
+                onPress={async () => {
+                  await backgroundApiProxy.serviceIpTable.reset();
+                  Toast.success({
+                    title: 'IP Table cache cleared',
+                  });
+                }}
+              />
+              <IpTableSelector />
+              <SectionPressItem
                 icon="ForkOutline"
                 title="Check Network info"
                 onPress={() => {
@@ -1001,17 +1014,6 @@ const BaseDevSettingsSection = () => {
                 }}
               />
               <ResetInstanceId />
-              <SectionPressItem
-                icon="RefreshCcwOutline"
-                title="Reset IP Table Cache"
-                subtitle="清除 IP 直连缓存，解决网络切换后请求失败问题"
-                onPress={async () => {
-                  await backgroundApiProxy.serviceIpTable.reset();
-                  Toast.success({
-                    title: 'IP Table cache cleared',
-                  });
-                }}
-              />
             </Accordion.Content>
           </Accordion.HeightAnimator>
         </Accordion.Item>

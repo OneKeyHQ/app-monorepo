@@ -134,9 +134,65 @@ function recoverMissingShare(params: {
   return bufferUtils.bytesToBase64(missingShareBytes);
 }
 
+/**
+ * Recover the missing Shamir share using base64-encoded secret.
+ * This is used for Reset PIN flow where the secret is mnemonicPassword (base64).
+ *
+ * @param secretBase64 - The secret (mnemonicPassword) as base64 string
+ * @param shareBase64 - One of the existing shares (backendShare) as base64 string
+ * @param missingX - The x-coordinate of the missing share (juiceboxShare)
+ * @returns The recovered share as base64 string
+ */
+function recoverMissingShareFromSecret(params: {
+  secretBase64: string;
+  shareBase64: string;
+  missingX: number;
+}): string {
+  const { secretBase64, shareBase64, missingX } = params;
+  const shareBytes = bufferUtils.base64ToBytes(shareBase64);
+  const secretBytes = bufferUtils.base64ToBytes(secretBase64);
+
+  // Share format: [y-values (N bytes), x-coordinate (1 byte)]
+  // x-coordinate is the LAST byte
+  const secretLength = shareBytes.length - 1;
+  const x1 = shareBytes[secretLength]; // x-coordinate at the end
+  const y1 = shareBytes.slice(0, secretLength); // y-values at the beginning
+
+  // Verify secret length matches share length
+  if (secretBytes.length !== secretLength) {
+    throw new OneKeyLocalError(
+      `Secret length (${secretBytes.length}) does not match share length (${secretLength})`,
+    );
+  }
+
+  // Compute y-values for the missing share
+  const missingY = new Uint8Array(secretLength);
+
+  for (let i = 0; i < secretLength; i += 1) {
+    const s = secretBytes[i]; // secret byte
+    const yi = y1[i]; // share1's y-value for this byte
+
+    // a1 = (y1 - s) / x1 in GF(256)
+    // In GF(256), subtraction is XOR
+    const a1 = GF256.div(GF256.sub(yi, s), x1);
+
+    // missingY = s + a1 * missingX
+    missingY[i] = GF256.add(s, GF256.mul(a1, missingX));
+  }
+
+  // Construct the missing share: [y-values, x-coordinate]
+  // Same format as shamir-secret-sharing library
+  const missingShareBytes = new Uint8Array(secretLength + 1);
+  missingShareBytes.set(missingY, 0);
+  missingShareBytes[secretLength] = missingX;
+
+  return bufferUtils.bytesToBase64(missingShareBytes);
+}
+
 export default {
   GF256,
   split,
   combine,
   recoverMissingShare,
+  recoverMissingShareFromSecret,
 };
