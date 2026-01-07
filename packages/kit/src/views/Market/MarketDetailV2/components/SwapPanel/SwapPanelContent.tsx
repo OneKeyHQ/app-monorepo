@@ -6,6 +6,7 @@ import { YStack } from '@onekeyhq/components';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ISwapNativeTokenReserveGas,
   ISwapToken,
@@ -36,7 +37,7 @@ export type ISwapPanelContentProps = {
   supportSpeedSwap: {
     enabled: boolean;
     warningMessage?: string;
-    actionTranslationId?: string;
+    actionTranslationId?: ETranslations;
     actionToken?: ISwapToken;
   };
   isApproved: boolean;
@@ -181,7 +182,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             currentSelectToken={balanceToken as ISwapTokenBase}
             onTokenSelect={(token) => setPaymentToken(token as IToken)}
             symbol={paymentToken?.symbol ?? '-'}
-            isLoading={isLoading}
+            isLoading={!hasInitialReady}
           />
         ) : null}
       </YStack>
@@ -193,6 +194,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           actionTranslationId={supportSpeedSwap.actionTranslationId}
           actionToken={supportSpeedSwap.actionToken}
           onCloseDialog={onCloseDialog}
+          tradeType={tradeType ?? ESwapDirection.BUY}
         />
       ) : null}
 

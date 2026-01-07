@@ -629,6 +629,7 @@ export function useSpeedSwapActions(props: {
           amountBN.isZero() ||
           amountBN.isNaN() ||
           fromToken.isNative ||
+          !fromToken.contractAddress ||
           isWrapped
         ) {
           return;

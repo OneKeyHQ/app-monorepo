@@ -517,6 +517,7 @@ export function useSwapProTokenInit() {
     swapMevNetConfig,
     speedDefaultSelectToken,
     supportSpeedSwap,
+    onlySupportCrossChain,
   } = useSpeedSwapInit(swapProSelectToken?.networkId || '');
 
   const defaultTokensFromType = useMemo(() => {
@@ -783,6 +784,7 @@ export function useSwapProTokenInit() {
     isMEV,
     hasEnoughBalance,
     supportSpeedSwap,
+    onlySupportCrossChain,
   };
 }
 

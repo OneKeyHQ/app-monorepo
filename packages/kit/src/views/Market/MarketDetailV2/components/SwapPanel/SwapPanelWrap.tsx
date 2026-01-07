@@ -46,6 +46,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     isLoading: speedSwapInitLoading,
     speedConfig,
     supportSpeedSwap: originalSupportSpeedSwap,
+    onlySupportCrossChain,
     defaultTokens,
     provider,
     swapMevNetConfig,
@@ -99,7 +100,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     let actionTranslationId;
     let actionToken: ISwapToken | undefined;
     if (!speedSwapEnabled) {
-      actionTranslationId = ETranslations.promode_swap_unsupported_message;
+      actionTranslationId = onlySupportCrossChain
+        ? ETranslations.promode_swap_unsupported_message_btc
+        : ETranslations.promode_swap_unsupported_message_regular;
       actionToken = {
         networkId: networkId || '',
         contractAddress: tokenDetail?.address || '',
@@ -119,6 +122,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     accountNetworkNotSupported,
     intl,
     networkId,
+    onlySupportCrossChain,
     originalSupportSpeedSwap,
     tokenDetail?.address,
     tokenDetail?.decimals,
@@ -176,6 +180,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   } = speedSwapActions;
 
   const filterDefaultTokens = useMemo(() => {
+    if (defaultTokens?.length === 1) {
+      return [...defaultTokens];
+    }
     return defaultTokens.filter(
       (token) =>
         !equalTokenNoCaseSensitive({

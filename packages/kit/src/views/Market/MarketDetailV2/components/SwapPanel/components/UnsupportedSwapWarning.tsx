@@ -13,16 +13,20 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { ESwapDirection } from '../hooks/useTradeType';
+
 export function UnsupportedSwapWarning({
   customMessage,
   actionToken,
   actionTranslationId,
   onCloseDialog,
+  tradeType,
 }: {
   customMessage?: string;
   actionToken?: ISwapToken;
-  actionTranslationId?: string;
+  actionTranslationId?: ETranslations;
   onCloseDialog?: () => void;
+  tradeType: ESwapDirection;
 }) {
   const intl = useIntl();
   const [, setSwapFromMarketJumpTokenAtom] = useSwapFromMarketJumpTokenAtom();
@@ -34,11 +38,25 @@ export function UnsupportedSwapWarning({
         setSwapFromMarketJumpTokenAtom({
           token: actionToken,
           type: ESwapTabSwitchType.BRIDGE,
+          direction: tradeType === ESwapDirection.BUY ? 'to' : 'from',
+        });
+        navigation.switchTab(ETabRoutes.Swap);
+      } else if (actionName === 'swap_action') {
+        setSwapFromMarketJumpTokenAtom({
+          token: actionToken,
+          type: ESwapTabSwitchType.SWAP,
+          direction: tradeType === ESwapDirection.BUY ? 'to' : 'from',
         });
         navigation.switchTab(ETabRoutes.Swap);
       }
     },
-    [onCloseDialog, setSwapFromMarketJumpTokenAtom, actionToken, navigation],
+    [
+      onCloseDialog,
+      setSwapFromMarketJumpTokenAtom,
+      actionToken,
+      tradeType,
+      navigation,
+    ],
   );
   const description = useMemo(() => {
     if (actionTranslationId) {
@@ -55,7 +73,7 @@ export function UnsupportedSwapWarning({
         <HyperlinkText
           size="$bodyMd"
           color="$textSubdued"
-          translationId={ETranslations.promode_swap_unsupported_message}
+          translationId={actionTranslationId}
           onAction={(actionName) => {
             void handleAlertAction(actionName);
           }}
