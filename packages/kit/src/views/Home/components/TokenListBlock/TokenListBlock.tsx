@@ -68,13 +68,15 @@ import {
   buildAggregateTokenListData,
   buildLocalAggregateTokenMapKey,
   calculateAccountTokensValue,
+  flattenAggregateTokensMap,
   getEmptyTokenData,
   getMergedDeriveTokenData,
   getMergedTokenData,
   mergeAggregateTokenListMap,
-  mergeAggregateTokenMap,
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
+  mergeNestedAggregateTokenMap,
+  nestAggregateTokensMap,
   sortTokensByFiatValue,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -162,10 +164,6 @@ function TokenListBlock({
     tokens: [],
     map: {},
   });
-
-  const aggregateTokenMapRef = useRef<{
-    [key: string]: ITokenFiat;
-  }>({});
 
   const riskTokenManagementRawData = useRef<IRiskTokenManagementDBStruct>({
     unblockedTokens: {},
@@ -517,10 +515,7 @@ function TokenListBlock({
       keys: tokenListRef.current.keys,
       tokens: tokenListRef.current.tokens,
       merge: true,
-      map: {
-        ...tokenListRef.current.map,
-        ...aggregateTokenMapRef.current,
-      },
+      map: tokenListRef.current.map,
       mergeDerive: true,
       split: true,
     });
@@ -540,8 +535,6 @@ function TokenListBlock({
     riskyTokenListRef.current.tokens = [];
     riskyTokenListRef.current.keys = '';
     riskyTokenListRef.current.map = {};
-
-    aggregateTokenMapRef.current = {};
   }, 1000);
 
   const handleAllNetworkRequests = useCallback(
@@ -550,11 +543,13 @@ function TokenListBlock({
       networkId,
       dbAccount,
       allNetworkDataInit,
+      isSingleRequest,
     }: {
       accountId: string;
       networkId: string;
       dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
+      isSingleRequest?: boolean;
     }) => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         dbAccount,
@@ -752,12 +747,12 @@ function TokenListBlock({
         }
 
         if (r.aggregateTokenMap) {
-          aggregateTokenMapRef.current = mergeAggregateTokenMap({
-            sourceMap: r.aggregateTokenMap,
-            targetMap: aggregateTokenMapRef.current,
-          });
           refreshAggregateTokensMap({
-            tokens: aggregateTokenMapRef.current,
+            tokens: nestAggregateTokensMap({
+              aggregateTokenMap: r.aggregateTokenMap,
+              networkId,
+            }),
+            merge: isSingleRequest,
           });
         }
 
@@ -1022,11 +1017,15 @@ function TokenListBlock({
       });
 
       const localAggregateTokenMap =
-        aggregateTokenRawData.current?.aggregateTokenMap?.[key] ?? {};
+        aggregateTokenRawData.current?.aggregateTokenMapV2?.[key] ?? {};
       const localAggregateTokenListMap =
         aggregateTokenRawData.current?.aggregateTokenListMap?.[key] ?? {};
       const aggregateTokenConfigMap =
         aggregateTokenRawData.current?.aggregateTokenConfigMap ?? {};
+
+      const flattenLocalAggregateTokenMap = flattenAggregateTokensMap(
+        localAggregateTokenMap,
+      );
 
       let tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
@@ -1129,7 +1128,7 @@ function TokenListBlock({
         merge: true,
         map: {
           ...tokenListMap,
-          ...localAggregateTokenMap,
+          ...flattenLocalAggregateTokenMap,
         },
         mergeDerive: true,
         split: true,
@@ -1141,7 +1140,7 @@ function TokenListBlock({
         merge: true,
         map: {
           ...tokenListMap,
-          ...localAggregateTokenMap,
+          ...flattenLocalAggregateTokenMap,
         },
         mergeDerive: true,
       });
@@ -1151,7 +1150,7 @@ function TokenListBlock({
         tokens: [...tokenList, ...riskyTokenList],
         map: {
           ...tokenListMap,
-          ...localAggregateTokenMap,
+          ...flattenLocalAggregateTokenMap,
         },
         merge: true,
         mergeDerive: true,
@@ -1287,9 +1286,7 @@ function TokenListBlock({
       };
     } = {};
 
-    let aggregateTokenMap: {
-      [key: string]: ITokenFiat;
-    } = {};
+    let aggregateTokenMap: Record<string, Record<string, ITokenFiat>> = {};
 
     if (allNetworksResult) {
       for (const r of allNetworksResult) {
@@ -1315,8 +1312,12 @@ function TokenListBlock({
         }
 
         if (r.aggregateTokenMap) {
-          aggregateTokenMap = mergeAggregateTokenMap({
-            sourceMap: r.aggregateTokenMap,
+          const nestedAggregateTokenMap = nestAggregateTokensMap({
+            aggregateTokenMap: r.aggregateTokenMap,
+            networkId: r.networkId ?? '',
+          });
+          aggregateTokenMap = mergeNestedAggregateTokenMap({
+            sourceMap: nestedAggregateTokenMap,
             targetMap: aggregateTokenMap,
           });
         }
@@ -1415,7 +1416,6 @@ function TokenListBlock({
       const mergeTokenListMap = {
         ...tokenListMap,
         ...smallBalanceTokenListMap,
-        ...aggregateTokenMap,
       };
 
       let mergedTokens = sortTokensByFiatValue({
@@ -1423,7 +1423,10 @@ function TokenListBlock({
           ...tokenList.tokens,
           ...smallBalanceTokenList.smallBalanceTokens,
         ],
-        map: mergeTokenListMap,
+        map: {
+          ...mergeTokenListMap,
+          ...flattenAggregateTokensMap(aggregateTokenMap),
+        },
       });
 
       const index = mergedTokens.findIndex((token) =>
@@ -1836,6 +1839,7 @@ function TokenListBlock({
           accountId,
           networkId,
           allNetworkDataInit: false,
+          isSingleRequest: true,
         });
       }
     },

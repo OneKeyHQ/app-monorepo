@@ -37,7 +37,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useAggregateTokensListMapAtom,
-  useAggregateTokensMapAtom,
+  useFlattenAggregateTokensMapAtom,
   useRiskyTokenListAtom,
   useRiskyTokenListMapAtom,
   useSearchKeyAtom,
@@ -99,7 +99,7 @@ function TokenListFooter(props: IProps) {
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
 
-  const [aggregateTokensMap] = useAggregateTokensMapAtom();
+  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
 
   const { smallBalanceTokens, keys: smallBalanceTokenKeys } =
     smallBalanceTokenList;
