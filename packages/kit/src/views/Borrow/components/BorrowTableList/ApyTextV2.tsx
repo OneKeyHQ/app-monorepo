@@ -130,8 +130,8 @@ function ApyDetailTotalItem({
   );
 }
 
-// Reusable popover detail content component
-function ApyDetailPopoverContent({
+// Reusable popover detail content component - exported for reuse
+export function ApyDetailPopoverContent({
   popupData,
 }: {
   popupData: IBorrowApyDetailPopupData | undefined;
