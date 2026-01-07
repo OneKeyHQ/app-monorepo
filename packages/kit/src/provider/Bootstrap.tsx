@@ -60,10 +60,6 @@ import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
-import {
-  isOpenedMyOneKeyModal,
-  useToMyOneKeyModal,
-} from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
 
 import type { IntlShape } from 'react-intl';
 
@@ -84,8 +80,6 @@ const useDesktopEvents = platformEnv.isDesktop
       const onLock = useOnLockCallback();
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
-
-      const toMyOneKeyModal = useToMyOneKeyModal();
 
       const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
         false,
@@ -298,13 +292,9 @@ const useDesktopEvents = platformEnv.isDesktop
             });
             break;
           case EShortcutEvents.TabMyOneKey:
-            if (!isOpenedMyOneKeyModal()) {
-              ensureModalClosedAndNavigate(() => {
-                void toMyOneKeyModal();
-              });
-            } else {
-              ensureModalClosedAndNavigate();
-            }
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.DeviceManagement);
+            });
             break;
           case EShortcutEvents.TabBrowser:
             ensureModalClosedAndNavigate(() => {

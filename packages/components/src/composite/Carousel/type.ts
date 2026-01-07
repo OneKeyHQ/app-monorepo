@@ -27,6 +27,7 @@ export interface ICarouselProps<T> {
   containerStyle?: IXStackProps;
   showPagination?: boolean;
   paginationContainerStyle?: IStackStyle;
+  showPaginationButton?: boolean;
   activeDotStyle?: IYStackProps;
   dotStyle?: IYStackProps;
   marginRatio?: number;

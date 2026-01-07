@@ -1,12 +1,12 @@
 import type { IDemoDeveloperTabParamList } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 import type {
-  IModalDeviceManagementParamList,
   IMultiTabBrowserParamList,
   ITabDiscoveryParamList,
   ITabHomeParamList,
   ITabSwapParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import type { ITabDeviceManagementParamList } from './tabDeviceManagement';
 import type { ITabEarnParamList } from './tabEarn';
 import type { ITabMarketParamList } from './tabMarket';
 import type { ITabReferFriendsParamList } from './tabReferFriends';
@@ -35,6 +35,6 @@ export type ITabStackParamList = {
   [ETabRoutes.Perp]: undefined;
   [ETabRoutes.WebviewPerpTrade]: undefined;
   [ETabRoutes.MultiTabBrowser]: IMultiTabBrowserParamList;
-  [ETabRoutes.DeviceManagement]: IModalDeviceManagementParamList;
+  [ETabRoutes.DeviceManagement]: ITabDeviceManagementParamList;
   [ETabRoutes.ReferFriends]: ITabReferFriendsParamList;
 };
