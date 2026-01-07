@@ -164,7 +164,7 @@ const SwapHistoryListModal = ({
         : intl.formatMessage({
             id: ETranslations.perp_trade_market,
           });
-    return (
+    const renderHeaderTitle = () => (
       <Select
         title={title}
         items={[
@@ -193,6 +193,7 @@ const SwapHistoryListModal = ({
         )}
       />
     );
+    return renderHeaderTitle;
   }, [historyType, intl]);
   const { gtMd } = useMedia();
   return (
@@ -202,7 +203,7 @@ const SwapHistoryListModal = ({
           historyType === EProtocolOfExchange.LIMIT ? undefined : deleteButton
         }
         headerTitleAlign={gtMd ? 'left' : 'center'}
-        headerTitle={() => headerSelectType}
+        headerTitle={headerSelectType}
       />
       {historyType !== EProtocolOfExchange.LIMIT ? (
         <YStack flex={1}>
