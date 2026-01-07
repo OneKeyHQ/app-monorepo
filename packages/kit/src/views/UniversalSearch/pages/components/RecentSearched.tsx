@@ -36,18 +36,26 @@ function SearchTextItem({
 
   const text = useMemo(() => {
     const itemText = item.text;
+    let result: string;
     switch (searchType) {
       case EUniversalSearchType.MarketToken:
-        return itemText.toUpperCase();
+        result = itemText.toUpperCase();
+        break;
       case EUniversalSearchType.Address:
-        return accountUtils.shortenAddress({
+        result = accountUtils.shortenAddress({
           address: itemText,
           leadingLength: 6,
           trailingLength: 6,
         });
+        break;
       default:
-        return itemText;
+        result = itemText;
     }
+    // Truncate to 20 characters max
+    if (result.length > 20) {
+      return `${result.slice(0, 17)}...`;
+    }
+    return result;
   }, [item.text, searchType]);
   return (
     <Button

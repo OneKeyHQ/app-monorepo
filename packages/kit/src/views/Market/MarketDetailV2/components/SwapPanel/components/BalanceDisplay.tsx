@@ -29,6 +29,7 @@ export function BalanceDisplay({
   useIcon = false,
 }: IBalanceDisplayProps) {
   const intl = useIntl();
+
   return (
     <XStack justifyContent="space-between" alignItems="center" height="$6">
       <InfoItemLabel
@@ -50,6 +51,8 @@ export function BalanceDisplay({
             formatterOptions={{
               tokenSymbol: useIcon ? undefined : token?.symbol,
             }}
+            numberOfLines={1}
+            maxWidth="$56"
             contentStyle={{
               px: '$1',
               py: '$0.5',

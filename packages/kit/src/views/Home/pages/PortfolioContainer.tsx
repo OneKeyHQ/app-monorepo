@@ -35,7 +35,7 @@ function PortfolioContainer() {
     return (
       <XStack pt="$3" pb="$4" px="$5" gap="$6">
         <YStack flex={1} gap="$8">
-          <TokenListBlock tableLayout />
+          <TokenListBlock showRecentHistory={showRecentHistory} tableLayout />
           <DeFiListBlock tableLayout />
           <PopularTrading tableLayout />
           <EarnListView />

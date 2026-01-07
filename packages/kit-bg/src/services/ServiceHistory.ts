@@ -355,6 +355,7 @@ class ServiceHistory extends ServiceBase {
     }
 
     const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
+    const accountsWithChangedConfirmedTxs = new Set<string>(); // accountId_networkId
     const changedPendingTxInfos: IChangedPendingTxInfo[] = [];
     localHistoryPendingTxs.forEach((tx) => {
       const txInResult = finalPendingTxs.find((item) => item.id === tx.id);
@@ -371,6 +372,19 @@ class ServiceHistory extends ServiceBase {
             status: confirmedTx.decodedTx.status,
           });
         }
+      }
+    });
+
+    // Find accounts with new on-chain confirmed transactions
+    // (transactions that are on-chain but not in local confirmed history)
+    onChainHistoryTxs.forEach((tx) => {
+      const txInLocalConfirmed = localHistoryConfirmedTxs.find(
+        (item) => item.id === tx.id,
+      );
+      if (!txInLocalConfirmed) {
+        accountsWithChangedConfirmedTxs.add(
+          `${tx.decodedTx.accountId}_${tx.decodedTx.networkId}`,
+        );
       }
     });
 
@@ -398,6 +412,27 @@ class ServiceHistory extends ServiceBase {
       addressMap,
       accountsWithChangedPendingTxs: Array.from(
         accountsWithChangedPendingTxs,
+      ).map((item) => {
+        const [a, n] = item.split('_');
+        return {
+          accountId: a,
+          networkId: n,
+        };
+      }),
+      accountsWithChangedConfirmedTxs: Array.from(
+        accountsWithChangedConfirmedTxs,
+      ).map((item) => {
+        const [a, n] = item.split('_');
+        return {
+          accountId: a,
+          networkId: n,
+        };
+      }),
+      accountsWithChangedTxs: Array.from(
+        new Set([
+          ...accountsWithChangedPendingTxs,
+          ...accountsWithChangedConfirmedTxs,
+        ]),
       ).map((item) => {
         const [a, n] = item.split('_');
         return {

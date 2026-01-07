@@ -1,13 +1,12 @@
 import { useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEqual, uniqBy } from 'lodash';
+import { forEach, isEqual, uniqBy } from 'lodash';
 
 import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   mergeAggregateTokenListMap,
-  mergeAggregateTokenMap,
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
@@ -30,6 +29,7 @@ import {
   allTokenListMapAtom,
   contextAtomMethod,
   createAccountStateAtom,
+  flattenAggregateTokensMapAtom,
   riskyTokenListAtom,
   riskyTokenListMapAtom,
   searchKeyAtom,
@@ -100,7 +100,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
 
           const tokenListMap = get(allTokenListMapAtom());
-          const aggregateTokenMap = get(aggregateTokensMapAtom());
+          const aggregateTokenMap = get(flattenAggregateTokensMapAtom());
 
           newTokens = sortTokensByFiatValue({
             tokens: uniqBy(newTokens, (item) => item.$key),
@@ -189,7 +189,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
 
           const tokenListMap = get(tokenListMapAtom());
-          const aggregateTokenMap = get(aggregateTokensMapAtom());
+          const aggregateTokenMap = get(flattenAggregateTokensMapAtom());
 
           const mergedTokenListMap = {
             ...tokenListMap,
@@ -485,22 +485,27 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
-        tokens: {
-          [key: string]: ITokenFiat;
-        };
+        tokens: Record<string, Record<string, ITokenFiat>>;
         merge?: boolean;
       },
     ) => {
       const { tokens, merge } = payload;
       if (merge) {
         const tokenMap = get(aggregateTokensMapAtom());
-        set(
-          aggregateTokensMapAtom(),
-          mergeAggregateTokenMap({
-            sourceMap: tokens,
-            targetMap: tokenMap,
-          }),
+        const newTokenMap = { ...tokenMap };
+        forEach(
+          tokens,
+          (value: Record<string, ITokenFiat>, aggregateTokenKey: string) => {
+            if (newTokenMap[aggregateTokenKey]) {
+              forEach(value, (tokenFiat: ITokenFiat, networkId: string) => {
+                newTokenMap[aggregateTokenKey][networkId] = tokenFiat;
+              });
+            } else {
+              newTokenMap[aggregateTokenKey] = value;
+            }
+          },
         );
+        set(aggregateTokensMapAtom(), newTokenMap);
       } else {
         set(aggregateTokensMapAtom(), payload.tokens);
       }

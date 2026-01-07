@@ -101,14 +101,32 @@ export function ActionButton({
     amountBN,
   ]);
 
+  // Truncate symbol if it exceeds 20 characters
+  const truncatedSymbol = useMemo(() => {
+    const symbol = token?.symbol || '';
+    if (symbol.length > 20) {
+      return `${symbol.slice(0, 17)}...`;
+    }
+    return symbol;
+  }, [token?.symbol]);
+
+  // Truncate tokenDetail symbol if it exceeds 20 characters
+  const truncatedTokenDetailSymbol = useMemo(() => {
+    const symbol = tokenDetail?.symbol || '';
+    if (symbol.length > 20) {
+      return `${symbol.slice(0, 17)}...`;
+    }
+    return symbol;
+  }, [tokenDetail?.symbol]);
+
   const tokenFormatter: INumberFormatProps = useMemo(() => {
     return {
       formatter: 'balance',
       formatterOptions: {
-        tokenSymbol: token?.symbol || '',
+        tokenSymbol: truncatedSymbol,
       },
     };
-  }, [token?.symbol]);
+  }, [truncatedSymbol]);
 
   const currencyFormatter: INumberFormatProps = useMemo(() => {
     return {
@@ -207,7 +225,7 @@ export function ActionButton({
 
   if (!hasAmount && !hasClickedWithoutAmount) {
     shouldUseColoredStyle = true;
-    buttonText = `${actionText} ${tokenDetail?.symbol || ''}`.trim();
+    buttonText = `${actionText} ${truncatedTokenDetailSymbol}`.trim();
     isButtonDisabled = false;
   }
 
