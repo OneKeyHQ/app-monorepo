@@ -1,7 +1,7 @@
 ---
 name: pr-review
 description: Security-first PR review checklist for this repo. Use when reviewing diffs/PRs, especially changes involving auth, networking, sensitive data, or dependency/lockfile updates. Focus on secret/PII leakage risk, supply-chain risk (npm + node_modules inspection), cross-platform architecture (extension/mobile/desktop/web), and React performance (hooks + re-render hotspots). Avoid UI style nitpicks. PR Review.
-allowed-tools: Read, Grep, Glob, Bash
+allowed-tools: Read, Grep, Glob, Bash, mcp__figma-remote-mcp__generate_diagram
 ---
 
 # Secure PR Review
@@ -12,9 +12,78 @@ Follow this workflow when reviewing code changes. Prioritize **security > correc
 - Review scope: treat `x` as the base (main) branch. Always review the PR as the diff between the current branch (HEAD) and `x` (i.e., changes introduced by this branch vs `x`).
 - Use PR semantics when generating the diff: `git fetch origin && git diff origin/x...HEAD` (triple-dot) to review only the changes introduced on this branch relative to `x`.
 
-## 0) Scope the change
+## 0) Scope the change & File Structure Analysis
+
 - Identify what changed (files, modules, entrypoints, routes/screens).
 - Identify risk areas: auth flows, signing/keys, networking, analytics, storage, dependency updates.
+
+### 0.1 File Change Inventory (REQUIRED)
+
+Generate a structured overview of ALL changed files using this format:
+
+```markdown
+## PR File Structure Analysis
+
+### Changed Files Summary
+| File | Change Type | Category | Risk Level | Description |
+|------|-------------|----------|------------|-------------|
+| `path/to/file.ts` | Added/Modified/Deleted | UI/Logic/API/Config/Test | Low/Medium/High | Brief description |
+
+### Files by Category
+
+#### 🔐 Security-Critical Files
+- Files touching auth, crypto, keys, secrets
+
+#### 🌐 API/Network Files
+- Files with network requests, API calls
+
+#### 🧩 Business Logic Files
+- Core logic, state management, services
+
+#### 🎨 UI Component Files
+- React components, styles, layouts
+
+#### ⚙️ Configuration Files
+- package.json, configs, manifests
+
+#### 🧪 Test Files
+- Unit tests, integration tests
+
+#### 📦 Dependency Changes
+- package.json, lockfile changes
+```
+
+### 0.2 Per-File Analysis (REQUIRED)
+For EACH changed file, provide:
+
+```markdown
+### `path/to/file.ts`
+**Change Type**: Added | Modified | Deleted
+**Lines Changed**: +XX / -YY
+**Category**: UI | Logic | API | Config | Test
+**Risk Level**: Low | Medium | High | Critical
+
+**What This File Does**:
+- Primary responsibility of this file
+
+**Changes Made**:
+1. Specific change 1
+2. Specific change 2
+3. ...
+
+**Dependencies**:
+- Imports from: [list key imports]
+- Exported to: [list files that import this]
+
+**Security Considerations**:
+- Any security-relevant aspects
+
+**Cross-Platform Impact**:
+- [ ] Extension
+- [ ] Mobile (iOS/Android)
+- [ ] Desktop
+- [ ] Web
+```
 
 ## 1) Secrets / PII / privacy (MUST)
 - Do not allow logs/telemetry/error reports to include: mnemonics/seed phrases, private keys, signing payloads, API keys, tokens, cookies, session IDs, addresses tied to identity, or any PII.
@@ -112,6 +181,145 @@ For new/modified components:
   - **Questions** (needs clarification)
 
 ## Additional resources
+
 - Dependency audit: [reference/dependency-audit.md](reference/dependency-audit.md)
 - React performance: [reference/react-performance.md](reference/react-performance.md)
 - Cross-platform checks: [reference/cross-platform.md](reference/cross-platform.md)
+- File analysis patterns: [reference/file-analysis.md](reference/file-analysis.md)
+- Diagram generation: [reference/diagram-generation.md](reference/diagram-generation.md)
+
+## 8) Architecture Visualization (REQUIRED)
+
+Generate visual diagrams to illustrate the PR's architectural impact. Use the `mcp__figma-remote-mcp__generate_diagram` tool to create Mermaid diagrams.
+
+### 8.1 File Dependency Graph
+
+Create a flowchart showing how changed files relate to each other:
+
+```mermaid
+graph LR
+    subgraph "Changed Files"
+        A["file1.ts"]
+        B["file2.ts"]
+    end
+    subgraph "Affected Dependencies"
+        C["dependent1.ts"]
+        D["dependent2.ts"]
+    end
+    A -->|"imports"| B
+    C -->|"imports"| A
+    D -->|"imports"| B
+```
+
+### 8.2 Data Flow Diagram
+
+For PRs involving data processing, show the data flow:
+
+```mermaid
+graph LR
+    A["User Input"] --> B["Validation"]
+    B --> C["Business Logic"]
+    C --> D["API Call"]
+    D --> E["State Update"]
+    E --> F["UI Render"]
+```
+
+### 8.3 Component Hierarchy (for UI changes)
+
+Show component relationships and prop flow:
+
+```mermaid
+graph TD
+    A["ParentComponent"] --> B["ChildA"]
+    A --> C["ChildB"]
+    B --> D["GrandchildA1"]
+    B --> E["GrandchildA2"]
+    C --> F["GrandchildB1"]
+
+    A -.->|"props: data, onSubmit"| B
+    A -.->|"props: config"| C
+```
+
+### 8.4 State Management Flow
+
+For state-related changes, illustrate the state flow:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Loading: fetchData()
+    Loading --> Success: data received
+    Loading --> Error: request failed
+    Success --> Idle: reset()
+    Error --> Loading: retry()
+    Error --> Idle: dismiss()
+```
+
+### 8.5 Sequence Diagram (for async operations)
+
+For complex async flows or API interactions:
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Component
+    participant S as Service
+    participant A as API
+
+    U->>C: Click action
+    C->>S: callService()
+    S->>A: POST /api/endpoint
+    A-->>S: Response
+    S-->>C: Result
+    C-->>U: Update UI
+```
+
+### 8.6 Cross-Platform Impact Diagram
+
+Show which platforms are affected:
+
+```mermaid
+graph TD
+    subgraph "Changed Code"
+        A["packages/kit/src/feature"]
+    end
+
+    subgraph "Platform Impact"
+        B["Extension"]
+        C["Mobile"]
+        D["Desktop"]
+        E["Web"]
+    end
+
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+
+    style B fill:#f9f,stroke:#333
+    style C fill:#f9f,stroke:#333
+    style D fill:#bbf,stroke:#333
+    style E fill:#bbf,stroke:#333
+```
+
+### Diagram Generation Guidelines
+
+1. **Always generate at least 2 diagrams** for non-trivial PRs:
+   - File dependency graph (always)
+   - One domain-specific diagram (data flow / component hierarchy / state / sequence)
+
+2. **Use appropriate diagram types**:
+   - `graph LR/TD` for file dependencies and component hierarchies
+   - `sequenceDiagram` for API calls and async operations
+   - `stateDiagram-v2` for state machine changes
+   - `flowchart` for data flow and process flow
+
+3. **Highlight risk areas** in diagrams:
+   - Use color styling for high-risk nodes
+   - Mark security-critical paths clearly
+   - Indicate cross-platform boundaries
+
+4. **Keep diagrams focused**:
+   - Max 15-20 nodes per diagram
+   - Split complex flows into multiple diagrams
+   - Group related files into subgraphs
