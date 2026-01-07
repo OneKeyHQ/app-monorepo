@@ -30,7 +30,8 @@ import PasswordSetup from '../components/PasswordSetup';
 import type { IPasswordSetupForm } from '../components/PasswordSetup';
 
 interface IPasswordSetupProps {
-  onSetupRes: (password: string) => void;
+  onSetupRes: (password: string) => void | Promise<void>;
+  pageMode?: boolean;
 }
 
 interface IBiologyAuthContainerProps {
@@ -74,7 +75,10 @@ const BiologyAuthContainer = ({
   ) : null;
 };
 
-const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
+const PasswordSetupContainer = ({
+  onSetupRes,
+  pageMode,
+}: IPasswordSetupProps) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
@@ -105,9 +109,15 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         Toast.success({
           title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
-        setTimeout(() => {
-          onSetupRes(setUpPasswordRes);
-        });
+
+        if (pageMode) {
+          await onSetupRes(setUpPasswordRes);
+        } else {
+          setTimeout(() => {
+            void onSetupRes(setUpPasswordRes);
+          });
+        }
+
         // Dialog.show({
         //   title: intl.formatMessage({
         //     id: ETranslations.auth_Passcode_protection,
@@ -161,11 +171,19 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         setLoading(false);
       }
     },
-    [intl, isBiologyAuthSwitchOn, isSupport, onSetupRes, setWebAuthEnable],
+    [
+      intl,
+      isBiologyAuthSwitchOn,
+      isSupport,
+      onSetupRes,
+      pageMode,
+      setWebAuthEnable,
+    ],
   );
 
   return (
     <PasswordSetup
+      pageMode={pageMode}
       loading={loading}
       passwordMode={passwordMode}
       onSetupPassword={onSetupPassword}

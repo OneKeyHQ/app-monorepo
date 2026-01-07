@@ -153,6 +153,14 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
 
+    // if the network is custom network, disable parse tx through api
+    if (
+      !disableParseTxThroughApi &&
+      (await this.backgroundApi.serviceNetwork.isCustomNetwork({ networkId }))
+    ) {
+      disableParseTxThroughApi = true;
+    }
+
     // try to parse tx through background api
     // multi txs not supported by api for now, will support in future versions
     if (!disableParseTxThroughApi) {
@@ -278,6 +286,14 @@ class ServiceSignatureConfirm extends ServiceBase {
   @backgroundMethod()
   async parseMessage(params: IParseMessageParams) {
     const { accountId, networkId, message, swapInfo } = params;
+
+    // if the network is custom network, disable parse message through api
+    if (
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({ networkId })
+    ) {
+      return null;
+    }
+
     let accountAddress = params.accountAddress;
     if (!accountAddress) {
       accountAddress =

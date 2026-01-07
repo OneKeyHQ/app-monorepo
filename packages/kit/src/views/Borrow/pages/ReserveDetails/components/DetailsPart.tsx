@@ -1,6 +1,6 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
-import { Divider, YStack } from '@onekeyhq/components';
+import { Divider, YStack, useMedia } from '@onekeyhq/components';
 import {
   PageFrame,
   isErrorState,
@@ -12,6 +12,7 @@ import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 import { BorrowFAQSection } from './BorrowFAQSection';
 import { ChartSection } from './ChartSection';
 import { DailyCapsSection } from './DailyCapsSection';
+import { ReserveDetailsTabs } from './ReserveDetailsTabs';
 import { ReserveProtocolHeader } from './ReserveProtocolHeader';
 import { RiskSection } from './RiskSection';
 
@@ -40,6 +41,51 @@ const DetailsPartComponent = ({
   logoURI,
   onShare,
 }: IDetailsPartProps) => {
+  const { gtMd } = useMedia();
+
+  const mobileContainerProps = useMemo(
+    () => ({
+      allowHeaderOverscroll: true,
+      renderHeader: () => (
+        <YStack px="$5" pt="$4" bg="$bgApp" pointerEvents="box-none">
+          <ReserveProtocolHeader
+            symbol={symbol}
+            logoURI={logoURI}
+            oraclePrice={details?.oraclePrice}
+            reserveSize={details?.reserveSize}
+            availableLiquidity={details?.liquidity}
+            utilizationRatio={details?.utilizationRatio}
+            platformBonus={details?.platformBonus}
+            managers={details?.managers}
+          />
+        </YStack>
+      ),
+    }),
+    [symbol, logoURI, details],
+  );
+
+  if (!gtMd) {
+    return (
+      <PageFrame
+        LoadingSkeleton={OverviewSkeleton}
+        loading={isLoadingState({ result: details, isLoading })}
+        error={isErrorState({ result: details, isLoading })}
+        onRefresh={onRefresh}
+      >
+        {details ? (
+          <ReserveDetailsTabs
+            networkId={networkId}
+            provider={provider}
+            marketAddress={marketAddress}
+            reserveAddress={reserveAddress}
+            details={details}
+            containerProps={mobileContainerProps}
+          />
+        ) : null}
+      </PageFrame>
+    );
+  }
+
   return (
     <YStack flex={6} gap="$5" px="$5">
       <PageFrame
@@ -60,6 +106,7 @@ const DetailsPartComponent = ({
                 availableLiquidity={details.liquidity}
                 utilizationRatio={details.utilizationRatio}
                 platformBonus={details.platformBonus}
+                managers={details.managers}
               />
               <Divider mb="$8" />
               <ChartSection

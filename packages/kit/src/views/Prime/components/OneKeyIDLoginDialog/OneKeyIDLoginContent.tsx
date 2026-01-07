@@ -3,14 +3,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Form,
-  Icon,
-  Input,
-  SizableText,
-  YStack,
-  useForm,
-} from '@onekeyhq/components';
+import { Form, Icon, Input, YStack, useForm } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -131,10 +124,6 @@ export function OneKeyIDLoginContent({
           />
         </Form.Field>
       </Form>
-      <SizableText mt="$2.5" size="$bodySm" color="$textSubdued">
-        OneKey ID is all you need to access all OneKey services and earn
-        referral rewards.
-      </SizableText>
     </YStack>
   );
 }

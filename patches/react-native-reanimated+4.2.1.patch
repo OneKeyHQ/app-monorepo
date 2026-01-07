@@ -1,0 +1,27 @@
+diff --git a/node_modules/react-native-reanimated/src/common/style/processors/colors.ts b/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
+index 42d2c09..57dd400 100644
+--- a/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
++++ b/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
+@@ -204,6 +204,9 @@ export function processColor(
+   }
+ 
+   if (result === null) {
++    if (process.env.NODE_ENV === 'production') { 
++      return 0x00000000;
++    }
+     throw new ReanimatedError(ERROR_MESSAGES.invalidColor(value));
+   }
+ 
+diff --git a/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts b/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
+index 7682466..2eef347 100644
+--- a/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
++++ b/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
+@@ -29,5 +29,8 @@ export const processColorSVG: ValueProcessor<
+     return 'currentColor';
+   }
+ 
++  if (process.env.NODE_ENV === 'production') {
++    return 0x00000000;
++  }
+   throw new ReanimatedError(ERROR_MESSAGES.invalidColor(value));
+ };

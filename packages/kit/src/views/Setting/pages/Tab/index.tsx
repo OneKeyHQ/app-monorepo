@@ -20,8 +20,10 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ESettingsTabNames, useSettingsConfig } from './config';
 import { ConfigContext } from './configContext';
@@ -246,7 +248,16 @@ function SettingTab() {
       });
     }
   }, [appNavigation, isTabNavigator]);
-  return isTabNavigator ? <MemoizedSettingsTabNavigator /> : <SettingList />;
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      {isTabNavigator ? <MemoizedSettingsTabNavigator /> : <SettingList />}
+    </AccountSelectorProviderMirror>
+  );
 }
 
 export default memo(SettingTab);

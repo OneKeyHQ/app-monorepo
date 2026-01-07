@@ -81,19 +81,17 @@ export function getTitleAndDescription({
     accountUtils.isHwWallet({ walletId: wallet?.id }) ||
     accountUtils.isQrWallet({ walletId: wallet?.id });
 
-  const isKeyless = accountUtils.isKeylessWallet({
-    walletId: wallet?.id || '',
-  });
+  const isKeyless = wallet?.isKeyless;
 
   // Keyless wallet has a different description
   if (isKeyless) {
     return {
       isHwOrQr: false,
       isKeyless: true,
-      title: appLocale.intl.formatMessage({ id: ETranslations.remove_wallet }),
-      // TODO: Add proper translation key for keyless wallet removal
-      description:
-        'You can restore this wallet anytime using your security keys.',
+      title: appLocale.intl.formatMessage({ id: ETranslations.log_out_wallet }),
+      description: appLocale.intl.formatMessage({
+        id: ETranslations.log_out_wallet_desc,
+      }),
     };
   }
 

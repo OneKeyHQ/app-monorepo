@@ -38,6 +38,7 @@ import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useAggregateTokensListMapAtom,
   useAggregateTokensMapAtom,
+  useFlattenAggregateTokensMapAtom,
   useRiskyTokenListAtom,
   useRiskyTokenListMapAtom,
   useSearchKeyAtom,
@@ -99,7 +100,8 @@ function TokenListFooter(props: IProps) {
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
 
-  const [aggregateTokensMap] = useAggregateTokensMapAtom();
+  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
+  const [nestedAggregateTokensMap] = useAggregateTokensMapAtom();
 
   const { smallBalanceTokens, keys: smallBalanceTokenKeys } =
     smallBalanceTokenList;
@@ -196,7 +198,7 @@ function TokenListFooter(props: IProps) {
         hideValue,
         isAllNetworks: network.isAllNetworks,
         aggregateTokensListMap,
-        aggregateTokensMap,
+        aggregateTokensMap: nestedAggregateTokensMap,
         accountAddress: account.address,
         allAggregateTokenMap,
         searchKeyLengthThreshold: 1,
@@ -217,7 +219,7 @@ function TokenListFooter(props: IProps) {
     deriveInfo,
     hideValue,
     aggregateTokensListMap,
-    aggregateTokensMap,
+    nestedAggregateTokensMap,
     allAggregateTokenMap,
   ]);
 

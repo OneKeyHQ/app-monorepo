@@ -183,7 +183,7 @@ function TxHistoryListContainer(
       let r: {
         allAccounts: IAllNetworkAccountInfo[];
         txs: IAccountHistoryTx[];
-        accountsWithChangedPendingTxs: {
+        accountsWithChangedTxs: {
           accountId: string;
           networkId: string;
         }[];
@@ -192,7 +192,7 @@ function TxHistoryListContainer(
       } = {
         allAccounts: [],
         txs: [],
-        accountsWithChangedPendingTxs: [],
+        accountsWithChangedTxs: [],
         addressMap: {},
         hasMoreOnChainHistory: false,
       };
@@ -225,9 +225,9 @@ function TxHistoryListContainer(
         resp.forEach((item) => {
           r.txs = [...r.txs, ...item.txs];
           r.allAccounts = [...r.allAccounts, ...item.allAccounts];
-          r.accountsWithChangedPendingTxs = [
-            ...r.accountsWithChangedPendingTxs,
-            ...item.accountsWithChangedPendingTxs,
+          r.accountsWithChangedTxs = [
+            ...r.accountsWithChangedTxs,
+            ...item.accountsWithChangedTxs,
           ];
           r.addressMap = { ...r.addressMap, ...item.addressMap };
           if (item.hasMoreOnChainHistory) {
@@ -281,9 +281,9 @@ function TxHistoryListContainer(
         accountId,
         networkId: network.id,
       });
-      if (r.accountsWithChangedPendingTxs.length > 0) {
+      if (r.accountsWithChangedTxs.length > 0) {
         appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-          accounts: r.accountsWithChangedPendingTxs,
+          accounts: r.accountsWithChangedTxs,
         });
       }
       isManualRefresh.current = false;

@@ -1,4 +1,4 @@
-import { forwardRef, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import {
   styled,
@@ -124,7 +124,7 @@ function SkeletonGroup({
 }
 
 export const Skeleton = withStaticProperties(
-  styled(forwardRef(BaseSkeleton), {
+  styled(BaseSkeleton, {
     name: 'Skeleton',
   } as const),
   {
