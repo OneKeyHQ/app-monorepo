@@ -35,7 +35,7 @@ export type ISwapPanelContentProps = {
   balanceLoading: boolean;
   slippageAutoValue?: number;
   supportSpeedSwap: {
-    enabled: boolean;
+    enabled?: boolean;
     warningMessage?: string;
     actionTranslationId?: ETranslations;
     actionToken?: ISwapToken;

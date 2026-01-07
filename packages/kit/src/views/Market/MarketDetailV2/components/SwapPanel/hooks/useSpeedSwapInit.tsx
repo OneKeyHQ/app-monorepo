@@ -15,7 +15,7 @@ const defaultSpeedSwapConfig: ISpeedSwapConfig = {
     defaultLimitTokens: [],
     swapMevNetConfig: mevSwapNetworks,
   },
-  supportSpeedSwap: false,
+  supportSpeedSwap: undefined,
   onlySupportCrossChain: false,
   onlySupportSingleChain: false,
   speedDefaultSelectToken: undefined,

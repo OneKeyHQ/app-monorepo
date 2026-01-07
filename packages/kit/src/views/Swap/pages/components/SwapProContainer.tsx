@@ -45,7 +45,7 @@ interface ISwapProContainerProps {
     isLoading: boolean;
     speedConfig: ISwapProSpeedConfig;
     balanceLoading: boolean;
-    supportSpeedSwap: boolean;
+    supportSpeedSwap?: boolean;
     isMEV: boolean;
     hasEnoughBalance: boolean;
     onlySupportCrossChain: boolean;
