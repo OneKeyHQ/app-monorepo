@@ -60,6 +60,14 @@ interface IChartConfig {
   };
 }
 
+interface IHoverData {
+  utilizationRatio: number;
+  supplyApy: number;
+  borrowApy: number;
+  x: number;
+  y: number;
+}
+
 function generateChartHTML(config: IChartConfig): string {
   const configJSON = JSON.stringify(config);
 
@@ -218,6 +226,30 @@ function generateChartHTML(config: IChartConfig): string {
       window.supplySeries = supplySeries;
       window.borrowSeries = borrowSeries;
 
+      // Subscribe to crosshair move for tooltip
+      chart.subscribeCrosshairMove((param) => {
+        if (param.time && param.point && param.seriesPrices && param.seriesPrices.size > 0) {
+          const supplyPrice = param.seriesPrices.get(supplySeries);
+          const borrowPrice = param.seriesPrices.get(borrowSeries);
+          
+          if (supplyPrice !== undefined && borrowPrice !== undefined) {
+            const util = convertTimeToUtilization(param.time);
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'hover',
+              data: {
+                utilizationRatio: util,
+                supplyApy: supplyPrice,
+                borrowApy: borrowPrice,
+                x: param.point.x,
+                y: param.point.y,
+              }
+            }));
+            return;
+          }
+        }
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'hoverEnd' }));
+      });
+
       new ResizeObserver(entries => {
         if (entries.length) {
           const { width, height } = entries[0].contentRect;
@@ -240,6 +272,8 @@ export function InterestRateModelChart({
 }: IInterestRateModelChartProps) {
   const webViewRef = useRef<WebView>(null);
   const [webViewReady, setWebViewReady] = useState(false);
+  const [hoverData, setHoverData] = useState<IHoverData | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
   const intl = useIntl();
   const theme = useTheme();
 
@@ -254,6 +288,20 @@ export function InterestRateModelChart({
     },
     [BASE_TIMESTAMP, UTILIZATION_RANGE],
   );
+
+  const popoverPosition = useMemo(() => {
+    if (!hoverData || !containerWidth) return null;
+
+    const POPOVER_WIDTH = 160;
+    const OFFSET = 10;
+    const isLeftHalf = hoverData.x < containerWidth / 2;
+
+    return {
+      left: isLeftHalf ? hoverData.x + OFFSET : hoverData.x - OFFSET,
+      translateXValue: isLeftHalf ? 0 : -POPOVER_WIDTH,
+      top: Math.max(10, hoverData.y - 70),
+    };
+  }, [hoverData, containerWidth]);
 
   const chartConfig = useMemo((): IChartConfig | null => {
     if (!borrowCurve.length || !supplyCurve.length) {
@@ -308,9 +356,16 @@ export function InterestRateModelChart({
 
   const handleMessage = useCallback((event: WebViewMessageEvent) => {
     try {
-      const message = JSON.parse(event.nativeEvent.data) as { type: string };
+      const message = JSON.parse(event.nativeEvent.data) as {
+        type: string;
+        data?: IHoverData;
+      };
       if (message.type === 'ready') {
         setWebViewReady(true);
+      } else if (message.type === 'hover' && message.data) {
+        setHoverData(message.data);
+      } else if (message.type === 'hoverEnd') {
+        setHoverData(null);
       }
     } catch (error) {
       console.error(
@@ -413,7 +468,65 @@ export function InterestRateModelChart({
         </XStack>
       </XStack>
 
-      <Stack width="100%" height={CHART_HEIGHT}>
+      <Stack
+        width="100%"
+        height={CHART_HEIGHT}
+        position="relative"
+        onLayout={(e) => {
+          const width = e.nativeEvent.layout.width;
+          if (width !== containerWidth) {
+            setContainerWidth(width);
+          }
+        }}
+      >
+        {hoverData && popoverPosition ? (
+          <YStack
+            position="absolute"
+            top={popoverPosition.top}
+            left={popoverPosition.left}
+            transform={[{ translateX: popoverPosition.translateXValue }]}
+            bg="$bg"
+            borderRadius="$2"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            px="$3"
+            py="$2"
+            shadowColor="$shadowDefault"
+            shadowOffset={{ width: 0, height: 2 }}
+            shadowOpacity={0.1}
+            shadowRadius={8}
+            zIndex={9999}
+            pointerEvents="none"
+            minWidth={160}
+          >
+            <YStack gap="$1">
+              <XStack jc="space-between" ai="center" gap="$4">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {utilizationRatioLabel}
+                </SizableText>
+                <SizableText size="$bodySmMedium" color="$text">
+                  {(hoverData.utilizationRatio * 100).toFixed(2)}%
+                </SizableText>
+              </XStack>
+              <XStack jc="space-between" ai="center" gap="$4">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {borrowApyLabel}
+                </SizableText>
+                <SizableText size="$bodySmMedium" color="$text">
+                  {hoverData.borrowApy.toFixed(2)}%
+                </SizableText>
+              </XStack>
+              <XStack jc="space-between" ai="center" gap="$4">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {supplyApyLabel}
+                </SizableText>
+                <SizableText size="$bodySmMedium" color="$text">
+                  {hoverData.supplyApy.toFixed(2)}%
+                </SizableText>
+              </XStack>
+            </YStack>
+          </YStack>
+        ) : null}
         <View style={{ flex: 1 }}>
           <WebView
             ref={webViewRef}

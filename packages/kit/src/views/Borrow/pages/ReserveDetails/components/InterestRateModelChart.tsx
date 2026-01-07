@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@tamagui/core';
 import { LineType, createChart } from 'lightweight-charts';
@@ -20,7 +20,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { ColorTokens } from '@tamagui/core';
-import type { BusinessDay, IChartApi, UTCTimestamp } from 'lightweight-charts';
+import type {
+  BusinessDay,
+  IChartApi,
+  ISeriesApi,
+  UTCTimestamp,
+} from 'lightweight-charts';
 
 interface IInterestRateModelChartProps {
   borrowCurve: [number, string][];
@@ -71,6 +76,14 @@ const normalizeApyToPercent = (value: number) => {
   return value;
 };
 
+interface IHoverData {
+  utilizationRatio: number;
+  supplyApy: number;
+  borrowApy: number;
+  x: number;
+  y: number;
+}
+
 export function InterestRateModelChart({
   borrowCurve,
   supplyCurve,
@@ -80,7 +93,58 @@ export function InterestRateModelChart({
   const intl = useIntl();
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const supplySeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const borrowSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
   const theme = useTheme();
+
+  const [hoverData, setHoverData] = useState<IHoverData | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  const handleCrosshairMove = useCallback(
+    (param: {
+      time?: UTCTimestamp | BusinessDay;
+      point?: { x: number; y: number };
+      seriesPrices?: Map<ISeriesApi<'Area'>, number>;
+    }) => {
+      if (
+        param.time &&
+        param.point &&
+        supplySeriesRef.current &&
+        borrowSeriesRef.current
+      ) {
+        const supplyPrice = param.seriesPrices?.get(supplySeriesRef.current);
+        const borrowPrice = param.seriesPrices?.get(borrowSeriesRef.current);
+
+        if (supplyPrice !== undefined && borrowPrice !== undefined) {
+          const util = convertTimeToUtilization(param.time);
+          setHoverData({
+            utilizationRatio: util,
+            supplyApy: supplyPrice,
+            borrowApy: borrowPrice,
+            x: param.point.x,
+            y: param.point.y,
+          });
+          return;
+        }
+      }
+      setHoverData(null);
+    },
+    [],
+  );
+
+  const popoverPosition = useMemo(() => {
+    if (!hoverData || !containerWidth) return null;
+
+    const POPOVER_WIDTH = 160;
+    const OFFSET = 10;
+    const isLeftHalf = hoverData.x < containerWidth / 2;
+
+    return {
+      left: isLeftHalf ? hoverData.x + OFFSET : hoverData.x - OFFSET,
+      translateXValue: isLeftHalf ? 0 : -POPOVER_WIDTH,
+      top: Math.max(10, hoverData.y - 70),
+    };
+  }, [hoverData, containerWidth]);
 
   // Create theme configs for both series
   const createTheme = useCallback(
@@ -173,12 +237,25 @@ export function InterestRateModelChart({
       createAreaSeriesOptions(supplyTheme, 2),
     );
     supplySeries.setData(chartData.supplyData);
+    supplySeriesRef.current = supplySeries;
 
     // Add borrow series
     const borrowSeries = chart.addAreaSeries(
       createAreaSeriesOptions(borrowTheme, 2),
     );
     borrowSeries.setData(chartData.borrowData);
+    borrowSeriesRef.current = borrowSeries;
+
+    // Subscribe to crosshair move for tooltip
+    chart.subscribeCrosshairMove((param) => {
+      handleCrosshairMove({
+        time: param.time as UTCTimestamp | BusinessDay | undefined,
+        point: param.point,
+        seriesPrices: param.seriesPrices as
+          | Map<ISeriesApi<'Area'>, number>
+          | undefined,
+      });
+    });
 
     // Add current utilization vertical line marker if available
     if (utilizationRatio) {
@@ -241,6 +318,8 @@ export function InterestRateModelChart({
       resizeObserver.disconnect();
       chart.remove();
       chartRef.current = null;
+      supplySeriesRef.current = null;
+      borrowSeriesRef.current = null;
     };
   }, [
     chartData,
@@ -248,6 +327,7 @@ export function InterestRateModelChart({
     borrowTheme,
     utilizationRatio,
     theme.iconSubdued?.val,
+    handleCrosshairMove,
   ]);
 
   const utilizationPercentage = utilizationRatio
@@ -325,7 +405,65 @@ export function InterestRateModelChart({
         </XStack>
       </XStack>
 
-      <Stack ref={chartContainerRef} width="100%" height={CHART_HEIGHT} />
+      <Stack
+        position="relative"
+        onLayout={(e) => {
+          const width = e.nativeEvent.layout.width;
+          if (width !== containerWidth) {
+            setContainerWidth(width);
+          }
+        }}
+      >
+        {hoverData && popoverPosition ? (
+          <YStack
+            position="absolute"
+            top={popoverPosition.top}
+            left={popoverPosition.left}
+            transform={[{ translateX: popoverPosition.translateXValue }]}
+            bg="$bg"
+            borderRadius="$2"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            px="$3"
+            py="$2"
+            shadowColor="$shadowDefault"
+            shadowOffset={{ width: 0, height: 2 }}
+            shadowOpacity={0.1}
+            shadowRadius={8}
+            zIndex={9999}
+            pointerEvents="none"
+            minWidth={160}
+          >
+            <YStack gap="$1">
+              <XStack jc="space-between" ai="center" gap="$4">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {utilizationRatioLabel}
+                </SizableText>
+                <SizableText size="$bodySmMedium" color="$text">
+                  {(hoverData.utilizationRatio * 100).toFixed(2)}%
+                </SizableText>
+              </XStack>
+              <XStack jc="space-between" ai="center" gap="$4">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {borrowApyLabel}
+                </SizableText>
+                <SizableText size="$bodySmMedium" color="$text">
+                  {hoverData.borrowApy.toFixed(2)}%
+                </SizableText>
+              </XStack>
+              <XStack jc="space-between" ai="center" gap="$4">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {supplyApyLabel}
+                </SizableText>
+                <SizableText size="$bodySmMedium" color="$text">
+                  {hoverData.supplyApy.toFixed(2)}%
+                </SizableText>
+              </XStack>
+            </YStack>
+          </YStack>
+        ) : null}
+        <Stack ref={chartContainerRef} width="100%" height={CHART_HEIGHT} />
+      </Stack>
     </YStack>
   );
 }
