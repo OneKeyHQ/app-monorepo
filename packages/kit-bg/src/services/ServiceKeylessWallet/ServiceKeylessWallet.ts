@@ -87,10 +87,7 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     // Check if we should mock cloud backup info on web platform
-    const devSettings = await devSettingsPersistAtom.get();
-    const shouldMockCloudBackupOnWeb =
-      devSettings.enabled &&
-      devSettings.settings?.allowCreateKeylessWalletOnWeb;
+    const shouldMockCloudBackupOnWeb = false;
 
     let cloudKeyProvider: ECloudBackupProviderType;
     let cloudKeyUserId: string;
@@ -1117,7 +1114,7 @@ class ServiceKeylessWallet extends ServiceBase {
     const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
     const provider = this.buildKeylessProviderFromSocialToken({ token });
     const socialAccountId = decodedToken?.user_metadata?.sub || '';
-    const raw = `${provider}--${socialAccountId}`;
+    const raw = `${provider}--${socialAccountId}--ADD725FB-9FF5-490E-A458-6EBD4053FAE2`;
     const hashBytes = await appCrypto.hash.sha256(
       bufferUtils.toBuffer(raw, 'utf-8'),
     );

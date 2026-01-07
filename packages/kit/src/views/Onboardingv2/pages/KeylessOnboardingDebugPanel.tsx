@@ -8,6 +8,7 @@ import {
   Toast,
   YStack,
 } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
@@ -21,8 +22,11 @@ export function KeylessOnboardingDebugPanel({
   isResetMode?: boolean;
   onResetModeChange?: (val: boolean) => void;
 }) {
-  const navigation = useAppNavigation();
+  const _navigation = useAppNavigation();
   const { cacheKeylessOnboardingCustomMnemonic } = useKeylessWallet();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const isDeletionAllowed =
+    devSettings.enabled && !!devSettings.settings?.allowDeleteKeylessKey;
 
   const handleImportCustomMnemonic = useCallback(() => {
     Dialog.confirm({
@@ -83,7 +87,24 @@ export function KeylessOnboardingDebugPanel({
             <Checkbox
               label="重置云端无私钥钱包（先勾选，再登录 Google 或 Apple 生效）"
               value={isResetMode}
+              disabled={!isDeletionAllowed}
+              onChangeForDisabled={() => {
+                Toast.error({
+                  title: 'Operation not allowed',
+                  message:
+                    'Please enable "允许重置 Keyless 钱包" in Dev Settings first.',
+                });
+              }}
               onChange={(checked) => {
+                // This reset flow may delete deviceKey/authKey, guard it with allowDeleteKeylessKey.
+                if (!isDeletionAllowed) {
+                  Toast.error({
+                    title: 'Operation not allowed',
+                    message:
+                      'Please enable "允许重置 Keyless 钱包" in Dev Settings first.',
+                  });
+                  return;
+                }
                 onResetModeChange?.(!!checked);
               }}
             />
