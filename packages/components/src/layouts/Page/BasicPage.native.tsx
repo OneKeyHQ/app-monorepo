@@ -152,7 +152,7 @@ const AbsoluteLoadingContainer = platformEnv.isNativeIOS
             requestIdleCallback(() => {
               changeLoadingVisibleStatus(false);
             });
-          }, 120);
+          }, 250);
         }, 1);
       }, [isModalPage, pageType]);
 
