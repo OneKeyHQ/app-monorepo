@@ -42,14 +42,16 @@ import type { IPasswordVerifyForm } from '../components/PasswordVerify';
 import type { LayoutChangeEvent } from 'react-native';
 
 interface IPasswordVerifyProps {
-  onVerifyRes: (password: string) => void;
+  onVerifyRes: (password: string) => void | Promise<void>;
   onLayout?: (e: LayoutChangeEvent) => void;
   name?: 'lock';
+  pageMode?: boolean;
 }
 
 const PasswordVerifyContainer = ({
   onVerifyRes,
   name,
+  pageMode,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
   const [{ authType, isEnable }] = usePasswordBiologyAuthInfoAtom();
@@ -184,7 +186,8 @@ const PasswordVerifyContainer = ({
     async (isExtLockNoCachePassword: boolean) => {
       if (
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
-        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+        (!pageMode &&
+          passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED)
       ) {
         return;
       }
@@ -196,11 +199,17 @@ const PasswordVerifyContainer = ({
         if (isExtLockNoCachePassword) {
           const result = await checkWebAuth();
           if (result) {
+            if (pageMode) {
+              await onVerifyRes('');
+            } else {
+              setTimeout(() => {
+                void onVerifyRes('');
+              });
+            }
             setPasswordAtom((v) => ({
               ...v,
               passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
             }));
-            onVerifyRes('');
             resetPasswordErrorAttempts();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
@@ -219,11 +228,17 @@ const PasswordVerifyContainer = ({
               });
           }
           if (biologyAuthRes) {
+            if (pageMode) {
+              await onVerifyRes(biologyAuthRes);
+            } else {
+              setTimeout(() => {
+                void onVerifyRes(biologyAuthRes);
+              });
+            }
             setPasswordAtom((v) => ({
               ...v,
               passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
             }));
-            onVerifyRes(biologyAuthRes);
             resetPasswordErrorAttempts();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
@@ -284,6 +299,7 @@ const PasswordVerifyContainer = ({
       title,
       verifiedPasswordWebAuth,
       verifyPeriodBiologyAuthAttempts,
+      pageMode,
     ],
   );
 
@@ -293,7 +309,8 @@ const PasswordVerifyContainer = ({
     async (data: IPasswordVerifyForm) => {
       if (
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
-        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+        (!pageMode &&
+          passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED)
       ) {
         return;
       }
@@ -313,15 +330,21 @@ const PasswordVerifyContainer = ({
             password: encodePassword,
             passwordMode,
           });
-        setPasswordAtom((v) => ({
-          ...v,
-          passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
-        }));
         if (platformEnv.isNativeAndroid) {
           dismissKeyboard();
           await timerUtils.wait(0);
         }
-        onVerifyRes(verifiedPassword);
+        if (pageMode) {
+          await onVerifyRes(verifiedPassword);
+        } else {
+          setTimeout(() => {
+            void onVerifyRes(verifiedPassword);
+          });
+        }
+        setPasswordAtom((v) => ({
+          ...v,
+          passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
+        }));
         resetPasswordErrorAttempts();
       } catch (e) {
         let message = intl.formatMessage({
@@ -393,6 +416,7 @@ const PasswordVerifyContainer = ({
       setPasswordPersist,
       setUnlockPeriodPasswordArray,
       unlockPeriodPasswordArray,
+      pageMode,
     ],
   );
 
@@ -427,6 +451,7 @@ const PasswordVerifyContainer = ({
   return (
     <Stack>
       <PasswordVerify
+        pageMode={pageMode}
         passwordMode={passwordMode}
         alertText={alertText}
         disableInput={isProtectionTime}

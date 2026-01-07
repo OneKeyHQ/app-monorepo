@@ -72,10 +72,18 @@ export class GoogleDriveStorage {
         return false;
       }
       // Check if Google Play Services is available
-      const signedIn = await GoogleSignin.isSignedIn();
-      if (signedIn) {
-        await RNCloudFs.loginIfNeeded();
-        return true;
+      const hasPreviousSignedIn = GoogleSignin.hasPreviousSignIn();
+      if (hasPreviousSignedIn) {
+        try {
+          const response = await GoogleSignin.signInSilently();
+          if (response.type === 'success') {
+            await RNCloudFs.loginIfNeeded();
+            return true;
+          }
+        } catch (error) {
+          console.warn('Google Drive availability check failed:', error);
+          return false;
+        }
       }
       return false;
     } catch (error) {
@@ -90,13 +98,15 @@ export class GoogleDriveStorage {
     showSignInDialog: boolean;
   }): Promise<boolean> {
     GoogleSignin.configure(GoogleSignInConfigure);
-    const signedIn = await GoogleSignin.isSignedIn();
-    if (!signedIn) {
+    const hasPreviousSignedIn = GoogleSignin.hasPreviousSignIn();
+    if (!hasPreviousSignedIn) {
       if (showSignInDialog) {
         await GoogleSignin.signIn();
       } else {
         await GoogleSignin.signInSilently();
       }
+    } else {
+      await GoogleSignin.signInSilently();
     }
     return RNCloudFs.loginIfNeeded();
   }
@@ -117,19 +127,18 @@ export class GoogleDriveStorage {
     if (!platformEnv.isNativeAndroid) {
       return false;
     }
-    return GoogleSignin.isSignedIn();
+    return GoogleSignin.hasPreviousSignIn();
   }
 
   async getUserInfo(): Promise<IGoogleUserInfo | null> {
     await this.loginIfNeeded({ showSignInDialog: false });
 
-    const signedIn = await GoogleSignin.isSignedIn();
-    if (!signedIn) {
+    const hasPreviousSignedIn = GoogleSignin.hasPreviousSignIn();
+    if (!hasPreviousSignedIn) {
       return null;
     }
 
-    const userInfo: IGoogleUserInfo | null =
-      await GoogleSignin.getCurrentUser();
+    const userInfo: IGoogleUserInfo | null = GoogleSignin.getCurrentUser();
     return userInfo;
   }
 
@@ -140,8 +149,8 @@ export class GoogleDriveStorage {
     const { fileName, content } = params;
 
     // Ensure user is signed in
-    const signedIn = await GoogleSignin.isSignedIn();
-    if (!signedIn) {
+    const hasPreviousSignedIn = GoogleSignin.hasPreviousSignIn();
+    if (!hasPreviousSignedIn) {
       throw new OneKeyLocalError(
         'Not signed in to Google. Please sign in first.',
       );
@@ -194,8 +203,8 @@ export class GoogleDriveStorage {
     const { fileId } = params;
 
     // Ensure user is signed in
-    const signedIn = await GoogleSignin.isSignedIn();
-    if (!signedIn) {
+    const hasPreviousSignedIn = GoogleSignin.hasPreviousSignIn();
+    if (!hasPreviousSignedIn) {
       throw new OneKeyLocalError(
         'Not signed in to Google. Please sign in first.',
       );
@@ -217,8 +226,8 @@ export class GoogleDriveStorage {
     const { fileId } = params;
 
     // Ensure user is signed in
-    const signedIn = await GoogleSignin.isSignedIn();
-    if (!signedIn) {
+    const hasPreviousSignedIn = GoogleSignin.hasPreviousSignIn();
+    if (!hasPreviousSignedIn) {
       throw new OneKeyLocalError(
         'Not signed in to Google. Please sign in first.',
       );
@@ -232,8 +241,8 @@ export class GoogleDriveStorage {
 
   async listFiles(): Promise<{ files: IGoogleDriveFile[] }> {
     // Ensure user is signed in
-    const signedIn = await GoogleSignin.isSignedIn();
-    if (!signedIn) {
+    const hasPreviousSignedIn = GoogleSignin.hasPreviousSignIn();
+    if (!hasPreviousSignedIn) {
       throw new OneKeyLocalError(
         'Not signed in to Google. Please sign in first.',
       );
