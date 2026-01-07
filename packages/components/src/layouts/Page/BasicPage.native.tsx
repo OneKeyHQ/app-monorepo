@@ -148,9 +148,11 @@ const AbsoluteLoadingContainer = platformEnv.isNativeIOS
         }
         setTimeout(() => {
           changeChildrenVisibleStatus(true);
-          requestIdleCallback(() => {
-            changeLoadingVisibleStatus(false);
-          });
+          setTimeout(() => {
+            requestIdleCallback(() => {
+              changeLoadingVisibleStatus(false);
+            });
+          }, 120);
         }, 1);
       }, [isModalPage, pageType]);
 
