@@ -9,7 +9,12 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsModalPage, useIsOverlayPage } from '../../hocs';
+import {
+  EPageType,
+  useIsModalPage,
+  useIsOverlayPage,
+  usePageType,
+} from '../../hocs';
 import { Spinner, Stack, View, YStack } from '../../primitives';
 
 import { useIsIpadModalPage, useTabBarHeight } from './hooks';
@@ -74,6 +79,27 @@ function PageStatusBar() {
   return <StatusBar animated barStyle="dark-content" />;
 }
 
+function AbsoluteContainer({ children }: PropsWithChildren) {
+  return (
+    <Stack
+      bg="$bgApp"
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      bottom={0}
+      opacity={1}
+      flex={1}
+      animation="quick"
+      exitStyle={{
+        opacity: 0,
+      }}
+    >
+      {children}
+    </Stack>
+  );
+}
+
 function LoadingScreen({
   children,
   fullPage,
@@ -99,27 +125,43 @@ function LoadingScreen({
       {showChildren ? children : null}
       <AnimatePresence>
         {showLoading ? (
-          <Stack
-            bg="$bgApp"
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            opacity={1}
-            flex={1}
-            animation="quick"
-            exitStyle={{
-              opacity: 0,
-            }}
-          >
+          <AbsoluteContainer>
             <Loading />
-          </Stack>
+          </AbsoluteContainer>
         ) : null}
       </AnimatePresence>
     </View>
   );
 }
+
+const AbsoluteLoadingContainer = platformEnv.isNativeIOS
+  ? ({ children }: PropsWithChildren) => {
+      const [showLoading, changeLoadingVisibleStatus] = useState(true);
+      const [showChildren, changeChildrenVisibleStatus] = useState(false);
+      const pageType = usePageType();
+      const isModalPage = pageType === EPageType.modal;
+      useEffect(() => {
+        if (!isModalPage) {
+          return;
+        }
+        setTimeout(() => {
+          changeChildrenVisibleStatus(true);
+          setTimeout(() => {
+            changeLoadingVisibleStatus(false);
+          }, 120);
+        }, 10);
+      }, [isModalPage, pageType]);
+
+      return isModalPage ? (
+        <>
+          {showChildren ? children : null}
+          {showLoading ? <AbsoluteContainer /> : null}
+        </>
+      ) : (
+        children
+      );
+    }
+  : ({ children }: PropsWithChildren) => children;
 
 export function BasicPage({
   children,
@@ -135,7 +177,7 @@ export function BasicPage({
         {lazyLoad ? (
           <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
         ) : (
-          children
+          <AbsoluteLoadingContainer>{children}</AbsoluteLoadingContainer>
         )}
       </Stack>
     );
