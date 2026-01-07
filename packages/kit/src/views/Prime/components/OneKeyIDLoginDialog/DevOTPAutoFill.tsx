@@ -22,11 +22,6 @@ export function DevOTPAutoFill({ email }: IDevOTPAutoFillProps) {
     [testAccounts, email],
   );
 
-  // Only show when dev settings is enabled
-  if (!devSettings.enabled) {
-    return null;
-  }
-
   if (!matchingAccount) {
     return null;
   }

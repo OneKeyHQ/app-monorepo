@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -32,6 +33,7 @@ export function OneKeyIDVerifyCodeContent({
   onBack,
 }: IOneKeyIDVerifyCodeContentProps) {
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
@@ -186,7 +188,7 @@ export function OneKeyIDVerifyCodeContent({
           </SizableText>
         ) : null}
 
-        <DevOTPAutoFill email={email} />
+        {devSettings.enabled ? <DevOTPAutoFill email={email} /> : null}
       </YStack>
 
       <XStack gap="$2.5">

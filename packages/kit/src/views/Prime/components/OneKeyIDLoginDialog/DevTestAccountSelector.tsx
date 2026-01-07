@@ -17,11 +17,6 @@ export function DevTestAccountSelector() {
     [devSettings.settings?.testAccounts],
   );
 
-  // Only show when dev settings is enabled
-  if (!devSettings.enabled) {
-    return null;
-  }
-
   if (testAccounts.length === 0) {
     return null;
   }

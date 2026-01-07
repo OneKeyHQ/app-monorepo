@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Form, Icon, Input, YStack, useForm } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -19,6 +20,7 @@ export function OneKeyIDLoginContent({
   onEmailSubmit,
 }: IOneKeyIDLoginContentProps) {
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
   const form = useForm<{ email: string }>({
     defaultValues: { email: '' },
     mode: 'onSubmit',
@@ -86,7 +88,7 @@ export function OneKeyIDLoginContent({
           }}
         />
       </ListItem>
-      <DevTestAccountSelector />
+      {devSettings.enabled ? <DevTestAccountSelector /> : null}
       <Form form={form}>
         <Form.Field
           name="email"
