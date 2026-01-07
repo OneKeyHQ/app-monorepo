@@ -12,15 +12,10 @@ import {
 } from '@onekeyhq/shared/src/consts/perp';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import ServiceBase from '../ServiceBase';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-
-const REFERRAL_PROMPT_COOLDOWN_MS = timerUtils.getTimeDurationMs({
-  day: 7,
-});
 
 @backgroundClass()
 export default class ServiceHyperliquidReferral extends ServiceBase {
@@ -46,6 +41,14 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
   }): Promise<{ shouldShow: boolean; reason?: string }> {
     // Condition 1: Origin must be Hyperliquid and must be approveAgent sign
     if (origin !== HYPER_LIQUID_ORIGIN || !isApproveAgentSign) {
+      defaultLogger.perp.hyperliquid.referralConditionCheck({
+        userAddress,
+        condition: 'origin_and_action',
+        passed: false,
+        reason: `origin=${origin}, isApproveAgentSign=${String(
+          isApproveAgentSign,
+        )}`,
+      });
       return { shouldShow: false, reason: 'not_hyperliquid_approve_agent' };
     }
 
@@ -66,28 +69,7 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
       return { shouldShow: false, reason: 'invalid_account_type' };
     }
 
-    // Condition 3: Time interval check (7 days cooldown)
-    const lastShownTime =
-      await this.backgroundApi.simpleDb.perp.getReferralPromptLastShownTime(
-        userAddress,
-      );
-    if (
-      lastShownTime &&
-      Date.now() - lastShownTime < REFERRAL_PROMPT_COOLDOWN_MS
-    ) {
-      const daysSinceLastShown = Math.floor(
-        (Date.now() - lastShownTime) / timerUtils.getTimeDurationMs({ day: 1 }),
-      );
-      defaultLogger.perp.hyperliquid.referralConditionCheck({
-        userAddress,
-        condition: 'cooldown_period',
-        passed: false,
-        reason: `daysSinceLastShown=${daysSinceLastShown}, cooldownDays=7`,
-      });
-      return { shouldShow: false, reason: 'shown_recently' };
-    }
-
-    // Condition 4: Account has balance
+    // Condition 3: Account has balance
     const hasBalance = await this.checkAccountHasBalance({ userAddress });
     if (!hasBalance) {
       defaultLogger.perp.hyperliquid.referralConditionCheck({
@@ -99,7 +81,7 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
       return { shouldShow: false, reason: 'no_balance' };
     }
 
-    // Condition 5: No existing referrer
+    // Condition 4: No existing referrer
     const referralInfo = await this.getUserReferralInfo({ userAddress });
     if (referralInfo?.referredBy) {
       defaultLogger.perp.hyperliquid.referralConditionCheck({

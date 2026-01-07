@@ -982,7 +982,7 @@ class ServiceToken extends ServiceBase {
   }: {
     networkId: string;
     accountId: string;
-    aggregateTokenMap: Record<string, ITokenFiat>;
+    aggregateTokenMap: Record<string, Record<string, ITokenFiat>>;
   }) {
     return this.backgroundApi.simpleDb.aggregateToken.updateAggregateTokenMap({
       networkId,

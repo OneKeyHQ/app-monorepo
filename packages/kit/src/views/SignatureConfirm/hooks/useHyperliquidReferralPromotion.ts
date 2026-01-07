@@ -102,12 +102,6 @@ export function useHyperliquidReferralPromotion({
     });
 
     try {
-      // Update last shown time first
-      await backgroundApiProxy.simpleDb.perp.setReferralPromptLastShownTime(
-        userAddress,
-        Date.now(),
-      );
-
       // Step 1: Build the TypedData for setReferrer
       void backgroundApiProxy.serviceHyperliquidReferral.logReferralBindingStep(
         {
