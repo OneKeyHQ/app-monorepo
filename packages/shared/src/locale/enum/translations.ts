@@ -2871,6 +2871,8 @@
   private_key_staty_on_device = 'private_key_staty_on_device',
   promode_limit_sell_for = 'promode.limit_sell_for',
   promode_swap_unsupported_message = 'promode.swap_unsupported_message',
+  promode_swap_unsupported_message_btc = 'promode.swap_unsupported_message_btc',
+  promode_swap_unsupported_message_regular = 'promode.swap_unsupported_message_regular',
   promode_swap_unsupported_title = 'promode.swap_unsupported_title',
   promode_value_ws = 'promode.value_ws',
   protection_passwordless_nostr_signing_text = 'protection_passwordless_nostr_signing_text',

@@ -1023,6 +1023,8 @@ export interface ISpeedSwapConfig {
   speedConfig: ISwapProSpeedConfig;
   speedDefaultSelectToken?: ISwapTokenBase;
   supportSpeedSwap: boolean;
+  onlySupportCrossChain: boolean;
+  onlySupportSingleChain: boolean;
 }
 
 export enum ESwapLimitOrderStatus {

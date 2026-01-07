@@ -147,7 +147,9 @@ const SwapProTradeInfoGroup = ({
   const tradingFeeValue = useMemo(() => {
     const tradingFee = swapProQuoteResult?.fee?.percentageFee;
     const tradingFeeBN = new BigNumber(tradingFee || '0');
-    const isFreeOneKeyFee = tradingFeeBN.isZero() || tradingFeeBN.isNaN();
+    const isFreeOneKeyFee =
+      (tradingFeeBN.isZero() || tradingFeeBN.isNaN()) &&
+      swapProQuoteResult?.toAmount;
     if (isFreeOneKeyFee) {
       return {
         valueComponent: (
@@ -159,11 +161,20 @@ const SwapProTradeInfoGroup = ({
         ),
       };
     }
+    if (!swapProQuoteResult?.toAmount) {
+      return {
+        value: '-',
+      };
+    }
 
     return {
       value: `${tradingFee ?? '0'}%`,
     };
-  }, [intl, swapProQuoteResult?.fee?.percentageFee]);
+  }, [
+    intl,
+    swapProQuoteResult?.fee?.percentageFee,
+    swapProQuoteResult?.toAmount,
+  ]);
 
   const handleTokenSelect = useCallback(
     (token: IToken) => {

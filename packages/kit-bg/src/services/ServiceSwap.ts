@@ -2229,6 +2229,8 @@ export default class ServiceSwap extends ServiceBase {
         swapMevNetConfig: mevSwapNetworks,
       },
       supportSpeedSwap: false,
+      onlySupportCrossChain: false,
+      onlySupportSingleChain: false,
       speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
     };
     try {
