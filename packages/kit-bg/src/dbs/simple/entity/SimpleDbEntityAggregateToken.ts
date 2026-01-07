@@ -14,6 +14,10 @@ export interface ISimpleDBAggregateToken {
   aggregateTokenSymbolMap?: Record<string, boolean>;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   aggregateTokenMap?: Record<string, Record<string, ITokenFiat>>;
+  aggregateTokenMapV2?: Record<
+    string,
+    Record<string, Record<string, ITokenFiat>>
+  >;
   aggregateTokenListMap?: Record<
     string,
     Record<
@@ -84,7 +88,7 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
       networkId,
       accountId,
     });
-    return (await this.getRawData())?.aggregateTokenMap?.[key] ?? {};
+    return (await this.getRawData())?.aggregateTokenMapV2?.[key] ?? {};
   }
 
   @backgroundMethod()
@@ -95,7 +99,7 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
   }: {
     accountId: string;
     networkId: string;
-    aggregateTokenMap: Record<string, ITokenFiat>;
+    aggregateTokenMap: Record<string, Record<string, ITokenFiat>>;
   }) {
     const key = buildLocalAggregateTokenMapKey({
       networkId,
@@ -104,8 +108,8 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     await this.setRawData((rawData) => {
       return {
         ...rawData,
-        aggregateTokenMap: {
-          ...(rawData?.aggregateTokenMap ?? {}),
+        aggregateTokenMapV2: {
+          ...(rawData?.aggregateTokenMapV2 ?? {}),
           [key]: aggregateTokenMap,
         },
       };

@@ -5,7 +5,7 @@ import { NumberSizeableText } from '@onekeyhq/components';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
-  useAggregateTokensMapAtom,
+  useFlattenAggregateTokensMapAtom,
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
 
@@ -16,7 +16,7 @@ type IProps = {
 function TokenPriceChangeView(props: IProps) {
   const { $key, ...rest } = props;
   const [tokenListMap] = useTokenListMapAtom();
-  const [aggregateTokensMap] = useAggregateTokensMapAtom();
+  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
   const priceChange = token?.price24h ?? 0;
 
