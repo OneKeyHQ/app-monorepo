@@ -115,7 +115,7 @@ function LoadingScreen({
           requestIdleCallback(() => {
             changeLoadingVisibleStatus(false);
           });
-        }, 120);
+        }, 350);
       },
       platformEnv.isNativeAndroid ? 10 : 0,
     );
@@ -152,7 +152,7 @@ const AbsoluteLoadingContainer = platformEnv.isNativeIOS
             requestIdleCallback(() => {
               changeLoadingVisibleStatus(false);
             });
-          }, 250);
+          }, 380);
         }, 1);
       }, [isModalPage, pageType]);
 
