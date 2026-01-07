@@ -14,6 +14,8 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
 
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
@@ -183,6 +185,13 @@ export const Overview = () => {
       }
     }
 
+    const stakingInfo = {
+      label: EEarnLabels.Claim,
+      protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+      protocolLogoURI: market?.logoURI,
+      tags: [] as string[],
+    };
+
     showBorrowClaimRewardsDialog({
       rewardsDetails,
       onClaimItem: async (item) => {
@@ -190,6 +199,7 @@ export const Overview = () => {
           provider,
           marketAddress,
           ids: [item.id],
+          stakingInfo,
           onSuccess: handleRefresh,
         });
       },
@@ -198,6 +208,7 @@ export const Overview = () => {
           provider,
           marketAddress,
           ids: allIds,
+          stakingInfo,
           onSuccess: handleRefresh,
         });
       },
@@ -209,6 +220,7 @@ export const Overview = () => {
     marketAddress,
     networkId,
     earnAccountId,
+    market?.logoURI,
     handleBorrowClaim,
     handleRefresh,
   ]);

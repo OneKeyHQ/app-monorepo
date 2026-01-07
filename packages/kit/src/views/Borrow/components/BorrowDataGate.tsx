@@ -165,10 +165,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     networkId: marketNetworkId,
     provider: marketProvider,
     onRefresh: () => {
-      // Re-fetch all reserves
-      // The simplest way to trigger re-fetch is to invalidate the cache or manually call the fetch function
-      // But here we rely on the `usePromiseResult` at line 54 re-running if we had a way to trigger it.
-      // However, `usePromiseResult` returns `run` (aliased as `refreshReserves` below) which we can call.
+      // Re-fetch all reserves when pending transactions complete
       void refreshReserves();
     },
   });

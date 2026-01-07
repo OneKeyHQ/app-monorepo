@@ -85,7 +85,12 @@ export const useBorrowActions = ({
                   token: receiveToken,
                   amount: claimAmount,
                 },
-                tags: [],
+                tags: [
+                  buildLocalTxStatusSyncId({
+                    providerName: provider,
+                    tokenSymbol: symbol,
+                  }),
+                ],
               }
             : undefined,
           portfolioSymbol: symbol,
