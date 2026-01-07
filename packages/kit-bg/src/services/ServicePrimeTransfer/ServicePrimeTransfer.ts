@@ -880,12 +880,7 @@ class ServicePrimeTransfer extends ServiceBase {
     const { wallets } = await serviceAccount.getWallets();
 
     // Filter out keyless wallets
-    const filteredWallets = wallets.filter(
-      (wallet) =>
-        !accountUtils.isKeylessWallet({
-          walletId: wallet.id,
-        }),
-    );
+    const filteredWallets = wallets.filter((wallet) => !wallet.isKeyless);
 
     const walletAccountMap = filteredWallets.reduce((summary, current) => {
       summary[current.id] = current;
@@ -1001,17 +996,14 @@ class ServicePrimeTransfer extends ServiceBase {
         // eslint-disable-next-line no-continue
         continue;
       }
-      // Skip accounts belonging to keyless wallets
-      if (
-        accountUtils.isKeylessWallet({
-          walletId,
-        })
-      ) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
+
       const wallet = walletAccountMap[walletId];
       if (wallet) {
+        // Skip accounts belonging to keyless wallets
+        if (wallet?.isKeyless) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         const getNetworkAccountInfo = async () => {
           let networkAccount: INetworkAccount | undefined;
           const networkId = await serviceAccount.getAccountCreatedNetworkId({

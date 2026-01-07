@@ -122,6 +122,7 @@
     "isomorphic-ws": "^4.0.1",
     "jotai": "^2.5.0",
     "js-md5": "^0.8.3",
+    "juicebox-sdk": "^0.3.4",
     "lightweight-charts": "^3.8.0",
     "long": "^5.2.1",
     "lru-cache": "^10.2.0",

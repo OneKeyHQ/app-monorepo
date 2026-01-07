@@ -30,6 +30,9 @@ export function WalletRemoveButton({
     if (platformEnv.isWebDappMode) {
       return intl.formatMessage({ id: ETranslations.explore_disconnect });
     }
+    if (wallet?.isKeyless) {
+      return intl.formatMessage({ id: ETranslations.log_out_wallet });
+    }
     if (accountUtils.isHwHiddenWallet({ wallet })) {
       return intl.formatMessage({ id: ETranslations.remove_hidden_wallet });
     }
@@ -46,9 +49,19 @@ export function WalletRemoveButton({
     });
   }, [isRemoveToMocked, wallet, intl]);
 
+  const icon = useMemo(() => {
+    if (wallet?.isKeyless) {
+      return 'LogoutOutline';
+    }
+    if (isRemoveToMocked) {
+      return 'DeleteOutline';
+    }
+    return 'EjectOutline';
+  }, [wallet?.isKeyless, isRemoveToMocked]);
+
   return (
     <ActionList.Item
-      icon={isRemoveToMocked ? 'DeleteOutline' : 'EjectOutline'}
+      icon={icon}
       destructive
       label={label}
       onClose={onClose}

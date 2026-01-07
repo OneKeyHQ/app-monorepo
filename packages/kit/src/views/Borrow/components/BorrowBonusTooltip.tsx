@@ -112,7 +112,7 @@ export const BorrowBonusTooltip = ({
             <Icon size="$4" name="InfoCircleOutline" color="$iconSubdued" />
           </XStack>
         }
-        title={intl.formatMessage({ id: ETranslations.earn_referral_bonus })}
+        title={intl.formatMessage({ id: ETranslations.defi_platform_bonus })}
         renderContent={
           <YStack mt="$2.5" overflow="hidden" borderRadius="$3">
             {/* Total received header with History button */}

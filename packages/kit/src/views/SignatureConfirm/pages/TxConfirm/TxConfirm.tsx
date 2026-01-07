@@ -321,9 +321,6 @@ function TxConfirm() {
   });
 
   useEffect(() => {
-    dismissKeyboard();
-    updateUnsignedTxs(unsignedTxs);
-
     const refreshNativeTokenInfo = () => {
       visitReceiveSelectorRef.current = true;
       void fetchNativeTokenInfo();
@@ -344,14 +341,12 @@ function TxConfirm() {
         refreshNativeTokenInfo,
       );
     };
-  }, [
-    isQueueMode,
-    unsignedTxQueue,
-    unsignedTxs,
-    updateSendFeeStatus,
-    updateUnsignedTxs,
-    fetchNativeTokenInfo,
-  ]);
+  }, [fetchNativeTokenInfo, updateSendFeeStatus]);
+
+  useEffect(() => {
+    dismissKeyboard();
+    updateUnsignedTxs(unsignedTxs);
+  }, [unsignedTxs, updateUnsignedTxs]);
 
   useEffect(() => {
     if (sourceInfo) {

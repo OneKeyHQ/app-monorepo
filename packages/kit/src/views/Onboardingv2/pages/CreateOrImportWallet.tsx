@@ -10,7 +10,6 @@ import {
   AnimatePresence,
   Badge,
   Button,
-  Dialog,
   HeightTransition,
   Icon,
   Image,
@@ -31,7 +30,6 @@ import {
   EOnboardingPages,
   EOnboardingPagesV2,
 } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -43,8 +41,6 @@ import {
 } from '../../../components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
-import { showOneKeyIDLoginDialog } from '../../Prime/components/OneKeyIDLoginDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { AnimatedDeviceAvatar } from './GetStarted';
@@ -152,12 +148,14 @@ function CreateOrImportWallet() {
   const [expanded, setExpanded] = useState(false);
   const [keylessExpanded, setKeylessExpanded] = useState(false);
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
-  const { enableKeylessWallet, enableKeylessWalletLoading } =
-    useKeylessWallet();
+  const {
+    enableKeylessWallet,
+    enableKeylessWalletLoading,
+    checkKeylessWalletLocalExistence,
+  } = useKeylessWallet();
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
   const navigation = useAppNavigation();
-  const { isLoggedIn } = useOneKeyAuth();
 
   const handleExpand = useCallback(() => {
     setExpanded((prev) => !prev);
@@ -202,10 +200,19 @@ function CreateOrImportWallet() {
   };
 
   const handleKeylessWalletClick = useCallback(async () => {
+    // await enableKeylessWallet({
+    //   fromScene: EKeylessWalletEnableScene.Onboarding,
+    // });
+    // navigation.push(EOnboardingPagesV2.OneKeyIDLogin);
+    await checkKeylessWalletLocalExistence();
+  }, [checkKeylessWalletLocalExistence]);
+
+  const handleKeylessWalletLegacyClick = useCallback(async () => {
     await enableKeylessWallet({
       fromScene: EKeylessWalletEnableScene.Onboarding,
     });
   }, [enableKeylessWallet]);
+
   return (
     <Page>
       <OnboardingLayout>
@@ -300,6 +307,11 @@ function CreateOrImportWallet() {
               </>
             ) : null}
             {/* keyless wallet */}
+            {isKeylessWalletEnabled && platformEnv.isDev ? (
+              <Button onPress={handleKeylessWalletLegacyClick}>
+                Keyless wallet legacy
+              </Button>
+            ) : null}
             {isKeylessWalletEnabled ? (
               <Card onPress={handleKeylessWalletClick}>
                 <Card.Header>
@@ -317,7 +329,11 @@ function CreateOrImportWallet() {
                     <Icon name="CloudOutline" color="$iconOnColor" />
                   </YStack>
                   <YStack gap="$0.5" flex={1} alignItems="flex-start">
-                    <Card.Title>Keyless wallet</Card.Title>
+                    <Card.Title>
+                      {intl.formatMessage({
+                        id: ETranslations.keyless_wallet,
+                      })}
+                    </Card.Title>
                     <Button
                       px="$1"
                       py="$0.5"
@@ -355,28 +371,63 @@ function CreateOrImportWallet() {
                     {intl.formatMessage({ id: ETranslations.global_enabled })}
                   </SizableText>
                 ) : null} */}
-                  {enableKeylessWalletLoading ? (
-                    <Spinner size="small" color="$iconDisabled" />
-                  ) : (
-                    <Icon
-                      name="ChevronRightSmallOutline"
-                      color="$iconSubdued"
-                    />
-                  )}
+                  <AnimatePresence exitBeforeEnter initial={false}>
+                    {enableKeylessWalletLoading ? (
+                      <YStack
+                        key="loading"
+                        animation="quick"
+                        animateOnly={['transform', 'opacity']}
+                        enterStyle={{ scale: 0.7, opacity: 0 }}
+                        exitStyle={{ scale: 0.7, opacity: 0 }}
+                        pr="$0.5"
+                      >
+                        <Spinner size="small" color="$iconDisabled" />
+                      </YStack>
+                    ) : (
+                      <YStack
+                        key="icon"
+                        animation="quick"
+                        animateOnly={['transform', 'opacity']}
+                        enterStyle={{ scale: 0.7, opacity: 0 }}
+                        exitStyle={{ scale: 0.7, opacity: 0 }}
+                      >
+                        <Icon
+                          name="ChevronRightSmallOutline"
+                          color="$iconSubdued"
+                        />
+                      </YStack>
+                    )}
+                  </AnimatePresence>
                 </Card.Header>
                 <Card.Body>
                   <XStack gap="$2" flexWrap="wrap">
                     {[
                       {
-                        title: 'Recovery phrase free',
+                        title: intl.formatMessage({
+                          id: ETranslations.recovery_phrase_free,
+                        }),
                         badge: 'success' as const,
                       },
-                      { title: 'Beginner-friendly' },
-                      { title: 'Supports hundreds of networks' },
                       {
-                        title: 'Open-source secure sharding',
+                        title: intl.formatMessage({
+                          id: ETranslations.beginner_friendly,
+                        }),
                       },
-                      { title: 'Ultra-fast setup' },
+                      {
+                        title: intl.formatMessage({
+                          id: ETranslations.create_new_wallet_badge_supports,
+                        }),
+                      },
+                      {
+                        title: intl.formatMessage({
+                          id: ETranslations.open_source_secure_sharding,
+                        }),
+                      },
+                      {
+                        title: intl.formatMessage({
+                          id: ETranslations.ultra_fast_setup,
+                        }),
+                      },
                     ].map((item, index) => (
                       <Badge
                         key={index}
@@ -399,11 +450,6 @@ function CreateOrImportWallet() {
                           size="$3"
                           y={-1}
                         />
-                        <Icon
-                          name="EmailOutline"
-                          color="$iconActive"
-                          size="$3"
-                        />
                       </XStack>
                     </Badge>
                   </XStack>
@@ -422,11 +468,9 @@ function CreateOrImportWallet() {
                           }}
                         >
                           <SizableText size="$bodySm" color="$textSubdued">
-                            Cloud wallet, powered by Shamir encrypted backup,
-                            splits your seed phrase into 3 parts. Any 2 parts
-                            can restore your wallet, and you always retain full
-                            control of your assets. Even if one part is lost,
-                            your wallet remains safe and recoverable.
+                            {intl.formatMessage({
+                              id: ETranslations.keyless_wallet_desc,
+                            })}
                           </SizableText>
                         </YStack>
                       ) : null}
@@ -435,6 +479,7 @@ function CreateOrImportWallet() {
                 </Card.Body>
               </Card>
             ) : null}
+
             {/* create new wallet */}
             <Card onPress={handleCreateNewWallet}>
               <Card.Header>
@@ -454,7 +499,9 @@ function CreateOrImportWallet() {
                 <YStack gap="$0.5" flex={1} alignItems="flex-start">
                   <Card.Title>
                     {isKeylessWalletEnabled
-                      ? 'Seed phrase wallet'
+                      ? intl.formatMessage({
+                          id: ETranslations.seed_phrase_wallet,
+                        })
                       : intl.formatMessage({
                           id: ETranslations.onboarding_create_new_wallet,
                         })}

@@ -27,10 +27,12 @@ export const {
 } = globalAtom<{
   token: ISwapToken | undefined;
   type: ESwapTabSwitchType;
+  direction: 'from' | 'to';
 }>({
   name: EAtomNames.swapFromMarketJumpTokenAtom,
   initialValue: {
     token: undefined,
     type: ESwapTabSwitchType.SWAP,
+    direction: 'from',
   },
 });

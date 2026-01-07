@@ -13,6 +13,7 @@ __generated__
 .clauderc
 .tmp/
 *.private_ai_docs.md
+.cursor/plans/
 dist
 build-electron
 .next

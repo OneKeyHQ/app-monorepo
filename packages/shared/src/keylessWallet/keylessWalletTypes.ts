@@ -1,5 +1,7 @@
 import type { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 
+import type { JWTPayload } from 'jose';
+
 export type IKeylessWalletShare = string; // base64 string
 
 export type IKeylessWalletUserInfo = {
@@ -99,4 +101,29 @@ export type IKeylessWalletRestoredData = {
   deviceKeyPackData: IDeviceKeyPackEncryptedData | undefined;
   cloudKeyPackData: ICloudKeyPackEncryptedData | undefined;
   packs: IKeylessWalletPacks;
+};
+
+export type IKeylessBackendShare = {
+  ownerId: string;
+  encryptedMnemonic: string;
+  backendShare: string;
+  // pinSalt: string; // TODO
+  juiceboxShareX: number; // x-coordinate of the juicebox share for recovery
+};
+
+export type IKeylessJuiceboxShare = {
+  ownerId: string;
+  pin: string;
+  juiceboxShare: string;
+  backendShareX: number; // x-coordinate of the backend share for recovery
+};
+
+export type ISupabaseJWTPayload = JWTPayload & {
+  app_metadata: {
+    provider: string;
+  };
+  user_metadata: {
+    sub: string;
+    iss: string;
+  };
 };

@@ -734,6 +734,7 @@ export default class Vault extends VaultBase {
     let extraInfo: IDecodedTxExtraSol | null = null;
     if (
       !unsignedTx.swapInfo &&
+      !unsignedTx.stakingInfo &&
       instructions.some(
         (instruction) =>
           instruction.programId.toString() ===

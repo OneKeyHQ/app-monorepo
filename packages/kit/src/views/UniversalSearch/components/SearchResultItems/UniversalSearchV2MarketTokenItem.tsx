@@ -220,7 +220,14 @@ export function UniversalSearchV2MarketTokenItem({
         flex={1}
         primary={
           <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodyLgMedium">{symbol}</SizableText>
+            <SizableText
+              size="$bodyLgMedium"
+              numberOfLines={1}
+              maxWidth="$60"
+              flexShrink={1}
+            >
+              {symbol}
+            </SizableText>
             {communityRecognized ? <CommunityRecognizedBadge /> : null}
           </XStack>
         }

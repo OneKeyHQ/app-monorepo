@@ -4,20 +4,16 @@ import { useIntl } from 'react-intl';
 
 import { ActionList, Divider } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalRoutes,
-  EOnboardingV2KeylessWalletCreationMode,
-} from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
@@ -41,14 +37,11 @@ function WalletEditButtonView({
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: num ?? 0 });
-  const navigation = useAppNavigation();
-  const isKeyless = useMemo(
-    () => accountUtils.isKeylessWallet({ walletId: wallet?.id || '' }),
-    [wallet],
-  );
+  const isKeyless = useMemo(() => wallet?.isKeyless, [wallet]);
 
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
+  const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
 
   const isPrimeUser = useMemo(() => {
     return user?.primeSubscription?.isActive && user?.onekeyUserId;
@@ -126,18 +119,29 @@ function WalletEditButtonView({
             onClose={handleActionListClose}
           />
 
-          {/* Keyless wallet: Keys & Recovery */}
+          {/* Keyless wallet: Reset PIN */}
           {isKeyless ? (
             <ActionList.Item
-              icon="Key2Outline"
-              label="Keys & Recovery"
+              icon="InputOutline"
+              label={intl.formatMessage({ id: ETranslations.reset_pin })}
               onClose={handleActionListClose}
               onPress={() => {
-                navigation.push(EModalRoutes.PrimeModal, {
-                  screen: EPrimePages.KeylessWallet,
-                  params: {
-                    mode: EOnboardingV2KeylessWalletCreationMode.View,
-                  },
+                void goToOneKeyIDLoginPageForKeylessWallet({
+                  mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
+                });
+              }}
+            />
+          ) : null}
+
+          {/* Keyless wallet: Verify PIN */}
+          {isKeyless ? (
+            <ActionList.Item
+              icon="ChecklistOutline"
+              label="Verify PIN"
+              onClose={handleActionListClose}
+              onPress={() => {
+                void goToOneKeyIDLoginPageForKeylessWallet({
+                  mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
                 });
               }}
             />
@@ -211,7 +215,8 @@ function WalletEditButtonView({
       showAddHiddenWalletButton,
       showRemoveWalletButton,
       showRemoveDeviceButton,
-      navigation,
+      goToOneKeyIDLoginPageForKeylessWallet,
+      intl,
     ],
   );
 
