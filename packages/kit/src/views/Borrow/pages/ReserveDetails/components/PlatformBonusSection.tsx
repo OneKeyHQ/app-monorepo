@@ -65,29 +65,19 @@ export function PlatformBonusSection({
           </>
         ) : null}
       </XStack>
-      <XStack ai="center" jc="space-between">
-        <XStack ai="center" gap="$1.5" flexWrap="wrap">
-          {platformBonus.rewards.map((reward, index) => (
-            <XStack key={index} ai="center" gap="$1.5">
-              <Token size="xs" tokenImageUri={reward.logoURI} />
-              <EarnText
-                text={reward.type}
-                size="$bodySm"
-                color="$textSubdued"
-              />
-              <EarnText
-                text={reward.title}
-                size="$bodySmMedium"
-                color="$text"
-              />
-              <EarnText
-                text={reward.description}
-                size="$bodySm"
-                color="$textSubdued"
-              />
-            </XStack>
-          ))}
-        </XStack>
+      <XStack ai="center" gap="$1.5" flexWrap="wrap">
+        {platformBonus.rewards.map((reward, index) => (
+          <XStack key={index} ai="center" gap="$1.5">
+            <Token size="xs" tokenImageUri={reward.logoURI} />
+            <EarnText text={reward.type} size="$bodySm" color="$textSubdued" />
+            <EarnText text={reward.title} size="$bodySmMedium" color="$text" />
+            <EarnText
+              text={reward.description}
+              size="$bodySm"
+              color="$textSubdued"
+            />
+          </XStack>
+        ))}
         {platformBonus.button ? (
           <XStack
             cursor="pointer"

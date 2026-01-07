@@ -142,46 +142,20 @@ export function useSpeedSwapActions(props: {
 
   useEffect(() => {
     void (async () => {
-      if (tradeType === ESwapDirection.BUY) {
-        if (!tradeToken?.networkId) return;
-        const tokenDetail =
-          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: tradeToken?.networkId ?? '',
-            contractAddress: tradeToken?.contractAddress ?? '',
-          });
-        if (tokenDetail?.length) {
-          setTradeTokenDetail({
-            ...tokenDetail[0],
-            symbol: tradeToken?.symbol,
-            logoURI: tokenDetail[0]?.logoURI
-              ? tokenDetail[0]?.logoURI
-              : tradeToken?.logoURI,
-          });
-        }
-      } else {
-        const sellTradeToken = defaultTradeTokens?.find(
-          (item) => item.isNative,
-        ) ?? {
-          networkId: tradeToken?.networkId,
-          contractAddress: tradeToken?.contractAddress,
+      if (!tradeToken?.networkId) return;
+      const tokenDetail =
+        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId: tradeToken?.networkId ?? '',
+          contractAddress: tradeToken?.contractAddress ?? '',
+        });
+      if (tokenDetail?.length) {
+        setTradeTokenDetail({
+          ...tokenDetail[0],
           symbol: tradeToken?.symbol,
-          logoURI: tradeToken?.logoURI,
-        };
-        if (!sellTradeToken?.networkId) return;
-        const tokenDetail =
-          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: sellTradeToken?.networkId ?? '',
-            contractAddress: sellTradeToken?.contractAddress ?? '',
-          });
-        if (tokenDetail?.length) {
-          setTradeTokenDetail({
-            ...tokenDetail[0],
-            symbol: sellTradeToken?.symbol ?? '',
-            logoURI: tokenDetail[0]?.logoURI
-              ? tokenDetail[0]?.logoURI
-              : sellTradeToken?.logoURI,
-          });
-        }
+          logoURI: tokenDetail[0]?.logoURI
+            ? tokenDetail[0]?.logoURI
+            : tradeToken?.logoURI,
+        });
       }
     })();
   }, [
@@ -955,7 +929,13 @@ export function useSpeedSwapActions(props: {
     if (fromToken.networkId && toToken.networkId) {
       void fetchTokenPrice();
     }
-  }, [fetchTokenPrice, fromToken.networkId, toToken.networkId]);
+  }, [
+    fetchTokenPrice,
+    fromToken.networkId,
+    toToken.networkId,
+    fromToken.contractAddress,
+    toToken.contractAddress,
+  ]);
 
   useEffect(() => {
     if (fromToken?.networkId && fromToken?.isNative) {

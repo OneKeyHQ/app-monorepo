@@ -51,6 +51,8 @@ const SwapProTabListContainer = memo(
     const [swapCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
     const [swapTypeSwitch] = useSwapTypeSwitchAtom();
     const [swapToToken] = useSwapSelectToTokenAtom();
+    const [shouldRenderLists, setShouldRenderLists] = useState(false);
+
     useSwapProSupportNetworksTokenList(supportNetworksList);
     const focusSwapPro = useMemo(() => {
       return (
@@ -58,11 +60,20 @@ const SwapProTabListContainer = memo(
       );
     }, [swapTypeSwitch]);
     const filterToken = useMemo(() => {
+      if (!swapCurrentSymbolEnable) {
+        return undefined;
+      }
       if (focusSwapPro) {
         return swapProTokenSelect ? [swapProTokenSelect] : [];
       }
       return [swapFromToken, swapToToken].filter((t) => t !== undefined);
-    }, [focusSwapPro, swapFromToken, swapToToken, swapProTokenSelect]);
+    }, [
+      swapCurrentSymbolEnable,
+      focusSwapPro,
+      swapFromToken,
+      swapToToken,
+      swapProTokenSelect,
+    ]);
     const openOrdersTabName = useMemo(() => {
       return focusSwapPro
         ? ETabName.SwapProOpenOrders
@@ -72,8 +83,6 @@ const SwapProTabListContainer = memo(
     const changeTabToLimitOrderList = useCallback(() => {
       setActiveTab(openOrdersTabName);
     }, [setActiveTab, openOrdersTabName]);
-
-    const [shouldRenderLists, setShouldRenderLists] = useState(false);
 
     useEffect(() => {
       appEventBus.off(
@@ -96,7 +105,7 @@ const SwapProTabListContainer = memo(
     useEffect(() => {
       const timer = setTimeout(() => {
         setShouldRenderLists(true);
-      }, 100);
+      }, 200);
       return () => {
         clearTimeout(timer);
       };
@@ -135,9 +144,7 @@ const SwapProTabListContainer = memo(
                 <SwapProPositionsList
                   onTokenPress={onTokenPress}
                   onSearchClick={onSearchClick}
-                  filterToken={
-                    swapCurrentSymbolEnable ? filterToken : undefined
-                  }
+                  filterToken={filterToken}
                 />
               </YStack>
               <YStack
@@ -149,9 +156,7 @@ const SwapProTabListContainer = memo(
                   <LimitOrderList
                     onClickCell={onOpenOrdersClick}
                     type="open"
-                    filterToken={
-                      swapCurrentSymbolEnable ? filterToken : undefined
-                    }
+                    filterToken={filterToken}
                   />
                 ) : (
                   <XStack mx="$-6">
@@ -161,9 +166,7 @@ const SwapProTabListContainer = memo(
                           ? 'swap'
                           : 'bridge'
                       }
-                      filterToken={
-                        swapCurrentSymbolEnable ? filterToken : undefined
-                      }
+                      filterToken={filterToken}
                       isPushModal
                     />
                   </XStack>

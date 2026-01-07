@@ -125,7 +125,9 @@ export function WebViewWebEmbed({
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
     if (webEmbedPath) {
       return {
-        uri: webEmbedPath,
+        uri: platformEnv.isNativeAndroid
+          ? `file://${webEmbedPath}/index.html`
+          : webEmbedPath,
       };
     }
     // Android
@@ -196,6 +198,14 @@ export function WebViewWebEmbed({
     }
   }, []);
 
+  const allowFileAccessByUrl = useMemo(() => {
+    if (platformEnv.isNativeAndroid) {
+      const webEmbedPath = BundleUpdate.getWebEmbedPath();
+      return !!webEmbedPath;
+    }
+    return undefined;
+  }, []);
+
   const webview = useMemo(() => {
     if (!webEmbedAppSettings) {
       return null;
@@ -221,6 +231,8 @@ export function WebViewWebEmbed({
 
     return (
       <WebView
+        allowFileAccess={allowFileAccessByUrl}
+        allowFileAccessFromFileURLs={allowFileAccessByUrl}
         pullToRefreshEnabled={false}
         useGeckoView={false}
         // *** use remote url
@@ -253,15 +265,17 @@ export function WebViewWebEmbed({
       />
     );
   }, [
-    customReceiveHandler,
-    handleMessage,
+    webEmbedAppSettings,
     hashRoutePath,
     hashRouteQueryParams,
+    devSettingsPersistAtom.enabled,
+    devSettingsPersistAtom.settings?.disableWebEmbedApi,
+    allowFileAccessByUrl,
+    remoteUrl,
     nativeWebviewSource,
     onWebViewRef,
-    remoteUrl,
-    webEmbedAppSettings,
-    devSettingsPersistAtom,
+    customReceiveHandler,
+    handleMessage,
   ]);
 
   useEffect(() => {

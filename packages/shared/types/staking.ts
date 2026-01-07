@@ -366,6 +366,7 @@ export interface IBorrowApyDetailItem {
   description?: IEarnText;
   value: {
     text: IEarnText;
+    icon?: IEarnIcon;
   };
 }
 
@@ -383,6 +384,7 @@ export interface IBorrowApyDetailPopupData {
     normal?: IBorrowApyDetailSection;
     supplyBonus?: IBorrowApyDetailSection;
     collateralBonus?: IBorrowApyDetailSection;
+    platformBonus?: IBorrowApyDetailSection;
     totalApy?: {
       icon?: {
         icon: IKeyOfIcons;

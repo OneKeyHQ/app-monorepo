@@ -1,15 +1,69 @@
+import { useCallback, useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Alert } from '@onekeyhq/components';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSwapFromMarketJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ESwapTabSwitchType,
+  type ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 export function UnsupportedSwapWarning({
   customMessage,
+  actionToken,
+  actionTranslationId,
+  onCloseDialog,
 }: {
   customMessage?: string;
+  actionToken?: ISwapToken;
+  actionTranslationId?: string;
+  onCloseDialog?: () => void;
 }) {
   const intl = useIntl();
-
+  const [, setSwapFromMarketJumpTokenAtom] = useSwapFromMarketJumpTokenAtom();
+  const navigation = useAppNavigation();
+  const handleAlertAction = useCallback(
+    (actionName: string) => {
+      onCloseDialog?.();
+      if (actionName === 'bridge_action') {
+        setSwapFromMarketJumpTokenAtom({
+          token: actionToken,
+          type: ESwapTabSwitchType.BRIDGE,
+        });
+        navigation.switchTab(ETabRoutes.Swap);
+      }
+    },
+    [onCloseDialog, setSwapFromMarketJumpTokenAtom, actionToken, navigation],
+  );
+  const description = useMemo(() => {
+    if (actionTranslationId) {
+      return undefined;
+    }
+    return (
+      customMessage ||
+      intl.formatMessage({ id: ETranslations.dexmarket_swap_unsupported_desc })
+    );
+  }, [actionTranslationId, customMessage, intl]);
+  const descriptionComponent = useMemo(() => {
+    if (actionTranslationId) {
+      return (
+        <HyperlinkText
+          size="$bodyMd"
+          color="$textSubdued"
+          translationId={ETranslations.promode_swap_unsupported_message}
+          onAction={(actionName) => {
+            void handleAlertAction(actionName);
+          }}
+        />
+      );
+    }
+    return undefined;
+  }, [actionTranslationId, handleAlertAction]);
   return (
     <Alert
       icon="InfoCircleOutline"
@@ -17,12 +71,8 @@ export function UnsupportedSwapWarning({
         id: ETranslations.dexmarket_swap_unsupported_title,
       })}
       type="warning"
-      description={
-        customMessage ||
-        intl.formatMessage({
-          id: ETranslations.dexmarket_swap_unsupported_desc,
-        })
-      }
+      description={description}
+      descriptionComponent={descriptionComponent}
     />
   );
 }
