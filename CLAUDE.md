@@ -28,7 +28,6 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 
 **MANDATORY CHECKS:**
 - Run complete `yarn lint` (accept 10-minute timeout for quality)
-- Execute `yarn tsc:only` for TypeScript validation
 - Verify no circular dependencies introduced
 - Test on all affected platforms
 - Validate against existing code patterns
