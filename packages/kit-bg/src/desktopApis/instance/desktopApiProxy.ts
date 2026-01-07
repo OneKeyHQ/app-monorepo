@@ -10,6 +10,7 @@ import type {
   IDesktopApiKeys,
   IDesktopApiMessagePayload,
 } from '../base/types';
+import type DesktopApiAppleAuth from '../DesktopApiAppleAuth';
 import type DesktopApiAppUpdate from '../DesktopApiAppUpdate';
 import type DesktopApiBluetooth from '../DesktopApiBluetooth';
 import type DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
@@ -97,6 +98,9 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
 
   oauthLocalServer: DesktopApiOAuthLocalServer =
     this._createProxyModule<IDesktopApiKeys>('oauthLocalServer');
+
+  appleAuth: DesktopApiAppleAuth =
+    this._createProxyModule<IDesktopApiKeys>('appleAuth');
 }
 
 const desktopApiProxy = new DesktopApiProxy();

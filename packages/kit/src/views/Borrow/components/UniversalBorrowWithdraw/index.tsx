@@ -440,56 +440,6 @@ export function UniversalBorrowWithdraw({
           borderColor="$borderSubdued"
         >
           <YStack gap="$6">
-            {transactionConfirmation?.mySupply ? (
-              <BorrowInfoItem
-                title={
-                  <EarnText
-                    text={{
-                      text: intl.formatMessage({
-                        id: ETranslations.defi_my_supply,
-                      }),
-                    }}
-                    color="$textText"
-                    size="$bodyLg"
-                    boldTextProps={{
-                      size: '$bodyMdMedium',
-                    }}
-                  />
-                }
-              >
-                <YStack ai="flex-end">
-                  <EarnText
-                    text={transactionConfirmation.mySupply.current?.title}
-                    size="$headingLg"
-                  />
-                  <EarnText
-                    text={transactionConfirmation.mySupply.current?.description}
-                    size="$bodySmMedium"
-                  />
-                </YStack>
-                {transactionConfirmation.mySupply.latest ? (
-                  <Icon
-                    name="ArrowRightSolid"
-                    size="$4"
-                    color="$iconDisabled"
-                  />
-                ) : null}
-                {transactionConfirmation.mySupply.latest ? (
-                  <YStack ai="flex-end">
-                    <EarnText
-                      text={transactionConfirmation.mySupply.latest?.title}
-                      size="$headingLg"
-                    />
-                    <EarnText
-                      text={
-                        transactionConfirmation.mySupply.latest?.description
-                      }
-                      size="$bodySmMedium"
-                    />
-                  </YStack>
-                ) : null}
-              </BorrowInfoItem>
-            ) : null}
             {transactionConfirmation?.healthFactor ? (
               <BorrowInfoItem
                 title={intl.formatMessage({
@@ -530,6 +480,45 @@ export function UniversalBorrowWithdraw({
                     color="$textSubdued"
                   />
                 </YStack>
+              </BorrowInfoItem>
+            ) : null}
+            {transactionConfirmation?.mySupply ? (
+              <BorrowInfoItem
+                title={intl.formatMessage({
+                  id: ETranslations.defi_my_supply,
+                })}
+              >
+                <YStack ai="flex-end">
+                  <EarnText
+                    text={transactionConfirmation.mySupply.current?.title}
+                    size="$headingLg"
+                  />
+                  <EarnText
+                    text={transactionConfirmation.mySupply.current?.description}
+                    size="$bodySmMedium"
+                  />
+                </YStack>
+                {transactionConfirmation.mySupply.latest ? (
+                  <Icon
+                    name="ArrowRightSolid"
+                    size="$4"
+                    color="$iconDisabled"
+                  />
+                ) : null}
+                {transactionConfirmation.mySupply.latest ? (
+                  <YStack ai="flex-end">
+                    <EarnText
+                      text={transactionConfirmation.mySupply.latest?.title}
+                      size="$headingLg"
+                    />
+                    <EarnText
+                      text={
+                        transactionConfirmation.mySupply.latest?.description
+                      }
+                      size="$bodySmMedium"
+                    />
+                  </YStack>
+                ) : null}
               </BorrowInfoItem>
             ) : null}
             {showApyDetail && transactionConfirmation?.apyDetail ? (

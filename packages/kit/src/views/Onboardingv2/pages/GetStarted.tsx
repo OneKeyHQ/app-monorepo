@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { MotiView } from 'moti';
@@ -14,26 +14,34 @@ import Svg, {
 
 import type { IYStackProps } from '@onekeyhq/components';
 import {
+  AnimatePresence,
   BlurView,
   Button,
   DecorativeOneKeyLogo,
   Icon,
   Page,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   YStack,
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
-import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import {
+  useKeylessWallet,
+  useKeylessWalletFeatureIsEnabled,
+} from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
@@ -299,7 +307,7 @@ export const AnimatedDeviceAvatar = memo(
 
 AnimatedDeviceAvatar.displayName = 'AnimatedDeviceAvatar';
 
-export default function GetStarted() {
+function GetStarted() {
   const navigation = useAppNavigation();
   const handleGetStarted = () => {
     navigation.push(EOnboardingPagesV2.PickYourDevice);
@@ -308,11 +316,20 @@ export default function GetStarted() {
   const { gtMd } = useMedia();
   const intl = useIntl();
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const { enableKeylessWalletLoading, checkKeylessWalletLocalExistence } =
+    useKeylessWallet();
 
   const handleCreateOrImportWallet = () => {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
+  const handleGoogleLogin = useCallback(async () => {
+    await checkKeylessWalletLocalExistence({
+      signInProvider: EOAuthSocialLoginProvider.Google,
+    });
+  }, [checkKeylessWalletLocalExistence]);
+
+  // Cache theme values to avoid multiple useThemeValue calls during render
   const theme = useTheme();
   const neutral6 = theme.neutral6.val;
   const bgColor = theme.bgApp.val;
@@ -404,7 +421,7 @@ export default function GetStarted() {
                 </GridItem>
               </YStack>
             </YStack>
-            <YStack gap={56} justifyContent="center" alignItems="center">
+            <YStack gap={44} justifyContent="center" alignItems="center">
               <DecorativeOneKeyLogo />
               <Stack gap="$4" minWidth="$80" zIndex={1}>
                 <Button
@@ -432,12 +449,41 @@ export default function GetStarted() {
                       pressStyle={{ bg: '$gray5' }}
                       size="large"
                       childrenAsText={false}
-                      onPress={handleCreateOrImportWallet}
+                      onPress={
+                        enableKeylessWalletLoading
+                          ? undefined
+                          : handleGoogleLogin
+                      }
                     >
                       <XStack gap="$2" alignItems="center">
-                        <Icon name="GoogleIllus" size="$5" />
+                        <AnimatePresence exitBeforeEnter initial={false}>
+                          {enableKeylessWalletLoading ? (
+                            <YStack
+                              key="loading"
+                              animation="quick"
+                              animateOnly={['transform', 'opacity']}
+                              enterStyle={{ scale: 0.7, opacity: 0 }}
+                              exitStyle={{ scale: 0.7, opacity: 0 }}
+                            >
+                              <Spinner size="small" />
+                            </YStack>
+                          ) : (
+                            <YStack
+                              key="icon"
+                              animation="quick"
+                              animateOnly={['transform', 'opacity']}
+                              enterStyle={{ scale: 0.7, opacity: 0 }}
+                              exitStyle={{ scale: 0.7, opacity: 0 }}
+                            >
+                              <Icon name="GoogleIllus" size="$5" />
+                            </YStack>
+                          )}
+                        </AnimatePresence>
                         <SizableText size="$bodyLgMedium">
-                          Continue with Google
+                          {intl.formatMessage(
+                            { id: ETranslations.continue_with_social_platform },
+                            { platform: 'Google' },
+                          )}
                         </SizableText>
                       </XStack>
                     </Button>
@@ -483,3 +529,17 @@ export default function GetStarted() {
     </Page>
   );
 }
+
+function GetStartedWithContext() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+    >
+      <GetStarted />
+    </AccountSelectorProviderMirror>
+  );
+}
+export default GetStartedWithContext;

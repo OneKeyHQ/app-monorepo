@@ -47,6 +47,7 @@ export function useOneKeyAuthMethods() {
   const [user] = usePrimePersistAtom();
 
   const {
+    signInWithSocialLogin,
     signOut: supabaseSignOut,
     getAccessToken,
     isReady,
@@ -94,6 +95,7 @@ export function useOneKeyAuthMethods() {
       supabaseSignInWithOtp,
       supabaseVerifyOtp,
       supabaseSignOut,
+      signInWithSocialLogin,
     };
   }, [
     getAccessToken,
@@ -105,6 +107,7 @@ export function useOneKeyAuthMethods() {
     supabaseSignInWithOtp,
     supabaseVerifyOtp,
     supabaseSignOut,
+    signInWithSocialLogin,
   ]);
 }
 

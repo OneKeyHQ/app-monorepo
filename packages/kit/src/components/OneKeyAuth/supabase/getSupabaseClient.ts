@@ -2,6 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 import {
+  KEYLESS_SUPABASE_PROJECT_URL,
+  KEYLESS_SUPABASE_PUBLIC_API_KEY,
   SUPABASE_PROJECT_URL,
   SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
@@ -43,8 +45,8 @@ export function getSupabaseClient() {
  */
 export function createTemporarySupabaseClient() {
   return createClient(
-    SUPABASE_PROJECT_URL ?? '',
-    SUPABASE_PUBLIC_API_KEY ?? '',
+    KEYLESS_SUPABASE_PROJECT_URL ?? '',
+    KEYLESS_SUPABASE_PUBLIC_API_KEY ?? '',
     {
       auth: {
         autoRefreshToken: false,

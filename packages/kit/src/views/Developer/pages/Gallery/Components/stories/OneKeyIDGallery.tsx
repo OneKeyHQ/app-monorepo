@@ -17,7 +17,25 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { JuiceboxClient } from '@onekeyhq/kit-bg/src/services/ServiceKeylessWallet/utils/JuiceboxClient';
+import {
+  EOAuthSocialLoginProvider,
+  GOOGLE_OAUTH_CLIENT_IDS,
+  KEYLESS_SUPABASE_PROJECT_URL,
+  KEYLESS_SUPABASE_PUBLIC_API_KEY,
+  SUPABASE_PROJECT_URL,
+  SUPABASE_PUBLIC_API_KEY,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Layout } from './utils/Layout';
@@ -52,6 +70,7 @@ function demoError(error: unknown, apiName: string) {
 }
 
 function OneKeyIDApiTests() {
+  const navigation = useAppNavigation();
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
@@ -63,8 +82,6 @@ function OneKeyIDApiTests() {
   > | null>(null);
 
   const {
-    signInWithGoogle,
-    signInWithApple,
     signInWithOtp,
     verifyOtp,
     getSession,
@@ -74,7 +91,7 @@ function OneKeyIDApiTests() {
     isReady,
   } = useSupabaseAuth();
 
-  const { logout } = useOneKeyAuth();
+  const { logout, signInWithSocialLogin } = useOneKeyAuth();
 
   const onTryCloseWindow = async () => {
     if (platformEnv.isNative) {
@@ -127,6 +144,65 @@ function OneKeyIDApiTests() {
       </XStack>
 
       <SizableText size="$headingMd" mt="$2">
+        Supabase Config (Debug)
+      </SizableText>
+      <YStack
+        gap="$2"
+        padding="$3"
+        backgroundColor="$bgSubdued"
+        borderRadius="$2"
+      >
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            SUPABASE_PROJECT_URL:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {SUPABASE_PROJECT_URL || '(empty)'}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            SUPABASE_PUBLIC_API_KEY:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {SUPABASE_PUBLIC_API_KEY || '(empty)'}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            KEYLESS_SUPABASE_PROJECT_URL:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {KEYLESS_SUPABASE_PROJECT_URL || '(empty)'}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            KEYLESS_SUPABASE_PUBLIC_API_KEY:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {KEYLESS_SUPABASE_PUBLIC_API_KEY || '(empty)'}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            GOOGLE_OAUTH_CLIENT_WEB:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {GOOGLE_OAUTH_CLIENT_IDS.WEB || '(empty)'}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            GOOGLE_OAUTH_CLIENT_IOS:
+          </SizableText>
+          <SizableText size="$bodySm" style={{ wordBreak: 'break-all' }}>
+            {GOOGLE_OAUTH_CLIENT_IDS.IOS || '(empty)'}
+          </SizableText>
+        </XStack>
+      </YStack>
+
+      <SizableText size="$headingMd" mt="$2">
         OAuth Sign In
       </SizableText>
 
@@ -144,7 +220,10 @@ function OneKeyIDApiTests() {
           onPress={async () => {
             try {
               setLoading('google');
-              const result = await signInWithGoogle({ persistSession });
+              const result = await signInWithSocialLogin(
+                EOAuthSocialLoginProvider.Google,
+                { persistSession },
+              );
               if (result.success && result.session?.accessToken) {
                 // Set access token
                 setAccessToken(result.session.accessToken);
@@ -158,9 +237,9 @@ function OneKeyIDApiTests() {
                   message: 'You are now signed in with Google',
                 });
               }
-              demoLog(result, 'signInWithGoogle');
+              demoLog(result, 'signInWithSocialLogin(Google)');
             } catch (e) {
-              demoError(e, 'signInWithGoogle');
+              demoError(e, 'signInWithSocialLogin(Google)');
             } finally {
               setLoading(null);
             }
@@ -175,16 +254,26 @@ function OneKeyIDApiTests() {
           onPress={async () => {
             try {
               setLoading('apple');
-              const result = await signInWithApple({ persistSession });
-              if (result.success) {
+              const result = await signInWithSocialLogin(
+                EOAuthSocialLoginProvider.Apple,
+                { persistSession },
+              );
+              if (result.success && result.session?.accessToken) {
+                // Set access token
+                setAccessToken(result.session.accessToken);
+                // Decode JWT token
+                const decoded = stringUtils.decodeJWT(
+                  result.session.accessToken,
+                );
+                setDecodedToken(decoded);
                 Toast.success({
                   title: 'Apple Sign In Success',
                   message: 'You are now signed in with Apple',
                 });
               }
-              demoLog(result, 'signInWithApple');
+              demoLog(result, 'signInWithSocialLogin(Apple)');
             } catch (e) {
-              demoError(e, 'signInWithApple');
+              demoError(e, 'signInWithSocialLogin(Apple)');
             } finally {
               setLoading(null);
             }
@@ -289,6 +378,26 @@ function OneKeyIDApiTests() {
       {decodedToken !== null ? (
         <Stack gap="$2" mt="$4">
           <SizableText size="$headingMd">Decoded Access Token</SizableText>
+          {decodedToken.iat && typeof decodedToken.iat === 'number' ? (
+            <XStack gap="$2" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Issued at:
+              </SizableText>
+              <SizableText size="$bodyMd">
+                {formatDate(new Date(decodedToken.iat * 1000))}
+              </SizableText>
+            </XStack>
+          ) : null}
+          {decodedToken.exp && typeof decodedToken.exp === 'number' ? (
+            <XStack gap="$2" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Expires at:
+              </SizableText>
+              <SizableText size="$bodyMd">
+                {formatDate(new Date(decodedToken.exp * 1000))}
+              </SizableText>
+            </XStack>
+          ) : null}
           <ScrollView
             maxHeight={300}
             borderWidth={1}
@@ -402,25 +511,110 @@ function OneKeyIDApiTests() {
         >
           Refresh Session
         </Button>
+      </XStack>
 
+      <SizableText size="$headingMd" mt="$4">
+        Juicebox Test
+      </SizableText>
+      <XStack gap="$3" flexWrap="wrap">
         <Button
-          loading={loading === 'signOut'}
-          disabled={loading !== null}
-          variant="destructive"
           onPress={async () => {
             try {
-              setLoading('signOut');
-              // Sign out from both Supabase and Prime service
-              await logout();
-              demoLog({ success: true }, 'logout');
+              setLoading('juiceboxExchange');
+              const juicebox = new JuiceboxClient();
+              await juicebox.exchangeToken(accessToken);
+              demoLog({ success: true }, 'Juicebox exchangeToken');
             } catch (e) {
-              demoError(e, 'logout');
+              demoError(e, 'Juicebox exchangeToken');
             } finally {
               setLoading(null);
             }
           }}
         >
-          Sign Out
+          Juicebox exchangeToken
+        </Button>
+        <Button
+          loading={loading === 'juiceboxRegister'}
+          disabled={loading !== null || !accessToken}
+          onPress={async () => {
+            try {
+              setLoading('juiceboxRegister');
+              const juicebox = new JuiceboxClient();
+              await juicebox.exchangeToken(accessToken);
+              await juicebox.register({
+                pin: '123456',
+                secret: 'YXNkZg==', // asdf in base64
+                userInfo: 'test-user',
+              });
+              demoLog({ success: true }, 'Juicebox register');
+            } catch (e) {
+              demoError(e, 'Juicebox register');
+            } finally {
+              setLoading(null);
+            }
+          }}
+        >
+          Juicebox Register
+        </Button>
+        <Button
+          loading={loading === 'juiceboxRecover'}
+          disabled={loading !== null || !accessToken}
+          onPress={async () => {
+            try {
+              setLoading('juiceboxRecover');
+              const juicebox = new JuiceboxClient();
+              await juicebox.exchangeToken(accessToken);
+              const secret = await juicebox.recover({
+                pin: '123456',
+                userInfo: 'test-user',
+              });
+              demoLog({ secret }, 'Juicebox recover');
+            } catch (e) {
+              demoError(e, 'Juicebox recover');
+            } finally {
+              setLoading(null);
+            }
+          }}
+        >
+          Juicebox Recover
+        </Button>
+      </XStack>
+
+      <Button
+        loading={loading === 'signOut'}
+        disabled={loading !== null}
+        variant="destructive"
+        onPress={async () => {
+          try {
+            setLoading('signOut');
+            // Sign out from both Supabase and Prime service
+            await logout();
+            demoLog({ success: true }, 'logout');
+          } catch (e) {
+            demoError(e, 'logout');
+          } finally {
+            setLoading(null);
+          }
+        }}
+      >
+        Sign Out
+      </Button>
+
+      <SizableText size="$headingMd" mt="$4">
+        Onboarding Test
+      </SizableText>
+      <XStack gap="$3" flexWrap="wrap">
+        <Button
+          onPress={() => {
+            navigation.navigate(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
+              params: {
+                screen: EOnboardingPagesV2.CreatePasscode,
+              },
+            });
+          }}
+        >
+          Go to CreatePasscodePage
         </Button>
       </XStack>
     </YStack>
