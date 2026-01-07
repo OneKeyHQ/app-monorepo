@@ -1418,6 +1418,9 @@ function TokenListBlock({
         ...smallBalanceTokenListMap,
       };
 
+      const flattenAggregateTokenMap =
+        flattenAggregateTokensMap(aggregateTokenMap);
+
       let mergedTokens = sortTokensByFiatValue({
         tokens: [
           ...tokenList.tokens,
@@ -1425,7 +1428,7 @@ function TokenListBlock({
         ],
         map: {
           ...mergeTokenListMap,
-          ...flattenAggregateTokensMap(aggregateTokenMap),
+          ...flattenAggregateTokenMap,
         },
       });
 
@@ -1506,6 +1509,7 @@ function TokenListBlock({
         tokens: {
           ...mergeTokenListMap,
           ...riskyTokenListMap,
+          ...flattenAggregateTokenMap,
         },
       });
     }
