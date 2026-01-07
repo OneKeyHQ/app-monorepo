@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
@@ -38,11 +39,12 @@ import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   EGalleryRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ETabEarnRoutes,
   ETabMarketRoutes,
   ETabRoutes,
@@ -713,18 +715,19 @@ export function Bootstrap() {
         //   screen: EOnboardingPages.ConnectWallet,
         // });
         // ----------------------------------------------
-        // navigation.navigate(ERootRoutes.Onboarding, {
-        //   screen: EOnboardingV2Routes.OnboardingV2,
-        //   params: {
-        //     screen: EOnboardingPagesV2.AddExistingWallet,
-        //   },
-        // });
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            // screen: EOnboardingPagesV2.AddExistingWallet,
+            screen: EOnboardingPagesV2.CreateOrImportWallet,
+          },
+        });
         // navigation.navigate(ETabRoutes.Developer, {
         //    screen: EGalleryRoutes.ComponentKeylessWallet,
         // });
-        navigation.navigate(ETabRoutes.Developer, {
-          screen: EGalleryRoutes.ComponentOneKeyID,
-        });
+        // navigation.navigate(ETabRoutes.Developer, {
+        //   screen: EGalleryRoutes.ComponentOneKeyID,
+        // });
       }, 1000);
 
       return () => clearTimeout(timer);

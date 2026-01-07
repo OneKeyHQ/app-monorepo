@@ -3,38 +3,15 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  DEFAULT_DESKTOP_OAUTH_METHOD,
-  DEFAULT_EXTENSION_OAUTH_METHOD,
-  EDesktopOAuthMethod,
-  EExtensionOAuthMethod,
-  GOOGLE_CHROME_EXTENSION_CLIENT_ID,
-} from '@onekeyhq/shared/src/consts/authConsts';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  getOAuthRedirectUrlDesktop,
-  openOAuthPopupDesktopDeepLink,
-  openOAuthPopupDesktopWebview,
-} from '../openOAuthPopupDesktop';
-import { openOAuthPopupDesktopLocalhost } from '../openOAuthPopupDesktopLocalhost';
-import {
-  getOAuthRedirectUrlExt,
-  openOAuthPopupExtIdToken,
-  openOAuthPopupExtIdentity,
-  openOAuthPopupExtWindow,
-} from '../openOAuthPopupExt';
-import {
-  getOAuthRedirectUrlNative,
-  openOAuthPopupNative,
-} from '../openOAuthPopupNative';
-import {
-  getOAuthRedirectUrlWeb,
-  openOAuthPopupWeb,
-} from '../openOAuthPopupWeb';
+import { OAuthPopup } from '../OAuthPopup';
+import { ensureOneKeyOAuthState } from '../oauthUtils';
 
 import {
   createTemporarySupabaseClient,
@@ -44,35 +21,20 @@ import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
 import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';
 
-// Helper function to handle OAuth session persistence
-// This function is called after successfully extracting tokens from OAuth callback
-async function handleOAuthSessionPersistence({
-  accessToken,
-  refreshToken,
-  persistSession,
-  loginToPrime,
-}: {
-  accessToken: string;
-  refreshToken: string;
-  persistSession?: boolean;
-  // Whether to also login to Prime service
-  loginToPrime?: boolean;
-}): Promise<void> {
-  if (persistSession) {
-    // Persist session to Supabase client storage
-    await getSupabaseClient().client.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
+export type IOAuthSignInResult = {
+  success: boolean;
+  session?: {
+    accessToken: string;
+    refreshToken: string;
+  };
+};
 
-    // Login to Prime service
-    if (loginToPrime) {
-      await backgroundApiProxy.servicePrime.apiLogin({
-        accessToken,
-      });
-    }
-  }
-}
+export type IOAuthSignInOptions = {
+  // Whether to persist the session to storage and set it in Supabase client
+  // When false (default): Only return tokens in memory, don't call setSession
+  // When true: Call setSession to persist and enable auto-refresh
+  persistSession?: boolean;
+};
 
 export function useSupabaseAuth() {
   const ctx = useSupabaseAuthContext();
@@ -87,68 +49,48 @@ export function useSupabaseAuth() {
 
   const performOAuthSignIn = useCallback(
     async (
-      provider: 'google' | 'apple',
-      options?: {
-        // Whether to persist the session to storage and set it in Supabase client
-        // When false (default): Only return tokens in memory, don't call setSession
-        // When true: Call setSession to persist and enable auto-refresh
-        persistSession?: boolean;
-      },
-    ): Promise<{
-      success: boolean;
-      session?: {
-        accessToken: string;
-        refreshToken: string;
-      };
-    }> => {
+      provider: EOAuthSocialLoginProvider,
+      options?: IOAuthSignInOptions,
+    ): Promise<IOAuthSignInResult> => {
       const { persistSession } = options ?? {};
       const clientTemp: SupabaseClient = createTemporarySupabaseClient();
 
-      // For extension with CHROME_IDENTITY_API or CHROME_GET_AUTH_TOKEN methods,
-      // we don't need Supabase OAuth URL - these methods build their own Google OAuth URL
-      // and use signInWithIdToken instead
-      if (platformEnv.isExtension) {
-        if (
-          DEFAULT_EXTENSION_OAUTH_METHOD ===
-          EExtensionOAuthMethod.CHROME_IDENTITY_API
-        ) {
-          // Use launchWebAuthFlow + signInWithIdToken (Supabase recommended)
-          // This method builds its own Google OAuth URL with response_type=id_token
-          return openOAuthPopupExtIdentity({
-            client: clientTemp,
-            config: { googleClientId: GOOGLE_CHROME_EXTENSION_CLIENT_ID },
-            handleSessionPersistence: handleOAuthSessionPersistence,
-            persistSession,
+      const handleOAuthSessionPersistence = async ({
+        accessToken,
+        refreshToken,
+      }: {
+        accessToken: string;
+        refreshToken: string;
+      }): Promise<void> => {
+        if (persistSession) {
+          // Persist session to Supabase client storage
+          await getSupabaseClient().client.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
           });
+
+          // Login to Prime service
+          // if (loginToPrime) {
+          //   await backgroundApiProxy.servicePrime.apiLogin({
+          //     accessToken,
+          //   });
+          // }
         }
-        if (
-          DEFAULT_EXTENSION_OAUTH_METHOD ===
-          EExtensionOAuthMethod.CHROME_GET_AUTH_TOKEN
-        ) {
-          // Use getAuthToken (requires manifest oauth2 config)
-          // Chrome handles OAuth internally, no redirect URL needed
-          return openOAuthPopupExtIdToken({
-            handleSessionPersistence: handleOAuthSessionPersistence,
-            persistSession,
-          });
-        }
+      };
+
+      // Get platform-specific redirect URL
+      // Note: Some platforms return Promise<string> (e.g., desktop needs to start server)
+      let redirectTo: string | undefined = await Promise.resolve(
+        OAuthPopup.getRedirectUrl(),
+      );
+
+      // Defense-in-depth: Supabase PKCE URL may not include `state`. We embed our own
+      // nonce into redirectTo so the callback must carry it back to us.
+      if (redirectTo) {
+        redirectTo = ensureOneKeyOAuthState(redirectTo);
       }
 
-      // For other platforms and DIRECT_EXTENSION_SCHEME, we need Supabase OAuth URL
-      // Build redirect URL based on platform
-      let redirectTo: string | undefined;
-      if (platformEnv.isNative) {
-        redirectTo = getOAuthRedirectUrlNative();
-      } else if (platformEnv.isDesktop) {
-        redirectTo = await getOAuthRedirectUrlDesktop(
-          DEFAULT_DESKTOP_OAUTH_METHOD,
-        );
-      } else if (platformEnv.isExtension) {
-        redirectTo = getOAuthRedirectUrlExt(DEFAULT_EXTENSION_OAUTH_METHOD);
-      } else {
-        redirectTo = getOAuthRedirectUrlWeb();
-      }
-
+      // Get Supabase OAuth URL
       const oauthUrlResult = await clientTemp.auth.signInWithOAuth({
         provider,
         options: {
@@ -169,99 +111,58 @@ export function useSupabaseAuth() {
       }
 
       const authUrl = oauthUrlResult.data.url;
+
       if (!authUrl) {
         throw new OneKeyLocalError('Failed to get OAuth URL');
       }
-
-      // Open the OAuth URL based on platform
-      if (platformEnv.isNative) {
-        return openOAuthPopupNative({
-          authUrl,
-          redirectTo,
-          handleSessionPersistence: handleOAuthSessionPersistence,
-          persistSession,
-        });
-      }
-
-      // For desktop (Electron), handle OAuth based on configured method
-      if (platformEnv.isDesktop) {
-        if (
-          DEFAULT_DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.LOCALHOST_SERVER
-        ) {
-          return openOAuthPopupDesktopLocalhost({
-            authUrl,
-            client: clientTemp,
-            handleSessionPersistence: handleOAuthSessionPersistence,
-            persistSession,
-          });
+      /*
+        iOS: 
+        {
+            "authUrl": "https://wtspqckturkzhstyjabx.supabase.co/auth/v1/authorize?provider=apple&redirect_to=https%3A%2F%2Foauth-callback.onekey.so%2Foauth_callback_native%3Fonekey_oauth_state%3D3af5c82abbfb19da14a00f6035828bdf&code_challenge=xxxx&code_challenge_method=plain&prompt=select_account",
+            "provider": "apple",
+            "redirectTo": "https://oauth-callback.onekey.so/oauth_callback_native?onekey_oauth_state=3af5c82abbfb19da14a00f6035828bdf"
         }
-        if (DEFAULT_DESKTOP_OAUTH_METHOD === EDesktopOAuthMethod.WEBVIEW) {
-          return openOAuthPopupDesktopWebview({
-            authUrl,
-            handleSessionPersistence: handleOAuthSessionPersistence,
-            persistSession,
-          });
+        https://oauth-callback.onekey.so/oauth_callback_native?code=xxxx&onekey_oauth_state=3af5c82abbfb19da14a00f6035828bdf
+
+        Desktop:
+        {
+            "authUrl": "https://wtspqckturkzhstyjabx.supabase.co/auth/v1/authorize?provider=apple&redirect_to=http%3A%2F%2F127.0.0.1%3A62416%2Foauth_callback_desktop%3Fonekey_oauth_state%3D2fd6480e3004ad6aef7d6a72dc37455b&code_challenge=xxxx&code_challenge_method=s256&prompt=select_account",
+            "provider": "apple",
+            "redirectTo": "http://127.0.0.1:62416/oauth_callback_desktop?onekey_oauth_state=2fd6480e3004ad6aef7d6a72dc37455b"
         }
-        return openOAuthPopupDesktopDeepLink({
-          authUrl,
-          handleSessionPersistence: handleOAuthSessionPersistence,
-          persistSession,
-        });
-      }
+        http://127.0.0.1:62416/oauth_callback_desktop?code=xxxx&onekey_oauth_state=2fd6480e3004ad6aef7d6a72dc37455b
+      */
 
-      // For extension with DIRECT_EXTENSION_SCHEME (does not work, kept for reference)
-      if (platformEnv.isExtension) {
-        return openOAuthPopupExtWindow({
-          authUrl,
-          handleSessionPersistence: handleOAuthSessionPersistence,
-          persistSession,
-        });
-      }
+      // Dialog.debugMessage({
+      //   title: 'performOAuthSignIn',
+      //   debugMessage: {
+      //     provider,
+      //     redirectTo,
+      //     authUrl,
+      //   },
+      // });
 
-      // Open OAuth popup window for web
-      const popupResult = await openOAuthPopupWeb({
+      // Open OAuth popup using platform-specific implementation
+      return OAuthPopup.open({
+        provider,
         authUrl,
+        redirectTo,
         client: clientTemp,
         handleSessionPersistence: handleOAuthSessionPersistence,
-        persistSession,
       });
-      return popupResult;
     },
     [],
   );
 
-  const signInWithGoogle = useCallback(
-    async (options?: {
-      // Whether to persist the session to storage (default: false)
-      persistSession?: boolean;
-    }): Promise<{
-      success: boolean;
-      session?: {
-        accessToken: string;
-        refreshToken: string;
-      };
-    }> => {
-      // Perform the OAuth flow
-      const oauthResult = await performOAuthSignIn('google', options);
-      return oauthResult;
-    },
-    [performOAuthSignIn],
-  );
-
-  const signInWithApple = useCallback(
-    async (options?: {
-      // Whether to persist the session to storage (default: false)
-      persistSession?: boolean;
-    }): Promise<{
-      success: boolean;
-      session?: {
-        accessToken: string;
-        refreshToken: string;
-      };
-    }> => {
-      // Perform the OAuth flow
-      const oauthResult = await performOAuthSignIn('apple', options);
-      return oauthResult;
+  const signInWithSocialLogin = useCallback(
+    async (
+      provider: EOAuthSocialLoginProvider,
+      options?: IOAuthSignInOptions,
+    ): Promise<IOAuthSignInResult> => {
+      return errorToastUtils.withErrorAutoToast(async () => {
+        const oauthResult = await performOAuthSignIn(provider, options);
+        return oauthResult;
+      });
     },
     [performOAuthSignIn],
   );
@@ -450,8 +351,7 @@ export function useSupabaseAuth() {
     () => ({
       signOut,
       signInWithOtp,
-      signInWithGoogle,
-      signInWithApple,
+      signInWithSocialLogin,
       performOAuthSignIn,
       verifyOtp,
       getSupabaseClient,
@@ -466,8 +366,7 @@ export function useSupabaseAuth() {
     [
       signOut,
       signInWithOtp,
-      signInWithGoogle,
-      signInWithApple,
+      signInWithSocialLogin,
       performOAuthSignIn,
       verifyOtp,
       getAccessToken,

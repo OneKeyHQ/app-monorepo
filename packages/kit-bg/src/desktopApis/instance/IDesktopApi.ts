@@ -1,3 +1,4 @@
+import type DesktopApiAppleAuth from '../DesktopApiAppleAuth';
 import type DesktopApiAppUpdate from '../DesktopApiAppUpdate';
 import type DesktopApiBluetooth from '../DesktopApiBluetooth';
 import type DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
@@ -28,4 +29,5 @@ export interface IDesktopApi {
   keychain: DesktopApiKeychain;
   sniRequest: DesktopApiSniRequest;
   oauthLocalServer: DesktopApiOAuthLocalServer;
+  appleAuth: DesktopApiAppleAuth;
 }

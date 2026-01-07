@@ -178,6 +178,8 @@ function FinalizeWalletSetupPage({
   const deviceData = route?.params?.deviceData;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
+  const isKeylessWallet = route?.params?.isKeylessWallet;
+  const keylessDetailsInfo = route?.params?.keylessDetailsInfo;
 
   const initialStep = EFinalizeWalletSetupSteps.CreatingWallet;
 
@@ -305,6 +307,8 @@ function FinalizeWalletSetupPage({
             await actions.current.createHDWallet({
               mnemonic,
               isWalletBackedUp,
+              isKeylessWallet,
+              keylessDetailsInfo,
             });
           },
         });
@@ -342,13 +346,15 @@ function FinalizeWalletSetupPage({
     mnemonic,
     deviceData,
     isFirmwareVerified,
+    keylessPackSetId,
     mnemonicType,
     actions,
     isWalletBackedUp,
+    isKeylessWallet,
+    keylessDetailsInfo,
     goNextStep,
     connectDevice,
     createHWWallet,
-    keylessPackSetId,
   ]);
 
   useEffect(() => {

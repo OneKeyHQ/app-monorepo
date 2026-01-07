@@ -55,6 +55,7 @@ function DetailRouter() {
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />
       <Bootstrap />
+      <FullWindowOverlayContainer />
       <AirGapQrcodeDialogContainer />
       <CreateAddressContainer />
       <PrevCheckBeforeSendingContainer />
@@ -66,7 +67,7 @@ function DetailRouter() {
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <CloudBackupContainer />
-      <FullWindowOverlayContainer />
+      {/* <PortalBodyContainer /> */}
       <PageTrackerContainer />
       <ErrorToastContainer />
       <GlobalErrorHandlerContainer />

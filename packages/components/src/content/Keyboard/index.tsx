@@ -3,7 +3,7 @@ import {
   dismissKeyboardWithDelay,
 } from '@onekeyhq/shared/src/keyboard';
 
-const PassThrough = (children: React.ReactNode) => children;
+const PassThrough = ({ children }: { children?: React.ReactNode }) => children;
 
 export const Keyboard = {
   AvoidingView: PassThrough,

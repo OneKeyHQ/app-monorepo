@@ -1,5 +1,8 @@
+import type { IKeylessWalletDetailsInfo } from '@onekeyhq/kit-bg/src/dbs/local/types';
+
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IConnectYourDeviceItem } from '../../types/device';
+import type { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
 import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
@@ -17,6 +20,12 @@ export enum EOnboardingV2KeylessWalletCreationMode {
   Create = 'Create',
   Restore = 'Restore',
   View = 'View',
+}
+
+export enum EOnboardingV2OneKeyIDLoginMode {
+  KeylessCreateOrRestore = 'KeylessCreateOrRestore',
+  KeylessResetPin = 'KeylessResetPin',
+  KeylessVerifyPinOnly = 'KeylessVerifyPinOnly',
 }
 
 export enum EOnboardingPagesV2 {
@@ -41,6 +50,13 @@ export enum EOnboardingPagesV2 {
   ImportKeyTag = 'ImportKeyTag',
   KeylessWalletRecovery = 'KeylessWalletRecovery',
   KeylessWalletCreation = 'KeylessWalletCreation',
+  OneKeyIDLogin = 'OneKeyIDLogin',
+  CreatePin = 'CreatePin',
+  ConfirmPin = 'ConfirmPin',
+  VerifyPin = 'VerifyPin',
+  ResetPin = 'ResetPin',
+  NewPinCreated = 'NewPinCreated',
+  CreatePasscode = 'CreatePasscode',
   MoreAction = 'MoreAction',
 }
 interface IVerifyRecoveryPhraseParams {
@@ -62,9 +78,12 @@ export type IOnboardingParamListV2 = {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;
     isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
     isFirmwareVerified?: boolean;
     deviceData?: IConnectYourDeviceItem;
     keylessPackSetId?: string;
+    keylessOwnerId?: string;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
   };
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {
@@ -112,5 +131,22 @@ export type IOnboardingParamListV2 = {
     email?: string;
     mode?: EOnboardingV2KeylessWalletCreationMode;
   };
+  [EOnboardingPagesV2.OneKeyIDLogin]: {
+    mode: EOnboardingV2OneKeyIDLoginMode;
+  };
+  [EOnboardingPagesV2.CreatePin]: {
+    action?: EKeylessFinalizeAction;
+  };
+  [EOnboardingPagesV2.ConfirmPin]: {
+    action?: EKeylessFinalizeAction;
+  };
+  [EOnboardingPagesV2.CreatePasscode]: {
+    action: EKeylessFinalizeAction;
+  };
+  [EOnboardingPagesV2.VerifyPin]: {
+    mode?: EOnboardingV2OneKeyIDLoginMode;
+  };
+  [EOnboardingPagesV2.ResetPin]: undefined;
+  [EOnboardingPagesV2.NewPinCreated]: undefined;
   [EOnboardingPagesV2.MoreAction]: undefined;
 };

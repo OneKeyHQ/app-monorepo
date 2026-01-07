@@ -8,7 +8,7 @@ export const SUPABASE_STORAGE_KEY_PREFIX = 'OneKeySupabaseAuth__';
 
 // Extract project ref from SUPABASE_PROJECT_URL
 // URL format: https://<project-ref>.supabase.co
-export function getSupabaseProjectRef(): string {
+function getSupabaseProjectRef(): string {
   const match = SUPABASE_PROJECT_URL.match(/https?:\/\/([^.]+)\.supabase\.co/);
   return match?.[1] || '';
 }
