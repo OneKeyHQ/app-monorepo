@@ -155,10 +155,17 @@ export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
 // Google OAuth Clients
 // -----------------------------------------------
 
+// prod
 const GOOGLE_OAUTH_CLIENT_WEB =
-  '244450898872-vmpg9dgocpqtqhm5pk42u4s6hvprogp6.apps.googleusercontent.com';
+  '94391474021-6106ge2amfsgl9gjviojmai2mqbh2lte.apps.googleusercontent.com';
 const GOOGLE_OAUTH_CLIENT_IOS =
-  '244450898872-5uo9r8ekdc82huckjcr4br67edvf3vlg.apps.googleusercontent.com';
+  '94391474021-kbgarvu23k3mblp1m2tiknemae99p826.apps.googleusercontent.com';
+
+// test
+// const GOOGLE_OAUTH_CLIENT_WEB =
+//   '244450898872-vmpg9dgocpqtqhm5pk42u4s6hvprogp6.apps.googleusercontent.com';
+// const GOOGLE_OAUTH_CLIENT_IOS =
+//   '244450898872-5uo9r8ekdc82huckjcr4br67edvf3vlg.apps.googleusercontent.com';
 
 // ================================================
 
