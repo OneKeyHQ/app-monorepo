@@ -3259,6 +3259,7 @@
   "send.label_transferred": "Đã chuyển",
   "send.label_wallet_name": "Tên ví / Tên tài khoản",
   "send.max": "Tối đa",
+  "send.memo_size_exceeded": "Bản ghi nhớ vượt quá {limit} {type} (hiện hành: {current} {type})",
   "send.memo_up_to_length": "Tối đa {number} ký tự",
   "send.nft_amount": "Số lượng",
   "send.nft_does_not_exist": "NFT không tồn tại.",

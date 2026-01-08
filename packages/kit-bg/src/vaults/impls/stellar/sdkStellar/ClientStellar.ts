@@ -68,7 +68,10 @@ export default class ClientStellar {
    */
   async accountExists(address: string): Promise<boolean> {
     try {
-      await this.getAccountInfo(address);
+      const accountInfo = await this.getAccountInfo(address);
+      if (!accountInfo) {
+        return false;
+      }
       return true;
     } catch (error) {
       return false;
