@@ -10,7 +10,11 @@ const pkg = require('../app/package.json');
 const isProduction = process.env.NODE_ENV === 'production';
 
 // remove passport-desktop-win32-x64-msvc dependency on non-windows platform
-if (isProduction && process.platform !== 'win32') {
+if (
+  isProduction &&
+  process.platform !== 'win32' &&
+  !process.env.ELECTRON_LINT
+) {
   pkg.dependencies = pkg.dependencies || {};
   delete pkg.dependencies['passport-desktop-win32-x64-msvc'];
   const packageJsonPath = path.join(__dirname, '..', 'app', 'package.json');
