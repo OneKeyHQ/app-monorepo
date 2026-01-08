@@ -499,6 +499,7 @@
   "defi.net_worth": "มูลค่าสุทธิ",
   "defi.no_assets_to_borrow": "ไม่มีสินทรัพย์ให้กู้ยืม",
   "defi.no_assets_to_supply": "ไม่มีสินทรัพย์พร้อมสำหรับการจัดหา",
+  "defi.nothing_borrowed_yet": "ยังไม่มีการยืม",
   "defi.nothing_supplied_yet": "ยังไม่มีการจัดหา",
   "defi.oracle_price": "ราคาออราเคิล",
   "defi.platform_bonus": "โบนัสแพลตฟอร์ม",

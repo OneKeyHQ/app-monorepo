@@ -499,6 +499,7 @@
   "defi.net_worth": "純資産",
   "defi.no_assets_to_borrow": "借りられる資産がない",
   "defi.no_assets_to_supply": "供給可能な資産がありません",
+  "defi.nothing_borrowed_yet": "まだ何も借りていません",
   "defi.nothing_supplied_yet": "まだ何も供給されていません",
   "defi.oracle_price": "オラクル価格",
   "defi.platform_bonus": "プラットフォームボーナス",

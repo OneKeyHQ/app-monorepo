@@ -504,6 +504,7 @@
   defi_net_worth = 'defi.net_worth',
   defi_no_assets_to_borrow = 'defi.no_assets_to_borrow',
   defi_no_assets_to_supply = 'defi.no_assets_to_supply',
+  defi_nothing_borrowed_yet = 'defi.nothing_borrowed_yet',
   defi_nothing_supplied_yet = 'defi.nothing_supplied_yet',
   defi_oracle_price = 'defi.oracle_price',
   defi_platform_bonus = 'defi.platform_bonus',

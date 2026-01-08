@@ -499,6 +499,7 @@
   "defi.net_worth": "Чистая стоимость",
   "defi.no_assets_to_borrow": "Нет активов, доступных для заимствования.",
   "defi.no_assets_to_supply": "Ресурсов для поставки нет",
+  "defi.nothing_borrowed_yet": "Пока ничего не заимствовано",
   "defi.nothing_supplied_yet": "Пока ничего не поставлено",
   "defi.oracle_price": "Цена оракула",
   "defi.platform_bonus": "Бонус платформы",

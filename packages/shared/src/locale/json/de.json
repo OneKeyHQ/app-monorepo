@@ -499,6 +499,7 @@
   "defi.net_worth": "Reinvermögen",
   "defi.no_assets_to_borrow": "Keine verfügbaren Vermögenswerte für einen Kredit",
   "defi.no_assets_to_supply": "Keine Vermögenswerte verfügbar",
+  "defi.nothing_borrowed_yet": "Noch nichts ausgeliehen",
   "defi.nothing_supplied_yet": "Noch nichts geliefert",
   "defi.oracle_price": "Orakelpreis",
   "defi.platform_bonus": "Plattformbonus",

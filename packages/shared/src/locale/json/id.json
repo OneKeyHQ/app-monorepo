@@ -499,6 +499,7 @@
   "defi.net_worth": "Kekayaan Bersih",
   "defi.no_assets_to_borrow": "Tidak ada aset yang tersedia untuk dipinjam.",
   "defi.no_assets_to_supply": "Tidak ada aset yang tersedia untuk memasok",
+  "defi.nothing_borrowed_yet": "Belum ada yang dipinjam",
   "defi.nothing_supplied_yet": "Belum ada yang dipasok",
   "defi.oracle_price": "Harga Oracle",
   "defi.platform_bonus": "Bonus Platform",

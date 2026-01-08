@@ -499,6 +499,7 @@
   "defi.net_worth": "Patrimônio Líquido",
   "defi.no_assets_to_borrow": "Não há ativos disponíveis para empréstimo.",
   "defi.no_assets_to_supply": "Não há ativos disponíveis para fornecimento.",
+  "defi.nothing_borrowed_yet": "Nada emprestado ainda",
   "defi.nothing_supplied_yet": "Nada fornecido ainda",
   "defi.oracle_price": "Preço do oráculo",
   "defi.platform_bonus": "Bônus da Plataforma",

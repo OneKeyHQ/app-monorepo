@@ -499,6 +499,7 @@
   "defi.net_worth": "Patrimonio Netto",
   "defi.no_assets_to_borrow": "Nessun bene disponibile per il prestito",
   "defi.no_assets_to_supply": "Nessuna risorsa disponibile per la fornitura",
+  "defi.nothing_borrowed_yet": "Niente ancora preso in prestito",
   "defi.nothing_supplied_yet": "Niente ancora fornito",
   "defi.oracle_price": "Prezzo oracolo",
   "defi.platform_bonus": "Bonus Piattaforma",

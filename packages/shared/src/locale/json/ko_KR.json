@@ -499,6 +499,7 @@
   "defi.net_worth": "순자산",
   "defi.no_assets_to_borrow": "대출 가능한 자산이 없습니다.",
   "defi.no_assets_to_supply": "공급 가능한 자산이 없습니다.",
+  "defi.nothing_borrowed_yet": "아직 빌린 것이 없습니다",
   "defi.nothing_supplied_yet": "아직 공급된 것이 없습니다",
   "defi.oracle_price": "오라클 가격",
   "defi.platform_bonus": "플랫폼 보너스",

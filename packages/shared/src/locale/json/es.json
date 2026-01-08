@@ -499,6 +499,7 @@
   "defi.net_worth": "Valor Neto",
   "defi.no_assets_to_borrow": "No hay activos disponibles para pedir prestado",
   "defi.no_assets_to_supply": "No hay activos disponibles para suministrar",
+  "defi.nothing_borrowed_yet": "Nada prestado todavía",
   "defi.nothing_supplied_yet": "Nada suministrado todavía",
   "defi.oracle_price": "Precio del oráculo",
   "defi.platform_bonus": "Bono de Plataforma",

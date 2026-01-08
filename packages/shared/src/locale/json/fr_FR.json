@@ -499,6 +499,7 @@
   "defi.net_worth": "Valeur nette",
   "defi.no_assets_to_borrow": "Aucun actif disponible pour emprunter",
   "defi.no_assets_to_supply": "Aucun actif disponible pour l'approvisionnement",
+  "defi.nothing_borrowed_yet": "Rien n'a encore été emprunté",
   "defi.nothing_supplied_yet": "Rien n'a encore été fourni",
   "defi.oracle_price": "Prix de l'oracle",
   "defi.platform_bonus": "Bonus de plateforme",

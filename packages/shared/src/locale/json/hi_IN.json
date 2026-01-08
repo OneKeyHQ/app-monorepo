@@ -499,6 +499,7 @@
   "defi.net_worth": "कुल संपत्ति",
   "defi.no_assets_to_borrow": "उधार लेने के लिए कोई संपत्ति उपलब्ध नहीं है",
   "defi.no_assets_to_supply": "आपूर्ति के लिए कोई संपत्ति उपलब्ध नहीं है",
+  "defi.nothing_borrowed_yet": "अभी तक कुछ भी उधार नहीं लिया गया है",
   "defi.nothing_supplied_yet": "अभी तक कुछ भी आपूर्ति नहीं की गई है",
   "defi.oracle_price": "ओरेकल मूल्य",
   "defi.platform_bonus": "प्लेटफ़ॉर्म बोनस",
