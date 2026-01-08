@@ -163,6 +163,19 @@ export const WithdrawSection = ({
     }
     return protocolInfo?.activeBalance ?? '0';
   }, [selectedAsset, borrowAction, protocolInfo?.activeBalance]);
+
+  // Determine the effective max balance for repay (wallet balance for max button)
+  const effectiveMaxBalance = useMemo(() => {
+    if (borrowAction !== 'repay') {
+      return undefined;
+    }
+    // For selected asset, maxBalance is not available, use undefined
+    if (selectedAsset) {
+      return undefined;
+    }
+    return protocolInfo?.maxRepayBalance;
+  }, [borrowAction, selectedAsset, protocolInfo?.maxRepayBalance]);
+
   const symbol = useMemo(() => token?.symbol || '', [token]);
   const vault = useMemo(() => protocolInfo?.vault || '', [protocolInfo?.vault]);
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
@@ -365,6 +378,7 @@ export const WithdrawSection = ({
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           decimals={effectiveDecimals}
           balance={effectiveBalance}
+          maxBalance={effectiveMaxBalance}
           accountId={accountId}
           networkId={networkId}
           tokenSymbol={effectiveTokenSymbol}

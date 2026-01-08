@@ -114,9 +114,9 @@ export const BorrowBonusTooltip = ({
         }
         title={intl.formatMessage({ id: ETranslations.defi_platform_bonus })}
         renderContent={
-          <YStack mt="$2.5" overflow="hidden" borderRadius="$3">
+          <YStack p="$5" overflow="hidden" borderRadius="$3">
             {/* Total received header with History button */}
-            <XStack mx="$5" mb="$3" jc="space-between" ai="center">
+            <XStack mb="$3" jc="space-between" ai="center">
               <YStack gap="$1.5" w="100%">
                 <SizableText size="$bodySmMedium" color="$textSubdued">
                   {intl.formatMessage({
@@ -152,12 +152,12 @@ export const BorrowBonusTooltip = ({
               </YStack>
             </XStack>
 
-            <Divider mx="$5" mb="$3" />
+            <Divider mb="$3" />
 
             {/* Distributed section */}
             {isEmpty(data?.distributed) ? null : (
               <>
-                <SizableText mx="$5" size="$bodyMdMedium" color="$textSubdued">
+                <SizableText size="$bodySmMedium" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.referral_distributed,
                   })}
@@ -184,7 +184,7 @@ export const BorrowBonusTooltip = ({
                     ),
                   });
                 })}
-                <YStack px="$5" mt="$2">
+                <YStack mt="$2">
                   <EarnText
                     size="$bodySm"
                     color="$textSubdued"
@@ -194,7 +194,7 @@ export const BorrowBonusTooltip = ({
                 </YStack>
               </>
             )}
-            <Stack px="$5" mb="$5">
+            <Stack>
               <YStack gap="$3">
                 {/* Platform bonus info card */}
                 <XStack ai="center">
@@ -207,12 +207,12 @@ export const BorrowBonusTooltip = ({
                     mr="$1.5"
                   />
                   <EarnText
-                    size="$bodySm"
+                    size="$bodySmMedium"
                     color="$textSubdued"
                     text={data.data.title}
                   />
                   <Divider vertical h="$3" mx="$3" />
-                  <SizableText size="$bodySm" color="$textSubdued">
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
                     {intl.formatMessage({
                       id: ETranslations.earn_event_ends_in,
                     })}
@@ -234,20 +234,25 @@ export const BorrowBonusTooltip = ({
                     {data.data.rewards.map((reward, index) => {
                       return (
                         <XStack gap="$1.5" key={index} ai="center">
-                          <Token size="xs" tokenImageUri={reward.logoURI} />
+                          <Token
+                            size="xs"
+                            tokenImageUri={reward.logoURI}
+                            w="$4"
+                            h="$4"
+                          />
                           <EarnText
                             text={reward.type}
-                            size="$bodySm"
-                            color="$textSubdued"
+                            size="$bodyMd"
+                            color="$text"
                           />
                           <EarnText
                             text={reward.title}
-                            size="$bodySmMedium"
+                            size="$bodyMdMedium"
                             color="$text"
                           />
                           <EarnText
                             text={reward.description}
-                            size="$bodySm"
+                            size="$bodyMdMedium"
                             color="$textSubdued"
                           />
                         </XStack>
@@ -264,7 +269,7 @@ export const BorrowBonusTooltip = ({
                     <EarnText
                       text={data.data.button.text}
                       size="$bodyMdMedium"
-                      color="$textInfo"
+                      color="$textSubdued"
                     />
                   </XStack>
                 ) : null}
