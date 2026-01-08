@@ -213,16 +213,16 @@ type IJuiceBoxConfigJSON = {
   pin_hashing_mode: 'Standard2019' | 'FastInsecure';
 };
 
-export const JUICEBOX_AUTH_SERVER = 'https://juicebox.onekeytest.com';
+export const JUICEBOX_AUTH_SERVER = 'https://juicebox.onekeycn.com';
 export const JUICEBOX_CONFIG: IJuiceBoxConfigJSON = {
   realms: [
     {
       id: '37ce3a59ff08d57b77bac0b8451ff2d8',
-      address: 'https://juicebox-sw-realm-a.onekeytest.com',
+      address: 'https://juicebox-realm-a.onekeycn.com',
     },
     {
       id: '6b47cc201434428be7beee2190f95685',
-      address: 'https://juicebox-sw-realm-b.onekeytest.com',
+      address: 'https://juicebox-realm-b.onekeycn.com',
     },
   ],
   register_threshold: 2, // At least 2 realms must succeed to register

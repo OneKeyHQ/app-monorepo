@@ -42,6 +42,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { findMismatchedPaths } from '@onekeyhq/shared/src/utils/miscUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -60,13 +61,47 @@ import keylessDeviceKeyStorage from './utils/keylessDeviceKeyStorage';
 import keylessMnemonicPasswordStorage from './utils/keylessMnemonicPasswordStorage';
 import keylessRefreshTokenStorage from './utils/keylessRefreshTokenStorage';
 
+import type { JuiceboxClient } from './utils/JuiceboxClient';
 import type { IDBIndexedAccount, IDBWallet } from '../../dbs/local/types';
 import type { IKeylessDialogAtomData } from '../../states/jotai/atoms';
+
+const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
+  max: 100,
+  ttl: timerUtils.getTimeDurationMs({ minute: 5 }),
+  ttlAutopurge: true,
+  dispose: (client) => {
+    // Best-effort cleanup: clear any cached realm tokens when the client is evicted.
+    try {
+      client.clearTokenCache();
+    } catch {
+      // ignore
+    }
+  },
+});
 
 @backgroundClass()
 class ServiceKeylessWallet extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private async getJuiceboxClientFromCache(
+    token: string,
+  ): Promise<JuiceboxClient> {
+    let client = juiceboxClientCache.get(token);
+    if (!client) {
+      juiceboxClientCache.clear();
+      const { JuiceboxClient: JuiceboxClientRuntime } = await import(
+        './utils/JuiceboxClient'
+      );
+      client = new JuiceboxClientRuntime();
+      await client.exchangeToken(token);
+      juiceboxClientCache.set(token, client);
+    }
+    // Juicebox SDK uses a global callback for auth token retrieval.
+    // Re-bind it to the current instance to avoid being overwritten by other instances.
+    // client.setAsGlobalAuthTokenProvider();
+    return client;
   }
 
   @backgroundMethod()
@@ -1111,6 +1146,7 @@ class ServiceKeylessWallet extends ServiceBase {
 
   async buildKeylessOwnerIdFromSocialToken(params: {
     token: string;
+    hashId: string;
   }): Promise<string> {
     const { token } = params;
     const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
@@ -1167,25 +1203,32 @@ class ServiceKeylessWallet extends ServiceBase {
     );
   }
 
-  private async apiGetKeylessBackendShare(params: {
-    token: string;
-  }): Promise<IKeylessBackendShare | null> {
+  private async apiGetKeylessBackendShare(params: { token: string }): Promise<{
+    backendShareData: IKeylessBackendShare | null;
+    hashId: string;
+  }> {
     const { token } = params;
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
-    const res = await client.post<IApiClientResponse<string>>(
-      '/prime/v1/keyless-wallet/getKeylessBackendShare',
-      {
-        token,
-      },
-    );
+    const res = await client.post<
+      IApiClientResponse<{
+        backendShare: string;
+        hashId: string;
+      }>
+    >('/prime/v1/keyless-wallet/getKeylessBackendShare', {
+      token,
+    });
 
     const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
-    const backendShareStr = res?.data?.data;
+    const backendShareStr = res?.data?.data?.backendShare;
+    const hashId = res?.data?.data?.hashId;
 
     // {"code":0,"message":"success","data":""}
     if (isSuccess && backendShareStr === '') {
-      return null;
+      return {
+        backendShareData: null,
+        hashId,
+      };
     }
 
     if (isSuccess && backendShareStr) {
@@ -1218,7 +1261,10 @@ class ServiceKeylessWallet extends ServiceBase {
           | IKeylessBackendShare
           | undefined;
         if (result) {
-          return result;
+          return {
+            backendShareData: result,
+            hashId,
+          };
         }
       } catch (e) {
         throw new OneKeyLocalError('Failed to decrypt keyless backend share');
@@ -1342,24 +1388,32 @@ class ServiceKeylessWallet extends ServiceBase {
     ownerId: string;
     token: string;
     pin: string;
+    skipTokenCacheClear?: boolean;
   }): Promise<IKeylessJuiceboxShare | null> {
-    const { ownerId, token, pin } = params;
+    const { ownerId, token, pin, skipTokenCacheClear } = params;
 
     if (!token) {
-      throw new OneKeyLocalError('Missing token');
+      throw new OneKeyLocalError(
+        'GetKeylessJuiceboxShare ERROR: Missing token',
+      );
     }
 
     if (!pin) {
-      throw new OneKeyLocalError('Missing pin');
+      throw new OneKeyLocalError('GetKeylessJuiceboxShare ERROR: Missing pin');
     }
 
-    const { JuiceboxClient } = await import('./utils/JuiceboxClient');
-    const juiceboxClient = new JuiceboxClient();
-    await juiceboxClient.exchangeToken(token);
+    if (!ownerId) {
+      throw new OneKeyLocalError(
+        'GetKeylessJuiceboxShare ERROR: Missing ownerId',
+      );
+    }
+
+    const juiceboxClient = await this.getJuiceboxClientFromCache(token);
     try {
       const secret = await juiceboxClient.recover({
         pin,
         userInfo: ownerId,
+        skipTokenCacheClear,
       });
 
       const parts = secret.split('--');
@@ -1397,12 +1451,20 @@ class ServiceKeylessWallet extends ServiceBase {
     mode?: EOnboardingV2OneKeyIDLoginMode;
   }) {
     const { token, pin, refreshToken, mode } = params;
-    const ownerId = await this.buildKeylessOwnerIdFromSocialToken({ token });
+    const { hashId } = await this.apiGetKeylessBackendShare({
+      token,
+    });
+    const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
+      token,
+      hashId,
+    });
 
     await this.apiGetKeylessJuiceboxShare({
       ownerId,
       token,
       pin,
+      skipTokenCacheClear:
+        mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
     });
 
     // Save refresh token to secure storage
@@ -1439,9 +1501,7 @@ class ServiceKeylessWallet extends ServiceBase {
       backendShareX,
     };
 
-    const { JuiceboxClient } = await import('./utils/JuiceboxClient');
-    const juiceboxClient = new JuiceboxClient();
-    await juiceboxClient.exchangeToken(token);
+    const juiceboxClient = await this.getJuiceboxClientFromCache(token);
     try {
       const secret = `${juiceboxShare}--${backendShareX}`;
       await juiceboxClient.register({
@@ -1482,13 +1542,18 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     // 2. Get backendShare from server
-    const backendShareData = await this.apiGetKeylessBackendShare({ token });
+    const { backendShareData, hashId } = await this.apiGetKeylessBackendShare({
+      token,
+    });
     if (!backendShareData) {
       throw new OneKeyLocalError('Backend share not found');
     }
 
     // 1. Get ownerId from token
-    const ownerId = await this.buildKeylessOwnerIdFromSocialToken({ token });
+    const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
+      token,
+      hashId,
+    });
 
     // 3. Get mnemonicPassword from secure storage
     const mnemonicPassword =
@@ -1552,13 +1617,18 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     // Get backend share from server
-    const backendShareData = await this.apiGetKeylessBackendShare({ token });
+    const { backendShareData, hashId } = await this.apiGetKeylessBackendShare({
+      token,
+    });
     if (!backendShareData) {
       throw new OneKeyLocalError('Backend share not found');
     }
 
     // check if keyless wallet is initialized
-    const ownerId = await this.buildKeylessOwnerIdFromSocialToken({ token });
+    const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
+      token,
+      hashId,
+    });
 
     // Get juicebox share from juicebox network
     const juiceboxShareData = await this.apiGetKeylessJuiceboxShare({
@@ -1646,7 +1716,10 @@ class ServiceKeylessWallet extends ServiceBase {
         throw new OneKeyLocalError('Keyless wallet already created');
       }
 
-      const ownerId = await this.buildKeylessOwnerIdFromSocialToken({ token });
+      const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
+        token,
+        hashId,
+      });
       let mnemonic = '';
       const devSettings = await devSettingsPersistAtom.get();
       if (devSettings.enabled && customMnemonic && customMnemonic.trim()) {
@@ -1747,10 +1820,10 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string;
   }): Promise<boolean> {
     const { token } = params;
-    const backendShareInfo = await this.apiGetKeylessBackendShare({
+    const { backendShareData } = await this.apiGetKeylessBackendShare({
       token,
     });
-    const isCreated = !!backendShareInfo;
+    const isCreated = !!backendShareData?.encryptedMnemonic;
     return isCreated;
   }
 
