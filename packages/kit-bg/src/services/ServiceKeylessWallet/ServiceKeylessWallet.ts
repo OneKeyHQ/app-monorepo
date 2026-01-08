@@ -64,6 +64,7 @@ import keylessRefreshTokenStorage from './utils/keylessRefreshTokenStorage';
 import type { JuiceboxClient } from './utils/JuiceboxClient';
 import type { IDBIndexedAccount, IDBWallet } from '../../dbs/local/types';
 import type { IKeylessDialogAtomData } from '../../states/jotai/atoms';
+import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
 
 const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
   max: 100,
@@ -1658,6 +1659,7 @@ class ServiceKeylessWallet extends ServiceBase {
       password: mnemonicPassword,
       allowRawPassword: true,
       iterations: 600_000,
+      mode: EAppCryptoAesEncryptionMode.gcm,
     });
 
     // Save mnemonicPassword to secure storage for Reset PIN flow
@@ -1735,6 +1737,7 @@ class ServiceKeylessWallet extends ServiceBase {
         password: mnemonicPassword,
         allowRawPassword: true,
         iterations: 600_000,
+        mode: EAppCryptoAesEncryptionMode.gcm,
       });
       const mnemonicPasswordShares = await shamirUtils.split(
         new Uint8Array(mnemonicPasswordBytes),
