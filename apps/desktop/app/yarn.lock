@@ -71,6 +71,7 @@ __metadata:
     "@stoprocent/noble": "npm:2.3.4"
     electron-check-biometric-auth-changed: "npm:0.0.6"
     passport-desktop: "npm:0.1.2"
+    passport-desktop-win32-x64-msvc: "npm:0.1.2"
   languageName: unknown
   linkType: soft
 
@@ -1102,6 +1103,7 @@ __metadata:
 "passport-desktop-win32-x64-msvc@npm:0.1.2":
   version: 0.1.2
   resolution: "passport-desktop-win32-x64-msvc@npm:0.1.2"
+  checksum: 10/3e90d6300f0a81bd528b388171e342aa68ec573753f3d75b37201cf70a7e017b5b64df99f67b6a3bc87fe556091d64a4ce7b42bafe1ac3dd3bda0f7c2cfc1400
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
