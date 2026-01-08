@@ -76,7 +76,6 @@ const downloadPackage: IDownloadPackage = async ({
     return new Promise<IUpdateDownloadedEvent>((resolve) => {
       const onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
         (params) => {
-          console.log('params', params);
           onDownloadedSubscription?.();
           resolve(params);
         },
