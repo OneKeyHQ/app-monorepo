@@ -182,15 +182,15 @@ export const SUPABASE_PUBLIC_API_KEY =
 // -----------------------------------------------
 
 // --- onekeyprod
-export const KEYLESS_SUPABASE_PROJECT_URL = 'https://auth.onekey.so'; // onekeytest
-export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NzU4MzUwLCJleHAiOjE5MjU0MzgzNTB9.n-g7Amu-dMVpBgQ8i8gSYFjBvbDPC55ZqYIttPh8CYk';
+// export const KEYLESS_SUPABASE_PROJECT_URL = 'https://auth.onekey.so'; // onekeytest
+// export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+//   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NzU4MzUwLCJleHAiOjE5MjU0MzgzNTB9.n-g7Amu-dMVpBgQ8i8gSYFjBvbDPC55ZqYIttPh8CYk';
 
 // --- onekeytest
-// export const KEYLESS_SUPABASE_PROJECT_URL =
-//   'https://supabase.onekey-internal.com'; // onekeytest
-// export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
-//   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
+export const KEYLESS_SUPABASE_PROJECT_URL =
+  'https://supabase.onekey-internal.com'; // onekeytest
+export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
 
 // --- localtest
 // export const KEYLESS_SUPABASE_PROJECT_URL =
