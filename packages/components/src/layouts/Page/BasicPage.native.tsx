@@ -106,20 +106,26 @@ function LoadingScreen({
 }: PropsWithChildren<{ fullPage: boolean }>) {
   const [showLoading, changeLoadingVisibleStatus] = useState(true);
   const [showChildren, changeChildrenVisibleStatus] = useState(false);
+  const pageType = usePageType();
+  const isiOSModalPage =
+    platformEnv.isNativeIOS && pageType === EPageType.modal;
 
   useEffect(() => {
     setTimeout(
       () => {
         changeChildrenVisibleStatus(true);
-        setTimeout(() => {
-          requestIdleCallback(() => {
-            changeLoadingVisibleStatus(false);
-          });
-        }, 350);
+        setTimeout(
+          () => {
+            requestIdleCallback(() => {
+              changeLoadingVisibleStatus(false);
+            });
+          },
+          isiOSModalPage ? 380 : 150,
+        );
       },
       platformEnv.isNativeAndroid ? 10 : 0,
     );
-  }, []);
+  }, [isiOSModalPage]);
 
   const minHeight = useMinHeight(fullPage);
   return (
