@@ -7,6 +7,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
@@ -24,6 +25,7 @@ interface IApyChartBaseProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showDivider?: boolean;
+  tooltipLabel?: string;
 }
 
 const ApyChartBaseComponent = ({
@@ -36,9 +38,9 @@ const ApyChartBaseComponent = ({
   lineWidth,
   showPriceScale,
   showDivider = true,
+  tooltipLabel = 'APY',
 }: IApyChartBaseProps) => {
   const intl = useIntl();
-
   const [hoverData, setHoverData] = useState<{
     time: number;
     apy: number;
@@ -79,26 +81,34 @@ const ApyChartBaseComponent = ({
 
     const POPOVER_WIDTH = 120;
     const OFFSET = 10;
+    const EDGE_PADDING = 16;
     const isLeftHalf = hoverData.x < containerWidth / 2;
 
+    const translateXValue = isLeftHalf ? 0 : -POPOVER_WIDTH;
+    const desiredLeft = isLeftHalf ? hoverData.x + OFFSET : hoverData.x - OFFSET;
+    const minLeft = EDGE_PADDING;
+    const maxLeft = Math.max(
+      minLeft,
+      containerWidth - POPOVER_WIDTH - EDGE_PADDING,
+    );
+    const actualLeft = desiredLeft + translateXValue;
+    const clampedActualLeft = Math.min(Math.max(actualLeft, minLeft), maxLeft);
+
     return {
-      left: isLeftHalf ? hoverData.x + OFFSET : hoverData.x - OFFSET,
-      translateXValue: isLeftHalf ? 0 : -POPOVER_WIDTH,
+      left: clampedActualLeft - translateXValue,
+      translateXValue,
       top: Math.max(10, hoverData.y - 70),
     };
   }, [hoverData, containerWidth]);
 
-  const formatPopoverDate = useCallback(
-    (timestamp: number) => {
-      const date = new Date(timestamp * 1000);
-      return intl.formatDate(date, {
-        month: 'short',
-        day: '2-digit',
-        year: 'numeric',
-      });
-    },
-    [intl],
-  );
+  const formatPopoverDate = useCallback((timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    return intl.formatDate(date, {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    });
+  }, [intl]);
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) {
@@ -181,13 +191,18 @@ const ApyChartBaseComponent = ({
               pointerEvents="none"
               minWidth={120}
             >
-              <YStack gap="$1" ai="center">
-                <SizableText size="$bodyMdMedium" color="$text">
-                  {hoverData.apy.toFixed(2)}%
-                </SizableText>
+              <YStack gap="$2">
                 <SizableText size="$bodySm" color="$textSubdued">
                   {formatPopoverDate(hoverData.time)}
                 </SizableText>
+                <XStack jc="space-between" ai="center" gap="$1.5">
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                    {tooltipLabel}
+                  </SizableText>
+                  <SizableText size="$bodySmMedium" color="$text">
+                    {hoverData.apy.toFixed(2)}%
+                  </SizableText>
+                </XStack>
               </YStack>
             </YStack>
           ) : null}

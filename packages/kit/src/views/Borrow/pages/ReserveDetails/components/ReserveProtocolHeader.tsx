@@ -81,7 +81,7 @@ export const ReserveProtocolHeader = ({
       <YStack>
         <YStack jc="center">
           {managers?.items?.length ? (
-            <XStack gap="$1" ai="center" mb="$4" flexWrap="wrap">
+            <XStack gap="$1" ai="center" mb="$6" flexWrap="wrap">
               {managers.items.map((item, index) => (
                 <Fragment key={index}>
                   <XStack gap="$1" ai="center">
@@ -109,12 +109,12 @@ export const ReserveProtocolHeader = ({
             </XStack>
           ) : null}
           {/* Token icon + Symbol (large) */}
-          <XStack gap="$2" ai="center" my="$6">
+          <XStack gap="$2" ai="center" mb="$6">
             <Token size="lg" tokenImageUri={logoURI} />
             <SizableText size="$heading2xl">{symbol}</SizableText>
           </XStack>
           {/* Statistics grid (2x2 layout) */}
-          <YStack gap="$6" mb="$8">
+          <YStack gap="$6" mb="$6">
             {/* Row 1: Reserve size | Available liquidity */}
             <XStack>
               {reserveSize ? (

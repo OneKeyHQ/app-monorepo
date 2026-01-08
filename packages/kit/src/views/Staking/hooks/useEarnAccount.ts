@@ -39,7 +39,7 @@ export function useEarnAccount({
       });
     },
     [networkId, resolvedAccountId, resolvedIndexedAccountId, btcOnlyTaproot],
-    { watchLoading: true },
+    { watchLoading: true, undefinedResultIfReRun: true },
   );
 
   return {

@@ -86,7 +86,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     {
       watchLoading: true,
       checkIsFocused: true,
-      undefinedResultIfReRun: false,
+      undefinedResultIfReRun: true,
       undefinedResultIfError: true,
       pollingInterval: BORROW_POLLING_INTERVAL,
       revalidateOnFocus: true,

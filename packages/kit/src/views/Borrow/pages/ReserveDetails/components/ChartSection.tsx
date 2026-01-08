@@ -67,35 +67,33 @@ export function ChartSection({
         title={intl.formatMessage({ id: ETranslations.defi_supply_info })}
         titleAfter={supplyBadge}
       >
-        <YStack pt="$4">
-          <ApyChartSection
-            apyValue={supplyData.latestApy}
-            apyLabel={supplyApyLabel}
-            history={supplyData.history}
-            isLoading={supplyData.isLoading ?? false}
-            timePeriod={supplyTimePeriod}
-            timePeriodOptions={timePeriodOptions}
-            onTimePeriodChange={setSupplyTimePeriod}
-            lineColor={APY_CHART_COLORS.supply.line}
-            topColor={APY_CHART_COLORS.supply.top}
-            bottomColor={APY_CHART_COLORS.supply.bottom}
-            lineWidth={APY_CHART_COLORS.lineWidth}
-            showDivider={false}
-            capUsage={details?.supply.usage}
-            capUsageLabel={intl.formatMessage({
-              id: ETranslations.defi_supply_cap_usage,
-            })}
-            metrics={
-              details
-                ? {
-                    maxLtv: details.supply.maxLtv,
-                    liquidationLtv: details.supply.liquidationLtv,
-                    softLiquidation: details.supply.softLiquidation,
-                  }
-                : undefined
-            }
-          />
-        </YStack>
+        <ApyChartSection
+          apyValue={supplyData.latestApy}
+          apyLabel={supplyApyLabel}
+          history={supplyData.history}
+          isLoading={supplyData.isLoading ?? false}
+          timePeriod={supplyTimePeriod}
+          timePeriodOptions={timePeriodOptions}
+          onTimePeriodChange={setSupplyTimePeriod}
+          lineColor={APY_CHART_COLORS.supply.line}
+          topColor={APY_CHART_COLORS.supply.top}
+          bottomColor={APY_CHART_COLORS.supply.bottom}
+          lineWidth={APY_CHART_COLORS.lineWidth}
+          capUsage={details?.supply.usage}
+          capUsageLabel={intl.formatMessage({
+            id: ETranslations.defi_supply_cap_usage,
+          })}
+          metrics={
+            details
+              ? {
+                  maxLtv: details.supply.maxLtv,
+                  liquidationLtv: details.supply.liquidationLtv,
+                  softLiquidation: details.supply.softLiquidation,
+                }
+              : undefined
+          }
+          tooltipLabel={supplyApyLabel}
+        />
       </DetailsSectionContainer>
 
       <DetailsSectionContainer
@@ -103,25 +101,25 @@ export function ChartSection({
         titleAfter={borrowBadge}
         showDivider={false}
       >
-        <YStack pt="$4">
-          <ApyChartSection
-            apyValue={borrowData.latestApy}
-            apyLabel={borrowApyLabel}
-            history={borrowData.history}
-            isLoading={borrowData.isLoading ?? false}
-            timePeriod={borrowTimePeriod}
-            timePeriodOptions={timePeriodOptions}
-            onTimePeriodChange={setBorrowTimePeriod}
-            lineColor={APY_CHART_COLORS.borrow.line}
-            topColor={APY_CHART_COLORS.borrow.top}
-            bottomColor={APY_CHART_COLORS.borrow.bottom}
-            lineWidth={APY_CHART_COLORS.lineWidth}
-            capUsage={details?.borrow.usage}
-            capUsageLabel={intl.formatMessage({
-              id: ETranslations.defi_borrow_cap_usage,
-            })}
-          />
-        </YStack>
+        <ApyChartSection
+          apyValue={borrowData.latestApy}
+          apyLabel={borrowApyLabel}
+          history={borrowData.history}
+          isLoading={borrowData.isLoading ?? false}
+          timePeriod={borrowTimePeriod}
+          timePeriodOptions={timePeriodOptions}
+          onTimePeriodChange={setBorrowTimePeriod}
+          lineColor={APY_CHART_COLORS.borrow.line}
+          topColor={APY_CHART_COLORS.borrow.top}
+          bottomColor={APY_CHART_COLORS.borrow.bottom}
+          lineWidth={APY_CHART_COLORS.lineWidth}
+          showDivider={false}
+          capUsage={details?.borrow.usage}
+          capUsageLabel={intl.formatMessage({
+            id: ETranslations.defi_borrow_cap_usage,
+          })}
+          tooltipLabel={borrowApyLabel}
+        />
       </DetailsSectionContainer>
 
       <InterestRateModelSection
