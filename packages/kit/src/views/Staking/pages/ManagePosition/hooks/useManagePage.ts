@@ -216,6 +216,8 @@ export const useManagePage = ({
       claimable: managePageData.nums?.claimable,
       // input decimals restriction
       protocolInputDecimals: managePageData.nums?.protocolInputDecimals,
+      // repay max balance (debt balance for max button)
+      maxRepayBalance: managePageData.repay?.data?.maxBalance,
       // approve
       approve: managePageData.approve
         ? {

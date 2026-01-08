@@ -14,7 +14,6 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { AprText } from '@onekeyhq/kit/src/views/Earn/components/AprText';
 import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -219,11 +218,11 @@ function DottedLine({ color, width }: { color: string; width: number }) {
 function TextWithDottedUnderline({
   text,
   color,
-  size = '$bodyLgMedium',
+  size = '$bodyMdMedium',
 }: {
   text: string;
   color?: string;
-  size?: '$bodyLgMedium' | '$bodyMd';
+  size?: '$bodyMdMedium' | '$bodyMd';
 }) {
   const theme = useTheme();
   const [textWidth, setTextWidth] = useState(0);
@@ -278,7 +277,7 @@ export const ApyTextV2 = ({ apyDetail }: IApyTextV2Props) => {
     if (!deprecated) return null;
     return (
       <SizableText
-        size="$bodyMd"
+        size="$bodySm"
         textAlign="right"
         color={deprecated.color || '$textSubdued'}
         textDecorationLine="line-through"
@@ -322,7 +321,7 @@ export const ApyTextV2 = ({ apyDetail }: IApyTextV2Props) => {
     return <YStack ai="flex-end">{renderHighlightWithPopover()}</YStack>;
   }
 
-  // Case 3: Fallback to AprText for other cases
+  // Case 3: Fallback for other cases
   // If hasDetail, render text with dotted underline and popover
   if (hasDetail) {
     // Get the text to display - prefer normal.text, fallback to apy
@@ -349,15 +348,15 @@ export const ApyTextV2 = ({ apyDetail }: IApyTextV2Props) => {
     );
   }
 
-  // No detail, use AprText without underline
+  // No detail, render text directly with consistent font size
+  const displayText = apyDetail.normal?.text || apyDetail.apy;
+  const displayColor = apyDetail.normal?.color || '$text';
+
   return (
     <YStack ai="flex-end">
-      <AprText
-        asset={{
-          aprWithoutFee: apyDetail.apy,
-          aprInfo: apyDetail,
-        }}
-      />
+      <SizableText size="$bodyMdMedium" textAlign="right" color={displayColor}>
+        {displayText}
+      </SizableText>
     </YStack>
   );
 };

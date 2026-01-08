@@ -1,75 +1,46 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@tamagui/core';
 import { LineType, createChart } from 'lightweight-charts';
-import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  SizableText,
-  Skeleton,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Skeleton, Stack, YStack } from '@onekeyhq/components';
 import type { ILightweightChartTheme } from '@onekeyhq/kit/src/components/LightweightChart/types';
 import {
   createAreaSeriesOptions,
   createChartOptions,
 } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartOptions';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import type { ColorTokens } from '@tamagui/core';
-import type { BusinessDay, IChartApi, UTCTimestamp } from 'lightweight-charts';
+import {
+  BASE_TIMESTAMP,
+  CHART_HEIGHT,
+  INTEREST_RATE_CHART_COLORS,
+  InterestRateModelHeader,
+  InterestRateModelLegend,
+  InterestRateModelTooltip,
+  UTILIZATION_RANGE,
+  calculatePopoverPosition,
+  convertTimeToUtilization,
+  convertUtilizationToTime,
+  normalizeApyToPercent,
+  normalizeUtilization,
+  useInterestRateModelLabels,
+} from './InterestRateModelChartShared';
 
-interface IInterestRateModelChartProps {
-  borrowCurve: [number, string][];
-  supplyCurve: [number, string][];
-  utilizationRatio?: string;
-  isLoading?: boolean;
-}
-
-const CHART_HEIGHT = 280;
-
-// Convert utilization (0-1) to timestamp for LightweightChart
-// We use a base timestamp and map utilization (0-1) to a reasonable timestamp range
-// This allows LightweightChart to work with non-time-series data
-const BASE_TIMESTAMP = 1_000_000_000; // Base timestamp (2001-09-09)
-const UTILIZATION_RANGE = 1_000_000; // Map 0-1 utilization to 0-1000000 timestamp range
-const convertUtilizationToTime = (util: number): UTCTimestamp => {
-  // Clamp utilization to 0-1 range
-  const clampedUtil = Math.max(0, Math.min(1, util));
-  // Map 0-1 utilization to timestamp range
-  return (BASE_TIMESTAMP +
-    Math.round(clampedUtil * UTILIZATION_RANGE)) as UTCTimestamp;
-};
-
-// Convert timestamp back to utilization (0-1)
-const convertTimeToUtilization = (time: UTCTimestamp | BusinessDay): number => {
-  const timeValue = typeof time === 'number' ? time : Number(time);
-  const util = (timeValue - BASE_TIMESTAMP) / UTILIZATION_RANGE;
-  // Clamp to 0-1 range
-  return Math.max(0, Math.min(1, util));
-};
+import type {
+  IHoverData,
+  IInterestRateModelChartProps,
+} from './InterestRateModelChartShared';
+import type {
+  BusinessDay,
+  IChartApi,
+  ISeriesApi,
+  UTCTimestamp,
+} from 'lightweight-charts';
 
 const getUtilizationLineTimeDelta = (timeValue: number) =>
   Math.max(Number.EPSILON * timeValue, Number.EPSILON);
 
 const toTimestamp = (value: number) => value as UTCTimestamp;
-
-const normalizeUtilization = (value: number) => {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return value > 1 ? value / 100 : value;
-};
-
-const normalizeApyToPercent = (value: number) => {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return value;
-};
 
 export function InterestRateModelChart({
   borrowCurve,
@@ -77,10 +48,63 @@ export function InterestRateModelChart({
   utilizationRatio,
   isLoading,
 }: IInterestRateModelChartProps) {
-  const intl = useIntl();
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const supplySeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const borrowSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
   const theme = useTheme();
+
+  const [hoverData, setHoverData] = useState<IHoverData | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  const {
+    utilizationRatioLabel,
+    currentUtilizationLabel,
+    supplyApyLabel,
+    borrowApyLabel,
+  } = useInterestRateModelLabels();
+
+  const handleCrosshairMove = useCallback(
+    (param: {
+      time?: UTCTimestamp | BusinessDay;
+      point?: { x: number; y: number };
+      seriesPrices?: Map<ISeriesApi<'Area'>, number>;
+    }) => {
+      if (
+        param.time &&
+        param.point &&
+        supplySeriesRef.current &&
+        borrowSeriesRef.current
+      ) {
+        const supplyPrice = param.seriesPrices?.get(supplySeriesRef.current);
+        const borrowPrice = param.seriesPrices?.get(borrowSeriesRef.current);
+
+        if (supplyPrice !== undefined && borrowPrice !== undefined) {
+          const timeValue =
+            typeof param.time === 'number' ? param.time : Number(param.time);
+          const util = convertTimeToUtilization(timeValue);
+          setHoverData({
+            utilizationRatio: util,
+            supplyApy: supplyPrice,
+            borrowApy: borrowPrice,
+            x: param.point.x,
+            y: param.point.y,
+          });
+          return;
+        }
+      }
+      setHoverData(null);
+    },
+    [],
+  );
+
+  const popoverPosition = useMemo(
+    () =>
+      hoverData
+        ? calculatePopoverPosition(hoverData.x, hoverData.y, containerWidth)
+        : null,
+    [hoverData, containerWidth],
+  );
 
   // Create theme configs for both series
   const createTheme = useCallback(
@@ -100,12 +124,22 @@ export function InterestRateModelChart({
   );
 
   const supplyTheme = useMemo(
-    () => createTheme('#008347D6', '#00834726', '#00834700'),
+    () =>
+      createTheme(
+        INTEREST_RATE_CHART_COLORS.supply.line,
+        INTEREST_RATE_CHART_COLORS.supply.top,
+        INTEREST_RATE_CHART_COLORS.supply.bottom,
+      ),
     [createTheme],
   );
 
   const borrowTheme = useMemo(
-    () => createTheme('#DA8A00C9', '#DA8A0026', '#DA8A0000'),
+    () =>
+      createTheme(
+        INTEREST_RATE_CHART_COLORS.borrow.line,
+        INTEREST_RATE_CHART_COLORS.borrow.top,
+        INTEREST_RATE_CHART_COLORS.borrow.bottom,
+      ),
     [createTheme],
   );
 
@@ -116,12 +150,12 @@ export function InterestRateModelChart({
     }
 
     const supplyData = supplyCurve.map(([util, apy]) => ({
-      time: convertUtilizationToTime(normalizeUtilization(util)),
+      time: convertUtilizationToTime(normalizeUtilization(util)) as UTCTimestamp,
       value: normalizeApyToPercent(parseFloat(apy)),
     }));
 
     const borrowData = borrowCurve.map(([util, apy]) => ({
-      time: convertUtilizationToTime(normalizeUtilization(util)),
+      time: convertUtilizationToTime(normalizeUtilization(util)) as UTCTimestamp,
       value: normalizeApyToPercent(parseFloat(apy)),
     }));
 
@@ -162,7 +196,8 @@ export function InterestRateModelChart({
       timeScale: {
         ...baseOptions.timeScale,
         tickMarkFormatter: (time: UTCTimestamp | BusinessDay) => {
-          const util = convertTimeToUtilization(time);
+          const timeValue = typeof time === 'number' ? time : Number(time);
+          const util = convertTimeToUtilization(timeValue);
           return `${Math.round(util * 100)}%`;
         },
       },
@@ -173,12 +208,25 @@ export function InterestRateModelChart({
       createAreaSeriesOptions(supplyTheme, 2),
     );
     supplySeries.setData(chartData.supplyData);
+    supplySeriesRef.current = supplySeries;
 
     // Add borrow series
     const borrowSeries = chart.addAreaSeries(
       createAreaSeriesOptions(borrowTheme, 2),
     );
     borrowSeries.setData(chartData.borrowData);
+    borrowSeriesRef.current = borrowSeries;
+
+    // Subscribe to crosshair move for tooltip
+    chart.subscribeCrosshairMove((param) => {
+      handleCrosshairMove({
+        time: param.time as UTCTimestamp | BusinessDay | undefined,
+        point: param.point,
+        seriesPrices: param.seriesPrices as
+          | Map<ISeriesApi<'Area'>, number>
+          | undefined,
+      });
+    });
 
     // Add current utilization vertical line marker if available
     if (utilizationRatio) {
@@ -241,6 +289,8 @@ export function InterestRateModelChart({
       resizeObserver.disconnect();
       chart.remove();
       chartRef.current = null;
+      supplySeriesRef.current = null;
+      borrowSeriesRef.current = null;
     };
   }, [
     chartData,
@@ -248,29 +298,12 @@ export function InterestRateModelChart({
     borrowTheme,
     utilizationRatio,
     theme.iconSubdued?.val,
+    handleCrosshairMove,
   ]);
 
   const utilizationPercentage = utilizationRatio
-    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
-        2,
-      )}%`
+    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(2)}%`
     : '0.00%';
-  const utilizationRatioLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.defi_utilization_ratio }),
-    [intl],
-  );
-  const currentUtilizationLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.defi_current_utilization }),
-    [intl],
-  );
-  const supplyApyLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.defi_supply_apy }),
-    [intl],
-  );
-  const borrowApyLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
-    [intl],
-  );
 
   if (isLoading) {
     return (
@@ -285,47 +318,38 @@ export function InterestRateModelChart({
   }
 
   return (
-    <YStack gap="$3">
-      {/* Header showing current utilization */}
-      <SizableText size="$headingLg">
-        {utilizationPercentage} {utilizationRatioLabel}
-      </SizableText>
+    <YStack gap="$6">
+      <InterestRateModelHeader
+        utilizationPercentage={utilizationPercentage}
+        utilizationRatioLabel={utilizationRatioLabel}
+      />
 
-      {/* Legend */}
-      <XStack mt="$3" gap="$6" ai="center">
-        <XStack ai="center" gap="$2">
-          <Icon
-            name="CirclePlaceholderOnSolid"
-            size="$1.5"
-            color={'#DA8A00C9' as ColorTokens}
-          />
-          <SizableText size="$bodySm" color="$textSubdued">
-            {borrowApyLabel}
-          </SizableText>
-        </XStack>
-        <XStack ai="center" gap="$2">
-          <Icon
-            name="CirclePlaceholderOnSolid"
-            size="$1.5"
-            color={'#008347D6' as ColorTokens}
-          />
-          <SizableText size="$bodySm" color="$textSubdued">
-            {supplyApyLabel}
-          </SizableText>
-        </XStack>
-        <XStack ai="center" gap="$2">
-          <Icon
-            name="CirclePlaceholderOnSolid"
-            size="$1.5"
-            color="$iconSubdued"
-          />
-          <SizableText size="$bodySm" color="$textSubdued">
-            {currentUtilizationLabel}
-          </SizableText>
-        </XStack>
-      </XStack>
+      <InterestRateModelLegend
+        borrowApyLabel={borrowApyLabel}
+        supplyApyLabel={supplyApyLabel}
+        currentUtilizationLabel={currentUtilizationLabel}
+      />
 
-      <Stack ref={chartContainerRef} width="100%" height={CHART_HEIGHT} />
+      <Stack
+        position="relative"
+        onLayout={(e) => {
+          const width = e.nativeEvent.layout.width;
+          if (width !== containerWidth) {
+            setContainerWidth(width);
+          }
+        }}
+      >
+        {hoverData && popoverPosition ? (
+          <InterestRateModelTooltip
+            hoverData={hoverData}
+            popoverPosition={popoverPosition}
+            utilizationRatioLabel={utilizationRatioLabel}
+            borrowApyLabel={borrowApyLabel}
+            supplyApyLabel={supplyApyLabel}
+          />
+        ) : null}
+        <Stack ref={chartContainerRef} width="100%" height={CHART_HEIGHT} />
+      </Stack>
     </YStack>
   );
 }

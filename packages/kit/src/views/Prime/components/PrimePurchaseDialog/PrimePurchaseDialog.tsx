@@ -29,12 +29,7 @@ export function usePrimePurchaseCallback({
 }: {
   onPurchase?: () => void;
 } = {}) {
-  const {
-    purchasePackageNative,
-    getPackagesNative,
-    purchasePackageWeb,
-    getPackagesWeb,
-  } = usePrimePayment();
+  const { purchasePackageNative, purchasePackageWeb } = usePrimePayment();
   const { user } = useOneKeyAuth();
   const intl = useIntl();
 
@@ -166,16 +161,10 @@ export const PrimePurchaseDialog = (props: {
 }) => {
   const { onPurchase, featureName } = props;
   const intl = useIntl();
-  const { user } = useOneKeyAuth();
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
 
-  const {
-    purchasePackageNative,
-    getPackagesNative,
-    purchasePackageWeb,
-    getPackagesWeb,
-  } = usePrimePayment();
+  const { getPackagesNative, getPackagesWeb } = usePrimePayment();
 
   const { result: packages } = usePromiseResult(
     async () =>

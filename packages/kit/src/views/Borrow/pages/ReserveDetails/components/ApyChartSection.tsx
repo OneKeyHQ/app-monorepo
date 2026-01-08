@@ -51,6 +51,9 @@ interface IApyChartSectionProps {
     liquidationLtv?: { text: IEarnText; tooltip?: IEarnTooltip };
     softLiquidation?: { text: IEarnText; tooltip?: IEarnTooltip };
   };
+
+  // Optional: Tooltip label for hover
+  tooltipLabel?: string;
 }
 
 function ApyChartSectionComponent({
@@ -69,6 +72,7 @@ function ApyChartSectionComponent({
   capUsage,
   capUsageLabel,
   metrics,
+  tooltipLabel,
 }: IApyChartSectionProps) {
   const intl = useIntl();
 
@@ -88,7 +92,7 @@ function ApyChartSectionComponent({
       {/* APY Chart */}
       <YStack gap="$3">
         <XStack jc="space-between" ai="center">
-          <SizableText size="$headingLg">
+          <SizableText size="$headingXl">
             {Number(apyValue).toFixed(2)}% {apyLabel}
           </SizableText>
           <SegmentControl
@@ -106,6 +110,7 @@ function ApyChartSectionComponent({
           lineWidth={lineWidth}
           showPriceScale
           showDivider={showDivider}
+          tooltipLabel={tooltipLabel}
         />
 
         {/* Supply Metrics (optional) */}

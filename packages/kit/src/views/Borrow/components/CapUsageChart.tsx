@@ -43,7 +43,7 @@ export function CapUsageChart({
   }, [title, media.gtSm, description]);
 
   return (
-    <XStack gap="$3" ai="center">
+    <XStack gap="$3.5" ai="center" py="$2">
       <CircleProgress percentage={percentageValue} size={80} strokeWidth={6} />
       <YStack gap="$1.5" flex={1}>
         <XStack ai="center" gap="$1.5">
