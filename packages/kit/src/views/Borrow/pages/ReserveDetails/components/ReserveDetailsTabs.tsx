@@ -125,7 +125,6 @@ const ReserveDetailsTabsComponent = ({
               topColor={APY_CHART_COLORS.supply.top}
               bottomColor={APY_CHART_COLORS.supply.bottom}
               lineWidth={APY_CHART_COLORS.lineWidth}
-              showDivider={false}
               capUsage={details?.supply.usage}
               capUsageLabel={intl.formatMessage({
                 id: ETranslations.defi_supply_cap_usage,
