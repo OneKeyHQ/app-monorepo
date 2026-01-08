@@ -3259,6 +3259,7 @@
   "send.label_transferred": "Переведено",
   "send.label_wallet_name": "Название кошелька / Название счета",
   "send.max": "Макс",
+  "send.memo_size_exceeded": "Памятка превышает {limit} {type} (текущая: {current} {type})",
   "send.memo_up_to_length": "До {number} символов",
   "send.nft_amount": "Количество",
   "send.nft_does_not_exist": "NFT не существует.",

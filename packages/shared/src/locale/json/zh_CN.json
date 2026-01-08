@@ -3259,6 +3259,7 @@
   "send.label_transferred": "转账过",
   "send.label_wallet_name": "钱包名称 / 账户名称",
   "send.max": "最大",
+  "send.memo_size_exceeded": "Memo 超过 {limit} {type} （当前： {current} {type})",
   "send.memo_up_to_length": "最多{number}个字符",
   "send.nft_amount": "数量",
   "send.nft_does_not_exist": "NFT不存在",

@@ -239,6 +239,7 @@ function SendDataInputContainer() {
     numericOnlyMemo,
     displayNoteForm,
     noteMaxLength,
+    supportsMemoValidation,
     displayTxMessageForm,
   ] = useMemo(() => {
     return [
@@ -248,6 +249,7 @@ function SendDataInputContainer() {
       vaultSettings?.numericOnlyMemo,
       vaultSettings?.withNote,
       vaultSettings?.noteMaxLength,
+      vaultSettings?.supportMemoValidation,
       vaultSettings?.withTxMessage,
     ];
   }, [vaultSettings]);
@@ -1354,15 +1356,47 @@ function SendDataInputContainer() {
     return null;
   }, [form, intl, isLoadingAssets, nft?.collectionType, nftDetails?.amount]);
 
+  const validateMemoField = useCallback(
+    async (value: string): Promise<string | undefined> => {
+      if (vaultSettings?.supportMemoValidation) {
+        try {
+          const result = await backgroundApiProxy.serviceSend.validateMemo({
+            networkId: currentAccount.networkId,
+            accountId: currentAccount.accountId,
+            memo: value,
+          });
+          if (!result.isValid) {
+            return result.errorMessage;
+          }
+          return undefined;
+        } catch (error) {
+          console.error('Vault memo validation failed:', error);
+        }
+      }
+
+      const validateErrMsg = numericOnlyMemo
+        ? intl.formatMessage({
+            id: ETranslations.send_field_only_integer,
+          })
+        : undefined;
+      const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
+
+      if (!value || !memoRegExp) return undefined;
+      const result = !memoRegExp.test(value);
+      return result ? validateErrMsg : undefined;
+    },
+    [
+      currentAccount.accountId,
+      currentAccount.networkId,
+      intl,
+      numericOnlyMemo,
+      vaultSettings?.supportMemoValidation,
+    ],
+  );
+
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
     const maxLength = memoMaxLength || 256;
-    const validateErrMsg = numericOnlyMemo
-      ? intl.formatMessage({
-          id: ETranslations.send_field_only_integer,
-        })
-      : undefined;
-    const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
 
     return (
       <>
@@ -1371,22 +1405,20 @@ function SendDataInputContainer() {
           optional
           name="memo"
           rules={{
-            maxLength: {
-              value: maxLength,
-              message: intl.formatMessage(
-                {
-                  id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+            maxLength: supportsMemoValidation
+              ? undefined
+              : {
+                  value: maxLength,
+                  message: intl.formatMessage(
+                    {
+                      id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+                    },
+                    {
+                      number: maxLength,
+                    },
+                  ),
                 },
-                {
-                  number: maxLength,
-                },
-              ),
-            },
-            validate: (value) => {
-              if (!value || !memoRegExp) return undefined;
-              const result = !memoRegExp.test(value);
-              return result ? validateErrMsg : undefined;
-            },
+            validate: validateMemoField,
           }}
         >
           <TextArea
@@ -1399,7 +1431,14 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl, media.gtMd, memoMaxLength, numericOnlyMemo]);
+  }, [
+    displayMemoForm,
+    intl,
+    media.gtMd,
+    memoMaxLength,
+    supportsMemoValidation,
+    validateMemoField,
+  ]);
 
   const renderPaymentIdForm = useCallback(() => {
     if (!displayPaymentIdForm) return null;

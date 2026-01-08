@@ -3259,6 +3259,7 @@
   "send.label_transferred": "โอนย้าย",
   "send.label_wallet_name": "ชื่อกระเป๋าเงิน / ชื่อบัญชี",
   "send.max": "สูงสุด",
+  "send.memo_size_exceeded": "บันทึกช่วยจำเกิน {limit} {type} (ปัจจุบัน: {current} {type}-",
   "send.memo_up_to_length": "สูงสุด {number} ตัวอักษร",
   "send.nft_amount": "จำนวน",
   "send.nft_does_not_exist": "NFT ไม่มีอยู่",
