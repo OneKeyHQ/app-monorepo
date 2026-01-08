@@ -511,4 +511,5 @@ export interface IHardwareRecordItem {
 export interface IHardwareRecordsResponse {
   total: number;
   items: IHardwareRecordItem[];
+  cursor?: string;
 }

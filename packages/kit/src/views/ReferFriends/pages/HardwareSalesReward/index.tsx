@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +12,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IScrollViewRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
@@ -51,6 +52,9 @@ function HardwareSalesRewardPageWrapper() {
   const [hardwareRecords, setHardwareRecords] = useState<IHardwareRecordItem[]>(
     [],
   );
+  const [cursor, setCursor] = useState<string | undefined>();
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const scrollViewRef = useRef<IScrollViewRef>(null);
 
   const onRefresh = useCallback(async () => {
     setIsLoading(true);
@@ -67,7 +71,11 @@ function HardwareSalesRewardPageWrapper() {
       }
 
       if (recordsResult.status === 'fulfilled') {
-        setHardwareRecords(recordsResult.value.items || []);
+        const items = recordsResult.value.items || [];
+        setHardwareRecords(items);
+        // Use last item's _id as cursor, undefined if no more data (items < limit)
+        const hasMore = items.length >= 10;
+        setCursor(hasMore ? items[items.length - 1]?._id : undefined);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -75,6 +83,48 @@ function HardwareSalesRewardPageWrapper() {
       setIsLoading(false);
     }
   }, []);
+
+  const onLoadMore = useCallback(async () => {
+    if (!cursor || isLoadingMore) {
+      return;
+    }
+    setIsLoadingMore(true);
+    try {
+      const result =
+        await backgroundApiProxy.serviceReferralCode.getHardwareRecords(cursor);
+      const items = result.items || [];
+      setHardwareRecords((prev) => [...prev, ...items]);
+      // Use last item's _id as cursor, undefined if no more data (items < limit)
+      const hasMore = items.length >= 10;
+      setCursor(hasMore ? items[items.length - 1]?._id : undefined);
+    } catch (error) {
+      console.error('Failed to load more:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [cursor, isLoadingMore]);
+
+  const handleScroll = useCallback(
+    (event: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        contentSize: { height: number };
+        layoutMeasurement: { height: number };
+      };
+    }) => {
+      const { contentOffset, contentSize, layoutMeasurement } =
+        event.nativeEvent;
+      const paddingToBottom = 100;
+      const isCloseToBottom =
+        contentOffset.y + layoutMeasurement.height >=
+        contentSize.height - paddingToBottom;
+
+      if (isCloseToBottom && cursor && !isLoadingMore) {
+        void onLoadMore();
+      }
+    },
+    [cursor, isLoadingMore, onLoadMore],
+  );
 
   useEffect(() => {
     void onRefresh();
@@ -112,11 +162,14 @@ function HardwareSalesRewardPageWrapper() {
             </YStack>
           ) : (
             <ScrollView
+              ref={scrollViewRef}
               flex={1}
               refreshControl={
                 <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
               }
               contentContainerStyle={{ pb: '$5' }}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
             >
               {/* Breadcrumb for desktop */}
               {!platformEnv.isNative && !md ? (
@@ -155,6 +208,7 @@ function HardwareSalesRewardPageWrapper() {
                 isLoading={isLoading}
                 records={hardwareRecords}
                 isMobile={md}
+                isLoadingMore={isLoadingMore}
               />
             </ScrollView>
           )}

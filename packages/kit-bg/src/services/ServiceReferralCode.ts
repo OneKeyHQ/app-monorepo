@@ -552,11 +552,20 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHardwareRecords(): Promise<IHardwareRecordsResponse> {
+  async getHardwareRecords(cursor?: string): Promise<IHardwareRecordsResponse> {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      limit: number;
+      cursor?: string;
+    } = {
+      limit: 10,
+    };
+    if (cursor) {
+      params.cursor = cursor;
+    }
     const response = await client.get<{
       data: IHardwareRecordsResponse;
-    }>('/rebate/v1/invite/hardware-records');
+    }>('/rebate/v1/invite/hardware-records', { params });
     return response.data.data;
   }
 

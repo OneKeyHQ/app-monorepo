@@ -11,12 +11,14 @@ interface IHardwareRecordsListProps {
   isLoading: boolean;
   records: IHardwareRecordItem[];
   isMobile: boolean;
+  isLoadingMore?: boolean;
 }
 
 export function HardwareRecordsList({
   isLoading,
   records,
   isMobile,
+  isLoadingMore,
 }: IHardwareRecordsListProps) {
   const intl = useIntl();
 
@@ -44,6 +46,17 @@ export function HardwareRecordsList({
     );
   }
 
+  const renderLoadingMore = () => {
+    if (!isLoadingMore) {
+      return null;
+    }
+    return (
+      <YStack ai="center" py="$4">
+        <Spinner size="small" />
+      </YStack>
+    );
+  };
+
   if (isMobile) {
     return (
       <YStack px="$5" gap="$3" pb="$5">
@@ -53,6 +66,7 @@ export function HardwareRecordsList({
         {records.map((record) => (
           <HardwareRecordCard key={record._id} item={record} />
         ))}
+        {renderLoadingMore()}
       </YStack>
     );
   }
@@ -63,6 +77,7 @@ export function HardwareRecordsList({
         {intl.formatMessage({ id: ETranslations.referral_details })}
       </SizableText>
       <HardwareRecordTable records={records} />
+      {renderLoadingMore()}
     </YStack>
   );
 }
