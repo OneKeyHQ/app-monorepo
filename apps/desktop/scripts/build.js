@@ -7,12 +7,12 @@ const glob = require('glob');
 const fs = require('fs');
 const pkg = require('../app/package.json');
 
-// Add passport-desktop-win32-x64-msvc dependency for Windows
-if (process.platform === 'win32') {
-  pkg.dependencies = pkg.dependencies || {};
-  pkg.dependencies['passport-desktop-win32-x64-msvc'] = '0.1.2';
+const isProduction = process.env.NODE_ENV === 'production';
 
-  // Write back to package.json file
+// remove passport-desktop-win32-x64-msvc dependency on non-windows platform
+if (isProduction && process.platform !== 'win32') {
+  pkg.dependencies = pkg.dependencies || {};
+  delete pkg.dependencies['passport-desktop-win32-x64-msvc'];
   const packageJsonPath = path.join(__dirname, '..', 'app', 'package.json');
   fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
 }
@@ -24,7 +24,6 @@ const gitRevision = childProcess
   .toString()
   .trim();
 
-const isProduction = process.env.NODE_ENV === 'production';
 
 const hrstart = process.hrtime();
 
