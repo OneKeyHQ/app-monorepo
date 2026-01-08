@@ -7,7 +7,6 @@ import { Button, rootNavigationRef, useMedia } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';

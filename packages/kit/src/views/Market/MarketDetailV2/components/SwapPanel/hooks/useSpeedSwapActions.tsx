@@ -632,6 +632,8 @@ export function useSpeedSwapActions(props: {
           !fromToken.contractAddress ||
           isWrapped
         ) {
+          setShouldApprove(false);
+          setShouldResetApprove(false);
           return;
         }
         setCheckTokenAllowanceLoading(true);
