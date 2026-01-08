@@ -3259,6 +3259,7 @@
   "send.label_transferred": "Trasferito",
   "send.label_wallet_name": "Nome del portafoglio / Nome dell'account",
   "send.max": "Massimo",
+  "send.memo_size_exceeded": "Il promemoria supera {limit} {type} (attuale: {current} {type})",
   "send.memo_up_to_length": "Fino a {number} caratteri",
   "send.nft_amount": "Quantità",
   "send.nft_does_not_exist": "L'NFT non esiste.",

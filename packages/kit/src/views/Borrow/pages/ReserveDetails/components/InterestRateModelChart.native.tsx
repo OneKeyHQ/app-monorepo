@@ -359,7 +359,9 @@ export function InterestRateModelChart({
   }, [chartConfig, webViewReady]);
 
   const utilizationPercentage = utilizationRatio
-    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(2)}%`
+    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
+        2,
+      )}%`
     : '0.00%';
 
   if (isLoading) {

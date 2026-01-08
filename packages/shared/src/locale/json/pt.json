@@ -3259,6 +3259,7 @@
   "send.label_transferred": "Transferido",
   "send.label_wallet_name": "Nome da carteira / Nome da conta",
   "send.max": "Máximo",
+  "send.memo_size_exceeded": "A nota excede {limit} {type} (atual: {current} {type})",
   "send.memo_up_to_length": "Até {number} caracteres",
   "send.nft_amount": "Quantia",
   "send.nft_does_not_exist": "NFT não existe.",

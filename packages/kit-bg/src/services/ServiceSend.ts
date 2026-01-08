@@ -939,6 +939,23 @@ class ServiceSend extends ServiceBase {
     );
     return resp.data.data;
   }
+
+  @backgroundMethod()
+  async validateMemo(params: {
+    networkId: string;
+    accountId?: string;
+    memo: string;
+  }) {
+    const { networkId, accountId, memo } = params;
+    if (accountId) {
+      const vault = await vaultFactory.getVault({ networkId, accountId });
+      return vault.validateMemo(memo);
+    }
+
+    return (await vaultFactory.getChainOnlyVault({ networkId })).validateMemo(
+      memo,
+    );
+  }
 }
 
 export default ServiceSend;

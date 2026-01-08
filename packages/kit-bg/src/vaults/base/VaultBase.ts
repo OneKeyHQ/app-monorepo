@@ -192,6 +192,19 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation>;
 
+  /**
+   * Validate memo/tag field (optional, chain-specific implementation)
+   * @param memo - The memo string to validate
+   * @returns Validation result with error message if invalid
+   */
+  async validateMemo(memo: string): Promise<{
+    isValid: boolean;
+    errorMessage?: string;
+  }> {
+    // Default implementation: always valid (chains can override)
+    return { isValid: true };
+  }
+
   async baseValidatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {

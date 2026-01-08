@@ -3264,6 +3264,7 @@
   send_label_transferred = 'send.label_transferred',
   send_label_wallet_name = 'send.label_wallet_name',
   send_max = 'send.max',
+  send_memo_size_exceeded = 'send.memo_size_exceeded',
   send_memo_up_to_length = 'send.memo_up_to_length',
   send_nft_amount = 'send.nft_amount',
   send_nft_does_not_exist = 'send.nft_does_not_exist',

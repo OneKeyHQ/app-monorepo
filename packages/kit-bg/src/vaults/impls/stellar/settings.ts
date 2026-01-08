@@ -45,7 +45,7 @@ const settings: IVaultSettings = {
   hasFrozenBalance: true, // trustline count * 0.5XLM is frozen balance
 
   withMemo: true,
-  memoMaxLength: 28,
+  supportMemoValidation: true, // Use Vault.validateMemo() for precise validation
 
   accountDeriveInfo,
   customRpcEnabled: true,
