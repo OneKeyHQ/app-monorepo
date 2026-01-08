@@ -83,7 +83,7 @@ export function UniversalBorrowRepay({
   tokenImageUri,
   decimals,
   price: inputPrice,
-  tokenInfo,
+  tokenInfo: _tokenInfo,
   isDisabled,
   beforeFooter,
   showApyDetail = false,
