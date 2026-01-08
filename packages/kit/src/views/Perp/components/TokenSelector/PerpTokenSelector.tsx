@@ -165,11 +165,11 @@ function BasePerpTokenSelectorContent({
 
   const tabNames = useMemo(
     () => ({
-      favorites: 'Favs',
+      favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: 'PERPS',
       hip3: 'HIP3',
     }),
-    [],
+    [intl],
   );
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const setActiveTab = useCallback(
@@ -546,7 +546,7 @@ function BasePerpTokenSelectorContent({
         >
           <Tabs.Tab name={tabNames.favorites}>
             {activeTab === 'favorites'
-              ? renderTokenList(listDataByTab.favorites, listRefFavorites)
+              ? renderTokenList(listDataByTab.favorites, listRefFavorites, true)
               : null}
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.all}>
