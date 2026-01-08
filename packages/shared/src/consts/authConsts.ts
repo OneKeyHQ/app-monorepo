@@ -246,6 +246,46 @@ export const KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY =
 export const KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX =
   'backend_share_enc_v1:';
 
+// Keyless AES-GCM AAD (Additional Authenticated Data)
+// Bind ciphertext to its intended usage context to prevent cross-purpose substitution.
+
+// AAD Version Management
+export const KEYLESS_AAD_VERSIONS = {
+  MNEMONIC: {
+    v1: 'keyless-mnemonic-v1',
+    // Future versions can be added here:
+    // v2: 'keyless-mnemonic-v2',
+  },
+  BACKEND_SHARE_PAYLOAD: {
+    v1: 'keyless-backend-share-payload-v1',
+    // Future versions can be added here:
+    // v2: 'keyless-backend-share-payload-v2',
+  },
+} as const;
+
+// Current active versions (used for encryption)
+export const KEYLESS_AAD_CURRENT_VERSION = {
+  MNEMONIC: 'v1' as const,
+  BACKEND_SHARE_PAYLOAD: 'v1' as const,
+};
+
+// Backward compatible constants (use current version)
+export const KEYLESS_MNEMONIC_GCM_AAD =
+  KEYLESS_AAD_VERSIONS.MNEMONIC[KEYLESS_AAD_CURRENT_VERSION.MNEMONIC];
+export const KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD =
+  KEYLESS_AAD_VERSIONS.BACKEND_SHARE_PAYLOAD[
+    KEYLESS_AAD_CURRENT_VERSION.BACKEND_SHARE_PAYLOAD
+  ];
+
+// Helper function to get AAD by version
+export function getKeylessAadByVersion(
+  type: keyof typeof KEYLESS_AAD_VERSIONS,
+  version?: keyof (typeof KEYLESS_AAD_VERSIONS)[typeof type],
+): string {
+  const targetVersion = version || KEYLESS_AAD_CURRENT_VERSION[type];
+  return KEYLESS_AAD_VERSIONS[type][targetVersion];
+}
+
 // Supabase OAuth Providers
 // https://supabase.com/dashboard/project/_/auth/providers
 

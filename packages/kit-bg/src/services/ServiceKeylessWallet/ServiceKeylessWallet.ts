@@ -7,6 +7,7 @@ import {
   mnemonicToEntropy,
 } from '@onekeyhq/core/src/secret';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
 import {
   backgroundClass,
   backgroundMethod,
@@ -18,6 +19,8 @@ import {
   EOAuthSocialLoginProvider,
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX,
+  KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
+  KEYLESS_MNEMONIC_GCM_AAD,
   KEYLESS_SUPABASE_PROJECT_URL,
   KEYLESS_SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
@@ -64,7 +67,6 @@ import keylessRefreshTokenStorage from './utils/keylessRefreshTokenStorage';
 import type { JuiceboxClient } from './utils/JuiceboxClient';
 import type { IDBIndexedAccount, IDBWallet } from '../../dbs/local/types';
 import type { IKeylessDialogAtomData } from '../../states/jotai/atoms';
-import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
 
 const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
   max: 100,
@@ -1256,6 +1258,8 @@ class ServiceKeylessWallet extends ServiceBase {
           password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
           allowRawPassword: true,
           iterations: 600_000,
+          mode: EAppCryptoAesEncryptionMode.gcm,
+          aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
         });
 
         const result = JSON.parse(decryptedJson) as
@@ -1365,6 +1369,8 @@ class ServiceKeylessWallet extends ServiceBase {
       password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
       allowRawPassword: true,
       iterations: 600_000,
+      mode: EAppCryptoAesEncryptionMode.gcm,
+      aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
     });
     const encryptedPayloadWithPrefix = `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX}${encryptedPayload}`;
 
@@ -1660,6 +1666,7 @@ class ServiceKeylessWallet extends ServiceBase {
       allowRawPassword: true,
       iterations: 600_000,
       mode: EAppCryptoAesEncryptionMode.gcm,
+      aad: KEYLESS_MNEMONIC_GCM_AAD,
     });
 
     // Save mnemonicPassword to secure storage for Reset PIN flow
@@ -1738,6 +1745,7 @@ class ServiceKeylessWallet extends ServiceBase {
         allowRawPassword: true,
         iterations: 600_000,
         mode: EAppCryptoAesEncryptionMode.gcm,
+        aad: KEYLESS_MNEMONIC_GCM_AAD,
       });
       const mnemonicPasswordShares = await shamirUtils.split(
         new Uint8Array(mnemonicPasswordBytes),

@@ -429,12 +429,29 @@ async function decryptAsync({
         throw new IncorrectPassword();
       }
       const aadBuffer = normalizeAad(aad);
-      aesDecryptData = await aesGcmDecrypt({
-        data: encryptedData,
-        key,
-        nonce,
-        aad: aadBuffer,
-      });
+      try {
+        aesDecryptData = await aesGcmDecrypt({
+          data: encryptedData,
+          key,
+          nonce,
+          aad: aadBuffer,
+        });
+      } catch (error) {
+        // Noble/GCM throws error on authentication failure (wrong AAD or tampered data)
+        // This is different from wrong password (which results in wrong key derivation)
+        const errorMessage =
+          error instanceof Error ? error.message.toLowerCase() : '';
+        if (
+          errorMessage.includes('tag') ||
+          errorMessage.includes('authentication') ||
+          errorMessage.includes('auth')
+        ) {
+          throw new OneKeyLocalError(
+            'AES-GCM authentication failed: data may be tampered or AAD mismatch',
+          );
+        }
+        throw error;
+      }
     }
 
     if (resolvedMode === EAppCryptoAesEncryptionMode.cbc) {
