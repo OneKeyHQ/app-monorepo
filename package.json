@@ -224,7 +224,7 @@
     "copy-webpack-plugin": "^6.0.2",
     "cross-env": "*",
     "css-loader": "^6.8.1",
-    "date-fns": "^2.30.0",
+    "date-fns": "2.30.0",
     "duplicate-package-checker-webpack-plugin": "^3.0.0",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-airbnb-typescript": "^17.0.0",
