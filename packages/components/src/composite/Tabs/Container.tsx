@@ -103,7 +103,6 @@ export function Container({
   width: containerWidth,
   ref: containerRef,
   initialTabName,
-  ...props
 }: PropsWithChildren<CollapsibleProps> & ITabContainerRefProps) {
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});

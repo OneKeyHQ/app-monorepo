@@ -110,7 +110,7 @@ const ReserveDetailsTabsComponent = ({
       {/* Supply Info Tab */}
       <Tabs.Tab name={tabNames.supply}>
         <Tabs.ScrollView>
-          <YStack px="$5" pt="$8" pb="$8" gap="$6">
+          <YStack px="$5" pt="$6" pb="$6" gap="$6">
             {supplyBadge ? <XStack>{supplyBadge}</XStack> : null}
 
             <ApyChartSection
@@ -125,7 +125,6 @@ const ReserveDetailsTabsComponent = ({
               topColor={APY_CHART_COLORS.supply.top}
               bottomColor={APY_CHART_COLORS.supply.bottom}
               lineWidth={APY_CHART_COLORS.lineWidth}
-              showDivider={false}
               capUsage={details?.supply.usage}
               capUsageLabel={intl.formatMessage({
                 id: ETranslations.defi_supply_cap_usage,
@@ -139,6 +138,7 @@ const ReserveDetailsTabsComponent = ({
                     }
                   : undefined
               }
+              tooltipLabel={supplyApyLabel}
             />
           </YStack>
         </Tabs.ScrollView>
@@ -147,7 +147,7 @@ const ReserveDetailsTabsComponent = ({
       {/* Borrow Info Tab */}
       <Tabs.Tab name={tabNames.borrow}>
         <Tabs.ScrollView>
-          <YStack px="$5" pt="$8" pb="$8" gap="$6">
+          <YStack px="$5" pt="$6" pb="$6" gap="$6">
             {borrowBadge ? <XStack>{borrowBadge}</XStack> : null}
 
             <ApyChartSection
@@ -162,10 +162,12 @@ const ReserveDetailsTabsComponent = ({
               topColor={APY_CHART_COLORS.borrow.top}
               bottomColor={APY_CHART_COLORS.borrow.bottom}
               lineWidth={APY_CHART_COLORS.lineWidth}
+              showDivider={false}
               capUsage={details?.borrow.usage}
               capUsageLabel={intl.formatMessage({
                 id: ETranslations.defi_borrow_cap_usage,
               })}
+              tooltipLabel={borrowApyLabel}
             />
           </YStack>
         </Tabs.ScrollView>
@@ -174,7 +176,7 @@ const ReserveDetailsTabsComponent = ({
       {/* More Tab */}
       <Tabs.Tab name={tabNames.more}>
         <Tabs.ScrollView>
-          <YStack px="$5" pt="$8" pb="$8" gap="$8">
+          <YStack px="$5" pt="$6" pb="$6" gap="$8">
             <InterestRateModelSection
               networkId={networkId}
               provider={provider}

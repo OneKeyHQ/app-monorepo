@@ -7703,11 +7703,11 @@ __metadata:
     cheerio: "npm:^1.0.0-rc.12"
     colord: "npm:^2.9.3"
     copy-webpack-plugin: "npm:^6.0.2"
-    cross-env: "npm:^7.0.3"
+    cross-env: "npm:7.0.3"
     crypto-browserify: "npm:^3.12.0"
     css-loader: "npm:^6.8.1"
     custom-electron-titlebar: "npm:4.2.8"
-    date-fns: "npm:^2.30.0"
+    date-fns: "npm:2.30.0"
     duplicate-package-checker-webpack-plugin: "npm:^3.0.0"
     ejs-loader: "npm:^0.5.0"
     electron-taskbar-badge: "npm:1.1.2"
@@ -7773,16 +7773,16 @@ __metadata:
     react-native-confirmation-code-field: "npm:^7.4.0"
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.3"
-    react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@1.1.11"
+    react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@1.1.14"
     react-native-reanimated: "npm:4.2.1"
-    react-native-screens: "npm:4.18.0"
+    react-native-screens: "npm:4.19.0"
     react-native-web: "npm:0.21.1"
     react-native-worklets: "npm:0.7.1"
     react-refresh: "npm:^0.14.0"
     react-render-tracker: "npm:^0.7.6"
     react-router-dom: "npm:^7.1.1"
     react-virtualized: "npm:^9.22.6"
-    rimraf: "npm:^5.0.5"
+    rimraf: "npm:3.0.2"
     rlp: "npm:^3.0.0"
     semver: "npm:7.5.4"
     set-interval-async: "npm:^3.0.3"
@@ -7820,16 +7820,15 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
-    "@react-navigation/bottom-tabs": "npm:7.4.2"
-    "@react-navigation/drawer": "npm:7.5.3"
-    "@react-navigation/elements": "npm:2.5.2"
-    "@react-navigation/native": "npm:7.1.14"
-    "@react-navigation/native-stack": "npm:7.3.21"
-    "@react-navigation/stack": "npm:7.4.2"
+    "@react-navigation/bottom-tabs": "npm:7.9.0"
+    "@react-navigation/elements": "npm:2.9.3"
+    "@react-navigation/native": "npm:7.1.26"
+    "@react-navigation/native-stack": "npm:7.9.0"
+    "@react-navigation/stack": "npm:7.6.13"
     "@svgr/cli": "npm:8.1.0"
     "@types/qrcode": "npm:^1.4.2"
     ethereum-blockies-base64: "npm:^1.0.2"
-    folderslint: "npm:^1.2.0"
+    folderslint: "npm:1.2.0"
     iso-639-1: "npm:^2.1.13"
     lodash: "npm:^4.17.21"
     moti: "npm:^0.25.3"
@@ -7838,9 +7837,9 @@ __metadata:
     react-native-keyboard-aware-scroll-view: "npm:^0.9.5"
     react-native-markdown-display: "npm:7.0.2"
     react-native-root-siblings: "npm:^5.0.1"
-    react-native-svg: "npm:15.12.1"
+    react-native-svg: "npm:15.15.1"
     react-native-tab-view: "npm:^3.5.1"
-    rimraf: "npm:^3"
+    rimraf: "npm:3.0.2"
   languageName: unknown
   linkType: soft
 
@@ -7892,7 +7891,7 @@ __metadata:
     ecpair: "npm:^2.1.0"
     elliptic: "npm:^6.6.0"
     eth-sig-util: "npm:^3.0.1"
-    folderslint: "npm:^1.2.0"
+    folderslint: "npm:1.2.0"
     js-conflux-sdk: "npm:^2.1.12"
     jsrsasign: "npm:^10.8.6"
     near-api-js: "npm:^2.1.4"
@@ -7919,7 +7918,7 @@ __metadata:
     "@types/node-fetch": "npm:^2.6.1"
     adm-zip: "npm:^0.5.10"
     concurrently: "npm:8.2.2"
-    cross-env: "npm:^7.0.3"
+    cross-env: "npm:7.0.3"
     electron: "npm:39.2.7"
     electron-builder: "npm:26.0.9"
     electron-check-biometric-auth-changed: "npm:0.0.6"
@@ -7929,13 +7928,13 @@ __metadata:
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
     esbuild: "npm:0.15.18"
-    folderslint: "npm:^1.2.0"
+    folderslint: "npm:1.2.0"
     glob: "npm:^7.2.0"
     keytar: "npm:^7.9.0"
     node-fetch: "npm:^2.6.7"
     passport-desktop: "npm:0.1.2"
     passport-desktop-win32-x64-msvc: "npm:0.1.2"
-    rimraf: "npm:^3"
+    rimraf: "npm:3.0.2"
     semver: "npm:7.5.4"
     webpack: "npm:5.90.3"
   languageName: unknown
@@ -7948,8 +7947,8 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    folderslint: "npm:^1.2.0"
-    rimraf: "npm:^3"
+    folderslint: "npm:1.2.0"
+    rimraf: "npm:3.0.2"
   languageName: unknown
   linkType: soft
 
@@ -7958,7 +7957,7 @@ __metadata:
   resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
     eth-url-parser: "npm:^1.0.4"
-    folderslint: "npm:^1.2.0"
+    folderslint: "npm:1.2.0"
     idb: "npm:^7.1.1"
   languageName: unknown
   linkType: soft
@@ -7968,15 +7967,14 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyhq/components": "npm:*"
-    "@react-navigation/devtools": "npm:7.0.34"
     "@types/d3-scale": "npm:^4.0.3"
     "@types/d3-shape": "npm:^3.1.1"
     "@types/mime": "npm:^3"
     "@types/socket.io-client": "npm:^3.0.0"
     "@types/url-parse": "npm:^1.4.8"
-    date-fns: "npm:^2.29.3"
+    date-fns: "npm:2.30.0"
     expo-camera: "npm:16.1.10"
-    folderslint: "npm:^1.2.0"
+    folderslint: "npm:1.2.0"
     fuse.js: "npm:^7.0.0"
     lightweight-charts: "npm:^3.8.0"
     mime: "npm:^3.0.0"
@@ -8059,7 +8057,7 @@ __metadata:
     expo-sharing: "npm:14.0.8"
     expo-splash-screen: "npm:31.0.12"
     expo-web-browser: "npm:15.0.10"
-    folderslint: "npm:^1.2.0"
+    folderslint: "npm:1.2.0"
     https-browserify: "npm:^1.0.0"
     jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git#4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c"
     jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git#33eca9ebd18aba2ed6810f26f00add94211d9156"
@@ -8102,8 +8100,8 @@ __metadata:
     react-native-reanimated: "npm:4.2.1"
     react-native-restart: "npm:react-native-restart-newarch@1.0.80"
     react-native-safe-area-context: "npm:5.6.2"
-    react-native-screens: "npm:4.18.0"
-    react-native-svg: "npm:15.12.1"
+    react-native-screens: "npm:4.19.0"
+    react-native-svg: "npm:15.15.1"
     react-native-tcp-socket: "npm:6.3.0"
     react-native-video: "npm:6.18.0"
     react-native-view-shot: "npm:4.0.3"
@@ -8114,7 +8112,7 @@ __metadata:
     readable-stream: "npm:^3.6.0"
     realm: "npm:20.2.0"
     realm-flipper-plugin-device: "npm:^1.1.0"
-    rimraf: "npm:^3"
+    rimraf: "npm:3.0.2"
     stream-http: "npm:^3.2.0"
     uuid: "npm:^3.0.0"
   languageName: unknown
@@ -8137,7 +8135,7 @@ __metadata:
     async-mutex: "npm:^0.3.2"
     fast-safe-stringify: "npm:^2.1.1"
     flatted: "npm:^3.2.7"
-    folderslint: "npm:^1.2.0"
+    folderslint: "npm:1.2.0"
     js-base64: "npm:3.7.5"
     jsonschema: "npm:^1.4.1"
     localforage: "npm:^1.10.0"
@@ -8146,7 +8144,7 @@ __metadata:
     react-native-url-polyfill: "npm:^1.3.0"
     react-native-uuid: "npm:^2.0.1"
     redux-persist: "npm:^6.0.0"
-    rimraf: "npm:^5.0.5"
+    rimraf: "npm:3.0.2"
     stackblur-canvas: "npm:^2.7.0"
     webextension-polyfill: "npm:^0.8.0"
   languageName: unknown
@@ -8159,9 +8157,9 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    cross-env: "npm:^7.0.3"
-    folderslint: "npm:^1.2.0"
-    rimraf: "npm:^3"
+    cross-env: "npm:7.0.3"
+    folderslint: "npm:1.2.0"
+    rimraf: "npm:3.0.2"
   languageName: unknown
   linkType: soft
 
@@ -8172,8 +8170,8 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    folderslint: "npm:^1.2.0"
-    rimraf: "npm:^3"
+    folderslint: "npm:1.2.0"
+    rimraf: "npm:3.0.2"
   languageName: unknown
   linkType: soft
 
@@ -9165,6 +9163,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@polkadot/networks@npm:12.6.2":
+  version: 12.6.2
+  resolution: "@polkadot/networks@npm:12.6.2"
+  dependencies:
+    "@polkadot/util": "npm:12.6.2"
+    "@substrate/ss58-registry": "npm:^1.44.0"
+    tslib: "npm:^2.6.2"
+  checksum: 10/6c2cd7f631ec40489e8f8260b15a138bd0d276d222e4133847e8915c476aea415498dd8d8ab583bdf76f2e4e5bb1c7a20bca9dac110eae2fb48d5f6cf6798349
+  languageName: node
+  linkType: hard
+
 "@polkadot/networks@npm:13.2.3":
   version: 13.2.3
   resolution: "@polkadot/networks@npm:13.2.3"
@@ -9176,7 +9185,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@polkadot/networks@npm:^13.2.3":
+"@polkadot/networks@npm:13.5.6, @polkadot/networks@npm:^13.2.3":
   version: 13.5.6
   resolution: "@polkadot/networks@npm:13.5.6"
   dependencies:
@@ -9184,6 +9193,17 @@ __metadata:
     "@substrate/ss58-registry": "npm:^1.51.0"
     tslib: "npm:^2.8.0"
   checksum: 10/3f1063588db7872477ee4949f2841a8f98e46a759482d3476887f0e96ec0aa5aff2e9cc954093b0b3b9ee162568c1aaedce2fdbce6dabcc002c60b55926889e5
+  languageName: node
+  linkType: hard
+
+"@polkadot/networks@npm:13.5.9":
+  version: 13.5.9
+  resolution: "@polkadot/networks@npm:13.5.9"
+  dependencies:
+    "@polkadot/util": "npm:13.5.9"
+    "@substrate/ss58-registry": "npm:^1.51.0"
+    tslib: "npm:^2.8.0"
+  checksum: 10/b418f4950e4713244164b304eabdb512d12a47f2366c72e443925a7fec3af638bfac8e9e59c7ddb35dad7ae9d6e464529aad297cd433f7e7743442301a6b0a66
   languageName: node
   linkType: hard
 
@@ -9396,6 +9416,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@polkadot/util-crypto@npm:12.6.2, @polkadot/util-crypto@npm:^12.6.2":
+  version: 12.6.2
+  resolution: "@polkadot/util-crypto@npm:12.6.2"
+  dependencies:
+    "@noble/curves": "npm:^1.3.0"
+    "@noble/hashes": "npm:^1.3.3"
+    "@polkadot/networks": "npm:12.6.2"
+    "@polkadot/util": "npm:12.6.2"
+    "@polkadot/wasm-crypto": "npm:^7.3.2"
+    "@polkadot/wasm-util": "npm:^7.3.2"
+    "@polkadot/x-bigint": "npm:12.6.2"
+    "@polkadot/x-randomvalues": "npm:12.6.2"
+    "@scure/base": "npm:^1.1.5"
+    tslib: "npm:^2.6.2"
+  peerDependencies:
+    "@polkadot/util": 12.6.2
+  checksum: 10/a587e5e25697f3a928ae8677b82ccdbcc1df95122db2bbde753b0605f44487136fe2f55c502460d931def0007e856db40b1b34b4da3c674638ead459e79f227a
+  languageName: node
+  linkType: hard
+
 "@polkadot/util-crypto@npm:13.2.3":
   version: 13.2.3
   resolution: "@polkadot/util-crypto@npm:13.2.3"
@@ -9413,6 +9453,46 @@ __metadata:
   peerDependencies:
     "@polkadot/util": 13.2.3
   checksum: 10/47baf5cab1bd2ca20633ef324a35d7b8a4ecb6bff41eb9e0dac8229495d3a7e74f7bc685d652dd465c9339598fa4e885abce8f539329e77b32a1aa0920169825
+  languageName: node
+  linkType: hard
+
+"@polkadot/util-crypto@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@polkadot/util-crypto@npm:13.5.6"
+  dependencies:
+    "@noble/curves": "npm:^1.3.0"
+    "@noble/hashes": "npm:^1.3.3"
+    "@polkadot/networks": "npm:13.5.6"
+    "@polkadot/util": "npm:13.5.6"
+    "@polkadot/wasm-crypto": "npm:^7.5.1"
+    "@polkadot/wasm-util": "npm:^7.5.1"
+    "@polkadot/x-bigint": "npm:13.5.6"
+    "@polkadot/x-randomvalues": "npm:13.5.6"
+    "@scure/base": "npm:^1.1.7"
+    tslib: "npm:^2.8.0"
+  peerDependencies:
+    "@polkadot/util": 13.5.6
+  checksum: 10/42c888e459b40fbc84de0a810947f55412c22af26a5cf81dbebc5197f5485aaae7cc5cae7b4d2ca6a1fe09b2df831b9ad98e00cd858cce189ea3e587b2fb83cf
+  languageName: node
+  linkType: hard
+
+"@polkadot/util-crypto@npm:^13.1.1, @polkadot/util-crypto@npm:^13.2.3":
+  version: 13.5.9
+  resolution: "@polkadot/util-crypto@npm:13.5.9"
+  dependencies:
+    "@noble/curves": "npm:^1.3.0"
+    "@noble/hashes": "npm:^1.3.3"
+    "@polkadot/networks": "npm:13.5.9"
+    "@polkadot/util": "npm:13.5.9"
+    "@polkadot/wasm-crypto": "npm:^7.5.3"
+    "@polkadot/wasm-util": "npm:^7.5.3"
+    "@polkadot/x-bigint": "npm:13.5.9"
+    "@polkadot/x-randomvalues": "npm:13.5.9"
+    "@scure/base": "npm:^1.1.7"
+    tslib: "npm:^2.8.0"
+  peerDependencies:
+    "@polkadot/util": 13.5.9
+  checksum: 10/0c388e9afe2eb000e721a9b03472b53943c090b1a6042b98164524367dcaf45a6d8f43c56c9929f1c3ea65dceef196f86df4979f83e64a90a5f1044fe0f73960
   languageName: node
   linkType: hard
 
@@ -9444,6 +9524,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@polkadot/wasm-bridge@npm:7.5.4":
+  version: 7.5.4
+  resolution: "@polkadot/wasm-bridge@npm:7.5.4"
+  dependencies:
+    "@polkadot/wasm-util": "npm:7.5.4"
+    tslib: "npm:^2.7.0"
+  peerDependencies:
+    "@polkadot/util": "*"
+    "@polkadot/x-randomvalues": "*"
+  checksum: 10/64db5db90a82396032c31e6745b2e77817b8e9258841b72e506370ecf3ac63497efc654ca113419baf3c9b5fabda86bb21b29e1b508f192ab4e07beab8ef6d04
+  languageName: node
+  linkType: hard
+
 "@polkadot/wasm-crypto-asmjs@npm:7.5.1":
   version: 7.5.1
   resolution: "@polkadot/wasm-crypto-asmjs@npm:7.5.1"
@@ -9452,6 +9545,17 @@ __metadata:
   peerDependencies:
     "@polkadot/util": "*"
   checksum: 10/6849a96bf9191f22e238fa847ebc8cbbb13d9d2569007dde6055769144c3c6cf8398e81f3ab93b3fad458bf69f3833a77f197ff36b015fb61690ee15ba9ec45b
+  languageName: node
+  linkType: hard
+
+"@polkadot/wasm-crypto-asmjs@npm:7.5.4":
+  version: 7.5.4
+  resolution: "@polkadot/wasm-crypto-asmjs@npm:7.5.4"
+  dependencies:
+    tslib: "npm:^2.7.0"
+  peerDependencies:
+    "@polkadot/util": "*"
+  checksum: 10/9e03f052b871bc9e33268b01025fe43789f2af40e4aabbe3b7d8348a0752001cd137c20ba66c58ee7d692e798d957024c7cbd0cbf1a8cf3e6baebbe67696e781
   languageName: node
   linkType: hard
 
@@ -9471,6 +9575,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@polkadot/wasm-crypto-init@npm:7.5.4":
+  version: 7.5.4
+  resolution: "@polkadot/wasm-crypto-init@npm:7.5.4"
+  dependencies:
+    "@polkadot/wasm-bridge": "npm:7.5.4"
+    "@polkadot/wasm-crypto-asmjs": "npm:7.5.4"
+    "@polkadot/wasm-crypto-wasm": "npm:7.5.4"
+    "@polkadot/wasm-util": "npm:7.5.4"
+    tslib: "npm:^2.7.0"
+  peerDependencies:
+    "@polkadot/util": "*"
+    "@polkadot/x-randomvalues": "*"
+  checksum: 10/c1077a74156bd6356487043b23a849b214274c74fc44f1e2c203ec58f152c47c577f9da920ebf79ef746cfdfd2f246b1dd6a97c5796556f1c00e63d795eb896f
+  languageName: node
+  linkType: hard
+
 "@polkadot/wasm-crypto-wasm@npm:7.5.1":
   version: 7.5.1
   resolution: "@polkadot/wasm-crypto-wasm@npm:7.5.1"
@@ -9480,6 +9600,35 @@ __metadata:
   peerDependencies:
     "@polkadot/util": "*"
   checksum: 10/c652b38edbb07d7b7546ecdb44ea370244e3f1ff37c9733ee2db4d7e7483e7c7496ce220ec5c621a26fdb49d0475390fc84d51cec5ddb110fa0fc3373d06dd43
+  languageName: node
+  linkType: hard
+
+"@polkadot/wasm-crypto-wasm@npm:7.5.4":
+  version: 7.5.4
+  resolution: "@polkadot/wasm-crypto-wasm@npm:7.5.4"
+  dependencies:
+    "@polkadot/wasm-util": "npm:7.5.4"
+    tslib: "npm:^2.7.0"
+  peerDependencies:
+    "@polkadot/util": "*"
+  checksum: 10/338b5d4b347116efa09aba7f27f1d13e84a4ef62680ab02e2c47bbd43180844434cf49f8c954528cbb8bebef69bdf101be33e3a6fe093efd3f5ab2245f5e7faf
+  languageName: node
+  linkType: hard
+
+"@polkadot/wasm-crypto@npm:^7.3.2, @polkadot/wasm-crypto@npm:^7.5.1, @polkadot/wasm-crypto@npm:^7.5.3":
+  version: 7.5.4
+  resolution: "@polkadot/wasm-crypto@npm:7.5.4"
+  dependencies:
+    "@polkadot/wasm-bridge": "npm:7.5.4"
+    "@polkadot/wasm-crypto-asmjs": "npm:7.5.4"
+    "@polkadot/wasm-crypto-init": "npm:7.5.4"
+    "@polkadot/wasm-crypto-wasm": "npm:7.5.4"
+    "@polkadot/wasm-util": "npm:7.5.4"
+    tslib: "npm:^2.7.0"
+  peerDependencies:
+    "@polkadot/util": "*"
+    "@polkadot/x-randomvalues": "*"
+  checksum: 10/d4edce7bc9e8fa8387abe1d3fa4433937ab40faf4889a949a5a64c42f852837e3da96c00a73fb383fc8ef3fe177ac40dc85a13bcd43b059f2d04bab52f537801
   languageName: node
   linkType: hard
 
@@ -9511,6 +9660,27 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@polkadot/wasm-util@npm:7.5.4, @polkadot/wasm-util@npm:^7.3.2, @polkadot/wasm-util@npm:^7.5.1, @polkadot/wasm-util@npm:^7.5.3":
+  version: 7.5.4
+  resolution: "@polkadot/wasm-util@npm:7.5.4"
+  dependencies:
+    tslib: "npm:^2.7.0"
+  peerDependencies:
+    "@polkadot/util": "*"
+  checksum: 10/4dda837f3ac84705d709a2e62fc0f9ec54518dbae88d3bf9dc68b65f17f50eadf7fff4289f3deaf51f93d79d5ac0631ecf57ad572d55f98a11149beaa3b2bcc4
+  languageName: node
+  linkType: hard
+
+"@polkadot/x-bigint@npm:12.6.2, @polkadot/x-bigint@npm:^12.6.2":
+  version: 12.6.2
+  resolution: "@polkadot/x-bigint@npm:12.6.2"
+  dependencies:
+    "@polkadot/x-global": "npm:12.6.2"
+    tslib: "npm:^2.6.2"
+  checksum: 10/8a9533ba955d06213e3810d48e95618186cc832375f82d8b52376a99d7c8f9fdd01ffb9c35495522aec8c28d18ca5ef6c8feeec9770b83ebb64cded4cd3b7e27
+  languageName: node
+  linkType: hard
+
 "@polkadot/x-bigint@npm:13.2.3":
   version: 13.2.3
   resolution: "@polkadot/x-bigint@npm:13.2.3"
@@ -9521,23 +9691,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@polkadot/x-bigint@npm:^12.6.2":
-  version: 12.6.2
-  resolution: "@polkadot/x-bigint@npm:12.6.2"
-  dependencies:
-    "@polkadot/x-global": "npm:12.6.2"
-    tslib: "npm:^2.6.2"
-  checksum: 10/8a9533ba955d06213e3810d48e95618186cc832375f82d8b52376a99d7c8f9fdd01ffb9c35495522aec8c28d18ca5ef6c8feeec9770b83ebb64cded4cd3b7e27
-  languageName: node
-  linkType: hard
-
-"@polkadot/x-bigint@npm:^13.2.3":
+"@polkadot/x-bigint@npm:13.5.6, @polkadot/x-bigint@npm:^13.2.3":
   version: 13.5.6
   resolution: "@polkadot/x-bigint@npm:13.5.6"
   dependencies:
     "@polkadot/x-global": "npm:13.5.6"
     tslib: "npm:^2.8.0"
   checksum: 10/a4aef1e1baf38c7ce2f41c3464fb1f59cf3b41de5cc466ebdc25ee99966ffaebfffb4897d5ea1bc0b5c526c3504d434908819080e6f03450bc100fd18c28ec04
+  languageName: node
+  linkType: hard
+
+"@polkadot/x-bigint@npm:13.5.9":
+  version: 13.5.9
+  resolution: "@polkadot/x-bigint@npm:13.5.9"
+  dependencies:
+    "@polkadot/x-global": "npm:13.5.9"
+    tslib: "npm:^2.8.0"
+  checksum: 10/8b9c5f40d31a226e5222e5a837bf730fed288f2b4d525966a4f8645afc8c17919ccf8f18e7ae6452698fb8f9d92fa7c7760b275f139ba0318d20bfbadff9679e
   languageName: node
   linkType: hard
 
@@ -9590,6 +9760,28 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@polkadot/x-global@npm:13.5.9":
+  version: 13.5.9
+  resolution: "@polkadot/x-global@npm:13.5.9"
+  dependencies:
+    tslib: "npm:^2.8.0"
+  checksum: 10/07ef477f428c73bfbdb242a4511fbbdc2c31ea2641fb577bd1ac479b6567e780a2df0a9aeb1913efe3128703c8f81366b0cf48c491d53663d3c7eff2ebcf4d2e
+  languageName: node
+  linkType: hard
+
+"@polkadot/x-randomvalues@npm:12.6.2":
+  version: 12.6.2
+  resolution: "@polkadot/x-randomvalues@npm:12.6.2"
+  dependencies:
+    "@polkadot/x-global": "npm:12.6.2"
+    tslib: "npm:^2.6.2"
+  peerDependencies:
+    "@polkadot/util": 12.6.2
+    "@polkadot/wasm-util": "*"
+  checksum: 10/9ab555931ab81a8834800da35f04cb86df48b0d706d33ea89c51f42b8d340dab7312c462d01ecae04573ba6a01ff1ad6066ea6cf82b1330482ff537eb3c12eeb
+  languageName: node
+  linkType: hard
+
 "@polkadot/x-randomvalues@npm:13.2.3":
   version: 13.2.3
   resolution: "@polkadot/x-randomvalues@npm:13.2.3"
@@ -9600,6 +9792,32 @@ __metadata:
     "@polkadot/util": 13.2.3
     "@polkadot/wasm-util": "*"
   checksum: 10/864b94a2f031582095afc4e0b2ecbb315cb76122b35f359f236704d8e753b0225c7a6f78a68c990bfbb7b2ea8287d05f0fcb9c27a3c2bd785408de3074fa9636
+  languageName: node
+  linkType: hard
+
+"@polkadot/x-randomvalues@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@polkadot/x-randomvalues@npm:13.5.6"
+  dependencies:
+    "@polkadot/x-global": "npm:13.5.6"
+    tslib: "npm:^2.8.0"
+  peerDependencies:
+    "@polkadot/util": 13.5.6
+    "@polkadot/wasm-util": "*"
+  checksum: 10/47dbb4380b8e48fd0b9828d40a9c60bb21ac188dba5b1ebe9cef71f0c49af479f21b8025f3eb5cc3147ef452d4f18c416f59d28ff518f4caa2c3da6ac788a0c6
+  languageName: node
+  linkType: hard
+
+"@polkadot/x-randomvalues@npm:13.5.9":
+  version: 13.5.9
+  resolution: "@polkadot/x-randomvalues@npm:13.5.9"
+  dependencies:
+    "@polkadot/x-global": "npm:13.5.9"
+    tslib: "npm:^2.8.0"
+  peerDependencies:
+    "@polkadot/util": 13.5.9
+    "@polkadot/wasm-util": "*"
+  checksum: 10/0a1d4066d60ca2e21d129fcd4798634f0d05e67acd86da17d48dd3e79cda1ebcf59861738dc68357068f8fdb2c2894c32e652aee66ee393ecde4b3288f237430
   languageName: node
   linkType: hard
 
@@ -10737,28 +10955,30 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-navigation/bottom-tabs@npm:7.4.2":
-  version: 7.4.2
-  resolution: "@react-navigation/bottom-tabs@npm:7.4.2"
+"@react-navigation/bottom-tabs@npm:7.9.0":
+  version: 7.9.0
+  resolution: "@react-navigation/bottom-tabs@npm:7.9.0"
   dependencies:
-    "@react-navigation/elements": "npm:^2.5.2"
+    "@react-navigation/elements": "npm:^2.9.3"
     color: "npm:^4.2.3"
+    sf-symbols-typescript: "npm:^2.1.0"
   peerDependencies:
-    "@react-navigation/native": ^7.1.14
+    "@react-navigation/native": ^7.1.26
     react: ">= 18.2.0"
     react-native: "*"
     react-native-safe-area-context: ">= 4.0.0"
     react-native-screens: ">= 4.0.0"
-  checksum: 10/411430af94bd4de61849f39cadc0e08b48f2cb813c186f42f0a25b02c6f9b7ebf92122be7254332fb58b5f8817944a0bee93a763159d7d71c82f8275480cd802
+  checksum: 10/117d039151372517afc8ab29e4490fc6ac8de733f23fb16062469b13758a83bc3422a4c0bb424e24969c8f30063dbabceba07e2fe34df0f75a69e21fd0e5fc9a
   languageName: node
   linkType: hard
 
-"@react-navigation/core@npm:^7.12.1":
-  version: 7.12.1
-  resolution: "@react-navigation/core@npm:7.12.1"
+"@react-navigation/core@npm:^7.13.7":
+  version: 7.13.7
+  resolution: "@react-navigation/core@npm:7.13.7"
   dependencies:
-    "@react-navigation/routers": "npm:^7.4.1"
+    "@react-navigation/routers": "npm:^7.5.3"
     escape-string-regexp: "npm:^4.0.0"
+    fast-deep-equal: "npm:^3.1.3"
     nanoid: "npm:^3.3.11"
     query-string: "npm:^7.1.3"
     react-is: "npm:^19.1.0"
@@ -10766,84 +10986,53 @@ __metadata:
     use-sync-external-store: "npm:^1.5.0"
   peerDependencies:
     react: ">= 18.2.0"
-  checksum: 10/efc8d06cde19f64bf9e25240612086e0c8feb4b7fc7bdd5a7bae1d743a711abd1c83596597bf044a79b7830fc32b65a125313700235e62b99772ca3213e2ca17
+  checksum: 10/e91005a7f1467999cac42394d82bec4d77f1c48e90dd8768bffd2d6ee027cce99fb8ae8a1ab83397dcd7a888d156ad832dc1a4a24857128a0a3f5c88c8dc4293
   languageName: node
   linkType: hard
 
-"@react-navigation/devtools@npm:7.0.34":
-  version: 7.0.34
-  resolution: "@react-navigation/devtools@npm:7.0.34"
-  dependencies:
-    fast-deep-equal: "npm:^3.1.3"
-    nanoid: "npm:^3.3.11"
-    stacktrace-parser: "npm:^0.1.11"
-  peerDependencies:
-    react: ">= 18.2.0"
-  checksum: 10/00bab4c8bf3ab1d9767efc38fc6f5fef94c7d226023d721678caf87664955c9e25330a376a4a10fe3fb0927c3ab04131dce61547ae0caf902582e4f432f922ad
-  languageName: node
-  linkType: hard
-
-"@react-navigation/drawer@npm:7.5.3":
-  version: 7.5.3
-  resolution: "@react-navigation/drawer@npm:7.5.3"
-  dependencies:
-    "@react-navigation/elements": "npm:^2.5.2"
-    color: "npm:^4.2.3"
-    react-native-drawer-layout: "npm:^4.1.12"
-    use-latest-callback: "npm:^0.2.4"
-  peerDependencies:
-    "@react-navigation/native": ^7.1.14
-    react: ">= 18.2.0"
-    react-native: "*"
-    react-native-gesture-handler: ">= 2.0.0"
-    react-native-reanimated: ">= 2.0.0"
-    react-native-safe-area-context: ">= 4.0.0"
-    react-native-screens: ">= 4.0.0"
-  checksum: 10/9aac303e94c4a6626bf612cbb8c648ef85955965820205d1c18066101fa1821038a1956dbe1bf18cf4fea5e8194dbb99e1d5fee0b7dc993c9de2626070136ea4
-  languageName: node
-  linkType: hard
-
-"@react-navigation/elements@npm:2.5.2, @react-navigation/elements@npm:^2.5.2":
-  version: 2.5.2
-  resolution: "@react-navigation/elements@npm:2.5.2"
+"@react-navigation/elements@npm:2.9.3, @react-navigation/elements@npm:^2.9.3":
+  version: 2.9.3
+  resolution: "@react-navigation/elements@npm:2.9.3"
   dependencies:
     color: "npm:^4.2.3"
     use-latest-callback: "npm:^0.2.4"
     use-sync-external-store: "npm:^1.5.0"
   peerDependencies:
     "@react-native-masked-view/masked-view": ">= 0.2.0"
-    "@react-navigation/native": ^7.1.14
+    "@react-navigation/native": ^7.1.26
     react: ">= 18.2.0"
     react-native: "*"
     react-native-safe-area-context: ">= 4.0.0"
   peerDependenciesMeta:
     "@react-native-masked-view/masked-view":
       optional: true
-  checksum: 10/f6c472f82487661aee6f41e82e453cb80fea85e3956d94e58aa45b7c3f5ae04e4862df400439d0a58e6c54f8e091d7e08c547a153165d881fa8c74fd3b63d6a3
+  checksum: 10/96cd302eef1ebbbaa2eea205e47ae9f5644e909a4995fc8944b6160ab9586adec2a82b02e09714a2df92034bc90148649225fd080fb040d1b18d2428f603979d
   languageName: node
   linkType: hard
 
-"@react-navigation/native-stack@npm:7.3.21":
-  version: 7.3.21
-  resolution: "@react-navigation/native-stack@npm:7.3.21"
+"@react-navigation/native-stack@npm:7.9.0":
+  version: 7.9.0
+  resolution: "@react-navigation/native-stack@npm:7.9.0"
   dependencies:
-    "@react-navigation/elements": "npm:^2.5.2"
+    "@react-navigation/elements": "npm:^2.9.3"
+    color: "npm:^4.2.3"
+    sf-symbols-typescript: "npm:^2.1.0"
     warn-once: "npm:^0.1.1"
   peerDependencies:
-    "@react-navigation/native": ^7.1.14
+    "@react-navigation/native": ^7.1.26
     react: ">= 18.2.0"
     react-native: "*"
     react-native-safe-area-context: ">= 4.0.0"
     react-native-screens: ">= 4.0.0"
-  checksum: 10/c79c6fea6fc786c7c2f46f23b9a1d7bd8d1a8bf2bc5022a7c97fc3fabbc12bd2370f57982cac56097feb3d845b3591cd1d39fb12e4e6eab71eb1be11b2f833d8
+  checksum: 10/7d9e0121f98da643f2c016492a4ac6de2d35d683eb9dc952571ba6686226368facf40bcce9a9a72fd9033bb437de6b5d25bfbaabacac2594ad6fa1e711f1cc97
   languageName: node
   linkType: hard
 
-"@react-navigation/native@npm:7.1.14":
-  version: 7.1.14
-  resolution: "@react-navigation/native@npm:7.1.14"
+"@react-navigation/native@npm:7.1.26":
+  version: 7.1.26
+  resolution: "@react-navigation/native@npm:7.1.26"
   dependencies:
-    "@react-navigation/core": "npm:^7.12.1"
+    "@react-navigation/core": "npm:^7.13.7"
     escape-string-regexp: "npm:^4.0.0"
     fast-deep-equal: "npm:^3.1.3"
     nanoid: "npm:^3.3.11"
@@ -10851,33 +11040,34 @@ __metadata:
   peerDependencies:
     react: ">= 18.2.0"
     react-native: "*"
-  checksum: 10/167ab132a2d06a41f969d62b47bd78ca961406af68f57cd954e17815c1ea1ba01eb9e0470cbaa6fb1fd11d0515f608b0771fb97165792e2d75c6194d6ff4996e
+  checksum: 10/1409223c9f0dc7017f2726741e48157b5aedd2d68733965e35be57b2352c81071956874ac4caa3d16a7ebe402dc2b9847d5de1f12a2a33b1e86804ac41c52920
   languageName: node
   linkType: hard
 
-"@react-navigation/routers@npm:^7.4.1":
-  version: 7.4.1
-  resolution: "@react-navigation/routers@npm:7.4.1"
+"@react-navigation/routers@npm:^7.5.3":
+  version: 7.5.3
+  resolution: "@react-navigation/routers@npm:7.5.3"
   dependencies:
     nanoid: "npm:^3.3.11"
-  checksum: 10/67fca3e78d83336747de98a0b6797cba394e73a717fd0fad6add5434c7938327501ed71962bd8916c94141c552013f081f45de81960dd4c9c0d918174b732c49
+  checksum: 10/8b02cf4c9acd7d1ccb0771ebfbf18fa27aa8db4e5653403d9d78a08d1792b9f22654cb36ce3a1150181b141d8cf694d7665007ef005c041bce404d33f44acc73
   languageName: node
   linkType: hard
 
-"@react-navigation/stack@npm:7.4.2":
-  version: 7.4.2
-  resolution: "@react-navigation/stack@npm:7.4.2"
+"@react-navigation/stack@npm:7.6.13":
+  version: 7.6.13
+  resolution: "@react-navigation/stack@npm:7.6.13"
   dependencies:
-    "@react-navigation/elements": "npm:^2.5.2"
+    "@react-navigation/elements": "npm:^2.9.3"
     color: "npm:^4.2.3"
+    use-latest-callback: "npm:^0.2.4"
   peerDependencies:
-    "@react-navigation/native": ^7.1.14
+    "@react-navigation/native": ^7.1.26
     react: ">= 18.2.0"
     react-native: "*"
     react-native-gesture-handler: ">= 2.0.0"
     react-native-safe-area-context: ">= 4.0.0"
     react-native-screens: ">= 4.0.0"
-  checksum: 10/8a7aa9ab9173eb10638fcd9b1f9a1a3b61704853ebcf059cd7480612dd5c9053615a0df21bd044c3b60d833ce762f7a1acdebc827f49203c6a0441e1aed3f25a
+  checksum: 10/0abbb6e48075d73b70164a304bd7b6a8c12c1ca146c7e792421003e0442f8352ce1975bf52b49ea905937fcef950f6110008e6dbffe27dcc2041006c906903d7
   languageName: node
   linkType: hard
 
@@ -11386,7 +11576,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/base@npm:1.2.6, @scure/base@npm:^1.1.7, @scure/base@npm:~1.2.5":
+"@scure/base@npm:1.2.6, @scure/base@npm:^1.1.5, @scure/base@npm:^1.1.7, @scure/base@npm:~1.2.5":
   version: 1.2.6
   resolution: "@scure/base@npm:1.2.6"
   checksum: 10/c1a7bd5e0b0c8f94c36fbc220f4a67cc832b00e2d2065c7d8a404ed81ab1c94c5443def6d361a70fc382db3496e9487fb9941728f0584782b274c18a4bed4187
@@ -12711,7 +12901,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@substrate/ss58-registry@npm:^1.51.0":
+"@substrate/ss58-registry@npm:^1.44.0, @substrate/ss58-registry@npm:^1.51.0":
   version: 1.51.0
   resolution: "@substrate/ss58-registry@npm:1.51.0"
   checksum: 10/34eb21292f543a8be7c62ad3bcdae89d61c8a51e35a0be4687b6b4e955b5180a90a7691a9e6779f7509f8dfcfdfa372d8278087a9668521b9c501adb85c915b6
@@ -16397,6 +16587,57 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@walletconnect/sign-client@npm:2.15.1":
+  version: 2.15.1
+  resolution: "@walletconnect/sign-client@npm:2.15.1"
+  dependencies:
+    "@walletconnect/core": "npm:2.15.1"
+    "@walletconnect/events": "npm:1.0.1"
+    "@walletconnect/heartbeat": "npm:1.2.2"
+    "@walletconnect/jsonrpc-utils": "npm:1.0.8"
+    "@walletconnect/logger": "npm:2.1.2"
+    "@walletconnect/time": "npm:1.0.2"
+    "@walletconnect/types": "npm:2.15.1"
+    "@walletconnect/utils": "npm:2.15.1"
+    events: "npm:3.3.0"
+  checksum: 10/2f1d7ceeca1ea22c2c7762b145ac6541129b36d1433292a68ad3688c3c4ac95bf87f8098e298eb536fd0274d581fda51228e60f2b1e970d2a2f5907ea33db29d
+  languageName: node
+  linkType: hard
+
+"@walletconnect/sign-client@npm:2.21.0":
+  version: 2.21.0
+  resolution: "@walletconnect/sign-client@npm:2.21.0"
+  dependencies:
+    "@walletconnect/core": "npm:2.21.0"
+    "@walletconnect/events": "npm:1.0.1"
+    "@walletconnect/heartbeat": "npm:1.2.2"
+    "@walletconnect/jsonrpc-utils": "npm:1.0.8"
+    "@walletconnect/logger": "npm:2.1.2"
+    "@walletconnect/time": "npm:1.0.2"
+    "@walletconnect/types": "npm:2.21.0"
+    "@walletconnect/utils": "npm:2.21.0"
+    events: "npm:3.3.0"
+  checksum: 10/17aa329b409fb4ff0fcd8d5d59ba340cab0d5bd110c06de542993be6f8324b1003a007a1d4c1d2518c2eb0f183190239a34d6664bed0f20bb01cad3580f3fc33
+  languageName: node
+  linkType: hard
+
+"@walletconnect/sign-client@npm:2.21.5":
+  version: 2.21.5
+  resolution: "@walletconnect/sign-client@npm:2.21.5"
+  dependencies:
+    "@walletconnect/core": "npm:2.21.5"
+    "@walletconnect/events": "npm:1.0.1"
+    "@walletconnect/heartbeat": "npm:1.2.2"
+    "@walletconnect/jsonrpc-utils": "npm:1.0.8"
+    "@walletconnect/logger": "npm:2.1.2"
+    "@walletconnect/time": "npm:1.0.2"
+    "@walletconnect/types": "npm:2.21.5"
+    "@walletconnect/utils": "npm:2.21.5"
+    events: "npm:3.3.0"
+  checksum: 10/0493252b367e5baae13e14768d4c7d7204cedbda87df1474d7b5a1f07d921ec9b295446105aeb74afd9cfdb253969741a140fa7fa6483daabf21dcc586407fae
+  languageName: node
+  linkType: hard
+
 "@walletconnect/sign-client@npm:2.21.7":
   version: 2.21.7
   resolution: "@walletconnect/sign-client@npm:2.21.7"
@@ -16434,6 +16675,46 @@ __metadata:
     "@walletconnect/logger": "npm:2.1.2"
     events: "npm:3.3.0"
   checksum: 10/08685788ac1bfc90fcff0f2d5a9eefcb1a5bccb66778a850589168e36253d8819e7edff3b70b596c0e3d449f11d49015e6e7a50699d9038e4b09958afb2a91c1
+  languageName: node
+  linkType: hard
+
+"@walletconnect/universal-provider@npm:2.21.0":
+  version: 2.21.0
+  resolution: "@walletconnect/universal-provider@npm:2.21.0"
+  dependencies:
+    "@walletconnect/events": "npm:1.0.1"
+    "@walletconnect/jsonrpc-http-connection": "npm:1.0.8"
+    "@walletconnect/jsonrpc-provider": "npm:1.0.14"
+    "@walletconnect/jsonrpc-types": "npm:1.0.4"
+    "@walletconnect/jsonrpc-utils": "npm:1.0.8"
+    "@walletconnect/keyvaluestorage": "npm:1.1.1"
+    "@walletconnect/logger": "npm:2.1.2"
+    "@walletconnect/sign-client": "npm:2.21.0"
+    "@walletconnect/types": "npm:2.21.0"
+    "@walletconnect/utils": "npm:2.21.0"
+    es-toolkit: "npm:1.33.0"
+    events: "npm:3.3.0"
+  checksum: 10/ed0729662634ba67a1a842e5244c730e12e4d7d2ff9b4056e4c77efdd6132ce74941a75a5bfef4b60ecdf3201a4acdc3712571ee3ea05346bb28b4c203ada5f5
+  languageName: node
+  linkType: hard
+
+"@walletconnect/universal-provider@npm:2.21.5":
+  version: 2.21.5
+  resolution: "@walletconnect/universal-provider@npm:2.21.5"
+  dependencies:
+    "@walletconnect/events": "npm:1.0.1"
+    "@walletconnect/jsonrpc-http-connection": "npm:1.0.8"
+    "@walletconnect/jsonrpc-provider": "npm:1.0.14"
+    "@walletconnect/jsonrpc-types": "npm:1.0.4"
+    "@walletconnect/jsonrpc-utils": "npm:1.0.8"
+    "@walletconnect/keyvaluestorage": "npm:1.1.1"
+    "@walletconnect/logger": "npm:2.1.2"
+    "@walletconnect/sign-client": "npm:2.21.5"
+    "@walletconnect/types": "npm:2.21.5"
+    "@walletconnect/utils": "npm:2.21.5"
+    es-toolkit: "npm:1.39.3"
+    events: "npm:3.3.0"
+  checksum: 10/99ac9aa7390d1b7eeeb118902a895091df6adb0187e97cf5a875fffdf28aa130211c9edc49ce1ccc1163ac880214c590c405769fb2603fb3f1de3777db9ae2ba
   languageName: node
   linkType: hard
 
@@ -20919,7 +21200,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cross-env@npm:^7.0.3":
+"cross-env@npm:7.0.3":
   version: 7.0.3
   resolution: "cross-env@npm:7.0.3"
   dependencies:
@@ -21485,7 +21766,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"date-fns@npm:^2.29.3, date-fns@npm:^2.30.0":
+"date-fns@npm:2.30.0, date-fns@npm:^2.30.0":
   version: 2.30.0
   resolution: "date-fns@npm:2.30.0"
   dependencies:
@@ -22883,6 +23164,18 @@ __metadata:
     is-date-object: "npm:^1.0.1"
     is-symbol: "npm:^1.0.2"
   checksum: 10/74aeeefe2714cf99bb40cab7ce3012d74e1e2c1bd60d0a913b467b269edde6e176ca644b5ba03a5b865fb044a29bca05671cd445c85ca2cdc2de155d7fc8fe9b
+  languageName: node
+  linkType: hard
+
+"es-toolkit@npm:1.33.0":
+  version: 1.33.0
+  resolution: "es-toolkit@npm:1.33.0"
+  dependenciesMeta:
+    "@trivago/prettier-plugin-sort-imports@4.3.0":
+      unplugged: true
+    prettier-plugin-sort-re-exports@0.0.1:
+      unplugged: true
+  checksum: 10/db613d885c407dc3b84b3939b8b0c9976f658bfb03fa0f9cd3a3fe8383a60a75e1e4f34584e86c3fbf00def50ea0ca5f1a5264a1014018286dedbed08426b5f0
   languageName: node
   linkType: hard
 
@@ -25554,7 +25847,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"folderslint@npm:^1.2.0":
+"folderslint@npm:1.2.0":
   version: 1.2.0
   resolution: "folderslint@npm:1.2.0"
   dependencies:
@@ -26203,7 +26496,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"glob@npm:^10.2.2, glob@npm:^10.3.10, glob@npm:^10.3.7":
+"glob@npm:^10.2.2, glob@npm:^10.3.10":
   version: 10.3.10
   resolution: "glob@npm:10.3.10"
   dependencies:
@@ -34679,20 +34972,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-drawer-layout@npm:^4.1.12":
-  version: 4.1.12
-  resolution: "react-native-drawer-layout@npm:4.1.12"
-  dependencies:
-    use-latest-callback: "npm:^0.2.4"
-  peerDependencies:
-    react: ">= 18.2.0"
-    react-native: "*"
-    react-native-gesture-handler: ">= 2.0.0"
-    react-native-reanimated: ">= 2.0.0"
-  checksum: 10/fc85bea85dc8709373444a2989e2ff613c0fb823a221338bf034e07c26315a6f22ee9f81b813b14e1d7e4b1839680c8d0025400b9e35a6c3cab6c419b9bd5d1e
-  languageName: node
-  linkType: hard
-
 "react-native-fast-pbkdf2@npm:^0.3.1":
   version: 0.3.1
   resolution: "react-native-fast-pbkdf2@npm:0.3.1"
@@ -34748,17 +35027,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/349517d8e0b3ed5282bc3f8536945dee3439c9cfe773fe26f248a4ccb53049169d484371bb0612a081c3860eff492db7f4dcbac528ff9b5ff1d504d04eb06f5f
-  languageName: node
-  linkType: hard
-
-"react-native-get-random-values@npm:@onekeyfe/react-native-get-random-values@1.1.11":
-  version: 1.1.11
-  resolution: "@onekeyfe/react-native-get-random-values@npm:1.1.11"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: ^0.31.10
-  checksum: 10/11187eea7a45eda50f6ea96033fc794bbfd2f125e8cf8c73a076d046c9cbff72996f395782448972e0bd937b732c7b4f96c4302b11f131caed4a737726148450
   languageName: node
   linkType: hard
 
@@ -35064,16 +35332,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-screens@npm:4.18.0":
-  version: 4.18.0
-  resolution: "react-native-screens@npm:4.18.0"
+"react-native-screens@npm:4.19.0":
+  version: 4.19.0
+  resolution: "react-native-screens@npm:4.19.0"
   dependencies:
     react-freeze: "npm:^1.0.0"
     warn-once: "npm:^0.1.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/456c18069ab8fee1d6c341d6bd13cba477fcda10f266844fb5f486ad5ac2c7336a5181956e261be010318be53585d4a72fd9bd00289117bbbdea681309de21f4
+  checksum: 10/0ac8b0a65b65dde7aee0402542ae4760b15382bff1dcdc44b695e69535539a794f5b25e14a389511956f3a513d2b6f405d077aed956199f0b9f57d9fc63974ca
   languageName: node
   linkType: hard
 
@@ -35088,9 +35356,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-svg@npm:15.12.1":
-  version: 15.12.1
-  resolution: "react-native-svg@npm:15.12.1"
+"react-native-svg@npm:15.15.1":
+  version: 15.15.1
+  resolution: "react-native-svg@npm:15.15.1"
   dependencies:
     css-select: "npm:^5.1.0"
     css-tree: "npm:^1.1.3"
@@ -35098,7 +35366,7 @@ __metadata:
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/aa7b3a54cf2eb52aeb1322ba4a3f63176d4da0725ea4b9ec0051a59df0a511dc189fd101abf7993e94676c1cdea736e4abb207a0aea6f3083b5982c48e4648ac
+  checksum: 10/3a5dbbee0c6a81b3feb2b91a5a617a1a25e01c908686af479fab4fe6661376253ba0e0e1d3eda36f27eab9b2cd2c4c17b68423cfca465df255f20cacc1ba384d
   languageName: node
   linkType: hard
 
@@ -36236,18 +36504,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rimraf@npm:^2.6.3":
-  version: 2.7.1
-  resolution: "rimraf@npm:2.7.1"
-  dependencies:
-    glob: "npm:^7.1.3"
-  bin:
-    rimraf: ./bin.js
-  checksum: 10/4586c296c736483e297da7cffd19475e4a3e41d07b1ae124aad5d687c79e4ffa716bdac8732ed1db942caf65271cee9dd39f8b639611de161a2753e2112ffe1d
-  languageName: node
-  linkType: hard
-
-"rimraf@npm:^3, rimraf@npm:^3.0.2":
+"rimraf@npm:3.0.2, rimraf@npm:^3.0.2":
   version: 3.0.2
   resolution: "rimraf@npm:3.0.2"
   dependencies:
@@ -36258,14 +36515,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rimraf@npm:^5.0.5":
-  version: 5.0.5
-  resolution: "rimraf@npm:5.0.5"
+"rimraf@npm:^2.6.3":
+  version: 2.7.1
+  resolution: "rimraf@npm:2.7.1"
   dependencies:
-    glob: "npm:^10.3.7"
+    glob: "npm:^7.1.3"
   bin:
-    rimraf: dist/esm/bin.mjs
-  checksum: 10/a612c7184f96258b7d1328c486b12ca7b60aa30e04229a08bbfa7e964486deb1e9a1b52d917809311bdc39a808a4055c0f950c0280fba194ba0a09e6f0d404f6
+    rimraf: ./bin.js
+  checksum: 10/4586c296c736483e297da7cffd19475e4a3e41d07b1ae124aad5d687c79e4ffa716bdac8732ed1db942caf65271cee9dd39f8b639611de161a2753e2112ffe1d
   languageName: node
   linkType: hard
 
@@ -36996,6 +37253,13 @@ __metadata:
   version: 1.0.0
   resolution: "sf-symbols-typescript@npm:1.0.0"
   checksum: 10/008ddfcadceb33ec29fb182104516234cc3f771254619696918481744bc28be51070f226859e4dfc2faf5f094dd8ca13e0364b2bb3d22e8cf044ce37f749df0b
+  languageName: node
+  linkType: hard
+
+"sf-symbols-typescript@npm:^2.1.0":
+  version: 2.2.0
+  resolution: "sf-symbols-typescript@npm:2.2.0"
+  checksum: 10/8623e148bf86151692d3ccb3149122c091b256162a39f4c4f78472811ffe92e3c77a83841a7381a5dc0bc6505ebb73e7ca8901cb077004872d7ee1cb4e5be9d4
   languageName: node
   linkType: hard
 
@@ -37790,15 +38054,6 @@ __metadata:
   dependencies:
     type-fest: "npm:^0.7.1"
   checksum: 10/f4fbddfc09121d91e587b60de4beb4941108e967d71ad3a171812dc839b010ca374d064ad0a296295fed13acd103609d99a4224a25b4e67de13cae131f1901ee
-  languageName: node
-  linkType: hard
-
-"stacktrace-parser@npm:^0.1.11":
-  version: 0.1.11
-  resolution: "stacktrace-parser@npm:0.1.11"
-  dependencies:
-    type-fest: "npm:^0.7.1"
-  checksum: 10/1120cf716606ec6a8e25cc9b6ada79d7b91e6a599bba1a6664e6badc8b5f37987d7df7d9ad0344f717a042781fd8e1e999de08614a5afea451b68902421036b5
   languageName: node
   linkType: hard
 

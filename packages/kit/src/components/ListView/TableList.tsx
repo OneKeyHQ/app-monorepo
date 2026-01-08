@@ -593,10 +593,11 @@ function BasicTableList<T>({
     if (!sortKey) return data;
 
     const column = columns.find((col) => (col.sortKey ?? col.key) === sortKey);
-    if (!column || !column.comparator) return data;
+    if (!column?.comparator) return data;
 
+    const { comparator } = column;
     const sorted = [...data].sort((a, b) => {
-      const result = column.comparator!(a, b);
+      const result = comparator(a, b);
       return sortDirection === 'asc' ? result : -result;
     });
 

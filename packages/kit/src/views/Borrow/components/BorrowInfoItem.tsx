@@ -7,13 +7,20 @@ import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 export function BorrowInfoItem({
   title,
   children,
+  variant = 'default',
 }: {
   title: ReactNode | string;
   children?: ReactNode;
+  variant?: 'default' | 'highlight';
 }) {
+  const isHighlight = variant === 'highlight';
   const titleContent =
     typeof title === 'string' ? (
-      <EarnText text={{ text: title }} color="$textSubdued" size="$bodyMd" />
+      <EarnText
+        text={{ text: title }}
+        color={isHighlight ? '$text' : '$textSubdued'}
+        size={isHighlight ? '$bodyLg' : '$bodyMd'}
+      />
     ) : (
       title
     );

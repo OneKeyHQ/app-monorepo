@@ -47,7 +47,7 @@ const DetailsPartComponent = ({
     () => ({
       allowHeaderOverscroll: true,
       renderHeader: () => (
-        <YStack px="$5" pt="$4" bg="$bgApp" pointerEvents="box-none">
+        <YStack px="$5" pt="$6" bg="$bgApp" pointerEvents="box-none">
           <ReserveProtocolHeader
             symbol={symbol}
             logoURI={logoURI}

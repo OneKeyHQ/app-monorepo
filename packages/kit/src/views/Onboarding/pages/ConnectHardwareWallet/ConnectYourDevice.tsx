@@ -1185,7 +1185,7 @@ export function ConnectYourDevicePage() {
   const fwUpdateActions = useFirmwareUpdateActions();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
-  const [isCheckingDeviceLoading, setIsChecking] = useState(false);
+  const [_isCheckingDeviceLoading, setIsChecking] = useState(false);
 
   const handleSetupNewWalletPress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
