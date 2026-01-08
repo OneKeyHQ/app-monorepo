@@ -265,21 +265,23 @@ export const Overview = () => {
               </SizableText>
             )}
           </YStack>
-          <XStack
-            ai="center"
-            gap="$1"
-            cursor="pointer"
-            onPress={handleHistoryPress}
-          >
-            <Icon
-              name="ClockTimeHistoryOutline"
-              size="$4"
-              color="$iconSubdued"
-            />
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {historyLabel}
-            </SizableText>
-          </XStack>
+          {!reserves?.overview?.history?.disabled ? (
+            <XStack
+              ai="center"
+              gap="$1"
+              cursor="pointer"
+              onPress={handleHistoryPress}
+            >
+              <Icon
+                name="ClockTimeHistoryOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {historyLabel}
+              </SizableText>
+            </XStack>
+          ) : null}
         </XStack>
 
         {/* Grid: Health factor + Platform bonus + Claimable rewards */}
@@ -353,23 +355,21 @@ export const Overview = () => {
                   size="$headingLg"
                   color="$textText"
                 />
-                <Button
-                  p="0"
-                  ai="center"
-                  size="small"
-                  variant="link"
-                  cursor={
-                    borrowRewards.button.disabled ? 'not-allowed' : 'pointer'
-                  }
-                  disabled={borrowRewards.button.disabled}
-                  onPress={handleShowRewardsDialog}
-                >
-                  <EarnText
-                    size="$bodyMdMedium"
-                    color="$textInfo"
-                    text={borrowRewards.button.text}
-                  />
-                </Button>
+                {!borrowRewards.button.disabled ? (
+                  <Button
+                    p="0"
+                    ai="center"
+                    size="small"
+                    variant="link"
+                    onPress={handleShowRewardsDialog}
+                  >
+                    <EarnText
+                      size="$bodyMdMedium"
+                      color="$textInfo"
+                      text={borrowRewards.button.text}
+                    />
+                  </Button>
+                ) : null}
               </XStack>
             </YStack>
           ) : null}
@@ -446,31 +446,33 @@ export const Overview = () => {
           title={borrowRewards?.title}
           text={borrowRewards?.description}
           action={
-            <Button
-              p="0"
-              ai="center"
-              size="small"
-              variant="link"
-              cursor={borrowRewards.button.disabled ? 'not-allowed' : 'pointer'}
-              disabled={borrowRewards.button.disabled}
-              onPress={handleShowRewardsDialog}
-            >
-              <EarnText
-                size="$bodyMdMedium"
-                color="$textInfo"
-                text={borrowRewards.button.text}
-              />
-            </Button>
+            !borrowRewards.button.disabled ? (
+              <Button
+                p="0"
+                ai="center"
+                size="small"
+                variant="link"
+                onPress={handleShowRewardsDialog}
+              >
+                <EarnText
+                  size="$bodyMdMedium"
+                  color="$textInfo"
+                  text={borrowRewards.button.text}
+                />
+              </Button>
+            ) : null
           }
         />
       ) : null}
 
-      <XStack ml="auto">
-        <EarnActionIcon
-          actionIcon={reserves?.overview?.history}
-          onHistory={handleHistoryPress}
-        />
-      </XStack>
+      {!reserves?.overview?.history?.disabled ? (
+        <XStack ml="auto">
+          <EarnActionIcon
+            actionIcon={reserves?.overview?.history}
+            onHistory={handleHistoryPress}
+          />
+        </XStack>
+      ) : null}
     </XStack>
   );
 };
