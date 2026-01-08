@@ -80,7 +80,7 @@ type IProps = {
 };
 
 const DEFAULT_GAS_LIMIT_MIN = 21_000;
-const DEFAULT_GAS_LIMIT_MAX = 15_000_000;
+// const DEFAULT_GAS_LIMIT_MAX = 15_000_000;
 const DEFAULT_FEER_ATE_MIN = 0;
 const DEFAULT_FEE_RATE_MAX = 1_000_000; // shared cross multi-networks
 
@@ -200,7 +200,7 @@ function FeeEditor(props: IProps) {
   const { feeSymbol, feeDecimals, nativeSymbol, nativeTokenPrice } =
     customFee?.common ?? {};
 
-  const [vaultSettings, network] =
+  const [vaultSettings] =
     usePromiseResult(
       () =>
         Promise.all([
@@ -381,11 +381,11 @@ function FeeEditor(props: IProps) {
     const gasLimit = new BigNumber(
       feeInfo.gasEIP1559?.gasLimit ?? feeInfo.gas?.gasLimit ?? '0',
     );
-    const gasLimitForDisplay = new BigNumber(
-      feeInfo.gasEIP1559?.gasLimitForDisplay ??
-        feeInfo.gas?.gasLimitForDisplay ??
-        '0',
-    );
+    // const gasLimitForDisplay = new BigNumber(
+    //   feeInfo.gasEIP1559?.gasLimitForDisplay ??
+    //     feeInfo.gas?.gasLimitForDisplay ??
+    //     '0',
+    // );
 
     return {
       gasLimit: gasLimit.toFixed(),
@@ -794,18 +794,18 @@ function FeeEditor(props: IProps) {
     if (replaceTxMode) return null;
     if (!vaultSettings?.editFeeEnabled) return null;
 
-    let feeTitle = '';
+    // let feeTitle = '';
 
-    if (customFee?.feeUTXO) {
-      feeTitle = `${intl.formatMessage({
-        id: ETranslations.fee_fee_rate,
-      })} (sat/vB)`;
-    } else {
-      feeTitle = intl.formatMessage(
-        { id: ETranslations.content__gas_price },
-        { 'network': feeSymbol },
-      );
-    }
+    // if (customFee?.feeUTXO) {
+    //   feeTitle = `${intl.formatMessage({
+    //     id: ETranslations.fee_fee_rate,
+    //   })} (sat/vB)`;
+    // } else {
+    //   feeTitle = intl.formatMessage(
+    //     { id: ETranslations.content__gas_price },
+    //     { 'network': feeSymbol },
+    //   );
+    // }
 
     return (
       <>
@@ -858,10 +858,7 @@ function FeeEditor(props: IProps) {
     );
   }, [
     currentFeeIndex,
-    customFee?.feeUTXO,
     feeSelectorItems,
-    feeSymbol,
-    intl,
     replaceTxMode,
     vaultSettings?.editFeeEnabled,
   ]);
