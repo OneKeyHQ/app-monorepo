@@ -9,6 +9,16 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  GOOGLE_OAUTH_CLIENT_IDS,
+  JUICEBOX_ALLOWED_GUESSES,
+  JUICEBOX_AUTH_SERVER,
+  JUICEBOX_CONFIG,
+  KEYLESS_SUPABASE_PROJECT_URL,
+  KEYLESS_SUPABASE_PUBLIC_API_KEY,
+  SUPABASE_PROJECT_URL,
+  SUPABASE_PUBLIC_API_KEY,
+} from '@onekeyhq/shared/src/consts/authConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
@@ -76,6 +86,24 @@ export function KeylessOnboardingDebugPanel({
     });
   }, [cacheKeylessOnboardingCustomMnemonic]);
 
+  const handleShowAuthConsts = useCallback(() => {
+    const debugData = {
+      GOOGLE_OAUTH_CLIENT_IDS,
+      SUPABASE_PROJECT_URL,
+      SUPABASE_PUBLIC_API_KEY,
+      KEYLESS_SUPABASE_PROJECT_URL,
+      KEYLESS_SUPABASE_PUBLIC_API_KEY,
+      JUICEBOX_AUTH_SERVER,
+      JUICEBOX_CONFIG,
+      JUICEBOX_ALLOWED_GUESSES,
+    };
+
+    Dialog.debugMessage({
+      title: 'Auth consts',
+      debugMessage: debugData,
+    });
+  }, []);
+
   return (
     <YStack>
       <MultipleClickStack
@@ -123,6 +151,8 @@ export function KeylessOnboardingDebugPanel({
             <Button onPress={handleImportCustomMnemonic}>
               自定义助记词创建钱包
             </Button>
+
+            <Button onPress={handleShowAuthConsts}>显示 Auth Consts</Button>
           </YStack>
         }
       />

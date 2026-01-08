@@ -44,7 +44,6 @@ import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSe
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
-
   return true;
 }
 

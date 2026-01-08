@@ -182,15 +182,15 @@ export const SUPABASE_PUBLIC_API_KEY =
 // -----------------------------------------------
 
 // --- onekeyprod
-// export const KEYLESS_SUPABASE_PROJECT_URL = 'https://auth.onekey.so'; // onekeytest
-// export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
-//   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NzU4MzUwLCJleHAiOjE5MjU0MzgzNTB9.n-g7Amu-dMVpBgQ8i8gSYFjBvbDPC55ZqYIttPh8CYk';
+export const KEYLESS_SUPABASE_PROJECT_URL = 'https://auth.onekey.so'; // onekeytest
+export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NzU4MzUwLCJleHAiOjE5MjU0MzgzNTB9.n-g7Amu-dMVpBgQ8i8gSYFjBvbDPC55ZqYIttPh8CYk';
 
 // --- onekeytest
-export const KEYLESS_SUPABASE_PROJECT_URL =
-  'https://supabase.onekey-internal.com'; // onekeytest
-export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
+// export const KEYLESS_SUPABASE_PROJECT_URL =
+//   'https://supabase.onekey-internal.com'; // onekeytest
+// export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+//   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
 
 // --- localtest
 // export const KEYLESS_SUPABASE_PROJECT_URL =
@@ -230,6 +230,14 @@ export const JUICEBOX_CONFIG: IJuiceBoxConfigJSON = {
   pin_hashing_mode: 'Standard2019',
 };
 export const JUICEBOX_ALLOWED_GUESSES = 10; // Number of allowed PIN guess attempts
+
+// Keyless Backend Share Payload Encryption
+// Fixed encryption key for keyless backend share payload encryption
+export const KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY =
+  '54C86638-407F-4E5B-AAF0-B782A2399F6A';
+// Prefix to identify encrypted payloads (required for decryption)
+export const KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX =
+  'backend_share_enc_v1:';
 
 // Supabase OAuth Providers
 // https://supabase.com/dashboard/project/_/auth/providers
