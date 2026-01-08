@@ -91,10 +91,9 @@ autoUpdater.logger = logger;
 
 const isMac = process.platform === 'darwin';
 const isMas = process.mas;
-const isWin = process.platform === 'win32';
-const isLinux = process.platform === 'linux';
-const isSnapStore = isLinux && process.env.SNAP;
-const isWindowsMsStore = isWin && process.env.DESK_CHANNEL === 'ms-store';
+const isSnapStore = process.platform === 'linux' && process.env.SNAP;
+const isWindowsMsStore =
+  process.platform === 'win32' && process.env.DESK_CHANNEL === 'ms-store';
 
 const isStoreVersion = isMas || isSnapStore || isWindowsMsStore;
 
@@ -553,16 +552,6 @@ class DesktopApiAppUpdate {
     return verified;
   }
 
-  installWinExE(filePath: string): void {
-    // Windows specific handling if needed
-    autoUpdater.quitAndInstall(false, true);
-  }
-
-  installLinuxAppImage(filePath: string): void {
-    // Linux specific handling if needed
-    autoUpdater.quitAndInstall();
-  }
-
   async installPackage(verifyParams: IInstallUpdateParams): Promise<void> {
     const verified = await this.verifyFile(verifyParams);
     if (!verified) {
@@ -603,24 +592,10 @@ class DesktopApiAppUpdate {
             nativeUpdater.once('before-quit-for-update', () => {
               app.exit();
             });
-            autoUpdater.quitAndInstall(false);
-            return;
           }
-
-          const filePath = verifyParams.downloadedFile;
-          logger.info('auto-update', 'install filePath:', filePath);
-          if (filePath) {
-            if (isWin) {
-              // Windows specific handling if needed
-              this.installWinExE(filePath);
-            } else if (isLinux) {
-              // Linux specific handling if needed
-              this.installLinuxAppImage(filePath);
-            }
-          }
-        } else {
-          logger.info('auto-update', 'button[1] was clicked');
+          autoUpdater.quitAndInstall(false);
         }
+        logger.info('auto-update', 'button[1] was clicked');
       });
   }
 
