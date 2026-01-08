@@ -7,9 +7,9 @@ import { useWindowDimensions } from 'react-native';
 import type { IYStackProps } from '@onekeyhq/components';
 import {
   Button,
-  Checkbox,
   Dialog,
   Divider,
+  Icon,
   Image,
   SizableText,
   Stack,
@@ -30,6 +30,52 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePerpsLogo } from '../hooks/usePerpsLogo';
 
+function CustomCheckbox({
+  value,
+  onChange,
+  label,
+  labelSize,
+}: {
+  value: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+  labelSize: '$bodyMd' | '$bodySm';
+}) {
+  return (
+    <XStack
+      p="$4"
+      gap="$3"
+      alignItems="center"
+      onPress={() => onChange(!value)}
+      cursor="pointer"
+      hoverStyle={{
+        opacity: 0.8,
+      }}
+      pressStyle={{
+        opacity: 0.6,
+      }}
+    >
+      <Stack
+        width={16}
+        height={16}
+        borderRadius="$1"
+        borderWidth="$px"
+        borderColor={value ? '$borderActive' : '$borderSubdued'}
+        bg={value ? '$bgPrimary' : '$bg'}
+        justifyContent="center"
+        alignItems="center"
+      >
+        {value ? (
+          <Icon name="CheckLargeOutline" size="$2.5" color="$iconInverse" />
+        ) : null}
+      </Stack>
+      <SizableText flex={1} size={labelSize} color="$text">
+        {label}
+      </SizableText>
+    </XStack>
+  );
+}
+
 export function HyperliquidTermsContent({
   onConfirm,
   renderDelay = 0,
@@ -39,8 +85,8 @@ export function HyperliquidTermsContent({
 }) {
   const intl = useIntl();
   const [isAccountActivatedChecked, setIsAccountActivatedChecked] =
-    useState(false);
-  const [isNotResponsibleChecked, setIsNotResponsibleChecked] = useState(false);
+    useState(true);
+  const [isNotResponsibleChecked, setIsNotResponsibleChecked] = useState(true);
 
   const { hyperliquidLogo } = usePerpsLogo();
 
@@ -99,39 +145,23 @@ export function HyperliquidTermsContent({
                     bg="$bgSubdued"
                     borderRadius="$3"
                   >
-                    <YStack alignItems="flex-start" p="$4">
-                      <Checkbox
-                        w="$4.5"
-                        h="$4.5"
-                        value={isAccountActivatedChecked}
-                        onChange={(value) =>
-                          setIsAccountActivatedChecked(!!value)
-                        }
-                        label={intl.formatMessage({
-                          id: ETranslations.perp_term_content_1,
-                        })}
-                        labelProps={{
-                          variant: gtMd ? '$bodyMd' : '$bodySm',
-                        }}
-                      />
-                    </YStack>
+                    <CustomCheckbox
+                      value={isAccountActivatedChecked}
+                      onChange={setIsAccountActivatedChecked}
+                      label={intl.formatMessage({
+                        id: ETranslations.perp_term_content_1,
+                      })}
+                      labelSize={gtMd ? '$bodyMd' : '$bodySm'}
+                    />
                     <Divider borderColor="$borderSubdued" />
-                    <YStack alignItems="flex-start" p="$4">
-                      <Checkbox
-                        w="$4.5"
-                        h="$4.5"
-                        value={isNotResponsibleChecked}
-                        onChange={(value) =>
-                          setIsNotResponsibleChecked(!!value)
-                        }
-                        label={intl.formatMessage({
-                          id: ETranslations.perp_term_content_2,
-                        })}
-                        labelProps={{
-                          variant: gtMd ? '$bodyMd' : '$bodySm',
-                        }}
-                      />
-                    </YStack>
+                    <CustomCheckbox
+                      value={isNotResponsibleChecked}
+                      onChange={setIsNotResponsibleChecked}
+                      label={intl.formatMessage({
+                        id: ETranslations.perp_term_content_2,
+                      })}
+                      labelSize={gtMd ? '$bodyMd' : '$bodySm'}
+                    />
                   </YStack>
                 </YStack>
               </Stack>

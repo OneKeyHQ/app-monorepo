@@ -110,23 +110,22 @@ export const Overview = () => {
 
   // Calculate pending count and claim IDs from pending transactions
   const pendingCount = pendingTxs.length;
-  const pendingClaimIds = useMemo(() => {
-    const claimIds: string[] = [];
-    for (const tx of pendingTxs) {
-      // Only look at Claim transactions
-      if (tx.stakingInfo.label !== EEarnLabels.Claim) continue;
-      const tags = tx.stakingInfo.tags ?? [];
-      for (const tag of tags) {
-        if (isBorrowTag(tag)) {
-          const parsed = parseBorrowTag(tag);
-          if (parsed?.claimIds) {
-            claimIds.push(...parsed.claimIds);
-          }
-        }
-      }
-    }
-    return claimIds;
-  }, [pendingTxs]);
+  const pendingClaimIds = useMemo(
+    () =>
+      pendingTxs
+        .filter((tx) => tx.stakingInfo.label === EEarnLabels.Claim)
+        .flatMap((tx) => {
+          const tags = tx.stakingInfo.tags ?? [];
+          return tags.flatMap((tag) => {
+            if (isBorrowTag(tag)) {
+              const parsed = parseBorrowTag(tag);
+              return parsed?.claimIds ?? [];
+            }
+            return [];
+          });
+        }),
+    [pendingTxs],
+  );
 
   // Fetch health factor separately with 30s polling
   const { healthFactorData } = useBorrowHealthFactor({
@@ -314,7 +313,10 @@ export const Overview = () => {
           </YStack>
           <XStack ai="center" gap="$3">
             {pendingCount > 0 ? (
-              <PendingIndicator num={pendingCount} onPress={handleHistoryPress} />
+              <PendingIndicator
+                num={pendingCount}
+                onPress={handleHistoryPress}
+              />
             ) : null}
             {!reserves?.overview?.history?.disabled && pendingCount === 0 ? (
               <XStack
