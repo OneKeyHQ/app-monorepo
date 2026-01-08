@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IFill,
   IHex,
@@ -146,8 +147,12 @@ export const {
       details?.referralCodeOk &&
       details?.activatedOk &&
       details?.internalRebateBoundOk;
+    const isReadOnlyAccount = account?.accountId
+      ? accountUtils.isOthersAccount({ accountId: account.accountId })
+      : false;
     const accountNotSupport =
-      !account?.accountAddress && !account?.indexedAccountId;
+      (!account?.accountAddress && !account?.indexedAccountId) ||
+      isReadOnlyAccount;
     const canCreateAddress =
       !account?.accountAddress && !!account?.indexedAccountId;
     return {
