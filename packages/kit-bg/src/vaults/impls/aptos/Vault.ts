@@ -233,10 +233,26 @@ export default class VaultAptos extends VaultBase {
     };
   }
 
-  private async _decodeTxByBcsTxn(bcsTxn: string, network: IServerNetwork) {
+  private async _decodeSimpleTxByBcsTxn(
+    bcsTxn: string,
+    network: IServerNetwork,
+  ) {
     const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
-    const simpleTxn = SimpleTransaction.deserialize(deserializer);
-    const rawTx = simpleTxn.rawTransaction;
+
+    let rawTx: RawTransaction | undefined;
+    try {
+      const simpleTxn = SimpleTransaction.deserialize(deserializer);
+      rawTx = simpleTxn.rawTransaction;
+    } catch (error) {
+      // non-SimpleTransaction
+    }
+
+    if (!rawTx) {
+      return {
+        actions: [],
+        rawTxn: null,
+      };
+    }
 
     let actionType = EDecodedTxActionType.UNKNOWN;
     const payload = rawTx.payload;
@@ -467,13 +483,15 @@ export default class VaultAptos extends VaultBase {
         stakingToAddress: toAddress,
       });
     } else if (encodedTx.bcsTxn) {
-      const { actions, rawTxn } = await this._decodeTxByBcsTxn(
+      const { actions, rawTxn } = await this._decodeSimpleTxByBcsTxn(
         encodedTx.bcsTxn,
         network,
       );
-      action = actions[0];
-      gasLimit = rawTxn.max_gas_amount.toString();
-      gasPrice = rawTxn.gas_unit_price.toString();
+      if (rawTxn && actions.length > 0) {
+        action = actions[0];
+        gasLimit = rawTxn.max_gas_amount.toString();
+        gasPrice = rawTxn.gas_unit_price.toString();
+      }
     } else if (payload) {
       const { type } = payload;
       const fun =
