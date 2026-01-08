@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EClaimType, EEarnLabels } from '@onekeyhq/shared/types/staking';

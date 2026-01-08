@@ -314,7 +314,6 @@ class ServiceCustomToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async activateToken({
     accountId,
     networkId,

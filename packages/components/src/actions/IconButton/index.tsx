@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import type { TooltipProps } from '@onekeyhq/components/src/shared/tamagui';
 
@@ -77,46 +77,66 @@ export function IconButton(props: IIconButtonProps) {
     event.preventDefault();
   }, []);
 
-  const renderIconButton = () => (
-    <ButtonFrame
-      p={p}
-      borderRadius="$full"
-      disabled={!!disabled || !!loading}
-      aria-disabled={!!disabled || !!loading}
-      // @ts-expect-error
-      onKeyDown={hotKey ? undefined : onKeyDown}
-      hitSlop={size === 'small' ? NATIVE_HIT_SLOP : undefined}
-      {...(variant === 'tertiary' && {
-        m: negativeMargin,
-      })}
-      {...sharedFrameStyles}
-      {...rest}
-      onPress={onPress}
-      onLongPress={onLongPress}
-    >
-      {loading ? (
-        <Stack
-          {...(size !== 'small' && {
-            m: '$0.5',
-          })}
-        >
-          <Spinner color={iconColor} size="small" />
-        </Stack>
-      ) : (
-        <Icon
-          color={iconColor}
-          name={icon}
-          size={iconSize || (size === 'small' ? '$5' : '$6')}
-          {...iconProps}
-        />
-      )}
-    </ButtonFrame>
+  const iconButtonElement = useMemo(
+    () => (
+      <ButtonFrame
+        p={p}
+        borderRadius="$full"
+        disabled={!!disabled || !!loading}
+        aria-disabled={!!disabled || !!loading}
+        // @ts-expect-error
+        onKeyDown={hotKey ? undefined : onKeyDown}
+        hitSlop={size === 'small' ? NATIVE_HIT_SLOP : undefined}
+        {...(variant === 'tertiary' && {
+          m: negativeMargin,
+        })}
+        {...sharedFrameStyles}
+        {...rest}
+        onPress={onPress}
+        onLongPress={onLongPress}
+      >
+        {loading ? (
+          <Stack
+            {...(size !== 'small' && {
+              m: '$0.5',
+            })}
+          >
+            <Spinner color={iconColor} size="small" />
+          </Stack>
+        ) : (
+          <Icon
+            color={iconColor}
+            name={icon}
+            size={iconSize || (size === 'small' ? '$5' : '$6')}
+            {...iconProps}
+          />
+        )}
+      </ButtonFrame>
+    ),
+    [
+      disabled,
+      hotKey,
+      icon,
+      iconColor,
+      iconProps,
+      iconSize,
+      loading,
+      negativeMargin,
+      onKeyDown,
+      onLongPress,
+      onPress,
+      p,
+      rest,
+      sharedFrameStyles,
+      size,
+      variant,
+    ],
   );
 
   if (title) {
     return (
       <Tooltip
-        renderTrigger={renderIconButton()}
+        renderTrigger={iconButtonElement}
         renderContent={title}
         placement={titlePlacement}
         {...(variant === 'tertiary' && { offset: 12 })}
@@ -125,5 +145,5 @@ export function IconButton(props: IIconButtonProps) {
     );
   }
 
-  return renderIconButton();
+  return iconButtonElement;
 }

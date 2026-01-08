@@ -39,7 +39,6 @@ import {
   useKeylessWallet,
   useKeylessWalletFeatureIsEnabled,
 } from '../../../components/KeylessWallet/useKeylessWallet';
-import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 

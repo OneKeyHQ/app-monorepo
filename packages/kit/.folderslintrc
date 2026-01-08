@@ -10,6 +10,7 @@
     "routes/config/**",
     "routes/Modal/*",
     "routes/Tab/*",
+    "routes/Onboarding/*",
     "states/**",
     "utils/**",
     "views/*/background",

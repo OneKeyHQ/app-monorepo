@@ -331,7 +331,8 @@ const AccountRow = memo(
         text: appLocale.intl.formatMessage({
           id: isPending
             ? ETranslations.global_pending
-            : ETranslations.perp_status_comlete,
+            : // eslint-disable-next-line spellcheck/spell-checker -- translation key
+              ETranslations.perp_status_comlete,
         }),
       };
     }, [delta]);

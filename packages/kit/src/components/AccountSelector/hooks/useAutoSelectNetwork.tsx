@@ -22,7 +22,7 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
     num,
   });
 
-  const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
+  const { sceneName } = useAccountSelectorSceneInfo();
 
   const actions = useAccountSelectorActions();
 
