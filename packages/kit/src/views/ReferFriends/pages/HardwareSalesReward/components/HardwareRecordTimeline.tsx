@@ -124,7 +124,12 @@ export function HardwareRecordTimeline({
   }
 
   return (
-    <YStack bg="$bgSubdued" borderTopWidth={1} borderColor="$borderSubdued">
+    <YStack
+      bg="$bgSubdued"
+      borderTopWidth={1}
+      borderBottomWidth={1}
+      borderColor="$neutral2"
+    >
       <SizableText
         size="$headingSm"
         color="$textSubdued"
