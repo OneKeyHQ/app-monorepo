@@ -21,6 +21,15 @@ import {
   formatTimestamp,
 } from './HardwareRecordTimeline';
 
+// Column width percentages for consistent alignment
+const COLUMN_WIDTHS = {
+  time: '30%',
+  orderId: '20%',
+  status: '20%',
+  referralCode: '15%',
+  rewards: '15%',
+} as const;
+
 interface IHardwareRecordTableProps {
   records: IHardwareRecordItem[];
 }
@@ -42,7 +51,6 @@ function TableRow({ item }: ITableRowProps) {
   return (
     <>
       <XStack
-        gap="$3"
         ai="center"
         px="$5"
         py="$2"
@@ -52,10 +60,9 @@ function TableRow({ item }: ITableRowProps) {
         onPress={handleToggle}
       >
         {/* Time Column */}
-        <XStack flex={1} gap="$3" ai="center" py="$1">
+        <XStack w={COLUMN_WIDTHS.time} ai="center" gap="$2" py="$1">
           <Stack
-            w={12}
-            h={24}
+            w="$5"
             ai="center"
             jc="center"
             animation="quick"
@@ -73,14 +80,14 @@ function TableRow({ item }: ITableRowProps) {
         </XStack>
 
         {/* Order ID Column */}
-        <XStack flex={1} ai="center" py="$1">
+        <XStack w={COLUMN_WIDTHS.orderId} ai="center" py="$1">
           <SizableText size="$bodyMdMedium" color="$text">
             {item.orderNumber}
           </SizableText>
         </XStack>
 
         {/* Status Column */}
-        <XStack flex={1} ai="center" py="$1">
+        <XStack w={COLUMN_WIDTHS.status} ai="center" py="$1">
           <HardwareRecordStatusBadge
             status={item.status}
             statusLabel={item.statusLabel}
@@ -88,14 +95,14 @@ function TableRow({ item }: ITableRowProps) {
         </XStack>
 
         {/* Referral Code Column */}
-        <XStack flex={1} ai="center" py="$1">
+        <XStack w={COLUMN_WIDTHS.referralCode} ai="center" py="$1">
           <Badge badgeType="default" badgeSize="sm">
             {item.inviteCode}
           </Badge>
         </XStack>
 
         {/* Rewards Column */}
-        <XStack flex={1} ai="center" jc="flex-end" py="$1">
+        <XStack w={COLUMN_WIDTHS.rewards} ai="center" jc="flex-end" py="$1">
           <Currency
             color={isPositiveAmount ? '$textSuccess' : '$textCritical'}
             formatter="value"
@@ -134,8 +141,10 @@ export function HardwareRecordTable({ records }: IHardwareRecordTableProps) {
       py="$2"
     >
       {/* Table Header */}
-      <XStack gap="$3" ai="center" px="$5" py="$2">
-        <XStack flex={1}>
+      <XStack ai="center" px="$5" py="$2">
+        <XStack w={COLUMN_WIDTHS.time} ai="center" gap="$2">
+          {/* Spacer to align with chevron icon in rows */}
+          <Stack w="$5" />
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -146,7 +155,7 @@ export function HardwareRecordTable({ records }: IHardwareRecordTableProps) {
             })}
           </SizableText>
         </XStack>
-        <XStack flex={1}>
+        <XStack w={COLUMN_WIDTHS.orderId}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -158,7 +167,7 @@ export function HardwareRecordTable({ records }: IHardwareRecordTableProps) {
             })}
           </SizableText>
         </XStack>
-        <XStack flex={1}>
+        <XStack w={COLUMN_WIDTHS.status}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -169,7 +178,7 @@ export function HardwareRecordTable({ records }: IHardwareRecordTableProps) {
             })}
           </SizableText>
         </XStack>
-        <XStack flex={1}>
+        <XStack w={COLUMN_WIDTHS.referralCode}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -181,7 +190,7 @@ export function HardwareRecordTable({ records }: IHardwareRecordTableProps) {
             })}
           </SizableText>
         </XStack>
-        <XStack flex={1} jc="flex-end">
+        <XStack w={COLUMN_WIDTHS.rewards} jc="flex-end">
           <SizableText
             size="$headingXs"
             color="$textSubdued"
