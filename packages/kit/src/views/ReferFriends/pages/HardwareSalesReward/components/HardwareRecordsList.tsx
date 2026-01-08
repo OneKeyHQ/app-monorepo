@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Empty, Spinner, YStack } from '@onekeyhq/components';
+import { Empty, SizableText, Spinner, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareRecordItem } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -47,6 +47,9 @@ export function HardwareRecordsList({
   if (isMobile) {
     return (
       <YStack px="$5" gap="$3" pb="$5">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.referral_details })}
+        </SizableText>
         {records.map((record) => (
           <HardwareRecordCard key={record._id} item={record} />
         ))}
@@ -56,6 +59,9 @@ export function HardwareRecordsList({
 
   return (
     <YStack px="$5" gap="$3" pb="$5">
+      <SizableText size="$headingLg">
+        {intl.formatMessage({ id: ETranslations.referral_details })}
+      </SizableText>
       <HardwareRecordTable records={records} />
     </YStack>
   );
