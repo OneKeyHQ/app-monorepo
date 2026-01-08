@@ -46,12 +46,6 @@ import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
 import type { ITokenSelectorListItem } from './PerpTokenSelector';
 
-const TAB_LABELS = {
-  favorites: 'Favs',
-  all: 'PERPS',
-  hip3: 'HIP3',
-} as const;
-
 function TabItem({
   name,
   isFocused,
@@ -110,6 +104,15 @@ function MobileTokenSelectorModal({
     usePerpTokenSelectorConfigPersistAtom();
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+
+  const tabLabels = useMemo(
+    () => ({
+      favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
+      all: 'PERPS',
+      hip3: 'HIP3',
+    }),
+    [intl],
+  );
   const setActiveTab = useCallback(
     (tab: 'all' | 'hip3' | 'favorites') => {
       setSelectorConfig((prev) => ({
@@ -329,7 +332,7 @@ function MobileTokenSelectorModal({
           {(['favorites', 'all', 'hip3'] as const).map((tabKey) => (
             <TabItem
               key={tabKey}
-              name={TAB_LABELS[tabKey]}
+              name={tabLabels[tabKey]}
               isFocused={activeTab === tabKey}
               onPress={() => setActiveTab(tabKey)}
             />
