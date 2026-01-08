@@ -91,14 +91,19 @@ export function HardwareRecordCard({ item }: IHardwareRecordCardProps) {
         {/* Date, Invite Code, and Expand Icon */}
         <XStack jc="space-between" ai="center">
           <XStack gap="$3" ai="center" flex={1}>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {formattedDate}
-            </SizableText>
+            {/* Date */}
+            {formattedDate ? (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {formattedDate}
+              </SizableText>
+            ) : null}
+
+            {/* Invite Code */}
             <Badge badgeType="default" badgeSize="sm">
               {item.inviteCode}
             </Badge>
           </XStack>
-          <Stack animation="quick" rotate={isExpanded ? '180deg' : '0deg'}>
+          <Stack animation="quick" rotate={isExpanded ? '-180deg' : '-90deg'}>
             <Icon
               name="ChevronDownSmallOutline"
               size="$5"
