@@ -12,6 +12,7 @@ import type {
   IEarnWalletHistory,
   IExportInviteDataParams,
   IHardwareCumulativeRewards,
+  IHardwareRecordsResponse,
   IHardwareSalesRecord,
   IInviteCodeItem,
   IInviteCodeListResponse,
@@ -548,6 +549,15 @@ class ServiceReferralCode extends ServiceBase {
       accountId,
     });
     return result;
+  }
+
+  @backgroundMethod()
+  async getHardwareRecords(): Promise<IHardwareRecordsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IHardwareRecordsResponse;
+    }>('/rebate/v1/invite/hardware-records');
+    return response.data.data;
   }
 
   @backgroundMethod()
