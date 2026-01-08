@@ -91,9 +91,10 @@ autoUpdater.logger = logger;
 
 const isMac = process.platform === 'darwin';
 const isMas = process.mas;
-const isSnapStore = process.platform === 'linux' && process.env.SNAP;
-const isWindowsMsStore =
-  process.platform === 'win32' && process.env.DESK_CHANNEL === 'ms-store';
+const isWin = process.platform === 'win32';
+const isLinux = process.platform === 'linux';
+const isSnapStore = isLinux && process.env.SNAP;
+const isWindowsMsStore = isWin && process.env.DESK_CHANNEL === 'ms-store';
 
 const isStoreVersion = isMas || isSnapStore || isWindowsMsStore;
 
@@ -559,53 +560,51 @@ class DesktopApiAppUpdate {
     }
     const buildNumber = verifyParams.buildNumber;
     logger.info('auto-updater', 'Installation request', buildNumber);
-    void dialog
-      .showMessageBox({
-        type: 'question',
-        buttons: [
-          i18nText(ElectronTranslations.update_install_and_restart),
-          i18nText(ElectronTranslations.global_later),
-        ],
-        defaultId: 0,
-        message: i18nText(ElectronTranslations.update_new_update_downloaded),
-      })
-      .then((selection) => {
-        if (selection.response === 0) {
-          store.setUpdateBuildNumber(buildNumber);
-          logger.info('auto-update', 'button[0] was clicked', buildNumber);
-          // https://github.com/electron-userland/electron-builder/issues/8997#issuecomment-2969507357
-          /**
-           * On macOS 15+ auto-update / relaunch issues:
-           * - https://github.com/electron-userland/electron-builder/issues/8795
-           * - https://github.com/electron-userland/electron-builder/issues/8997
-           */
-          if (isMac) {
-            app.removeAllListeners('before-quit');
-            app.removeAllListeners('window-all-closed');
-            BrowserWindow.getAllWindows().forEach((win) => {
-              if (win.isDestroyed()) {
-                return;
-              }
-              win.removeAllListeners('close');
-              win.close();
-            });
-            nativeUpdater.once('before-quit-for-update', () => {
-              app.exit();
-            });
+    const selection = await dialog.showMessageBox({
+      type: 'question',
+      buttons: [
+        i18nText(ElectronTranslations.update_install_and_restart),
+        i18nText(ElectronTranslations.global_later),
+      ],
+      defaultId: 0,
+      message: i18nText(ElectronTranslations.update_new_update_downloaded),
+    });
+    if (selection.response === 0) {
+      store.setUpdateBuildNumber(buildNumber);
+      logger.info('auto-update', 'button[0] was clicked', buildNumber);
+      // https://github.com/electron-userland/electron-builder/issues/8997#issuecomment-2969507357
+      /**
+       * On macOS 15+ auto-update / relaunch issues:
+       * - https://github.com/electron-userland/electron-builder/issues/8795
+       * - https://github.com/electron-userland/electron-builder/issues/8997
+       */
+      if (isMac) {
+        app.removeAllListeners('before-quit');
+        app.removeAllListeners('window-all-closed');
+        BrowserWindow.getAllWindows().forEach((win) => {
+          if (win.isDestroyed()) {
+            return;
           }
-          if (!isMac) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            const isExist = autoUpdater?.isExistInstallerPath();
-            const downloadedFilePath = verifyParams.downloadedFile;
-            if (!isExist && downloadedFilePath) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-              autoUpdater.updateInstallerPath(downloadedFilePath);
-            }
-          }
-          autoUpdater.quitAndInstall(false);
+          win.removeAllListeners('close');
+          win.close();
+        });
+        nativeUpdater.once('before-quit-for-update', () => {
+          app.exit();
+        });
+        autoUpdater.quitAndInstall(false);
+        return;
+      }
+      if (!isMac) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const isExist = autoUpdater?.isExistInstallerPath();
+        const downloadedFilePath = verifyParams.downloadedFile;
+        if (!isExist && downloadedFilePath) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          await autoUpdater?.updateInstallerPath(downloadedFilePath);
         }
-        logger.info('auto-update', 'button[1] was clicked');
-      });
+      }
+      autoUpdater.quitAndInstall(false);
+    }
   }
 
   async manualInstallPackage(
