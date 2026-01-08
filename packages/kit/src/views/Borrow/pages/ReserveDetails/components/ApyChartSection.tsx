@@ -13,13 +13,11 @@ import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDet
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IApyHistoryItem,
-  IBorrowApy,
   IBorrowReserveDetail,
   IEarnText,
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
 
-import { ApyDetailPopoverTrigger } from '../../../components/ApyDetailPopover';
 import { CapUsageChart } from '../../../components/CapUsageChart';
 
 import type { ITimePeriod } from '../hooks/useBorrowChartData';
@@ -54,9 +52,6 @@ interface IApyChartSectionProps {
     softLiquidation?: { text: IEarnText; tooltip?: IEarnTooltip };
   };
 
-  // Optional: APY detail for popover
-  apyDetail?: IBorrowApy;
-
   // Optional: Tooltip label for hover
   tooltipLabel?: string;
 }
@@ -77,7 +72,6 @@ function ApyChartSectionComponent({
   capUsage,
   capUsageLabel,
   metrics,
-  apyDetail,
   tooltipLabel,
 }: IApyChartSectionProps) {
   const intl = useIntl();
@@ -98,12 +92,9 @@ function ApyChartSectionComponent({
       {/* APY Chart */}
       <YStack gap="$3">
         <XStack jc="space-between" ai="center">
-          <XStack ai="center" gap="$2">
-            <SizableText size="$headingXl">
-              {Number(apyValue).toFixed(2)}% {apyLabel}
-            </SizableText>
-            <ApyDetailPopoverTrigger apyDetail={apyDetail} />
-          </XStack>
+          <SizableText size="$headingXl">
+            {Number(apyValue).toFixed(2)}% {apyLabel}
+          </SizableText>
           <SegmentControl
             value={timePeriod}
             options={timePeriodOptions}

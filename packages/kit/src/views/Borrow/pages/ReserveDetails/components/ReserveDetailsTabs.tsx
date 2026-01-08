@@ -138,7 +138,6 @@ const ReserveDetailsTabsComponent = ({
                     }
                   : undefined
               }
-              apyDetail={details?.supply.apyDetail}
               tooltipLabel={supplyApyLabel}
             />
           </YStack>
@@ -168,7 +167,6 @@ const ReserveDetailsTabsComponent = ({
               capUsageLabel={intl.formatMessage({
                 id: ETranslations.defi_borrow_cap_usage,
               })}
-              apyDetail={details?.borrow.apyDetail}
               tooltipLabel={borrowApyLabel}
             />
           </YStack>

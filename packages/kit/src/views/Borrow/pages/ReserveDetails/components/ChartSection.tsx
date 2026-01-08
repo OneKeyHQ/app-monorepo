@@ -92,7 +92,6 @@ export function ChartSection({
                 }
               : undefined
           }
-          apyDetail={details?.supply.apyDetail}
           tooltipLabel={supplyApyLabel}
         />
       </DetailsSectionContainer>
@@ -119,7 +118,6 @@ export function ChartSection({
           capUsageLabel={intl.formatMessage({
             id: ETranslations.defi_borrow_cap_usage,
           })}
-          apyDetail={details?.borrow.apyDetail}
           tooltipLabel={borrowApyLabel}
         />
       </DetailsSectionContainer>
