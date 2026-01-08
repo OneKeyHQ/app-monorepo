@@ -258,12 +258,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   ]);
 
   useEffect(() => {
-    if (!isActionLoading && isReady) {
-      setTimeout(() => {
-        setHasInitialReady(true);
-      }, 300);
+    if (!isActionLoading && isReady && originalSupportSpeedSwap !== undefined) {
+      setHasInitialReady(true);
     }
-  }, [isActionLoading, isReady]);
+  }, [isActionLoading, isReady, originalSupportSpeedSwap]);
 
   return (
     <SwapPanelContent
