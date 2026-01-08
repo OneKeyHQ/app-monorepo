@@ -12,7 +12,6 @@ module.exports = {
     oneClick: false,
     installerSidebar: 'app/build/static/images/icons/installerSidebar.bmp',
     deleteAppDataOnUninstall: true,
-    x64ArchFiles: '*',
   },
   win: {
     extraResources: [
@@ -26,6 +25,5 @@ module.exports = {
     artifactName: 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     verifyUpdateCodeSignature: false,
     target: [{ target: 'nsis', arch: ['x64', 'arm64'] }],
-    x64ArchFiles: '*',
   },
 };

@@ -16,11 +16,9 @@ module.exports = {
     'executableName': 'onekey-wallet',
     'category': 'Utility',
     'target': ['snap'],
-    'x64ArchFiles': '*',
   },
   // Refer: https://canonical-snap.readthedocs-hosted.com/reference/development/interfaces/raw-usb-interface/
   'snap': {
     'plugs': ['default', 'raw-usb'],
-    'x64ArchFiles': '*',
   },
 };

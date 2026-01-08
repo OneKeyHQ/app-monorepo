@@ -16,7 +16,6 @@ module.exports = {
     executableName: 'onekey-wallet',
     category: 'Utility',
     target: [{ target: 'flatpak', arch: ['x64'] }],
-    x64ArchFiles: '*',
   },
   flatpak: {
     runtime: 'org.freedesktop.Platform',
@@ -33,6 +32,5 @@ module.exports = {
       '--filesystem=home',
       '--talk-name=org.freedesktop.Notifications',
     ],
-    x64ArchFiles: '*',
   },
 };
