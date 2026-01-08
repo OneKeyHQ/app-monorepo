@@ -18,6 +18,7 @@ import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareCumulativeRewards } from '@onekeyhq/shared/src/referralCode/type';
+import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 
 interface IHardwareSalesRewardHeaderProps {
   cumulativeRewards: IHardwareCumulativeRewards;
@@ -134,6 +135,41 @@ export function HardwareSalesRewardHeader({
     onRefresh?.();
   }, [onRefresh]);
 
+  const renderSecondaryCards = (isWide: boolean) => (
+    <>
+      <StatCard
+        icon="ClockTimeHistoryOutline"
+        iconBgColor="$bgStrong"
+        iconColor="$icon"
+        title={intl.formatMessage({
+          id: ETranslations.referral_undistributed,
+        })}
+        amount={undistributed}
+        subtitle={intl.formatMessage(
+          { id: ETranslations.referral_expected_by_date },
+          {
+            date: formatDateFns(cumulativeRewards.nextDistribution, 'MMMM d'),
+          },
+        )}
+        isWide={isWide}
+      />
+      <StatCard
+        icon="HourglassOutline"
+        iconBgColor="$bgStrong"
+        iconColor="$icon"
+        title={intl.formatMessage({
+          id: ETranslations.referral_pending,
+        })}
+        amount={pending}
+        prefix={isPendingZero ? undefined : '~'}
+        subtitle={intl.formatMessage({
+          id: ETranslations.referral_days_to_confirm,
+        })}
+        isWide={isWide}
+      />
+    </>
+  );
+
   // Wide screen layout: 3 cards in a row
   if (isWideScreen) {
     return (
@@ -151,36 +187,7 @@ export function HardwareSalesRewardHeader({
           onRefresh={handleRefresh}
           isWide
         />
-        <StatCard
-          icon="ClockTimeHistoryOutline"
-          iconBgColor="$bgStrong"
-          iconColor="$icon"
-          title={intl.formatMessage({
-            id: ETranslations.referral_undistributed,
-          })}
-          amount={undistributed}
-          subtitle={intl.formatMessage(
-            {
-              id: ETranslations.referral_expected_by_date,
-            },
-            { date: cumulativeRewards.nextDistribution },
-          )}
-          isWide
-        />
-        <StatCard
-          icon="HourglassOutline"
-          iconBgColor="$bgStrong"
-          iconColor="$icon"
-          title={intl.formatMessage({
-            id: ETranslations.referral_pending,
-          })}
-          amount={pending}
-          prefix={isPendingZero ? undefined : '~'}
-          subtitle={intl.formatMessage({
-            id: ETranslations.referral_days_to_confirm,
-          })}
-          isWide
-        />
+        {renderSecondaryCards(true)}
       </XStack>
     );
   }
@@ -222,38 +229,7 @@ export function HardwareSalesRewardHeader({
       </YStack>
 
       {/* Two cards side by side */}
-      <XStack gap="$3">
-        <StatCard
-          icon="ClockTimeHistoryOutline"
-          iconBgColor="$bgStrong"
-          iconColor="$icon"
-          title={intl.formatMessage({
-            id: ETranslations.referral_undistributed,
-          })}
-          amount={undistributed}
-          subtitle={intl.formatMessage(
-            {
-              id: ETranslations.referral_expected_by_date,
-            },
-            { date: cumulativeRewards.nextDistribution },
-          )}
-          isWide={false}
-        />
-        <StatCard
-          icon="HourglassOutline"
-          iconBgColor="$bgStrong"
-          iconColor="$icon"
-          title={intl.formatMessage({
-            id: ETranslations.referral_pending,
-          })}
-          amount={pending}
-          prefix={isPendingZero ? undefined : '~'}
-          subtitle={intl.formatMessage({
-            id: ETranslations.referral_days_to_confirm,
-          })}
-          isWide={false}
-        />
-      </XStack>
+      <XStack gap="$3">{renderSecondaryCards(false)}</XStack>
     </YStack>
   );
 }
