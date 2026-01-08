@@ -216,23 +216,9 @@ export type IVaultSettings = {
   numericOnlyMemo?: boolean;
   /**
    * If true, Vault has implemented validateMemo() for precise validation
-   * Form validation will call vault.validateMemo() instead of using memoMaxLimit
+   * Form validation will call vault.validateMemo() instead of using memoMaxLength
    */
-  supportsMemoValidation?: boolean;
-  /**
-   * Advanced memo validation limits (extensible for different constraint types)
-   * Only used when supportsMemoValidation is false
-   *
-   * Example usage:
-   * - bytes: 28 (UTF-8 byte length for Stellar text memo)
-   * - text: 50 (character count)
-   * - number: "18446744073709551615" (max value as string)
-   */
-  memoMaxLimit?: {
-    bytes?: number;
-    text?: number;
-    number?: string;
-  };
+  supportMemoValidation?: boolean;
 
   // dnx
   withPaymentId?: boolean;

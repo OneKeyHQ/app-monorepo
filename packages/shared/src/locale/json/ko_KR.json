@@ -3259,6 +3259,7 @@
   "send.label_transferred": "전송됨",
   "send.label_wallet_name": "지갑 이름 / 계정 이름",
   "send.max": "최대",
+  "send.memo_size_exceeded": "메모 초과 {limit} {type} (현재: {current} {type})",
   "send.memo_up_to_length": "최대 {number} 자",
   "send.nft_amount": "양",
   "send.nft_does_not_exist": "NFT가 존재하지 않습니다.",

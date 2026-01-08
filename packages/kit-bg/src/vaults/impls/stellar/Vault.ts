@@ -89,12 +89,14 @@ import { EStellarAssetType } from './types';
 import {
   BASE_FEE,
   ENTRY_RESERVE,
+  MEMO_TEXT_MAX_BYTES,
   SAC_TOKEN_ASSET_TYPES,
   SAC_TOKEN_DECIMALS,
   buildMemoFromString,
   calculateAvailableBalance,
   calculateFrozenBalance,
   getNetworkPassphrase,
+  getUtf8ByteLength,
   isValidAccountCreationAmount,
   parseTokenAddress,
 } from './utils';
@@ -113,6 +115,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type * as StellarSdk from '@stellar/stellar-base';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.stellar.hd;
@@ -1085,12 +1088,18 @@ export default class Vault extends VaultBase {
     const trimmed = memo.trim();
 
     // Text memo: check byte length
-    const { getUtf8ByteLength, MEMO_TEXT_MAX_BYTES } = await import('./utils');
     const byteLength = getUtf8ByteLength(trimmed);
     if (byteLength > MEMO_TEXT_MAX_BYTES) {
       return {
         isValid: false,
-        errorMessage: `Memo exceeds ${MEMO_TEXT_MAX_BYTES} bytes (current: ${byteLength} bytes)`,
+        errorMessage: appLocale.intl.formatMessage(
+          { id: ETranslations.send_memo_size_exceeded },
+          {
+            limit: MEMO_TEXT_MAX_BYTES,
+            current: byteLength,
+            type: 'Bytes',
+          },
+        ),
       };
     }
 

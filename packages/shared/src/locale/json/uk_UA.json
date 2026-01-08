@@ -3259,6 +3259,7 @@
   "send.label_transferred": "Перенесено",
   "send.label_wallet_name": "Назва гаманця / Назва рахунку",
   "send.max": "Макс",
+  "send.memo_size_exceeded": "Меморандум перевищує {limit} {type} (поточний: {current} {type})",
   "send.memo_up_to_length": "До {number} символів",
   "send.nft_amount": "Сума",
   "send.nft_does_not_exist": "NFT не існує.",

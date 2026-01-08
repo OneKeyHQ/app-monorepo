@@ -105,7 +105,6 @@ import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/
 import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
-import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 
 export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';
 const showTxMessageFaq = (isContractTo: boolean) => {
@@ -237,20 +236,20 @@ function SendDataInputContainer() {
     displayMemoForm,
     displayPaymentIdForm,
     memoMaxLength,
-    memoMaxLimit,
     numericOnlyMemo,
     displayNoteForm,
     noteMaxLength,
+    supportsMemoValidation,
     displayTxMessageForm,
   ] = useMemo(() => {
     return [
       vaultSettings?.withMemo,
       vaultSettings?.withPaymentId,
       vaultSettings?.memoMaxLength,
-      vaultSettings?.memoMaxLimit,
       vaultSettings?.numericOnlyMemo,
       vaultSettings?.withNote,
       vaultSettings?.noteMaxLength,
+      vaultSettings?.supportMemoValidation,
       vaultSettings?.withTxMessage,
     ];
   }, [vaultSettings]);
@@ -1359,13 +1358,13 @@ function SendDataInputContainer() {
 
   const validateMemoField = useCallback(
     async (value: string): Promise<string | undefined> => {
-      if (vaultSettings?.supportsMemoValidation) {
+      if (vaultSettings?.supportMemoValidation) {
         try {
-          const vault = await vaultFactory.getVault({
+          const result = await backgroundApiProxy.serviceSend.validateMemo({
             networkId: currentAccount.networkId,
             accountId: currentAccount.accountId,
+            memo: value,
           });
-          const result = await vault.validateMemo(value);
           if (!result.isValid) {
             return result.errorMessage;
           }
@@ -1391,7 +1390,7 @@ function SendDataInputContainer() {
       currentAccount.networkId,
       intl,
       numericOnlyMemo,
-      vaultSettings?.supportsMemoValidation,
+      vaultSettings?.supportMemoValidation,
     ],
   );
 
@@ -1406,17 +1405,19 @@ function SendDataInputContainer() {
           optional
           name="memo"
           rules={{
-            maxLength: {
-              value: maxLength,
-              message: intl.formatMessage(
-                {
-                  id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+            maxLength: supportsMemoValidation
+              ? undefined
+              : {
+                  value: maxLength,
+                  message: intl.formatMessage(
+                    {
+                      id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+                    },
+                    {
+                      number: maxLength,
+                    },
+                  ),
                 },
-                {
-                  number: maxLength,
-                },
-              ),
-            },
             validate: validateMemoField,
           }}
         >
@@ -1430,7 +1431,14 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl, media.gtMd, memoMaxLength, validateMemoField]);
+  }, [
+    displayMemoForm,
+    intl,
+    media.gtMd,
+    memoMaxLength,
+    supportsMemoValidation,
+    validateMemoField,
+  ]);
 
   const renderPaymentIdForm = useCallback(() => {
     if (!displayPaymentIdForm) return null;
