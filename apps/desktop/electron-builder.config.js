@@ -27,8 +27,10 @@ module.exports = {
     'oneClick': false,
     'installerSidebar': 'app/build/static/images/icons/installerSidebar.bmp',
     'deleteAppDataOnUninstall': true,
+    'x64ArchFiles': '*',
   },
   'mac': {
+    'x64ArchFiles': '*',
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/mac-${arch}',
@@ -73,6 +75,7 @@ module.exports = {
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
+    'x64ArchFiles': '*',
   },
   'linux': {
     'extraResources': [
@@ -86,5 +89,6 @@ module.exports = {
     'executableName': 'onekey-wallet',
     'category': 'Utility',
     'target': [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
+    'x64ArchFiles': '*',
   },
 };

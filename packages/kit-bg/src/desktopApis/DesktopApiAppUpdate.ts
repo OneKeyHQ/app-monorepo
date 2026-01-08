@@ -593,6 +593,15 @@ class DesktopApiAppUpdate {
               app.exit();
             });
           }
+          if (!isMac) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            const isExist = autoUpdater?.isExistInstallerPath();
+            const downloadedFilePath = verifyParams.downloadedFile;
+            if (!isExist && downloadedFilePath) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+              autoUpdater.updateInstallerPath(downloadedFilePath);
+            }
+          }
           autoUpdater.quitAndInstall(false);
         }
         logger.info('auto-update', 'button[1] was clicked');
