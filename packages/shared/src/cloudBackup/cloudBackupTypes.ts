@@ -1,5 +1,3 @@
-import { ICloudKeyPackEncryptedData } from '../keylessWallet/keylessWalletTypes';
-
 import type {
   IPrimeTransferData,
   IPrimeTransferPublicData,
