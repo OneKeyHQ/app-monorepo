@@ -9,25 +9,6 @@ const pkg = require('../app/package.json');
 
 const isProduction = process.env.NODE_ENV === 'production';
 console.log('building for', isProduction ? 'production' : 'development');
-// remove passport-desktop-win32-x64-msvc dependency on non-windows platform
-if (
-  isProduction &&
-  process.platform !== 'win32' &&
-  !process.env.ELECTRON_LINT
-) {
-  console.log('Removing passport-desktop-win32-x64-msvc dependency...');
-  pkg.dependencies = pkg.dependencies || {};
-  delete pkg.dependencies['passport-desktop-win32-x64-msvc'];
-  const packageJsonPath = path.join(__dirname, '..', 'app', 'package.json');
-  fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
-  // run yarn install to update yarn.lock
-  console.log('Updating dependencies...');
-  childProcess.execSync('yarn install --immutable', {
-    cwd: path.join(__dirname, '..', 'app'),
-    stdio: 'inherit',
-  });
-}
-
 const electronSource = path.join(__dirname, '..', 'app');
 
 const gitRevision = childProcess
