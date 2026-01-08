@@ -49,6 +49,8 @@ type IUniversalBorrowRepayProps = {
   borrowMarketAddress: string;
   borrowReserveAddress: string;
   balance: string;
+  // Max balance for max button (debt balance). If provided, balance (wallet balance) is for display only.
+  maxBalance?: string;
   tokenSymbol?: string;
   tokenImageUri?: string;
   decimals?: number;
@@ -79,6 +81,7 @@ export function UniversalBorrowRepay({
   borrowMarketAddress,
   borrowReserveAddress,
   balance,
+  maxBalance,
   tokenSymbol,
   tokenImageUri,
   decimals,
@@ -118,15 +121,17 @@ export function UniversalBorrowRepay({
   ).result;
 
   const maxAmountValue = useMemo(() => {
-    const balanceBN = new BigNumber(balance);
-    if (balanceBN.isNaN()) {
+    // Use maxBalance (debt balance) for max button if provided, otherwise use balance (wallet balance)
+    const valueForMax = maxBalance ?? balance;
+    const valueBN = new BigNumber(valueForMax);
+    if (valueBN.isNaN()) {
       return '0';
     }
     if (typeof decimals === 'number') {
-      return balanceBN.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed();
+      return valueBN.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed();
     }
-    return balance;
-  }, [balance, decimals]);
+    return valueForMax;
+  }, [balance, maxBalance, decimals]);
 
   const isRepayAll = useMemo(() => {
     const amountBN = new BigNumber(amountValue);
@@ -342,10 +347,12 @@ export function UniversalBorrowRepay({
   const balanceProps = useMemo(
     () => ({
       value: balance,
-      iconText: balanceIconText,
+      // When maxBalance is provided, balance is wallet balance, show wallet icon instead of "Available" text
+      // maxBalance is debt balance, used for max button
+      iconText: maxBalance ? undefined : balanceIconText,
       onPress: onMax,
     }),
-    [balance, balanceIconText, onMax],
+    [balance, maxBalance, balanceIconText, onMax],
   );
 
   const valueProps = useMemo(
