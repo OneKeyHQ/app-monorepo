@@ -3259,6 +3259,7 @@
   "send.label_transferred": "स्थानांतरित",
   "send.label_wallet_name": "वॉलेट नाम / खाता नाम",
   "send.max": "अधिकतम",
+  "send.memo_size_exceeded": "मेमो इससे अधिक है {limit} {type} (मौजूदा: {current} {type})",
   "send.memo_up_to_length": "{number} वर्ण तक",
   "send.nft_amount": "मात्रा",
   "send.nft_does_not_exist": "NFT मौजूद नहीं है।",

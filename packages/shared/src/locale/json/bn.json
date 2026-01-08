@@ -3259,6 +3259,7 @@
   "send.label_transferred": "স্থানান্তরিত",
   "send.label_wallet_name": "ওয়ালেট নাম / অ্যাকাউন্ট নাম",
   "send.max": "সর্বাধিক",
+  "send.memo_size_exceeded": "মেমো ছাড়িয়ে গেছে {limit} {type} (বর্তমান: {current} {type})",
   "send.memo_up_to_length": "{number} টি অক্ষর পর্যন্ত",
   "send.nft_amount": "পরিমাণ",
   "send.nft_does_not_exist": "NFT বিদ্যমান নেই।",

@@ -212,8 +212,13 @@ export type IVaultSettings = {
    * https://support.ledger.com/hc/en-us/articles/4409603715217-What-is-a-Memo-Tag-?support=true
    */
   withMemo?: boolean;
-  memoMaxLength?: number;
+  memoMaxLength?: number; // Fallback: character-based limit (legacy)
   numericOnlyMemo?: boolean;
+  /**
+   * If true, Vault has implemented validateMemo() for precise validation
+   * Form validation will call vault.validateMemo() instead of using memoMaxLength
+   */
+  supportMemoValidation?: boolean;
 
   // dnx
   withPaymentId?: boolean;

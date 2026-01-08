@@ -3259,6 +3259,7 @@
   "send.label_transferred": "轉賬過",
   "send.label_wallet_name": "錢包名稱 / 帳戶名稱",
   "send.max": "最大",
+  "send.memo_size_exceeded": "Memo 超出 {limit} {type} （目前的： {current} {type}）",
   "send.memo_up_to_length": "最多{number}個字符",
   "send.nft_amount": "數量",
   "send.nft_does_not_exist": "NFT 不存在",

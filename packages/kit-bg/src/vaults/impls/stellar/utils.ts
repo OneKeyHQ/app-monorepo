@@ -21,9 +21,18 @@ export const SAC_TOKEN_DECIMALS = 7;
 
 export const SAC_TOKEN_ASSET_TYPES = ['credit_alphanum4', 'credit_alphanum12'];
 
-const MEMO_TEXT_MAX_BYTES = 28;
+export const MEMO_TEXT_MAX_BYTES = 28;
 
 const MEMO_ID_MAX = new BigNumber('18446744073709551615');
+
+/**
+ * Calculate the byte length of a UTF-8 string
+ * @param text - The text to measure
+ * @returns The byte length
+ */
+export function getUtf8ByteLength(text: string): number {
+  return Buffer.from(text, 'utf8').length;
+}
 
 export function getNetworkPassphrase(networkId: string): string {
   return networkId.includes('testnet') ? Networks.TESTNET : Networks.PUBLIC;
@@ -74,9 +83,11 @@ export function buildMemoFromString(memo?: string) {
   if (isUint64Memo(trimmed)) {
     return Memo.id(trimmed);
   }
-  const memoBytes = Buffer.from(trimmed, 'utf8');
-  if (memoBytes.length > MEMO_TEXT_MAX_BYTES) {
-    throw new OneKeyInternalError('Memo text exceeds 28 bytes limit');
+  const byteLength = getUtf8ByteLength(trimmed);
+  if (byteLength > MEMO_TEXT_MAX_BYTES) {
+    throw new OneKeyInternalError(
+      `Memo text exceeds ${MEMO_TEXT_MAX_BYTES} bytes limit (current: ${byteLength} bytes)`,
+    );
   }
   return Memo.text(trimmed);
 }
