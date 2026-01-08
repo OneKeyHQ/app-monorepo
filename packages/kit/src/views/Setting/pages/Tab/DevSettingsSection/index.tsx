@@ -1196,19 +1196,10 @@ const BaseDevSettingsSection = () => {
               </SectionFieldItem>
 
               <SectionFieldItem
-                icon="CloudOutline"
-                name="isKeylessWalletFeatureEnabled"
-                title="启用 Keyless Wallet"
-                subtitle="启用无私钥钱包功能"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-
-              <SectionFieldItem
-                icon="WalletOutline"
-                name="allowCreateKeylessWalletOnWeb"
-                title="允许网页端创建 Keyless 钱包"
-                subtitle="在网页端 mock 云盘信息"
+                icon="InfoCircleOutline"
+                name="enableKeylessDebugInfo"
+                title="启用 Keyless 调试信息"
+                subtitle="显示 Keyless 登录/恢复调试信息"
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
@@ -1216,8 +1207,8 @@ const BaseDevSettingsSection = () => {
               <SectionFieldItem
                 icon="WalletOutline"
                 name="allowDeleteKeylessKey"
-                title="允许删除 Keyless Key"
-                subtitle="允许删除 deviceKey 和 authKey"
+                title="允许重置 Keyless 钱包"
+                subtitle="允许重置 Keyless 钱包"
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>

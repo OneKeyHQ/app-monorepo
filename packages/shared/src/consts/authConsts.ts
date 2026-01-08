@@ -155,10 +155,17 @@ export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
 // Google OAuth Clients
 // -----------------------------------------------
 
+// prod
 const GOOGLE_OAUTH_CLIENT_WEB =
-  '244450898872-vmpg9dgocpqtqhm5pk42u4s6hvprogp6.apps.googleusercontent.com';
+  '94391474021-6106ge2amfsgl9gjviojmai2mqbh2lte.apps.googleusercontent.com';
 const GOOGLE_OAUTH_CLIENT_IOS =
-  '244450898872-5uo9r8ekdc82huckjcr4br67edvf3vlg.apps.googleusercontent.com';
+  '94391474021-kbgarvu23k3mblp1m2tiknemae99p826.apps.googleusercontent.com';
+
+// test
+// const GOOGLE_OAUTH_CLIENT_WEB =
+//   '244450898872-vmpg9dgocpqtqhm5pk42u4s6hvprogp6.apps.googleusercontent.com';
+// const GOOGLE_OAUTH_CLIENT_IOS =
+//   '244450898872-5uo9r8ekdc82huckjcr4br67edvf3vlg.apps.googleusercontent.com';
 
 // ================================================
 
@@ -181,11 +188,16 @@ export const SUPABASE_PUBLIC_API_KEY =
 // Keyless Supabase
 // -----------------------------------------------
 
-// --- onekeytest
-export const KEYLESS_SUPABASE_PROJECT_URL =
-  'https://supabase.onekey-internal.com'; // onekeytest
+// --- onekeyprod
+export const KEYLESS_SUPABASE_PROJECT_URL = 'https://auth.onekey.so'; // onekeytest
 export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NzU4MzUwLCJleHAiOjE5MjU0MzgzNTB9.n-g7Amu-dMVpBgQ8i8gSYFjBvbDPC55ZqYIttPh8CYk';
+
+// --- onekeytest
+// export const KEYLESS_SUPABASE_PROJECT_URL =
+//   'https://supabase.onekey-internal.com'; // onekeytest
+// export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+//   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
 
 // --- localtest
 // export const KEYLESS_SUPABASE_PROJECT_URL =
@@ -208,16 +220,16 @@ type IJuiceBoxConfigJSON = {
   pin_hashing_mode: 'Standard2019' | 'FastInsecure';
 };
 
-export const JUICEBOX_AUTH_SERVER = 'https://juicebox.onekeytest.com';
+export const JUICEBOX_AUTH_SERVER = 'https://juicebox.onekeycn.com';
 export const JUICEBOX_CONFIG: IJuiceBoxConfigJSON = {
   realms: [
     {
       id: '37ce3a59ff08d57b77bac0b8451ff2d8',
-      address: 'https://juicebox-sw-realm-a.onekeytest.com',
+      address: 'https://juicebox-realm-a.onekeycn.com',
     },
     {
       id: '6b47cc201434428be7beee2190f95685',
-      address: 'https://juicebox-sw-realm-b.onekeytest.com',
+      address: 'https://juicebox-realm-b.onekeycn.com',
     },
   ],
   register_threshold: 2, // At least 2 realms must succeed to register
@@ -225,6 +237,54 @@ export const JUICEBOX_CONFIG: IJuiceBoxConfigJSON = {
   pin_hashing_mode: 'Standard2019',
 };
 export const JUICEBOX_ALLOWED_GUESSES = 10; // Number of allowed PIN guess attempts
+
+// Keyless Backend Share Payload Encryption
+// Fixed encryption key for keyless backend share payload encryption
+export const KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY =
+  '54C86638-407F-4E5B-AAF0-B782A2399F6A';
+// Prefix to identify encrypted payloads (required for decryption)
+export const KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX =
+  'backend_share_enc_v1:';
+
+// Keyless AES-GCM AAD (Additional Authenticated Data)
+// Bind ciphertext to its intended usage context to prevent cross-purpose substitution.
+
+// AAD Version Management
+export const KEYLESS_AAD_VERSIONS = {
+  MNEMONIC: {
+    v1: 'keyless-mnemonic-v1',
+    // Future versions can be added here:
+    // v2: 'keyless-mnemonic-v2',
+  },
+  BACKEND_SHARE_PAYLOAD: {
+    v1: 'keyless-backend-share-payload-v1',
+    // Future versions can be added here:
+    // v2: 'keyless-backend-share-payload-v2',
+  },
+} as const;
+
+// Current active versions (used for encryption)
+export const KEYLESS_AAD_CURRENT_VERSION = {
+  MNEMONIC: 'v1' as const,
+  BACKEND_SHARE_PAYLOAD: 'v1' as const,
+};
+
+// Backward compatible constants (use current version)
+export const KEYLESS_MNEMONIC_GCM_AAD =
+  KEYLESS_AAD_VERSIONS.MNEMONIC[KEYLESS_AAD_CURRENT_VERSION.MNEMONIC];
+export const KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD =
+  KEYLESS_AAD_VERSIONS.BACKEND_SHARE_PAYLOAD[
+    KEYLESS_AAD_CURRENT_VERSION.BACKEND_SHARE_PAYLOAD
+  ];
+
+// Helper function to get AAD by version
+export function getKeylessAadByVersion(
+  type: keyof typeof KEYLESS_AAD_VERSIONS,
+  version?: keyof (typeof KEYLESS_AAD_VERSIONS)[typeof type],
+): string {
+  const targetVersion = version || KEYLESS_AAD_CURRENT_VERSION[type];
+  return KEYLESS_AAD_VERSIONS[type][targetVersion];
+}
 
 // Supabase OAuth Providers
 // https://supabase.com/dashboard/project/_/auth/providers

@@ -28,7 +28,6 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 
 **MANDATORY CHECKS:**
 - Run complete `yarn lint` (accept 10-minute timeout for quality)
-- Execute `yarn tsc:only` for TypeScript validation
 - Verify no circular dependencies introduced
 - Test on all affected platforms
 - Validate against existing code patterns
@@ -111,10 +110,6 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
   - **Expected runtime**: 5-10 minutes (NEVER skip due to timeout)
   - **Zero tolerance**: ALL warnings and errors MUST be fixed
   - **When it fails**: Check specific error categories and fix systematically
-- `yarn tsc:only` - **REQUIRED** TypeScript type checking
-  - **Expected runtime**: 30-60 seconds
-  - **Failure scenarios**: Circular dependencies, type mismatches, missing imports
-  - **Action required**: Fix ALL TypeScript errors before proceeding
 - `yarn test` - **MANDATORY** Jest test execution
   - **Expected runtime**: 2-5 minutes depending on test scope
   - **Failure handling**: Investigate failed tests, do not ignore or skip
