@@ -15,6 +15,11 @@ if (isProduction && process.platform !== 'win32') {
   delete pkg.dependencies['passport-desktop-win32-x64-msvc'];
   const packageJsonPath = path.join(__dirname, '..', 'app', 'package.json');
   fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
+  // run yarn install to update yarn.lock
+  childProcess.execSync('yarn install', {
+    cwd: path.join(__dirname, '..', 'app'),
+    stdio: 'inherit',
+  });
 }
 
 const electronSource = path.join(__dirname, '..', 'app');
@@ -23,7 +28,6 @@ const gitRevision = childProcess
   .execSync('git rev-parse HEAD')
   .toString()
   .trim();
-
 
 const hrstart = process.hrtime();
 
