@@ -85,7 +85,9 @@ const ApyChartBaseComponent = ({
     const isLeftHalf = hoverData.x < containerWidth / 2;
 
     const translateXValue = isLeftHalf ? 0 : -POPOVER_WIDTH;
-    const desiredLeft = isLeftHalf ? hoverData.x + OFFSET : hoverData.x - OFFSET;
+    const desiredLeft = isLeftHalf
+      ? hoverData.x + OFFSET
+      : hoverData.x - OFFSET;
     const minLeft = EDGE_PADDING;
     const maxLeft = Math.max(
       minLeft,
@@ -101,14 +103,17 @@ const ApyChartBaseComponent = ({
     };
   }, [hoverData, containerWidth]);
 
-  const formatPopoverDate = useCallback((timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    return intl.formatDate(date, {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-    });
-  }, [intl]);
+  const formatPopoverDate = useCallback(
+    (timestamp: number) => {
+      const date = new Date(timestamp * 1000);
+      return intl.formatDate(date, {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+      });
+    },
+    [intl],
+  );
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) {
