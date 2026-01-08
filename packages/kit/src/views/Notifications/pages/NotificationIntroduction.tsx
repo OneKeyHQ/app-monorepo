@@ -82,7 +82,7 @@ function NotificationIntroduction() {
           onConfirmText: intl.formatMessage({
             id: ETranslations.global_enable,
           }),
-          onConfirm: async (close) => {
+          onConfirm: async (_close) => {
             try {
               setConfirmLoading(true);
               await backgroundApiProxy.serviceNotification.enableNotificationPermissions();
