@@ -9,12 +9,7 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  EPageType,
-  useIsModalPage,
-  useIsOverlayPage,
-  usePageType,
-} from '../../hocs';
+import { useIsModalPage, useIsOverlayPage } from '../../hocs';
 import { Spinner, Stack, View, YStack } from '../../primitives';
 
 import { useIsIpadModalPage, useTabBarHeight } from './hooks';
@@ -106,9 +101,8 @@ function LoadingScreen({
 }: PropsWithChildren<{ fullPage: boolean }>) {
   const [showLoading, changeLoadingVisibleStatus] = useState(true);
   const [showChildren, changeChildrenVisibleStatus] = useState(false);
-  const pageType = usePageType();
-  const isiOSModalPage =
-    platformEnv.isNativeIOS && pageType === EPageType.modal;
+  const isModalPage = useIsModalPage();
+  const isiOSModalPage = platformEnv.isNativeIOS && isModalPage;
 
   useEffect(() => {
     setTimeout(
@@ -146,8 +140,7 @@ const AbsoluteLoadingContainer = platformEnv.isNativeIOS
   ? ({ children }: PropsWithChildren) => {
       const [showLoading, changeLoadingVisibleStatus] = useState(true);
       const [showChildren, changeChildrenVisibleStatus] = useState(false);
-      const pageType = usePageType();
-      const isModalPage = pageType === EPageType.modal;
+      const isModalPage = useIsModalPage();
       useEffect(() => {
         if (!isModalPage) {
           return;
@@ -160,7 +153,7 @@ const AbsoluteLoadingContainer = platformEnv.isNativeIOS
             });
           }, 380);
         }, 1);
-      }, [isModalPage, pageType]);
+      }, [isModalPage]);
 
       return isModalPage ? (
         <>
