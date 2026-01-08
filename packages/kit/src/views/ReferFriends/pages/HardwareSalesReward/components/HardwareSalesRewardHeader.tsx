@@ -126,6 +126,7 @@ export function HardwareSalesRewardHeader({
   const distributed = cumulativeRewards.distributed || '0';
   const undistributed = cumulativeRewards.undistributed || '0';
   const pending = cumulativeRewards.pending || '0';
+  const isPendingZero = BigNumber(pending).isZero();
 
   const totalEarned = BigNumber(distributed).plus(undistributed).toFixed();
 
@@ -174,7 +175,7 @@ export function HardwareSalesRewardHeader({
             id: ETranslations.referral_pending,
           })}
           amount={pending}
-          prefix="~"
+          prefix={isPendingZero ? undefined : '~'}
           subtitle={intl.formatMessage({
             id: ETranslations.referral_days_to_confirm,
           })}
@@ -246,7 +247,7 @@ export function HardwareSalesRewardHeader({
             id: ETranslations.referral_pending,
           })}
           amount={pending}
-          prefix="~"
+          prefix={isPendingZero ? undefined : '~'}
           subtitle={intl.formatMessage({
             id: ETranslations.referral_days_to_confirm,
           })}
