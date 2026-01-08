@@ -16,6 +16,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { LazyHeaderTitle } from '@onekeyhq/kit/src/components/LazyHeaderTitle';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -165,33 +166,35 @@ const SwapHistoryListModal = ({
             id: ETranslations.perp_trade_market,
           });
     const renderHeaderTitle = () => (
-      <Select
-        title={title}
-        items={[
-          {
-            label: intl.formatMessage({
-              id: ETranslations.perp_trade_market,
-            }),
-            value: EProtocolOfExchange.SWAP,
-          },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.swap_page_limit_dialog_title,
-            }),
-            value: EProtocolOfExchange.LIMIT,
-          },
-        ]}
-        onChange={(value) => {
-          setHistoryType(value as EProtocolOfExchange);
-        }}
-        value={historyType}
-        renderTrigger={(props) => (
-          <XStack {...props} alignItems="center" gap="$1" cursor="pointer">
-            <SizableText size="$headingLg">{title}</SizableText>
-            <Icon name="ChevronDownSmallSolid" size="$5" />
-          </XStack>
-        )}
-      />
+      <LazyHeaderTitle>
+        <Select
+          title={title}
+          items={[
+            {
+              label: intl.formatMessage({
+                id: ETranslations.perp_trade_market,
+              }),
+              value: EProtocolOfExchange.SWAP,
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.swap_page_limit_dialog_title,
+              }),
+              value: EProtocolOfExchange.LIMIT,
+            },
+          ]}
+          onChange={(value) => {
+            setHistoryType(value as EProtocolOfExchange);
+          }}
+          value={historyType}
+          renderTrigger={(props) => (
+            <XStack {...props} alignItems="center" gap="$1" cursor="pointer">
+              <SizableText size="$headingLg">{title}</SizableText>
+              <Icon name="ChevronDownSmallSolid" size="$5" />
+            </XStack>
+          )}
+        />
+      </LazyHeaderTitle>
     );
     return renderHeaderTitle;
   }, [historyType, intl]);
