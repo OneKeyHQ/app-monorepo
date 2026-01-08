@@ -150,12 +150,16 @@ export function InterestRateModelChart({
     }
 
     const supplyData = supplyCurve.map(([util, apy]) => ({
-      time: convertUtilizationToTime(normalizeUtilization(util)) as UTCTimestamp,
+      time: convertUtilizationToTime(
+        normalizeUtilization(util),
+      ) as UTCTimestamp,
       value: normalizeApyToPercent(parseFloat(apy)),
     }));
 
     const borrowData = borrowCurve.map(([util, apy]) => ({
-      time: convertUtilizationToTime(normalizeUtilization(util)) as UTCTimestamp,
+      time: convertUtilizationToTime(
+        normalizeUtilization(util),
+      ) as UTCTimestamp,
       value: normalizeApyToPercent(parseFloat(apy)),
     }));
 
@@ -220,7 +224,7 @@ export function InterestRateModelChart({
     // Subscribe to crosshair move for tooltip
     chart.subscribeCrosshairMove((param) => {
       handleCrosshairMove({
-        time: param.time as UTCTimestamp | BusinessDay | undefined,
+        time: param.time,
         point: param.point,
         seriesPrices: param.seriesPrices as
           | Map<ISeriesApi<'Area'>, number>
@@ -302,7 +306,9 @@ export function InterestRateModelChart({
   ]);
 
   const utilizationPercentage = utilizationRatio
-    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(2)}%`
+    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
+        2,
+      )}%`
     : '0.00%';
 
   if (isLoading) {

@@ -219,7 +219,7 @@ export function CreateOrEditContent({
       const result = !memoRegExp.test(value);
       return result ? validateErrMsg : undefined;
     },
-    [intl, item.id, networkId, vaultSettings?.numericOnlyMemo],
+    [intl, networkId, vaultSettings?.numericOnlyMemo],
   );
 
   const renderMemoForm = useCallback(() => {

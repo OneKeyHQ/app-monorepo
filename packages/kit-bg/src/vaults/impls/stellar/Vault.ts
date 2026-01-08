@@ -23,6 +23,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -115,7 +116,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type * as StellarSdk from '@stellar/stellar-base';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.stellar.hd;
