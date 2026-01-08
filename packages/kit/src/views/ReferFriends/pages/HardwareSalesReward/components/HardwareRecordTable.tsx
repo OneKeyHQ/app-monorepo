@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import type { IColorTokens } from '@onekeyhq/components';
 import {
   Badge,
   Icon,
@@ -20,6 +21,19 @@ import {
   HardwareRecordTimeline,
   formatTimestamp,
 } from './HardwareRecordTimeline';
+
+type IHardwareRecordStatus =
+  | 'Completed'
+  | 'Pending'
+  | 'Undistributed'
+  | 'Refunded';
+
+const statusToRewardColor: Record<IHardwareRecordStatus, IColorTokens> = {
+  Completed: '$textSuccess',
+  Undistributed: '$textInfo',
+  Refunded: '$textSubdued',
+  Pending: '$textCaution',
+};
 
 // Column width percentages for consistent alignment
 const COLUMN_WIDTHS = {
@@ -46,7 +60,8 @@ function TableRow({ item }: ITableRowProps) {
   }, []);
 
   const formattedDate = formatTimestamp(item.orderPlacedAt);
-  const isPositiveAmount = Number(item.rebateAmountFiatValue) >= 0;
+  const rewardColor =
+    statusToRewardColor[item.status as IHardwareRecordStatus] || '$textSuccess';
 
   return (
     <>
@@ -104,7 +119,7 @@ function TableRow({ item }: ITableRowProps) {
         {/* Rewards Column */}
         <XStack w={COLUMN_WIDTHS.rewards} ai="center" jc="flex-end" py="$1">
           <Currency
-            color={isPositiveAmount ? '$textSuccess' : '$textCritical'}
+            color={rewardColor}
             formatter="value"
             size="$bodyMdMedium"
             formatterOptions={{

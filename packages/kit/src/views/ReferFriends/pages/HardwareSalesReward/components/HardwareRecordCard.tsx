@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
+import type { IColorTokens } from '@onekeyhq/components';
 import {
   Badge,
   Icon,
@@ -19,6 +20,19 @@ import {
   formatTimestamp,
 } from './HardwareRecordTimeline';
 
+type IHardwareRecordStatus =
+  | 'Completed'
+  | 'Pending'
+  | 'Undistributed'
+  | 'Refunded';
+
+const statusToRewardColor: Record<IHardwareRecordStatus, IColorTokens> = {
+  Completed: '$textSuccess',
+  Undistributed: '$textInfo',
+  Refunded: '$textSubdued',
+  Pending: '$textCaution',
+};
+
 interface IHardwareRecordCardProps {
   item: IHardwareRecordItem;
 }
@@ -32,7 +46,8 @@ export function HardwareRecordCard({ item }: IHardwareRecordCardProps) {
 
   const formattedDate = formatTimestamp(item.orderPlacedAt);
 
-  const isPositiveAmount = Number(item.rebateAmountFiatValue) >= 0;
+  const rewardColor =
+    statusToRewardColor[item.status as IHardwareRecordStatus] || '$textSuccess';
 
   return (
     <YStack
@@ -57,7 +72,7 @@ export function HardwareRecordCard({ item }: IHardwareRecordCardProps) {
             statusLabel={item.statusLabel}
           />
           <Currency
-            color={isPositiveAmount ? '$textSuccess' : '$textCritical'}
+            color={rewardColor}
             formatter="value"
             size="$bodyMdMedium"
             formatterOptions={{

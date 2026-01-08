@@ -43,7 +43,7 @@ const historyTypeConfig: Record<IHistoryType, IHistoryTypeConfig> = {
   },
   OrderPlaced: {
     iconName: 'CirclePlaceholderOnSolid',
-    iconColor: '$iconCaution',
+    iconColor: '$bgCautionStrong',
   },
 };
 
