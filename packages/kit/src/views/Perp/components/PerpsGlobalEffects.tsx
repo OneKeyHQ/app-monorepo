@@ -509,6 +509,8 @@ function useHyperliquidScreenLockHandler() {
         // Screen unlocked - restore status
         if (isFocusedRef.current) {
           void checkPerpsAccountStatus();
+          // Force reload TradingView Candles WebView to fix data gap after screen unlock
+          void backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
         }
       } else {
         // Screen locked - dispose clients

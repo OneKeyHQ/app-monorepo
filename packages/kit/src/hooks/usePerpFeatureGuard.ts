@@ -27,3 +27,10 @@ export function usePerpFeatureGuard() {
 
   return !perpDisabled;
 }
+
+export function useNativePerpFeatureGuard() {
+  const canRender = usePerpFeatureGuard();
+  const { perpTabShowWeb } = usePerpTabConfig();
+
+  return canRender && !perpTabShowWeb;
+}

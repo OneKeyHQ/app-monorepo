@@ -993,6 +993,7 @@ function DepositWithdrawContent({
                   isArbUSDCOrder: true,
                 });
               }
+              void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
               onClose?.();
             },
             transfersInfo: [
@@ -1006,6 +1007,7 @@ function DepositWithdrawContent({
           });
         } else {
           await buildPerpDepositTx();
+          void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
           onClose?.();
         }
       } else {
@@ -1014,6 +1016,7 @@ function DepositWithdrawContent({
           amount,
           destination: selectedAccount.accountAddress,
         });
+        void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
         onClose?.();
       }
     } catch (error) {

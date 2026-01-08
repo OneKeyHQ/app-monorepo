@@ -377,9 +377,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         );
 
         if (isSnapshot) {
-          const sortedUpdates = [...incomingUpdates].sort(
-            (a, b) => b.time - a.time,
-          );
+          const sortedUpdates = [...incomingUpdates]
+            .sort((a, b) => b.time - a.time)
+            .slice(0, 200);
           set(perpsLedgerUpdatesAtom(), {
             accountAddress: activeAccountAddress,
             updates: sortedUpdates,
@@ -395,7 +395,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             (update) => !existingHashes.has(update.hash),
           );
           const mergedUpdates = [...newUpdates, ...existingUpdates];
-          const sortedUpdates = mergedUpdates.sort((a, b) => b.time - a.time);
+          const sortedUpdates = mergedUpdates
+            .sort((a, b) => b.time - a.time)
+            .slice(0, 200);
 
           set(perpsLedgerUpdatesAtom(), {
             accountAddress: activeAccountAddress,
