@@ -7815,6 +7815,7 @@ __metadata:
     "@types/zxcvbn": "npm:^4"
     "@typescript-eslint/eslint-plugin": "npm:5.62.0"
     "@typescript-eslint/parser": "npm:5.62.0"
+    "@typescript/native-preview": "npm:^7.0.0-dev.20260109.1"
     "@ungap/structured-clone": "npm:^1.2.0"
     "@wagmi/core": "npm:2.21.0"
     "@walletconnect/sign-client": "npm:2.21.7"
@@ -7935,7 +7936,7 @@ __metadata:
     timeout-signal: "npm:^2.0.0"
     tonweb: "npm:^0.0.66"
     ts-jest: "npm:^29.1.1"
-    typescript: "npm:5.6.3"
+    typescript: "npm:5.9.3"
     ua-parser-js: "npm:^2.0.4"
     ultra-runner: "npm:^3.10.5"
     use-suspender: "npm:^2.0.0-beta.0"
@@ -16164,6 +16165,87 @@ __metadata:
     "@typescript-eslint/types": "npm:5.62.0"
     eslint-visitor-keys: "npm:^3.3.0"
   checksum: 10/dc613ab7569df9bbe0b2ca677635eb91839dfb2ca2c6fa47870a5da4f160db0b436f7ec0764362e756d4164e9445d49d5eb1ff0b87f4c058946ae9d8c92eb388
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20260109.1":
+  version: 7.0.0-dev.20260109.1
+  resolution: "@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20260109.1"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20260109.1":
+  version: 7.0.0-dev.20260109.1
+  resolution: "@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20260109.1"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20260109.1":
+  version: 7.0.0-dev.20260109.1
+  resolution: "@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20260109.1"
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-linux-arm@npm:7.0.0-dev.20260109.1":
+  version: 7.0.0-dev.20260109.1
+  resolution: "@typescript/native-preview-linux-arm@npm:7.0.0-dev.20260109.1"
+  conditions: os=linux & cpu=arm
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-linux-x64@npm:7.0.0-dev.20260109.1":
+  version: 7.0.0-dev.20260109.1
+  resolution: "@typescript/native-preview-linux-x64@npm:7.0.0-dev.20260109.1"
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20260109.1":
+  version: 7.0.0-dev.20260109.1
+  resolution: "@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20260109.1"
+  conditions: os=win32 & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-win32-x64@npm:7.0.0-dev.20260109.1":
+  version: 7.0.0-dev.20260109.1
+  resolution: "@typescript/native-preview-win32-x64@npm:7.0.0-dev.20260109.1"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview@npm:^7.0.0-dev.20260109.1":
+  version: 7.0.0-dev.20260109.1
+  resolution: "@typescript/native-preview@npm:7.0.0-dev.20260109.1"
+  dependencies:
+    "@typescript/native-preview-darwin-arm64": "npm:7.0.0-dev.20260109.1"
+    "@typescript/native-preview-darwin-x64": "npm:7.0.0-dev.20260109.1"
+    "@typescript/native-preview-linux-arm": "npm:7.0.0-dev.20260109.1"
+    "@typescript/native-preview-linux-arm64": "npm:7.0.0-dev.20260109.1"
+    "@typescript/native-preview-linux-x64": "npm:7.0.0-dev.20260109.1"
+    "@typescript/native-preview-win32-arm64": "npm:7.0.0-dev.20260109.1"
+    "@typescript/native-preview-win32-x64": "npm:7.0.0-dev.20260109.1"
+  dependenciesMeta:
+    "@typescript/native-preview-darwin-arm64":
+      optional: true
+    "@typescript/native-preview-darwin-x64":
+      optional: true
+    "@typescript/native-preview-linux-arm":
+      optional: true
+    "@typescript/native-preview-linux-arm64":
+      optional: true
+    "@typescript/native-preview-linux-x64":
+      optional: true
+    "@typescript/native-preview-win32-arm64":
+      optional: true
+    "@typescript/native-preview-win32-x64":
+      optional: true
+  bin:
+    tsgo: bin/tsgo.js
+  checksum: 10/5c3b9213dbc972366f40a4d4a6f5e172b10f97fd1249dfdf9febf2a327af62ccf91a1749ca91619a5be2dba90fef303b6c77f8afb306b81a3f4a1d670b63c771
   languageName: node
   linkType: hard
 
@@ -39696,23 +39778,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:5.6.3":
-  version: 5.6.3
-  resolution: "typescript@npm:5.6.3"
+"typescript@npm:5.9.3":
+  version: 5.9.3
+  resolution: "typescript@npm:5.9.3"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/c328e418e124b500908781d9f7b9b93cf08b66bf5936d94332b463822eea2f4e62973bfb3b8a745fdc038785cb66cf59d1092bac3ec2ac6a3e5854687f7833f1
+  checksum: 10/c089d9d3da2729fd4ac517f9b0e0485914c4b3c26f80dc0cffcb5de1719a17951e92425d55db59515c1a7ddab65808466debb864d0d56dcf43f27007d0709594
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A5.6.3#optional!builtin<compat/typescript>":
-  version: 5.6.3
-  resolution: "typescript@patch:typescript@npm%3A5.6.3#optional!builtin<compat/typescript>::version=5.6.3&hash=d69c25"
+"typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>":
+  version: 5.9.3
+  resolution: "typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>::version=5.9.3&hash=d69c25"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/dc4bec403cd33a204b655b1152a096a08e7bad2c931cb59ef8ff26b6f2aa541bf98f09fc157958a60c921b1983a8dde9a85b692f9de60fa8f574fd131e3ae4dd
+  checksum: 10/5d416ad4f2ea564f515a3f919e901edbfa4b497cc17dd325c5726046c3eef7ed22d1f59c787267d478311f6f0a265ff790f8a6c7e9df3ea3471458f5ec81e8b7
   languageName: node
   linkType: hard
 
