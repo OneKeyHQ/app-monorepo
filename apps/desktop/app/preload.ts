@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import path from 'path';
 
-import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared/src/constants';
+import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
 import { ipcRenderer, nativeImage } from 'electron';
 
