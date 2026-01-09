@@ -1055,4 +1055,5 @@ module.exports = [
   'promode',
   'moblie',
   'Overscroll',
+  'Flatpak',
 ];
