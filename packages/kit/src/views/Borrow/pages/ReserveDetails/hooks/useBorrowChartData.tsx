@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge } from '@onekeyhq/components';
+import { Badge, Icon } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -125,10 +125,11 @@ export function useBorrowBadges(details?: IBorrowReserveDetail): {
   const supplyBadge = useMemo(() => {
     if (!details?.supply.canBeCollateral) return null;
     return (
-      <Badge badgeType="success">
+      <Badge badgeType="success" gap="$1.5">
         <Badge.Text>
           {intl.formatMessage({ id: ETranslations.defi_can_be_collateral })}
         </Badge.Text>
+        <Icon name="Checkmark2SmallOutline" color="$iconSuccess" size="$4" />
       </Badge>
     );
   }, [details?.supply.canBeCollateral, intl]);
@@ -136,10 +137,11 @@ export function useBorrowBadges(details?: IBorrowReserveDetail): {
   const borrowBadge = useMemo(() => {
     if (!details?.borrow.canBeBorrowed) return null;
     return (
-      <Badge badgeType="success">
+      <Badge badgeType="success" gap="$1.5">
         <Badge.Text>
           {intl.formatMessage({ id: ETranslations.defi_borrowable })}
         </Badge.Text>
+        <Icon name="Checkmark2SmallOutline" color="$iconSuccess" size="$4" />
       </Badge>
     );
   }, [details?.borrow.canBeBorrowed, intl]);

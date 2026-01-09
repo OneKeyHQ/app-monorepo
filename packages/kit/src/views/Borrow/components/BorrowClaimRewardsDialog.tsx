@@ -19,14 +19,26 @@ type IClaimItemProps = {
   item: IEarnRewardClaimItem;
   onClaim: (item: IEarnRewardClaimItem) => void;
   claimingItemId: string | null;
+  claimingAllIds: string[];
+  pendingClaimIds: string[];
 };
 
-function ClaimItem({ item, onClaim, claimingItemId }: IClaimItemProps) {
+function ClaimItem({
+  item,
+  onClaim,
+  claimingItemId,
+  claimingAllIds,
+  pendingClaimIds,
+}: IClaimItemProps) {
   const handlePress = useCallback(() => {
     onClaim(item);
   }, [item, onClaim]);
 
-  const isLoading = claimingItemId === item.id;
+  // Loading if: single claim in progress, claim all in progress, or already pending
+  const isLoading =
+    claimingItemId === item.id ||
+    claimingAllIds.includes(item.id) ||
+    pendingClaimIds.includes(item.id);
   const disabled = item.button.disabled || isLoading;
 
   return (
@@ -59,9 +71,17 @@ type IClaimGroupProps = {
   group: IEarnRewardClaimGroup;
   onClaim: (item: IEarnRewardClaimItem) => void;
   claimingItemId: string | null;
+  claimingAllIds: string[];
+  pendingClaimIds: string[];
 };
 
-function ClaimGroup({ group, onClaim, claimingItemId }: IClaimGroupProps) {
+function ClaimGroup({
+  group,
+  onClaim,
+  claimingItemId,
+  claimingAllIds,
+  pendingClaimIds,
+}: IClaimGroupProps) {
   return (
     <YStack>
       {group.title ? (
@@ -78,6 +98,8 @@ function ClaimGroup({ group, onClaim, claimingItemId }: IClaimGroupProps) {
           item={item}
           onClaim={onClaim}
           claimingItemId={claimingItemId}
+          claimingAllIds={claimingAllIds}
+          pendingClaimIds={pendingClaimIds}
         />
       ))}
     </YStack>
@@ -86,18 +108,21 @@ function ClaimGroup({ group, onClaim, claimingItemId }: IClaimGroupProps) {
 
 type IBorrowClaimRewardsDialogContentProps = {
   rewardsDetails: IEarnRewardsDetails;
+  pendingClaimIds: string[];
   onClaimItem: (item: IEarnRewardClaimItem) => Promise<void>;
   onClaimAll: () => Promise<void>;
 };
 
 function BorrowClaimRewardsDialogContent({
   rewardsDetails,
+  pendingClaimIds,
   onClaimItem,
   onClaimAll,
 }: IBorrowClaimRewardsDialogContentProps) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [claimingItemId, setClaimingItemId] = useState<string | null>(null);
+  const [claimingAllIds, setClaimingAllIds] = useState<string[]>([]);
   const dialogInstance = useDialogInstance();
 
   const claimableGroups = rewardsDetails.data.rewardsDetail.claimable;
@@ -116,13 +141,19 @@ function BorrowClaimRewardsDialogContent({
   );
 
   const handleClaimAll = useCallback(async () => {
+    // Collect all item IDs and set them as loading
+    const allIds = claimableGroups.flatMap((group) =>
+      group.items.map((item) => item.id),
+    );
+    setClaimingAllIds(allIds);
     setLoading(true);
     try {
       await onClaimAll();
     } finally {
       setLoading(false);
+      setClaimingAllIds([]);
     }
-  }, [onClaimAll]);
+  }, [onClaimAll, claimableGroups]);
 
   const hasClaimableItems = claimableGroups.some(
     (group) => group.items.length > 0,
@@ -137,6 +168,8 @@ function BorrowClaimRewardsDialogContent({
             group={group}
             onClaim={handleClaimItem}
             claimingItemId={claimingItemId}
+            claimingAllIds={claimingAllIds}
+            pendingClaimIds={pendingClaimIds}
           />
         ))}
       </YStack>
@@ -157,11 +190,13 @@ function BorrowClaimRewardsDialogContent({
 
 export function showBorrowClaimRewardsDialog({
   rewardsDetails,
+  pendingClaimIds = [],
   onClaimItem,
   onClaimAll,
   onClose,
 }: {
   rewardsDetails: IEarnRewardsDetails;
+  pendingClaimIds?: string[];
   onClaimItem: (item: IEarnRewardClaimItem) => Promise<void>;
   onClaimAll: () => Promise<void>;
   onClose?: () => void;
@@ -175,6 +210,7 @@ export function showBorrowClaimRewardsDialog({
     renderContent: (
       <BorrowClaimRewardsDialogContent
         rewardsDetails={rewardsDetails}
+        pendingClaimIds={pendingClaimIds}
         onClaimItem={onClaimItem}
         onClaimAll={onClaimAll}
       />

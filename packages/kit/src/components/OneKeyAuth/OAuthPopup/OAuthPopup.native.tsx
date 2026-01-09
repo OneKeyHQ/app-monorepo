@@ -20,7 +20,10 @@ import {
   GoogleSignInConfigure,
   GoogleSignInConfigureIOS,
 } from '@onekeyhq/shared/src/consts/googleSignConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OAuthLoginCancelError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OAuthPopupBase } from './OAuthPopupBase';
@@ -315,7 +318,7 @@ export class OAuthPopup extends OAuthPopupBase {
     } catch (error) {
       // Handle specific Apple Sign-In errors
       if (OAuthPopup.isAppleUserCancelledError(error)) {
-        throw new OneKeyLocalError('OAuth sign-in was cancelled');
+        throw new OAuthLoginCancelError();
       }
 
       throw error;
@@ -499,7 +502,7 @@ export class OAuthPopup extends OAuthPopupBase {
       };
 
       if (resultWithType.type === 'cancelled') {
-        throw new OneKeyLocalError('OAuth sign-in was cancelled');
+        throw new OAuthLoginCancelError();
       }
 
       if (resultWithType.data?.idToken) {
@@ -557,7 +560,7 @@ export class OAuthPopup extends OAuthPopupBase {
     } catch (error) {
       // Handle specific GoogleSignin errors
       if (OAuthPopup.isUserCancelledError(error)) {
-        throw new OneKeyLocalError('OAuth sign-in was cancelled');
+        throw new OAuthLoginCancelError();
       }
       throw OAuthPopup.wrapError(error, 'Google Sign-In failed');
     }
@@ -667,7 +670,7 @@ export class OAuthPopup extends OAuthPopupBase {
     }
 
     if (browserResult.type === 'cancel') {
-      throw new OneKeyLocalError('OAuth sign-in was cancelled');
+      throw new OAuthLoginCancelError();
     }
 
     throw new OneKeyLocalError('OAuth sign-in failed');

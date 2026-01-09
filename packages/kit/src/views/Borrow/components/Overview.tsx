@@ -21,7 +21,13 @@ import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
+import { PendingIndicator } from '../../Staking/components/StakingActivityIndicator';
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
+import {
+  buildBorrowTag,
+  isBorrowTag,
+  parseBorrowTag,
+} from '../../Staking/utils/utils';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
@@ -68,7 +74,7 @@ const OverviewItem = ({
 };
 
 export const Overview = () => {
-  const { reserves, market, setReserves, setReservesLoading } =
+  const { reserves, market, setReserves, setReservesLoading, pendingTxs } =
     useBorrowContext();
   const { fetchReserves } = useBorrowReserves();
   const { earnAccount } = useEarnAccount({
@@ -100,6 +106,25 @@ export const Overview = () => {
       }),
     }),
     [intl],
+  );
+
+  // Calculate pending count and claim IDs from pending transactions
+  const pendingCount = pendingTxs.length;
+  const pendingClaimIds = useMemo(
+    () =>
+      pendingTxs
+        .filter((tx) => tx.stakingInfo.label === EEarnLabels.Claim)
+        .flatMap((tx) => {
+          const tags = tx.stakingInfo.tags ?? [];
+          return tags.flatMap((tag) => {
+            if (isBorrowTag(tag)) {
+              const parsed = parseBorrowTag(tag);
+              return parsed?.claimIds ?? [];
+            }
+            return [];
+          });
+        }),
+    [pendingTxs],
   );
 
   // Fetch health factor separately with 30s polling
@@ -185,16 +210,23 @@ export const Overview = () => {
       }
     }
 
-    const stakingInfo = {
-      label: EEarnLabels.Claim,
-      protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-      protocolLogoURI: market?.logoURI,
-      tags: [] as string[],
-    };
-
     showBorrowClaimRewardsDialog({
       rewardsDetails,
+      pendingClaimIds,
       onClaimItem: async (item) => {
+        // Build stakingInfo with proper tag for single item claim
+        const stakingInfo = {
+          label: EEarnLabels.Claim,
+          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+          protocolLogoURI: market?.logoURI,
+          tags: [
+            buildBorrowTag({
+              provider,
+              action: 'claim',
+              claimIds: [item.id],
+            }),
+          ],
+        };
         await handleBorrowClaim({
           provider,
           marketAddress,
@@ -204,6 +236,19 @@ export const Overview = () => {
         });
       },
       onClaimAll: async () => {
+        // Build stakingInfo with proper tag for all items claim
+        const stakingInfo = {
+          label: EEarnLabels.Claim,
+          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+          protocolLogoURI: market?.logoURI,
+          tags: [
+            buildBorrowTag({
+              provider,
+              action: 'claim',
+              claimIds: allIds,
+            }),
+          ],
+        };
         await handleBorrowClaim({
           provider,
           marketAddress,
@@ -223,6 +268,7 @@ export const Overview = () => {
     market?.logoURI,
     handleBorrowClaim,
     handleRefresh,
+    pendingClaimIds,
   ]);
 
   const { gtMd } = useMedia();
@@ -265,23 +311,31 @@ export const Overview = () => {
               </SizableText>
             )}
           </YStack>
-          {!reserves?.overview?.history?.disabled ? (
-            <XStack
-              ai="center"
-              gap="$1"
-              cursor="pointer"
-              onPress={handleHistoryPress}
-            >
-              <Icon
-                name="ClockTimeHistoryOutline"
-                size="$4"
-                color="$iconSubdued"
+          <XStack ai="center" gap="$3">
+            {pendingCount > 0 ? (
+              <PendingIndicator
+                num={pendingCount}
+                onPress={handleHistoryPress}
               />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {historyLabel}
-              </SizableText>
-            </XStack>
-          ) : null}
+            ) : null}
+            {!reserves?.overview?.history?.disabled && pendingCount === 0 ? (
+              <XStack
+                ai="center"
+                gap="$1"
+                cursor="pointer"
+                onPress={handleHistoryPress}
+              >
+                <Icon
+                  name="ClockTimeHistoryOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {historyLabel}
+                </SizableText>
+              </XStack>
+            ) : null}
+          </XStack>
         </XStack>
 
         {/* Grid: Health factor + Platform bonus + Claimable rewards */}
@@ -465,14 +519,17 @@ export const Overview = () => {
         />
       ) : null}
 
-      {!reserves?.overview?.history?.disabled ? (
-        <XStack ml="auto">
+      <XStack ml="auto" ai="center" gap="$3">
+        {pendingCount > 0 ? (
+          <PendingIndicator num={pendingCount} onPress={handleHistoryPress} />
+        ) : null}
+        {!reserves?.overview?.history?.disabled && pendingCount === 0 ? (
           <EarnActionIcon
             actionIcon={reserves?.overview?.history}
             onHistory={handleHistoryPress}
           />
-        </XStack>
-      ) : null}
+        ) : null}
+      </XStack>
     </XStack>
   );
 };

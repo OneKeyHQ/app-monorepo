@@ -353,7 +353,7 @@ export function checkIsLowValueReceiveTx({
 
 export function checkIsScamTx({ tx }: { tx: IAccountHistoryTx }) {
   return (
-    tx.decodedTx.riskyLevel && tx.decodedTx.riskyLevel > TX_RISKY_LEVEL_SPAM
+    tx.decodedTx.riskyLevel && tx.decodedTx.riskyLevel >= TX_RISKY_LEVEL_SPAM
   );
 }
 

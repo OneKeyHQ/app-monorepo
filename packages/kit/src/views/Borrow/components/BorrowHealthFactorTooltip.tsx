@@ -28,13 +28,14 @@ export const BorrowHealthFactorTooltip = ({
   detail,
 }: IBorrowHealthFactorTooltipProps) => {
   const intl = useIntl();
-  const { value, lowerLimit, upperLimit } = useMemo(() => {
+  const { value, index, lowerLimit, upperLimit } = useMemo(() => {
     return {
       value: Number(detail?.value) || 0,
+      index: detail?.index ? Number(detail.index) : undefined,
       lowerLimit: Number(detail?.lowerLimit) || 0,
       upperLimit: Number(detail?.upperLimit) || 3,
     };
-  }, [detail?.lowerLimit, detail?.upperLimit, detail?.value]);
+  }, [detail?.index, detail?.lowerLimit, detail?.upperLimit, detail?.value]);
   const healthFactorLabel = intl.formatMessage({
     id: ETranslations.defi_health_factor,
   });
@@ -94,6 +95,7 @@ export const BorrowHealthFactorTooltip = ({
           {/* Health Factor progress bar */}
           <HealthFactor
             value={value}
+            index={index}
             min={lowerLimit}
             max={upperLimit}
             thresholdValue={1}
