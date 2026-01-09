@@ -200,7 +200,7 @@ async function sha256ByRNAes(data: Buffer): Promise<Buffer> {
 async function sha256ByWebCrypto(data: Buffer): Promise<Buffer> {
   const hash = await globalThis.crypto.subtle.digest(
     'SHA-256',
-    data as unknown as Uint8Array,
+    data as unknown as BufferSource,
   );
   return Buffer.from(hash);
 }
@@ -266,7 +266,7 @@ async function sha512ByRNAes(data: Buffer): Promise<Buffer> {
 async function sha512ByWebCrypto(data: Buffer): Promise<Buffer> {
   const hash = await globalThis.crypto.subtle.digest(
     'SHA-512',
-    data as unknown as Uint8Array,
+    data as unknown as BufferSource,
   );
   return Buffer.from(hash);
 }
