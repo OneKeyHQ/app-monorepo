@@ -1151,10 +1151,10 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string;
     hashId: string;
   }): Promise<string> {
-    const { token } = params;
+    const { token, hashId } = params;
     const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
     const provider = this.buildKeylessProviderFromSocialToken({ token });
-    const socialAccountId = decodedToken?.user_metadata?.sub || '';
+    const socialUserId = decodedToken?.user_metadata?.sub || '';
     const devSettings = await devSettingsPersistAtom.get();
     const isTestEndpointEnabled = Boolean(
       devSettings.enabled && devSettings.settings?.enableTestEndpoint,
@@ -1163,9 +1163,13 @@ class ServiceKeylessWallet extends ServiceBase {
     // Keep the legacy raw format when the switch is off to avoid changing prod ownerId.
     // IMPORTANT: Do not change these discriminator strings after release,
     // otherwise existing users' ownerId will change and break keyless flows.
-    const raw = `${provider}--${socialAccountId}--${
-      isTestEndpointEnabled ? 'test_endpoint' : 'prod_endpoint'
-    }--ADD725FB-9FF5-490E-A458-6EBD4053FAE2`;
+    const raw = [
+      provider,
+      socialUserId,
+      isTestEndpointEnabled ? 'test_endpoint' : 'prod_endpoint',
+      hashId,
+      'ADD725FB-9FF5-490E-A458-6EBD4053FAE2',
+    ].join('--');
 
     const hashBytes = await appCrypto.hash.sha256(
       bufferUtils.toBuffer(raw, 'utf-8'),
