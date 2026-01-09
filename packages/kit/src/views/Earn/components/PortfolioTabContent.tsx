@@ -742,6 +742,25 @@ const PortfolioItemComponent = ({
                           </XStack>
                         ))}
 
+                        {asset.totalReward ? (
+                          <XStack ai="center" gap="$1">
+                            <EarnText
+                              size="$bodySm"
+                              color="$textSubdued"
+                              text={asset.totalReward.description}
+                            />
+                            <EarnText
+                              size="$bodySm"
+                              color="$textSubdued"
+                              text={{
+                                text: intl.formatMessage({
+                                  id: ETranslations.earn_referral_total_earned,
+                                }),
+                              }}
+                            />
+                          </XStack>
+                        ) : null}
+
                         {/* Buttons */}
                         <XStack gap="$3">
                           <Button
