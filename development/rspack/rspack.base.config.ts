@@ -1,14 +1,15 @@
 import fs from 'fs';
 import path from 'path';
-
-import { rspack } from '@rspack/core';
-import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
-import HtmlWebpackPlugin from 'html-webpack-plugin';
-import notifier from 'node-notifier';
 import { exit } from 'process';
 
+import { rspack } from '@rspack/core';
+import HtmlWebpackPlugin from 'html-webpack-plugin';
+import notifier from 'node-notifier';
+
+import { isDev, nodeEnv, onekeyProxy, publicUrl } from './constant';
 import { createResolveExtensions } from './utils';
-import { isDev, publicUrl, nodeEnv, onekeyProxy } from './constant';
+
+import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
@@ -134,7 +135,11 @@ const basePlugins: (RspackPluginInstance | false | null | undefined)[] = [
 
 const baseExperiments: RspackOptions['experiments'] = {
   asyncWebAssembly: true,
-  lazyCompilation: false,
+  lazyCompilation: {
+    backEnd: {
+      listen: 3000,
+    },
+  },
 };
 
 const basePerformance: RspackOptions['performance'] = {
@@ -215,7 +220,7 @@ export function createBaseConfig({
           ROOT_ID: 'root',
         },
       }) as unknown as RspackPluginInstance,
-      ...(basePlugins.filter(Boolean) as RspackPluginInstance[]),
+      ...basePlugins.filter(Boolean),
     ],
     module: {
       rules: [
