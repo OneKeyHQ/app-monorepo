@@ -264,8 +264,11 @@ export const {
   },
 });
 
+export type IPerpFavoritesDisplayMode = 'price' | 'percent';
+
 export interface IPerpTokenFavorites {
   favorites: string[];
+  displayMode: IPerpFavoritesDisplayMode;
 }
 
 export const {
@@ -276,6 +279,7 @@ export const {
   persist: true,
   initialValue: {
     favorites: [],
+    displayMode: 'price',
   },
 });
 
