@@ -3,6 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { JUICEBOX_ALLOWED_GUESSES } from '@onekeyhq/shared/src/consts/authConsts';
+import type { IIncorrectPinErrorInfo } from '@onekeyhq/shared/src/errors/errors/appErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { EKeylessFinalizeAction } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -22,7 +27,7 @@ import {
 
 import type { RouteProp } from '@react-navigation/core';
 
-const MAX_ATTEMPTS = 7;
+const MAX_ATTEMPTS = JUICEBOX_ALLOWED_GUESSES;
 
 // Cooldown times based on attempt number (in seconds)
 // Attempt 1: 0, Attempt 2: 30s, Attempt 3: 60s, Attempt 4: 120s, Attempt 5-6: 300s
@@ -45,10 +50,9 @@ function VerifyPinPage() {
   const [isLoading, setIsLoading] = useState(false);
   const pinInputRef = useRef<IPinInputLayoutRef | null>(null);
 
-  const isVerifyPinOnly =
+  const _isVerifyPinOnly =
     mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
-  // Social login mode: when mode is not VerifyPinOnly (or no mode specified)
-  const isSocialLogin = !isVerifyPinOnly;
+  const isSocialLogin = true;
 
   const [pin, setPin] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -141,6 +145,33 @@ function VerifyPinPage() {
     try {
       setIsLoading(true);
       await verifyKeylessOnboardingPin({ pin, mode });
+    } catch (e) {
+      if (
+        errorUtils.isErrorByClassName({
+          error: e,
+          className: EOneKeyErrorClassNames.IncorrectPinError,
+        })
+      ) {
+        const errorInfo = (e as { info?: IIncorrectPinErrorInfo })?.info;
+        const newAttemptsRemaining = errorInfo?.guessesRemaining ?? 0;
+        const attemptNumber = MAX_ATTEMPTS - newAttemptsRemaining;
+
+        setAttemptsRemaining(newAttemptsRemaining);
+        setShowAttemptError(true);
+
+        if (newAttemptsRemaining <= 0) {
+          // Max attempts reached - redirect to reset PIN page
+          navigation.replace(EOnboardingPagesV2.ResetPin);
+        } else {
+          // Get cooldown time for this attempt
+          const cooldownTime = COOLDOWN_BY_ATTEMPT[attemptNumber] || 0;
+          if (cooldownTime > 0) {
+            startCooldown(cooldownTime);
+          }
+        }
+      } else {
+        throw e;
+      }
     } finally {
       setIsLoading(false);
       setPin('');
@@ -155,7 +186,14 @@ function VerifyPinPage() {
         platformEnv.isNative ? 100 : 50,
       );
     }
-  }, [pin, mode, pinInputRef, verifyKeylessOnboardingPin]);
+  }, [
+    pin,
+    mode,
+    pinInputRef,
+    verifyKeylessOnboardingPin,
+    navigation,
+    startCooldown,
+  ]);
 
   const _handleVerifyLegacy = useCallback(() => {
     // TODO: Verify against actual stored PIN on server
@@ -219,7 +257,9 @@ function VerifyPinPage() {
     if (isSocialLogin) {
       navigation.push(EOnboardingPagesV2.ResetPin);
     } else {
-      navigation.push(EOnboardingPagesV2.CreatePin, { isResetPin: true });
+      navigation.push(EOnboardingPagesV2.CreatePin, {
+        action: EKeylessFinalizeAction.ResetPin,
+      });
     }
   }, [isSocialLogin, navigation]);
 
@@ -248,7 +288,7 @@ function VerifyPinPage() {
           {
             seconds: formatCooldownTime(cooldownSeconds),
           },
-        )}.`;
+        )}`;
       }
       return baseMessage;
     }
