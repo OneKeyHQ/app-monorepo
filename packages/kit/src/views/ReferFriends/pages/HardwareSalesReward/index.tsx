@@ -1,86 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Alert,
-  Divider,
-  Empty,
-  IconButton,
   Page,
   RefreshControl,
-  SectionList,
-  SizableText,
+  ScrollView,
   Spinner,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IScrollViewRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IHardwareSalesRecord } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IHardwareCumulativeRewards,
+  IHardwareRecordItem,
+} from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
-import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import {
-  BreadcrumbSection,
-  ExportButton,
-  FilterButton,
-  ReferFriendsPageContainer,
-} from '../../components';
-import { useRewardFilter } from '../../hooks/useRewardFilter';
+import { BreadcrumbSection, ReferFriendsPageContainer } from '../../components';
 
-type ISectionListItem = {
-  title?: string;
-  data: number[];
-};
-
-const formatSections = (items: IHardwareSalesRecord['items']) => {
-  const groupedData: Record<string, IHardwareSalesRecord['items']> =
-    items.reduce<Record<string, any[]>>((acc, item) => {
-      const date = new Date(item.createdAt);
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      const dateKey = `${year}-${month.toString().padStart(2, '0')}-${day
-        .toString()
-        .padStart(2, '0')}`;
-
-      if (!acc[dateKey]) {
-        acc[dateKey] = [];
-      }
-
-      acc[dateKey].push(item);
-      return acc;
-    }, {} as Record<string, IHardwareSalesRecord['items']>);
-
-  return Object.keys(groupedData).map((dateKey) => {
-    const date = new Date(groupedData[dateKey][0].createdAt);
-    return {
-      title: formatDate(date, {
-        hideTimeForever: true,
-      }),
-      data: groupedData[dateKey],
-    };
-  });
-};
+import { HardwareRecordsList } from './components/HardwareRecordsList';
+import { HardwareSalesRewardHeader } from './components/HardwareSalesRewardHeader';
 
 function HardwareSalesRewardPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
-  const [settings] = useSettingsPersistAtom();
-  const originalData = useRef<IHardwareSalesRecord['items']>([]);
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.hardwareSalesRewardAlert,
   );
@@ -88,152 +44,91 @@ function HardwareSalesRewardPageWrapper() {
   const { md } = useMedia();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [sections, setSections] = useState<
-    { title: string; data: IHardwareSalesRecord['items'] }[]
-  >([]);
-  const [amount, setAmount] = useState<
-    | {
-        undistributed: string;
-        pending: string;
-      }
-    | undefined
+  const [cumulativeRewards, setCumulativeRewards] = useState<
+    IHardwareCumulativeRewards | undefined
   >();
 
-  // Use the filter hook for state management only
-  const { filterState, updateFilter } = useRewardFilter();
-
-  const renderHeaderRight = useCallback(() => {
-    return (
-      <XStack gap="$2">
-        <FilterButton filterState={filterState} onFilterChange={updateFilter} />
-        <ExportButton
-          timeRange={filterState.timeRange}
-          inviteCode={filterState.inviteCode}
-        />
-      </XStack>
-    );
-  }, [filterState, updateFilter]);
+  // Hardware Records state
+  const [hardwareRecords, setHardwareRecords] = useState<IHardwareRecordItem[]>(
+    [],
+  );
+  const [cursor, setCursor] = useState<string | undefined>();
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const scrollViewRef = useRef<IScrollViewRef>(null);
 
   const onRefresh = useCallback(async () => {
     setIsLoading(true);
-    const [salesResult, cumulativeRewardsResult] = await Promise.allSettled([
-      backgroundApiProxy.serviceReferralCode.getHardwareSales(
-        undefined,
-        filterState.timeRange,
-        filterState.inviteCode,
-      ),
-      backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(
-        filterState.inviteCode,
-        filterState.timeRange,
-      ),
-    ]);
+    try {
+      const [cumulativeRewardsResult, recordsResult] = await Promise.allSettled(
+        [
+          backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(),
+          backgroundApiProxy.serviceReferralCode.getHardwareRecords(),
+        ],
+      );
 
-    if (salesResult.status === 'fulfilled') {
-      const data = salesResult.value;
-      originalData.current = data.items;
-      setSections(formatSections(data.items));
-    }
+      if (cumulativeRewardsResult.status === 'fulfilled') {
+        setCumulativeRewards(cumulativeRewardsResult.value);
+      }
 
-    if (cumulativeRewardsResult.status === 'fulfilled') {
-      const data = cumulativeRewardsResult.value;
-      setAmount({
-        undistributed: data.undistributed || '0',
-        pending: data.pending || '0',
-      });
+      if (recordsResult.status === 'fulfilled') {
+        const items = recordsResult.value.items || [];
+        setHardwareRecords(items);
+        // Use last item's _id as cursor, undefined if no more data (items < limit)
+        const hasMore = items.length >= 10;
+        setCursor(hasMore ? items[items.length - 1]?._id : undefined);
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  }, [filterState.timeRange, filterState.inviteCode]);
+  }, []);
+
+  const onLoadMore = useCallback(async () => {
+    if (!cursor || isLoadingMore) {
+      return;
+    }
+    setIsLoadingMore(true);
+    try {
+      const result =
+        await backgroundApiProxy.serviceReferralCode.getHardwareRecords(cursor);
+      const items = result.items || [];
+      setHardwareRecords((prev) => [...prev, ...items]);
+      // Use last item's _id as cursor, undefined if no more data (items < limit)
+      const hasMore = items.length >= 10;
+      setCursor(hasMore ? items[items.length - 1]?._id : undefined);
+    } catch (error) {
+      console.error('Failed to load more:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [cursor, isLoadingMore]);
+
+  const handleScroll = useCallback(
+    (event: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        contentSize: { height: number };
+        layoutMeasurement: { height: number };
+      };
+    }) => {
+      const { contentOffset, contentSize, layoutMeasurement } =
+        event.nativeEvent;
+      const paddingToBottom = 100;
+      const isCloseToBottom =
+        contentOffset.y + layoutMeasurement.height >=
+        contentSize.height - paddingToBottom;
+
+      if (isCloseToBottom && cursor && !isLoadingMore) {
+        void onLoadMore();
+      }
+    },
+    [cursor, isLoadingMore, onLoadMore],
+  );
 
   useEffect(() => {
     void onRefresh();
   }, [onRefresh]);
-
-  const renderSectionHeader = useCallback(
-    (item: { section: ISectionListItem }) => {
-      if (item.section.title) {
-        return <SectionList.SectionHeader title={item.section.title} />;
-      }
-    },
-    [],
-  );
-
-  const fetchMore = useCallback(async () => {
-    if (originalData.current.length < 1) {
-      return;
-    }
-    const data = await backgroundApiProxy.serviceReferralCode.getHardwareSales(
-      originalData.current[originalData.current.length - 1]._id,
-      filterState.timeRange,
-      filterState.inviteCode,
-    );
-    if (data.items.length > 0) {
-      const uniqueItems = data.items.filter(
-        (item) =>
-          !originalData.current.some(
-            (existingItem) => existingItem._id === item._id,
-          ),
-      );
-      originalData.current.push(...uniqueItems);
-      setSections(formatSections(originalData.current));
-    }
-  }, [filterState.timeRange, filterState.inviteCode]);
-
-  const debounceFetchMore = useDebouncedCallback(fetchMore, 250);
-
-  const renderItem = useCallback(
-    ({
-      item,
-    }: {
-      item: IHardwareSalesRecord['items'][0];
-      section: ISectionListItem;
-    }) => {
-      const isPositiveAmount = Number(item.fiatValue) >= 0;
-      return (
-        <YStack px="$5" py="$2.5">
-          <XStack jc="space-between" gap="$4">
-            <YStack flexShrink={1}>
-              <XStack flexShrink={1}>
-                <SizableText size="$bodyLgMedium" flexShrink={1}>
-                  {item.heading || '-'}
-                </SizableText>
-              </XStack>
-              <SizableText
-                color="$textSubdued"
-                size="$bodyMd"
-                numberOfLines={1}
-                flexShrink={1}
-              >
-                {`${formatTime(new Date(item.createdAt), {
-                  hideSeconds: true,
-                  hideMilliseconds: true,
-                })} ${item.orderName || item.title || ''}`}
-              </SizableText>
-            </YStack>
-            <XStack>
-              <Currency
-                numberOfLines={1}
-                formatter="balance"
-                formatterOptions={{
-                  showPlusMinusSigns: true,
-                }}
-                color={isPositiveAmount ? '$textSuccess' : '$textCritical'}
-                size="$bodyLgMedium"
-                pr="$0.5"
-              >
-                {item.fiatValue}
-              </Currency>
-            </XStack>
-          </XStack>
-        </YStack>
-      );
-    },
-    [],
-  );
-
-  const keyExtractor = useCallback(
-    (item: IHardwareSalesRecord['items'][0]) => item._id,
-    [],
-  );
 
   return (
     <Page>
@@ -242,7 +137,6 @@ function HardwareSalesRewardPageWrapper() {
           title={intl.formatMessage({
             id: ETranslations.referral_referred_type_3,
           })}
-          headerRight={renderHeaderRight}
         />
       ) : (
         <TabPageHeader
@@ -253,7 +147,7 @@ function HardwareSalesRewardPageWrapper() {
       )}
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
-          {amount === undefined ? (
+          {cumulativeRewards === undefined ? (
             <YStack
               position="absolute"
               top={0}
@@ -267,121 +161,56 @@ function HardwareSalesRewardPageWrapper() {
               <Spinner size="large" />
             </YStack>
           ) : (
-            <SectionList
+            <ScrollView
+              ref={scrollViewRef}
               flex={1}
               refreshControl={
                 <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
               }
               contentContainerStyle={{ pb: '$5' }}
-              ListEmptyComponent={
-                <Empty
-                  icon="GiftOutline"
-                  title={intl.formatMessage({
-                    id: ETranslations.referral_referred_empty,
-                  })}
-                  description={intl.formatMessage({
-                    id: ETranslations.referral_referred_empty_desc,
-                  })}
-                />
-              }
-              ListHeaderComponent={
-                <>
-                  {!platformEnv.isNative && !md ? (
-                    <XStack px="$5" py="$5" jc="space-between" ai="center">
-                      <BreadcrumbSection
-                        secondItemLabel={intl.formatMessage({
-                          id: ETranslations.referral_referred_type_3,
-                        })}
-                      />
-                      {renderHeaderRight()}
-                    </XStack>
-                  ) : null}
-                  {tourTimes === 0 ? (
-                    <Alert
-                      closable
-                      description={intl.formatMessage({
-                        id: ETranslations.referral_sales_reward_tips,
-                      })}
-                      type="info"
-                      mx="$5"
-                      mb="$2.5"
-                      onClose={tourVisited}
-                    />
-                  ) : null}
-                  <YStack px="$5">
-                    <SizableText size="$bodyLg">
-                      {intl.formatMessage({
-                        id: ETranslations.referral_reward_undistributed,
-                      })}
-                    </SizableText>
-                    <XStack gap="$2" ai="center">
-                      {Number(amount.undistributed) > 0 ? (
-                        <Currency
-                          formatter="value"
-                          size="$heading5xl"
-                          pr="$0.5"
-                        >
-                          {amount.undistributed}
-                        </Currency>
-                      ) : (
-                        <SizableText size="$heading5xl">0</SizableText>
-                      )}
-                      <YStack>
-                        {platformEnv.isNative ? null : (
-                          <IconButton
-                            icon="RefreshCcwOutline"
-                            variant="tertiary"
-                            loading={isLoading}
-                            onPress={onRefresh}
-                          />
-                        )}
-                      </YStack>
-                    </XStack>
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+            >
+              {/* Breadcrumb for desktop */}
+              {!platformEnv.isNative && !md ? (
+                <XStack px="$5" py="$5">
+                  <BreadcrumbSection
+                    secondItemLabel={intl.formatMessage({
+                      id: ETranslations.referral_referred_type_3,
+                    })}
+                  />
+                </XStack>
+              ) : null}
 
-                    {Number(amount.pending) > 0 ? (
-                      <XStack gap="$1">
-                        <Currency
-                          formatter="value"
-                          formatterOptions={{
-                            currency: settings.currencyInfo.symbol,
-                            showPlusMinusSigns: true,
-                          }}
-                          size="$bodyMdMedium"
-                        >
-                          {amount.pending}
-                        </Currency>
-                        <SizableText size="$bodyMd" color="t$extSubdued">
-                          {intl.formatMessage({
-                            id: ETranslations.referral_reward_undistributed_pending,
-                          })}
-                        </SizableText>
-                      </XStack>
-                    ) : null}
-                    <Divider mt="$5" />
-                    {sections.length ? (
-                      <XStack jc="space-between" h={38} ai="center">
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {intl.formatMessage({
-                            id: ETranslations.referral_order_info,
-                          })}
-                        </SizableText>
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {intl.formatMessage({
-                            id: ETranslations.earn_rewards,
-                          })}
-                        </SizableText>
-                      </XStack>
-                    ) : null}
-                  </YStack>
-                </>
-              }
-              sections={sections}
-              renderSectionHeader={renderSectionHeader}
-              estimatedItemSize={60}
-              renderItem={renderItem}
-              onEndReached={debounceFetchMore}
-              keyExtractor={keyExtractor}
-            />
+              {/* Alert tip */}
+              {tourTimes === 0 ? (
+                <Alert
+                  closable
+                  description={intl.formatMessage({
+                    id: ETranslations.referral_sales_reward_tips,
+                  })}
+                  type="info"
+                  mx="$5"
+                  mb="$2.5"
+                  onClose={tourVisited}
+                />
+              ) : null}
+
+              {/* Hardware Sales Reward Header */}
+              <HardwareSalesRewardHeader
+                cumulativeRewards={cumulativeRewards}
+                isLoading={isLoading}
+                onRefresh={onRefresh}
+              />
+
+              {/* Hardware Records List */}
+              <HardwareRecordsList
+                isLoading={isLoading}
+                records={hardwareRecords}
+                isMobile={md}
+                isLoadingMore={isLoadingMore}
+              />
+            </ScrollView>
           )}
         </ReferFriendsPageContainer>
       </Page.Body>
