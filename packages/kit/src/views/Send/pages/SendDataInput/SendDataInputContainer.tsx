@@ -647,10 +647,27 @@ function SendDataInputContainer() {
           if (!toAddress) return;
 
           if (similarAddress) {
+            const [similarAddressValidation, toAddressValidation] =
+              await Promise.all([
+                backgroundApiProxy.serviceValidator.localValidateAddress({
+                  networkId: currentAccount.networkId,
+                  address: similarAddress,
+                }),
+                backgroundApiProxy.serviceValidator.localValidateAddress({
+                  networkId: currentAccount.networkId,
+                  address: toAddress,
+                }),
+              ]);
             try {
               await showSimilarAddressDialog({
-                similarAddress,
-                currentAddress: toAddress,
+                similarAddress:
+                  similarAddressValidation.displayAddress ||
+                  similarAddressValidation.normalizedAddress ||
+                  similarAddress,
+                currentAddress:
+                  toAddressValidation.displayAddress ||
+                  toAddressValidation.normalizedAddress ||
+                  toAddress,
               });
             } catch (e) {
               console.error('showSimilarAddressDialog error', e);
@@ -776,6 +793,7 @@ function SendDataInputContainer() {
     [
       account,
       amount,
+      currentAccount.networkId,
       currentSelectedUtxoKeys,
       currentUtxoSelectionStrategy,
       displayTxMessageForm,
