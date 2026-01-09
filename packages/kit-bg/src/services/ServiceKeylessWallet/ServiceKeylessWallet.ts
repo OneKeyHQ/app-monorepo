@@ -1482,6 +1482,7 @@ class ServiceKeylessWallet extends ServiceBase {
       await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
         ownerId,
         refreshToken,
+        token,
         backgroundApi: this.backgroundApi,
       });
     }
@@ -1601,6 +1602,7 @@ class ServiceKeylessWallet extends ServiceBase {
       await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
         ownerId,
         refreshToken,
+        token,
         backgroundApi: this.backgroundApi,
       });
     }
@@ -1681,6 +1683,7 @@ class ServiceKeylessWallet extends ServiceBase {
       await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
         ownerId,
         refreshToken,
+        token,
         backgroundApi: this.backgroundApi,
       });
     }
@@ -1798,6 +1801,7 @@ class ServiceKeylessWallet extends ServiceBase {
         await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
           ownerId,
           refreshToken,
+          token,
           backgroundApi: this.backgroundApi,
         });
       }
@@ -1854,13 +1858,13 @@ class ServiceKeylessWallet extends ServiceBase {
     }
     try {
       // 3. Get refreshToken from secure storage
-      const storedRefreshToken =
+      const storedTokens =
         await keylessRefreshTokenStorage.getRefreshTokenFromStorage({
           ownerId,
           backgroundApi: this.backgroundApi,
         });
 
-      if (!storedRefreshToken) {
+      if (!storedTokens) {
         return null;
       }
 
@@ -1874,7 +1878,7 @@ class ServiceKeylessWallet extends ServiceBase {
           apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
         },
         body: JSON.stringify({
-          refresh_token: storedRefreshToken,
+          refresh_token: storedTokens.refreshToken,
         }),
       });
 
@@ -1900,6 +1904,54 @@ class ServiceKeylessWallet extends ServiceBase {
       console.error('Failed to refresh token from storage:', error);
       return null;
     }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiUpdatePinConfirmStatus(params: { token: string }): Promise<void> {
+    const { token } = params;
+
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    const res = await client.post<IApiClientResponse<void>>(
+      '/prime/v1/keyless-wallet/updatePinConfirmStatus',
+      {
+        token,
+      },
+    );
+
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
+
+    if (!isSuccess) {
+      throw new OneKeyLocalError('Failed to update pin confirm status');
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiGetPinConfirmStatus(params: { token: string }): Promise<{
+    confirmed: boolean;
+  }> {
+    const { token } = params;
+
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    const res = await client.post<
+      IApiClientResponse<{
+        confirmed: boolean;
+      }>
+    >('/prime/v1/keyless-wallet/getPinConfirmStatus', {
+      token,
+    });
+
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
+    const data = res?.data?.data;
+
+    if (isSuccess && data) {
+      return {
+        confirmed: data.confirmed ?? false,
+      };
+    }
+
+    throw new OneKeyLocalError('Failed to get pin confirm status');
   }
 }
 
