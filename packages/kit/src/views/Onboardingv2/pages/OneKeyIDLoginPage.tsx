@@ -222,13 +222,13 @@ function OneKeyIDLoginPage() {
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
           <Anchor
-            href="https://help.onekey.so/articles/11461088"
+            href="https://help.onekey.so/articles/13348049"
             target="_blank"
             size="$bodySm"
             color="$textSubdued"
             textAlign="center"
           >
-            TODO — Link to "How to create wallet with Apple or Google account"
+            How to Use Keyless Wallet on OneKey App ↗
           </Anchor>
         </OnboardingLayout.Footer>
       </OnboardingLayout>
