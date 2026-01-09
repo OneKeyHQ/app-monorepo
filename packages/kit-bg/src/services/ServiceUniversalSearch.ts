@@ -978,72 +978,79 @@ class ServiceUniversalSearch extends ServiceBase {
     return { items } as IUniversalSearchSingleResult;
   }
 
-  async universalSearchOfPerp({
-    input,
-  }: {
-    input: string;
-  }): Promise<IUniversalSearchPerpResult> {
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+  private universalSearchOfPerpCached = memoizee(
+    async (input: string): Promise<IUniversalSearchPerpResult> => {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
 
-    const [dex1Response, xyzResponse] = await Promise.allSettled([
-      client.get<{
-        data: Record<string, string>;
-      }>('/wallet/v1/proxy/hyperliquid/mids', {
-        params: { query: input },
-      }),
-      client.get<{
-        data: Record<string, string>;
-      }>('/wallet/v1/proxy/hyperliquid/mids', {
-        params: { query: input, dex: 'xyz' },
-      }),
-    ]);
+      const [dex1Response, xyzResponse] = await Promise.allSettled([
+        client.get<{
+          data: Record<string, string>;
+        }>('/wallet/v1/proxy/hyperliquid/mids', {
+          params: { query: input },
+        }),
+        client.get<{
+          data: Record<string, string>;
+        }>('/wallet/v1/proxy/hyperliquid/mids', {
+          params: { query: input, dex: 'xyz' },
+        }),
+      ]);
 
-    const items: IUniversalSearchPerpResult['items'] = [];
-    const searchTerm = input.toLowerCase().trim();
+      const items: IUniversalSearchPerpResult['items'] = [];
+      const searchTerm = input.toLowerCase().trim();
 
-    const matchesCoin = (coin: string): boolean => {
-      if (!searchTerm) return true;
-      const { displayName, dexLabel } = parseDexCoin(coin);
-      const lowerDisplayName = displayName.toLowerCase();
-      const lowerDexLabel = dexLabel?.toLowerCase() || '';
-      // Match if displayName or dexLabel contains search term
-      return (
-        lowerDisplayName.includes(searchTerm) ||
-        lowerDexLabel.includes(searchTerm) ||
-        coin.toLowerCase().includes(searchTerm)
-      );
-    };
+      const matchesCoin = (coin: string): boolean => {
+        if (!searchTerm) return true;
+        const { displayName, dexLabel } = parseDexCoin(coin);
+        return (
+          displayName.toLowerCase().includes(searchTerm) ||
+          (dexLabel?.toLowerCase() || '').includes(searchTerm)
+        );
+      };
 
-    if (dex1Response.status === 'fulfilled' && dex1Response.value?.data?.data) {
-      const dex1Data = dex1Response.value.data.data;
-      Object.entries(dex1Data).forEach(([coin, price]) => {
-        if (matchesCoin(coin)) {
-          items.push({
-            type: EUniversalSearchType.Perp,
-            payload: { coin, price },
-          });
-        }
-      });
-    }
-
-    // Process xyz dex results second
-    if (xyzResponse.status === 'fulfilled' && xyzResponse.value?.data?.data) {
-      const xyzData = xyzResponse.value.data.data;
-      Object.entries(xyzData).forEach(([coin, price]) => {
-        // Only add if matches search term and not already in the list (avoid duplicates)
-        if (matchesCoin(coin)) {
-          const exists = items.some((item) => item.payload.coin === coin);
-          if (!exists) {
+      if (
+        dex1Response.status === 'fulfilled' &&
+        dex1Response.value?.data?.data
+      ) {
+        const dex1Data = dex1Response.value.data.data;
+        Object.entries(dex1Data).forEach(([coin, price]) => {
+          if (matchesCoin(coin)) {
             items.push({
               type: EUniversalSearchType.Perp,
               payload: { coin, price },
             });
           }
-        }
-      });
-    }
+        });
+      }
 
-    return { items };
+      if (xyzResponse.status === 'fulfilled' && xyzResponse.value?.data?.data) {
+        const xyzData = xyzResponse.value.data.data;
+        Object.entries(xyzData).forEach(([coin, price]) => {
+          if (matchesCoin(coin)) {
+            const exists = items.some((item) => item.payload.coin === coin);
+            if (!exists) {
+              items.push({
+                type: EUniversalSearchType.Perp,
+                payload: { coin, price },
+              });
+            }
+          }
+        });
+      }
+
+      return { items };
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  async universalSearchOfPerp({
+    input,
+  }: {
+    input: string;
+  }): Promise<IUniversalSearchPerpResult> {
+    return this.universalSearchOfPerpCached(input);
   }
 
   async universalSearchOfDapp({
