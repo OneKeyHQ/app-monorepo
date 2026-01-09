@@ -20,9 +20,9 @@ export function createDevelopmentConfig({
     mode: 'development',
     devtool: 'cheap-module-source-map',
     plugins: [
-      new ReactRefreshPlugin({
-        overlay: false,
-      }) as unknown as RspackPluginInstance,
+      // new ReactRefreshPlugin({
+      //   overlay: false,
+      // }) as unknown as RspackPluginInstance,
       new rspack.DefinePlugin({
         __CURRENT_FILE_PATH__: JSON.stringify('__CURRENT_FILE_PATH__--rspack-dev'),
       }),

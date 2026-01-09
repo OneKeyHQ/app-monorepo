@@ -135,11 +135,7 @@ const basePlugins: (RspackPluginInstance | false | null | undefined)[] = [
 
 const baseExperiments: RspackOptions['experiments'] = {
   asyncWebAssembly: true,
-  lazyCompilation: {
-    backEnd: {
-      listen: 3000,
-    },
-  },
+  incremental: false,
 };
 
 const basePerformance: RspackOptions['performance'] = {
@@ -476,6 +472,7 @@ export function createBaseConfig({
         'worker-loader': require.resolve('worker-rspack-loader'),
       },
     },
+    lazyCompilation: false,
     experiments: baseExperiments,
     performance: basePerformance,
     optimization: {
