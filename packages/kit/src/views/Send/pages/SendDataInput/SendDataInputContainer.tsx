@@ -22,6 +22,7 @@ import type {
   UseFormReturn,
 } from '@onekeyhq/components';
 import {
+  Alert,
   Button,
   Dialog,
   Form,
@@ -105,6 +106,7 @@ import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/
 import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
+import { showSimilarAddressDialog } from '../../../SignatureConfirm/components/SimilarAddressDialog';
 
 export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';
 const showTxMessageFaq = (isContractTo: boolean) => {
@@ -398,6 +400,7 @@ function SendDataInputContainer() {
   const toAddressRaw = form.watch('to.raw');
   const nftAmount = form.watch('nftAmount');
   const toIsContract = form.watch('to.isContract');
+  const toSimilarAddress = form.watch('to.similarAddress');
 
   const linkedAmount = useMemo(() => {
     let amountBN = new BigNumber(amount ?? 0);
@@ -640,7 +643,20 @@ function SendDataInputContainer() {
           if (!account) return;
           const toAddress = form.getValues('to').resolved;
           const isToContract = form.getValues('to').isContract;
+          const similarAddress = form.getValues('to').similarAddress;
           if (!toAddress) return;
+
+          if (similarAddress) {
+            try {
+              await showSimilarAddressDialog({
+                similarAddress,
+                currentAddress: toAddress,
+              });
+            } catch (e) {
+              console.error('showSimilarAddressDialog error', e);
+              return;
+            }
+          }
 
           let realAmount = amount;
 
@@ -1856,6 +1872,14 @@ function SendDataInputContainer() {
               onExtraDataChange={handleAddressInputExtraDataChange}
               hideNonBackedUpWallet
             />
+            {toSimilarAddress ? (
+              <Alert
+                type="warning"
+                title={intl.formatMessage({
+                  id: ETranslations.wallet_address_poisoning_alert,
+                })}
+              />
+            ) : null}
             {shouldShowRecentRecipients ? (
               <RecentRecipients
                 accountId={currentAccount.accountId}

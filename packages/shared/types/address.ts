@@ -133,6 +133,7 @@ export type IServerAccountBadgeResp = {
   isScam?: boolean;
   badges?: IAddressBadge[];
   label?: string;
+  similarAddress?: string;
 };
 
 export enum EAddressInteractionStatus {

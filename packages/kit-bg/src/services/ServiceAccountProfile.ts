@@ -171,6 +171,7 @@ class ServiceAccountProfile extends ServiceBase {
     interacted: EAddressInteractionStatus;
     addressLabel?: string;
     badges: IAddressBadge[];
+    similarAddress?: string;
   }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
@@ -204,6 +205,7 @@ class ServiceAccountProfile extends ServiceBase {
         isScam,
         isCex,
         badges,
+        similarAddress,
       } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
@@ -221,6 +223,7 @@ class ServiceAccountProfile extends ServiceBase {
         interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
         addressLabel,
         badges: badges ?? [],
+        similarAddress,
       };
     } catch {
       return {
@@ -266,13 +269,20 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
 
-    const { isContract, interacted, addressLabel, isScam, isCex, badges } =
-      await this.getAddressAccountBadge({
-        networkId,
-        fromAddress,
-        toAddress,
-        checkInteraction,
-      });
+    const {
+      isContract,
+      interacted,
+      addressLabel,
+      isScam,
+      isCex,
+      badges,
+      similarAddress,
+    } = await this.getAddressAccountBadge({
+      networkId,
+      fromAddress,
+      toAddress,
+      checkInteraction,
+    });
     if (
       checkInteractionStatus &&
       toAddress.toLowerCase() !== fromAddress &&
@@ -287,6 +297,7 @@ class ServiceAccountProfile extends ServiceBase {
     result.isScam = isScam;
     result.isCex = isCex;
     result.addressBadges = badges;
+    result.similarAddress = similarAddress;
   }
 
   private async verifyCannotSendToSelf({
@@ -427,6 +438,7 @@ class ServiceAccountProfile extends ServiceBase {
             networkId,
             address: resolveAddress,
           });
+        console.log('walletAccountItems', walletAccountItems);
       } catch (e) {
         console.error(e);
       }
