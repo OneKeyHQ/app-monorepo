@@ -37,16 +37,17 @@ async function storageRemoveItem(key: string): Promise<void> {
 }
 
 /**
- * Save refreshToken to local storage with passcode encryption.
- * The refreshToken is encrypted using the user's passcode via buildKeylessLocalEncryptionKey.
+ * Save refreshToken and token to local storage with passcode encryption.
+ * The refreshToken and token are encrypted using the user's passcode via buildKeylessLocalEncryptionKey.
  * This is used for refreshing access tokens.
  */
 async function saveRefreshTokenToStorage(params: {
   ownerId: string;
   refreshToken: string;
+  token: string;
   backgroundApi: IBackgroundApi;
 }): Promise<void> {
-  const { ownerId, refreshToken, backgroundApi } = params;
+  const { ownerId, refreshToken, token, backgroundApi } = params;
 
   // 1. Build unique key for this ownerId
   const key = accountUtils.buildKeylessRefreshTokenKey({ ownerId });
@@ -55,10 +56,13 @@ async function saveRefreshTokenToStorage(params: {
   // buildKeylessLocalEncryptionKey will prompt for passcode and combine it with sensitiveEncodeKey
   const encryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
 
+  // Store both token and refreshToken as JSON
+  const tokenData = JSON.stringify({ token, refreshToken });
+
   const encryptedPayloadHex = await backgroundApi.servicePassword.encryptString(
     {
       password: encryptionKey,
-      data: refreshToken,
+      data: tokenData,
       dataEncoding: 'utf8',
       allowRawPassword: true,
     },
@@ -74,13 +78,13 @@ async function saveRefreshTokenToStorage(params: {
 }
 
 /**
- * Get refreshToken from local storage and decrypt it.
- * Requires user passcode to decrypt the refreshToken.
+ * Get refreshToken and token from local storage and decrypt them.
+ * Requires user passcode to decrypt the tokens.
  */
 async function getRefreshTokenFromStorage(params: {
   ownerId: string;
   backgroundApi: IBackgroundApi;
-}): Promise<string | null> {
+}): Promise<{ token: string; refreshToken: string } | null> {
   const { ownerId, backgroundApi } = params;
 
   // 1. Build unique key for this ownerId
@@ -98,14 +102,21 @@ async function getRefreshTokenFromStorage(params: {
   const decryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
 
   try {
-    const refreshToken = await backgroundApi.servicePassword.decryptString({
+    const decryptedData = await backgroundApi.servicePassword.decryptString({
       password: decryptionKey,
       data: encryptedPayloadBase64,
       dataEncoding: 'base64',
       resultEncoding: 'utf8',
       allowRawPassword: true,
     });
-    return refreshToken;
+
+    // Parse JSON to get both token and refreshToken
+    const tokenData = JSON.parse(decryptedData) as {
+      token: string;
+      refreshToken: string;
+    };
+
+    return tokenData;
   } catch (error) {
     throw new OneKeyLocalError(
       `Failed to decrypt refreshToken: invalid password or corrupted data: ${
