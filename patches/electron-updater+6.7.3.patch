@@ -45,18 +45,19 @@ index e5dd61f..1797c9f 100644
  export interface InstallOptions {
      readonly isSilent: boolean;
 diff --git a/node_modules/electron-updater/out/BaseUpdater.js b/node_modules/electron-updater/out/BaseUpdater.js
-index 00f99bd..cfb3a7b 100644
+index 00f99bd..2f801c0 100644
 --- a/node_modules/electron-updater/out/BaseUpdater.js
 +++ b/node_modules/electron-updater/out/BaseUpdater.js
-@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
+@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
  exports.BaseUpdater = void 0;
  const child_process_1 = require("child_process");
  const AppUpdater_1 = require("./AppUpdater");
 +const fs_extra_1 = require("fs-extra");
++const path = require("path");
  class BaseUpdater extends AppUpdater_1.AppUpdater {
      constructor(options, app) {
          super(options, app);
-@@ -37,6 +38,35 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
+@@ -37,6 +39,35 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
      get installerPath() {
          return this.downloadedUpdateHelper == null ? null : this.downloadedUpdateHelper.file;
      }
