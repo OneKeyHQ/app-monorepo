@@ -17,7 +17,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
-import { BulkSendRootProvider } from '../../../views/BulkSend/components/HomeApprovalListProvider/BulkSendRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
 import { EarnProvider } from '../../../views/Earn/EarnProvider';
 import { HomeApprovalListRootProvider } from '../../../views/Home/components/HomeApprovalListProvider/HomeApprovalListRootProvider';
@@ -173,9 +172,6 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.perps: {
             return <PerpsRootProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.bulkSend: {
-            return <BulkSendRootProvider key={key} />;
           }
           default: {
             const exhaustiveCheck: never = storeName;

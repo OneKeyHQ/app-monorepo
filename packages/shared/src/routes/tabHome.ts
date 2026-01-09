@@ -37,6 +37,7 @@ export type ITabHomeParamList = {
   [ETabHomeRoutes.TabHomeBulkSend]: {
     networkId: string | undefined;
     accountId: string | undefined;
+    indexedAccountId: string | undefined;
     tokenInfo?: IToken;
   };
 } & ITabHomeUrlAccountParamList;

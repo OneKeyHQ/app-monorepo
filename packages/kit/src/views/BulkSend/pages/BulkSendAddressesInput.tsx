@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Page, Stack } from '@onekeyhq/components';
+import { Form, Page, YStack, useForm } from '@onekeyhq/components';
 import type {
   EModalBulkSendRoutes,
   IModalBulkSendParamList,
@@ -13,6 +13,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import SenderAddressesInput from '../components/AddressesInput/SenderAddressesInput';
 import AssetSelectorTrigger from '../components/AssetSelectorTrigger';
 import BulkSendBar from '../components/BulkSendBar';
 import BulkSendContentWrapper from '../components/BulkSendContentWrapper';
@@ -21,7 +22,6 @@ import {
   useBulkSendContext,
 } from '../components/BulkSendContext';
 import BulkSendHeader from '../components/BulkSendHeader';
-import { BulkSendProviderMirror } from '../components/HomeApprovalListProvider/BulkSendProviderMirror';
 
 function BaseBulkSendAddressesInput() {
   const route = useAppRoute<
@@ -40,6 +40,15 @@ function BaseBulkSendAddressesInput() {
     setSelectedToken,
     setSelectedIndexedAccountId,
   } = useBulkSendContext();
+
+  const form = useForm({
+    defaultValues: {
+      senderAddresses: '',
+      receiverAddresses: '',
+    },
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
+  });
 
   const initBulkSendInfo = useCallback(async () => {
     let _selectedAccountId: string | undefined;
@@ -108,7 +117,12 @@ function BaseBulkSendAddressesInput() {
       <Page.Body>
         <BulkSendContentWrapper>
           <BulkSendHeader />
-          <AssetSelectorTrigger />
+          <YStack gap="$6" $gtMd={{ gap: '$8' }}>
+            <AssetSelectorTrigger />
+            <Form form={form}>
+              <SenderAddressesInput />
+            </Form>
+          </YStack>
         </BulkSendContentWrapper>
       </Page.Body>
     </Page>
@@ -159,11 +173,9 @@ function BulkSendAddressesInput() {
       }}
       enabledNum={[0]}
     >
-      <BulkSendProviderMirror>
-        <BulkSendContext.Provider value={context}>
-          <BaseBulkSendAddressesInput />
-        </BulkSendContext.Provider>
-      </BulkSendProviderMirror>
+      <BulkSendContext.Provider value={context}>
+        <BaseBulkSendAddressesInput />
+      </BulkSendContext.Provider>
     </AccountSelectorProviderMirror>
   );
 }

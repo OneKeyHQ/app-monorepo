@@ -18,10 +18,12 @@ export function useNavigateToBulkSend() {
     async ({
       networkId,
       accountId,
+      indexedAccountId,
       tokenInfo,
     }: {
       networkId: string | undefined;
       accountId: string | undefined;
+      indexedAccountId: string | undefined;
       tokenInfo?: IToken;
     }) => {
       if (
@@ -35,6 +37,7 @@ export function useNavigateToBulkSend() {
           params: {
             networkId,
             accountId,
+            indexedAccountId,
             tokenInfo,
           },
         });
@@ -44,6 +47,7 @@ export function useNavigateToBulkSend() {
           params: {
             networkId,
             accountId,
+            indexedAccountId,
             tokenInfo,
           },
         });
@@ -53,6 +57,7 @@ export function useNavigateToBulkSend() {
           params: {
             networkId,
             accountId,
+            indexedAccountId,
             tokenInfo,
           },
         });
