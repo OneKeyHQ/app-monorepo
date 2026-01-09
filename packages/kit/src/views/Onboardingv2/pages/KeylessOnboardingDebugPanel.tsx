@@ -8,6 +8,17 @@ import {
   Toast,
   YStack,
 } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  GOOGLE_OAUTH_CLIENT_IDS,
+  JUICEBOX_ALLOWED_GUESSES,
+  JUICEBOX_AUTH_SERVER,
+  JUICEBOX_CONFIG,
+  KEYLESS_SUPABASE_PROJECT_URL,
+  KEYLESS_SUPABASE_PUBLIC_API_KEY,
+  SUPABASE_PROJECT_URL,
+  SUPABASE_PUBLIC_API_KEY,
+} from '@onekeyhq/shared/src/consts/authConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
@@ -21,8 +32,11 @@ export function KeylessOnboardingDebugPanel({
   isResetMode?: boolean;
   onResetModeChange?: (val: boolean) => void;
 }) {
-  const navigation = useAppNavigation();
+  const _navigation = useAppNavigation();
   const { cacheKeylessOnboardingCustomMnemonic } = useKeylessWallet();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const isDeletionAllowed =
+    devSettings.enabled && !!devSettings.settings?.allowDeleteKeylessKey;
 
   const handleImportCustomMnemonic = useCallback(() => {
     Dialog.confirm({
@@ -72,6 +86,24 @@ export function KeylessOnboardingDebugPanel({
     });
   }, [cacheKeylessOnboardingCustomMnemonic]);
 
+  const handleShowAuthConsts = useCallback(() => {
+    const debugData = {
+      GOOGLE_OAUTH_CLIENT_IDS,
+      SUPABASE_PROJECT_URL,
+      SUPABASE_PUBLIC_API_KEY,
+      KEYLESS_SUPABASE_PROJECT_URL,
+      KEYLESS_SUPABASE_PUBLIC_API_KEY,
+      JUICEBOX_AUTH_SERVER,
+      JUICEBOX_CONFIG,
+      JUICEBOX_ALLOWED_GUESSES,
+    };
+
+    Dialog.debugMessage({
+      title: 'Auth consts',
+      debugMessage: debugData,
+    });
+  }, []);
+
   return (
     <YStack>
       <MultipleClickStack
@@ -83,7 +115,24 @@ export function KeylessOnboardingDebugPanel({
             <Checkbox
               label="重置云端无私钥钱包（先勾选，再登录 Google 或 Apple 生效）"
               value={isResetMode}
+              disabled={!isDeletionAllowed}
+              onChangeForDisabled={() => {
+                Toast.error({
+                  title: 'Operation not allowed',
+                  message:
+                    'Please enable "允许重置 Keyless 钱包" in Dev Settings first.',
+                });
+              }}
               onChange={(checked) => {
+                // This reset flow may delete deviceKey/authKey, guard it with allowDeleteKeylessKey.
+                if (!isDeletionAllowed) {
+                  Toast.error({
+                    title: 'Operation not allowed',
+                    message:
+                      'Please enable "允许重置 Keyless 钱包" in Dev Settings first.',
+                  });
+                  return;
+                }
                 onResetModeChange?.(!!checked);
               }}
             />
@@ -102,6 +151,8 @@ export function KeylessOnboardingDebugPanel({
             <Button onPress={handleImportCustomMnemonic}>
               自定义助记词创建钱包
             </Button>
+
+            <Button onPress={handleShowAuthConsts}>显示 Auth Consts</Button>
           </YStack>
         }
       />

@@ -380,6 +380,21 @@ export class SecureQRCodeDialogCancel extends OneKeyAppError {
     EOneKeyErrorClassNames.SecureQRCodeDialogCancel;
 }
 
+export class OAuthLoginCancelError extends OneKeyAppError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OAuthLoginCancelError',
+        defaultKey: ETranslations.global_cancel,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.OAuthLoginCancelError;
+}
+
 export class PreCheckBeforeSendingCancelError extends OneKeyAppError {
   constructor(props?: IOneKeyError) {
     super(

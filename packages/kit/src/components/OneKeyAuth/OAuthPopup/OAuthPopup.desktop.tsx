@@ -366,7 +366,13 @@ export class OAuthPopup extends OAuthPopupBase {
               reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
             },
             onClose: async (extra) => {
-              if (extra?.flag === 'cancel' && !settled) {
+              // Treat closing the dialog (including clicking the "X") as a cancel action,
+              // otherwise the OAuth promise may never settle and the UI loading state can get stuck.
+              if (settled) {
+                return;
+              }
+              // Keep backward compatibility: some close paths may still pass `flag: 'cancel'`.
+              if (extra?.flag === 'cancel' || !extra?.flag) {
                 settled = true;
                 dialogClosed = true;
                 await cleanupFn.cleanup();

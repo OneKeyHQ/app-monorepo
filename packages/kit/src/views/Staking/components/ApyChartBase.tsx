@@ -79,13 +79,15 @@ const ApyChartBaseComponent = ({
   const popoverPosition = useMemo(() => {
     if (!hoverData || !containerWidth) return null;
 
-    const POPOVER_WIDTH = 120;
+    const POPOVER_WIDTH = 144;
     const OFFSET = 10;
     const EDGE_PADDING = 16;
     const isLeftHalf = hoverData.x < containerWidth / 2;
 
     const translateXValue = isLeftHalf ? 0 : -POPOVER_WIDTH;
-    const desiredLeft = isLeftHalf ? hoverData.x + OFFSET : hoverData.x - OFFSET;
+    const desiredLeft = isLeftHalf
+      ? hoverData.x + OFFSET
+      : hoverData.x - OFFSET;
     const minLeft = EDGE_PADDING;
     const maxLeft = Math.max(
       minLeft,
@@ -101,14 +103,19 @@ const ApyChartBaseComponent = ({
     };
   }, [hoverData, containerWidth]);
 
-  const formatPopoverDate = useCallback((timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    return intl.formatDate(date, {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-    });
-  }, [intl]);
+  const formatPopoverDate = useCallback(
+    (timestamp: number) => {
+      const date = new Date(timestamp * 1000);
+      return intl.formatDate(date, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    },
+    [intl],
+  );
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) {
@@ -189,17 +196,29 @@ const ApyChartBaseComponent = ({
               shadowRadius={8}
               zIndex={9999}
               pointerEvents="none"
-              minWidth={120}
+              minWidth={144}
             >
-              <YStack gap="$2">
-                <SizableText size="$bodySm" color="$textSubdued">
+              <YStack gap="$1.5" width="100%">
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  whiteSpace="nowrap"
+                >
                   {formatPopoverDate(hoverData.time)}
                 </SizableText>
-                <XStack jc="space-between" ai="center" gap="$1.5">
-                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                <XStack jc="space-between" ai="center" width="100%">
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    whiteSpace="nowrap"
+                  >
                     {tooltipLabel}
                   </SizableText>
-                  <SizableText size="$bodySmMedium" color="$text">
+                  <SizableText
+                    size="$bodySmMedium"
+                    color="$text"
+                    whiteSpace="nowrap"
+                  >
                     {hoverData.apy.toFixed(2)}%
                   </SizableText>
                 </XStack>

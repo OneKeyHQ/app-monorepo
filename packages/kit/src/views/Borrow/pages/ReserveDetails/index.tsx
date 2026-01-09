@@ -15,7 +15,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
-import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ETabEarnRoutes,
@@ -23,6 +22,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { EarnPageContainer } from '../../../Earn/components/EarnPageContainer';
 import { BorrowNavigation } from '../../borrowUtils';
