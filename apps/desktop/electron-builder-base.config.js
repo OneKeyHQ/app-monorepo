@@ -16,7 +16,7 @@ const baseElectronBuilderConfig = {
   'directories': {
     'output': 'build-electron',
   },
-  'npmRebuild': true,
+  'npmRebuild': false,
   'files': [
     'dist/**/*',
     '!dist/__**',
