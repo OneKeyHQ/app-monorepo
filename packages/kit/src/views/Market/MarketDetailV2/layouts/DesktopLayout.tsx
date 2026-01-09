@@ -49,14 +49,12 @@ export function DesktopLayout() {
         </Stack>
 
         {/* Info tabs */}
-        {!isNative ? (
-          <Stack h="30vh">
-            <DesktopInformationTabs
-              portfolioData={portfolioData}
-              isRefreshing={isRefreshing}
-            />
-          </Stack>
-        ) : null}
+        <Stack h="30vh">
+          <DesktopInformationTabs
+            portfolioData={portfolioData}
+            isRefreshing={isRefreshing}
+          />
+        </Stack>
       </YStack>
 
       {/* Right column */}
