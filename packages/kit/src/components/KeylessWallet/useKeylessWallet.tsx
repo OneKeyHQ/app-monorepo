@@ -546,15 +546,11 @@ export function useKeylessWallet() {
       },
       onClose: () => {
         keylessOnboardingCache.clear();
+        navigation.popStack();
       },
       onConfirm: () => {
         keylessOnboardingCache.clear();
-        navigation.navigate(ERootRoutes.Onboarding, {
-          screen: EOnboardingV2Routes.OnboardingV2,
-          params: {
-            screen: EOnboardingPagesV2.OneKeyIDLogin,
-          },
-        });
+        navigation.popStack();
       },
     });
     throw new OneKeyLocalError('Keyless Wallet onboarding timed out');
