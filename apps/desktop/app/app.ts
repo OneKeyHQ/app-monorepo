@@ -15,6 +15,7 @@ import {
   app,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
+  protocol,
   ipcMain,
   nativeTheme,
   powerMonitor,
@@ -109,6 +110,17 @@ const sdkConnectSrc = isDev
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true
+    }
+  }
+]);
 
 if (!isMac) {
   setupTitlebar();
