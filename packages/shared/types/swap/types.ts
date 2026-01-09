@@ -347,6 +347,7 @@ export interface IQuoteTip {
   icon?: string;
   title?: string;
   detail?: string;
+  showCancelButton?: boolean;
   link?: string;
 }
 

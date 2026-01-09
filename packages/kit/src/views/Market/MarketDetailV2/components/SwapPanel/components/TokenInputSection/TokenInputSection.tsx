@@ -19,7 +19,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IInputRef } from '@onekeyhq/components';
+import type { IInputRef, IYStackProps } from '@onekeyhq/components';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import {
   EAppEventBusNames,
@@ -53,6 +53,7 @@ export interface ITokenInputSectionProps {
   balance?: BigNumber;
   swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
   onAmountEnterTypeChange?: (source: IAmountEnterSource) => void;
+  style?: IYStackProps;
 }
 
 function TokenInputSectionComponent(
@@ -65,6 +66,7 @@ function TokenInputSectionComponent(
     balance,
     swapNativeTokenReserveGas,
     onAmountEnterTypeChange,
+    style,
   }: ITokenInputSectionProps,
   ref: Ref<ITokenInputSectionRef>,
 ) {
@@ -182,7 +184,7 @@ function TokenInputSectionComponent(
   }, []);
 
   return (
-    <YStack gap="$1">
+    <YStack gap="$1" {...style}>
       <Input
         ref={inputRef}
         size={gtMd ? 'medium' : 'large'}

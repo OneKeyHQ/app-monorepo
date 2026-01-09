@@ -6,11 +6,9 @@ import { useIntl } from 'react-intl';
 
 import type {
   IDialogInstance,
-  IKeyOfIcons,
   IPageNavigationProp,
 } from '@onekeyhq/components';
 import {
-  Button,
   Dialog,
   EPageType,
   Toast,
@@ -817,36 +815,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [preSwapStepsStart]);
 
   const onActionHandlerBefore = useCallback(() => {
-    if (currentQuoteRes?.quoteShowTip) {
-      Dialog.confirm({
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onConfirm: () => {
-          onActionHandler();
-        },
-        title: currentQuoteRes?.quoteShowTip.title ?? '',
-        description: currentQuoteRes.quoteShowTip.detail ?? '',
-        icon:
-          (currentQuoteRes?.quoteShowTip.icon as IKeyOfIcons) ??
-          'ChecklistBoxOutline',
-        renderContent: currentQuoteRes.quoteShowTip?.link ? (
-          <Button
-            variant="tertiary"
-            size="small"
-            alignSelf="flex-start"
-            icon="QuestionmarkOutline"
-            onPress={() => {
-              if (currentQuoteRes.quoteShowTip?.link) {
-                openUrlExternal(currentQuoteRes.quoteShowTip?.link);
-              }
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_learn_more })}
-          </Button>
-        ) : undefined,
-      });
-    } else if (
+    if (
       currentQuoteRes?.networkCostExceedInfo &&
       !currentQuoteRes.allowanceResult
     ) {
@@ -921,7 +890,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     currentQuoteRes?.allowanceResult,
     currentQuoteRes?.networkCostExceedInfo,
     currentQuoteRes?.protocol,
-    currentQuoteRes?.quoteShowTip,
     intl,
     onActionHandler,
     swapLimitUseRate.rate,
