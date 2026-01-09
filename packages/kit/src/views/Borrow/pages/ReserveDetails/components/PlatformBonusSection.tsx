@@ -9,6 +9,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
@@ -24,6 +25,7 @@ export function PlatformBonusSection({
   platformBonus,
 }: IPlatformBonusSectionProps) {
   const intl = useIntl();
+  const media = useMedia();
 
   const endsInDays = useMemo(() => {
     if (!platformBonus?.endsIn) return null;
@@ -80,6 +82,8 @@ export function PlatformBonusSection({
         ))}
         {platformBonus.button ? (
           <XStack
+            ml={media.gtSm ? 'auto' : undefined}
+            flexBasis={media.gtSm ? undefined : '100%'}
             cursor="pointer"
             onPress={() => openUrlExternal(platformBonus.button.data.link)}
             hoverStyle={{ opacity: 0.8 }}
