@@ -2105,6 +2105,8 @@
   "log_out_wallet": "Disconnetti wallet",
   "log_out_wallet_desc": "Questo rimuoverà il portafoglio da questo dispositivo. Puoi accedere nuovamente in qualsiasi momento utilizzando il tuo account social e il PIN.",
   "logged_out_feedback": "Disconnessione riuscita",
+  "logging_you_in": "Accesso in corso...",
+  "logging_you_in_desc": "Completa l'autenticazione nel tuo browser, quindi torna indietro.",
   "login.forgot_passcode": "Hai dimenticato il codice?",
   "login.forgot_password": "Hai dimenticato la password?",
   "login.welcome_message": "Bentornato",

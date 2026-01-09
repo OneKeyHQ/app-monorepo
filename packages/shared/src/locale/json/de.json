@@ -2105,6 +2105,8 @@
   "log_out_wallet": "Wallet abmelden",
   "log_out_wallet_desc": "Dadurch wird die Wallet von diesem Gerät entfernt. Du kannst dich jederzeit wieder mit deinem Social-Media-Konto und deiner PIN anmelden.",
   "logged_out_feedback": "Erfolgreich abgemeldet",
+  "logging_you_in": "Ich melde dich an...",
+  "logging_you_in_desc": "Schließen Sie die Authentifizierung in Ihrem Browser ab und kehren Sie dann zurück.",
   "login.forgot_passcode": "Passcode vergessen?",
   "login.forgot_password": "Passwort vergessen?",
   "login.welcome_message": "Willkommen zurück",

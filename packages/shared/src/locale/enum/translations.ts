@@ -2110,6 +2110,8 @@
   log_out_wallet = 'log_out_wallet',
   log_out_wallet_desc = 'log_out_wallet_desc',
   logged_out_feedback = 'logged_out_feedback',
+  logging_you_in = 'logging_you_in',
+  logging_you_in_desc = 'logging_you_in_desc',
   login_forgot_passcode = 'login.forgot_passcode',
   login_forgot_password = 'login.forgot_password',
   login_welcome_message = 'login.welcome_message',

@@ -712,10 +712,12 @@ export function useKeylessWallet() {
             await backgroundApiProxy.serviceAccount.isKeylessWalletExistsLocal();
           if (exists) {
             Dialog.show({
-              title: 'Keyless Wallet',
-              // TODO @franco 本地已经添加无私钥钱包，如果需要使用其他无私钥钱包，请先删除当前钱包
-              description:
-                'A Keyless Wallet is already added. To use another Keyless Wallet, please delete the current one first.',
+              title: intl.formatMessage({
+                id: ETranslations.keyless_wallet_is_enabled,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.keyless_wallet_is_enabled_desc,
+              }),
               showCancelButton: false,
               onConfirmText: intl.formatMessage({
                 id: ETranslations.global_got_it,

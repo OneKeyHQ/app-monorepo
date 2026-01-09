@@ -2105,6 +2105,8 @@
   "log_out_wallet": "Đăng xuất ví",
   "log_out_wallet_desc": "Thao tác này sẽ xóa ví khỏi thiết bị này. Bạn có thể đăng nhập lại bất cứ lúc nào bằng tài khoản mạng xã hội và mã PIN của mình.",
   "logged_out_feedback": "Đăng xuất thành công",
+  "logging_you_in": "Đang đăng nhập...",
+  "logging_you_in_desc": "Hoàn tất xác thực trên trình duyệt của bạn, sau đó quay lại.",
   "login.forgot_passcode": "Quên mã khóa?",
   "login.forgot_password": "Quên mật khẩu?",
   "login.welcome_message": "Chào mừng trở lại",

@@ -2105,6 +2105,8 @@
   "log_out_wallet": "Keluar dari dompet",
   "log_out_wallet_desc": "Ini akan menghapus dompet dari perangkat ini. Anda dapat masuk kembali kapan saja menggunakan akun sosial dan PIN Anda.",
   "logged_out_feedback": "Berhasil keluar",
+  "logging_you_in": "Sedang masuk ke akun Anda...",
+  "logging_you_in_desc": "Selesaikan otentikasi di browser Anda, lalu kembali lagi.",
   "login.forgot_passcode": "Lupa kode sandi?",
   "login.forgot_password": "Lupa kata sandi?",
   "login.welcome_message": "Selamat kembali",

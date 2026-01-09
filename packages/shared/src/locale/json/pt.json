@@ -2105,6 +2105,8 @@
   "log_out_wallet": "Sair da carteira",
   "log_out_wallet_desc": "Isso removerá a carteira deste dispositivo. Você pode fazer login novamente a qualquer momento usando sua conta social e PIN.",
   "logged_out_feedback": "Sessão encerrada com sucesso",
+  "logging_you_in": "Você está fazendo login...",
+  "logging_you_in_desc": "Conclua a autenticação no seu navegador e depois volte.",
   "login.forgot_passcode": "Esqueceu o código de acesso?",
   "login.forgot_password": "Esqueceu a senha?",
   "login.welcome_message": "Bem-vindo de volta",

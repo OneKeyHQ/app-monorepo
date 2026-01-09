@@ -2105,6 +2105,8 @@
   "log_out_wallet": "Cerrar sesión en la billetera",
   "log_out_wallet_desc": "Esto eliminará la billetera de este dispositivo. Puedes volver a iniciar sesión en cualquier momento usando tu cuenta social y tu PIN.",
   "logged_out_feedback": "Cierre de sesión exitoso",
+  "logging_you_in": "Iniciando sesión...",
+  "logging_you_in_desc": "Finalice la autenticación en su navegador y luego regrese.",
   "login.forgot_passcode": "¿Olvidaste el código?",
   "login.forgot_password": "¿Olvidó su contraseña?",
   "login.welcome_message": "Bienvenido de nuevo",

@@ -2105,6 +2105,8 @@
   "log_out_wallet": "ウォレットからログアウト",
   "log_out_wallet_desc": "これにより、このデバイスからウォレットが削除されます。ソーシャルアカウントとPINを使用していつでも再度ログインできます。",
   "logged_out_feedback": "ログアウトしました",
+  "logging_you_in": "ログインしています...",
+  "logging_you_in_desc": "ブラウザで認証を完了してから戻ってください。",
   "login.forgot_passcode": "パスコードを忘れましたか？",
   "login.forgot_password": "パスワードを忘れましたか？",
   "login.welcome_message": "おかえりなさい",

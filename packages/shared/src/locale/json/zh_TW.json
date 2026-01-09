@@ -2105,6 +2105,8 @@
   "log_out_wallet": "登出錢包",
   "log_out_wallet_desc": "這將從當前裝置移除錢包。你可以隨時使用社群帳號和 PIN 重新登入。",
   "logged_out_feedback": "已成功登出",
+  "logging_you_in": "正在登入...",
+  "logging_you_in_desc": "在瀏覽器裡完成驗證後，再回來繼續。",
   "login.forgot_passcode": "忘記密碼？",
   "login.forgot_password": "忘記密碼？",
   "login.welcome_message": "歡迎回來",
