@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { Fragment, useCallback, useMemo } from 'react';
 
 import {
   IconButton,
+  Image,
   Page,
   SizableText,
   Stack,
@@ -13,6 +14,7 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ETabEarnRoutes,
@@ -20,6 +22,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { EarnPageContainer } from '../../../Earn/components/EarnPageContainer';
 import { BorrowNavigation } from '../../borrowUtils';
@@ -28,6 +31,31 @@ import { DetailsPart } from './components/DetailsPart';
 import { ManagePositionPart } from './components/ManagePositionPart';
 import { useBorrowReserveDetailBreadcrumb } from './hooks/useBorrowReserveDetailBreadcrumb';
 import { useBorrowReserveDetailData } from './hooks/useBorrowReserveDetailData';
+
+function ManagersSection({
+  managers,
+}: {
+  managers: IBorrowReserveDetail['managers'] | undefined;
+}) {
+  return managers?.items?.length ? (
+    <XStack gap="$1" alignItems="center">
+      {managers.items.map((item, index) => (
+        <Fragment key={index}>
+          <XStack gap="$1" alignItems="center">
+            <Image size="$4" borderRadius="$1" src={item.logoURI} />
+            <EarnText text={item.title} size="$bodySm" />
+            <EarnText text={item.description} size="$bodySm" />
+          </XStack>
+          {index !== managers.items.length - 1 ? (
+            <XStack w="$4" h="$4" ai="center" jc="center">
+              <XStack w="$1" h="$1" borderRadius="$full" bg="$iconSubdued" />
+            </XStack>
+          ) : null}
+        </Fragment>
+      ))}
+    </XStack>
+  ) : null;
+}
 
 const ReserveDetailsPage = () => {
   const route = useAppRoute<
@@ -187,6 +215,11 @@ const ReserveDetailsPage = () => {
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       showBackButton
+      header={
+        <XStack ml="auto" pr="$2">
+          <ManagersSection managers={details?.managers} />
+        </XStack>
+      }
     >
       <XStack flexDirection="row">
         <Stack w="100%" width="65%">

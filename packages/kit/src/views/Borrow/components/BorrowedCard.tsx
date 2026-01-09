@@ -240,6 +240,21 @@ export const BorrowedCard = () => {
     [reserves?.borrowed?.assets],
   );
 
+  const hasSupplied = useMemo(
+    () => (reserves?.supplied?.assets || []).length > 0,
+    [reserves?.supplied?.assets],
+  );
+
+  const emptyContent = useMemo(
+    () =>
+      intl.formatMessage({
+        id: hasSupplied
+          ? ETranslations.defi_nothing_borrowed_yet
+          : ETranslations.defi_supply_assets_as_collateral_before_borrowing,
+      }),
+    [intl, hasSupplied],
+  );
+
   return (
     <Card
       title={intl.formatMessage({ id: ETranslations.defi_my_borrow })}
@@ -258,9 +273,7 @@ export const BorrowedCard = () => {
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
-        emptyContent={intl.formatMessage({
-          id: ETranslations.defi_supply_assets_as_collateral_before_borrowing,
-        })}
+        emptyContent={emptyContent}
       />
     </Card>
   );

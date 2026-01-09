@@ -23,6 +23,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -89,12 +90,14 @@ import { EStellarAssetType } from './types';
 import {
   BASE_FEE,
   ENTRY_RESERVE,
+  MEMO_TEXT_MAX_BYTES,
   SAC_TOKEN_ASSET_TYPES,
   SAC_TOKEN_DECIMALS,
   buildMemoFromString,
   calculateAvailableBalance,
   calculateFrozenBalance,
   getNetworkPassphrase,
+  getUtf8ByteLength,
   isValidAccountCreationAmount,
   parseTokenAddress,
 } from './utils';
@@ -1072,6 +1075,35 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async validateMemo(memo: string): Promise<{
+    isValid: boolean;
+    errorMessage?: string;
+  }> {
+    if (!memo || !memo.trim()) {
+      return { isValid: true }; // Empty memo is valid
+    }
+
+    const trimmed = memo.trim();
+
+    // Text memo: check byte length
+    const byteLength = getUtf8ByteLength(trimmed);
+    if (byteLength > MEMO_TEXT_MAX_BYTES) {
+      return {
+        isValid: false,
+        errorMessage: appLocale.intl.formatMessage(
+          { id: ETranslations.send_memo_size_exceeded },
+          {
+            limit: MEMO_TEXT_MAX_BYTES,
+            current: byteLength,
+            type: 'Bytes',
+          },
+        ),
+      };
+    }
+
+    return { isValid: true };
   }
 
   // ========== LOCAL DEVELOPMENT RPC SUPPORT ==========

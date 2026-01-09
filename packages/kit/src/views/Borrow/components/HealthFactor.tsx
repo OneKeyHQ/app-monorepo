@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Icon,
@@ -12,28 +12,86 @@ import type { IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 type IHealthFactorProps = {
   value: number;
+  index?: number;
   min?: number;
   max?: number;
   thresholdValue?: number;
   liquidationText?: IEarnText;
 };
 
+type IIndicatorProps = {
+  percent: number;
+  containerWidth: number;
+  children: React.ReactNode;
+  position: 'top' | 'bottom';
+};
+
+// Determine text alignment based on position to prevent overflow
 const getTextAlignment = (
   percent: number,
 ): 'flex-start' | 'center' | 'flex-end' => {
   if (percent < 15) {
-    return 'flex-start';
+    return 'flex-start'; // Align left when near left edge
   }
   if (percent > 85) {
-    return 'flex-end';
+    return 'flex-end'; // Align right when near right edge
   }
-  return 'center';
+  return 'center'; // Center when in the middle
+};
+
+const Indicator = ({
+  percent,
+  containerWidth,
+  children,
+  position,
+}: IIndicatorProps) => {
+  const [contentWidth, setContentWidth] = useState(0);
+
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    setContentWidth(e.nativeEvent.layout.width);
+  }, []);
+
+  const alignment = getTextAlignment(percent);
+
+  // Calculate pixel position for the indicator point
+  const left = useMemo(() => {
+    if (containerWidth === 0) return 0;
+    const targetPosition = (containerWidth * percent) / 100;
+
+    // Adjust based on alignment to position the indicator correctly
+    if (alignment === 'flex-start') {
+      // Align left edge of content with target
+      return targetPosition;
+    }
+    if (alignment === 'flex-end') {
+      // Align right edge of content with target
+      return Math.max(0, targetPosition - contentWidth);
+    }
+    // Center: align center of content with target
+    return Math.max(0, targetPosition - contentWidth / 2);
+  }, [containerWidth, percent, contentWidth, alignment]);
+
+  return (
+    <Stack
+      position="absolute"
+      left={left}
+      top={position === 'top' ? 0 : undefined}
+      bottom={position === 'bottom' ? 0 : undefined}
+      onLayout={onLayout}
+      opacity={contentWidth > 0 && containerWidth > 0 ? 1 : 0}
+    >
+      {children}
+    </Stack>
+  );
 };
 
 export const HealthFactor = ({
   value,
+  index,
   min = 0,
   max = 3,
   thresholdValue = 1,
@@ -43,6 +101,12 @@ export const HealthFactor = ({
   const criticalColor = theme.bgCriticalStrong.val;
   const cautionColor = theme.bgCautionStrong.val;
   const successColor = theme.bgSuccessStrong.val;
+
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
+    setContainerWidth(e.nativeEvent.layout.width);
+  }, []);
 
   const { displayValue, pointerPercent, thresholdPercent } = useMemo(() => {
     const safeMin = Number.isFinite(min) ? min : 0;
@@ -55,41 +119,45 @@ export const HealthFactor = ({
 
     const valueIsFinite = Number.isFinite(value);
     const thresholdIsFinite = Number.isFinite(thresholdValue);
-    const clampedValue = valueIsFinite ? clampToRange(value) : safeMin;
     const clampedThreshold = thresholdIsFinite
       ? clampToRange(thresholdValue)
       : safeMin;
-    const canComputePointer =
-      valueIsFinite && Number.isFinite(range) && range > 0;
     const canComputeThreshold =
       thresholdIsFinite && Number.isFinite(range) && range > 0;
 
+    // Use index directly as percentage if provided, otherwise calculate from value
+    const indexIsFinite = Number.isFinite(index);
+    let computedPointerPercent = 0;
+    if (indexIsFinite) {
+      // index is already a percentage (0-100), clamp it
+      computedPointerPercent = Math.min(Math.max(index as number, 0), 100);
+    } else if (valueIsFinite && Number.isFinite(range) && range > 0) {
+      const clampedValue = clampToRange(value);
+      computedPointerPercent = ((clampedValue - safeMin) / range) * 100;
+    }
+
     return {
       displayValue: valueIsFinite ? value.toFixed(2) : '-',
-      pointerPercent: canComputePointer
-        ? ((clampedValue - safeMin) / range) * 100
-        : 0,
+      pointerPercent: computedPointerPercent,
       thresholdPercent: canComputeThreshold
         ? ((clampedThreshold - safeMin) / range) * 100
         : 0,
     };
-  }, [max, min, thresholdValue, value]);
+  }, [index, max, min, thresholdValue, value]);
 
-  const pointerTextAlignment = getTextAlignment(pointerPercent);
-  const thresholdTextAlignment = getTextAlignment(thresholdPercent);
+  const pointerAlignment = getTextAlignment(pointerPercent);
+  const thresholdAlignment = getTextAlignment(thresholdPercent);
 
   return (
-    <YStack mt="$4" mb="$1.5">
+    <YStack mt="$4" mb="$1.5" onLayout={onContainerLayout}>
       {/* Upper indicator: current health factor value */}
       <Stack position="relative" h="$8" mb="$1">
-        <Stack
-          position="absolute"
-          left={`${pointerPercent}%`}
-          bottom={0}
-          w={0}
-          overflow="visible"
+        <Indicator
+          percent={pointerPercent}
+          containerWidth={containerWidth}
+          position="bottom"
         >
-          <YStack ai={pointerTextAlignment}>
+          <YStack ai={pointerAlignment}>
             <SizableText size="$bodySmMedium" whiteSpace="nowrap">
               {displayValue}
             </SizableText>
@@ -99,7 +167,7 @@ export const HealthFactor = ({
               color="$text"
             />
           </YStack>
-        </Stack>
+        </Indicator>
       </Stack>
 
       {/* Gradient bar */}
@@ -114,14 +182,12 @@ export const HealthFactor = ({
 
       {/* Lower indicator: liquidation threshold */}
       <Stack position="relative" h="$10" mt="$1">
-        <Stack
-          position="absolute"
-          left={`${thresholdPercent}%`}
-          top={0}
-          w={0}
-          overflow="visible"
+        <Indicator
+          percent={thresholdPercent}
+          containerWidth={containerWidth}
+          position="top"
         >
-          <YStack ai={thresholdTextAlignment}>
+          <YStack ai={thresholdAlignment}>
             <Icon
               name="ChevronTriangleUpSmallOutline"
               size="$4"
@@ -136,7 +202,7 @@ export const HealthFactor = ({
               />
             ) : null}
           </YStack>
-        </Stack>
+        </Indicator>
       </Stack>
     </YStack>
   );

@@ -3720,7 +3720,7 @@ PODS:
     - RNWorklets
     - SocketRocket
     - Yoga
-  - RNScreens (4.18.0):
+  - RNScreens (4.19.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -3747,10 +3747,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNScreens/common (= 4.18.0)
+    - RNScreens/common (= 4.19.0)
     - SocketRocket
     - Yoga
-  - RNScreens/common (4.18.0):
+  - RNScreens/common (4.19.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -3809,7 +3809,7 @@ PODS:
     - Sentry/HybridSDK (= 8.56.2)
     - SocketRocket
     - Yoga
-  - RNSVG (15.12.1):
+  - RNSVG (15.15.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -3835,10 +3835,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNSVG/common (= 15.12.1)
+    - RNSVG/common (= 15.15.1)
     - SocketRocket
     - Yoga
-  - RNSVG/common (15.12.1):
+  - RNSVG/common (15.15.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -4133,7 +4133,7 @@ DEPENDENCIES:
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
   - react-native-capture-protection (from `../../../node_modules/react-native-capture-protection`)
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
-  - "react-native-compat (from `../node_modules/@walletconnect/react-native-compat`)"
+  - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
   - react-native-fast-pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
@@ -4182,7 +4182,7 @@ DEPENDENCIES:
   - "ReactNativeCheckBiometricAuthChanged (from `../../../node_modules/@onekeyfe/react-native-check-biometric-auth-changed`)"
   - "ReactNativeDeviceUtils (from `../../../node_modules/@onekeyfe/react-native-device-utils`)"
   - ReactNativeFs (from `../../../node_modules/react-native-fs`)
-  - ReactNativeGetRandomValues (from `../node_modules/react-native-get-random-values`)
+  - ReactNativeGetRandomValues (from `../../../node_modules/react-native-get-random-values`)
   - "ReactNativeLiteCard (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - ReactNativePasskeys (from `../../../node_modules/react-native-passkeys/ios`)
   - RealmJS (from `../../../node_modules/realm`)
@@ -4415,7 +4415,7 @@ EXTERNAL SOURCES:
   react-native-cloud-fs:
     :path: "../../../node_modules/react-native-cloud-fs"
   react-native-compat:
-    :path: "../node_modules/@walletconnect/react-native-compat"
+    :path: "../../../node_modules/@walletconnect/react-native-compat"
   react-native-fast-pbkdf2:
     :path: "../../../node_modules/react-native-fast-pbkdf2"
   react-native-keyboard-controller:
@@ -4513,7 +4513,7 @@ EXTERNAL SOURCES:
   ReactNativeFs:
     :path: "../../../node_modules/react-native-fs"
   ReactNativeGetRandomValues:
-    :path: "../node_modules/react-native-get-random-values"
+    :path: "../../../node_modules/react-native-get-random-values"
   ReactNativeLiteCard:
     :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   ReactNativePasskeys:
@@ -4731,9 +4731,9 @@ SPEC CHECKSUMS:
   RNPermissions: 808e11d2ffe4d8ddea33d8304310a28f281b6a0a
   RNPurchases: 4c820359d90fab9c83ffd3ef5471d59db72e2ed1
   RNReanimated: 464375ff2caa801358547c44eca894ff0bf68e74
-  RNScreens: d821082c6dd1cb397cc0c98b026eeafaa68be479
+  RNScreens: ffbb0296608eb3560de641a711bbdb663ed1f6b4
   RNSentry: a20c5194cc6d7902683276f399a6eb5206fb9f05
-  RNSVG: 6f39605a4c4d200b11435c35bd077553c6b5963a
+  RNSVG: d260beec1775108e1bd065a0ed666ff2c5565158
   RNWorklets: 8068c8af4b241eb2c19221310729e4c440bee023
   RNZipArchive: 4304f5100eab004eeb7349adc51997b3a28deb76
   SDWebImage: 16309af6d214ba3f77a7c6f6fdda888cb313a50a

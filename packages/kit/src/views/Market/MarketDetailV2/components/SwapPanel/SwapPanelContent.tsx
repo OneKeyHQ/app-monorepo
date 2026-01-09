@@ -198,7 +198,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         />
       ) : null}
 
-      {!isApproved ? (
+      {!isApproved && paymentAmount.gt(0) && balance.gte(paymentAmount) ? (
         <ApproveButton onApprove={onApprove} loading={isLoading} />
       ) : (
         <ActionButton

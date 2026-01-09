@@ -25,6 +25,13 @@ export class JuiceboxClient {
 
   private client: Client; // Client from juicebox-sdk
 
+  private bindGlobalAuthTokenProvider(): void {
+    // Set global callback for juicebox-sdk
+    // @ts-ignore
+    globalThis.JuiceboxGetAuthToken = (realmId: Uint8Array) =>
+      this.getAuthTokenForRealm(realmId);
+  }
+
   /**
    * Constructor
    * @param backgroundApi - Background API instance to access OneKeyID tokens
@@ -32,13 +39,14 @@ export class JuiceboxClient {
   constructor() {
     this.juiceboxTokenCache = new Map<string, string>();
 
-    // Set global callback for juicebox-sdk
-    // @ts-ignore
-    globalThis.JuiceboxGetAuthToken = (realmId: Uint8Array) =>
-      this.getAuthTokenForRealm(realmId);
+    this.bindGlobalAuthTokenProvider();
 
     // Create internal Client instance from juicebox-sdk
     this.client = new Client(new Configuration(JUICEBOX_CONFIG), []);
+  }
+
+  setAsGlobalAuthTokenProvider(): void {
+    this.bindGlobalAuthTokenProvider();
   }
 
   /**
@@ -153,9 +161,10 @@ export class JuiceboxClient {
   async recover(params: {
     pin: string;
     userInfo: string; // ownerId
+    skipTokenCacheClear?: boolean;
   }): Promise<string> {
     try {
-      const { pin, userInfo } = params;
+      const { pin, userInfo, skipTokenCacheClear } = params;
 
       // Validate token cache is not empty
       if (this.juiceboxTokenCache.size === 0) {
@@ -182,7 +191,9 @@ export class JuiceboxClient {
       const secretUtf8 = bufferUtils.bytesToUtf8(recoveredSecret);
 
       // Clear token cache after successful recovery
-      this.clearTokenCache();
+      if (!skipTokenCacheClear) {
+        this.clearTokenCache();
+      }
 
       return secretUtf8;
     } catch (e) {

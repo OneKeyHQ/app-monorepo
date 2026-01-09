@@ -6,7 +6,7 @@
   "dependencies": {
     "@onekeyhq/components": "*",
     "@types/url-parse": "^1.4.8",
-    "date-fns": "^2.29.3",
+    "date-fns": "2.30.0",
     "expo-camera": "16.1.10",
     "fuse.js": "^7.0.0",
     "lightweight-charts": "^3.8.0",
@@ -25,11 +25,10 @@
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
   "devDependencies": {
-    "@react-navigation/devtools": "7.0.34",
     "@types/d3-scale": "^4.0.3",
     "@types/d3-shape": "^3.1.1",
     "@types/mime": "^3",
     "@types/socket.io-client": "^3.0.0",
-    "folderslint": "^1.2.0"
+    "folderslint": "1.2.0"
   }
 }

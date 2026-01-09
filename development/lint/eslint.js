@@ -2,7 +2,7 @@ const { execSync } = require('child_process');
 const { exit } = require('process');
 
 // Warning limit configuration
-const INITIAL_MAX_WARNINGS = 532;
+const INITIAL_MAX_WARNINGS = 526;
 const WEEKLY_REDUCTION = 30;
 const START_YEAR = 2026;
 
@@ -154,10 +154,7 @@ function handleProblems(result) {
       console.log('\nHope you can fix the ESLint problems before this merge.');
     }
 
-    if (
-      process.env.NODE_ENV === 'production' &&
-      (errorCount > 0 || warningOverflow > 0)
-    ) {
+    if (errorCount > 0 || warningOverflow > 0) {
       exit(1);
     }
   } else if (warningCount > 0) {

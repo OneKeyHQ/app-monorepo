@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -42,6 +43,10 @@ export function useSupabaseAuth() {
   const isReady = !ctx?.isLoading;
   const isLoggedIn = ctx?.isLoggedIn;
   const intl = useIntl();
+  const [devSettingsPersist] = useDevSettingsPersistAtom();
+  const enableKeylessDebugInfo =
+    !!devSettingsPersist.enabled &&
+    !!devSettingsPersist.settings?.enableKeylessDebugInfo;
 
   void supabaseUser?.id;
 
@@ -133,14 +138,16 @@ export function useSupabaseAuth() {
         http://127.0.0.1:62416/oauth_callback_desktop?code=xxxx&onekey_oauth_state=2fd6480e3004ad6aef7d6a72dc37455b
       */
 
-      // Dialog.debugMessage({
-      //   title: 'performOAuthSignIn',
-      //   debugMessage: {
-      //     provider,
-      //     redirectTo,
-      //     authUrl,
-      //   },
-      // });
+      if (enableKeylessDebugInfo) {
+        Dialog.debugMessage({
+          title: 'performOAuthSignIn',
+          debugMessage: {
+            provider,
+            redirectTo,
+            authUrl,
+          },
+        });
+      }
 
       // Open OAuth popup using platform-specific implementation
       return OAuthPopup.open({
@@ -151,7 +158,7 @@ export function useSupabaseAuth() {
         handleSessionPersistence: handleOAuthSessionPersistence,
       });
     },
-    [],
+    [enableKeylessDebugInfo],
   );
 
   const signInWithSocialLogin = useCallback(

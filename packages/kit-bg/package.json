@@ -13,6 +13,6 @@
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
   "devDependencies": {
-    "folderslint": "^1.2.0"
+    "folderslint": "1.2.0"
   }
 }

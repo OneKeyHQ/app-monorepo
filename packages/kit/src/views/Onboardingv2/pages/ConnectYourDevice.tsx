@@ -52,7 +52,6 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -463,7 +462,7 @@ function ConnectionIndicatorFooter({
   );
 }
 
-function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
+function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
   const [showHelper, setShowHelper] = useState(false);
   const intl = useIntl();
 

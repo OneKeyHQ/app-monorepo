@@ -470,6 +470,8 @@ export type IProtocolInfo = {
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;
+  // Max repay balance (debt balance) for repay max button
+  maxRepayBalance?: string;
 };
 
 export interface IEarnToken {
@@ -779,6 +781,7 @@ export interface IBorrowHealthFactorRiskDetail {
   text: IEarnText;
   data: {
     healthFactorDetail: {
+      index: string;
       value: string;
       lowerLimit: string;
       upperLimit: string;
@@ -913,6 +916,7 @@ export interface IEarnRepayActionData {
   text: IEarnText;
   data: {
     balance: string;
+    maxBalance?: string;
     token?: {
       info: IEarnToken;
       price: string;
@@ -1000,7 +1004,6 @@ export interface IEarnManagePageResponse {
   supply?: IEarnSupplyActionData;
   borrow?: IEarnBorrowActionData;
   repay?: IEarnRepayActionData;
-
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
   receive?: IEarnReceiveActionIcon;
