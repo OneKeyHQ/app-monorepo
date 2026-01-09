@@ -94,9 +94,11 @@ const isMas = process.mas;
 const isWin = process.platform === 'win32';
 const isLinux = process.platform === 'linux';
 const isSnapStore = isLinux && process.env.SNAP;
+const isFlatpakStore = isLinux && process.env.FLATPAK;
 const isWindowsMsStore = isWin && process.env.DESK_CHANNEL === 'ms-store';
 
-const isStoreVersion = isMas || isSnapStore || isWindowsMsStore;
+const isStoreVersion =
+  isMas || isSnapStore || isWindowsMsStore || isFlatpakStore;
 
 class DesktopApiAppUpdate {
   desktopApi: IDesktopApi;
