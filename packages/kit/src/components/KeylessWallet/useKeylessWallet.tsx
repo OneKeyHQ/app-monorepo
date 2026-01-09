@@ -529,13 +529,14 @@ export function useKeylessWallet() {
   );
 
   const handleKeylessOnboardingTimeout = useCallback(() => {
-    // TODO @franco 创建无私钥钱包超时提示（安全考虑，社交账户登录后 3 分钟内未完成创建，则提示超时，需重新登录）
     Dialog.show({
-      title: 'Keyless Wallet',
-      description:
-        'For security reasons, your keyless wallet creation session has expired. Please log in again with your social account to continue.',
+      title: intl.formatMessage({
+        id: ETranslations.create_keyless_wallet_session_expired,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.create_keyless_wallet_session_expired_desc,
+      }),
       showCancelButton: false,
-      // TODO return to OneKeyIDLoginPage
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_got_it,
       }),
@@ -545,11 +546,15 @@ export function useKeylessWallet() {
       },
       onClose: () => {
         keylessOnboardingCache.clear();
-        navigation.popStack();
       },
       onConfirm: () => {
         keylessOnboardingCache.clear();
-        navigation.popStack();
+        navigation.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.OneKeyIDLogin,
+          },
+        });
       },
     });
     throw new OneKeyLocalError('Keyless Wallet onboarding timed out');

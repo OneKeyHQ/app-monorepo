@@ -332,6 +332,8 @@
   create_a_new_pin = 'create_a_new_pin',
   create_a_pin = 'create_a_pin',
   create_a_pin_desc = 'create_a_pin_desc',
+  create_keyless_wallet_session_expired = 'create_keyless_wallet_session_expired',
+  create_keyless_wallet_session_expired_desc = 'create_keyless_wallet_session_expired_desc',
   create_new_wallet_badge_consists = 'create_new_wallet_badge_consists',
   create_new_wallet_badge_handwritten = 'create_new_wallet_badge_handwritten',
   create_new_wallet_badge_keep = 'create_new_wallet_badge_keep',
