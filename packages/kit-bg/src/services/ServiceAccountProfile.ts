@@ -339,6 +339,7 @@ class ServiceAccountProfile extends ServiceBase {
     skipValidateAddress,
     enableAddressDeriveInfo,
     walletAccountItem,
+    ignoreSimilarAddressInAddressBook,
   }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
@@ -397,27 +398,24 @@ class ServiceAccountProfile extends ServiceBase {
     }
     if (enableAddressBook && resolveAddress) {
       try {
-        const password =
-          await this.backgroundApi.servicePassword.getCachedPassword();
-        if (password) {
-          // handleAddressBookName
-          const addressBookItem =
-            await this.backgroundApi.serviceAddressBook.findItem({
+        // handleAddressBookName
+        const addressBookItem =
+          await this.backgroundApi.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
+            {
               networkId: !networkUtils.isEvmNetwork({ networkId })
                 ? networkId
                 : undefined,
               address: resolveAddress,
-              password,
-            });
-          result.addressBookId = addressBookItem?.id;
-          result.isAllowListed = addressBookItem?.isAllowListed;
-          result.addressNote = addressBookItem?.note;
-          result.addressMemo = addressBookItem?.memo;
-          if (addressBookItem?.name) {
-            result.addressBookName = `${appLocale.intl.formatMessage({
-              id: ETranslations.global_contact,
-            })} / ${addressBookItem?.name}`;
-          }
+            },
+          );
+        result.addressBookId = addressBookItem?.id;
+        result.isAllowListed = addressBookItem?.isAllowListed;
+        result.addressNote = addressBookItem?.note;
+        result.addressMemo = addressBookItem?.memo;
+        if (addressBookItem?.name) {
+          result.addressBookName = `${appLocale.intl.formatMessage({
+            id: ETranslations.global_contact,
+          })} / ${addressBookItem?.name}`;
         }
       } catch (e) {
         console.error(e);
@@ -545,6 +543,12 @@ class ServiceAccountProfile extends ServiceBase {
         ),
         result,
       });
+
+      if (result.similarAddress && ignoreSimilarAddressInAddressBook) {
+        if (result.addressBookId) {
+          result.similarAddress = undefined;
+        }
+      }
     }
 
     // Check if address is in allowlist

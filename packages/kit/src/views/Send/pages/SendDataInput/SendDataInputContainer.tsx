@@ -1871,6 +1871,7 @@ function SendDataInputContainer() {
               onInputTypeChange={handleAddressInputChangeType}
               onExtraDataChange={handleAddressInputExtraDataChange}
               hideNonBackedUpWallet
+              ignoreSimilarAddressInAddressBook
             />
             {toSimilarAddress ? (
               <Alert

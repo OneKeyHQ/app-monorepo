@@ -159,6 +159,7 @@ type IAddressInputProps = Omit<
   }) => void;
 
   hideNonBackedUpWallet?: boolean;
+  ignoreSimilarAddressInAddressBook?: boolean;
   onScanResult?: IScanPluginProps['onScanResult'];
 };
 
@@ -338,6 +339,7 @@ export function AddressInput(props: IAddressInputProps) {
     onExtraDataChange,
     disabled: disabledFromProps,
     onScanResult,
+    ignoreSimilarAddressInAddressBook,
     ...rest
   } = props;
   const intl = useIntl();
@@ -393,7 +395,7 @@ export function AddressInput(props: IAddressInputProps) {
         textRef.current = text;
         setInputText(text);
         onInputTypeChange?.(inputType);
-        onChange?.({ raw: text, pending: text.length > 0 });
+        onChange?.({ raw: text, pending: text?.length > 0 });
       }
     },
     [onChange, onInputTypeChange],
@@ -450,6 +452,7 @@ export function AddressInput(props: IAddressInputProps) {
       enableVerifySendFundToSelf,
       enableAddressContract,
       enableAllowListValidation,
+      ignoreSimilarAddressInAddressBook,
     });
   }, [
     inputText,
@@ -464,6 +467,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAllowListValidation,
     refreshNum,
     queryAddress,
+    ignoreSimilarAddressInAddressBook,
   ]);
 
   // When focus state changes, re-query address validation
@@ -486,6 +490,7 @@ export function AddressInput(props: IAddressInputProps) {
         enableVerifySendFundToSelf,
         enableAddressContract,
         enableAllowListValidation,
+        ignoreSimilarAddressInAddressBook,
       });
     }
     prevIsFocused.current = isFocused;
@@ -503,6 +508,7 @@ export function AddressInput(props: IAddressInputProps) {
     refreshNum,
     queryAddress,
     isFocused,
+    ignoreSimilarAddressInAddressBook,
   ]);
 
   const getValidateMessage = useCallback(
