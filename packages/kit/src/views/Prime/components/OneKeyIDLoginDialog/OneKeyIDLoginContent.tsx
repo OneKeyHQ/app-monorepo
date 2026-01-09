@@ -4,8 +4,8 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Form, Icon, Input, YStack, useForm } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
