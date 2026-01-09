@@ -4,7 +4,6 @@ import { StackActions, useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
 
 import { Page, Spinner, Stack } from '@onekeyhq/components';
-import type { IEncodedTxStellar } from '@onekeyhq/core/src/chains/stellar/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';

@@ -21,6 +21,7 @@ module.exports = [
   'shamir',
   '0xxxxxxx',
   'Provideri',
+  'dialogs',
   'franco',
   'assethub',
   'polkadot',
@@ -1050,4 +1051,8 @@ module.exports = [
   'myonekey',
   'alltime',
   'Metaplex',
+  'Reponder',
+  'promode',
+  'moblie',
+  'Overscroll',
 ];

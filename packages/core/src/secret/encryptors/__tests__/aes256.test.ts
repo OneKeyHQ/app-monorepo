@@ -1,3 +1,5 @@
+import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
+
 import {
   decryptAsync,
   decryptStringAsync,
@@ -57,6 +59,104 @@ describe('aes256', () => {
       });
       expect(encrypted1.toString('hex')).not.toBe(encrypted2.toString('hex'));
     });
+
+    it('should encrypt and decrypt data correctly using AES-GCM mode', async () => {
+      const aad = 'aes256-test-gcm-aad-v1';
+      const encrypted = await encryptAsync({
+        password: testPassword,
+        data: testBuffer,
+        allowRawPassword: true,
+        mode: EAppCryptoAesEncryptionMode.gcm,
+        aad,
+      });
+      const decrypted = await decryptAsync({
+        password: testPassword,
+        data: encrypted,
+        ignoreLogger: false,
+        allowRawPassword: true,
+        mode: EAppCryptoAesEncryptionMode.gcm,
+        aad,
+      });
+      expect(decrypted.toString()).toBe(testData);
+    });
+
+    it('should auto-detect AES-GCM payload when mode is not provided', async () => {
+      const aad = 'aes256-test-gcm-aad-v1';
+      const encrypted = await encryptAsync({
+        password: testPassword,
+        data: testBuffer,
+        allowRawPassword: true,
+        mode: EAppCryptoAesEncryptionMode.gcm,
+        aad,
+      });
+      const decrypted = await decryptAsync({
+        password: testPassword,
+        data: encrypted,
+        ignoreLogger: false,
+        allowRawPassword: true,
+        aad,
+      });
+      expect(decrypted.toString()).toBe(testData);
+    });
+
+    it('should fail to decrypt AES-GCM data when AAD is missing', async () => {
+      const encrypted = await encryptAsync({
+        password: testPassword,
+        data: testBuffer,
+        allowRawPassword: true,
+        mode: EAppCryptoAesEncryptionMode.gcm,
+        aad: 'aes256-test-gcm-aad-v1',
+      });
+      await expect(
+        decryptAsync({
+          password: testPassword,
+          data: encrypted,
+          ignoreLogger: false,
+          allowRawPassword: true,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should fail to decrypt AES-GCM data when AAD is incorrect', async () => {
+      const encrypted = await encryptAsync({
+        password: testPassword,
+        data: testBuffer,
+        allowRawPassword: true,
+        mode: EAppCryptoAesEncryptionMode.gcm,
+        aad: 'aes256-test-gcm-aad-v1',
+      });
+      await expect(
+        decryptAsync({
+          password: testPassword,
+          data: encrypted,
+          ignoreLogger: false,
+          allowRawPassword: true,
+          aad: 'aes256-test-gcm-aad-v2',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should fail to decrypt when AES-GCM ciphertext is tampered', async () => {
+      const encrypted = await encryptAsync({
+        password: testPassword,
+        data: testBuffer,
+        allowRawPassword: true,
+        mode: EAppCryptoAesEncryptionMode.gcm,
+        aad: 'aes256-test-gcm-aad-v1',
+      });
+      const tampered = Buffer.from(encrypted);
+      // Mutate ciphertext to ensure auth verification fails, without using bitwise assignment.
+      tampered[tampered.length - 1] = (tampered[tampered.length - 1] + 1) % 256;
+      await expect(
+        decryptAsync({
+          password: testPassword,
+          data: tampered,
+          ignoreLogger: false,
+          allowRawPassword: true,
+          aad: 'aes256-test-gcm-aad-v1',
+        }),
+      ).rejects.toThrow();
+    });
   });
 
   describe('encryptString/decryptString', () => {
@@ -67,7 +167,6 @@ describe('aes256', () => {
         dataEncoding: 'utf8',
         allowRawPassword: true,
       });
-      console.log('encrypted', encrypted);
       const decrypted = await decryptStringAsync({
         password: testPassword,
         data: encrypted,
@@ -111,6 +210,28 @@ describe('aes256', () => {
         allowRawPassword: true,
       });
       expect(Buffer.from(decrypted, 'hex').toString()).toBe(testData);
+    });
+
+    it('should encrypt and decrypt strings correctly using AES-GCM mode', async () => {
+      const aad = 'aes256-test-gcm-aad-v1';
+      const encrypted = await encryptStringAsync({
+        password: testPassword,
+        data: testData,
+        dataEncoding: 'utf8',
+        allowRawPassword: true,
+        mode: EAppCryptoAesEncryptionMode.gcm,
+        aad,
+      });
+      const decrypted = await decryptStringAsync({
+        password: testPassword,
+        data: encrypted,
+        dataEncoding: 'hex',
+        resultEncoding: 'utf8',
+        allowRawPassword: true,
+        mode: EAppCryptoAesEncryptionMode.gcm,
+        aad,
+      });
+      expect(decrypted).toBe(testData);
     });
   });
 

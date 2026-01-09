@@ -28,8 +28,14 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
   const isFocused = useIsFocused();
   const { markets, isLoading: marketsLoading } = useBorrowMarkets();
   const market = useMemo(() => markets?.[0], [markets]);
-  const { reserves, setMarket, setReserves, setReservesLoading } =
-    useBorrowContext();
+  const {
+    reserves,
+    setMarket,
+    setReserves,
+    setReservesLoading,
+    setPendingTxs,
+    refreshPendingRef,
+  } = useBorrowContext();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { earnAccount } = useEarnAccount({
     networkId: market?.networkId,
@@ -86,7 +92,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     {
       watchLoading: true,
       checkIsFocused: true,
-      undefinedResultIfReRun: false,
+      undefinedResultIfReRun: true,
       undefinedResultIfError: true,
       pollingInterval: BORROW_POLLING_INTERVAL,
       revalidateOnFocus: true,
@@ -160,7 +166,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     }
   }, [dataStatus, fetchKey, reservesResult, setReserves, setReservesLoading]);
 
-  const { isPending } = useBorrowTxUpdate({
+  const { pendingTxs, refreshPending } = useBorrowTxUpdate({
     accountId,
     networkId: marketNetworkId,
     provider: marketProvider,
@@ -169,6 +175,16 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
       void refreshReserves();
     },
   });
+
+  // Sync pending transactions to context
+  useEffect(() => {
+    setPendingTxs(pendingTxs);
+  }, [pendingTxs, setPendingTxs]);
+
+  // Store refreshPending function in ref for external access
+  useEffect(() => {
+    refreshPendingRef.current = refreshPending;
+  }, [refreshPending, refreshPendingRef]);
 
   return <>{children}</>;
 };

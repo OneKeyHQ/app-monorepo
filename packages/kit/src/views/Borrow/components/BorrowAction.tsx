@@ -43,6 +43,7 @@ const BorrowActionCmp = ({
   }, [action, handleAction]);
 
   if (!action) return null;
+  if (action.disabled) return null;
 
   const disabled = loading || action.disabled;
 

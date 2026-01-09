@@ -34,10 +34,7 @@ import type {
   ICloudSyncRawDataJson,
   ICloudSyncServerItemByDownloaded,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
-import type {
-  IPrimeDeviceInfo,
-  IPrimeServerUserInfo,
-} from '@onekeyhq/shared/types/prime/primeTypes';
+import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 type ITabType = 'local' | 'server';
 

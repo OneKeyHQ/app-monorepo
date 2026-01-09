@@ -35,7 +35,9 @@ const QUICK_ADD_TOKENS: IQuickAddToken[] = [
 export function FavoritesEmptyState({ isMobile }: { isMobile?: boolean }) {
   const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
-  const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
+  const [selectedTokens, setSelectedTokens] = useState<Set<string>>(
+    new Set(QUICK_ADD_TOKENS.map((token) => token.coinName)),
+  );
   const intl = useIntl();
   const handleToggleToken = useCallback((coinName: string) => {
     setSelectedTokens((prev) => {
@@ -83,9 +85,7 @@ export function FavoritesEmptyState({ isMobile }: { isMobile?: boolean }) {
           return (
             <XStack
               key={token.coinName}
-              flex={1}
-              minWidth="48%"
-              maxWidth="48%"
+              width="48%"
               px="$4"
               py="$3"
               bg="$bg"

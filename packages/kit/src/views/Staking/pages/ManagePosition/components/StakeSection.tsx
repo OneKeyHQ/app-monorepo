@@ -29,6 +29,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { UniversalStake } from '../../../components/UniversalStake';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
+import { buildBorrowTag } from '../../../utils/utils';
 
 export const StakeSection = ({
   accountId,
@@ -287,6 +288,16 @@ export const StakeSection = ({
       const { provider, marketAddress, reserveAddress, action } =
         borrowApiCtx.borrowApiParams;
 
+      // Build tags array with both new borrow tag and legacy stakeTag for backward compatibility
+      const tags: string[] = [];
+      if (action === 'supply' || action === 'borrow') {
+        tags.push(buildBorrowTag({ provider, action }));
+      }
+      // Keep legacy stakeTag for backward compatibility
+      if (protocolInfo?.stakeTag) {
+        tags.push(protocolInfo.stakeTag);
+      }
+
       await (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
         amount,
         provider,
@@ -303,7 +314,7 @@ export const StakeSection = ({
               ...(action === 'borrow'
                 ? { receive: { token, amount } }
                 : { send: { token, amount } }),
-              tags: [protocolInfo?.stakeTag || ''],
+              tags,
             }
           : undefined,
         onSuccess: async () => {

@@ -104,7 +104,6 @@ export type IKeylessWalletRestoredData = {
 };
 
 export type IKeylessBackendShare = {
-  ownerId: string;
   encryptedMnemonic: string;
   backendShare: string;
   // pinSalt: string; // TODO

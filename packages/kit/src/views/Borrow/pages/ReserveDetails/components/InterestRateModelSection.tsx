@@ -1,6 +1,5 @@
 import { useIntl } from 'react-intl';
 
-import { YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -44,14 +43,12 @@ export function InterestRateModelSection({
     <DetailsSectionContainer
       title={intl.formatMessage({ id: ETranslations.defi_interest_rate_model })}
     >
-      <YStack pt="$4">
-        <InterestRateModelChart
-          borrowCurve={curveData?.borrowCurve ?? []}
-          supplyCurve={curveData?.supplyCurve ?? []}
-          utilizationRatio={utilizationRatio}
-          isLoading={isLoading}
-        />
-      </YStack>
+      <InterestRateModelChart
+        borrowCurve={curveData?.borrowCurve ?? []}
+        supplyCurve={curveData?.supplyCurve ?? []}
+        utilizationRatio={utilizationRatio}
+        isLoading={isLoading}
+      />
     </DetailsSectionContainer>
   );
 }

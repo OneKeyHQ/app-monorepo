@@ -6,7 +6,10 @@ import {
   OAUTH_POPUP_WIDTH,
   ONEKEY_OAUTH_STATE_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OAuthLoginCancelError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 
 import { OAuthPopupBase } from './OAuthPopupBase';
 
@@ -163,12 +166,7 @@ export class OAuthPopup extends OAuthPopupBase {
                   popup,
                 );
               } else {
-                rejectOnce(
-                  new OneKeyLocalError(
-                    'OAuth authentication failed: no session found after popup closed',
-                  ),
-                  popup,
-                );
+                rejectOnce(new OAuthLoginCancelError(), popup);
               }
               return;
             }

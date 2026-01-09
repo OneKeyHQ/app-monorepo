@@ -25,7 +25,7 @@ import {
   type EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IBorrowHistory } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -34,15 +34,17 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../Staking/components/PageFrame';
+import { capitalizeString } from '../../Staking/utils/utils';
 
 type IHistoryItemProps = {
   item: IBorrowHistory['list'][number] & {
     token: IBorrowHistory['tokens'][number];
     network: IBorrowHistory['networks'][number];
   };
+  provider?: string;
 };
 
-const HistoryItem = ({ item }: IHistoryItemProps) => {
+const HistoryItem = ({ item, provider }: IHistoryItemProps) => {
   const navigation = useAppNavigation();
   const route = useAppRoute<
     IModalStakingParamList,
@@ -60,6 +62,22 @@ const HistoryItem = ({ item }: IHistoryItemProps) => {
     });
   }, [accountId, item, navigation]);
 
+  const subtitle = useMemo(() => {
+    const time = item.timestamp
+      ? formatTime(new Date(item.timestamp), {
+          hideSeconds: true,
+          hideMilliseconds: true,
+        })
+      : '';
+    if (provider && time) {
+      return `${time} · ${capitalizeString(provider)}`;
+    }
+    if (time) {
+      return time;
+    }
+    return undefined;
+  }, [item.timestamp, provider]);
+
   return (
     <ListItem
       avatarProps={{
@@ -70,7 +88,7 @@ const HistoryItem = ({ item }: IHistoryItemProps) => {
           : undefined,
       }}
       title={item.title}
-      subtitle={item.token.info.symbol}
+      subtitle={subtitle}
       onPress={onPress}
     >
       <YStack>
@@ -108,6 +126,7 @@ type IHistoryContentProps = {
   filterType?: string;
   onFilterTypeChange: (type: string) => void;
   hideFilter?: boolean;
+  provider?: string;
 };
 
 const keyExtractor = (
@@ -126,6 +145,7 @@ const HistoryContent = ({
   filterType,
   onFilterTypeChange,
   hideFilter,
+  provider,
 }: IHistoryContentProps) => {
   const renderItem = useCallback(
     ({
@@ -135,8 +155,8 @@ const HistoryContent = ({
         token: IBorrowHistory['tokens'][number];
         network: IBorrowHistory['networks'][number];
       };
-    }) => <HistoryItem item={item} />,
-    [],
+    }) => <HistoryItem item={item} provider={provider} />,
+    [provider],
   );
 
   const renderSectionHeader = useCallback(
@@ -306,6 +326,7 @@ function BorrowHistoryList() {
               filterType={filterType}
               onFilterTypeChange={setFilterType}
               hideFilter={!!type}
+              provider={provider}
             />
           ) : null}
         </PageFrame>

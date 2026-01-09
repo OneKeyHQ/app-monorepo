@@ -13,6 +13,8 @@ import { BorrowAPYField } from './BorrowAPYField';
 import { BorrowListSkeleton } from './BorrowListSkeleton';
 import { FieldWrapper } from './FieldWrapper';
 
+import type { ISwapConfig } from './ActionField';
+
 type IBorrowTableListProps<T> = {
   columns: ITableColumn<T>[];
   data: T[];
@@ -61,3 +63,5 @@ export {
   BorrowAPYField,
   FieldWrapper,
 };
+
+export type { ISwapConfig };

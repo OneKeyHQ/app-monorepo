@@ -32,7 +32,7 @@ export const SupplyCard = () => {
   const navigation = useAppNavigation();
   const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd, gtLg } = useMedia();
-  const [showZeroBalance, setShowZeroBalance] = useState(false);
+  const [showZeroBalance, setShowZeroBalance] = useState(true);
   const accountId = earnAccount?.account?.id || '';
   const walletId = earnAccount?.walletId || '';
   const indexedAccountId = earnAccount?.account?.indexedAccountId;
@@ -82,15 +82,18 @@ export const SupplyCard = () => {
 
   const showLoading = !reserves && reservesLoading;
 
-  // Filter data based on showZeroBalance
+  // Filter data based on showZeroBalance (mobile always shows all assets)
   const filteredAssets = useMemo(() => {
     if (!reserves?.supply?.assets) return [];
+    // Mobile: always show all assets
+    if (!gtMd) return reserves.supply.assets;
+    // Desktop: filter based on showZeroBalance toggle
     if (showZeroBalance) return reserves.supply.assets;
     return reserves.supply.assets.filter((asset) => {
       const balance = new BigNumber(asset?.walletBalance?.title?.text || '0');
       return balance.gt(0);
     });
-  }, [reserves?.supply?.assets, showZeroBalance]);
+  }, [reserves?.supply?.assets, showZeroBalance, gtMd]);
 
   const labels = useMemo(
     () => ({
@@ -214,10 +217,7 @@ export const SupplyCard = () => {
   );
 
   return (
-    <Card
-      title={labels.assetsToSupply}
-      renderFilter={filteredAssets.length > 0 ? filterUI : null}
-    >
+    <Card title={labels.assetsToSupply} renderFilter={gtMd ? filterUI : null}>
       <BorrowTableList<ISupplyAsset>
         data={filteredAssets}
         isLoading={showLoading}

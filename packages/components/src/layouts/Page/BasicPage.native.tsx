@@ -74,24 +74,52 @@ function PageStatusBar() {
   return <StatusBar animated barStyle="dark-content" />;
 }
 
+function AbsoluteContainer({ children }: PropsWithChildren) {
+  return (
+    <Stack
+      bg="$bgApp"
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      bottom={0}
+      opacity={1}
+      flex={1}
+      animation="quick"
+      exitStyle={{
+        opacity: 0,
+      }}
+    >
+      {children}
+    </Stack>
+  );
+}
+
 function LoadingScreen({
   children,
   fullPage,
 }: PropsWithChildren<{ fullPage: boolean }>) {
   const [showLoading, changeLoadingVisibleStatus] = useState(true);
   const [showChildren, changeChildrenVisibleStatus] = useState(false);
+  const isModalPage = useIsModalPage();
+  const isiOSModalPage = platformEnv.isNativeIOS && isModalPage;
 
   useEffect(() => {
     setTimeout(
       () => {
         changeChildrenVisibleStatus(true);
-        setTimeout(() => {
-          changeLoadingVisibleStatus(false);
-        }, 250);
+        setTimeout(
+          () => {
+            requestIdleCallback(() => {
+              changeLoadingVisibleStatus(false);
+            });
+          },
+          isiOSModalPage ? 380 : 150,
+        );
       },
-      platformEnv.isNativeAndroid ? 80 : 0,
+      platformEnv.isNativeAndroid ? 10 : 0,
     );
-  }, []);
+  }, [isiOSModalPage]);
 
   const minHeight = useMinHeight(fullPage);
   return (
@@ -99,27 +127,44 @@ function LoadingScreen({
       {showChildren ? children : null}
       <AnimatePresence>
         {showLoading ? (
-          <Stack
-            bg="$bgApp"
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            opacity={1}
-            flex={1}
-            animation="quick"
-            exitStyle={{
-              opacity: 0,
-            }}
-          >
+          <AbsoluteContainer>
             <Loading />
-          </Stack>
+          </AbsoluteContainer>
         ) : null}
       </AnimatePresence>
     </View>
   );
 }
+
+const AbsoluteLoadingContainer = platformEnv.isNativeIOS
+  ? ({ children }: PropsWithChildren) => {
+      const [showLoading, changeLoadingVisibleStatus] = useState(true);
+      const [showChildren, changeChildrenVisibleStatus] = useState(false);
+      const isModalPage = useIsModalPage();
+      useEffect(() => {
+        if (!isModalPage) {
+          return;
+        }
+        setTimeout(() => {
+          changeChildrenVisibleStatus(true);
+          setTimeout(() => {
+            requestIdleCallback(() => {
+              changeLoadingVisibleStatus(false);
+            });
+          }, 380);
+        }, 1);
+      }, [isModalPage]);
+
+      return isModalPage ? (
+        <>
+          {showChildren ? children : null}
+          {showLoading ? <AbsoluteContainer /> : null}
+        </>
+      ) : (
+        children
+      );
+    }
+  : ({ children }: PropsWithChildren) => children;
 
 export function BasicPage({
   children,
@@ -135,7 +180,7 @@ export function BasicPage({
         {lazyLoad ? (
           <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
         ) : (
-          children
+          <AbsoluteLoadingContainer>{children}</AbsoluteLoadingContainer>
         )}
       </Stack>
     );

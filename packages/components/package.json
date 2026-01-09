@@ -4,12 +4,11 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
-    "@react-navigation/bottom-tabs": "7.4.2",
-    "@react-navigation/drawer": "7.5.3",
-    "@react-navigation/elements": "2.5.2",
-    "@react-navigation/native": "7.1.14",
-    "@react-navigation/native-stack": "7.3.21",
-    "@react-navigation/stack": "7.4.2",
+    "@react-navigation/bottom-tabs": "7.9.0",
+    "@react-navigation/elements": "2.9.3",
+    "@react-navigation/native": "7.1.26",
+    "@react-navigation/native-stack": "7.9.0",
+    "@react-navigation/stack": "7.6.13",
     "ethereum-blockies-base64": "^1.0.2",
     "iso-639-1": "^2.1.13",
     "lodash": "^4.17.21",
@@ -19,14 +18,14 @@
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "7.0.2",
     "react-native-root-siblings": "^5.0.1",
-    "react-native-svg": "15.12.1",
+    "react-native-svg": "15.15.1",
     "react-native-tab-view": "^3.5.1"
   },
   "devDependencies": {
     "@svgr/cli": "8.1.0",
     "@types/qrcode": "^1.4.2",
-    "folderslint": "^1.2.0",
-    "rimraf": "^3"
+    "folderslint": "1.2.0",
+    "rimraf": "3.0.2"
   },
   "scripts": {
     "icon:build": "rimraf src/primitives/Icon/react && svgr --config-file .svgrrc.json -d src/primitives/Icon/react svg && node src/primitives/Icon/script.js",

@@ -381,6 +381,7 @@ export function UniversalBorrowSupply({
               title={intl.formatMessage({
                 id: ETranslations.defi_health_factor,
               })}
+              variant="highlight"
             >
               <YStack ai="flex-end">
                 <XStack ai="center" gap="$1">
@@ -424,6 +425,7 @@ export function UniversalBorrowSupply({
               title={intl.formatMessage({
                 id: ETranslations.defi_my_supply,
               })}
+              variant="highlight"
             >
               <YStack ai="flex-end">
                 <EarnText
