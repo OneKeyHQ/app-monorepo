@@ -50,10 +50,6 @@ function VerifyPinPage() {
   const [isLoading, setIsLoading] = useState(false);
   const pinInputRef = useRef<IPinInputLayoutRef | null>(null);
 
-  const _isVerifyPinOnly =
-    mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
-  const isSocialLogin = true;
-
   const [pin, setPin] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [attemptsRemaining, setAttemptsRemaining] = useState(MAX_ATTEMPTS);
@@ -61,24 +57,26 @@ function VerifyPinPage() {
   const [showAttemptError, setShowAttemptError] = useState(false);
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isInputDisabled = isSocialLogin && cooldownSeconds > 0;
+  const isInputDisabled = cooldownSeconds > 0;
+  const isVerifyPinOnly =
+    mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
 
   const { title, description } = useMemo(() => {
-    if (isSocialLogin) {
+    if (isVerifyPinOnly) {
       return {
-        title: intl.formatMessage({ id: ETranslations.enter_your_pin }),
+        title: intl.formatMessage({ id: ETranslations.remember_your_pin }),
         description: intl.formatMessage({
-          id: ETranslations.enter_your_pin_desc,
+          id: ETranslations.remember_your_pin_desc,
         }),
       };
     }
     return {
-      title: intl.formatMessage({ id: ETranslations.remember_your_pin }),
+      title: intl.formatMessage({ id: ETranslations.enter_your_pin }),
       description: intl.formatMessage({
-        id: ETranslations.remember_your_pin_desc,
+        id: ETranslations.enter_your_pin_desc,
       }),
     };
-  }, [isSocialLogin, intl]);
+  }, [isVerifyPinOnly, intl]);
 
   // Clear cooldown timer on unmount
   useEffect(() => {
@@ -195,73 +193,15 @@ function VerifyPinPage() {
     startCooldown,
   ]);
 
-  const _handleVerifyLegacy = useCallback(() => {
-    // TODO: Verify against actual stored PIN on server
-    const isCorrect = false; // Mock: always fail for testing
-
-    if (isCorrect) {
-      if (isSocialLogin) {
-        navigation.push(EOnboardingPagesV2.CreatePasscode);
-      } else {
-        // For periodic verification, just go back
-        navigation.pop();
-      }
-    } else {
-      setPin('');
-      // Focus the input after clearing PIN
-      setTimeout(
-        () => {
-          if (pinInputRef.current) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-            pinInputRef.current.focus();
-          }
-        },
-        platformEnv.isNative ? 100 : 50,
-      );
-
-      if (isSocialLogin) {
-        // Social login: apply retry mechanism with cooldown
-        const newAttemptsRemaining = attemptsRemaining - 1;
-        const attemptNumber = MAX_ATTEMPTS - newAttemptsRemaining;
-
-        setAttemptsRemaining(newAttemptsRemaining);
-        setShowAttemptError(true);
-
-        if (newAttemptsRemaining <= 0) {
-          // Max attempts reached - redirect to reset PIN page
-          navigation.replace(EOnboardingPagesV2.ResetPin);
-        } else {
-          // Get cooldown time for this attempt
-          const cooldownTime = COOLDOWN_BY_ATTEMPT[attemptNumber] || 0;
-          if (cooldownTime > 0) {
-            startCooldown(cooldownTime);
-          }
-        }
-      } else {
-        // Periodic verification: simple error message, no retry mechanism
-        setErrorMessage(
-          intl.formatMessage({ id: ETranslations.incorrect_pin }),
-        );
-      }
-    }
-  }, [
-    attemptsRemaining,
-    intl,
-    isSocialLogin,
-    navigation,
-    pinInputRef,
-    startCooldown,
-  ]);
-
   const handleForgotPin = useCallback(() => {
-    if (isSocialLogin) {
-      navigation.push(EOnboardingPagesV2.ResetPin);
-    } else {
+    if (isVerifyPinOnly) {
       navigation.push(EOnboardingPagesV2.CreatePin, {
         action: EKeylessFinalizeAction.ResetPin,
       });
+    } else {
+      navigation.push(EOnboardingPagesV2.ResetPin);
     }
-  }, [isSocialLogin, navigation]);
+  }, [navigation, isVerifyPinOnly]);
 
   // Build error message based on state
   const displayErrorMessage = (() => {
@@ -269,7 +209,6 @@ function VerifyPinPage() {
       return errorMessage;
     }
     if (
-      isSocialLogin &&
       showAttemptError &&
       attemptsRemaining < MAX_ATTEMPTS &&
       attemptsRemaining > 0
@@ -304,7 +243,7 @@ function VerifyPinPage() {
       description={description}
       buttonText={intl.formatMessage({ id: ETranslations.global_continue })}
       secondaryButtonText={
-        isSocialLogin
+        isVerifyPinOnly
           ? intl.formatMessage({ id: ETranslations.forgot_pin })
           : intl.formatMessage({ id: ETranslations.reset_pin })
       }

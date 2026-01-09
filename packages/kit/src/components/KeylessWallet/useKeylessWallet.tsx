@@ -36,11 +36,15 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../states/jotai/contexts/accountSelector';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
@@ -689,10 +693,6 @@ export function useKeylessWallet() {
     [navigation, checkKeylessWalletCreatedOnServer],
   );
 
-  // const verifyPinChecking = useCallback(async () => {
-  //   // TODO verify pin checking
-  // }, [handleKeylessOnboardingTimeout]);
-
   // Renamed function, checks if KeylessWallet exists locally
   const checkKeylessWalletLocalExistence = useCallback(
     async ({
@@ -942,4 +942,58 @@ export function useKeylessWallet() {
     cacheKeylessOnboardingCustomMnemonic,
     getKeylessOnboardingCustomMnemonic,
   };
+}
+
+export function useVerifyKeylessPinChecking() {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
+  const intl = useIntl();
+  const verifyKeylessPinChecking = useCallback(async () => {
+    // 必须是无私钥钱包
+    // 1 分钟只检测一次
+    if (activeAccount.wallet?.isKeyless) {
+      const ownerId = activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId;
+      if (!ownerId) {
+        return;
+      }
+      const accessToken =
+        await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
+          { ownerId },
+        );
+      let shouldVerifyPin = false;
+      if (accessToken) {
+        const { shouldRemind } =
+          await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus({
+            token: accessToken,
+          });
+        shouldVerifyPin = shouldRemind;
+      } else {
+        shouldVerifyPin = true;
+      }
+      if (shouldVerifyPin) {
+        Dialog.show({
+          disableDrag: true,
+          dismissOnOverlayPress: false,
+          // TODO i18n @franco
+          title: 'PIN Verification Required',
+          description: 'Please verify your PIN to continue',
+          showCancelButton: false,
+          onConfirmText: 'Verify PIN',
+          onConfirm: async () => {
+            await backgroundApiProxy.servicePassword.promptPasswordVerify({
+              reason: EReasonForNeedPassword.Security,
+            });
+            void goToOneKeyIDLoginPageForKeylessWallet({
+              mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
+            });
+          },
+        });
+      }
+    }
+  }, [
+    activeAccount.wallet?.isKeyless,
+    activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId,
+    goToOneKeyIDLoginPageForKeylessWallet,
+  ]);
+  return { verifyKeylessPinChecking };
 }

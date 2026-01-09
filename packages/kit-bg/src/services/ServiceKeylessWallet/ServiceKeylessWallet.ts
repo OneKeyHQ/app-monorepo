@@ -1474,18 +1474,19 @@ class ServiceKeylessWallet extends ServiceBase {
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
     });
 
-    // Save refresh token to secure storage
+    // Save tokens to secure storage (refreshToken with passcode, token without)
     if (
       refreshToken &&
       mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
     ) {
-      await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
+      await keylessRefreshTokenStorage.saveTokensToStorage({
         ownerId,
         refreshToken,
         token,
         backgroundApi: this.backgroundApi,
       });
     }
+    void this.apiUpdatePinConfirmStatus({ token });
   }
 
   @backgroundMethod()
@@ -1597,15 +1598,18 @@ class ServiceKeylessWallet extends ServiceBase {
       ownerId,
     });
 
-    // Save refresh token to secure storage
+    // Save tokens to secure storage (refreshToken with passcode, token without)
     if (refreshToken) {
-      await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
+      await keylessRefreshTokenStorage.saveTokensToStorage({
         ownerId,
         refreshToken,
         token,
         backgroundApi: this.backgroundApi,
       });
     }
+
+    // TODO reset pin confirm status
+    void this.apiUpdatePinConfirmStatus({ token });
 
     return { success: true };
   }
@@ -1678,15 +1682,17 @@ class ServiceKeylessWallet extends ServiceBase {
       backgroundApi: this.backgroundApi,
     });
 
-    // Save refresh token to secure storage
+    // Save tokens to secure storage (refreshToken with passcode, token without)
     if (refreshToken) {
-      await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
+      await keylessRefreshTokenStorage.saveTokensToStorage({
         ownerId,
         refreshToken,
         token,
         backgroundApi: this.backgroundApi,
       });
     }
+
+    void this.apiUpdatePinConfirmStatus({ token });
 
     const keylessProvider = this.buildKeylessProviderFromSocialToken({ token });
 
@@ -1796,9 +1802,9 @@ class ServiceKeylessWallet extends ServiceBase {
           juiceboxShareX, // Store the other share's x-coordinate for recovery
         });
 
-      // Save refresh token to secure storage
+      // Save tokens to secure storage (refreshToken with passcode, token without)
       if (refreshToken) {
-        await keylessRefreshTokenStorage.saveRefreshTokenToStorage({
+        await keylessRefreshTokenStorage.saveTokensToStorage({
           ownerId,
           refreshToken,
           token,
@@ -1806,9 +1812,12 @@ class ServiceKeylessWallet extends ServiceBase {
         });
       }
 
-      const keylessProvider = this.buildKeylessProviderFromSocialToken({
-        token,
-      });
+      void this.apiUpdatePinConfirmStatus({ token });
+
+      const keylessProvider: EOAuthSocialLoginProvider =
+        this.buildKeylessProviderFromSocialToken({
+          token,
+        });
 
       return {
         ownerId,
@@ -1842,9 +1851,28 @@ class ServiceKeylessWallet extends ServiceBase {
     return isCreated;
   }
 
+  @backgroundMethod()
+  @toastIfError()
+  async getKeylessCachedAccessToken(params: {
+    ownerId: string;
+  }): Promise<string | null> {
+    const { ownerId } = params;
+    if (!ownerId) {
+      throw new OneKeyLocalError('ownerId is required');
+    }
+    // Token is stored without passcode encryption, so it can be retrieved directly
+    const token = await keylessRefreshTokenStorage.getTokenFromStorage({
+      ownerId,
+      backgroundApi: this.backgroundApi,
+    });
+
+    return token;
+  }
+
   /**
    * Try to refresh access token using stored refreshToken.
    * Returns new accessToken and refreshToken if refresh is successful, null otherwise.
+   * Note: This requires passcode verification as refreshToken is encrypted with passcode.
    */
   @backgroundMethod()
   @toastIfError()
@@ -1857,9 +1885,9 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('ownerId is required');
     }
     try {
-      // 3. Get refreshToken from secure storage
+      // Get refreshToken from secure storage (requires passcode)
       const storedTokens =
-        await keylessRefreshTokenStorage.getRefreshTokenFromStorage({
+        await keylessRefreshTokenStorage.getTokensFromStorage({
           ownerId,
           backgroundApi: this.backgroundApi,
         });
@@ -1868,7 +1896,7 @@ class ServiceKeylessWallet extends ServiceBase {
         return null;
       }
 
-      // 4. Call Supabase HTTP API to refresh token
+      // Call Supabase HTTP API to refresh token
       const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
       const response = await fetch(refreshUrl, {
         method: 'POST',
@@ -1912,7 +1940,7 @@ class ServiceKeylessWallet extends ServiceBase {
     const { token } = params;
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
-    const res = await client.post<IApiClientResponse<void>>(
+    const res = await client.post<IApiClientResponse<{ ok: boolean }>>(
       '/prime/v1/keyless-wallet/updatePinConfirmStatus',
       {
         token,
@@ -1929,25 +1957,26 @@ class ServiceKeylessWallet extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async apiGetPinConfirmStatus(params: { token: string }): Promise<{
-    confirmed: boolean;
+    shouldRemind: boolean;
   }> {
     const { token } = params;
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
     const res = await client.post<
       IApiClientResponse<{
-        confirmed: boolean;
+        need_remind: boolean;
+        remind_time: number;
       }>
     >('/prime/v1/keyless-wallet/getPinConfirmStatus', {
       token,
     });
 
     const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
-    const data = res?.data?.data;
+    const shouldRemind = res?.data?.data?.need_remind;
 
-    if (isSuccess && data) {
+    if (isSuccess) {
       return {
-        confirmed: data.confirmed ?? false,
+        shouldRemind: !!shouldRemind,
       };
     }
 

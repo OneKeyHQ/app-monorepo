@@ -3,7 +3,10 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { buildKeylessLocalEncryptionKey } from './keylessLocalEncryptionKey';
+import {
+  buildKeylessLocalEncryptionKey,
+  buildKeylessLocalEncryptionKeyWithoutPasscode,
+} from './keylessLocalEncryptionKey';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 
@@ -37,17 +40,15 @@ async function storageRemoveItem(key: string): Promise<void> {
 }
 
 /**
- * Save refreshToken and token to local storage with passcode encryption.
- * The refreshToken and token are encrypted using the user's passcode via buildKeylessLocalEncryptionKey.
- * This is used for refreshing access tokens.
+ * Save refreshToken to local storage with passcode encryption.
+ * RefreshToken is encrypted using the user's passcode via buildKeylessLocalEncryptionKey.
  */
 async function saveRefreshTokenToStorage(params: {
   ownerId: string;
   refreshToken: string;
-  token: string;
   backgroundApi: IBackgroundApi;
 }): Promise<void> {
-  const { ownerId, refreshToken, token, backgroundApi } = params;
+  const { ownerId, refreshToken, backgroundApi } = params;
 
   // 1. Build unique key for this ownerId
   const key = accountUtils.buildKeylessRefreshTokenKey({ ownerId });
@@ -56,13 +57,10 @@ async function saveRefreshTokenToStorage(params: {
   // buildKeylessLocalEncryptionKey will prompt for passcode and combine it with sensitiveEncodeKey
   const encryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
 
-  // Store both token and refreshToken as JSON
-  const tokenData = JSON.stringify({ token, refreshToken });
-
   const encryptedPayloadHex = await backgroundApi.servicePassword.encryptString(
     {
       password: encryptionKey,
-      data: tokenData,
+      data: refreshToken,
       dataEncoding: 'utf8',
       allowRawPassword: true,
     },
@@ -78,13 +76,13 @@ async function saveRefreshTokenToStorage(params: {
 }
 
 /**
- * Get refreshToken and token from local storage and decrypt them.
- * Requires user passcode to decrypt the tokens.
+ * Get refreshToken from local storage and decrypt it.
+ * Requires user passcode to decrypt.
  */
 async function getRefreshTokenFromStorage(params: {
   ownerId: string;
   backgroundApi: IBackgroundApi;
-}): Promise<{ token: string; refreshToken: string } | null> {
+}): Promise<string | null> {
   const { ownerId, backgroundApi } = params;
 
   // 1. Build unique key for this ownerId
@@ -102,21 +100,16 @@ async function getRefreshTokenFromStorage(params: {
   const decryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
 
   try {
-    const decryptedData = await backgroundApi.servicePassword.decryptString({
-      password: decryptionKey,
-      data: encryptedPayloadBase64,
-      dataEncoding: 'base64',
-      resultEncoding: 'utf8',
-      allowRawPassword: true,
-    });
+    const decryptedRefreshToken =
+      await backgroundApi.servicePassword.decryptString({
+        password: decryptionKey,
+        data: encryptedPayloadBase64,
+        dataEncoding: 'base64',
+        resultEncoding: 'utf8',
+        allowRawPassword: true,
+      });
 
-    // Parse JSON to get both token and refreshToken
-    const tokenData = JSON.parse(decryptedData) as {
-      token: string;
-      refreshToken: string;
-    };
-
-    return tokenData;
+    return decryptedRefreshToken;
   } catch (error) {
     throw new OneKeyLocalError(
       `Failed to decrypt refreshToken: invalid password or corrupted data: ${
@@ -141,8 +134,169 @@ async function removeRefreshTokenFromStorage(params: {
   await storageRemoveItem(key);
 }
 
+/**
+ * Save token to local storage without passcode encryption.
+ * Token is encrypted using sensitiveEncodeKey only (no passcode required).
+ */
+async function saveTokenToStorage(params: {
+  ownerId: string;
+  token: string;
+  backgroundApi: IBackgroundApi;
+}): Promise<void> {
+  const { ownerId, token, backgroundApi } = params;
+
+  // 1. Build unique key for this ownerId
+  const key = accountUtils.buildKeylessTokenKey({ ownerId });
+
+  // 2. Encrypt without passcode (using sensitiveEncodeKey only)
+  const encryptionKey = await buildKeylessLocalEncryptionKeyWithoutPasscode();
+
+  const encryptedPayloadHex = await backgroundApi.servicePassword.encryptString(
+    {
+      password: encryptionKey,
+      data: token,
+      dataEncoding: 'utf8',
+      allowRawPassword: true,
+    },
+  );
+
+  // Convert hex to base64 for storage
+  const encryptedPayloadBase64 = bufferUtils.bytesToBase64(
+    bufferUtils.hexToBytes(encryptedPayloadHex),
+  );
+
+  // 3. Store encrypted data, prefer secureStorage if available
+  await storageSetItem(key, encryptedPayloadBase64);
+}
+
+/**
+ * Get token from local storage and decrypt it.
+ * Does not require passcode.
+ */
+async function getTokenFromStorage(params: {
+  ownerId: string;
+  backgroundApi: IBackgroundApi;
+}): Promise<string | null> {
+  const { ownerId, backgroundApi } = params;
+
+  // 1. Build unique key for this ownerId
+  const key = accountUtils.buildKeylessTokenKey({ ownerId });
+
+  // 2. Read encrypted data from storage
+  const encryptedPayloadBase64 = await storageGetItem(key);
+
+  if (!encryptedPayloadBase64) {
+    return null;
+  }
+
+  // 3. Decrypt without passcode (using sensitiveEncodeKey only)
+  const decryptionKey = await buildKeylessLocalEncryptionKeyWithoutPasscode();
+
+  try {
+    const decryptedToken = await backgroundApi.servicePassword.decryptString({
+      password: decryptionKey,
+      data: encryptedPayloadBase64,
+      dataEncoding: 'base64',
+      resultEncoding: 'utf8',
+      allowRawPassword: true,
+    });
+
+    return decryptedToken;
+  } catch (error) {
+    throw new OneKeyLocalError(
+      `Failed to decrypt token: corrupted data: ${(error as Error)?.message}`,
+    );
+  }
+}
+
+/**
+ * Remove token from local storage.
+ */
+async function removeTokenFromStorage(params: {
+  ownerId: string;
+}): Promise<void> {
+  const { ownerId } = params;
+
+  // 1. Build unique key for this ownerId
+  const key = accountUtils.buildKeylessTokenKey({ ownerId });
+
+  // 2. Remove encrypted data from storage
+  await storageRemoveItem(key);
+}
+
+/**
+ * Save both refreshToken and token to storage.
+ * RefreshToken requires passcode encryption, token does not.
+ */
+async function saveTokensToStorage(params: {
+  ownerId: string;
+  refreshToken: string;
+  token: string;
+  backgroundApi: IBackgroundApi;
+}): Promise<void> {
+  const { ownerId, refreshToken, token, backgroundApi } = params;
+
+  // Save token first (without passcode)
+  await saveTokenToStorage({ ownerId, token, backgroundApi });
+
+  // Then save refreshToken (with passcode)
+  await saveRefreshTokenToStorage({ ownerId, refreshToken, backgroundApi });
+}
+
+/**
+ * Get both refreshToken and token from storage.
+ * RefreshToken requires passcode verification, token does not.
+ */
+async function getTokensFromStorage(params: {
+  ownerId: string;
+  backgroundApi: IBackgroundApi;
+}): Promise<{ token: string; refreshToken: string } | null> {
+  const { ownerId, backgroundApi } = params;
+
+  // Get token first (without passcode)
+  const token = await getTokenFromStorage({ ownerId, backgroundApi });
+
+  if (!token) {
+    return null;
+  }
+
+  // Then get refreshToken (with passcode)
+  const refreshToken = await getRefreshTokenFromStorage({
+    ownerId,
+    backgroundApi,
+  });
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  return { token, refreshToken };
+}
+
+/**
+ * Remove both refreshToken and token from storage.
+ */
+async function removeTokensFromStorage(params: {
+  ownerId: string;
+}): Promise<void> {
+  const { ownerId } = params;
+
+  await Promise.all([
+    removeRefreshTokenFromStorage({ ownerId }),
+    removeTokenFromStorage({ ownerId }),
+  ]);
+}
+
 export default {
+  // Individual token operations
   saveRefreshTokenToStorage,
   getRefreshTokenFromStorage,
   removeRefreshTokenFromStorage,
+  saveTokenToStorage,
+  getTokenFromStorage,
+  removeTokenFromStorage,
+  // Combined operations (for convenience)
+  saveTokensToStorage,
+  getTokensFromStorage,
+  removeTokensFromStorage,
 };
