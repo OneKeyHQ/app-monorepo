@@ -1,5 +1,5 @@
 diff --git a/node_modules/electron-updater/out/AppUpdater.d.ts b/node_modules/electron-updater/out/AppUpdater.d.ts
-index 5979c30..b77d3dc 100644
+index 5979c30..13f8f25 100644
 --- a/node_modules/electron-updater/out/AppUpdater.d.ts
 +++ b/node_modules/electron-updater/out/AppUpdater.d.ts
 @@ -15,6 +15,7 @@ export type AppUpdaterEvents = {
@@ -15,7 +15,7 @@ index 5979c30..b77d3dc 100644
      protected executeDownload(taskOptions: DownloadExecutorTask): Promise<Array<string>>;
      protected differentialDownloadInstaller(fileInfo: ResolvedUpdateFileInfo, downloadUpdateOptions: DownloadUpdateOptions, installerPath: string, provider: Provider<any>, oldInstallerFileName: string): Promise<boolean>;
 +    public isExistInstallerPath(): boolean;
-+    async public updateInstallerPath(installerPath: string): void;
++    public updateInstallerPath(installerPath: string): Promise<void>;
  }
  export interface DownloadUpdateOptions {
      readonly updateInfoAndProvider: UpdateInfoAndProvider;
