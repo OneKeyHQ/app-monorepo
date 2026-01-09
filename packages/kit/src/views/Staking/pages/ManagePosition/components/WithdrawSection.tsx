@@ -24,6 +24,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
+import { buildBorrowTag } from '../../../utils/utils';
 
 export const WithdrawSection = ({
   accountId,
@@ -268,6 +269,18 @@ export const WithdrawSection = ({
       // Use effective reserve address (from selected asset or default)
       const reserveAddress = effectiveReserveAddress ?? '';
 
+      // Build tags array with both new borrow tag and legacy stakeTag for backward compatibility
+      const buildTags = (actionType: 'withdraw' | 'repay'): string[] => {
+        const tags: string[] = [
+          buildBorrowTag({ provider, action: actionType }),
+        ];
+        // Keep legacy stakeTag for backward compatibility
+        if (protocolInfo?.stakeTag) {
+          tags.push(protocolInfo.stakeTag);
+        }
+        return tags;
+      };
+
       if (action === 'repay') {
         await handleBorrowRepay({
           amount,
@@ -283,7 +296,7 @@ export const WithdrawSection = ({
                 }),
                 protocolLogoURI: protocolInfo?.providerDetail.logoURI,
                 send: { token: effectiveToken, amount },
-                tags: [protocolInfo?.stakeTag || ''],
+                tags: buildTags('repay'),
               }
             : undefined,
           onSuccess: () => {
@@ -307,7 +320,7 @@ export const WithdrawSection = ({
               }),
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
               receive: { token: effectiveToken, amount },
-              tags: [protocolInfo?.stakeTag || ''],
+              tags: buildTags('withdraw'),
             }
           : undefined,
         onSuccess: () => {

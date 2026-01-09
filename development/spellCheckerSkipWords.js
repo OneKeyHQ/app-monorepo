@@ -21,6 +21,7 @@ module.exports = [
   'shamir',
   '0xxxxxxx',
   'Provideri',
+  'dialogs',
   'franco',
   'assethub',
   'polkadot',

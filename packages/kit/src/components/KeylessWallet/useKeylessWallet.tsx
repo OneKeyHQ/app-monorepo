@@ -44,11 +44,6 @@ import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSe
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
-  // const [devSettings] = useDevSettingsPersistAtom();
-  // return (
-  //   devSettings.enabled &&
-  //   devSettings.settings?.isKeylessWalletFeatureEnabled === true
-  // );
   return true;
 }
 

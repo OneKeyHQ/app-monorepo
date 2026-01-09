@@ -781,6 +781,7 @@ export interface IBorrowHealthFactorRiskDetail {
   text: IEarnText;
   data: {
     healthFactorDetail: {
+      index: string;
       value: string;
       lowerLimit: string;
       upperLimit: string;

@@ -16,6 +16,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 type IHealthFactorProps = {
   value: number;
+  index?: number;
   min?: number;
   max?: number;
   thresholdValue?: number;
@@ -90,6 +91,7 @@ const Indicator = ({
 
 export const HealthFactor = ({
   value,
+  index,
   min = 0,
   max = 3,
   thresholdValue = 1,
@@ -117,25 +119,31 @@ export const HealthFactor = ({
 
     const valueIsFinite = Number.isFinite(value);
     const thresholdIsFinite = Number.isFinite(thresholdValue);
-    const clampedValue = valueIsFinite ? clampToRange(value) : safeMin;
     const clampedThreshold = thresholdIsFinite
       ? clampToRange(thresholdValue)
       : safeMin;
-    const canComputePointer =
-      valueIsFinite && Number.isFinite(range) && range > 0;
     const canComputeThreshold =
       thresholdIsFinite && Number.isFinite(range) && range > 0;
 
+    // Use index directly as percentage if provided, otherwise calculate from value
+    const indexIsFinite = Number.isFinite(index);
+    let computedPointerPercent = 0;
+    if (indexIsFinite) {
+      // index is already a percentage (0-100), clamp it
+      computedPointerPercent = Math.min(Math.max(index as number, 0), 100);
+    } else if (valueIsFinite && Number.isFinite(range) && range > 0) {
+      const clampedValue = clampToRange(value);
+      computedPointerPercent = ((clampedValue - safeMin) / range) * 100;
+    }
+
     return {
       displayValue: valueIsFinite ? value.toFixed(2) : '-',
-      pointerPercent: canComputePointer
-        ? ((clampedValue - safeMin) / range) * 100
-        : 0,
+      pointerPercent: computedPointerPercent,
       thresholdPercent: canComputeThreshold
         ? ((clampedThreshold - safeMin) / range) * 100
         : 0,
     };
-  }, [max, min, thresholdValue, value]);
+  }, [index, max, min, thresholdValue, value]);
 
   const pointerAlignment = getTextAlignment(pointerPercent);
   const thresholdAlignment = getTextAlignment(thresholdPercent);

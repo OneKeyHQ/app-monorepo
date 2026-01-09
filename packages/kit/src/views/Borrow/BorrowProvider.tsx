@@ -1,5 +1,12 @@
 import type { PropsWithChildren } from 'react';
-import { createContext, useContext, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -10,6 +17,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import type { ISwapConfig } from './components/BorrowTableList';
+import type { IBorrowPendingTx } from './hooks/useBorrowTxUpdate';
 
 type IBorrowContextValue = {
   reserves: IBorrowReserveItem | null;
@@ -19,6 +27,10 @@ type IBorrowContextValue = {
   reservesLoading: boolean;
   setReservesLoading: React.Dispatch<React.SetStateAction<boolean>>;
   swapConfig: ISwapConfig;
+  // Pending transactions state
+  pendingTxs: IBorrowPendingTx[];
+  setPendingTxs: (txs: IBorrowPendingTx[]) => void;
+  refreshPendingRef: React.MutableRefObject<(() => Promise<void>) | null>;
 };
 
 const defaultSwapConfig: ISwapConfig = {
@@ -36,6 +48,13 @@ export const BorrowProvider = ({
   const [reserves, setReserves] = useState<IBorrowReserveItem | null>(null);
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
   const [reservesLoading, setReservesLoading] = useState(false);
+  const [pendingTxs, setPendingTxsState] = useState<IBorrowPendingTx[]>([]);
+  const refreshPendingRef = useRef<(() => Promise<void>) | null>(null);
+
+  // Stable setter that won't cause unnecessary re-renders
+  const setPendingTxs = useCallback((txs: IBorrowPendingTx[]) => {
+    setPendingTxsState(txs);
+  }, []);
 
   // Fetch swap config when market networkId changes
   const { result: swapConfig } = usePromiseResult(
@@ -61,8 +80,18 @@ export const BorrowProvider = ({
       reservesLoading,
       setReservesLoading,
       swapConfig,
+      pendingTxs,
+      setPendingTxs,
+      refreshPendingRef,
     };
-  }, [reserves, market, reservesLoading, swapConfig]);
+  }, [
+    reserves,
+    market,
+    reservesLoading,
+    swapConfig,
+    pendingTxs,
+    setPendingTxs,
+  ]);
 
   return (
     <BorrowContext.Provider value={contextValue}>

@@ -63,7 +63,7 @@ export const calculatePopoverPosition = (
   hoverX: number,
   hoverY: number,
   containerWidth: number,
-  popoverWidth = 120,
+  popoverWidth = 144,
   offset = 10,
   edgePadding = 16,
 ): { left: number; translateXValue: number; top: number } | null => {
@@ -238,30 +238,30 @@ export function InterestRateModelTooltip({
       shadowRadius={8}
       zIndex={9999}
       pointerEvents="none"
-      minWidth={120}
+      minWidth={144}
     >
-      <YStack gap="$1">
+      <YStack gap="$1.5">
         <XStack jc="space-between" ai="center" gap="$1.5">
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued" whiteSpace="nowrap">
             {utilizationRatioLabel}
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$text">
+          <SizableText size="$bodySmMedium" color="$text" whiteSpace="nowrap">
             {(hoverData.utilizationRatio * 100).toFixed(2)}%
           </SizableText>
         </XStack>
         <XStack jc="space-between" ai="center" gap="$1.5">
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued" whiteSpace="nowrap">
             {borrowApyLabel}
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$text">
+          <SizableText size="$bodySmMedium" color="$text" whiteSpace="nowrap">
             {hoverData.borrowApy.toFixed(2)}%
           </SizableText>
         </XStack>
         <XStack jc="space-between" ai="center" gap="$1.5">
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued" whiteSpace="nowrap">
             {supplyApyLabel}
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$text">
+          <SizableText size="$bodySmMedium" color="$text" whiteSpace="nowrap">
             {hoverData.supplyApy.toFixed(2)}%
           </SizableText>
         </XStack>
