@@ -49,6 +49,7 @@ export interface ISimpleDbPerpData {
   hyperliquidTermsAccepted?: boolean;
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
+  referralPromptOptedOut?: Record<string, boolean>; // user address -> whether user has opted out of referral promotion
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -258,6 +259,28 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         dexAbstractionEnabledUsers: {
           ...(prev?.dexAbstractionEnabledUsers ?? {}),
           [userAddress.toLowerCase()]: enabled,
+        },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getReferralPromptOptedOut(userAddress: string): Promise<boolean> {
+    const config = await this.getPerpData();
+    return config.referralPromptOptedOut?.[userAddress.toLowerCase()] ?? false;
+  }
+
+  @backgroundMethod()
+  async setReferralPromptOptedOut(
+    userAddress: string,
+    optedOut: boolean,
+  ): Promise<void> {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        referralPromptOptedOut: {
+          ...(prev?.referralPromptOptedOut ?? {}),
+          [userAddress.toLowerCase()]: optedOut,
         },
       }),
     );

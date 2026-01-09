@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISpeedSwapConfig } from '@onekeyhq/shared/types/swap/types';
 
@@ -16,7 +15,9 @@ const defaultSpeedSwapConfig: ISpeedSwapConfig = {
     defaultLimitTokens: [],
     swapMevNetConfig: mevSwapNetworks,
   },
-  supportSpeedSwap: false,
+  supportSpeedSwap: undefined,
+  onlySupportCrossChain: false,
+  onlySupportSingleChain: false,
   speedDefaultSelectToken: undefined,
 };
 
@@ -39,8 +40,8 @@ export function useSpeedSwapInit(
       const config = await backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({
         networkId,
       });
-      setSpeedSwapConfigLoading(false);
       setSpeedSwapConfig(config);
+      setSpeedSwapConfigLoading(false);
     })();
   }, [enableNoNetworkCheck, networkId]);
 
@@ -51,6 +52,7 @@ export function useSpeedSwapInit(
     isLoading: !!speedSwapConfigLoading,
     speedConfig: speedSwapConfig?.speedConfig,
     supportSpeedSwap: speedSwapConfig?.supportSpeedSwap,
+    onlySupportCrossChain: speedSwapConfig?.onlySupportCrossChain,
     provider: speedSwapConfig?.provider,
     swapMevNetConfig: speedSwapConfig?.speedConfig.swapMevNetConfig,
     speedDefaultSelectToken: speedSwapConfig?.speedDefaultSelectToken,

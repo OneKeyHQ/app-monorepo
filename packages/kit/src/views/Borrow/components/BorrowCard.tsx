@@ -67,13 +67,15 @@ export const BorrowCard = () => {
           reserveAddress: item.reserveAddress,
           symbol: item.token.symbol,
           logoURI: item.token.logoURI,
+          accountId: accountId || undefined,
+          indexedAccountId,
         });
       } else {
         // Mobile: open Borrow dialog
         handleManageBorrow(item);
       }
     },
-    [navigation, market, gtMd, handleManageBorrow],
+    [navigation, market, gtMd, handleManageBorrow, accountId, indexedAccountId],
   );
 
   const showLoading = !reserves && reservesLoading;
@@ -108,7 +110,7 @@ export const BorrowCard = () => {
         render: (item: IBorrowAsset) => (
           <AssetWithAmountField
             token={item.token}
-            amountLabel={labels.availableWithColon}
+            amountLabel={{ text: labels.availableWithColon }}
             amount={item.available.title}
             amountDescription={item.available.description}
             platformBonusApy={item.platformBonusApy}

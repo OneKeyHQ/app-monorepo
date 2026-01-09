@@ -313,7 +313,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
   const handleSubmit = useCallback(
     async ({
       preventClose,
-      close,
+      close: _close,
     }: {
       preventClose: () => void;
       close: IDialogInstance['close'];

@@ -1,15 +1,14 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
   IDialogInstance,
-  IKeyOfIcons,
   IPageNavigationProp,
 } from '@onekeyhq/components';
 import {
-  Button,
   Dialog,
   EPageType,
   Toast,
@@ -30,7 +29,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
   useSwapNativeTokenReserveGasAtom,
-  useSwapNetworksIncludeAllNetworkAtom,
+  useSwapNetworksAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
@@ -816,36 +815,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [preSwapStepsStart]);
 
   const onActionHandlerBefore = useCallback(() => {
-    if (currentQuoteRes?.quoteShowTip) {
-      Dialog.confirm({
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onConfirm: () => {
-          onActionHandler();
-        },
-        title: currentQuoteRes?.quoteShowTip.title ?? '',
-        description: currentQuoteRes.quoteShowTip.detail ?? '',
-        icon:
-          (currentQuoteRes?.quoteShowTip.icon as IKeyOfIcons) ??
-          'ChecklistBoxOutline',
-        renderContent: currentQuoteRes.quoteShowTip?.link ? (
-          <Button
-            variant="tertiary"
-            size="small"
-            alignSelf="flex-start"
-            icon="QuestionmarkOutline"
-            onPress={() => {
-              if (currentQuoteRes.quoteShowTip?.link) {
-                openUrlExternal(currentQuoteRes.quoteShowTip?.link);
-              }
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_learn_more })}
-          </Button>
-        ) : undefined,
-      });
-    } else if (
+    if (
       currentQuoteRes?.networkCostExceedInfo &&
       !currentQuoteRes.allowanceResult
     ) {
@@ -920,7 +890,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     currentQuoteRes?.allowanceResult,
     currentQuoteRes?.networkCostExceedInfo,
     currentQuoteRes?.protocol,
-    currentQuoteRes?.quoteShowTip,
     intl,
     onActionHandler,
     swapLimitUseRate.rate,
@@ -1109,11 +1078,45 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
 
   const { networkList: SwapProSupportNetworksList } = useSwapProInit();
-  const [swapBridgeSupportNetworksList] =
-    useSwapNetworksIncludeAllNetworkAtom();
+  const [swapNetworks] = useSwapNetworksAtom();
+
+  // Filter and sort networks, then stabilize reference to prevent unnecessary re-renders
+  const swapBridgeSupportNetworksFilterAllNetRef = useRef<typeof swapNetworks>(
+    [],
+  );
   const swapBridgeSupportNetworksFilterAllNet = useMemo(() => {
-    return swapBridgeSupportNetworksList.filter((item) => !item.isAllNetworks);
-  }, [swapBridgeSupportNetworksList]);
+    let filteredNetworks: typeof swapNetworks;
+    if (swapTypeSwitch === ESwapTabSwitchType.BRIDGE) {
+      filteredNetworks = swapNetworks.filter(
+        (item) => !!item.supportCrossChainSwap,
+      );
+    } else if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+      filteredNetworks = swapNetworks.filter(
+        (item) => !!item.supportSingleSwap,
+      );
+    } else {
+      filteredNetworks = swapNetworks.filter((item) => !!item.supportLimit);
+    }
+
+    // Sort by networkId to ensure consistent order
+    const sortedNetworks = [...filteredNetworks].sort((a, b) =>
+      a.networkId.localeCompare(b.networkId),
+    );
+
+    // Compare networkIds to check if content actually changed
+    const currentNetworkIds = sortedNetworks.map((item) => item.networkId);
+    const prevNetworkIds = swapBridgeSupportNetworksFilterAllNetRef.current.map(
+      (item) => item.networkId,
+    );
+
+    // Only update ref if content has actually changed
+    if (!isEqual(currentNetworkIds, prevNetworkIds)) {
+      swapBridgeSupportNetworksFilterAllNetRef.current = sortedNetworks;
+    }
+
+    return swapBridgeSupportNetworksFilterAllNetRef.current;
+  }, [swapNetworks, swapTypeSwitch]);
+
   const {
     isLoading,
     speedConfig,
@@ -1121,6 +1124,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     isMEV,
     hasEnoughBalance,
     supportSpeedSwap,
+    onlySupportCrossChain,
   } = useSwapProTokenInit();
 
   useSwapProErrorAlert(!supportSpeedSwap);
@@ -1261,6 +1265,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             balanceLoading,
             isMEV,
             hasEnoughBalance,
+            supportSpeedSwap,
+            onlySupportCrossChain,
           }}
         />
       ) : (

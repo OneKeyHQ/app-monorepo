@@ -3,14 +3,17 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList, Button, IconButton, XStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useBorrowContext } from '../../BorrowProvider';
 import { useSupplyActions } from '../../hooks/useSupplyActions';
 
 import type { IAssetWithToken } from '../../hooks/useSupplyActions';
+
+export type ISwapConfig = {
+  isSupportSwap: boolean;
+  isSupportCrossChain: boolean;
+};
 
 type IActionFieldProps = {
   item: IAssetWithToken;
@@ -21,6 +24,12 @@ type IActionFieldProps = {
   walletId?: string;
   indexedAccountId?: string;
   disabled?: boolean;
+  swapConfig?: ISwapConfig;
+};
+
+const defaultSwapConfig: ISwapConfig = {
+  isSupportSwap: false,
+  isSupportCrossChain: false,
 };
 
 export const ActionField = ({
@@ -32,30 +41,22 @@ export const ActionField = ({
   walletId = '',
   indexedAccountId,
   disabled = false,
+  swapConfig: swapConfigProp,
 }: IActionFieldProps) => {
-  const { market } = useBorrowContext();
+  const { market, swapConfig: contextSwapConfig } = useBorrowContext();
   const networkId = market?.networkId || '';
   const intl = useIntl();
+
+  // Use prop if provided, otherwise use context, fallback to default
+  const swapConfig = swapConfigProp ?? contextSwapConfig ?? defaultSwapConfig;
 
   const { handleSwap, handleBridge, handleReceive } = useSupplyActions({
     accountId,
     walletId,
     networkId,
     indexedAccountId,
+    swapConfig,
   });
-
-  const { result: swapConfig } = usePromiseResult(
-    async () => {
-      if (!networkId) {
-        return { isSupportSwap: false, isSupportCrossChain: false };
-      }
-      return backgroundApiProxy.serviceSwap.checkSupportSwap({
-        networkId,
-      });
-    },
-    [networkId],
-    { initResult: { isSupportSwap: false, isSupportCrossChain: false } },
-  );
 
   const labels = useMemo(
     () => ({

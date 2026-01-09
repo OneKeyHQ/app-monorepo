@@ -71,6 +71,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       useInjectedNativeCode = true,
       pullToRefreshEnabled,
       allowsBackForwardNavigationGestures,
+      allowFileAccessFromFileURLs,
+      allowFileAccess,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -214,8 +216,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onLoadStart={onLoadStart}
           onLoadEnd={onLoadEnd}
           onScroll={onScroll}
-          // allowFileAccessFromFileURLs
-          // allowFileAccess
+          allowFileAccessFromFileURLs={allowFileAccessFromFileURLs}
+          allowFileAccess={allowFileAccess}
           // allowUniversalAccessFromFileURLs
           // *** Note that static HTML will require setting originWhitelist to ["*"].
           originWhitelist={['*']}

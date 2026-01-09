@@ -1,23 +1,25 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
-import { Divider, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { Divider, YStack, useMedia } from '@onekeyhq/components';
 import {
   PageFrame,
   isErrorState,
   isLoadingState,
 } from '@onekeyhq/kit/src/views/Staking/components/PageFrame';
 import { OverviewSkeleton } from '@onekeyhq/kit/src/views/Staking/components/StakingSkeleton';
+import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { BorrowFAQSection } from './BorrowFAQSection';
 import { ChartSection } from './ChartSection';
 import { DailyCapsSection } from './DailyCapsSection';
+import { ReserveDetailsTabs } from './ReserveDetailsTabs';
 import { ReserveProtocolHeader } from './ReserveProtocolHeader';
 import { RiskSection } from './RiskSection';
 
 interface IDetailsPartProps {
-  accountId: string;
+  details: IBorrowReserveDetail | undefined;
+  isLoading: boolean;
+  onRefresh: () => void;
   networkId: string;
   provider: string;
   marketAddress: string;
@@ -28,7 +30,9 @@ interface IDetailsPartProps {
 }
 
 const DetailsPartComponent = ({
-  accountId,
+  details,
+  isLoading,
+  onRefresh,
   networkId,
   provider,
   marketAddress,
@@ -37,23 +41,50 @@ const DetailsPartComponent = ({
   logoURI,
   onShare,
 }: IDetailsPartProps) => {
-  const {
-    result: details,
-    isLoading,
-    run: refreshData,
-  } = usePromiseResult(
-    async () => {
-      return backgroundApiProxy.serviceStaking.getBorrowReserveDetails({
-        networkId,
-        provider,
-        marketAddress,
-        reserveAddress,
-        ...(accountId ? { accountId } : {}),
-      });
-    },
-    [networkId, provider, marketAddress, reserveAddress, accountId],
-    { watchLoading: true, revalidateOnFocus: true },
+  const { gtMd } = useMedia();
+
+  const mobileContainerProps = useMemo(
+    () => ({
+      allowHeaderOverscroll: true,
+      renderHeader: () => (
+        <YStack px="$5" pt="$6" bg="$bgApp" pointerEvents="box-none">
+          <ReserveProtocolHeader
+            symbol={symbol}
+            logoURI={logoURI}
+            oraclePrice={details?.oraclePrice}
+            reserveSize={details?.reserveSize}
+            availableLiquidity={details?.liquidity}
+            utilizationRatio={details?.utilizationRatio}
+            platformBonus={details?.platformBonus}
+            managers={details?.managers}
+          />
+        </YStack>
+      ),
+    }),
+    [symbol, logoURI, details],
   );
+
+  if (!gtMd) {
+    return (
+      <PageFrame
+        LoadingSkeleton={OverviewSkeleton}
+        loading={isLoadingState({ result: details, isLoading })}
+        error={isErrorState({ result: details, isLoading })}
+        onRefresh={onRefresh}
+      >
+        {details ? (
+          <ReserveDetailsTabs
+            networkId={networkId}
+            provider={provider}
+            marketAddress={marketAddress}
+            reserveAddress={reserveAddress}
+            details={details}
+            containerProps={mobileContainerProps}
+          />
+        ) : null}
+      </PageFrame>
+    );
+  }
 
   return (
     <YStack flex={6} gap="$5" px="$5">
@@ -61,7 +92,7 @@ const DetailsPartComponent = ({
         LoadingSkeleton={OverviewSkeleton}
         loading={isLoadingState({ result: details, isLoading })}
         error={isErrorState({ result: details, isLoading })}
-        onRefresh={refreshData}
+        onRefresh={onRefresh}
       >
         {details ? (
           <YStack gap="$8">
@@ -75,6 +106,7 @@ const DetailsPartComponent = ({
                 availableLiquidity={details.liquidity}
                 utilizationRatio={details.utilizationRatio}
                 platformBonus={details.platformBonus}
+                managers={details.managers}
               />
               <Divider mb="$8" />
               <ChartSection

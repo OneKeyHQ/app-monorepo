@@ -81,12 +81,15 @@ import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
+import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { RegistrationID } from './RegistrationID';
+import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
+import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
 let correctDevOnlyPwd = '';
 
@@ -569,6 +572,18 @@ const BaseDevSettingsSection = () => {
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
               <SectionPressItem
+                icon="RefreshCcwOutline"
+                title="Reset IP Table Cache"
+                subtitle="清除 IP 直连缓存，解决网络切换后请求失败问题"
+                onPress={async () => {
+                  await backgroundApiProxy.serviceIpTable.reset();
+                  Toast.success({
+                    title: 'IP Table cache cleared',
+                  });
+                }}
+              />
+              <IpTableSelector />
+              <SectionPressItem
                 icon="ForkOutline"
                 title="Check Network info"
                 onPress={() => {
@@ -819,6 +834,18 @@ const BaseDevSettingsSection = () => {
                 }}
               />
 
+              <SectionFieldItem
+                icon="ChartColumnarOutline"
+                name="enableMockMarketBanner"
+                title="Mock Market Banner Data"
+                subtitle="Use mock data to test Market Banner UI"
+                onValueChange={() => {
+                  void backgroundApiProxy.serviceMarketV2.clearMarketBannerCache();
+                }}
+              >
+                <Switch size={ESwitchSize.small} />
+              </SectionFieldItem>
+
               <SectionPressItem
                 icon="DeleteOutline"
                 title="Clear App Data (E2E release only)"
@@ -987,6 +1014,7 @@ const BaseDevSettingsSection = () => {
                   void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
                 }}
               />
+              <ResetInstanceId />
             </Accordion.Content>
           </Accordion.HeightAnimator>
         </Accordion.Item>
@@ -1169,19 +1197,10 @@ const BaseDevSettingsSection = () => {
               </SectionFieldItem>
 
               <SectionFieldItem
-                icon="CloudOutline"
-                name="isKeylessWalletFeatureEnabled"
-                title="启用 Keyless Wallet"
-                subtitle="启用无私钥钱包功能"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-
-              <SectionFieldItem
-                icon="WalletOutline"
-                name="allowCreateKeylessWalletOnWeb"
-                title="允许网页端创建 Keyless 钱包"
-                subtitle="在网页端 mock 云盘信息"
+                icon="InfoCircleOutline"
+                name="enableKeylessDebugInfo"
+                title="启用 Keyless 调试信息"
+                subtitle="显示 Keyless 登录/恢复调试信息"
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
@@ -1189,8 +1208,8 @@ const BaseDevSettingsSection = () => {
               <SectionFieldItem
                 icon="WalletOutline"
                 name="allowDeleteKeylessKey"
-                title="允许删除 Keyless Key"
-                subtitle="允许删除 deviceKey 和 authKey"
+                title="允许重置 Keyless 钱包"
+                subtitle="允许重置 Keyless 钱包"
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
@@ -1235,6 +1254,8 @@ const BaseDevSettingsSection = () => {
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
+
+              <TestAccountsDevSetting />
 
               <SectionPressItem
                 icon="AppleBrand"

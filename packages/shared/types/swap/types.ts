@@ -347,6 +347,7 @@ export interface IQuoteTip {
   icon?: string;
   title?: string;
   detail?: string;
+  showCancelButton?: boolean;
   link?: string;
 }
 
@@ -773,6 +774,14 @@ export interface IOKXTransactionObject {
   randomKeyAccount?: string[];
   signatureData?: string[];
 }
+
+export interface ILMTronObject {
+  from: string;
+  to: string;
+  value: string;
+  data: string;
+}
+
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
   tx?: ITransaction;
@@ -780,6 +789,7 @@ export interface IFetchBuildTxResponse {
   swftOrder?: IFetchBuildTxOrderResponse;
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
   OKXTxObject?: IOKXTransactionObject;
+  LMTronObject?: ILMTronObject;
   ctx?: any;
   tronTxData?: IEncodedTxTron;
   xrpTxData?: IEncodedTxXrp;
@@ -1013,7 +1023,9 @@ export interface ISpeedSwapConfig {
   provider: string;
   speedConfig: ISwapProSpeedConfig;
   speedDefaultSelectToken?: ISwapTokenBase;
-  supportSpeedSwap: boolean;
+  supportSpeedSwap?: boolean;
+  onlySupportCrossChain: boolean;
+  onlySupportSingleChain: boolean;
 }
 
 export enum ESwapLimitOrderStatus {

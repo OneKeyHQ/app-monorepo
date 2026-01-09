@@ -45,8 +45,10 @@ interface ISwapProContainerProps {
     isLoading: boolean;
     speedConfig: ISwapProSpeedConfig;
     balanceLoading: boolean;
+    supportSpeedSwap?: boolean;
     isMEV: boolean;
     hasEnoughBalance: boolean;
+    onlySupportCrossChain: boolean;
   };
 }
 
@@ -62,8 +64,15 @@ const SwapProContainer = ({
   supportNetworksList,
   config,
 }: ISwapProContainerProps) => {
-  const { isLoading, speedConfig, balanceLoading, isMEV, hasEnoughBalance } =
-    config;
+  const {
+    isLoading,
+    speedConfig,
+    balanceLoading,
+    isMEV,
+    hasEnoughBalance,
+    supportSpeedSwap,
+    onlySupportCrossChain,
+  } = config;
   const [refreshing, setRefreshing] = useState(false);
   const [limitPriceUseMarketPrice, setLimitPriceUseMarketPrice] = useState({
     value: '',
@@ -185,6 +194,7 @@ const SwapProContainer = ({
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
           {shouldRenderHeavyComponents ? (
             <SwapProTradeInfoPanel
+              supportSpeedSwap={supportSpeedSwap}
               onPricePress={(price) => {
                 if (swapProTradeType === ESwapProTradeType.LIMIT) {
                   setLimitPriceUseMarketPrice((prev) => ({
@@ -229,7 +239,9 @@ const SwapProContainer = ({
         </YStack>
       </XStack>
       <SwapProErrorAlert
-        isNative={swapProSelectToken?.isNative}
+        supportSpeedSwap={supportSpeedSwap}
+        onlySupportCrossChain={onlySupportCrossChain}
+        actionToken={swapProSelectToken}
         title={swapProErrorAlert?.title}
         message={swapProErrorAlert?.message}
       />

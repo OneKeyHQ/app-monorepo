@@ -28,8 +28,14 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
   const isFocused = useIsFocused();
   const { markets, isLoading: marketsLoading } = useBorrowMarkets();
   const market = useMemo(() => markets?.[0], [markets]);
-  const { reserves, setMarket, setReserves, setReservesLoading } =
-    useBorrowContext();
+  const {
+    reserves,
+    setMarket,
+    setReserves,
+    setReservesLoading,
+    setPendingTxs,
+    refreshPendingRef,
+  } = useBorrowContext();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { earnAccount } = useEarnAccount({
     networkId: market?.networkId,
@@ -86,7 +92,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     {
       watchLoading: true,
       checkIsFocused: true,
-      undefinedResultIfReRun: false,
+      undefinedResultIfReRun: true,
       undefinedResultIfError: true,
       pollingInterval: BORROW_POLLING_INTERVAL,
       revalidateOnFocus: true,
@@ -160,18 +166,25 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     }
   }, [dataStatus, fetchKey, reservesResult, setReserves, setReservesLoading]);
 
-  const { isPending } = useBorrowTxUpdate({
+  const { pendingTxs, refreshPending } = useBorrowTxUpdate({
     accountId,
     networkId: marketNetworkId,
     provider: marketProvider,
     onRefresh: () => {
-      // Re-fetch all reserves
-      // The simplest way to trigger re-fetch is to invalidate the cache or manually call the fetch function
-      // But here we rely on the `usePromiseResult` at line 54 re-running if we had a way to trigger it.
-      // However, `usePromiseResult` returns `run` (aliased as `refreshReserves` below) which we can call.
+      // Re-fetch all reserves when pending transactions complete
       void refreshReserves();
     },
   });
+
+  // Sync pending transactions to context
+  useEffect(() => {
+    setPendingTxs(pendingTxs);
+  }, [pendingTxs, setPendingTxs]);
+
+  // Store refreshPending function in ref for external access
+  useEffect(() => {
+    refreshPendingRef.current = refreshPending;
+  }, [refreshPending, refreshPendingRef]);
 
   return <>{children}</>;
 };

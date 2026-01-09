@@ -9,6 +9,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
@@ -24,6 +25,7 @@ export function PlatformBonusSection({
   platformBonus,
 }: IPlatformBonusSectionProps) {
   const intl = useIntl();
+  const media = useMedia();
 
   const endsInDays = useMemo(() => {
     if (!platformBonus?.endsIn) return null;
@@ -65,31 +67,23 @@ export function PlatformBonusSection({
           </>
         ) : null}
       </XStack>
-      <XStack ai="center" jc="space-between">
-        <XStack ai="center" gap="$1.5" flexWrap="wrap">
-          {platformBonus.rewards.map((reward, index) => (
-            <XStack key={index} ai="center" gap="$1.5">
-              <Token size="xs" tokenImageUri={reward.logoURI} />
-              <EarnText
-                text={reward.type}
-                size="$bodySm"
-                color="$textSubdued"
-              />
-              <EarnText
-                text={reward.title}
-                size="$bodySmMedium"
-                color="$text"
-              />
-              <EarnText
-                text={reward.description}
-                size="$bodySm"
-                color="$textSubdued"
-              />
-            </XStack>
-          ))}
-        </XStack>
+      <XStack ai="center" gap="$1.5" flexWrap="wrap">
+        {platformBonus.rewards.map((reward, index) => (
+          <XStack key={index} ai="center" gap="$1.5">
+            <Token size="xs" tokenImageUri={reward.logoURI} />
+            <EarnText text={reward.type} size="$bodySm" color="$textSubdued" />
+            <EarnText text={reward.title} size="$bodySmMedium" color="$text" />
+            <EarnText
+              text={reward.description}
+              size="$bodySm"
+              color="$textSubdued"
+            />
+          </XStack>
+        ))}
         {platformBonus.button ? (
           <XStack
+            ml={media.gtSm ? 'auto' : undefined}
+            flexBasis={media.gtSm ? undefined : '100%'}
             cursor="pointer"
             onPress={() => openUrlExternal(platformBonus.button.data.link)}
             hoverStyle={{ opacity: 0.8 }}

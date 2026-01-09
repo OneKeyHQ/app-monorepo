@@ -140,7 +140,8 @@ export function UniversalBorrowBorrow({
 
   const actionLabel = useMemo(
     () =>
-      actionLabelProp || intl.formatMessage({ id: ETranslations.earn_deposit }),
+      actionLabelProp ||
+      intl.formatMessage({ id: ETranslations.global_borrow }),
     [actionLabelProp, intl],
   );
 
@@ -307,7 +308,9 @@ export function UniversalBorrowBorrow({
           }}
           balanceProps={{
             value: balance,
-            iconText: actionLabel,
+            iconText: intl.formatMessage({
+              id: ETranslations.global_available,
+            }),
             onPress: amountInputDisabled ? undefined : onMax,
           }}
           valueProps={{
@@ -383,6 +386,7 @@ export function UniversalBorrowBorrow({
                 title={intl.formatMessage({
                   id: ETranslations.defi_health_factor,
                 })}
+                variant="highlight"
               >
                 <YStack ai="flex-end">
                   <XStack ai="center" gap="$1">
@@ -423,17 +427,10 @@ export function UniversalBorrowBorrow({
             ) : null}
             {transactionConfirmation?.myBorrow ? (
               <BorrowInfoItem
-                title={
-                  <EarnText
-                    text={{
-                      text: intl.formatMessage({
-                        id: ETranslations.defi_my_borrow,
-                      }),
-                    }}
-                    color="$textText"
-                    size="$bodyLg"
-                  />
-                }
+                title={intl.formatMessage({
+                  id: ETranslations.defi_my_borrow,
+                })}
+                variant="highlight"
               >
                 <YStack ai="flex-end">
                   <EarnText

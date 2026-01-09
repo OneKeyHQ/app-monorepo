@@ -166,7 +166,7 @@ export function SwapPanel({
         <Button
           size="large"
           variant="primary"
-          onPress={() => onShowSwapDialog?.()}
+          onPress={() => onShowSwapDialog?.(swapToken)}
         >
           {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
         </Button>

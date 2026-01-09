@@ -12,6 +12,7 @@ import BackgroundApiBase from './BackgroundApiBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
+import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 
@@ -758,6 +759,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceHyperliquidExchange', { value });
+    return value;
+  }
+
+  get serviceHyperliquidReferral(): ServiceHyperliquidReferral {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquidReferral') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidReferral');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquidReferral', { value });
     return value;
   }
 

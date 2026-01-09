@@ -21,7 +21,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
-import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
+import {
+  TX_RISKY_LEVEL_MALICIOUS,
+  TX_RISKY_LEVEL_SCAM,
+  TX_RISKY_LEVEL_SPAM,
+} from '@onekeyhq/shared/src/walletConnect/constant';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -154,9 +158,19 @@ function TxActionCommonTitle({
           {intl.formatMessage({ id: ETranslations.global_failed })}
         </Badge>
       ) : null}
-      {riskyLevel && riskyLevel > TX_RISKY_LEVEL_SPAM ? (
+      {riskyLevel && riskyLevel === TX_RISKY_LEVEL_SPAM ? (
+        <Badge badgeSize="sm" badgeType="default" ml="$2">
+          {intl.formatMessage({ id: ETranslations.global_spam })}
+        </Badge>
+      ) : null}
+      {riskyLevel && riskyLevel === TX_RISKY_LEVEL_MALICIOUS ? (
+        <Badge badgeSize="sm" badgeType="warning" ml="$2">
+          {intl.formatMessage({ id: ETranslations.global_malicious })}
+        </Badge>
+      ) : null}
+      {riskyLevel && riskyLevel === TX_RISKY_LEVEL_SCAM ? (
         <Badge badgeSize="sm" badgeType="critical" ml="$2">
-          {intl.formatMessage({ id: ETranslations.global_risk })}
+          {intl.formatMessage({ id: ETranslations.global_scam })}
         </Badge>
       ) : null}
     </XStack>
@@ -361,7 +375,13 @@ function TxActionCommonListView(
       flexDirection="column"
       alignItems="flex-start"
       userSelect="none"
-      opacity={riskyLevel && riskyLevel > TX_RISKY_LEVEL_SPAM ? 0.5 : 1}
+      opacity={
+        riskyLevel &&
+        (riskyLevel === TX_RISKY_LEVEL_MALICIOUS ||
+          riskyLevel === TX_RISKY_LEVEL_SCAM)
+          ? 0.5
+          : 1
+      }
       {...rest}
     >
       {/* Content */}

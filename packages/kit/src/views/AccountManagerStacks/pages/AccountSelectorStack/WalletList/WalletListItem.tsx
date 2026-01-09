@@ -192,9 +192,7 @@ export function WalletListItem({
   shouldShowCreateHiddenWalletButtonFn,
   ...rest
 }: IWalletListItemProps) {
-  const isKeylessWallet = accountUtils.isKeylessWallet({
-    walletId: wallet?.id ?? '',
-  });
+  const isKeylessWallet = wallet?.isKeyless;
 
   let walletAvatarProps: IWalletAvatarProps = {
     wallet,

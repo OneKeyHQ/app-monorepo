@@ -25,21 +25,20 @@ import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
-import {
-  ECreationStepId,
-  ECreationStepState,
-  type ICreationStep,
-  type IKeylessShareCardRuntimeStep,
-  type IKeylessShareCardsCardContextValue,
-  type IKeylessShareCardsRefs,
-  type IKeylessShareCardsViewProps,
-} from './keylessOnboardingTypes';
+import { ECreationStepId, ECreationStepState } from './keylessOnboardingTypes';
 import { KeylessShareCardAuthKey } from './KeylessShareCardAuthKey';
 import { KeylessShareCardCloudKey } from './KeylessShareCardCloudKey';
 import { KeylessShareCardDeviceKey } from './KeylessShareCardDeviceKey';
 import { KeylessShareCardsContext } from './KeylessShareCardsContext';
 import { KeylessShareCardsEffects } from './KeylessShareCardsEffects';
 import { OnboardingLayout } from './OnboardingLayout';
+
+import type {
+  IKeylessShareCardRuntimeStep,
+  IKeylessShareCardsCardContextValue,
+  IKeylessShareCardsRefs,
+  IKeylessShareCardsViewProps,
+} from './keylessOnboardingTypes';
 
 // Step order constant - defined outside component to avoid recreation
 const STEP_ORDER = [

@@ -63,6 +63,7 @@ module.exports = {
     '*://*.onekeycn.com/*',
     '*://*.onekeytest.com/*',
     // '*://*.eth/',
+    'identity',
     'storage',
     'unlimitedStorage',
     'webRequest',

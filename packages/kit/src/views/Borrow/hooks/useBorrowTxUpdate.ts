@@ -3,6 +3,11 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  buildLocalTxStatusSyncId,
+  isBorrowTag,
+  parseBorrowTag,
+} from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { type IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -10,15 +15,26 @@ import { type IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 export type IBorrowPendingTx = IAccountHistoryTx &
   Required<Pick<IAccountHistoryTx, 'stakingInfo'>>;
 
+type IAccountMeta = {
+  accountId: string;
+  networkId: string;
+  accountAddress: string;
+  xpub?: string;
+};
+
+const DEFAULT_POLLING_INTERVAL = timerUtils.getTimeDurationMs({ seconds: 30 });
+
 export const useBorrowTxUpdate = ({
   accountId,
   networkId,
   provider,
+  symbol,
   onRefresh,
 }: {
   accountId?: string;
   networkId?: string;
   provider?: string;
+  symbol?: string;
   onRefresh?: () => void;
 }) => {
   const onRefreshRef = useRef(onRefresh);
@@ -26,55 +42,114 @@ export const useBorrowTxUpdate = ({
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
 
+  // Get polling interval for this network
   const { result: pollingInterval } = usePromiseResult(
     async () => {
-      if (!networkId) return timerUtils.getTimeDurationMs({ seconds: 30 });
-      const time =
-        await backgroundApiProxy.serviceStaking.getFetchHistoryPollingInterval({
-          networkId,
-        });
-      return timerUtils.getTimeDurationMs({ seconds: time });
+      if (!networkId) return DEFAULT_POLLING_INTERVAL;
+      try {
+        const time =
+          await backgroundApiProxy.serviceStaking.getFetchHistoryPollingInterval(
+            { networkId },
+          );
+        return timerUtils.getTimeDurationMs({ seconds: time });
+      } catch {
+        return DEFAULT_POLLING_INTERVAL;
+      }
     },
     [networkId],
-    { initResult: timerUtils.getTimeDurationMs({ seconds: 30 }) },
+    { initResult: DEFAULT_POLLING_INTERVAL },
   );
+
+  // Cache account metadata to avoid repeated calls during polling
+  const { result: accountMeta } = usePromiseResult<IAccountMeta | null>(
+    async () => {
+      if (!accountId || !networkId) {
+        return null;
+      }
+      try {
+        const [xpub, accountAddress] = await Promise.all([
+          backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          }),
+          backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          }),
+        ]);
+        return { accountId, networkId, accountAddress, xpub };
+      } catch {
+        return null;
+      }
+    },
+    [accountId, networkId],
+    { initResult: null },
+  );
+
+  // Build stake tag for filtering transactions
+  const stakeTag = useMemo(() => {
+    if (!provider || !symbol) return undefined;
+    return buildLocalTxStatusSyncId({
+      providerName: provider,
+      tokenSymbol: symbol,
+    });
+  }, [provider, symbol]);
 
   const { result: txs, run: refreshPendingTxs } = usePromiseResult(
     async () => {
-      if (!accountId || !networkId || !provider) {
+      if (!accountMeta || !provider) {
         return [];
       }
-      const [xpub, accountAddress] = await Promise.all([
-        backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        }),
-        backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        }),
-      ]);
+      try {
+        const pendingTxs =
+          await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
+            {
+              networkId: accountMeta.networkId,
+              accountAddress: accountMeta.accountAddress,
+              xpub: accountMeta.xpub,
+            },
+          );
 
-      const pendingTxs =
-        await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
-          {
-            networkId,
-            accountAddress,
-            xpub,
-          },
-        );
+        const borrowProviderName = earnUtils.getEarnProviderName({
+          providerName: provider,
+        });
+        const providerLower = provider.toLowerCase();
 
-      const borrowProviderName = earnUtils.getEarnProviderName({
-        providerName: provider,
-      });
+        // Filter transactions by:
+        // 1. New borrow tag format (borrow:{provider}:{action})
+        // 2. Legacy stakeTag format ({provider}-{symbol})
+        // 3. Protocol name match
+        return pendingTxs.filter((tx): tx is IBorrowPendingTx => {
+          if (!tx.stakingInfo) return false;
 
-      return pendingTxs.filter((tx): tx is IBorrowPendingTx => {
-        if (!tx.stakingInfo) return false;
-        // Filter by protocol name matches current provider
-        return tx.stakingInfo.protocol === borrowProviderName;
-      });
+          // Check tags for matches
+          const tags = tx.stakingInfo.tags ?? [];
+          for (const tag of tags) {
+            // Match new borrow tag format: borrow:{provider}:{action}
+            if (isBorrowTag(tag)) {
+              const parsed = parseBorrowTag(tag);
+              if (parsed?.provider === providerLower) {
+                return true;
+              }
+            }
+            // Match legacy stakeTag format
+            if (stakeTag && tag === stakeTag) {
+              return true;
+            }
+          }
+
+          // Match by protocol name (fallback)
+          if (tx.stakingInfo.protocol === borrowProviderName) {
+            return true;
+          }
+
+          return false;
+        });
+      } catch {
+        return [];
+      }
     },
-    [accountId, networkId, provider],
+    [accountMeta, provider, stakeTag],
     {
       initResult: [],
       revalidateOnFocus: true,
@@ -85,15 +160,19 @@ export const useBorrowTxUpdate = ({
   const prevIsPending = usePrevious(isPending);
 
   const refreshPendingWithHistory = useCallback(async () => {
-    if (!accountId || !networkId) {
+    if (!accountMeta) {
       return;
     }
-    await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-      accountId,
-      networkId,
-    });
-    await refreshPendingTxs();
-  }, [accountId, networkId, refreshPendingTxs]);
+    try {
+      await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+        accountId: accountMeta.accountId,
+        networkId: accountMeta.networkId,
+      });
+      await refreshPendingTxs();
+    } catch {
+      // Silently handle errors during refresh
+    }
+  }, [accountMeta, refreshPendingTxs]);
 
   usePromiseResult(
     async () => {
@@ -108,14 +187,15 @@ export const useBorrowTxUpdate = ({
 
   useEffect(() => {
     if (!isPending && prevIsPending) {
-      setTimeout(() => {
-        onRefreshRef.current?.();
-      }, timerUtils.getTimeDurationMs({ seconds: 3 }));
+      // Trigger refresh immediately when pending transactions complete
+      onRefreshRef.current?.();
     }
   }, [isPending, prevIsPending]);
 
   return {
     isPending,
+    pendingTxs: txs,
+    pendingCount: txs.length,
     refreshPending: refreshPendingWithHistory,
   };
 };

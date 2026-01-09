@@ -60,34 +60,32 @@ export function DesktopLayout() {
       </YStack>
 
       {/* Right column */}
-      {!isNative ? (
-        <Stack w={320}>
-          <ScrollView>
-            <Stack w={320} pb={platformEnv.isWeb ? '$12' : undefined}>
-              <Stack px="$5" py="$4">
-                <SwapPanel
-                  swapToken={{
-                    networkId,
-                    contractAddress: tokenDetail?.address || '',
-                    symbol: tokenDetail?.symbol || '',
-                    decimals: tokenDetail?.decimals || 0,
-                    logoURI: tokenDetail?.logoUrl,
-                    price: tokenDetail?.price,
-                  }}
-                />
-              </Stack>
-
-              <Divider mx="$5" my="$2" />
-
-              <TokenActivityOverview />
-
-              <Divider mx="$5" />
-
-              <TokenSupplementaryInfo />
+      <Stack w={320}>
+        <ScrollView>
+          <Stack w={320} pb={platformEnv.isWeb ? '$12' : undefined}>
+            <Stack px="$5" py="$4">
+              <SwapPanel
+                swapToken={{
+                  networkId,
+                  contractAddress: tokenDetail?.address || '',
+                  symbol: tokenDetail?.symbol || '',
+                  decimals: tokenDetail?.decimals || 0,
+                  logoURI: tokenDetail?.logoUrl,
+                  price: tokenDetail?.price,
+                }}
+              />
             </Stack>
-          </ScrollView>
-        </Stack>
-      ) : null}
+
+            <Divider mx="$5" my="$2" />
+
+            <TokenActivityOverview />
+
+            <Divider mx="$5" />
+
+            <TokenSupplementaryInfo />
+          </Stack>
+        </ScrollView>
+      </Stack>
     </XStack>
   );
 }

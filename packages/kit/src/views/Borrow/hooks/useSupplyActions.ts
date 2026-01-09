@@ -1,15 +1,18 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IBorrowToken } from '@onekeyhq/shared/types/staking';
 import {
   ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
+
+import type { ISwapConfig } from '../components/BorrowTableList';
 
 // Generic type for any asset with a token
 export type IAssetWithToken = {
@@ -21,15 +24,81 @@ type IUseSupplyActionsParams = {
   walletId: string;
   networkId: string;
   indexedAccountId?: string;
+  swapConfig?: ISwapConfig;
 };
+
+// Build native token from network info (dynamically, not hardcoded)
+function buildNativeSwapToken(network: IServerNetwork) {
+  return {
+    networkId: network.id,
+    contractAddress: '',
+    isNative: true,
+    symbol: network.symbol,
+    name: network.name,
+    decimals: network.decimals,
+    logoURI: network.logoURI,
+    networkLogoURI: network.logoURI,
+  };
+}
+
+// Build swap token from borrow token
+function buildSwapToken(token: IBorrowToken, network: IServerNetwork) {
+  const isNative = !token.address || token.address === '';
+  return {
+    networkId: network.id,
+    contractAddress: token.address,
+    isNative,
+    symbol: token.symbol,
+    name: token.name,
+    decimals: token.decimals,
+    logoURI: isNative ? network.logoURI : token.logoURI,
+    networkLogoURI: network.logoURI,
+  };
+}
 
 export const useSupplyActions = ({
   accountId,
   walletId,
   networkId,
   indexedAccountId,
+  swapConfig,
 }: IUseSupplyActionsParams) => {
   const navigation = useAppNavigation();
+
+  // Use ref to cache the network to avoid redundant fetches within the same session
+  const networkCacheRef = useRef<{
+    networkId: string;
+    network: IServerNetwork;
+  } | null>(null);
+
+  // Helper to get network with caching
+  const getNetworkSafe = useCallback(
+    async (targetNetworkId: string): Promise<IServerNetwork | null> => {
+      if (!targetNetworkId) {
+        return null;
+      }
+
+      // Return cached network if same networkId
+      if (
+        networkCacheRef.current?.networkId === targetNetworkId &&
+        networkCacheRef.current?.network
+      ) {
+        return networkCacheRef.current.network;
+      }
+
+      try {
+        const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+          networkId: targetNetworkId,
+        });
+        networkCacheRef.current = { networkId: targetNetworkId, network };
+        return network;
+      } catch (error) {
+        console.error('Failed to get network:', error);
+        return null;
+      }
+    },
+    [],
+  );
 
   const handleSwap = useCallback(
     async (item: IAssetWithToken) => {
@@ -39,45 +108,48 @@ export const useSupplyActions = ({
       }
 
       const { token } = item;
-      const isNative = !token.address || token.address === '';
 
-      // Check if network supports swap
-      const { isSupportSwap, isSupportCrossChain } =
-        await backgroundApiProxy.serviceSwap.checkSupportSwap({
-          networkId,
-        });
+      try {
+        // Use provided swapConfig or fetch if not available
+        let supportSwap = swapConfig?.isSupportSwap;
+        let supportCrossChain = swapConfig?.isSupportCrossChain;
 
-      if (!isSupportSwap && !isSupportCrossChain) {
-        console.warn('Swap not supported for this network');
-        return;
-      }
-
-      // Get network details
-      const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
-        networkId,
-      });
-
-      navigation.pushModal(EModalRoutes.SwapModal, {
-        screen: EModalSwapRoutes.SwapMainLand,
-        params: {
-          importFromToken: {
-            ...onekeyNetwork,
-            logoURI: isNative ? onekeyNetwork.logoURI : token.logoURI,
-            contractAddress: token.address,
+        if (supportSwap === undefined || supportCrossChain === undefined) {
+          const config = await backgroundApiProxy.serviceSwap.checkSupportSwap({
             networkId,
-            isNative,
-            networkLogoURI: onekeyNetwork.logoURI,
-            symbol: token.symbol,
-            name: token.name,
+          });
+          supportSwap = config.isSupportSwap;
+          supportCrossChain = config.isSupportCrossChain;
+        }
+
+        if (!supportSwap && !supportCrossChain) {
+          console.warn('Swap not supported for this network');
+          return;
+        }
+
+        // Get network details with error handling
+        const onekeyNetwork = await getNetworkSafe(networkId);
+        if (!onekeyNetwork) {
+          console.warn('Failed to get network details');
+          return;
+        }
+
+        navigation.pushModal(EModalRoutes.SwapModal, {
+          screen: EModalSwapRoutes.SwapMainLand,
+          params: {
+            importFromToken: buildNativeSwapToken(onekeyNetwork),
+            importToToken: buildSwapToken(token, onekeyNetwork),
+            swapTabSwitchType: supportSwap
+              ? ESwapTabSwitchType.SWAP
+              : ESwapTabSwitchType.BRIDGE,
+            swapSource: ESwapSource.MARKET,
           },
-          swapTabSwitchType: isSupportSwap
-            ? ESwapTabSwitchType.SWAP
-            : ESwapTabSwitchType.BRIDGE,
-          swapSource: ESwapSource.MARKET,
-        },
-      });
+        });
+      } catch (error) {
+        console.error('Error handling swap:', error);
+      }
     },
-    [navigation, networkId, accountId],
+    [navigation, networkId, accountId, swapConfig, getNetworkSafe],
   );
 
   const handleBridge = useCallback(
@@ -88,43 +160,44 @@ export const useSupplyActions = ({
       }
 
       const { token } = item;
-      const isNative = !token.address || token.address === '';
 
-      // Check if network supports cross-chain
-      const { isSupportCrossChain } =
-        await backgroundApiProxy.serviceSwap.checkSupportSwap({
-          networkId,
-        });
+      try {
+        // Use provided swapConfig or fetch if not available
+        let supportCrossChain = swapConfig?.isSupportCrossChain;
 
-      if (!isSupportCrossChain) {
-        console.warn('Bridge not supported for this network');
-        return;
-      }
-
-      // Get network details
-      const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
-        networkId,
-      });
-
-      navigation.pushModal(EModalRoutes.SwapModal, {
-        screen: EModalSwapRoutes.SwapMainLand,
-        params: {
-          importFromToken: {
-            ...onekeyNetwork,
-            logoURI: isNative ? onekeyNetwork.logoURI : token.logoURI,
-            contractAddress: token.address,
+        if (supportCrossChain === undefined) {
+          const config = await backgroundApiProxy.serviceSwap.checkSupportSwap({
             networkId,
-            isNative,
-            networkLogoURI: onekeyNetwork.logoURI,
-            symbol: token.symbol,
-            name: token.name,
+          });
+          supportCrossChain = config.isSupportCrossChain;
+        }
+
+        if (!supportCrossChain) {
+          console.warn('Bridge not supported for this network');
+          return;
+        }
+
+        // Get network details with error handling
+        const onekeyNetwork = await getNetworkSafe(networkId);
+        if (!onekeyNetwork) {
+          console.warn('Failed to get network details');
+          return;
+        }
+
+        navigation.pushModal(EModalRoutes.SwapModal, {
+          screen: EModalSwapRoutes.SwapMainLand,
+          params: {
+            importFromToken: buildNativeSwapToken(onekeyNetwork),
+            importToToken: buildSwapToken(token, onekeyNetwork),
+            swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+            swapSource: ESwapSource.MARKET,
           },
-          swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
-          swapSource: ESwapSource.MARKET,
-        },
-      });
+        });
+      } catch (error) {
+        console.error('Error handling bridge:', error);
+      }
     },
-    [navigation, networkId, accountId],
+    [navigation, networkId, accountId, swapConfig, getNetworkSafe],
   );
 
   const handleReceive = useCallback(
@@ -136,43 +209,47 @@ export const useSupplyActions = ({
 
       const { token } = item;
 
-      // Get or create network account
-      const networkAccount =
-        await backgroundApiProxy.serviceAccount.createAddressIfNotExists(
-          {
-            walletId,
+      try {
+        // Get or create network account
+        const networkAccount =
+          await backgroundApiProxy.serviceAccount.createAddressIfNotExists(
+            {
+              walletId,
+              networkId,
+              accountId,
+              indexedAccountId,
+            },
+            {
+              allowWatchAccount: true,
+            },
+          );
+
+        if (!networkAccount) {
+          console.warn('Failed to get network account');
+          return;
+        }
+
+        const receiveToken: IToken = {
+          name: token.name,
+          symbol: token.symbol,
+          address: token.address,
+          decimals: token.decimals,
+          logoURI: token.logoURI,
+          isNative: !token.address || token.address === '',
+        };
+
+        navigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.ReceiveToken,
+          params: {
             networkId,
-            accountId,
-            indexedAccountId,
+            accountId: networkAccount.id,
+            walletId,
+            token: receiveToken,
           },
-          {
-            allowWatchAccount: true,
-          },
-        );
-
-      if (!networkAccount) {
-        console.warn('Failed to get network account');
-        return;
+        });
+      } catch (error) {
+        console.error('Error handling receive:', error);
       }
-
-      const receiveToken: IToken = {
-        name: token.name,
-        symbol: token.symbol,
-        address: token.address,
-        decimals: token.decimals,
-        logoURI: token.logoURI,
-        isNative: !token.address || token.address === '',
-      };
-
-      navigation.pushModal(EModalRoutes.ReceiveModal, {
-        screen: EModalReceiveRoutes.ReceiveToken,
-        params: {
-          networkId,
-          accountId: networkAccount.id,
-          walletId,
-          token: receiveToken,
-        },
-      });
     },
     [navigation, networkId, accountId, walletId, indexedAccountId],
   );

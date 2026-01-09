@@ -68,6 +68,7 @@ import type {
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  ILMTronObject,
   IOKXTransactionObject,
   IPerpDepositQuoteResponse,
   IPopularTrading,
@@ -1891,6 +1892,21 @@ export default class ServiceSwap extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  async buildLMSwapEncodedTx(params: {
+    accountId: string;
+    networkId: string;
+    lmTx: ILMTronObject;
+  }) {
+    const vault = await vaultFactory.getVault({
+      accountId: params.accountId,
+      networkId: params.networkId,
+    });
+    return vault.buildLiquidMeshSwapEncodedTx({
+      lmTx: params.lmTx,
+    });
+  }
+
   async getCacheSwapSupportNetworks() {
     const now = Date.now();
     if (
@@ -2213,6 +2229,8 @@ export default class ServiceSwap extends ServiceBase {
         swapMevNetConfig: mevSwapNetworks,
       },
       supportSpeedSwap: false,
+      onlySupportCrossChain: false,
+      onlySupportSingleChain: false,
       speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
     };
     try {

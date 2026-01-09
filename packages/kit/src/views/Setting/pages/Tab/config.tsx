@@ -11,7 +11,10 @@ import type {
 } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import {
+  useKeylessWalletExistsLocal,
+  useKeylessWalletFeatureIsEnabled,
+} from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
@@ -68,6 +71,7 @@ import {
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
+  ResetPinListItem,
   ThemeListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
@@ -156,6 +160,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
 
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
   return useMemo(
     () => [
@@ -506,6 +511,13 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     }
                   },
                 },
+            platformEnv.isWebDappMode || !isKeylessWalletExistsLocal
+              ? undefined
+              : {
+                  icon: 'InputOutline',
+                  title: intl.formatMessage({ id: ETranslations.reset_pin }),
+                  renderElement: <ResetPinListItem />,
+                },
           ],
           [
             platformEnv.isWebDappMode
@@ -835,6 +847,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
       isKeylessWalletEnabled,
+      isKeylessWalletExistsLocal,
       startBackup,
       onPressAddressBook,
       helpCenterUrl,

@@ -18,7 +18,11 @@ import {
 import SwapProTokenTransactionItem from '../../components/SwapProTokenTransactionItem';
 import { useSwapProTokenTransactionList } from '../../hooks/useSwapPro';
 
-const SwapProTokenTransactionList = () => {
+const SwapProTokenTransactionList = ({
+  supportSpeedSwap,
+}: {
+  supportSpeedSwap?: boolean;
+}) => {
   const intl = useIntl();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -34,6 +38,7 @@ const SwapProTokenTransactionList = () => {
       swapProSelectToken?.contractAddress ?? '',
       swapProSelectToken?.networkId ?? '',
       Boolean(enableWebSocket),
+      supportSpeedSwap,
     );
 
   const finallyTransactionList = useMemo(() => {
@@ -56,7 +61,7 @@ const SwapProTokenTransactionList = () => {
           })}
         </SizableText>
       </XStack>
-      {swapProSelectToken?.isNative ? (
+      {!supportSpeedSwap ? (
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             --

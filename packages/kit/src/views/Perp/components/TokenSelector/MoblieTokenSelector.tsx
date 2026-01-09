@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpTokenSelectorConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IPerpTokenSelectorConfig,
   IPerpTokenSortField,
@@ -40,15 +41,10 @@ import {
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
+import { FavoritesEmptyState } from './FavoritesEmptyState';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
 import type { ITokenSelectorListItem } from './PerpTokenSelector';
-
-const TAB_LABELS = {
-  favorites: 'Favs',
-  all: 'PERPS',
-  hip3: 'HIP3',
-} as const;
 
 function TabItem({
   name,
@@ -108,6 +104,15 @@ function MobileTokenSelectorModal({
     usePerpTokenSelectorConfigPersistAtom();
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+
+  const tabLabels = useMemo(
+    () => ({
+      favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
+      all: 'PERPS',
+      hip3: 'HIP3',
+    }),
+    [intl],
+  );
   const setActiveTab = useCallback(
     (tab: 'all' | 'hip3' | 'favorites') => {
       setSelectorConfig((prev) => ({
@@ -324,10 +329,10 @@ function MobileTokenSelectorModal({
         borderBottomColor="$borderSubdued"
       >
         <XStack flex={1}>
-          {(['all', 'hip3', 'favorites'] as const).map((tabKey) => (
+          {(['favorites', 'all', 'hip3'] as const).map((tabKey) => (
             <TabItem
               key={tabKey}
-              name={TAB_LABELS[tabKey]}
+              name={tabLabels[tabKey]}
               isFocused={activeTab === tabKey}
               onPress={() => setActiveTab(tabKey)}
             />
@@ -404,13 +409,20 @@ function MobileTokenSelectorModal({
       <Page.Body>
         <YStack flex={1} mt="$2">
           <ListView
+            // Force FlashList recreation on native to fix recycling pool bug
+            key={
+              platformEnv.isNative
+                ? `${activeTab}-${selectorConfig?.field ?? ''}-${
+                    selectorConfig?.direction ?? ''
+                  }`
+                : undefined
+            }
             useFlashList
             ref={listRef}
             keyExtractor={keyExtractor}
             estimatedItemSize={44}
-            windowSize={4}
-            initialNumToRender={10}
-            removeClippedSubviews
+            windowSize={5}
+            initialNumToRender={15}
             decelerationRate="normal"
             showsVerticalScrollIndicator
             contentContainerStyle={{
@@ -425,17 +437,21 @@ function MobileTokenSelectorModal({
               />
             )}
             ListEmptyComponent={
-              <XStack p="$5" justifyContent="center">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {searchQuery
-                    ? intl.formatMessage({
-                        id: ETranslations.perp_token_selector_empty,
-                      })
-                    : intl.formatMessage({
-                        id: ETranslations.perp_token_selector_loading,
-                      })}
-                </SizableText>
-              </XStack>
+              activeTab === 'favorites' && !searchQuery ? (
+                <FavoritesEmptyState isMobile />
+              ) : (
+                <XStack p="$5" justifyContent="center">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {searchQuery
+                      ? intl.formatMessage({
+                          id: ETranslations.perp_token_selector_empty,
+                        })
+                      : intl.formatMessage({
+                          id: ETranslations.dexmarket_details_nodata,
+                        })}
+                  </SizableText>
+                </XStack>
+              )
             }
           />
         </YStack>

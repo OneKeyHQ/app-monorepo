@@ -14,12 +14,20 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
 
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
+import { PendingIndicator } from '../../Staking/components/StakingActivityIndicator';
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
+import {
+  buildBorrowTag,
+  isBorrowTag,
+  parseBorrowTag,
+} from '../../Staking/utils/utils';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
@@ -66,7 +74,7 @@ const OverviewItem = ({
 };
 
 export const Overview = () => {
-  const { reserves, market, setReserves, setReservesLoading } =
+  const { reserves, market, setReserves, setReservesLoading, pendingTxs } =
     useBorrowContext();
   const { fetchReserves } = useBorrowReserves();
   const { earnAccount } = useEarnAccount({
@@ -98,6 +106,25 @@ export const Overview = () => {
       }),
     }),
     [intl],
+  );
+
+  // Calculate pending count and claim IDs from pending transactions
+  const pendingCount = pendingTxs.length;
+  const pendingClaimIds = useMemo(
+    () =>
+      pendingTxs
+        .filter((tx) => tx.stakingInfo.label === EEarnLabels.Claim)
+        .flatMap((tx) => {
+          const tags = tx.stakingInfo.tags ?? [];
+          return tags.flatMap((tag) => {
+            if (isBorrowTag(tag)) {
+              const parsed = parseBorrowTag(tag);
+              return parsed?.claimIds ?? [];
+            }
+            return [];
+          });
+        }),
+    [pendingTxs],
   );
 
   // Fetch health factor separately with 30s polling
@@ -185,19 +212,48 @@ export const Overview = () => {
 
     showBorrowClaimRewardsDialog({
       rewardsDetails,
+      pendingClaimIds,
       onClaimItem: async (item) => {
+        // Build stakingInfo with proper tag for single item claim
+        const stakingInfo = {
+          label: EEarnLabels.Claim,
+          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+          protocolLogoURI: market?.logoURI,
+          tags: [
+            buildBorrowTag({
+              provider,
+              action: 'claim',
+              claimIds: [item.id],
+            }),
+          ],
+        };
         await handleBorrowClaim({
           provider,
           marketAddress,
           ids: [item.id],
+          stakingInfo,
           onSuccess: handleRefresh,
         });
       },
       onClaimAll: async () => {
+        // Build stakingInfo with proper tag for all items claim
+        const stakingInfo = {
+          label: EEarnLabels.Claim,
+          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+          protocolLogoURI: market?.logoURI,
+          tags: [
+            buildBorrowTag({
+              provider,
+              action: 'claim',
+              claimIds: allIds,
+            }),
+          ],
+        };
         await handleBorrowClaim({
           provider,
           marketAddress,
           ids: allIds,
+          stakingInfo,
           onSuccess: handleRefresh,
         });
       },
@@ -209,8 +265,10 @@ export const Overview = () => {
     marketAddress,
     networkId,
     earnAccountId,
+    market?.logoURI,
     handleBorrowClaim,
     handleRefresh,
+    pendingClaimIds,
   ]);
 
   const { gtMd } = useMedia();
@@ -218,100 +276,128 @@ export const Overview = () => {
   // Mobile layout
   if (!gtMd) {
     return (
-      <YStack mt="$2" mb="$5" gap="$3">
+      <YStack mt="$2" mb="$5">
         {/* Row 1: Net worth */}
-        <YStack gap="$1">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {labels.netWorth}
-          </SizableText>
-          <EarnText
-            text={
-              reserves?.overview?.netWorth ?? {
-                text: amountPlaceholder,
-                color: '$textDisabled',
-              }
-            }
-            size="$heading3xl"
-          />
-          {reserves?.overview?.netApy ? (
-            <XStack ai="center" gap="$1">
-              <EarnText
-                text={reserves.overview.netApy}
-                size="$bodyMd"
-                color="$textSubdued"
-              />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {labels.netApy}
-              </SizableText>
-            </XStack>
-          ) : (
-            <SizableText size="$bodyMd" color="$textDisabled">
-              -
+        <XStack ai="flex-start" jc="space-between" mb="$5">
+          <YStack>
+            <SizableText size="$bodyMdMedium" color="$textText" mb="$1">
+              {labels.netWorth}
             </SizableText>
-          )}
-        </YStack>
+            <EarnText
+              text={
+                reserves?.overview?.netWorth ?? {
+                  text: amountPlaceholder,
+                  color: '$textDisabled',
+                }
+              }
+              size="$heading3xl"
+              color="$textText"
+              mb="$1.5"
+            />
+            {reserves?.overview?.netApy ? (
+              <XStack ai="center" gap="$1">
+                <EarnText
+                  text={reserves.overview.netApy}
+                  size="$bodyMdMedium"
+                  color="$textText"
+                />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {labels.netApy}
+                </SizableText>
+              </XStack>
+            ) : (
+              <SizableText size="$bodyMdMedium" color="$textDisabled">
+                -
+              </SizableText>
+            )}
+          </YStack>
+          <XStack ai="center" gap="$3">
+            {pendingCount > 0 ? (
+              <PendingIndicator
+                num={pendingCount}
+                onPress={handleHistoryPress}
+              />
+            ) : null}
+            {!reserves?.overview?.history?.disabled && pendingCount === 0 ? (
+              <XStack
+                ai="center"
+                gap="$1"
+                cursor="pointer"
+                onPress={handleHistoryPress}
+              >
+                <Icon
+                  name="ClockTimeHistoryOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {historyLabel}
+                </SizableText>
+              </XStack>
+            ) : null}
+          </XStack>
+        </XStack>
 
-        {/* Row 2: Health factor + Platform bonus */}
-        <XStack gap="$6">
-          {healthFactorData?.healthFactor ? (
+        {/* Grid: Health factor + Platform bonus + Claimable rewards */}
+        <YStack gap="$4">
+          <XStack gap="$6">
+            {healthFactorData?.healthFactor ? (
+              <YStack gap="$1" flex={1}>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {labels.healthFactor}
+                </SizableText>
+                <XStack ai="center" gap="$1">
+                  <EarnText
+                    text={
+                      healthFactorData.healthFactor.text ?? {
+                        text: '-',
+                        color: '$textDisabled',
+                      }
+                    }
+                    size="$headingLg"
+                    color="$textText"
+                  />
+                  <XStack mt="$1">
+                    <BorrowHealthFactorTooltip
+                      detail={
+                        healthFactorData.healthFactor.button?.data
+                          .healthFactorDetail
+                      }
+                    />
+                  </XStack>
+                </XStack>
+              </YStack>
+            ) : null}
             <YStack gap="$1" flex={1}>
               <SizableText size="$bodyMd" color="$textSubdued">
-                {labels.healthFactor}
+                {labels.platformBonus}
               </SizableText>
               <XStack ai="center" gap="$1">
                 <EarnText
                   text={
-                    healthFactorData.healthFactor.text ?? {
-                      text: '-',
+                    reserves?.overview?.platformBonus?.totalReceived
+                      .description ?? {
+                      text: amountPlaceholder,
                       color: '$textDisabled',
                     }
                   }
                   size="$headingLg"
-                  color="$textSuccess"
+                  color="$textText"
                 />
                 <XStack mt="$1">
-                  <BorrowHealthFactorTooltip
-                    detail={
-                      healthFactorData.healthFactor.button?.data
-                        .healthFactorDetail
-                    }
+                  <BorrowBonusTooltip
+                    data={reserves?.overview?.platformBonus}
+                    accountId={earnAccountId}
+                    networkId={networkId}
+                    provider={provider}
+                    marketAddress={marketAddress}
                   />
                 </XStack>
               </XStack>
             </YStack>
-          ) : null}
-          <YStack gap="$1" flex={1}>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {labels.platformBonus}
-            </SizableText>
-            <XStack ai="center" gap="$1">
-              <EarnText
-                text={
-                  reserves?.overview?.platformBonus?.totalReceived
-                    .description ?? {
-                    text: amountPlaceholder,
-                    color: '$textDisabled',
-                  }
-                }
-                size="$headingLg"
-              />
-              <XStack mt="$1">
-                <BorrowBonusTooltip
-                  data={reserves?.overview?.platformBonus}
-                  accountId={earnAccountId}
-                  networkId={networkId}
-                  provider={provider}
-                  marketAddress={marketAddress}
-                />
-              </XStack>
-            </XStack>
-          </YStack>
-        </XStack>
-
-        {/* Row 3: Rewards + History */}
-        {borrowRewards ? (
-          <XStack jc="space-between" ai="flex-start">
-            <YStack gap="$1" flex={1}>
+          </XStack>
+          {borrowRewards ? (
+            <YStack gap="$1">
               <EarnText
                 text={borrowRewards.title}
                 size="$bodyMd"
@@ -320,45 +406,28 @@ export const Overview = () => {
               <XStack ai="center" gap="$1">
                 <EarnText
                   text={borrowRewards.description}
-                  size="$bodyMd"
-                  color="$textSubdued"
+                  size="$headingLg"
+                  color="$textText"
                 />
-                <Button
-                  p="0"
-                  ai="center"
-                  size="small"
-                  variant="link"
-                  cursor={
-                    borrowRewards.button.disabled ? 'not-allowed' : 'pointer'
-                  }
-                  disabled={borrowRewards.button.disabled}
-                  onPress={handleShowRewardsDialog}
-                >
-                  <EarnText
-                    size="$bodyMdMedium"
-                    color="$textInfo"
-                    text={borrowRewards.button.text}
-                  />
-                </Button>
+                {!borrowRewards.button.disabled ? (
+                  <Button
+                    p="0"
+                    ai="center"
+                    size="small"
+                    variant="link"
+                    onPress={handleShowRewardsDialog}
+                  >
+                    <EarnText
+                      size="$bodyMdMedium"
+                      color="$textInfo"
+                      text={borrowRewards.button.text}
+                    />
+                  </Button>
+                ) : null}
               </XStack>
             </YStack>
-            <XStack
-              ai="center"
-              gap="$1"
-              cursor="pointer"
-              onPress={handleHistoryPress}
-            >
-              <Icon
-                name="ClockTimeHistoryOutline"
-                size="$4"
-                color="$iconSubdued"
-              />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {historyLabel}
-              </SizableText>
-            </XStack>
-          </XStack>
-        ) : null}
+          ) : null}
+        </YStack>
       </YStack>
     );
   }
@@ -431,30 +500,35 @@ export const Overview = () => {
           title={borrowRewards?.title}
           text={borrowRewards?.description}
           action={
-            <Button
-              p="0"
-              ai="center"
-              size="small"
-              variant="link"
-              cursor={borrowRewards.button.disabled ? 'not-allowed' : 'pointer'}
-              disabled={borrowRewards.button.disabled}
-              onPress={handleShowRewardsDialog}
-            >
-              <EarnText
-                size="$bodyMdMedium"
-                color="$textInfo"
-                text={borrowRewards.button.text}
-              />
-            </Button>
+            !borrowRewards.button.disabled ? (
+              <Button
+                p="0"
+                ai="center"
+                size="small"
+                variant="link"
+                onPress={handleShowRewardsDialog}
+              >
+                <EarnText
+                  size="$bodyMdMedium"
+                  color="$textInfo"
+                  text={borrowRewards.button.text}
+                />
+              </Button>
+            ) : null
           }
         />
       ) : null}
 
-      <XStack ml="auto">
-        <EarnActionIcon
-          actionIcon={reserves?.overview?.history}
-          onHistory={handleHistoryPress}
-        />
+      <XStack ml="auto" ai="center" gap="$3">
+        {pendingCount > 0 ? (
+          <PendingIndicator num={pendingCount} onPress={handleHistoryPress} />
+        ) : null}
+        {!reserves?.overview?.history?.disabled && pendingCount === 0 ? (
+          <EarnActionIcon
+            actionIcon={reserves?.overview?.history}
+            onHistory={handleHistoryPress}
+          />
+        ) : null}
       </XStack>
     </XStack>
   );

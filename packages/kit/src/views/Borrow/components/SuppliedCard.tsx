@@ -108,13 +108,22 @@ export const SuppliedCard = () => {
           reserveAddress: item.reserveAddress,
           symbol: item.token.symbol,
           logoURI: item.token.logoURI,
+          accountId: accountId || undefined,
+          indexedAccountId,
         });
       } else {
         // Mobile: open Withdraw dialog
         handleManageWithdraw(item);
       }
     },
-    [navigation, market, gtMd, handleManageWithdraw],
+    [
+      navigation,
+      market,
+      gtMd,
+      handleManageWithdraw,
+      accountId,
+      indexedAccountId,
+    ],
   );
 
   const showLoading = !reserves && reservesLoading;
@@ -146,7 +155,7 @@ export const SuppliedCard = () => {
         render: (item: ISuppliedAsset) => (
           <AssetWithAmountField
             token={item.token}
-            amountLabel={labels.suppliedWithColon}
+            amountLabel={{ text: labels.suppliedWithColon }}
             amount={item.suppliedAmount.title}
             amountDescription={item.suppliedAmount.description}
             platformBonusApy={item.platformBonusApy}

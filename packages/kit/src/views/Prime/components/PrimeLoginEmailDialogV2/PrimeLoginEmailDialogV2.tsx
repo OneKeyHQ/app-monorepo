@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -11,6 +12,7 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKey
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { DevTestAccountSelector } from '../OneKeyIDLoginDialog/DevTestAccountSelector';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 function PrimeLoginEmailDialogV2(props: {
@@ -30,6 +32,7 @@ function PrimeLoginEmailDialogV2(props: {
     onCancel,
   } = props;
 
+  const [devSettings] = useDevSettingsPersistAtom();
   const lastOneKeyIdLoginEmail = appStorage.syncStorage.getString(
     EAppSyncStorageKeys.last_onekey_id_login_email,
   );
@@ -125,6 +128,7 @@ function PrimeLoginEmailDialogV2(props: {
         </Dialog.Description>
       </Dialog.Header>
       <Stack>
+        {devSettings.enabled ? <DevTestAccountSelector /> : null}
         <Form form={form}>
           <Form.Field
             name="email"

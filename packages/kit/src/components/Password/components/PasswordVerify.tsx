@@ -57,6 +57,7 @@ interface IPasswordVerifyProps {
   };
   alertText?: string;
   confirmBtnDisabled?: boolean;
+  pageMode?: boolean;
 }
 
 export interface IPasswordVerifyForm {
@@ -65,6 +66,7 @@ export interface IPasswordVerifyForm {
 }
 
 function PasswordVerify({
+  pageMode,
   isEnable,
   alertText,
   confirmBtnDisabled,
@@ -346,6 +348,9 @@ function PasswordVerify({
                 form.setValue('passCode', pin);
                 form.clearErrors('passCode');
                 setPassCodeClear(false);
+                if (pageMode) {
+                  onPasswordChange(pin);
+                }
               }}
               editable={Boolean(
                 status.value !== EPasswordVerifyStatus.VERIFYING &&

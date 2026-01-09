@@ -52,6 +52,7 @@ import {
   usePerpsFavorites,
 } from '../../hooks';
 
+import { FavoritesEmptyState } from './FavoritesEmptyState';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 import { SortableHeaderCell } from './SortableHeaderCell';
 
@@ -164,11 +165,11 @@ function BasePerpTokenSelectorContent({
 
   const tabNames = useMemo(
     () => ({
-      favorites: 'Favs',
+      favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
       all: 'PERPS',
       hip3: 'HIP3',
     }),
-    [],
+    [intl],
   );
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const setActiveTab = useCallback(
@@ -442,43 +443,53 @@ function BasePerpTokenSelectorContent({
     (
       data: ITokenSelectorListItem[],
       listRef: React.MutableRefObject<IListViewRef<ITokenSelectorListItem> | null>,
-    ) => (
-      <Tabs.ScrollView>
-        <YStack>
-          <TokenListHeader />
-          <YStack height={350}>
-            <ListView
-              useFlashList
-              ref={listRef}
-              keyExtractor={keyExtractor}
-              data={data}
-              renderItem={({ item: mockedToken }) => (
-                <PerpTokenSelectorRow
-                  mockedToken={mockedToken}
-                  onPress={(name) => handleSelectToken(name)}
+      isFavoritesTab = false,
+    ) => {
+      const showFavoritesEmpty =
+        isFavoritesTab && data.length === 0 && !searchQuery;
+
+      return (
+        <Tabs.ScrollView>
+          <YStack>
+            {!isFavoritesTab || data.length > 0 ? <TokenListHeader /> : null}
+            <YStack height={350}>
+              {showFavoritesEmpty ? (
+                <FavoritesEmptyState />
+              ) : (
+                <ListView
+                  useFlashList
+                  ref={listRef}
+                  keyExtractor={keyExtractor}
+                  data={data}
+                  renderItem={({ item: mockedToken }) => (
+                    <PerpTokenSelectorRow
+                      mockedToken={mockedToken}
+                      onPress={(name) => handleSelectToken(name)}
+                    />
+                  )}
+                  ListEmptyComponent={
+                    <XStack p="$4" justifyContent="center">
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {searchQuery
+                          ? intl.formatMessage({
+                              id: ETranslations.perp_token_selector_empty,
+                            })
+                          : intl.formatMessage({
+                              id: ETranslations.perp_token_selector_loading,
+                            })}
+                      </SizableText>
+                    </XStack>
+                  }
+                  contentContainerStyle={{
+                    paddingBottom: 10,
+                  }}
                 />
               )}
-              ListEmptyComponent={
-                <XStack p="$4" justifyContent="center">
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {searchQuery
-                      ? intl.formatMessage({
-                          id: ETranslations.perp_token_selector_empty,
-                        })
-                      : intl.formatMessage({
-                          id: ETranslations.perp_token_selector_loading,
-                        })}
-                  </SizableText>
-                </XStack>
-              }
-              contentContainerStyle={{
-                paddingBottom: 10,
-              }}
-            />
+            </YStack>
           </YStack>
-        </YStack>
-      </Tabs.ScrollView>
-    ),
+        </Tabs.ScrollView>
+      );
+    },
     [handleSelectToken, intl, keyExtractor, searchQuery],
   );
 
@@ -533,19 +544,19 @@ function BasePerpTokenSelectorContent({
             />
           )}
         >
+          <Tabs.Tab name={tabNames.favorites}>
+            {activeTab === 'favorites'
+              ? renderTokenList(listDataByTab.favorites, listRefFavorites, true)
+              : null}
+          </Tabs.Tab>
           <Tabs.Tab name={tabNames.all}>
             {activeTab === 'all'
-              ? renderTokenList(listDataByTab.all, listRefAll)
+              ? renderTokenList(listDataByTab.all, listRefAll, false)
               : null}
           </Tabs.Tab>
           <Tabs.Tab name={tabNames.hip3}>
             {activeTab === 'hip3'
-              ? renderTokenList(listDataByTab.hip3, listRefHip3)
-              : null}
-          </Tabs.Tab>
-          <Tabs.Tab name={tabNames.favorites}>
-            {activeTab === 'favorites'
-              ? renderTokenList(listDataByTab.favorites, listRefFavorites)
+              ? renderTokenList(listDataByTab.hip3, listRefHip3, false)
               : null}
           </Tabs.Tab>
         </Tabs.Container>

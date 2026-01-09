@@ -13,7 +13,6 @@ import {
   Tabs,
   XStack,
   YStack,
-  useMedia,
   useStyle,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -39,7 +38,7 @@ import type {
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
-  useAggregateTokensMapAtom,
+  useFlattenAggregateTokensMapAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
@@ -159,7 +158,6 @@ function TokenListViewCmp(props: IProps) {
   } = props;
 
   const intl = useIntl();
-  const media = useMedia();
 
   const [overFlowState, setOverFlowState] = useState<{
     isOverflow: boolean;
@@ -172,7 +170,7 @@ function TokenListViewCmp(props: IProps) {
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
   const [tokenListMap] = useTokenListMapAtom();
-  const [aggregateTokenMap] = useAggregateTokensMapAtom();
+  const [aggregateTokenMap] = useFlattenAggregateTokensMapAtom();
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();

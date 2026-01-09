@@ -1,6 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { NumberSizeableText, Skeleton, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  NumberSizeableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { InfoItemLabel } from './InfoItemLabel';
@@ -13,6 +19,7 @@ export interface IBalanceDisplayProps {
   token?: IToken;
   isLoading?: boolean;
   onBalanceClick?: () => void;
+  useIcon?: boolean;
 }
 
 export function BalanceDisplay({
@@ -20,8 +27,10 @@ export function BalanceDisplay({
   token,
   isLoading = false,
   onBalanceClick,
+  useIcon = false,
 }: IBalanceDisplayProps) {
   const intl = useIntl();
+
   return (
     <XStack justifyContent="space-between" alignItems="center" height="$6">
       <InfoItemLabel
@@ -29,26 +38,40 @@ export function BalanceDisplay({
       />
 
       {isLoading ? (
-        <Skeleton height="$6" width="$24" />
+        <Skeleton height="$6" width="$12" />
       ) : (
-        <NumberSizeableText
-          size="$bodyMdMedium"
-          onPress={onBalanceClick}
-          userSelect="none"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          borderRadius="$2"
-          formatter="balance"
-          formatterOptions={{
-            tokenSymbol: token?.symbol,
-          }}
-          contentStyle={{
-            px: '$1',
-            py: '$0.5',
-          }}
-        >
-          {balance?.toFixed()}
-        </NumberSizeableText>
+        <>
+          <NumberSizeableText
+            size="$bodyMdMedium"
+            onPress={onBalanceClick}
+            userSelect="none"
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            borderRadius="$2"
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: useIcon ? undefined : token?.symbol,
+            }}
+            numberOfLines={1}
+            maxWidth="$56"
+            contentStyle={{
+              px: '$1',
+              py: '$0.5',
+            }}
+          >
+            {balance?.toFixed()}
+          </NumberSizeableText>
+          {useIcon ? (
+            <Image
+              size="$4"
+              source={token?.logoURI}
+              borderRadius="$full"
+              fallback={
+                <Icon name="CryptoCoinOutline" size="$4" color="$iconSubdued" />
+              }
+            />
+          ) : null}
+        </>
       )}
     </XStack>
   );

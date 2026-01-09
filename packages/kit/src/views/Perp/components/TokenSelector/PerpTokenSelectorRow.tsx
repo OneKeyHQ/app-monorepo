@@ -86,31 +86,34 @@ function TokenSelectorRowProvider({
   );
 }
 
-const FavoriteButton = memo(({ coin }: { coin: string }) => {
-  const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
-  const isFavorite = favorites.favorites.includes(coin);
+const FavoriteButton = memo(
+  ({ coin, isMobile }: { coin: string; isMobile?: boolean }) => {
+    const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
+    const isFavorite = favorites.favorites.includes(coin);
 
-  const handleToggle = useCallback(() => {
-    setFavorites((prev) => ({
-      favorites: isFavorite
-        ? prev.favorites.filter((f) => f !== coin)
-        : [...prev.favorites, coin],
-    }));
-  }, [coin, isFavorite, setFavorites]);
+    const handleToggle = useCallback(() => {
+      setFavorites((prev) => ({
+        favorites: isFavorite
+          ? prev.favorites.filter((f) => f !== coin)
+          : [...prev.favorites, coin],
+      }));
+    }, [coin, isFavorite, setFavorites]);
 
-  return (
-    <IconButton
-      icon={isFavorite ? 'StarSolid' : 'StarOutline'}
-      variant="tertiary"
-      size="small"
-      iconProps={{
-        color: isFavorite ? '$yellow10' : '$iconSubdued',
-      }}
-      onPress={handleToggle}
-      stopPropagation
-    />
-  );
-});
+    return (
+      <IconButton
+        icon={isFavorite ? 'StarSolid' : 'StarOutline'}
+        variant="tertiary"
+        size="small"
+        iconProps={{
+          color: isFavorite ? '$icon' : '$iconSubdued',
+          size: isMobile ? '$5' : '$3',
+        }}
+        onPress={handleToggle}
+        stopPropagation
+      />
+    );
+  },
+);
 
 FavoriteButton.displayName = 'FavoriteButton';
 
@@ -398,8 +401,8 @@ const TokenImageMobile = memo(() => {
         name="TokenImageMobile"
         offsetY={10}
       >
-        <XStack gap="$1.5" alignItems="center">
-          <FavoriteButton coin={token.name} />
+        <XStack gap="$2" alignItems="center">
+          <FavoriteButton coin={token.name} isMobile />
           <Token
             size="lg"
             borderRadius="$full"
@@ -592,7 +595,7 @@ const TokenSelectorRowMobile = memo(() => {
           pressStyle={{
             bg: '$bgHover',
           }}
-          gap="$4"
+          gap="$2.5"
         >
           <TokenImageMobile />
           <XStack gap="$2" alignItems="center" justifyContent="center">

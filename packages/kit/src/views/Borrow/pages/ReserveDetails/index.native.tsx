@@ -1,13 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
 import {
+  IconButton,
   Page,
-  ScrollView,
   SizableText,
-  Stack,
   XStack,
   YStack,
-  useMedia,
   useShare,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -22,11 +20,10 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { BorrowNavigation } from '../../borrowUtils';
 
 import { DetailsPart } from './components/DetailsPart';
-import { ManagePositionPart } from './components/ManagePositionPart';
+import { useBorrowReserveDetailData } from './hooks/useBorrowReserveDetailData';
 
 const ReserveDetailsPage = () => {
   // Support both tab route and modal route
@@ -35,7 +32,6 @@ const ReserveDetailsPage = () => {
     | ETabEarnRoutes.BorrowReserveDetails
     | EModalStakingRoutes.BorrowReserveDetails
   >();
-  const { gtMd } = useMedia();
   const { shareText } = useShare();
   const [devSettings] = useDevSettingsPersistAtom();
 
@@ -46,10 +42,18 @@ const ReserveDetailsPage = () => {
     reserveAddress,
     symbol,
     logoURI,
+    accountId: routeAccountId,
+    indexedAccountId,
   } = route.params;
 
-  const { earnAccount } = useEarnAccount({ networkId });
-  const accountId = earnAccount?.account?.id || '';
+  const { details, isLoading, refreshData } = useBorrowReserveDetailData({
+    accountId: routeAccountId,
+    networkId,
+    indexedAccountId,
+    provider,
+    marketAddress,
+    reserveAddress,
+  });
 
   const shareUrl = useMemo(() => {
     if (!symbol || !provider || !networkId || !marketAddress || !reserveAddress)
@@ -89,41 +93,36 @@ const ReserveDetailsPage = () => {
     [symbol, logoURI],
   );
 
+  const headerRight = useCallback(
+    () => (
+      <IconButton
+        icon="ShareOutline"
+        size="small"
+        variant="tertiary"
+        iconColor="$iconSubdued"
+        onPress={handleShare}
+      />
+    ),
+    [handleShare],
+  );
+
   return (
     <Page>
-      <Page.Header headerTitle={headerTitle} headerRight={() => null} />
+      <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
       <Page.Body>
-        <ScrollView>
-          <YStack py="$4" gap="$6">
-            <XStack flexDirection={gtMd ? 'row' : 'column'}>
-              <Stack w="100%" width={gtMd ? '65%' : undefined}>
-                <DetailsPart
-                  accountId={accountId}
-                  networkId={networkId}
-                  provider={provider}
-                  marketAddress={marketAddress}
-                  reserveAddress={reserveAddress}
-                  symbol={symbol}
-                  logoURI={logoURI}
-                  onShare={handleShare}
-                />
-              </Stack>
-              {gtMd ? (
-                <Stack width="35%">
-                  <ManagePositionPart
-                    accountId={accountId}
-                    networkId={networkId}
-                    provider={provider}
-                    marketAddress={marketAddress}
-                    reserveAddress={reserveAddress}
-                    symbol={symbol}
-                    logoURI={logoURI}
-                  />
-                </Stack>
-              ) : null}
-            </XStack>
-          </YStack>
-        </ScrollView>
+        <YStack flex={1}>
+          <DetailsPart
+            details={details}
+            isLoading={isLoading ?? false}
+            onRefresh={refreshData}
+            networkId={networkId}
+            provider={provider}
+            marketAddress={marketAddress}
+            reserveAddress={reserveAddress}
+            symbol={symbol}
+            logoURI={logoURI}
+          />
+        </YStack>
       </Page.Body>
     </Page>
   );

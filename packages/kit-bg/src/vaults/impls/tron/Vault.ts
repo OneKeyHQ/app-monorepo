@@ -75,6 +75,7 @@ import type {
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
+  IBuildLMSwapEncodedTxParams,
   IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
@@ -940,6 +941,78 @@ export default class Vault extends VaultBase {
       transaction.raw_data_hex = txRawDataHex;
       transaction.txID = txID.slice(2);
     }
+
+    return this._extendTxExpiration({
+      transaction,
+      expiration: TRON_TX_EXPIRATION_TIME,
+    });
+  }
+
+  override async buildLiquidMeshSwapEncodedTx(
+    params: IBuildLMSwapEncodedTxParams,
+  ): Promise<IEncodedTxTron> {
+    const { lmTx } = params;
+    const { from, to, value, data } = lmTx;
+
+    const convertEvmToTronAddress = (address: string): string => {
+      if (address.toLowerCase().startsWith('0x')) {
+        return TronWeb.utils.address.fromHex(`41${address.slice(2)}`);
+      }
+      return address;
+    };
+
+    const ownerAddress = convertEvmToTronAddress(from);
+    const contractAddress = convertEvmToTronAddress(to);
+
+    const callValue = parseInt(value, 16);
+
+    const functionSelector = data.slice(2, 10);
+
+    const signatureDataHex = functionSelector;
+
+    const [{ result, transaction }] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        result: { result: boolean };
+        transaction: Types.Transaction;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'tronweb',
+            params: {
+              method: 'transactionBuilder.triggerSmartContract',
+              params: [
+                contractAddress,
+                signatureDataHex,
+                {
+                  feeLimit: 300_000_000,
+                  callValue,
+                },
+                [],
+                ownerAddress,
+              ],
+            },
+          },
+        ],
+      });
+
+    if (!result) {
+      throw new OneKeyInternalError(
+        'Unable to build LiquidMesh swap transaction',
+      );
+    }
+
+    (
+      transaction.raw_data.contract[0].parameter
+        .value as Types.TriggerSmartContract
+    ).data = data.slice(2);
+
+    const txPb = TronWeb.utils.transaction.txJsonToPb(transaction);
+    const txRawDataHex = TronWeb.utils.transaction.txPbToRawDataHex(txPb);
+    const txID = TronWeb.utils.transaction.txPbToTxID(txPb);
+
+    transaction.raw_data_hex = txRawDataHex;
+    transaction.txID = txID.slice(2);
 
     return this._extendTxExpiration({
       transaction,

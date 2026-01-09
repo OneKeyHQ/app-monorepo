@@ -139,7 +139,7 @@ export function UniversalBorrowSupply({
 
   const actionLabel = useMemo(
     () =>
-      actionLabelProp || intl.formatMessage({ id: ETranslations.earn_deposit }),
+      actionLabelProp || intl.formatMessage({ id: ETranslations.defi_supply }),
     [actionLabelProp, intl],
   );
 
@@ -310,7 +310,6 @@ export function UniversalBorrowSupply({
           }}
           balanceProps={{
             value: balance,
-            iconText: actionLabel,
             onPress: amountInputDisabled ? undefined : onMax,
           }}
           valueProps={{
@@ -382,6 +381,7 @@ export function UniversalBorrowSupply({
               title={intl.formatMessage({
                 id: ETranslations.defi_health_factor,
               })}
+              variant="highlight"
             >
               <YStack ai="flex-end">
                 <XStack ai="center" gap="$1">
@@ -422,17 +422,10 @@ export function UniversalBorrowSupply({
           ) : null}
           {transactionConfirmation?.mySupply ? (
             <BorrowInfoItem
-              title={
-                <EarnText
-                  text={{
-                    text: intl.formatMessage({
-                      id: ETranslations.defi_my_supply,
-                    }),
-                  }}
-                  color="$textText"
-                  size="$bodyLg"
-                />
-              }
+              title={intl.formatMessage({
+                id: ETranslations.defi_my_supply,
+              })}
+              variant="highlight"
             >
               <YStack ai="flex-end">
                 <EarnText
