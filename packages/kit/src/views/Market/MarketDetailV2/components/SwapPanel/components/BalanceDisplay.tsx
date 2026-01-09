@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   Image,
   NumberSizeableText,
   Skeleton,
@@ -61,7 +62,14 @@ export function BalanceDisplay({
             {balance?.toFixed()}
           </NumberSizeableText>
           {useIcon ? (
-            <Image size="$4" source={token?.logoURI} borderRadius="$full" />
+            <Image
+              size="$4"
+              source={token?.logoURI}
+              borderRadius="$full"
+              fallback={
+                <Icon name="CryptoCoinOutline" size="$4" color="$iconSubdued" />
+              }
+            />
           ) : null}
         </>
       )}

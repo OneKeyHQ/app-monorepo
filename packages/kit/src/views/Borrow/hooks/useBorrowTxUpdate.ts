@@ -3,7 +3,11 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import {
+  buildLocalTxStatusSyncId,
+  isBorrowTag,
+  parseBorrowTag,
+} from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { type IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -109,16 +113,36 @@ export const useBorrowTxUpdate = ({
         const borrowProviderName = earnUtils.getEarnProviderName({
           providerName: provider,
         });
+        const providerLower = provider.toLowerCase();
 
-        // Filter transactions by protocol or stakeTag
+        // Filter transactions by:
+        // 1. New borrow tag format (borrow:{provider}:{action})
+        // 2. Legacy stakeTag format ({provider}-{symbol})
+        // 3. Protocol name match
         return pendingTxs.filter((tx): tx is IBorrowPendingTx => {
           if (!tx.stakingInfo) return false;
-          // Match by protocol name
-          if (tx.stakingInfo.protocol === borrowProviderName) return true;
-          // Match by stakeTag (for claim transactions)
-          if (stakeTag && tx.stakingInfo.tags?.includes(stakeTag)) {
+
+          // Check tags for matches
+          const tags = tx.stakingInfo.tags ?? [];
+          for (const tag of tags) {
+            // Match new borrow tag format: borrow:{provider}:{action}
+            if (isBorrowTag(tag)) {
+              const parsed = parseBorrowTag(tag);
+              if (parsed?.provider === providerLower) {
+                return true;
+              }
+            }
+            // Match legacy stakeTag format
+            if (stakeTag && tag === stakeTag) {
+              return true;
+            }
+          }
+
+          // Match by protocol name (fallback)
+          if (tx.stakingInfo.protocol === borrowProviderName) {
             return true;
           }
+
           return false;
         });
       } catch {
@@ -170,6 +194,8 @@ export const useBorrowTxUpdate = ({
 
   return {
     isPending,
+    pendingTxs: txs,
+    pendingCount: txs.length,
     refreshPending: refreshPendingWithHistory,
   };
 };

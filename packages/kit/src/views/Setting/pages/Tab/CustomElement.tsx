@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useContext, useMemo } from 'react';
+import { Suspense, useCallback, useContext, useMemo, useState } from 'react';
 
 import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
+import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   isShowAppUpdateUIWhenUpdating,
@@ -61,10 +62,12 @@ import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes/onboardingv2';
 import openUrlUtils, {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { useLanguageSelector, useResetApp } from '../../hooks';
 import { handleOpenDevMode } from '../../utils/devMode';
@@ -668,5 +671,38 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
         onChange={toggleBTCFreshAddress}
       />
     </TabSettingsListItem>
+  );
+}
+
+export function ResetPinListItem(props: ICustomElementProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
+
+  const onPress = useCallback(async () => {
+    try {
+      // Always verify password before proceeding to reset PIN (Security reason forces re-entry)
+      await backgroundApiProxy.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
+      // Show loading only after password verification succeeds
+      setIsLoading(true);
+      await goToOneKeyIDLoginPageForKeylessWallet({
+        mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
+      });
+    } catch {
+      // User cancelled password verification, do nothing
+    } finally {
+      setIsLoading(false);
+    }
+  }, [goToOneKeyIDLoginPageForKeylessWallet]);
+
+  return (
+    <TabSettingsListItem
+      {...props}
+      minHeight="$12"
+      onPress={onPress}
+      isLoading={isLoading}
+      drillIn
+    />
   );
 }

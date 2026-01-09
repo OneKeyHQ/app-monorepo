@@ -13,6 +13,14 @@ export interface IApiEndpointConfig {
   enabled: boolean;
 }
 
+// Test account for dev login testing
+export interface ITestAccount {
+  id: string;
+  email: string;
+  otp: string;
+  name?: string;
+}
+
 export interface IDevSettings {
   // enable test endpoint
   enableTestEndpoint?: boolean;
@@ -34,12 +42,10 @@ export interface IDevSettings {
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
   allowAddSameHDWallet?: boolean;
-  // enable keyless wallet feature
-  isKeylessWalletFeatureEnabled?: boolean;
-  // allow create keyless wallet on web platform (mock cloud backup info)
-  allowCreateKeylessWalletOnWeb?: boolean;
   // allow delete keyless key (device key and auth key)
   allowDeleteKeylessKey?: boolean;
+  // show Keyless-related debug dialogs/logs in UI (dev only)
+  enableKeylessDebugInfo?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
@@ -70,6 +76,8 @@ export interface IDevSettings {
   forceIpTableStrict?: boolean;
   // Enable mock market banner data for UI testing
   enableMockMarketBanner?: boolean;
+  // Test accounts for OneKey ID login testing
+  testAccounts?: ITestAccount[];
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -95,6 +103,7 @@ export const {
       webviewDebuggingEnabled: false,
       strictSignatureAlert: false,
       enableAnalyticsRequest: false,
+      enableKeylessDebugInfo: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
       showPerformanceMonitor: true,

@@ -49,7 +49,7 @@ function CreatePinPage() {
     <PinInputLayout
       title={
         isResetPin
-          ? 'Create a new PIN'
+          ? intl.formatMessage({ id: ETranslations.create_a_new_pin })
           : intl.formatMessage({ id: ETranslations.create_a_pin })
       }
       description={intl.formatMessage(

@@ -177,10 +177,10 @@ function OneKeyIDLoginPage() {
   }, [handleSocialLogin]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <OnboardingLayout>
         <OnboardingLayout.Header />
-        <OnboardingLayout.Body constrained={false} scrollable={false}>
+        <OnboardingLayout.Body constrained={false} scrollable>
           <OnboardingLayout.ConstrainedContent gap="$10">
             <YStack gap="$2">
               <SizableText size="$heading3xl">

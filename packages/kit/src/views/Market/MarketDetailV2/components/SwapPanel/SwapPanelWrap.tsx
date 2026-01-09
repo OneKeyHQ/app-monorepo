@@ -243,14 +243,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   const isActionLoading = useMemo(() => {
     return (
-      speedSwapInitLoading ||
       speedSwapApproveActionLoading ||
       speedSwapApproveTransactionLoading ||
       speedSwapBuildTxLoading ||
       checkTokenAllowanceLoading
     );
   }, [
-    speedSwapInitLoading,
     speedSwapApproveActionLoading,
     speedSwapApproveTransactionLoading,
     speedSwapBuildTxLoading,
@@ -258,10 +256,20 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   ]);
 
   useEffect(() => {
-    if (!isActionLoading && isReady && originalSupportSpeedSwap !== undefined) {
+    if (
+      !isActionLoading &&
+      isReady &&
+      !speedSwapInitLoading &&
+      originalSupportSpeedSwap !== undefined
+    ) {
       setHasInitialReady(true);
     }
-  }, [isActionLoading, isReady, originalSupportSpeedSwap]);
+  }, [
+    isActionLoading,
+    isReady,
+    originalSupportSpeedSwap,
+    speedSwapInitLoading,
+  ]);
 
   return (
     <SwapPanelContent
