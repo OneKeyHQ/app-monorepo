@@ -7,7 +7,12 @@ import {
   OAUTH_CALLBACK_DESKTOP_PATH,
   OAUTH_FLOW_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OAuthLoginCancelError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OAuthPopupBase } from './OAuthPopupBase';
@@ -348,9 +353,12 @@ export class OAuthPopup extends OAuthPopupBase {
         try {
           // Show waiting dialog
           waitingDialog = Dialog.show({
-            title: 'Sign in',
-            description:
-              'Complete sign-in in your browser, then return to OneKey.',
+            title: appLocale.intl.formatMessage({
+              id: ETranslations.logging_you_in,
+            }),
+            description: appLocale.intl.formatMessage({
+              id: ETranslations.logging_you_in_desc,
+            }),
             showFooter: true,
             showConfirmButton: false,
             showCancelButton: true,
@@ -363,7 +371,7 @@ export class OAuthPopup extends OAuthPopupBase {
               dialogClosed = true;
               await close();
               await cleanupFn.cleanup();
-              reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
+              reject(new OAuthLoginCancelError());
             },
             onClose: async (extra) => {
               // Treat closing the dialog (including clicking the "X") as a cancel action,
@@ -376,7 +384,7 @@ export class OAuthPopup extends OAuthPopupBase {
                 settled = true;
                 dialogClosed = true;
                 await cleanupFn.cleanup();
-                reject(new OneKeyLocalError('OAuth sign-in was cancelled'));
+                reject(new OAuthLoginCancelError());
               }
             },
           });

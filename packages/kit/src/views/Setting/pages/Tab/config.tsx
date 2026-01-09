@@ -12,7 +12,6 @@ import type {
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
-  useKeylessWallet,
   useKeylessWalletExistsLocal,
   useKeylessWalletFeatureIsEnabled,
 } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
@@ -50,10 +49,6 @@ import {
   EModalKeyTagRoutes,
   EModalRoutes,
   EModalSettingRoutes,
-  EOnboardingPagesV2,
-  EOnboardingV2OneKeyIDLoginMode,
-  EOnboardingV2Routes,
-  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -76,6 +71,7 @@ import {
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
+  ResetPinListItem,
   ThemeListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
@@ -165,7 +161,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
 
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
-  const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
 
   return useMemo(
     () => [
@@ -521,11 +516,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : {
                   icon: 'InputOutline',
                   title: intl.formatMessage({ id: ETranslations.reset_pin }),
-                  onPress: (navigation) => {
-                    void goToOneKeyIDLoginPageForKeylessWallet({
-                      mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
-                    });
-                  },
+                  renderElement: <ResetPinListItem />,
                 },
           ],
           [
@@ -839,7 +830,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     ],
     [
       intl,
-      goToOneKeyIDLoginPageForKeylessWallet,
       cloudBackupFeatureInfo?.supportCloudBackup,
       cloudBackupFeatureInfo?.icon,
       cloudBackupFeatureInfo?.title,

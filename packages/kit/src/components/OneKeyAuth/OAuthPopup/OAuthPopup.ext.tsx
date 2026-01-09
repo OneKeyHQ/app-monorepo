@@ -11,7 +11,10 @@ import {
   OAUTH_TOKEN_KEY_ID_TOKEN,
   ONEKEY_OAUTH_STATE_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OAuthLoginCancelError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 
 import { OAuthPopupBase } from './OAuthPopupBase';
 
@@ -132,7 +135,7 @@ export class OAuthPopup extends OAuthPopupBase {
       return result;
     } catch (error) {
       if (OAuthPopup.isUserCancelledError(error)) {
-        throw new OneKeyLocalError('OAuth sign-in was cancelled');
+        throw new OAuthLoginCancelError();
       }
       throw OAuthPopup.wrapError(error, 'Extension OAuth failed');
     } finally {

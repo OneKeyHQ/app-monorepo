@@ -435,7 +435,7 @@ function GetStarted() {
                     <AnimatedDeviceAvatar deviceSize={DEVICE_SIZE} />
                     <SizableText size="$bodyLgMedium" color="$textInverse">
                       {intl.formatMessage({
-                        id: ETranslations.global_get_started,
+                        id: ETranslations.global_connect_hardware_wallet,
                       })}
                     </SizableText>
                   </XStack>
