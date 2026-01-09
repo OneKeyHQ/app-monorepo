@@ -1335,6 +1335,8 @@ class ServiceKeylessWallet extends ServiceBase {
       },
     );
 
+    void this.apiGetPinConfirmStatus({ token });
+
     if (res?.data?.code === 0 && res?.data?.message === 'success') {
       return { ok: true };
     }
@@ -1812,7 +1814,7 @@ class ServiceKeylessWallet extends ServiceBase {
         });
       }
 
-      void this.apiUpdatePinConfirmStatus({ token });
+      // void this.apiUpdatePinConfirmStatus({ token });
 
       const keylessProvider: EOAuthSocialLoginProvider =
         this.buildKeylessProviderFromSocialToken({
