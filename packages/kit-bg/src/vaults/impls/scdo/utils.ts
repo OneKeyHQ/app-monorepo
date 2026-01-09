@@ -58,11 +58,9 @@ export function serializeSignedTransaction(
 export function publicKeyToAddress(publicKey: Buffer) {
   let publicKeyBytes: Buffer = Buffer.alloc(0);
   if (publicKey.length === 33) {
-    publicKeyBytes = Buffer.from(
-      secp256k1.transformPublicKey(publicKey).subarray(1),
-    );
+    publicKeyBytes = secp256k1.transformPublicKey(publicKey).subarray(1);
   } else if (publicKey.length === 65) {
-    publicKeyBytes = Buffer.from(publicKey.subarray(1));
+    publicKeyBytes = publicKey.subarray(1);
   } else {
     throw new OneKeyLocalError('Invalid public key');
   }
