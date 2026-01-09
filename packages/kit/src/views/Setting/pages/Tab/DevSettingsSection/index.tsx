@@ -89,6 +89,7 @@ import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
+import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
 let correctDevOnlyPwd = '';
 
@@ -1253,6 +1254,8 @@ const BaseDevSettingsSection = () => {
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
+
+              <TestAccountsDevSetting />
 
               <SectionPressItem
                 icon="AppleBrand"

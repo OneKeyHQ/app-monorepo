@@ -317,6 +317,11 @@ export interface IMarketBasicConfigFeature {
   [key: string]: unknown;
 }
 
+export interface IMarketBasicConfigLowLiquidKlineSourceToken {
+  networkId: string;
+  tokenAddress: string;
+}
+
 export interface IMarketBasicConfigData {
   tradingViewUrl: string;
   networkList: IMarketBasicConfigNetwork[];
@@ -328,6 +333,7 @@ export interface IMarketBasicConfigData {
     [networkId: string]: IMarketBasicConfigNetworkFeature;
   };
   feature?: IMarketBasicConfigFeature;
+  lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
 }
 
 export interface IMarketBasicConfigResponse {
