@@ -8,3 +8,4 @@ export {
   REFER_FRIENDS_PAGE_MAX_WIDTH,
 } from './ReferFriendsPageContainer';
 export { ReferralBenefitsList } from './ReferralBenefitsList';
+export { SimpleTabs } from './SimpleTabs';

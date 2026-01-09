@@ -13,6 +13,14 @@ export interface IApiEndpointConfig {
   enabled: boolean;
 }
 
+// Test account for dev login testing
+export interface ITestAccount {
+  id: string;
+  email: string;
+  otp: string;
+  name?: string;
+}
+
 export interface IDevSettings {
   // enable test endpoint
   enableTestEndpoint?: boolean;
@@ -68,6 +76,8 @@ export interface IDevSettings {
   forceIpTableStrict?: boolean;
   // Enable mock market banner data for UI testing
   enableMockMarketBanner?: boolean;
+  // Test accounts for OneKey ID login testing
+  testAccounts?: ITestAccount[];
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
