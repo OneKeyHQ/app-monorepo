@@ -155,7 +155,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         />
         <TokenInputSection
           ref={tokenInputRef}
-          style={tradeType === ESwapDirection.BUY ? { display: 'none' } : {}}
+          style={tradeType === ESwapDirection.BUY ? {} : { display: 'none' }}
           tradeType={ESwapDirection.BUY}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
           onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
@@ -167,7 +167,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         />
         <TokenInputSection
           ref={tokenInputRef}
-          style={tradeType === ESwapDirection.SELL ? { display: 'none' } : {}}
+          style={tradeType === ESwapDirection.SELL ? {} : { display: 'none' }}
           tradeType={ESwapDirection.SELL}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
           onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
