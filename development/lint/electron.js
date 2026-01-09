@@ -7,7 +7,6 @@ const { exit } = require('process');
 const projectPath = path.join(__dirname, '..', '..');
 const desktopPath = path.join(projectPath, 'apps', 'desktop');
 
-process.env.ELECTRON_LINT = 1;
 // check if build:main is successful
 try {
   const result = execSync(`cd ${desktopPath} && yarn build:main`).toString(
