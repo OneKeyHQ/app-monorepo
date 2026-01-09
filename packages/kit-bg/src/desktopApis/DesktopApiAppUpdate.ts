@@ -572,20 +572,6 @@ class DesktopApiAppUpdate {
     if (selection.response === 0) {
       store.setUpdateBuildNumber(buildNumber);
       logger.info('auto-update', 'button[0] was clicked', buildNumber);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const isExist = autoUpdater?.isExistInstallerPath();
-      const downloadedFilePath = verifyParams.downloadedFile;
-      if (!isExist && downloadedFilePath) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        await autoUpdater?.updateInstallerPath(downloadedFilePath);
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const isUpdated = autoUpdater?.isExistInstallerPath();
-      logger.info('auto-update', 'isUpdated:', isUpdated, buildNumber);
-      if (!isUpdated) {
-        await this.manualInstallPackage(verifyParams);
-        return;
-      }
       // https://github.com/electron-userland/electron-builder/issues/8997#issuecomment-2969507357
       /**
        * On macOS 15+ auto-update / relaunch issues:
@@ -608,7 +594,23 @@ class DesktopApiAppUpdate {
         autoUpdater.quitAndInstall(false);
         return;
       }
-
+      if (!isMac) {
+        logger.info('auto-update', 'button[0] was clicked', buildNumber);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const isExist = autoUpdater?.isExistInstallerPath();
+        const downloadedFilePath = verifyParams.downloadedFile;
+        if (!isExist && downloadedFilePath) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          await autoUpdater?.updateInstallerPath(downloadedFilePath);
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const isUpdated = autoUpdater?.isExistInstallerPath();
+        logger.info('auto-update', 'isUpdated:', isUpdated, buildNumber);
+        if (!isUpdated) {
+          await this.manualInstallPackage(verifyParams);
+          return;
+        }
+      }
       autoUpdater.quitAndInstall(false);
     }
   }
