@@ -66,15 +66,15 @@ async function aesCbcEncryptByWebCrypto({
 
   const cryptoKey = await globalThis.crypto.subtle.importKey(
     'raw',
-    key,
+    Buffer.from(key),
     { name: 'AES-CBC', length: 256 },
     false,
     ['encrypt'],
   );
   const encrypted = await globalThis.crypto.subtle.encrypt(
-    { name: 'AES-CBC', iv },
+    { name: 'AES-CBC', iv: Buffer.from(iv) },
     cryptoKey,
-    data,
+    Buffer.from(data),
   );
   return Buffer.from(encrypted);
 }
@@ -181,15 +181,15 @@ async function aesCbcDecryptByWebCrypto({
 
   const cryptoKey = await globalThis.crypto.subtle.importKey(
     'raw',
-    key,
+    Buffer.from(key),
     { name: 'AES-CBC', length: 256 },
     false,
     ['decrypt'],
   );
   const decrypted = await globalThis.crypto.subtle.decrypt(
-    { name: 'AES-CBC', iv },
+    { name: 'AES-CBC', iv: Buffer.from(iv) },
     cryptoKey,
-    data,
+    Buffer.from(data),
   );
   return Buffer.from(decrypted);
 }

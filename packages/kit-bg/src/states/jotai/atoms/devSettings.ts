@@ -34,12 +34,10 @@ export interface IDevSettings {
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
   allowAddSameHDWallet?: boolean;
-  // enable keyless wallet feature
-  isKeylessWalletFeatureEnabled?: boolean;
-  // allow create keyless wallet on web platform (mock cloud backup info)
-  allowCreateKeylessWalletOnWeb?: boolean;
   // allow delete keyless key (device key and auth key)
   allowDeleteKeylessKey?: boolean;
+  // show Keyless-related debug dialogs/logs in UI (dev only)
+  enableKeylessDebugInfo?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
@@ -95,6 +93,7 @@ export const {
       webviewDebuggingEnabled: false,
       strictSignatureAlert: false,
       enableAnalyticsRequest: false,
+      enableKeylessDebugInfo: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
       showPerformanceMonitor: true,
