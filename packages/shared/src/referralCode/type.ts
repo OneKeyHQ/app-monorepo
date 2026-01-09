@@ -473,3 +473,43 @@ export interface IBatchCheckWalletParams {
 
 // Response is a map where key is "networkId:address" and value is boolean
 export type IBatchCheckWalletResponse = Record<string, boolean>;
+
+// Hardware records types
+export interface IHardwareRecordHistoryItem {
+  type: string;
+  eventLabel: string;
+  timestamp: string;
+  descriptionLabel: string;
+}
+
+export interface IHardwareRecordItem {
+  _id: string;
+  orderNumber: string;
+  itemUniqueId: string;
+  inviteCode: string;
+  inviteCodeRemark: string;
+  orderAmount: string;
+  orderAmountFiatValue: string;
+  rebateAmount: string;
+  rebateAmountFiatValue: string;
+  token: {
+    networkId: string;
+    address: string;
+    logoURI: string;
+    name: string;
+    symbol: string;
+  };
+  status: string;
+  statusLabel: string;
+  orderPlacedAt: string;
+  rewardConfirmedAt: string;
+  rewardDistributedAt: string | null;
+  refundedAt: string | null;
+  history: IHardwareRecordHistoryItem[];
+}
+
+export interface IHardwareRecordsResponse {
+  total: number;
+  items: IHardwareRecordItem[];
+  cursor?: string;
+}

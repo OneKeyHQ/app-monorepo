@@ -9,3 +9,4 @@ export * from './InformationPanel/index';
 export * from './TokenSupplementaryInfo';
 export * from './TokenOverview';
 export * from './MarketTradingView';
+export * from './PerpetualTradingBanner';
