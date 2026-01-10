@@ -3,7 +3,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { isEmpty } from 'lodash';
 
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type {
+  IAllNetworkAccountInfo,
+  IAllNetworkAccountsInfoResult,
+} from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -26,6 +29,138 @@ import { usePromiseResult } from './usePromiseResult';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
+
+type IAllNetworkAccountsBaseCacheKey = string;
+type IAllNetworkAccountsBaseCacheEntry = {
+  createdAt: number;
+  promise: Promise<IAllNetworkAccountsInfoResult>;
+};
+
+const ALL_NETWORK_ACCOUNTS_BASE_CACHE_TTL_MS = 15_000;
+const ALL_NETWORK_ACCOUNTS_BASE_CACHE_MAX_ENTRIES = 100;
+const allNetworkAccountsBaseCache = new Map<
+  IAllNetworkAccountsBaseCacheKey,
+  IAllNetworkAccountsBaseCacheEntry
+>();
+
+function sweepAllNetworkAccountsBaseCache(now = Date.now()) {
+  for (const [key, entry] of Array.from(allNetworkAccountsBaseCache.entries())) {
+    if (now - entry.createdAt >= ALL_NETWORK_ACCOUNTS_BASE_CACHE_TTL_MS) {
+      allNetworkAccountsBaseCache.delete(key);
+    }
+  }
+  while (allNetworkAccountsBaseCache.size > ALL_NETWORK_ACCOUNTS_BASE_CACHE_MAX_ENTRIES) {
+    const oldestKey = allNetworkAccountsBaseCache.keys().next()
+      .value as IAllNetworkAccountsBaseCacheKey | undefined;
+    if (!oldestKey) {
+      break;
+    }
+    allNetworkAccountsBaseCache.delete(oldestKey);
+  }
+}
+
+function buildAllNetworkAccountsBaseCacheKey({
+  walletId,
+  accountId,
+  networkId,
+  networksEnabledOnly,
+  excludeTestNetwork,
+}: {
+  walletId: string;
+  accountId: string;
+  networkId: string;
+  networksEnabledOnly: boolean;
+  excludeTestNetwork: boolean;
+}): IAllNetworkAccountsBaseCacheKey {
+  return [
+    walletId,
+    accountId,
+    networkId,
+    networksEnabledOnly ? '1' : '0',
+    excludeTestNetwork ? '1' : '0',
+  ].join('::');
+}
+
+function getAllNetworkAccountsBaseCached({
+  walletId,
+  accountId,
+  networkId,
+  networksEnabledOnly,
+  excludeTestNetwork,
+}: {
+  walletId: string;
+  accountId: string;
+  networkId: string;
+  networksEnabledOnly: boolean;
+  excludeTestNetwork: boolean;
+}): {
+  cacheKey: IAllNetworkAccountsBaseCacheKey;
+  reused: boolean;
+  promise: Promise<IAllNetworkAccountsInfoResult>;
+} {
+  const cacheKey = buildAllNetworkAccountsBaseCacheKey({
+    walletId,
+    accountId,
+    networkId,
+    networksEnabledOnly,
+    excludeTestNetwork,
+  });
+
+  const now = Date.now();
+  sweepAllNetworkAccountsBaseCache(now);
+  const cached = allNetworkAccountsBaseCache.get(cacheKey);
+  if (
+    cached &&
+    now - cached.createdAt < ALL_NETWORK_ACCOUNTS_BASE_CACHE_TTL_MS
+  ) {
+    return { cacheKey, reused: true, promise: cached.promise };
+  }
+  if (cached) {
+    allNetworkAccountsBaseCache.delete(cacheKey);
+  }
+
+  const baseTask = backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+    accountId,
+    networkId,
+    deriveType: undefined,
+    nftEnabledOnly: false,
+    DeFiEnabledOnly: false,
+    excludeTestNetwork,
+    networksEnabledOnly,
+  });
+
+  const promise: Promise<IAllNetworkAccountsInfoResult> = baseTask
+    .then((res) => res)
+    .catch((error) => {
+      const current = allNetworkAccountsBaseCache.get(cacheKey);
+      if (current?.promise === promise) {
+        allNetworkAccountsBaseCache.delete(cacheKey);
+      }
+      throw error;
+    });
+
+  allNetworkAccountsBaseCache.set(cacheKey, { createdAt: now, promise });
+  sweepAllNetworkAccountsBaseCache(now);
+
+  return { cacheKey, reused: false, promise };
+}
+
+function filterAllNetworkAccountsInfoResult({
+  result,
+  filterFn,
+}: {
+  result: IAllNetworkAccountsInfoResult;
+  filterFn: (accountInfo: IAllNetworkAccountInfo) => boolean;
+}): IAllNetworkAccountsInfoResult {
+  return {
+    accountsInfo: result.accountsInfo.filter(filterFn),
+    accountsInfoBackendIndexed:
+      result.accountsInfoBackendIndexed.filter(filterFn),
+    accountsInfoBackendNotIndexed:
+      result.accountsInfoBackendNotIndexed.filter(filterFn),
+    allAccountsInfo: result.allAccountsInfo.filter(filterFn),
+  };
+}
 
 type IEnabledNetworksCompatResult = {
   networkInfoMap: Record<
@@ -204,7 +339,6 @@ function useAllNetworkRequests<T>(params: {
 
       perfTokenListView.markStart('useAllNetworkRequestsRun');
 
-      console.log('useAllNetworkRequestsRun >>>>>>>>>>>>>>');
       const requestsUUID = generateUUID();
 
       if (disabled) return;
@@ -234,27 +368,46 @@ function useAllNetworkRequests<T>(params: {
         }
 
         perf.markStart('getAllNetworkAccountsWithEnabledNetworks');
-        const accountsTask =
-          backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-            accountId: currentAccountId,
-            networkId: currentNetworkId,
-            deriveType: undefined,
-            nftEnabledOnly: isNFTRequests,
-            DeFiEnabledOnly: isDeFiRequests,
-            // disable test network in all networks
-            excludeTestNetwork: true,
-            // For single network accounts, display all available network data without filtering
-            networksEnabledOnly: !accountUtils.isOthersAccount({
-              accountId: currentAccountId,
-            }),
+        const networksEnabledOnly = !accountUtils.isOthersAccount({
+          accountId: currentAccountId,
+        });
+
+        const { promise: accountsTask } = getAllNetworkAccountsBaseCached({
+          walletId: currentWalletId,
+          accountId: currentAccountId,
+          networkId: currentNetworkId,
+          excludeTestNetwork: true,
+          networksEnabledOnly,
+        });
+
+        const deFiEnabledNetworksMapTask = isDeFiRequests
+          ? backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap()
+          : undefined;
+
+        const baseResult = await accountsTask;
+        const deFiEnabledNetworksMap = deFiEnabledNetworksMapTask
+          ? await deFiEnabledNetworksMapTask
+          : undefined;
+
+        let accountsInfoResult = baseResult;
+        if (isNFTRequests) {
+          accountsInfoResult = filterAllNetworkAccountsInfoResult({
+            result: baseResult,
+            filterFn: (acc) => acc.isNftEnabled,
           });
+        } else if (isDeFiRequests) {
+          accountsInfoResult = filterAllNetworkAccountsInfoResult({
+            result: baseResult,
+            filterFn: (acc) => !!deFiEnabledNetworksMap?.[acc.networkId],
+          });
+        }
 
         const {
           accountsInfo,
           accountsInfoBackendIndexed,
           accountsInfoBackendNotIndexed,
           allAccountsInfo,
-        } = await accountsTask;
+        } = accountsInfoResult;
         perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
 
         setIsEmptyAccount(false);
