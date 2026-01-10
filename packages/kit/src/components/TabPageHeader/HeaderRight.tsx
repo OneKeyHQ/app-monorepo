@@ -186,18 +186,10 @@ export function HeaderRight({
           </>
         );
       }
-      case ETabRoutes.Swap:
-        return (
-          <>
-            <WalletConnectionForWeb tabRoute={tabRoute} />
-            {fixedItems}
-          </>
-        );
       case ETabRoutes.WebviewPerpTrade:
         return (
           <>
             <WalletConnectionForWeb tabRoute={tabRoute} />
-            {fixedItems}
           </>
         );
       case ETabRoutes.Market:
