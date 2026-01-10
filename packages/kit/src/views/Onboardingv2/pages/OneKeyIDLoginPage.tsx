@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EOnboardingPagesV2,
   EOnboardingV2OneKeyIDLoginMode,
@@ -34,7 +35,6 @@ import { useAppRoute } from '../../../hooks/useAppRoute';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function OptionItem({
   icon,
