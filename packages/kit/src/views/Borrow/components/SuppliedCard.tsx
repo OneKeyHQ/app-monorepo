@@ -133,11 +133,12 @@ export const SuppliedCard = () => {
     const supplied = intl.formatMessage({
       id: ETranslations.wallet_defi_asset_type_supplied,
     });
-    const balance = intl.formatMessage({ id: ETranslations.global_balance });
     return {
       asset,
       supplied,
-      suppliedBalance: `${supplied} ${balance}`,
+      suppliedBalance: intl.formatMessage({
+        id: ETranslations.defi_supplied_balance,
+      }),
       supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
       withdraw: intl.formatMessage({ id: ETranslations.global_withdraw }),
       apy: intl.formatMessage({ id: ETranslations.global_apy }),

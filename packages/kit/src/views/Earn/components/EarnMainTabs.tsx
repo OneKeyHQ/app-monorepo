@@ -1,11 +1,16 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
+  ESwitchSize,
+  IconButton,
+  Popover,
+  Switch,
   Tabs,
+  XStack,
   YStack,
   rootNavigationRef,
   useTabContainerWidth,
@@ -17,6 +22,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ListItem } from '../../../components/ListItem';
 import { useIsFirstFocused } from '../../../hooks/useIsFirstFocused';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 
@@ -44,6 +50,7 @@ const EarnMainTabsComponent = ({
 }: IEarnMainTabsProps) => {
   const intl = useIntl();
   const tabsRef = useRef<ITabContainerRef>(null);
+  const [hideSmallAssets, setHideSmallAssets] = useState(false);
 
   const tabNames = useMemo(
     () => ({
@@ -131,12 +138,59 @@ const EarnMainTabsComponent = ({
 
   const tabContainerWidth = useTabContainerWidth();
 
-  const renderTabBar = useCallback((tabBarProps: TabBarProps<string>) => {
-    const handleTabPress = (name: string) => {
-      tabBarProps.onTabPress?.(name);
-    };
-    return <Tabs.TabBar {...tabBarProps} onTabPress={handleTabPress} />;
-  }, []);
+  const renderTabBar = useCallback(
+    (tabBarProps: TabBarProps<string>) => {
+      const handleTabPress = (name: string) => {
+        tabBarProps.onTabPress?.(name);
+      };
+      return (
+        <Tabs.TabBar
+          {...tabBarProps}
+          onTabPress={handleTabPress}
+          renderToolbar={({ focusedTab }) =>
+            focusedTab === tabNames.portfolio ? (
+              <XStack pr="$5">
+                <Popover
+                  title={intl.formatMessage({
+                    id: ETranslations.defi_display_settings,
+                  })}
+                  renderTrigger={
+                    <IconButton
+                      variant="tertiary"
+                      icon="SliderHorOutline"
+                      iconSize="$6"
+                      bg={hideSmallAssets ? '$bgStrong' : 'transparent'}
+                    />
+                  }
+                  renderContent={
+                    <YStack py="$2.5">
+                      <ListItem
+                        title={intl.formatMessage({
+                          id: ETranslations.defi_hide_low_value_positions,
+                        })}
+                        titleProps={{
+                          size: '$bodyMdMedium',
+                          color: '$textSubdued',
+                        }}
+                        childrenBefore={
+                          <Switch
+                            size={ESwitchSize.small}
+                            value={hideSmallAssets}
+                            onChange={setHideSmallAssets}
+                          />
+                        }
+                      />
+                    </YStack>
+                  }
+                />
+              </XStack>
+            ) : null
+          }
+        />
+      );
+    },
+    [hideSmallAssets, intl, tabNames.portfolio],
+  );
 
   return (
     <Tabs.Container
@@ -157,7 +211,10 @@ const EarnMainTabsComponent = ({
       <Tabs.Tab name={tabNames.portfolio}>
         <Tabs.ScrollView>
           <YStack pt="$6" gap="$8">
-            <PortfolioTabContent portfolioData={portfolioData} />
+            <PortfolioTabContent
+              portfolioData={portfolioData}
+              hideSmallAssets={hideSmallAssets}
+            />
           </YStack>
         </Tabs.ScrollView>
       </Tabs.Tab>

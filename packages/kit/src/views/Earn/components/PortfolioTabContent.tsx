@@ -440,120 +440,169 @@ const ProtocolHeader = ({
   );
 };
 
+type IAirdropRewardItem = IEarnPortfolioAirdropAsset['airdropAssets'][number];
+type IAirdropRewardPair = {
+  primary: IAirdropRewardItem;
+  secondary?: IAirdropRewardItem;
+};
+
+const buildRewardPairs = (items: IAirdropRewardItem[]) => {
+  const pairs: IAirdropRewardPair[] = [];
+  for (let index = 0; index < items.length; index += 2) {
+    pairs.push({ primary: items[index], secondary: items[index + 1] });
+  }
+  return pairs;
+};
+
 const ProtocolAirdrop = ({
   airdropAssets,
   stakedSymbol,
   stakedVault,
-  airdropRenderMode = 'all',
 }: {
   airdropAssets: IEarnPortfolioAirdropAsset[];
   stakedSymbol?: string;
   stakedVault?: string;
-  airdropRenderMode?: 'firstOnly' | 'all' | 'exceptFirst';
 }) => {
-  const media = useMedia();
+  const intl = useIntl();
   const isDesktopLayout = useIsDesktopLayout();
+  const rows = airdropAssets.flatMap((airdropGroup, groupIndex) => {
+    const items = airdropGroup.airdropAssets ?? [];
+    if (items.length === 0) {
+      return [];
+    }
+    return buildRewardPairs(items).map((pair, pairIndex) => ({
+      key: `${groupIndex}-${pairIndex}`,
+      pair,
+      group: airdropGroup,
+    }));
+  });
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const title = intl.formatMessage({
+    id: ETranslations.defi_claimable_protocol_rewards,
+  });
+  const rowMinHeight = 38;
+  const primaryTextSize = '$bodyMdMedium';
+  const secondaryTextSize = isDesktopLayout ? '$bodyMd' : '$bodyMdMedium';
+
   return (
-    <YStack px="$5" my="$2" $gtSm={{ my: 0 }}>
-      <XStack ai="center">
-        {isEmpty(airdropAssets) ||
-        airdropAssets?.every((airdrop) =>
-          isEmpty(airdrop.airdropAssets),
-        ) ? null : (
-          <YStack w="100%" gap={isDesktopLayout ? '$0' : '$2'}>
-            {airdropAssets?.map((airdropGroup, groupIndex) => {
-              const Layout = isDesktopLayout ? XStack : YStack;
+    <YStack px="$5" mt="$8" gap="$4">
+      <SizableText size="$bodySmMedium" color="$textSubdued">
+        {title}
+      </SizableText>
+      <YStack w="100%" gap="$4">
+        {rows.map(({ key, pair, group }) => {
+          const primaryTitle = pair.primary?.title;
+          const primaryDescription = pair.primary?.description;
+          const hasSecondary = Boolean(pair.secondary);
+          const secondaryDescription =
+            pair.secondary?.title ?? pair.secondary?.description;
+          const tooltip = pair.secondary?.tooltip ?? pair.primary?.tooltip;
+          const actionReward = pair.primary?.button
+            ? pair.primary
+            : pair.secondary;
+          const actionButtonNode = actionReward?.button ? (
+            <WrappedActionButton
+              asset={group}
+              reward={actionReward}
+              stakedSymbol={stakedSymbol}
+              stakedVault={stakedVault}
+              rewardSymbol={group.token.info.symbol}
+            />
+          ) : null;
 
-              const airdropsToRender = (() => {
-                if (airdropRenderMode === 'firstOnly') {
-                  return airdropGroup.airdropAssets.slice(0, 1);
-                }
-                if (airdropRenderMode === 'exceptFirst') {
-                  return airdropGroup.airdropAssets.slice(1);
-                }
-                if (airdropRenderMode === 'all') {
-                  return airdropGroup.airdropAssets;
-                }
-                return [];
-              })();
-
-              return (
-                <Layout
-                  key={groupIndex}
-                  ai="flex-start"
-                  gap="$1.5"
-                  w="100%"
-                  $gtMd={{
-                    ai: 'center',
-                    minHeight: '$9',
-                    gap: '$2.5',
-                  }}
-                >
-                  {media.gtMd ? (
-                    <Token
-                      size="xs"
-                      borderRadius="$2"
-                      tokenImageUri={airdropGroup.token.info.logoURI}
-                    />
+          if (!isDesktopLayout) {
+            return (
+              <XStack
+                key={key}
+                w="100%"
+                minHeight={rowMinHeight}
+                gap="$3"
+                ai="center"
+              >
+                <Token
+                  size="md"
+                  tokenImageUri={group.token.info.logoURI}
+                  showNetworkIcon
+                  networkId={group.metadata?.network?.networkId}
+                />
+                <YStack flex={1} gap="$0.5">
+                  <XStack ai="center" jc="space-between" gap="$2">
+                    <XStack ai="center" gap="$1" flexWrap="wrap" flex={1}>
+                      {primaryTitle ? (
+                        <EarnText size={primaryTextSize} text={primaryTitle} />
+                      ) : null}
+                      {primaryDescription ? (
+                        <EarnText
+                          size={primaryTextSize}
+                          color="$textSubdued"
+                          text={primaryDescription}
+                        />
+                      ) : null}
+                    </XStack>
+                    {actionButtonNode}
+                  </XStack>
+                  {secondaryDescription || tooltip ? (
+                    <XStack ai="center" gap="$1" flexWrap="wrap">
+                      {secondaryDescription ? (
+                        <EarnText
+                          size={secondaryTextSize}
+                          color="$textSubdued"
+                          text={secondaryDescription}
+                        />
+                      ) : null}
+                      {tooltip ? <EarnTooltip tooltip={tooltip} /> : null}
+                    </XStack>
                   ) : null}
-                  {airdropsToRender.map((airdropReward, rewardIndex) => {
-                    const showDivider =
-                      rewardIndex < airdropsToRender.length - 1 && media.gtMd;
+                </YStack>
+              </XStack>
+            );
+          }
 
-                    return (
-                      <XStack
-                        key={rewardIndex}
-                        ai="center"
-                        w="100%"
-                        $gtMd={{
-                          h: '$9',
-                          w: 'auto',
-                        }}
-                      >
-                        <XStack>
-                          <EarnText
-                            mr="$1"
-                            size="$bodyMdMedium"
-                            text={airdropReward.title}
-                          />
-                          <EarnText
-                            mr="$1"
-                            size="$bodyMd"
-                            color="$textSubdued"
-                            text={airdropReward.description}
-                          />
-                          <EarnTooltip tooltip={airdropReward.tooltip} />
-                        </XStack>
-                        <XStack ml="auto" $gtMd={{ ml: 0 }}>
-                          {airdropReward.button ? (
-                            <WrappedActionButton
-                              asset={airdropGroup}
-                              reward={airdropReward}
-                              stakedSymbol={stakedSymbol}
-                              stakedVault={stakedVault}
-                              rewardSymbol={airdropGroup.token.info.symbol}
-                            />
-                          ) : null}
-                        </XStack>
-                        {showDivider ? (
-                          <Divider
-                            bg="$borderSubdued"
-                            vertical
-                            ml="$3"
-                            mr="$0.5"
-                            height="$5"
-                            width="$1"
-                          />
-                        ) : null}
-                      </XStack>
-                    );
-                  })}
-                </Layout>
-              );
-            })}
-          </YStack>
-        )}
-      </XStack>
+          return (
+            <XStack
+              key={key}
+              ai="center"
+              w="100%"
+              minHeight={rowMinHeight}
+              gap="$2"
+              flexWrap="wrap"
+            >
+              <Token
+                size="md"
+                tokenImageUri={group.token.info.logoURI}
+                showNetworkIcon
+                networkId={group.metadata?.network?.networkId}
+              />
+              <XStack ai="center" gap="$1" flexWrap="wrap">
+                {primaryTitle ? (
+                  <EarnText size={primaryTextSize} text={primaryTitle} />
+                ) : null}
+                {primaryDescription ? (
+                  <EarnText
+                    size={primaryTextSize}
+                    color="$textSubdued"
+                    text={primaryDescription}
+                  />
+                ) : null}
+              </XStack>
+              {actionButtonNode}
+              {hasSecondary ? <Divider vertical h="$5" mx="$1" /> : null}
+              {secondaryDescription ? (
+                <EarnText
+                  size={secondaryTextSize}
+                  color="$textSubdued"
+                  text={secondaryDescription}
+                />
+              ) : null}
+              {tooltip ? <EarnTooltip tooltip={tooltip} /> : null}
+            </XStack>
+          );
+        })}
+      </YStack>
     </YStack>
   );
 };
@@ -653,12 +702,6 @@ const PortfolioItemComponent = ({
     <PortfolioPendingTxsProvider value={{ onRefresh }}>
       <YStack>
         <ProtocolHeader portfolioItem={portfolioItem} />
-        <ProtocolAirdrop
-          airdropRenderMode={isDesktopLayout ? 'all' : 'firstOnly'}
-          airdropAssets={portfolioItem.airdropAssets}
-          stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
-          stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
-        />
         {showTable ? (
           <TableList<IEarnPortfolioInvestment['assets'][number]>
             data={portfolioItem.assets}
@@ -742,6 +785,25 @@ const PortfolioItemComponent = ({
                           </XStack>
                         ))}
 
+                        {asset.totalReward ? (
+                          <XStack ai="center" gap="$1">
+                            <EarnText
+                              size="$bodySm"
+                              color="$textSubdued"
+                              text={asset.totalReward.description}
+                            />
+                            <EarnText
+                              size="$bodySm"
+                              color="$textSubdued"
+                              text={{
+                                text: intl.formatMessage({
+                                  id: ETranslations.earn_referral_total_earned,
+                                }),
+                              }}
+                            />
+                          </XStack>
+                        ) : null}
+
                         {/* Buttons */}
                         <XStack gap="$3">
                           <Button
@@ -812,14 +874,11 @@ const PortfolioItemComponent = ({
             }}
           />
         ) : null}
-        {!isDesktopLayout ? (
-          <ProtocolAirdrop
-            airdropRenderMode="exceptFirst"
-            airdropAssets={portfolioItem.airdropAssets}
-            stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
-            stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
-          />
-        ) : null}
+        <ProtocolAirdrop
+          airdropAssets={portfolioItem.airdropAssets}
+          stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
+          stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
+        />
       </YStack>
     </PortfolioPendingTxsProvider>
   );
@@ -912,25 +971,38 @@ const PortfolioSkeleton = () => (
   </YStack>
 );
 
+interface IBasePortfolioTabContentProps {
+  portfolioData: IUseEarnPortfolioReturn;
+  hideSmallAssets?: boolean;
+}
+
 const BasePortfolioTabContent = ({
   portfolioData,
-}: {
-  portfolioData: IUseEarnPortfolioReturn;
-}) => {
+  hideSmallAssets = false,
+}: IBasePortfolioTabContentProps) => {
   const intl = useIntl();
   const { investments, isLoading, refresh } = portfolioData;
 
-  const filteredInvestments = useMemo(
-    () =>
-      investments.filter(
-        (item) =>
-          !isEmpty(item.assets) ||
-          item.airdropAssets.find(
-            (airdrop) => !isEmpty(airdrop.airdropAssets),
-          ) != null,
-      ),
-    [investments],
-  );
+  const filteredInvestments = useMemo(() => {
+    const withAssets = investments.filter(
+      (item) =>
+        !isEmpty(item.assets) ||
+        item.airdropAssets.find((airdrop) => !isEmpty(airdrop.airdropAssets)) !=
+          null,
+    );
+
+    if (!hideSmallAssets) {
+      return withAssets;
+    }
+
+    return withAssets.filter((item) => {
+      const totalValueUsd = Number(item.totalFiatValueUsd);
+      const normalizedValue = Number.isFinite(totalValueUsd)
+        ? totalValueUsd
+        : 0;
+      return normalizedValue >= 0.01;
+    });
+  }, [hideSmallAssets, investments]);
   const noAssets = useMemo(
     () => isEmpty(filteredInvestments),
     [filteredInvestments],
