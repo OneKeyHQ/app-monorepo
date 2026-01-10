@@ -1422,7 +1422,11 @@ function Dot({
   );
 }
 
-function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
+function MoreButtonWithDot({
+  onPress: _onPress,
+}: {
+  onPress?: IButtonProps['onPress'];
+}) {
   const intl = useIntl();
   const [{ isCollapsed }] = useAppSideBarStatusAtom();
   const isDesktopMode = useIsDesktopModeUIInTabPages();

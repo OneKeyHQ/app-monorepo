@@ -208,6 +208,7 @@ const mergeInvestments = (
     assets: [...existing.assets, ...incoming.assets],
     airdropAssets: [...existing.airdropAssets, ...incoming.airdropAssets],
     totalFiatValue: existingTotal.plus(incomingTotal).toFixed(),
+    totalFiatValueUsd: existingTotal.plus(incomingTotal).toFixed(),
   };
 };
 
@@ -475,6 +476,7 @@ export const useEarnPortfolio = ({
             key,
             investment: {
               totalFiatValue: '0',
+              totalFiatValueUsd: '0',
               earnings24hFiatValue: '0',
               protocol: result.protocol,
               network: result.network,
@@ -517,6 +519,7 @@ export const useEarnPortfolio = ({
           key,
           investment: {
             totalFiatValue: result.totalFiatValue,
+            totalFiatValueUsd: result.totalFiatValueUsd,
             earnings24hFiatValue: result.earnings24hFiatValue,
             protocol: result.protocol,
             network: result.network,

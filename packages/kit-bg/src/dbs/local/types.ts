@@ -480,7 +480,8 @@ export enum EIndexedDBBucketNames {
   // credential = 'credential', // credential, context
   // wallet = 'wallet', // wallet, device
   account = 'account_local-db_onekey-bucket', // account
-  backupAccount = `${INDEXED_BUCKET_NAME_BACKUP_PREFIX}account_local-db_onekey-bucket`, // account
+  // NOTE: Using inline string instead of template literal for SWC/Rspack compatibility
+  backupAccount = 'backup-account_local-db_onekey-bucket', // account
   address = 'address_local-db_onekey-bucket', // address to account map
   archive = 'archive_local-db_onekey-bucket', // connected site, signed message, signed transaction
 

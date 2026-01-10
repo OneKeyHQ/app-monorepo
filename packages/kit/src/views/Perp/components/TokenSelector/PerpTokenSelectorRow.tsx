@@ -93,6 +93,7 @@ const FavoriteButton = memo(
 
     const handleToggle = useCallback(() => {
       setFavorites((prev) => ({
+        ...prev,
         favorites: isFavorite
           ? prev.favorites.filter((f) => f !== coin)
           : [...prev.favorites, coin],
