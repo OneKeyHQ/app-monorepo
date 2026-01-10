@@ -1,6 +1,8 @@
 {
   "enabledPlugins": {
     "code-simplifier@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true
+    "code-review@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": true
   }
 }
