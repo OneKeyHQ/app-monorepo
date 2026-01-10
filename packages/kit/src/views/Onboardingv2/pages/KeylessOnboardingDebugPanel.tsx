@@ -153,6 +153,44 @@ export function KeylessOnboardingDebugPanel({
             </Button>
 
             <Button onPress={handleShowAuthConsts}>显示 Auth Consts</Button>
+
+            {/* <Button
+              onPress={async () => {
+                try {
+                  await backgroundApiProxy.serviceKeylessWallet.updatePinConfirmStatus();
+                  Toast.success({
+                    title: '更新 PIN 确认状态成功',
+                  });
+                } catch (error: any) {
+                  Toast.error({
+                    title: '更新 PIN 确认状态失败',
+                    message: error?.message || 'Unknown error',
+                  });
+                }
+              }}
+            >
+              测试: 更新 PIN 确认状态
+            </Button>
+
+            <Button
+              onPress={async () => {
+                try {
+                  const result =
+                    await backgroundApiProxy.serviceKeylessWallet.getPinConfirmStatus();
+                  Toast.success({
+                    title: '获取 PIN 确认状态成功',
+                    message: `确认状态: ${result.confirmed ? '已确认' : '未确认'}`,
+                  });
+                } catch (error: any) {
+                  Toast.error({
+                    title: '获取 PIN 确认状态失败',
+                    message: error?.message || 'Unknown error',
+                  });
+                }
+              }}
+            >
+              测试: 获取 PIN 确认状态
+            </Button> */}
           </YStack>
         }
       />

@@ -229,7 +229,7 @@ export const JUICEBOX_CONFIG: IJuiceBoxConfigJSON = {
     },
     {
       id: '6b47cc201434428be7beee2190f95685',
-      address: 'https://juicebox-realm-b.onekeycn.com',
+      address: 'https://juice.rpcbox.com',
     },
   ],
   register_threshold: 2, // At least 2 realms must succeed to register
