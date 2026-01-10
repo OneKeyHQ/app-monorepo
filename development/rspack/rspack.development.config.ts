@@ -21,6 +21,7 @@ export function createDevelopmentConfig({
     mode: 'development',
     devtool: 'cheap-module-source-map',
     plugins: [
+      new rspack.HotModuleReplacementPlugin(),
       new ReactRefreshPlugin({
         overlay: false,
       }) as unknown as RspackPluginInstance,
