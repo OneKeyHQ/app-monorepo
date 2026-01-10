@@ -12,6 +12,6 @@
 "NSCameraUsageDescription" = "Utilisez l'appareil photo pour scanner le code QR.";
 "NSFaceIDUsageDescription" = "Utilisez Face ID pour authentifier et déverrouiller votre portefeuille.";
 "NSMicrophoneUsageDescription" = "Utilisez le microphone pour enregistrer des vidéos.";
-"NSPhotoLibraryAddUsageDescription" = "Utilisez la photothèque pour enregistrer des images QR.";
+"NSPhotoLibraryAddUsageDescription" = "Utilisez la photothèque pour enregistrer des images.";
 "NSPhotoLibraryUsageDescription" = "Utilisez la photothèque pour lire des images QR.";
 "NSLocalNetworkUsageDescription" = "Cette application sera en mesure de découvrir et de se connecter à des appareils sur les réseaux que vous utilisez.";
