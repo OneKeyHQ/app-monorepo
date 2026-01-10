@@ -15,6 +15,7 @@
     "postinstall": "node development/scripts/postinstall.js",
     "copy:inject": "node development/scripts/copy-injected.js",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
+    "app:desktop:rspack": "yarn workspace @onekeyhq/desktop start:rspack",
     "app:desktop:web": "yarn workspace @onekeyhq/desktop dev:renderer",
     "app:desktop:web:rspack": "yarn workspace @onekeyhq/desktop dev:renderer:rspack",
     "app:desktop:electron": "yarn workspace @onekeyhq/desktop build:main:dev && yarn workspace @onekeyhq/desktop dev:main",
