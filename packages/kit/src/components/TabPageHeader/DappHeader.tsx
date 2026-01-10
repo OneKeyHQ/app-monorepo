@@ -12,7 +12,6 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
