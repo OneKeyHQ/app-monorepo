@@ -288,10 +288,11 @@ async function removeTokensFromStorage(params: {
 }
 
 export default {
-  // Individual token operations
+  // refresh token
   saveRefreshTokenToStorage,
   getRefreshTokenFromStorage,
   removeRefreshTokenFromStorage,
+  // access token
   saveTokenToStorage,
   getTokenFromStorage,
   removeTokenFromStorage,

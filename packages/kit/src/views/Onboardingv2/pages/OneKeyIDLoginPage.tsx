@@ -34,6 +34,7 @@ import { useAppRoute } from '../../../hooks/useAppRoute';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function OptionItem({
   icon,
@@ -177,10 +178,13 @@ function OneKeyIDLoginPage() {
   }, [handleSocialLogin]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <OnboardingLayout>
         <OnboardingLayout.Header />
-        <OnboardingLayout.Body constrained={false} scrollable>
+        <OnboardingLayout.Body
+          constrained={false}
+          scrollable={!platformEnv.isNative}
+        >
           <OnboardingLayout.ConstrainedContent gap="$10">
             <YStack gap="$2">
               <SizableText size="$heading3xl">

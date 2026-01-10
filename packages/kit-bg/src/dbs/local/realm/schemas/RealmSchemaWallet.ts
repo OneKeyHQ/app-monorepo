@@ -32,6 +32,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public isKeyless?: boolean;
 
+  public keylessDetails?: string;
+
   public passphraseState?: string;
 
   public firstEvmAddress?: string;
@@ -67,6 +69,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       isTemp: { type: 'bool', default: false },
       isMocked: { type: 'bool', default: false },
       isKeyless: { type: 'bool', default: false },
+      keylessDetails: 'string?',
       passphraseState: 'string?',
       firstEvmAddress: 'string?',
       hash: 'string?',
@@ -94,6 +97,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       isTemp: this.isTemp,
       isMocked: this.isMocked,
       isKeyless: this.isKeyless,
+      keylessDetails: this.keylessDetails,
       passphraseState: this.passphraseState,
       firstEvmAddress: this.firstEvmAddress,
       hash: this.hash,
