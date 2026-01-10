@@ -137,6 +137,7 @@ export function useChartLines({
   // Store previous lines for diff calculation
   const prevLinesRef = useRef<Map<string, ITVLine>>(new Map());
   const prevSymbolRef = useRef<string>(symbol);
+  const prevIsReadyRef = useRef<boolean>(isReady);
 
   // PNL throttle refs
   const pnlThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -304,6 +305,9 @@ export function useChartLines({
       }
       pendingPnlPatchRef.current = null;
 
+      // Clear prev lines to force full sync
+      prevLinesRef.current.clear();
+
       if (isReady) {
         sendLinesClear();
         // Small delay to ensure clear is processed before sync
@@ -321,6 +325,47 @@ export function useChartLines({
       sendLinesClear();
     }
   }, [userAddress, isReady, sendLinesClear]);
+
+  // Handle WebView reload (when isReady changes from true to false, or from false to true after reload)
+  useEffect(() => {
+    const prevIsReady = prevIsReadyRef.current;
+    const isReloading = prevIsReady && !isReady; // WebView is reloading
+    const isReloaded = !prevIsReady && isReady; // WebView just finished reloading
+
+    if (isReloading) {
+      // WebView is reloading, clear prev lines to force full sync when ready
+      prevLinesRef.current.clear();
+      // Clear any pending PNL updates
+      if (pnlThrottleTimerRef.current) {
+        clearTimeout(pnlThrottleTimerRef.current);
+        pnlThrottleTimerRef.current = null;
+      }
+      pendingPnlPatchRef.current = null;
+    } else if (isReloaded) {
+      // WebView just finished reloading, ensure prevLinesRef is clear to force full sync
+      if (prevLinesRef.current.size > 0) {
+        prevLinesRef.current.clear();
+      }
+      // Clear any pending PNL updates
+      if (pnlThrottleTimerRef.current) {
+        clearTimeout(pnlThrottleTimerRef.current);
+        pnlThrottleTimerRef.current = null;
+      }
+      pendingPnlPatchRef.current = null;
+
+      // Immediately trigger sync if we have lines and user address
+      // Use a small delay to ensure iframe is fully ready
+      if (userAddress && currentLines.length > 0) {
+        setTimeout(() => {
+          if (isReady && userAddress && currentLines.length > 0) {
+            sendLinesSync();
+          }
+        }, 100);
+      }
+    }
+
+    prevIsReadyRef.current = isReady;
+  }, [isReady, userAddress, currentLines, sendLinesSync]);
 
   // Handle lines update (incremental)
   useEffect(() => {

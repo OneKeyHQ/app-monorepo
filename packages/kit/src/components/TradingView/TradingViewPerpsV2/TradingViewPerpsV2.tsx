@@ -110,6 +110,16 @@ export function TradingViewPerpsV2(
     return `${theme}-${webviewKey || ''}`;
   }, [theme, webviewKey]);
 
+  // Track webviewKey changes and reset isChartLinesReady when it changes
+  const prevWebviewKeyRef = useRef(_webviewKey);
+  useEffect(() => {
+    if (prevWebviewKeyRef.current !== _webviewKey) {
+      // WebView will reload due to key change, reset ready state
+      setIsChartLinesReady(false);
+      prevWebviewKeyRef.current = _webviewKey;
+    }
+  }, [_webviewKey]);
+
   useEffect(() => {
     setMounted({ mounted: true });
     return () => {
