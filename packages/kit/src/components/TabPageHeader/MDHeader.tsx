@@ -36,22 +36,20 @@ export function MDHeader({
 }) {
   const { top } = useSafeAreaInsets();
   const rightActions = useMemo(() => {
-    return (
+    return sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
       <XStack flexShrink={1}>
         <HomeTokenListProviderMirror>
-          {sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
-            <HeaderRight
-              selectedHeaderTab={selectedHeaderTab}
-              sceneName={sceneName}
-              tabRoute={tabRoute}
-              customHeaderRightItems={customHeaderRightItems}
-              renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-            />
-          ) : (
-            <SelectorTrigger />
-          )}
+          <SelectorTrigger />
         </HomeTokenListProviderMirror>
       </XStack>
+    ) : (
+      <HeaderRight
+        selectedHeaderTab={selectedHeaderTab}
+        sceneName={sceneName}
+        tabRoute={tabRoute}
+        customHeaderRightItems={customHeaderRightItems}
+        renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+      />
     );
   }, [
     customHeaderRightItems,
