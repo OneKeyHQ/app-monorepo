@@ -1,9 +1,10 @@
 import path from 'path';
 
 import { rspack } from '@rspack/core';
-import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
 
 import { getOutputFolder } from './utils';
+
+import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
 
 const developmentConsts = {
   platforms: {
@@ -12,7 +13,7 @@ const developmentConsts = {
   },
 };
 
-interface ProdConfigOptions {
+interface IProdConfigOptions {
   platform: string;
   basePath: string;
 }
@@ -20,9 +21,9 @@ interface ProdConfigOptions {
 export function createProductionConfig({
   platform,
   basePath,
-}: ProdConfigOptions): RspackOptions {
+}: IProdConfigOptions): RspackOptions {
   const isExt = platform === developmentConsts.platforms.ext;
-  const isWeb = platform === developmentConsts.platforms.web;
+  const _isWeb = platform === developmentConsts.platforms.web;
   const rootPath = isExt
     ? path.join(basePath, 'build', getOutputFolder())
     : path.join(basePath, 'web-build');
