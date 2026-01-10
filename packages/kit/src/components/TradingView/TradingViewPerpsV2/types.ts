@@ -42,3 +42,80 @@ export interface IMarksUpdateMessage {
     operation: EMarksUpdateOperationEnum;
   };
 }
+
+// ============================================
+// Chart Lines Types
+// ============================================
+
+export type ITVLineKind = 'liquidation' | 'position' | 'order';
+
+export type ITVLineSide = 'long' | 'short';
+
+export interface ITVLine {
+  id: string; // liq:<symbol>:<leverageType>, pos:<symbol>:<leverageType>, order:<oid>
+  symbol: string;
+  kind: ITVLineKind;
+  price: string; // Formatted price string
+  qty?: string; // Size for position/order
+  side?: ITVLineSide; // For styling
+  label?: {
+    left?: string; // e.g., "PNL +$123.45"
+    right?: string; // e.g., "+0.5 BTC"
+  };
+  editable?: boolean; // Only true for limit orders
+  meta?: {
+    orderId?: string;
+    orderType?: string;
+    leverageType?: string;
+  };
+  version: number; // For diff detection
+}
+
+export enum ETVLinesOperationEnum {
+  SYNC = 'sync',
+  PATCH = 'patch',
+  CLEAR = 'clear',
+}
+
+export interface ITVLinesSyncPayload {
+  symbol: string;
+  revision: number;
+  lines: ITVLine[];
+}
+
+export interface ITVLinesPatchPayload {
+  symbol: string;
+  revision: number;
+  add: ITVLine[];
+  update: ITVLine[];
+  remove: string[]; // Line IDs to remove
+}
+
+export interface ITVLinesClearPayload {
+  symbol: string;
+}
+
+export interface ITVLineEditResultPayload {
+  requestId: string;
+  ok: boolean;
+  error?: string;
+  revertPrice?: string;
+}
+
+// Iframe -> App messages
+export interface ITVLineReadyPayload {
+  capabilities?: string[];
+}
+
+export interface ITVLineDragCommitPayload {
+  lineId: string;
+  symbol: string;
+  newPrice: string;
+  requestId: string;
+}
+
+export interface ITVOrderCancelPayload {
+  lineId: string;
+  symbol: string;
+  orderId?: string;
+}
