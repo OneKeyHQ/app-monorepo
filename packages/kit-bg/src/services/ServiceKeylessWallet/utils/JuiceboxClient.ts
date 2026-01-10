@@ -70,6 +70,7 @@ export class JuiceboxClient {
     const response = await axios.post<
       IApiClientResponse<{
         tokens: Record<string, string>;
+        // TODO hashPin
       }>
     >(tokenUrl, {
       token: supabaseAccessToken,
@@ -121,7 +122,7 @@ export class JuiceboxClient {
    */
   async register(params: {
     // TODO In the future, prefix with server user salt before using to enhance security.
-    pin: string;
+    pin: string; // TODO hashPin
     secret: string; // utf8 string
     userInfo: string; // ownerId
   }): Promise<void> {
@@ -162,7 +163,7 @@ export class JuiceboxClient {
    * @throws {RecoverError} - SDK-specific recovery errors
    */
   async recover(params: {
-    pin: string;
+    pin: string; // TODO hashPin
     userInfo: string; // ownerId
     skipTokenCacheClear?: boolean;
   }): Promise<string> {
