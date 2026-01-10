@@ -28,7 +28,6 @@ import {
   HeaderNotificationIconButton,
   WalletConnectionForWeb,
 } from './components';
-import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function MoreAction() {
   return <MoreActionButton key="more-action" />;
@@ -106,8 +105,6 @@ export function HeaderRight({
     fixedItems: ReactNode;
   }) => ReactNode;
 }) {
-  const { gtXl, gtMd } = useMedia();
-
   const items = useMemo(() => {
     if (customHeaderRightItems) {
       return customHeaderRightItems;
