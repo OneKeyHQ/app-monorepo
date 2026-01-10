@@ -2,12 +2,13 @@ import fs from 'fs';
 import path from 'path';
 
 import { rspack } from '@rspack/core';
-import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
 import ReactRefreshPlugin from '@rspack/plugin-react-refresh';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import type { RequestHandler } from 'http-proxy-middleware';
 
 import { webPort } from './constant';
+
+import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
+import type { RequestHandler } from 'http-proxy-middleware';
 
 interface DevConfigOptions {
   basePath: string;
@@ -20,11 +21,13 @@ export function createDevelopmentConfig({
     mode: 'development',
     devtool: 'cheap-module-source-map',
     plugins: [
-      // new ReactRefreshPlugin({
-      //   overlay: false,
-      // }) as unknown as RspackPluginInstance,
+      new ReactRefreshPlugin({
+        overlay: false,
+      }) as unknown as RspackPluginInstance,
       new rspack.DefinePlugin({
-        __CURRENT_FILE_PATH__: JSON.stringify('__CURRENT_FILE_PATH__--rspack-dev'),
+        __CURRENT_FILE_PATH__: JSON.stringify(
+          '__CURRENT_FILE_PATH__--rspack-dev',
+        ),
       }),
     ],
     devServer: {
