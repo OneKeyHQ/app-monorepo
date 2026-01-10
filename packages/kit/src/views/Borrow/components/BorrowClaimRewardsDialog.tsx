@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -140,12 +140,36 @@ function BorrowClaimRewardsDialogContent({
     [onClaimItem, dialogInstance],
   );
 
-  const handleClaimAll = useCallback(async () => {
-    // Collect all item IDs and set them as loading
-    const allIds = claimableGroups.flatMap((group) =>
-      group.items.map((item) => item.id),
+  const pendingSet = useMemo(() => new Set(pendingClaimIds), [pendingClaimIds]);
+
+  const actionableIds = useMemo(() => {
+    return claimableGroups.flatMap((group) =>
+      group.items
+        .filter((item) => !pendingSet.has(item.id))
+        .map((item) => item.id),
     );
-    setClaimingAllIds(allIds);
+  }, [claimableGroups, pendingSet]);
+
+  const hasClaimableItems = useMemo(
+    () => claimableGroups.some((group) => group.items.length > 0),
+    [claimableGroups],
+  );
+
+  const hasPendingClaimItems = useMemo(
+    () =>
+      claimableGroups.some((group) =>
+        group.items.some((item) => pendingSet.has(item.id)),
+      ),
+    [claimableGroups, pendingSet],
+  );
+
+  const canClaimAll = hasClaimableItems && !hasPendingClaimItems;
+
+  const handleClaimAll = useCallback(async () => {
+    if (!canClaimAll || actionableIds.length === 0) {
+      return;
+    }
+    setClaimingAllIds(actionableIds);
     setLoading(true);
     try {
       await onClaimAll();
@@ -153,11 +177,7 @@ function BorrowClaimRewardsDialogContent({
       setLoading(false);
       setClaimingAllIds([]);
     }
-  }, [onClaimAll, claimableGroups]);
-
-  const hasClaimableItems = claimableGroups.some(
-    (group) => group.items.length > 0,
-  );
+  }, [actionableIds, canClaimAll, onClaimAll]);
 
   return (
     <YStack gap="$4">
@@ -178,7 +198,7 @@ function BorrowClaimRewardsDialogContent({
         showCancelButton
         showConfirmButton={hasClaimableItems}
         confirmButtonProps={{
-          disabled: loading || rewardsDetails.disabled,
+          disabled: loading || rewardsDetails.disabled || !canClaimAll,
           loading,
         }}
         onConfirm={handleClaimAll}

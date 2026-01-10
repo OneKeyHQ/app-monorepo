@@ -31,6 +31,7 @@ type IBorrowContextValue = {
   pendingTxs: IBorrowPendingTx[];
   setPendingTxs: (txs: IBorrowPendingTx[]) => void;
   refreshPendingRef: React.MutableRefObject<(() => Promise<void>) | null>;
+  refreshRewardsRef: React.MutableRefObject<(() => Promise<void>) | null>;
 };
 
 const defaultSwapConfig: ISwapConfig = {
@@ -50,6 +51,7 @@ export const BorrowProvider = ({
   const [reservesLoading, setReservesLoading] = useState(false);
   const [pendingTxs, setPendingTxsState] = useState<IBorrowPendingTx[]>([]);
   const refreshPendingRef = useRef<(() => Promise<void>) | null>(null);
+  const refreshRewardsRef = useRef<(() => Promise<void>) | null>(null);
 
   // Stable setter that won't cause unnecessary re-renders
   const setPendingTxs = useCallback((txs: IBorrowPendingTx[]) => {
@@ -83,6 +85,7 @@ export const BorrowProvider = ({
       pendingTxs,
       setPendingTxs,
       refreshPendingRef,
+      refreshRewardsRef,
     };
   }, [
     reserves,

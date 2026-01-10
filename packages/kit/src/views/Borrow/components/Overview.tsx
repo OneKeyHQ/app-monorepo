@@ -1,4 +1,4 @@
-import { isValidElement, useCallback, useMemo } from 'react';
+import { isValidElement, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -74,8 +74,14 @@ const OverviewItem = ({
 };
 
 export const Overview = () => {
-  const { reserves, market, setReserves, setReservesLoading, pendingTxs } =
-    useBorrowContext();
+  const {
+    reserves,
+    market,
+    setReserves,
+    setReservesLoading,
+    pendingTxs,
+    refreshRewardsRef,
+  } = useBorrowContext();
   const { fetchReserves } = useBorrowReserves();
   const { earnAccount } = useEarnAccount({
     networkId: market?.networkId,
@@ -136,7 +142,7 @@ export const Overview = () => {
     enabled: !!(networkId && provider && marketAddress && earnAccountId),
   });
 
-  const { borrowRewards } = useBorrowRewards({
+  const { borrowRewards, refresh: refreshBorrowRewards } = useBorrowRewards({
     networkId,
     provider,
     marketAddress,
@@ -160,6 +166,7 @@ export const Overview = () => {
         accountId: earnAccountId,
       });
       setReserves(result);
+      void refreshBorrowRewards();
     } finally {
       setReservesLoading(false);
     }
@@ -171,7 +178,12 @@ export const Overview = () => {
     networkId,
     marketAddress,
     earnAccountId,
+    refreshBorrowRewards,
   ]);
+
+  useEffect(() => {
+    refreshRewardsRef.current = refreshBorrowRewards;
+  }, [refreshBorrowRewards, refreshRewardsRef]);
 
   const handleHistoryPress = useCallback(() => {
     if (!provider || !networkId || !marketAddress || !earnAccountId) return;
@@ -203,10 +215,13 @@ export const Overview = () => {
 
     const rewardsDetails = borrowRewards.button;
     const claimableGroups = rewardsDetails.data.rewardsDetail.claimable;
+    const pendingIdSet = new Set(pendingClaimIds);
     const allIds: string[] = [];
     for (const group of claimableGroups) {
       for (const item of group.items) {
-        allIds.push(item.id);
+        if (!pendingIdSet.has(item.id)) {
+          allIds.push(item.id);
+        }
       }
     }
 
@@ -236,6 +251,9 @@ export const Overview = () => {
         });
       },
       onClaimAll: async () => {
+        if (allIds.length === 0) {
+          return;
+        }
         // Build stakingInfo with proper tag for all items claim
         const stakingInfo = {
           label: EEarnLabels.Claim,

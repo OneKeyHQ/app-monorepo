@@ -35,6 +35,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     setReservesLoading,
     setPendingTxs,
     refreshPendingRef,
+    refreshRewardsRef,
   } = useBorrowContext();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { earnAccount } = useEarnAccount({
@@ -173,6 +174,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     onRefresh: () => {
       // Re-fetch all reserves when pending transactions complete
       void refreshReserves();
+      void refreshRewardsRef.current?.();
     },
   });
 
