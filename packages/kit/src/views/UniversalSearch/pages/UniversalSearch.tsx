@@ -56,6 +56,7 @@ import {
   UniversalSearchAddressItem,
   UniversalSearchDappItem,
   UniversalSearchMarketTokenItem,
+  UniversalSearchPerpItem,
   UniversalSearchV2MarketTokenItem,
 } from '../components/SearchResultItems';
 
@@ -78,6 +79,7 @@ const getSearchTypes = () => {
     // Hide AccountAssets search in WebDapp mode
     !platformEnv.isWebDappMode && EUniversalSearchType.AccountAssets,
     EUniversalSearchType.Dapp,
+    EUniversalSearchType.Perp,
   ].filter(Boolean);
 };
 
@@ -85,11 +87,12 @@ const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
   const tabMapping: Record<EUniversalSearchType, number> = {
     [EUniversalSearchType.Address]: 1, // Wallets tab
     [EUniversalSearchType.V2MarketToken]: 2, // Market tab
-    [EUniversalSearchType.MarketToken]: 3, // Tokens tab
+    [EUniversalSearchType.Perp]: 3, // Perp tab (after Market)
+    [EUniversalSearchType.MarketToken]: 4, // Tokens tab
     // In WebDapp mode, My Assets tab is hidden
-    [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 4,
+    [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 5,
     // DApps tab index changes based on whether My Assets tab is shown
-    [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 4 : 5,
+    [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 5 : 6,
   };
 
   return tabMapping[searchType];
@@ -166,6 +169,9 @@ export function UniversalSearch({
       }),
       intl.formatMessage({
         id: ETranslations.global_market,
+      }),
+      intl.formatMessage({
+        id: ETranslations.global_perp,
       }),
       intl.formatMessage({
         id: ETranslations.global_universal_search_tabs_tokens,
@@ -348,6 +354,18 @@ export function UniversalSearch({
         });
       }
 
+      if (result?.[EUniversalSearchType.Perp]?.items?.length) {
+        const data = result?.[EUniversalSearchType.Perp]
+          ?.items as IUniversalSearchResultItem[];
+        searchResultSections.push({
+          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Perp),
+          title: intl.formatMessage({
+            id: ETranslations.global_perp,
+          }),
+          ...generateDataFn(data),
+        });
+      }
+
       if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
         const data = result?.[EUniversalSearchType.MarketToken]
           ?.items as IUniversalSearchResultItem[];
@@ -510,6 +528,8 @@ export function UniversalSearch({
               getSearchInput={() => searchInputRef.current}
             />
           );
+        case EUniversalSearchType.Perp:
+          return <UniversalSearchPerpItem item={item} />;
         default:
           return null;
       }
@@ -536,6 +556,8 @@ export function UniversalSearch({
           }-${index}`;
         case EUniversalSearchType.Dapp:
           return `${item.type}-${item.payload.dappId || index}`;
+        case EUniversalSearchType.Perp:
+          return `${item.type}-${item.payload.coin}-${index}`;
         default:
           return `${index}`;
       }
