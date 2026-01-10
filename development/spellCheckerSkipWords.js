@@ -1060,4 +1060,5 @@ module.exports = [
   'rspack',
   'myposition',
   'favs',
+  'extractable',
 ];
