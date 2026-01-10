@@ -132,7 +132,6 @@ export function HeaderRight({
     const earnItems = (
       <>
         <GiftAction copyAsUrl />
-        <WalletConnectionForWeb tabRoute={tabRoute} />
         {fixedItems}
       </>
     );
@@ -171,9 +170,7 @@ export function HeaderRight({
             <SelectorTrigger />
             {isUrlWallet && gtMd && platformEnv.isWebDappMode ? (
               <UrlAccountPageHeader />
-            ) : (
-              <WalletConnectionForWeb tabRoute={tabRoute} />
-            )}
+            ) : null}
             {fixedItems}
           </>
         );
@@ -185,23 +182,14 @@ export function HeaderRight({
           </>
         );
       case ETabRoutes.Market:
-        return (
-          <>
-            <WalletConnectionForWeb tabRoute={tabRoute} />
-            {fixedItems}
-          </>
-        );
+        return <>{fixedItems}</>;
       case ETabRoutes.Discovery:
         if (selectedHeaderTab === ETranslations.global_earn) {
           return (
             <>
               <GiftAction copyAsUrl />
-              <WalletConnectionForWeb tabRoute={tabRoute} />
             </>
           );
-        }
-        if (selectedHeaderTab === ETranslations.global_market) {
-          return <WalletConnectionForWeb tabRoute={tabRoute} />;
         }
         return (
           <>
@@ -209,7 +197,6 @@ export function HeaderRight({
             {platformEnv.isNative ? (
               <TabCountButton testID="browser-header-tabs" />
             ) : null}
-            <WalletConnectionForWeb tabRoute={tabRoute} />
           </>
         );
       case ETabRoutes.Earn:
@@ -217,7 +204,6 @@ export function HeaderRight({
       case ETabRoutes.Perp:
         return (
           <>
-            <WalletConnectionForWeb tabRoute={tabRoute} />
             <DepositAction />
           </>
         );
