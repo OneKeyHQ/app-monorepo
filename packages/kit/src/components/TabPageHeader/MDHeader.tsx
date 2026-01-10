@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -47,6 +48,7 @@ export function MDHeader({
             justifyContent="space-between"
             px="$5"
             h="$11"
+            {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
           >
             <View>
               <HeaderLeft
