@@ -163,6 +163,13 @@ export function HeaderRight({
             />
           ) : null;
 
+        if (
+          platformEnv.isNative &&
+          sceneName === EAccountSelectorSceneName.homeUrlAccount
+        ) {
+          return <SelectorTrigger />;
+        }
+
         return (
           <>
             {urlAccountBackButton}
