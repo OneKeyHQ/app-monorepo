@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -35,6 +35,31 @@ export function MDHeader({
   }) => ReactNode;
 }) {
   const { top } = useSafeAreaInsets();
+  const rightActions = useMemo(() => {
+    return (
+      <XStack flexShrink={1}>
+        <HomeTokenListProviderMirror>
+          {sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
+            <HeaderRight
+              selectedHeaderTab={selectedHeaderTab}
+              sceneName={sceneName}
+              tabRoute={tabRoute}
+              customHeaderRightItems={customHeaderRightItems}
+              renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+            />
+          ) : (
+            <SelectorTrigger />
+          )}
+        </HomeTokenListProviderMirror>
+      </XStack>
+    );
+  }, [
+    customHeaderRightItems,
+    renderCustomHeaderRightItems,
+    sceneName,
+    selectedHeaderTab,
+    tabRoute,
+  ]);
   return (
     <>
       <Page.Header headerShown={false} />
@@ -61,21 +86,7 @@ export function MDHeader({
             <View>
               <HeaderTitle sceneName={sceneName} />
             </View>
-            <XStack flexShrink={1}>
-              <HomeTokenListProviderMirror>
-                {sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
-                  <HeaderRight
-                    selectedHeaderTab={selectedHeaderTab}
-                    sceneName={sceneName}
-                    tabRoute={tabRoute}
-                    customHeaderRightItems={customHeaderRightItems}
-                    renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-                  />
-                ) : (
-                  <SelectorTrigger />
-                )}
-              </HomeTokenListProviderMirror>
-            </XStack>
+            {rightActions}
           </XStack>
 
           {!hideSearch ? (
