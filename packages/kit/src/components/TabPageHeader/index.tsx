@@ -6,10 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
-import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 import {
   GiftAction,
@@ -17,10 +14,8 @@ import {
   WalletConnectionGroup,
 } from './components';
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
+import { DappHeader } from './DappHeader';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
-import { HeaderMDSearch } from './HeaderMDSearch';
-import { HeaderRight } from './HeaderRight';
-import { HeaderTitle } from './HeaderTitle';
 import { MDHeader } from './MDHeader';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
@@ -57,11 +52,8 @@ function BaseDesktopTabPageHeader({
   sceneName,
   tabRoute,
   selectedHeaderTab,
-  renderCustomHeaderRightItems,
   customHeaderRightItems,
   customHeaderLeftItems,
-  hideSearch = false,
-  hideHeaderLeft = false,
 }: ITabPageHeaderProp) {
   const renderHeaderLeft = useCallback(
     () => (
@@ -75,39 +67,6 @@ function BaseDesktopTabPageHeader({
     [selectedHeaderTab, sceneName, tabRoute, customHeaderLeftItems],
   );
 
-  const { config } = useAccountSelectorContextData();
-
-  const renderHeaderRight = useCallback(
-    () =>
-      config ? (
-        <HomeTokenListProviderMirror>
-          <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <HeaderRight
-              selectedHeaderTab={selectedHeaderTab}
-              sceneName={sceneName}
-              tabRoute={tabRoute}
-              customHeaderRightItems={customHeaderRightItems}
-              renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-            />
-          </AccountSelectorProviderMirror>
-        </HomeTokenListProviderMirror>
-      ) : null,
-    [
-      config,
-      selectedHeaderTab,
-      sceneName,
-      tabRoute,
-      customHeaderRightItems,
-      renderCustomHeaderRightItems,
-    ],
-  );
-
-  const renderHeaderTitle = useCallback(
-    () => <HeaderTitle sceneName={sceneName} />,
-    [sceneName],
-  );
-
-  const { gtMd } = useMedia();
   const theme = useTheme();
 
   const renderUniversalSearchInput = useCallback(
@@ -153,33 +112,6 @@ function BaseDesktopTabPageHeader({
     return null;
   }, [renderHeaderLeft, sceneName]);
 
-  if (platformEnv.isWebDappMode) {
-    if (gtMd) {
-      return (
-        <Page.Header
-          headerTitleAlign="center"
-          headerStyle={{ backgroundColor: theme.bgSubdued.val }}
-          headerTitle={renderHeaderTitle}
-          headerRight={renderHeaderRight}
-          headerLeft={renderHeaderLeft}
-        />
-      );
-    }
-    return (
-      <>
-        <Page.Header
-          headerTitleAlign="left"
-          headerTitle={renderHeaderTitle}
-          headerRight={renderHeaderRight}
-          headerLeft={renderHeaderLeft}
-        />
-        {!hideSearch ? (
-          <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
-        ) : null}
-      </>
-    );
-  }
-
   return (
     <>
       <Page.Header
@@ -210,6 +142,21 @@ export function TabPageHeader({
   hideHeaderLeft = false,
 }: ITabPageHeaderProp) {
   const media = useMedia();
+
+  if (platformEnv.isWebDappMode) {
+    return (
+      <DappHeader
+        tabRoute={tabRoute}
+        sceneName={sceneName}
+        hideSearch={hideSearch}
+        selectedHeaderTab={selectedHeaderTab}
+        customHeaderRightItems={customHeaderRightItems}
+        customHeaderLeftItems={customHeaderLeftItems}
+        hideHeaderLeft={hideHeaderLeft}
+        renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+      />
+    );
+  }
 
   if (media.md || platformEnv.isNative) {
     return (
