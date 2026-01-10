@@ -16,6 +16,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  borrowRefreshPendingRef,
+  borrowRefreshReservesRef,
+} from '@onekeyhq/kit/src/views/Borrow/BorrowProvider';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -351,12 +355,17 @@ export function ManagePositionContent({
     void refreshManageData();
     // Immediately refresh pending transactions after operation
     void refreshPendingRef.current?.();
+    if (isBorrowType) {
+      void borrowRefreshPendingRef.current?.();
+      void borrowRefreshReservesRef.current?.();
+    }
     onStakeWithdrawSuccess?.();
     if (isInModalContext) {
       appNavigation.popStack();
     }
   }, [
     refreshManageData,
+    isBorrowType,
     onStakeWithdrawSuccess,
     isInModalContext,
     appNavigation,

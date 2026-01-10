@@ -34,6 +34,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     setReserves,
     setReservesLoading,
     setPendingTxs,
+    refreshReservesRef,
     refreshPendingRef,
     refreshRewardsRef,
   } = useBorrowContext();
@@ -182,6 +183,10 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     setPendingTxs(pendingTxs);
   }, [pendingTxs, setPendingTxs]);
+
+  useEffect(() => {
+    refreshReservesRef.current = refreshReserves;
+  }, [refreshReserves, refreshReservesRef]);
 
   // Store refreshPending function in ref for external access
   useEffect(() => {

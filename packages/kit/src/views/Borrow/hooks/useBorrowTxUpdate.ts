@@ -168,7 +168,7 @@ export const useBorrowTxUpdate = ({
         accountId: accountMeta.accountId,
         networkId: accountMeta.networkId,
       });
-      await refreshPendingTxs();
+      await refreshPendingTxs({ alwaysSetState: true });
     } catch {
       // Silently handle errors during refresh
     }
@@ -187,9 +187,12 @@ export const useBorrowTxUpdate = ({
 
   useEffect(() => {
     if (!isPending && prevIsPending) {
-      // Trigger refresh immediately when pending transactions complete
-      onRefreshRef.current?.();
+      const timeoutId = setTimeout(() => {
+        onRefreshRef.current?.();
+      }, timerUtils.getTimeDurationMs({ seconds: 1 }));
+      return () => clearTimeout(timeoutId);
     }
+    return undefined;
   }, [isPending, prevIsPending]);
 
   return {
