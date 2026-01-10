@@ -1,5 +1,5 @@
 declare module 'node-notifier' {
-  interface NotificationOptions {
+  interface INotificationOptions {
     title?: string;
     message?: string;
     icon?: string;
@@ -8,10 +8,10 @@ declare module 'node-notifier' {
     timeout?: number | false;
   }
 
-  interface NodeNotifier {
-    notify(message: string | NotificationOptions): void;
+  interface INodeNotifier {
+    notify(message: string | INotificationOptions): void;
   }
 
-  const notifier: NodeNotifier;
+  const notifier: INodeNotifier;
   export default notifier;
 }
