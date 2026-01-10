@@ -1,24 +1,41 @@
 import { useCallback } from 'react';
 
-import { Page, useTheme } from '@onekeyhq/components';
+import { Page, XStack, useTheme } from '@onekeyhq/components';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-import { WebHeaderNavigation } from './components';
-import { HeaderRight } from './HeaderRight';
+import {
+  DownloadButton,
+  HeaderNotificationIconButton,
+  LanguageButton,
+  ThemeButton,
+  WalletConnectionForWeb,
+  WebHeaderNavigation,
+} from './components';
+import { MoreAction } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
-export function DappHeader({
-  sceneName,
-  tabRoute,
-  selectedHeaderTab,
-  renderCustomHeaderRightItems,
-  customHeaderRightItems,
-}: ITabPageHeaderProp) {
+function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
+  return (
+    <XStack ai="center" gap="$2">
+      <WalletConnectionForWeb tabRoute={tabRoute} />
+      <XStack ai="center" gap="$2.5" px="$1.5" borderRadius="$2" bg="$bgStrong">
+        <HeaderNotificationIconButton testID="header-right-notification" />
+        <MoreAction />
+        <DownloadButton />
+        <LanguageButton />
+        <ThemeButton />
+      </XStack>
+    </XStack>
+  );
+}
+
+export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
   const theme = useTheme();
   const renderHeaderLeft = useCallback(() => <WebHeaderNavigation />, []);
   const { config } = useAccountSelectorContextData();
@@ -28,24 +45,11 @@ export function DappHeader({
       config ? (
         <HomeTokenListProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <HeaderRight
-              selectedHeaderTab={selectedHeaderTab}
-              sceneName={sceneName}
-              tabRoute={tabRoute}
-              customHeaderRightItems={customHeaderRightItems}
-              renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-            />
+            <RightActions tabRoute={tabRoute} />
           </AccountSelectorProviderMirror>
         </HomeTokenListProviderMirror>
       ) : null,
-    [
-      config,
-      selectedHeaderTab,
-      sceneName,
-      tabRoute,
-      customHeaderRightItems,
-      renderCustomHeaderRightItems,
-    ],
+    [config, tabRoute],
   );
 
   const renderHeaderTitle = useCallback(
