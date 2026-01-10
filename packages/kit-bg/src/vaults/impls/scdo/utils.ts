@@ -56,7 +56,7 @@ export function serializeSignedTransaction(
 }
 
 export function publicKeyToAddress(publicKey: Buffer) {
-  let publicKeyBytes = Buffer.alloc(0);
+  let publicKeyBytes: Buffer = Buffer.alloc(0);
   if (publicKey.length === 33) {
     publicKeyBytes = secp256k1.transformPublicKey(publicKey).subarray(1);
   } else if (publicKey.length === 65) {

@@ -36,7 +36,6 @@ import type {
 import type { GestureResponderEvent } from 'react-native';
 
 const MODAL_ANIMATED_VIEW_REF_LIST: TamaguiElement[] = [];
-let MODAL_ANIMATED_BACKDROP_VIEW_REF: TamaguiElement | null;
 let ROOT_NAVIGATION_INDEX_LISTENER: (() => void) | undefined;
 
 type IProps = DefaultNavigatorOptions<
@@ -111,13 +110,6 @@ function OnBoardingModalNavigator({
       'state',
       () => {
         const newIndex = rootNavigation?.getState?.().index ?? 0;
-        if (media.gtMd && MODAL_ANIMATED_BACKDROP_VIEW_REF) {
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          MODAL_ANIMATED_BACKDROP_VIEW_REF.style.opacity =
-            newIndex >= 1 ? 1 : 0;
-        }
-
         MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
           const transform = media.gtMd
             ? {
