@@ -497,6 +497,7 @@ const ProtocolAirdrop = ({
         {rows.map(({ key, pair, group }) => {
           const primaryTitle = pair.primary?.title;
           const primaryDescription = pair.primary?.description;
+          const hasSecondary = Boolean(pair.secondary);
           const secondaryDescription =
             pair.secondary?.title ?? pair.secondary?.description;
           const tooltip = pair.secondary?.tooltip ?? pair.primary?.tooltip;
@@ -528,7 +529,7 @@ const ProtocolAirdrop = ({
                   showNetworkIcon
                   networkId={group.metadata?.network?.networkId}
                 />
-                <YStack flex={1} gap="$1">
+                <YStack flex={1} gap="$0.5">
                   <XStack ai="center" jc="space-between" gap="$2">
                     <XStack ai="center" gap="$1" flexWrap="wrap" flex={1}>
                       {primaryTitle ? (
@@ -589,6 +590,7 @@ const ProtocolAirdrop = ({
                 ) : null}
               </XStack>
               {actionButtonNode}
+              {hasSecondary ? <Divider vertical h="$5" mx="$1" /> : null}
               {secondaryDescription ? (
                 <EarnText
                   size={secondaryTextSize}

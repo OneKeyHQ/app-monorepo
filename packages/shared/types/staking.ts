@@ -1510,6 +1510,7 @@ export interface IEarnInvestmentItem {
 export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
   earnings24hFiatValue: string;
+  totalFiatValueUsd: string;
   protocol: {
     vault?: string;
     vaultName?: string;
