@@ -139,10 +139,19 @@ const basePlugins: (RspackPluginInstance | false | null | undefined)[] = [
   isDev && new BuildDoneNotifyPlugin(),
 ];
 
-const baseExperiments: RspackOptions['experiments'] = {
+const buildBaseExperiments: (
+  basePath: string,
+) => RspackOptions['experiments'] = (basePath) => ({
+  cache: {
+    type: 'persistent',
+    storage: {
+      type: 'filesystem',
+      directory: path.join(basePath, 'node_modules/.cache/rspack'),
+    },
+  },
   asyncWebAssembly: true,
   incremental: true,
-};
+});
 
 const basePerformance: RspackOptions['performance'] = {
   maxAssetSize: 600_000,
@@ -494,7 +503,7 @@ export function createBaseConfig({
       },
     },
     lazyCompilation: false,
-    experiments: baseExperiments,
+    experiments: buildBaseExperiments(basePath),
     performance: basePerformance,
     optimization: {
       splitChunks: {

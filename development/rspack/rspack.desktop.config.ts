@@ -1,6 +1,6 @@
-import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
+import path from 'path';
 
 import { merge } from 'webpack-merge';
 
@@ -9,7 +9,11 @@ import { createBaseConfig } from './rspack.base.config';
 import { createDevelopmentConfig } from './rspack.development.config';
 import { createProductionConfig } from './rspack.prod.config';
 
-import type { Compiler, RspackOptions, RspackPluginInstance } from '@rspack/core';
+import type {
+  Compiler,
+  RspackOptions,
+  RspackPluginInstance,
+} from '@rspack/core';
 
 const BUILD_BUNDLE_UPDATE = process.env.BUILD_BUNDLE_UPDATE === 'true';
 
@@ -154,17 +158,22 @@ export function createDesktopConfig({
           },
           plugins: [
             BUILD_BUNDLE_UPDATE ? new FileHashMetadataPlugin() : undefined,
-          ].filter(Boolean) as RspackPluginInstance[],
+          ].filter(Boolean),
         },
       );
     case 'development':
     default:
-      return merge(baseConfig, createDevelopmentConfig({ basePath }), commonDesktopConfig, {
-        devtool: 'eval-source-map',
-        devServer: {
-          open: false,
+      return merge(
+        baseConfig,
+        createDevelopmentConfig({ basePath }),
+        commonDesktopConfig,
+        {
+          devtool: 'eval-source-map',
+          devServer: {
+            open: false,
+          },
         },
-      });
+      );
   }
 }
 
