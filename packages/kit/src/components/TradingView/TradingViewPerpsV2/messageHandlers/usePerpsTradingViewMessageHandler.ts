@@ -8,7 +8,10 @@ import { noop } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsTradesHistoryRefreshHookAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
+import {
+  usePerpsCustomSettingsAtom,
+  usePerpsTradesHistoryRefreshHookAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -52,6 +55,7 @@ export function usePerpsTradingViewMessageHandler({
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
+  const [{ showTradeMarks }] = usePerpsCustomSettingsAtom();
   const actions = useHyperliquidActions();
 
   console.log('usePerpsTradingViewMessageHandler__refreshHook', refreshHook);
@@ -101,7 +105,13 @@ export function usePerpsTradingViewMessageHandler({
     async (
       targetSymbol: string,
       targetUserAddress: IHex,
+      shouldShowMarks: boolean,
     ): Promise<ITradingMark[]> => {
+      // Return empty array if marks display is disabled
+      if (!shouldShowMarks) {
+        return [];
+      }
+
       const historyTrades: IFill[] =
         await backgroundApiProxy.serviceHyperliquid.loadTradesHistory(
           targetUserAddress,
@@ -140,7 +150,11 @@ export function usePerpsTradingViewMessageHandler({
     if (!currentUserAddress) {
       return;
     }
-    await fetchAndFormatMarks(symbolRef.current, currentUserAddress)
+    await fetchAndFormatMarks(
+      symbolRef.current,
+      currentUserAddress,
+      showTradeMarks ?? true,
+    )
       .then((marks) => {
         sendMarksUpdate(marks, EMarksUpdateOperationEnum.REPLACE);
       })
@@ -148,7 +162,7 @@ export function usePerpsTradingViewMessageHandler({
         console.error('Error fetching marks on user change:', error);
         sendMarksUpdate([], EMarksUpdateOperationEnum.CLEAR);
       });
-  }, [fetchAndFormatMarks, sendMarksUpdate, userAddress]);
+  }, [fetchAndFormatMarks, sendMarksUpdate, userAddress, showTradeMarks]);
 
   // Handle legacy MARKS_RESPONSE for backward compatibility
   const handleGetMarks = useCallback(
@@ -170,6 +184,7 @@ export function usePerpsTradingViewMessageHandler({
         const marks = await fetchAndFormatMarks(
           symbolRef.current,
           userAddressRef.current,
+          showTradeMarks ?? true,
         );
 
         const response: IGetMarksResponse = {
@@ -192,7 +207,7 @@ export function usePerpsTradingViewMessageHandler({
         });
       }
     },
-    [webRef, fetchAndFormatMarks],
+    [webRef, fetchAndFormatMarks, showTradeMarks],
   );
 
   // Handle HyperLiquid price scale requests
@@ -358,7 +373,8 @@ export function usePerpsTradingViewMessageHandler({
 
   // Monitor real-time userFills updates
   useEffect(() => {
-    if (!userAddress) return;
+    // Skip if marks display is disabled or no user address
+    if (!userAddress || showTradeMarks === false) return;
 
     const handleUserFillsUpdate = (payload: unknown) => {
       const eventPayload = payload as {
@@ -418,7 +434,7 @@ export function usePerpsTradingViewMessageHandler({
         handleUserFillsUpdate,
       );
     };
-  }, [userAddress, sendMarksUpdate, convertFillToMark]);
+  }, [userAddress, sendMarksUpdate, convertFillToMark, showTradeMarks]);
 
   return {
     customReceiveHandler,

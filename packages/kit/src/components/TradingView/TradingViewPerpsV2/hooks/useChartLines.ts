@@ -4,6 +4,7 @@ import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { MESSAGE_TYPES } from '../constants/messageTypes';
 import { buildAllLinesForSymbol } from '../utils/lineBuilder';
@@ -133,6 +134,7 @@ export function useChartLines({
 }: IUseChartLinesParams): IUseChartLinesReturn {
   const [{ activePositions }] = usePerpsActivePositionAtom();
   const [{ openOrdersByCoin }] = usePerpsActiveOpenOrdersAtom();
+  const [{ showChartLines }] = usePerpsCustomSettingsAtom();
 
   // Store previous lines for diff calculation
   const prevLinesRef = useRef<Map<string, ITVLine>>(new Map());
@@ -152,9 +154,9 @@ export function useChartLines({
     [openOrdersByCoin, symbol],
   );
 
-  // Build current lines
+  // Build current lines (returns empty if showChartLines is disabled)
   const currentLines = useMemo(() => {
-    if (!userAddress) {
+    if (!userAddress || showChartLines === false) {
       return [];
     }
     return buildAllLinesForSymbol(
@@ -163,7 +165,14 @@ export function useChartLines({
       symbol,
       szDecimals,
     );
-  }, [activePositions, currentOrders, symbol, szDecimals, userAddress]);
+  }, [
+    activePositions,
+    currentOrders,
+    symbol,
+    szDecimals,
+    userAddress,
+    showChartLines,
+  ]);
 
   // Send full sync
   const sendLinesSync = useCallback(() => {

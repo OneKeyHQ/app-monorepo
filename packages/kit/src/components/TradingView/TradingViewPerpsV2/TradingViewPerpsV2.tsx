@@ -190,7 +190,8 @@ export function TradingViewPerpsV2(
 
         if (!symbolMeta) {
           console.warn(
-            `[TradingViewPerpsV2] Token info not found for coin: ${orderSymbol}`,
+            '[TradingViewPerpsV2] Token info not found for coin:',
+            orderSymbol,
           );
           return;
         }
