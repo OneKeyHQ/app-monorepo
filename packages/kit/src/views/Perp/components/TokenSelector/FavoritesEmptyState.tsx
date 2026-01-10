@@ -69,6 +69,7 @@ export function FavoritesEmptyState({ isMobile }: { isMobile?: boolean }) {
 
     if (tokensToAdd.length > 0) {
       setFavorites((prev) => ({
+        ...prev,
         favorites: [...prev.favorites, ...tokensToAdd],
       }));
 
