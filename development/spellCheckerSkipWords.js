@@ -1056,4 +1056,6 @@ module.exports = [
   'moblie',
   'Overscroll',
   'Flatpak',
+  'Rspack',
+  'rspack',
 ];
