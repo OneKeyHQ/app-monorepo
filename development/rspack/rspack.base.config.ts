@@ -9,13 +9,19 @@ import notifier from 'node-notifier';
 import { isDev, nodeEnv, onekeyProxy, publicUrl } from './constant';
 import { createResolveExtensions } from './utils';
 
-import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
+import type {
+  Compiler,
+  Module,
+  RspackOptions,
+  RspackPluginInstance,
+  Stats,
+} from '@rspack/core';
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 class BuildDoneNotifyPlugin implements RspackPluginInstance {
-  apply(compiler: rspack.Compiler) {
-    compiler.hooks.done.tap('BuildDoneNotifyPlugin', (stats) => {
+  apply(compiler: Compiler) {
+    compiler.hooks.done.tap('BuildDoneNotifyPlugin', (stats: Stats) => {
       if (IS_EAS_BUILD) {
         exit(0);
       } else {
@@ -494,10 +500,11 @@ export function createBaseConfig({
       splitChunks: {
         cacheGroups: {
           icons: {
-            test: (module: { resource?: string }) => {
+            test: (module: Module): boolean => {
               const iconTestRegex =
                 /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
-              return module.resource && iconTestRegex.test(module.resource);
+              const resource = module.nameForCondition?.();
+              return Boolean(resource && iconTestRegex.test(resource));
             },
             name: 'icons',
             chunks: 'async',
