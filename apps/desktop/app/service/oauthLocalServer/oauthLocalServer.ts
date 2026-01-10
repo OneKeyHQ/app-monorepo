@@ -10,10 +10,9 @@ import {
   OAUTH_POPUP_WIDTH,
 } from '@onekeyhq/shared/src/consts/authConsts';
 
-import {
-  OAUTH_CALLBACK_ERROR_HTML,
-  OAUTH_CALLBACK_SUCCESS_HTML,
-} from './oauthCallbackHtml';
+import { getLocale } from '../../i18n';
+
+import { OAUTH_CALLBACK_ERROR_HTML } from './oauthCallbackHtml';
 
 import type { BrowserWindow } from 'electron';
 import type { Server } from 'http';
@@ -186,47 +185,34 @@ export async function startOAuthServer(): Promise<{ port: number }> {
           return;
         }
 
-        // Return HTML page that extracts code from URL query and sends to server
-        res.writeHead(200, {
-          'Content-Type': 'text/html; charset=utf-8',
-        });
-        res.end(OAUTH_CALLBACK_SUCCESS_HTML);
-      } else if (url.pathname === '/complete' && req.method === 'POST') {
-        // Receive authorization code from browser JS
-        let body = '';
-        req.on('data', (chunk) => {
-          body += (chunk as Buffer).toString();
-        });
-        req.on('end', () => {
-          try {
-            const { code, state, oneKeyState } = JSON.parse(body) as {
-              code: string;
-              state?: string;
-              oneKeyState?: string;
-            };
+        // Extract authorization code directly from URL query
+        const code = url.searchParams.get('code');
+        const state = url.searchParams.get('state');
+        const oneKeyState = url.searchParams.get('onekey_oauth_state');
 
-            if (code && mainWindow && !mainWindow.isDestroyed()) {
-              // Send authorization code to renderer process
-              mainWindow.webContents.send(OAUTH_CALLBACK_DESKTOP_CHANNEL, {
-                code,
-                state,
-                oneKeyState,
-              });
-            }
+        if (code && mainWindow && !mainWindow.isDestroyed()) {
+          // Send authorization code to renderer process
+          mainWindow.webContents.send(OAUTH_CALLBACK_DESKTOP_CHANNEL, {
+            code,
+            state,
+            oneKeyState,
+          });
+        }
 
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end('OK');
+        // Get current locale and redirect to login page
+        const locale = getLocale();
+        const redirectUrl = `https://login.onekeytest.com/?locale=${encodeURIComponent(
+          locale,
+        )}`;
 
-            // Close server after receiving callback
-            setTimeout(() => {
-              oauthServer?.close();
-              oauthServer = null;
-            }, 1000);
-          } catch (error) {
-            res.writeHead(400, { 'Content-Type': 'text/plain' });
-            res.end('Invalid request');
-          }
-        });
+        res.writeHead(302, { Location: redirectUrl });
+        res.end();
+
+        // Close server after redirecting
+        setTimeout(() => {
+          oauthServer?.close();
+          oauthServer = null;
+        }, 1000);
       } else {
         // 404 for other paths
         res.writeHead(404, { 'Content-Type': 'text/plain' });

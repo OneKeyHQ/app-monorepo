@@ -6,7 +6,10 @@ import {
   JUICEBOX_AUTH_SERVER,
   JUICEBOX_CONFIG,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectPinError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
@@ -201,9 +204,11 @@ export class JuiceboxClient {
         | { guesses_remaining: number; reason: number }
         | undefined;
       if (!isNil(error?.guesses_remaining)) {
-        throw new OneKeyLocalError(
-          `Incorrect PIN, you have ${error?.guesses_remaining} guesses remaining`,
-        );
+        throw new IncorrectPinError({
+          info: {
+            guessesRemaining: error.guesses_remaining,
+          },
+        });
       }
       throw e;
     }

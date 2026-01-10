@@ -20,7 +20,7 @@ function ResetPinPage() {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const handleDone = useCallback(() => {
-    navigation.pop();
+    navigation.popStack();
   }, [navigation]);
 
   const STEPS = [
