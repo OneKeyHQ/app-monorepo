@@ -26,6 +26,7 @@ import type {
 
 type IApyTextV2Props = {
   apyDetail: IBorrowApy;
+  triggerMode?: 'underline' | 'icon';
 };
 
 function ApyDetailSection({
@@ -248,29 +249,84 @@ function TextWithDottedUnderline({
   );
 }
 
+function TextWithTrigger({
+  text,
+  color,
+  size = '$bodyMdMedium',
+  triggerMode,
+  showChevron,
+}: {
+  text: string;
+  color?: string;
+  size?: '$bodyMdMedium' | '$bodyMd';
+  triggerMode: 'underline' | 'icon';
+  showChevron: boolean;
+}) {
+  if (triggerMode === 'icon') {
+    return (
+      <XStack alignItems="center" gap="$1">
+        <SizableText size={size} textAlign="right" color={color || '$text'}>
+          {text}
+        </SizableText>
+        {showChevron ? (
+          <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+        ) : null}
+      </XStack>
+    );
+  }
+
+  return <TextWithDottedUnderline text={text} color={color} size={size} />;
+}
+
 // Reusable highlight content component
-function HighlightContent({ text, color }: { text: string; color?: string }) {
+function HighlightContent({
+  text,
+  color,
+  triggerMode,
+  showChevron,
+}: {
+  text: string;
+  color?: string;
+  triggerMode: 'underline' | 'icon';
+  showChevron: boolean;
+}) {
   return (
     <XStack alignItems="flex-start" gap="$1">
       <Icon name="Ai2StarSolid" size="$4" color="$iconSuccess" mt="$1" />
-      <TextWithDottedUnderline text={text} color={color || '$textSuccess'} />
+      <TextWithTrigger
+        text={text}
+        color={color || '$textSuccess'}
+        triggerMode={triggerMode}
+        showChevron={showChevron}
+      />
     </XStack>
   );
 }
 
-export const ApyTextV2 = ({ apyDetail }: IApyTextV2Props) => {
+export const ApyTextV2 = ({
+  apyDetail,
+  triggerMode = 'underline',
+}: IApyTextV2Props) => {
   const intl = useIntl();
   const [open, setOpen] = useState(false);
 
   const hasDetail = !!apyDetail.button;
   const popupData = apyDetail.button?.data;
   const { highlight, deprecated } = apyDetail;
+  const showChevron = triggerMode === 'icon' && hasDetail;
 
   // Memoize highlight content to avoid recreation
   const highlightElement = useMemo(() => {
     if (!highlight) return null;
-    return <HighlightContent text={highlight.text} color={highlight.color} />;
-  }, [highlight]);
+    return (
+      <HighlightContent
+        text={highlight.text}
+        color={highlight.color}
+        triggerMode={triggerMode}
+        showChevron={showChevron}
+      />
+    );
+  }, [highlight, showChevron, triggerMode]);
 
   // Memoize deprecated content
   const deprecatedElement = useMemo(() => {
@@ -335,9 +391,11 @@ export const ApyTextV2 = ({ apyDetail }: IApyTextV2Props) => {
           onOpenChange={setOpen}
           renderTrigger={
             <Stack cursor="pointer">
-              <TextWithDottedUnderline
+              <TextWithTrigger
                 text={displayText}
                 color={displayColor}
+                triggerMode={triggerMode}
+                showChevron={showChevron}
               />
             </Stack>
           }

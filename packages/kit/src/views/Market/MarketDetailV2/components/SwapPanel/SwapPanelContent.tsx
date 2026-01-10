@@ -155,12 +155,23 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         />
         <TokenInputSection
           ref={tokenInputRef}
-          tradeType={tradeType}
+          style={tradeType === ESwapDirection.BUY ? {} : { display: 'none' }}
+          tradeType={ESwapDirection.BUY}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
           onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-          selectedToken={
-            tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
-          }
+          selectedToken={paymentToken}
+          selectableTokens={defaultTokens}
+          onTokenChange={(token) => setPaymentToken(token)}
+          balance={balance}
+          onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
+        />
+        <TokenInputSection
+          ref={tokenInputRef}
+          style={tradeType === ESwapDirection.SELL ? {} : { display: 'none' }}
+          tradeType={ESwapDirection.SELL}
+          swapNativeTokenReserveGas={swapNativeTokenReserveGas}
+          onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
+          selectedToken={balanceToken}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}

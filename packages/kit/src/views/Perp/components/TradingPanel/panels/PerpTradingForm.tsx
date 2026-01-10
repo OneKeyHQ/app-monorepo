@@ -134,6 +134,7 @@ function PerpTradingForm({
     const nextEnv = {
       markPrice: midPrice,
       availableToTrade: [maxAvailable, maxAvailable],
+      maxTradeSzs: activeAssetData?.maxTradeSzs,
       leverageValue: activeAssetData?.leverage?.value,
       fallbackLeverage: activeAsset?.universe?.maxLeverage,
       szDecimals: activeAsset?.universe?.szDecimals,
@@ -141,13 +142,17 @@ function PerpTradingForm({
     setTradingFormEnv((prev) => {
       const prevAvailable = prev.availableToTrade ?? [];
       const nextAvailable = nextEnv.availableToTrade ?? [];
+      const prevMaxTradeSzs = prev.maxTradeSzs ?? [];
+      const nextMaxTradeSzs = nextEnv.maxTradeSzs ?? [];
       if (
         prev.markPrice === nextEnv.markPrice &&
         prev.leverageValue === nextEnv.leverageValue &&
         prev.fallbackLeverage === nextEnv.fallbackLeverage &&
         prev.szDecimals === nextEnv.szDecimals &&
         prevAvailable[0] === nextAvailable[0] &&
-        prevAvailable[1] === nextAvailable[1]
+        prevAvailable[1] === nextAvailable[1] &&
+        prevMaxTradeSzs[0] === nextMaxTradeSzs[0] &&
+        prevMaxTradeSzs[1] === nextMaxTradeSzs[1]
       ) {
         return prev;
       }
@@ -161,6 +166,7 @@ function PerpTradingForm({
   }, [
     midPrice,
     activeAssetData?.availableToTrade,
+    activeAssetData?.maxTradeSzs,
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,

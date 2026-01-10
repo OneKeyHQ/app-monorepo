@@ -24,6 +24,7 @@ export const LOCALES = {
   'zh-CN': () => import('./json/zh_CN.json'),
   'zh-HK': () => import('./json/zh_HK.json'),
   'zh-TW': () => import('./json/zh_TW.json'),
+  'en': enUS,
 };
 
 export { enUS };

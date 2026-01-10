@@ -46,6 +46,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../../Staking/components/ProtocolDetails/EarnTooltip';
 import { BorrowInfoItem } from '../BorrowInfoItem';
+import { ApyTextV2 } from '../BorrowTableList/ApyTextV2';
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
 type IUniversalBorrowSupplyProps = {
@@ -470,7 +471,10 @@ export function UniversalBorrowSupply({
                 id: ETranslations.defi_supply_apy,
               })}
             >
-              <EarnText text={transactionConfirmation.apyDetail.title} />
+              <ApyTextV2
+                apyDetail={transactionConfirmation.apyDetail}
+                triggerMode="icon"
+              />
             </BorrowInfoItem>
           ) : null}
           {transactionConfirmation?.refundableFee ? (

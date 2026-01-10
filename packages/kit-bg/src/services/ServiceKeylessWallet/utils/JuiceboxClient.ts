@@ -6,7 +6,10 @@ import {
   JUICEBOX_AUTH_SERVER,
   JUICEBOX_CONFIG,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectPinError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
@@ -67,6 +70,7 @@ export class JuiceboxClient {
     const response = await axios.post<
       IApiClientResponse<{
         tokens: Record<string, string>;
+        // TODO hashPin
       }>
     >(tokenUrl, {
       token: supabaseAccessToken,
@@ -118,7 +122,7 @@ export class JuiceboxClient {
    */
   async register(params: {
     // TODO In the future, prefix with server user salt before using to enhance security.
-    pin: string;
+    pin: string; // TODO hashPin
     secret: string; // utf8 string
     userInfo: string; // ownerId
   }): Promise<void> {
@@ -159,7 +163,7 @@ export class JuiceboxClient {
    * @throws {RecoverError} - SDK-specific recovery errors
    */
   async recover(params: {
-    pin: string;
+    pin: string; // TODO hashPin
     userInfo: string; // ownerId
     skipTokenCacheClear?: boolean;
   }): Promise<string> {
@@ -201,9 +205,11 @@ export class JuiceboxClient {
         | { guesses_remaining: number; reason: number }
         | undefined;
       if (!isNil(error?.guesses_remaining)) {
-        throw new OneKeyLocalError(
-          `Incorrect PIN, you have ${error?.guesses_remaining} guesses remaining`,
-        );
+        throw new IncorrectPinError({
+          info: {
+            guessesRemaining: error.guesses_remaining,
+          },
+        });
       }
       throw e;
     }

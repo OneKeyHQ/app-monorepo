@@ -16,6 +16,7 @@ module.exports = {
     'category': 'public.app-category.finance',
     'target': [{ target: 'mas', arch: 'universal' }],
     'entitlements': 'entitlements.mac.plist',
+    'x64ArchFiles': '*',
     'extendInfo': {
       'NSCameraUsageDescription': 'Use Camera to scan QR Code.',
       'NSBluetoothAlwaysUsageDescription':
@@ -32,6 +33,7 @@ module.exports = {
     'entitlementsInherit': 'entitlements.mas.inherit.plist',
     'entitlementsLoginHelper': 'entitlements.mas.loginhelper.plist',
     'provisioningProfile': 'OneKey_Mac_App.provisionprofile',
+    'x64ArchFiles': '*',
     'extendInfo': {
       'ElectronTeamID': 'BVJ3FU5H2K',
       'ITSAppUsesNonExemptEncryption': false,

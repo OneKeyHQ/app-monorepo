@@ -29,6 +29,7 @@ module.exports = {
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
+    'x64ArchFiles': '*',
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/mac-${arch}',

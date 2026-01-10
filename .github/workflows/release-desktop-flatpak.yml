@@ -92,6 +92,7 @@ jobs:
       - name: Build Flatpak
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
+          FLATPAK: true
         run: 'cd apps/desktop && yarn build:flatpak'
 
       - name: Upload Artifacts Release

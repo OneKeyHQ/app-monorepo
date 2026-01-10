@@ -10,9 +10,9 @@ import {
   OAUTH_POPUP_WIDTH,
 } from '@onekeyhq/shared/src/consts/authConsts';
 
-import { OAUTH_CALLBACK_ERROR_HTML } from './oauthCallbackHtml';
-
 import { getLocale } from '../../i18n';
+
+import { OAUTH_CALLBACK_ERROR_HTML } from './oauthCallbackHtml';
 
 import type { BrowserWindow } from 'electron';
 import type { Server } from 'http';
@@ -201,7 +201,9 @@ export async function startOAuthServer(): Promise<{ port: number }> {
 
         // Get current locale and redirect to login page
         const locale = getLocale();
-        const redirectUrl = `https://login.onekeytest.com/?locale=${encodeURIComponent(locale)}`;
+        const redirectUrl = `https://login.onekeytest.com/?locale=${encodeURIComponent(
+          locale,
+        )}`;
 
         res.writeHead(302, { Location: redirectUrl });
         res.end();
