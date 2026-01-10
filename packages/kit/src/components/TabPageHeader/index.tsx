@@ -1,13 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import {
-  Page,
-  View,
-  XStack,
-  YStack,
-  useMedia,
-  useTheme,
-} from '@onekeyhq/components';
+import { Page, XStack, YStack, useMedia, useTheme } from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -26,8 +19,9 @@ import {
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
-import { HeaderRight, SelectorTrigger } from './HeaderRight';
+import { HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
+import { MDHeader } from './MDHeader';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 import type { ITabPageHeaderProp } from './type';
@@ -59,7 +53,7 @@ function InPageHeader({
   );
 }
 
-export function TabPageHeader({
+function BaseDesktopTabPageHeader({
   sceneName,
   tabRoute,
   selectedHeaderTab,
@@ -159,7 +153,7 @@ export function TabPageHeader({
     return null;
   }, [renderHeaderLeft, sceneName]);
 
-  if (platformEnv.isWebDappMode || platformEnv.isExtensionUiExpandTab) {
+  if (platformEnv.isWebDappMode) {
     if (gtMd) {
       return (
         <Page.Header
@@ -186,72 +180,59 @@ export function TabPageHeader({
     );
   }
 
-  if (gtMd) {
-    return (
-      <>
-        <Page.Header
-          headerShown
-          headerTitleAlign="center"
-          headerStyle={{ backgroundColor: theme.bgSubdued.val }}
-          headerTitle={renderUniversalSearchInput}
-          headerRight={renderDesktopModeRightButtons}
-          headerLeft={
-            tabRoute === ETabRoutes.Home
-              ? renderHeaderLeftInHomeRouter
-              : undefined
-          }
-        />
-        <InPageHeader tabRoute={tabRoute} sceneName={sceneName} />
-      </>
-    );
-  }
   return (
     <>
-      <Page.Header headerShown={false} />
-      {tabRoute === ETabRoutes.Home ||
-      tabRoute === ETabRoutes.Discovery ||
-      tabRoute === ETabRoutes.Earn ||
-      tabRoute === ETabRoutes.Perp ? (
-        <>
-          <XStack
-            alignItems="center"
-            justifyContent="space-between"
-            px="$5"
-            h="$11"
-          >
-            <View>
-              <HeaderLeft
-                selectedHeaderTab={selectedHeaderTab}
-                sceneName={sceneName}
-                tabRoute={tabRoute}
-                customHeaderLeftItems={customHeaderLeftItems}
-              />
-            </View>
-            <View>
-              <HeaderTitle sceneName={sceneName} />
-            </View>
-            <XStack flexShrink={1}>
-              <HomeTokenListProviderMirror>
-                {sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
-                  <HeaderRight
-                    selectedHeaderTab={selectedHeaderTab}
-                    sceneName={sceneName}
-                    tabRoute={tabRoute}
-                    customHeaderRightItems={customHeaderRightItems}
-                    renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-                  />
-                ) : (
-                  <SelectorTrigger />
-                )}
-              </HomeTokenListProviderMirror>
-            </XStack>
-          </XStack>
-
-          {!hideSearch ? (
-            <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
-          ) : null}
-        </>
-      ) : null}
+      <Page.Header
+        headerShown
+        headerTitleAlign="center"
+        headerStyle={{ backgroundColor: theme.bgSubdued.val }}
+        headerTitle={renderUniversalSearchInput}
+        headerRight={renderDesktopModeRightButtons}
+        headerLeft={
+          tabRoute === ETabRoutes.Home
+            ? renderHeaderLeftInHomeRouter
+            : undefined
+        }
+      />
+      <InPageHeader tabRoute={tabRoute} sceneName={sceneName} />
     </>
+  );
+}
+
+export function TabPageHeader({
+  sceneName,
+  tabRoute,
+  selectedHeaderTab,
+  renderCustomHeaderRightItems,
+  customHeaderRightItems,
+  customHeaderLeftItems,
+  hideSearch = false,
+  hideHeaderLeft = false,
+}: ITabPageHeaderProp) {
+  const media = useMedia();
+
+  if (media.md || platformEnv.isNative) {
+    return (
+      <MDHeader
+        tabRoute={tabRoute}
+        sceneName={sceneName}
+        hideSearch={hideSearch}
+        selectedHeaderTab={selectedHeaderTab}
+        renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+      />
+    );
+  }
+
+  return (
+    <BaseDesktopTabPageHeader
+      tabRoute={tabRoute}
+      sceneName={sceneName}
+      hideSearch={hideSearch}
+      selectedHeaderTab={selectedHeaderTab}
+      customHeaderRightItems={customHeaderRightItems}
+      customHeaderLeftItems={customHeaderLeftItems}
+      hideHeaderLeft={hideHeaderLeft}
+      renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+    />
   );
 }

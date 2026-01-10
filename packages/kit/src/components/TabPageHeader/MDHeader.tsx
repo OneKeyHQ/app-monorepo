@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -12,39 +12,28 @@ import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight, SelectorTrigger } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
-import type { ITabPageHeaderProp } from './type';
-
-export function TabPageHeader({
-  sceneName,
+export function MDHeader({
   tabRoute,
-  customHeaderRightItems,
+  sceneName,
+  hideSearch,
   selectedHeaderTab,
-  renderCustomHeaderRightItems,
   customHeaderLeftItems,
-  hideSearch = false,
-}: ITabPageHeaderProp) {
+  customHeaderRightItems,
+  renderCustomHeaderRightItems,
+}: {
+  tabRoute: ETabRoutes;
+  sceneName: EAccountSelectorSceneName;
+  hideSearch: boolean;
+  selectedHeaderTab?: ETranslations;
+  customHeaderLeftItems?: ReactNode;
+  customHeaderRightItems?: ReactNode;
+  renderCustomHeaderRightItems?: ({
+    fixedItems,
+  }: {
+    fixedItems: ReactNode;
+  }) => ReactNode;
+}) {
   const { top } = useSafeAreaInsets();
-
-  const headerRight = useMemo(() => {
-    return (
-      <HomeTokenListProviderMirror>
-        <HeaderRight
-          selectedHeaderTab={selectedHeaderTab}
-          sceneName={sceneName}
-          tabRoute={tabRoute}
-          customHeaderRightItems={customHeaderRightItems}
-          renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-        />
-      </HomeTokenListProviderMirror>
-    );
-  }, [
-    selectedHeaderTab,
-    sceneName,
-    tabRoute,
-    customHeaderRightItems,
-    renderCustomHeaderRightItems,
-  ]);
-
   return (
     <>
       <Page.Header headerShown={false} />
@@ -58,7 +47,6 @@ export function TabPageHeader({
             justifyContent="space-between"
             px="$5"
             h="$11"
-            {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
           >
             <View>
               <HeaderLeft
@@ -71,11 +59,21 @@ export function TabPageHeader({
             <View>
               <HeaderTitle sceneName={sceneName} />
             </View>
-            {sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
-              headerRight
-            ) : (
-              <SelectorTrigger />
-            )}
+            <XStack flexShrink={1}>
+              <HomeTokenListProviderMirror>
+                {sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
+                  <HeaderRight
+                    selectedHeaderTab={selectedHeaderTab}
+                    sceneName={sceneName}
+                    tabRoute={tabRoute}
+                    customHeaderRightItems={customHeaderRightItems}
+                    renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+                  />
+                ) : (
+                  <SelectorTrigger />
+                )}
+              </HomeTokenListProviderMirror>
+            </XStack>
           </XStack>
 
           {!hideSearch ? (
