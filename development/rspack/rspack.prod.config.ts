@@ -10,6 +10,7 @@ const developmentConsts = {
   platforms: {
     ext: 'ext',
     web: 'web',
+    desktop: 'desktop',
   },
 };
 
