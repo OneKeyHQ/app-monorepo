@@ -135,7 +135,7 @@ const basePlugins: (RspackPluginInstance | false | null | undefined)[] = [
 
 const baseExperiments: RspackOptions['experiments'] = {
   asyncWebAssembly: true,
-  incremental: false,
+  incremental: true,
 };
 
 const basePerformance: RspackOptions['performance'] = {
