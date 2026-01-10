@@ -32,6 +32,7 @@ import type { IWebViewRef } from '../../../WebView/types';
 import type {
   IGetMarksRequest,
   IGetMarksResponse,
+  ITVLineReadyPayload,
   ITradingMark,
 } from '../types';
 
@@ -39,10 +40,12 @@ export function usePerpsTradingViewMessageHandler({
   symbol,
   userAddress,
   webRef,
+  onChartLinesReady,
 }: {
   symbol: string;
   userAddress?: IHex | null;
   webRef: React.RefObject<IWebViewRef | null>;
+  onChartLinesReady?: (payload: ITVLineReadyPayload) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
@@ -299,11 +302,15 @@ export function usePerpsTradingViewMessageHandler({
             messageData.data as { symbol: string; requestId: string },
           );
           break;
+        case 'tradingview_perpsReady':
+          // Chart lines iframe is ready to receive data
+          onChartLinesReady?.(messageData.data as ITVLineReadyPayload);
+          break;
         default:
           break;
       }
     },
-    [handleGetMarks, handleGetHyperliquidPriceScale],
+    [handleGetMarks, handleGetHyperliquidPriceScale, onChartLinesReady],
   );
 
   // Monitor userAddress changes and push updates
