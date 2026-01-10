@@ -45,7 +45,7 @@ class BuildDoneNotifyPlugin implements RspackPluginInstance {
   }
 }
 
-interface BaseResolveOptions {
+interface IBaseResolveOptions {
   platform: string;
   configName?: string;
   basePath: string;
@@ -55,7 +55,7 @@ const baseResolve = ({
   platform,
   configName,
   basePath,
-}: BaseResolveOptions): RspackOptions['resolve'] => ({
+}: IBaseResolveOptions): RspackOptions['resolve'] => ({
   mainFields: ['browser', 'module', 'main'],
   aliasFields: ['browser', 'module', 'main'],
   extensions: createResolveExtensions({ platform, configName }),
@@ -149,7 +149,7 @@ const basePerformance: RspackOptions['performance'] = {
   maxEntrypointSize: 600_000,
 };
 
-interface BaseConfigOptions {
+interface IBaseConfigOptions {
   platform: string;
   basePath: string;
   configName?: string;
@@ -159,7 +159,7 @@ export function createBaseConfig({
   platform,
   basePath,
   configName,
-}: BaseConfigOptions): RspackOptions {
+}: IBaseConfigOptions): RspackOptions {
   return {
     entry: path.join(basePath, 'index.js'),
     context: path.resolve(basePath),
