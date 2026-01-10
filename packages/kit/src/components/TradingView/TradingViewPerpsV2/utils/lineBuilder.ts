@@ -1,9 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import {
-  formatPriceToValid,
-  formatWithPrecision,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { formatWithPrecision } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpsAssetPosition,
   IPerpsFrontendOrder,
@@ -17,6 +14,49 @@ let lineVersionCounter = 0;
 function getNextVersion(): number {
   lineVersionCounter += 1;
   return lineVersionCounter;
+}
+
+/**
+ * Convert price to a safe string for TradingView chart lines.
+ *
+ * CRITICAL: TradingView needs the exact numeric value as a string.
+ * DO NOT use formatPriceToValid() here - it removes trailing zeros
+ * which corrupts prices like "85000" → "85".
+ *
+ * @param price - Raw price string from API (e.g., "85000", "98960.5")
+ * @returns Safe price string preserving all digits
+ */
+function toChartPriceString(price: string | number | undefined): string {
+  if (price === undefined || price === null || price === '') {
+    return '0';
+  }
+
+  const bn = new BigNumber(price);
+  if (!bn.isFinite() || bn.lte(0)) {
+    return '0';
+  }
+
+  // Use toFixed() without removing trailing zeros
+  // This preserves the exact numeric value
+  return bn.toFixed();
+}
+
+/**
+ * Format price for display in labels (with thousand separators).
+ * This is ONLY for human-readable labels, not for chart positioning.
+ */
+function formatPriceForLabel(price: string | number | undefined): string {
+  if (price === undefined || price === null || price === '') {
+    return '0';
+  }
+
+  const bn = new BigNumber(price);
+  if (!bn.isFinite() || bn.lte(0)) {
+    return '0';
+  }
+
+  // Format with thousand separators for readability
+  return bn.toFormat();
 }
 
 /**
@@ -46,7 +86,7 @@ export function buildLiquidationLine(
     id: `liq:${symbol}:${leverageType}`,
     symbol,
     kind: 'liquidation',
-    price: formatPriceToValid(liquidationPx),
+    price: toChartPriceString(liquidationPx),
     side,
     label: {
       left: 'Liq. Price',
@@ -104,7 +144,7 @@ export function buildPositionLine(
     id: `pos:${symbol}:${leverageType}`,
     symbol,
     kind: 'position',
-    price: formatPriceToValid(entryPx),
+    price: toChartPriceString(entryPx),
     qty: formatWithPrecision(absSize, szDecimals),
     side,
     label: {
@@ -143,24 +183,26 @@ export function buildOrderLine(
   const side: ITVLineSide = order.side === 'B' ? 'long' : 'short';
   const isLimitOrder = order.orderType === 'Limit';
 
-  // Format price with thousand separators
-  const priceFormatted = formatPriceToValid(limitPx);
+  // CRITICAL: Use toChartPriceString for chart positioning (preserves exact value)
+  // Use formatPriceForLabel for human-readable display (with thousand separators)
+  const chartPrice = toChartPriceString(limitPx);
+  const displayPrice = formatPriceForLabel(limitPx);
 
   // Build label: "Limit 84,619 N/A" format
   // triggerCondition is the trigger condition, N/A for regular limit orders
   const triggerCondition = order.triggerCondition || 'N/A';
   const orderTypeLabel = order.orderType || 'Limit';
-  const labelText = `${orderTypeLabel} ${priceFormatted} ${triggerCondition}`;
+  const labelText = `${orderTypeLabel} ${displayPrice} ${triggerCondition}`;
 
   return {
     id: `order:${order.oid}`,
     symbol: order.coin,
     kind: 'order',
-    price: priceFormatted,
+    price: chartPrice, // Use exact numeric value for chart positioning
     qty: formatWithPrecision(sz, szDecimals),
     side,
     label: {
-      left: labelText, // "Limit 84,619 N/A"
+      left: labelText, // "Limit 84,619 N/A" with formatted display price
     },
     editable: isLimitOrder, // Only limit orders are draggable
     meta: {

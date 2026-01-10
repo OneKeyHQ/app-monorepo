@@ -113,3 +113,9 @@ export interface ITVLineDragCommitPayload {
   newPrice: string;
   requestId: string;
 }
+
+export interface ITVOrderCancelPayload {
+  lineId: string;
+  symbol: string;
+  orderId?: string;
+}

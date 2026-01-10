@@ -33,6 +33,7 @@ import type {
   IGetMarksRequest,
   IGetMarksResponse,
   ITVLineReadyPayload,
+  ITVOrderCancelPayload,
   ITradingMark,
 } from '../types';
 
@@ -41,11 +42,13 @@ export function usePerpsTradingViewMessageHandler({
   userAddress,
   webRef,
   onChartLinesReady,
+  onOrderCancel,
 }: {
   symbol: string;
   userAddress?: IHex | null;
   webRef: React.RefObject<IWebViewRef | null>;
   onChartLinesReady?: (payload: ITVLineReadyPayload) => void;
+  onOrderCancel?: (payload: ITVOrderCancelPayload) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
@@ -306,11 +309,20 @@ export function usePerpsTradingViewMessageHandler({
           // Chart lines iframe is ready to receive data
           onChartLinesReady?.(messageData.data as ITVLineReadyPayload);
           break;
+        case 'tradingview_perpsOrderCancel':
+          // User clicked cancel button on order line in TradingView chart
+          onOrderCancel?.(messageData.data as ITVOrderCancelPayload);
+          break;
         default:
           break;
       }
     },
-    [handleGetMarks, handleGetHyperliquidPriceScale, onChartLinesReady],
+    [
+      handleGetMarks,
+      handleGetHyperliquidPriceScale,
+      onChartLinesReady,
+      onOrderCancel,
+    ],
   );
 
   // Monitor userAddress changes and push updates

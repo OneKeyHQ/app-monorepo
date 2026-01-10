@@ -14,6 +14,7 @@ export const MESSAGE_TYPES = {
 export const PERPS_TV_MESSAGE_METHODS = {
   READY: 'tradingview_perpsReady',
   LINE_DRAG_COMMIT: 'tradingview_lineDragCommit',
+  ORDER_CANCEL: 'tradingview_perpsOrderCancel',
 } as const;
 
 export type IMessageType = (typeof MESSAGE_TYPES)[keyof typeof MESSAGE_TYPES];
