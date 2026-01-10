@@ -60,13 +60,18 @@ export function MDHeader({
     selectedHeaderTab,
     tabRoute,
   ]);
+  const showBaseHeader = useMemo(() => {
+    return (
+      tabRoute === ETabRoutes.Home ||
+      tabRoute === ETabRoutes.Discovery ||
+      tabRoute === ETabRoutes.Earn ||
+      tabRoute === ETabRoutes.Perp
+    );
+  }, [tabRoute]);
   return (
     <>
       <Page.Header headerShown={false} />
-      {tabRoute === ETabRoutes.Home ||
-      tabRoute === ETabRoutes.Discovery ||
-      tabRoute === ETabRoutes.Earn ||
-      tabRoute === ETabRoutes.Perp ? (
+      {showBaseHeader ? (
         <>
           <XStack
             alignItems="center"
