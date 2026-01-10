@@ -58,8 +58,6 @@ export function usePerpsTradingViewMessageHandler({
   const [{ showTradeMarks }] = usePerpsCustomSettingsAtom();
   const actions = useHyperliquidActions();
 
-  console.log('usePerpsTradingViewMessageHandler__refreshHook', refreshHook);
-
   // Use refs to maintain stable references for callbacks
   const symbolRef = useRef(symbol);
   const userAddressRef = useRef(userAddress);
@@ -412,13 +410,6 @@ export function usePerpsTradingViewMessageHandler({
       const newMarks = relevantFills.map((fill: IFill) =>
         convertFillToMark(fill),
       );
-
-      // Send incremental update to TradingView
-      console.log('[UserFillsHandler] Sending incremental marks update:', {
-        symbol: symbolRef.current,
-        userAddress: userAddressRef.current,
-        newMarks,
-      });
 
       sendMarksUpdate(newMarks, EMarksUpdateOperationEnum.INCREMENTAL);
     };

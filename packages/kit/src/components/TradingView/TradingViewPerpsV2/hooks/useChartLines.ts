@@ -136,6 +136,14 @@ export function useChartLines({
   const pendingPnlPatchRef = useRef<ITVLinesPatchPayload | null>(null);
   const lastPnlUpdateTimeRef = useRef<number>(0);
 
+  // Timeout refs for cleanup
+  const symbolChangeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const reloadSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
   // Helper to clear pending PNL updates
   const clearPendingPnlUpdates = useCallback(() => {
     if (pnlThrottleTimerRef.current) {
@@ -283,8 +291,18 @@ export function useChartLines({
     [doSendPatch, clearPendingPnlUpdates],
   );
 
-  // Cleanup throttle timer on unmount
-  useEffect(() => clearPendingPnlUpdates, [clearPendingPnlUpdates]);
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    return () => {
+      clearPendingPnlUpdates();
+      if (symbolChangeTimeoutRef.current) {
+        clearTimeout(symbolChangeTimeoutRef.current);
+      }
+      if (reloadSyncTimeoutRef.current) {
+        clearTimeout(reloadSyncTimeoutRef.current);
+      }
+    };
+  }, [clearPendingPnlUpdates]);
 
   // Handle symbol change
   useEffect(() => {
@@ -292,10 +310,17 @@ export function useChartLines({
       clearPendingPnlUpdates();
       prevLinesRef.current.clear();
 
+      // Clear previous timeout
+      if (symbolChangeTimeoutRef.current) {
+        clearTimeout(symbolChangeTimeoutRef.current);
+        symbolChangeTimeoutRef.current = null;
+      }
+
       if (isReady) {
         sendLinesClear();
         // Small delay to ensure clear is processed before sync
-        setTimeout(() => {
+        symbolChangeTimeoutRef.current = setTimeout(() => {
+          symbolChangeTimeoutRef.current = null;
           sendLinesSync();
         }, 50);
       }
@@ -319,10 +344,17 @@ export function useChartLines({
     if (isReloading || isReloaded) {
       clearPendingPnlUpdates();
       prevLinesRef.current.clear();
+
+      // Clear previous reload timeout
+      if (reloadSyncTimeoutRef.current) {
+        clearTimeout(reloadSyncTimeoutRef.current);
+        reloadSyncTimeoutRef.current = null;
+      }
     }
 
     if (isReloaded && userAddress && currentLines.length > 0) {
-      setTimeout(() => {
+      reloadSyncTimeoutRef.current = setTimeout(() => {
+        reloadSyncTimeoutRef.current = null;
         if (isReady && userAddress && currentLines.length > 0) {
           sendLinesSync();
         }
