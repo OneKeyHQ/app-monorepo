@@ -228,7 +228,10 @@ function OneKeyIDLoginPage() {
             color="$textSubdued"
             textAlign="center"
           >
-            How to Use Keyless Wallet on OneKey App ↗
+            {intl.formatMessage({
+              id: ETranslations.keyless_wallet_help_center_link_label,
+            })}{' '}
+            ↗
           </Anchor>
         </OnboardingLayout.Footer>
       </OnboardingLayout>
