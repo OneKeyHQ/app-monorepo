@@ -1,22 +1,17 @@
-import fs from 'fs';
-import path from 'path';
-
 import { rspack } from '@rspack/core';
 import ReactRefreshPlugin from '@rspack/plugin-react-refresh';
-import { createProxyMiddleware } from 'http-proxy-middleware';
 
 import { webPort } from './constant';
 
 import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
-import type { RequestHandler } from 'http-proxy-middleware';
 
-interface DevConfigOptions {
+interface IDevConfigOptions {
   basePath: string;
 }
 
 export function createDevelopmentConfig({
-  basePath,
-}: DevConfigOptions): RspackOptions {
+  basePath: _basePath,
+}: IDevConfigOptions): RspackOptions {
   return {
     mode: 'development',
     devtool: 'cheap-module-source-map',
