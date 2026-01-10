@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   Page,
@@ -18,16 +18,46 @@ import { HistoryIconButton } from '../../views/Discovery/pages/components/Histor
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-import { GiftAction, WalletConnectionForWeb } from './components';
+import {
+  GiftAction,
+  WalletConnectionForWeb,
+  WalletConnectionGroup,
+} from './components';
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight, SelectorTrigger } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
+import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 import type { ITabPageHeaderProp } from './type';
 
 export { DiscoveryHeaderSegment };
+
+function InPageHeader({
+  tabRoute,
+  sceneName,
+}: {
+  sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
+}) {
+  const item = useMemo(() => {
+    if (
+      tabRoute === ETabRoutes.Home &&
+      sceneName !== EAccountSelectorSceneName.homeUrlAccount
+    ) {
+      return <WalletConnectionGroup tabRoute={tabRoute} />;
+    }
+    if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+      return <UrlAccountPageHeader />;
+    }
+  }, [sceneName, tabRoute]);
+  return (
+    <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
+      {item}
+    </XStack>
+  );
+}
 
 export function TabPageHeader({
   sceneName,
@@ -171,17 +201,7 @@ export function TabPageHeader({
               : undefined
           }
         />
-        {tabRoute === ETabRoutes.Home &&
-        sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
-          <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
-            {hideHeaderLeft ? undefined : renderHeaderLeft()}
-          </XStack>
-        ) : null}
-        {sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
-          <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
-            {renderHeaderTitle()}
-          </XStack>
-        ) : null}
+        <InPageHeader tabRoute={tabRoute} sceneName={sceneName} />
       </>
     );
   }
