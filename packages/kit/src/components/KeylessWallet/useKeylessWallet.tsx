@@ -693,10 +693,6 @@ export function useKeylessWallet() {
     [navigation, checkKeylessWalletCreatedOnServer],
   );
 
-  // const verifyPinChecking = useCallback(async () => {
-  //   // TODO verify pin checking
-  // }, [handleKeylessOnboardingTimeout]);
-
   // Renamed function, checks if KeylessWallet exists locally
   const checkKeylessWalletLocalExistence = useCallback(
     async ({

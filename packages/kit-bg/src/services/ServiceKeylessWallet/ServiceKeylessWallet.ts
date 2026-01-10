@@ -81,7 +81,6 @@ const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
     }
   },
 });
-
 @backgroundClass()
 class ServiceKeylessWallet extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -1865,8 +1864,8 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!ownerId) {
       throw new OneKeyLocalError('ownerId is required');
     }
-    // Token is stored without passcode encryption, so it can be retrieved directly
-    const token = await keylessRefreshTokenStorage.getTokenFromStorage({
+    // AccessToken is stored without passcode encryption, so it can be retrieved directly
+    const token = await keylessRefreshTokenStorage.getAccessTokenFromStorage({
       ownerId,
       backgroundApi: this.backgroundApi,
     });

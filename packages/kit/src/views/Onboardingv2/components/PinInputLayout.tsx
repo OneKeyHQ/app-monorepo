@@ -182,7 +182,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                   </XStack>
                 ) : null}
 
-                {/* <KeylessOnboardingDebugPanel /> */}
+                <KeylessOnboardingDebugPanel />
               </YStack>
             </OnboardingLayout.ConstrainedContent>
           </OnboardingLayout.Body>

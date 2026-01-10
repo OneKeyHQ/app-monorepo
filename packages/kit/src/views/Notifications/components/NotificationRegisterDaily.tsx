@@ -10,10 +10,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useKeylessWallet,
-  useVerifyKeylessPinChecking,
-} from '../../../components/KeylessWallet/useKeylessWallet';
+import { useVerifyKeylessPinChecking } from '../../../components/KeylessWallet/useKeylessWallet';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 
 const fn = debounce(

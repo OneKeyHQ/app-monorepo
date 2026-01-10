@@ -15,6 +15,11 @@ import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
 import { Client, Configuration } from './juicebox-sdk';
 
+interface IJuiceboxTokenCacheItem {
+  token: string;
+  pinHash: string;
+}
+
 /**
  * JuiceboxClient - Wrapper for juicebox-sdk to handle keyless wallet shares
  *
@@ -24,13 +29,12 @@ import { Client, Configuration } from './juicebox-sdk';
 export class JuiceboxClient {
   // Private properties
 
-  private juiceboxTokenCache: Map<string, string>; // realmId (hex) -> JWT token
+  private juiceboxTokenCache: Map<string, IJuiceboxTokenCacheItem>; // realmId (hex) -> { token, pinHash }
 
   private client: Client; // Client from juicebox-sdk
 
   private bindGlobalAuthTokenProvider(): void {
     // Set global callback for juicebox-sdk
-    // @ts-ignore
     globalThis.JuiceboxGetAuthToken = (realmId: Uint8Array) =>
       this.getAuthTokenForRealm(realmId);
   }
@@ -40,7 +44,7 @@ export class JuiceboxClient {
    * @param backgroundApi - Background API instance to access OneKeyID tokens
    */
   constructor() {
-    this.juiceboxTokenCache = new Map<string, string>();
+    this.juiceboxTokenCache = new Map<string, IJuiceboxTokenCacheItem>();
 
     this.bindGlobalAuthTokenProvider();
 
@@ -61,6 +65,7 @@ export class JuiceboxClient {
    * @throws {OneKeyLocalError} - If token exchange fails
    */
   async exchangeToken(supabaseAccessToken: string): Promise<void> {
+    this.clearTokenCache();
     if (!supabaseAccessToken) {
       throw new OneKeyLocalError('Supabase access token is required');
     }
@@ -70,7 +75,7 @@ export class JuiceboxClient {
     const response = await axios.post<
       IApiClientResponse<{
         tokens: Record<string, string>;
-        // TODO hashPin
+        pinHash: string;
       }>
     >(tokenUrl, {
       token: supabaseAccessToken,
@@ -78,6 +83,7 @@ export class JuiceboxClient {
     const resData = response?.data;
     if (resData?.code === 0 && resData?.data?.tokens) {
       const realmTokens = resData?.data?.tokens;
+      const pinHash = resData?.data?.pinHash;
       // Validate response format
       if (!realmTokens || typeof realmTokens !== 'object') {
         throw new OneKeyLocalError(
@@ -85,14 +91,14 @@ export class JuiceboxClient {
         );
       }
 
-      // Cache all realm tokens
+      // Cache all realm tokens with pinHash
       for (const [realmId, token] of Object.entries(realmTokens)) {
         if (!token) {
           throw new OneKeyLocalError(
             `Invalid response format: missing token for realm ${realmId}`,
           );
         }
-        this.juiceboxTokenCache.set(realmId, token);
+        this.juiceboxTokenCache.set(realmId, { token, pinHash });
       }
 
       // Verify all configured realms have tokens
@@ -108,6 +114,16 @@ export class JuiceboxClient {
         `Get Juicebox Token Error: ${resData?.code} ${resData?.message}`,
       );
     }
+  }
+
+  /**
+   * Get pinHash from cache
+   * @returns pinHash string or empty string if not found
+   */
+  private getPinHashFromCache(): string {
+    // Get pinHash from first cached item (all items have the same pinHash)
+    const firstItem = this.juiceboxTokenCache.values().next().value;
+    return firstItem?.pinHash ?? '';
   }
 
   /**
@@ -135,8 +151,11 @@ export class JuiceboxClient {
       );
     }
 
+    // Combine pin with pinHash for enhanced security
+    const combinedPin = pin + this.getPinHashFromCache();
+
     // Convert strings to Uint8Array
-    const pinBytes = bufferUtils.utf8ToBytes(pin);
+    const pinBytes = bufferUtils.utf8ToBytes(combinedPin);
     const secretBytes = bufferUtils.utf8ToBytes(secret);
     // TODO add juicebox token subject (sub) as prefix to userInfo, like: sub:${userInfo}
     const userInfoBytes = bufferUtils.utf8ToBytes(userInfo);
@@ -177,8 +196,11 @@ export class JuiceboxClient {
         );
       }
 
+      // Combine pin with pinHash for enhanced security
+      const combinedPin = pin + this.getPinHashFromCache();
+
       // Convert strings to Uint8Array
-      const pinBytes = bufferUtils.utf8ToBytes(pin);
+      const pinBytes = bufferUtils.utf8ToBytes(combinedPin);
       const userInfoBytes = bufferUtils.utf8ToBytes(userInfo);
 
       // Call SDK recover method
@@ -228,14 +250,14 @@ export class JuiceboxClient {
     const realmIdHex = bufferUtils.bytesToHex(realmId);
 
     // Get token from cache
-    const token = this.juiceboxTokenCache.get(realmIdHex);
-    if (!token) {
+    const cacheItem = this.juiceboxTokenCache.get(realmIdHex);
+    if (!cacheItem) {
       throw new OneKeyLocalError(
         'Juicebox token not found, please call exchangeToken first',
       );
     }
 
-    return token;
+    return cacheItem.token;
   }
 
   /**
