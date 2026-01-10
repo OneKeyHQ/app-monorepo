@@ -1061,4 +1061,5 @@ module.exports = [
   'myposition',
   'favs',
   'extractable',
+  'Cipheriv',
 ];
