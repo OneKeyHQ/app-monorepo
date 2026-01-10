@@ -36,8 +36,8 @@ import type {
   IEarnTokenInfo,
 } from '@onekeyhq/shared/types/staking';
 
-import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
+import { ApyTextV2 } from '../BorrowTableList/ApyTextV2';
 import { createBorrowAssetSelectPopoverContent } from '../BorrowAssetSelectPopover';
 import { BorrowInfoItem } from '../BorrowInfoItem';
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
@@ -529,12 +529,10 @@ export function UniversalBorrowWithdraw({
                   id: ETranslations.defi_supply_apy,
                 })}
               >
-                <YStack ai="flex-end">
-                  <EarnActionIcon
-                    title={transactionConfirmation.apyDetail.title.text}
-                    actionIcon={transactionConfirmation.apyDetail.button}
-                  />
-                </YStack>
+                <ApyTextV2
+                  apyDetail={transactionConfirmation.apyDetail}
+                  triggerMode="icon"
+                />
               </BorrowInfoItem>
             ) : null}
           </YStack>

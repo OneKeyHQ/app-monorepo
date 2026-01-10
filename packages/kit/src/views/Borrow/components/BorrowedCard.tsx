@@ -126,11 +126,12 @@ export const BorrowedCard = () => {
     const borrowed = intl.formatMessage({
       id: ETranslations.wallet_defi_asset_type_borrowed,
     });
-    const balance = intl.formatMessage({ id: ETranslations.global_balance });
     return {
       asset,
       borrowed,
-      borrowedBalance: `${borrowed} ${balance}`,
+      borrowedBalance: intl.formatMessage({
+        id: ETranslations.defi_borrowed_balance,
+      }),
       borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
       apy: intl.formatMessage({ id: ETranslations.global_apy }),
       assetBorrowed: `${asset} / ${borrowed}`,
