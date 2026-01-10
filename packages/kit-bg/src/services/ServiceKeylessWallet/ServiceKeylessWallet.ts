@@ -1614,8 +1614,7 @@ class ServiceKeylessWallet extends ServiceBase {
       });
     }
 
-    // TODO reset pin confirm status
-    void this.apiUpdatePinConfirmStatus({ token });
+    void this.apiResetPinConfirmStatus({ token });
 
     return { success: true };
   }
@@ -1937,6 +1936,26 @@ class ServiceKeylessWallet extends ServiceBase {
       // Silently fail - return null if any error occurs
       console.error('Failed to refresh token from storage:', error);
       return null;
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiResetPinConfirmStatus(params: { token: string }): Promise<void> {
+    const { token } = params;
+
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    const res = await client.post<IApiClientResponse<{ ok: boolean }>>(
+      '/prime/v1/keyless-wallet/resetPinConfirmStatus',
+      {
+        token,
+      },
+    );
+
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
+
+    if (!isSuccess) {
+      throw new OneKeyLocalError('Failed to reset pin confirm status');
     }
   }
 

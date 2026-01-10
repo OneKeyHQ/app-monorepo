@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   devSettingsPersistAtom,
@@ -956,20 +956,27 @@ export function useVerifyKeylessPinChecking() {
       if (!ownerId) {
         return;
       }
-      const accessToken =
-        await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
-          { ownerId },
-        );
-      let shouldVerifyPin = false;
-      if (accessToken) {
-        const { shouldRemind } =
-          await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus({
-            token: accessToken,
-          });
-        shouldVerifyPin = shouldRemind;
-      } else {
-        shouldVerifyPin = true;
-      }
+      const checkShouldVerifyPin = async () => {
+        const accessToken =
+          await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
+            { ownerId },
+          );
+        let shouldVerifyPin = false;
+        if (accessToken) {
+          const { shouldRemind } =
+            await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus(
+              {
+                token: accessToken,
+              },
+            );
+          shouldVerifyPin = shouldRemind;
+        } else {
+          shouldVerifyPin = true;
+        }
+        return shouldVerifyPin;
+      };
+      const shouldVerifyPin = await checkShouldVerifyPin();
+
       if (shouldVerifyPin) {
         Dialog.show({
           disableDrag: true,
@@ -980,6 +987,14 @@ export function useVerifyKeylessPinChecking() {
           showCancelButton: false,
           onConfirmText: 'Verify PIN',
           onConfirm: async () => {
+            const shouldVerifyPin0 = await checkShouldVerifyPin();
+            if (!shouldVerifyPin0) {
+              // TODO i18n @franco
+              Toast.success({
+                title: 'PIN Verified on other device',
+              });
+              return;
+            }
             await backgroundApiProxy.servicePassword.promptPasswordVerify({
               reason: EReasonForNeedPassword.Security,
             });
