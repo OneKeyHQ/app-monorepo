@@ -23,10 +23,12 @@
     "app:ext:build": "yarn workspace @onekeyhq/ext build:v3",
     "app:ext:build:all": "yarn workspace @onekeyhq/ext build:all:v3",
     "app:web": "yarn app:web:no-proxy",
+    "app:web:rspack": "yarn workspace @onekeyhq/web start:rspack",
     "app:web:3030": "WEB_PORT=3030 yarn app:web:no-proxy",
     "app:web:proxy": "yarn workspace @onekeyhq/web start:proxy",
     "app:web:no-proxy": "yarn workspace @onekeyhq/web start",
     "app:web:build": "yarn workspace @onekeyhq/web build",
+    "app:web:build:rspack": "yarn workspace @onekeyhq/web build:rspack",
     "app:web-embed": "yarn workspace @onekeyhq/web-embed start",
     "app:web-embed:build": "yarn workspace @onekeyhq/web-embed build",
     "app:native-bundle": "yarn workspace @onekeyhq/mobile native-bundle",
@@ -186,6 +188,9 @@
     "@open-wc/webpack-import-meta-loader": "^0.4.7",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
     "@react-native-community/cli": "^18.0.1",
+    "@rspack/cli": "^1.7.1",
+    "@rspack/core": "^1.7.1",
+    "@rspack/plugin-react-refresh": "^1.6.0",
     "@sentry/babel-plugin-component-annotate": "2.21.1",
     "@sentry/webpack-plugin": "^2.22.6",
     "@tamagui/babel-plugin": "1.108.0",
@@ -275,7 +280,8 @@
     "webpack-manifest-plugin": "^5.0.0",
     "webpack-retry-chunk-load-plugin": "^3.1.1",
     "webpack-subresource-integrity": "^5.2.0-rc.1",
-    "worker-loader": "^3.0.8"
+    "worker-loader": "^3.0.8",
+    "worker-rspack-loader": "^3.1.2"
   },
   "resolutions": {
     "axios": "^1.13.2",
