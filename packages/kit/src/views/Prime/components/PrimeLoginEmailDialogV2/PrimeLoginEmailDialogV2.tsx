@@ -3,9 +3,9 @@ import { useCallback, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
