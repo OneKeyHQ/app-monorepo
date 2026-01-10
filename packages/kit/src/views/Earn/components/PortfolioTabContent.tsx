@@ -971,25 +971,38 @@ const PortfolioSkeleton = () => (
   </YStack>
 );
 
+interface IBasePortfolioTabContentProps {
+  portfolioData: IUseEarnPortfolioReturn;
+  hideSmallAssets?: boolean;
+}
+
 const BasePortfolioTabContent = ({
   portfolioData,
-}: {
-  portfolioData: IUseEarnPortfolioReturn;
-}) => {
+  hideSmallAssets = false,
+}: IBasePortfolioTabContentProps) => {
   const intl = useIntl();
   const { investments, isLoading, refresh } = portfolioData;
 
-  const filteredInvestments = useMemo(
-    () =>
-      investments.filter(
-        (item) =>
-          !isEmpty(item.assets) ||
-          item.airdropAssets.find(
-            (airdrop) => !isEmpty(airdrop.airdropAssets),
-          ) != null,
-      ),
-    [investments],
-  );
+  const filteredInvestments = useMemo(() => {
+    const withAssets = investments.filter(
+      (item) =>
+        !isEmpty(item.assets) ||
+        item.airdropAssets.find((airdrop) => !isEmpty(airdrop.airdropAssets)) !=
+          null,
+    );
+
+    if (!hideSmallAssets) {
+      return withAssets;
+    }
+
+    return withAssets.filter((item) => {
+      const totalValueUsd = Number(item.totalFiatValueUsd);
+      const normalizedValue = Number.isFinite(totalValueUsd)
+        ? totalValueUsd
+        : 0;
+      return normalizedValue >= 0.01;
+    });
+  }, [hideSmallAssets, investments]);
   const noAssets = useMemo(
     () => isEmpty(filteredInvestments),
     [filteredInvestments],
