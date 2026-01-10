@@ -1,4 +1,5 @@
-import { type ReactNode, useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -10,7 +11,6 @@ import {
   XStack,
   YStack,
   rootNavigationRef,
-  useIsWebHorizontalLayout,
   useMedia,
 } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
@@ -112,7 +112,6 @@ export function HeaderRight({
     fixedItems: ReactNode;
   }) => ReactNode;
 }) {
-  const isHorizontal = useIsWebHorizontalLayout();
   const { gtXl, gtMd } = useMedia();
 
   const items = useMemo(() => {
@@ -124,13 +123,9 @@ export function HeaderRight({
       <>
         <HeaderNotificationIconButton testID="header-right-notification" />
         <MoreAction />
-        {isHorizontal && platformEnv.isWebDappMode ? <DownloadButton /> : null}
-        {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
-          <LanguageButton />
-        ) : null}
-        {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
-          <ThemeButton />
-        ) : null}
+        {platformEnv.isWebDappMode ? <DownloadButton /> : null}
+        {platformEnv.isWebDappMode && gtXl ? <LanguageButton /> : null}
+        {platformEnv.isWebDappMode && gtXl ? <ThemeButton /> : null}
       </>
     );
 
@@ -173,10 +168,7 @@ export function HeaderRight({
         return (
           <>
             {urlAccountBackButton}
-            {isHorizontal ? (
-              <SearchInput isUrlWallet={isUrlWallet} />
-            ) : undefined}
-            {isHorizontal ? undefined : <SelectorTrigger />}
+            <SelectorTrigger />
             {isUrlWallet && gtMd && platformEnv.isWebDappMode ? (
               <UrlAccountPageHeader />
             ) : (
@@ -195,7 +187,6 @@ export function HeaderRight({
       case ETabRoutes.Market:
         return (
           <>
-            {isHorizontal ? <SearchInput /> : undefined}
             <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
@@ -215,9 +206,9 @@ export function HeaderRight({
         return (
           <>
             <HistoryIconButton />
-            {isHorizontal || !platformEnv.isNative ? undefined : (
+            {platformEnv.isNative ? (
               <TabCountButton testID="browser-header-tabs" />
-            )}
+            ) : null}
             <WalletConnectionForWeb tabRoute={tabRoute} />
           </>
         );
@@ -237,7 +228,6 @@ export function HeaderRight({
     }
   }, [
     customHeaderRightItems,
-    isHorizontal,
     gtXl,
     tabRoute,
     renderCustomHeaderRightItems,
