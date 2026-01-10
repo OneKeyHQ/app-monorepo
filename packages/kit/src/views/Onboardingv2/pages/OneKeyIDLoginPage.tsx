@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EOnboardingPagesV2,
   EOnboardingV2OneKeyIDLoginMode,
@@ -177,10 +178,13 @@ function OneKeyIDLoginPage() {
   }, [handleSocialLogin]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <OnboardingLayout>
         <OnboardingLayout.Header />
-        <OnboardingLayout.Body constrained={false} scrollable>
+        <OnboardingLayout.Body
+          constrained={false}
+          scrollable={!platformEnv.isNative}
+        >
           <OnboardingLayout.ConstrainedContent gap="$10">
             <YStack gap="$2">
               <SizableText size="$heading3xl">

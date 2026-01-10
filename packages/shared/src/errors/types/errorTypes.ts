@@ -46,6 +46,7 @@ export enum EOneKeyErrorClassNames {
   HardwareUserCancelFromOutside = 'HardwareUserCancelFromOutside',
   FirmwareUpdateExit = 'FirmwareUpdateExit',
   FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
+  IncorrectPinError = 'IncorrectPinError',
   WebDeviceNotFoundOrNeedsPermission = 'WebDeviceNotFoundOrNeedsPermission',
   DeviceNotOpenedPassphrase = 'DeviceNotOpenedPassphrase',
   DeviceNotFound = 'DeviceNotFound',
