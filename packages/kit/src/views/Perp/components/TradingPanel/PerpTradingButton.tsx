@@ -247,7 +247,7 @@ export function PerpTradingButton({
     );
   }
 
-  if (!perpsAccount?.accountAddress) {
+  if (!perpsAccount?.accountAddress || perpsAccountStatus.accountNotSupport) {
     const canCreateAddress = perpsAccountStatus.canCreateAddress;
     if (canCreateAddress) {
       const createAddressAccount = {
