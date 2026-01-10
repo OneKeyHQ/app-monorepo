@@ -46,9 +46,10 @@ async function storageRemoveItem(key: string): Promise<void> {
 async function saveRefreshTokenToStorage(params: {
   ownerId: string;
   refreshToken: string;
+  token: string;
   backgroundApi: IBackgroundApi;
 }): Promise<void> {
-  const { ownerId, refreshToken, backgroundApi } = params;
+  const { ownerId, refreshToken, token, backgroundApi } = params;
 
   // 1. Build unique key for this ownerId
   const key = accountUtils.buildKeylessRefreshTokenKey({ ownerId });
@@ -57,10 +58,13 @@ async function saveRefreshTokenToStorage(params: {
   // buildKeylessLocalEncryptionKey will prompt for passcode and combine it with sensitiveEncodeKey
   const encryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
 
+  // Store both token and refreshToken as JSON
+  const tokenData = JSON.stringify({ token, refreshToken });
+
   const encryptedPayloadHex = await backgroundApi.servicePassword.encryptString(
     {
       password: encryptionKey,
-      data: refreshToken,
+      data: tokenData,
       dataEncoding: 'utf8',
       allowRawPassword: true,
     },
@@ -82,7 +86,7 @@ async function saveRefreshTokenToStorage(params: {
 async function getRefreshTokenFromStorage(params: {
   ownerId: string;
   backgroundApi: IBackgroundApi;
-}): Promise<string | null> {
+}): Promise<{ token: string; refreshToken: string } | null> {
   const { ownerId, backgroundApi } = params;
 
   // 1. Build unique key for this ownerId
