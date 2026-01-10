@@ -45,8 +45,8 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../../Staking/components/ProtocolDetails/EarnTooltip';
-import { ApyTextV2 } from '../BorrowTableList/ApyTextV2';
 import { BorrowInfoItem } from '../BorrowInfoItem';
+import { ApyTextV2 } from '../BorrowTableList/ApyTextV2';
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
 type IUniversalBorrowSupplyProps = {
