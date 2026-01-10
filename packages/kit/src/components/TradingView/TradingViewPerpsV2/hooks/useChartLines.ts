@@ -36,54 +36,42 @@ interface IUseChartLinesReturn {
   sendLinesClear: () => void;
 }
 
-/**
- * Check if a line has changed (price or label)
- */
 function hasLineChanged(prev: ITVLine, current: ITVLine): boolean {
-  if (prev.price !== current.price) return true;
-  if (prev.qty !== current.qty) return true;
-  if (prev.label?.left !== current.label?.left) return true;
-  if (prev.label?.right !== current.label?.right) return true;
-  return false;
+  return (
+    prev.price !== current.price ||
+    prev.qty !== current.qty ||
+    prev.label?.left !== current.label?.left ||
+    prev.label?.right !== current.label?.right
+  );
 }
 
 /**
- * Check if a line change is PNL-only (only left label changed for position lines)
- * PNL changes are frequent and should be throttled
+ * Check if a line change is PNL-only (only left label changed for position lines).
+ * PNL changes are frequent and should be throttled.
  */
 function isPnlOnlyChange(prev: ITVLine, current: ITVLine): boolean {
-  // Only position lines have PNL in left label
   if (current.kind !== 'position') return false;
 
-  // Check if only the left label (PNL) changed
-  const priceChanged = prev.price !== current.price;
-  const qtyChanged = prev.qty !== current.qty;
-  const rightLabelChanged = prev.label?.right !== current.label?.right;
-  const leftLabelChanged = prev.label?.left !== current.label?.left;
+  const onlyLeftLabelChanged =
+    prev.label?.left !== current.label?.left &&
+    prev.price === current.price &&
+    prev.qty === current.qty &&
+    prev.label?.right === current.label?.right;
 
-  // PNL-only if left label changed but nothing else
-  return leftLabelChanged && !priceChanged && !qtyChanged && !rightLabelChanged;
+  return onlyLeftLabelChanged;
 }
 
-/**
- * Check if a patch contains only PNL updates (no structural changes)
- */
 function isPnlOnlyPatch(
   patch: ITVLinesPatchPayload,
   prevLines: Map<string, ITVLine>,
 ): boolean {
-  // Structural changes require immediate update
   if (patch.add.length > 0 || patch.remove.length > 0) return false;
+  if (patch.update.length === 0) return false;
 
-  // Check if all updates are PNL-only
-  for (const line of patch.update) {
+  return patch.update.every((line) => {
     const prevLine = prevLines.get(line.id);
-    if (!prevLine || !isPnlOnlyChange(prevLine, line)) {
-      return false;
-    }
-  }
-
-  return patch.update.length > 0;
+    return prevLine && isPnlOnlyChange(prevLine, line);
+  });
 }
 
 /**
@@ -147,6 +135,15 @@ export function useChartLines({
   );
   const pendingPnlPatchRef = useRef<ITVLinesPatchPayload | null>(null);
   const lastPnlUpdateTimeRef = useRef<number>(0);
+
+  // Helper to clear pending PNL updates
+  const clearPendingPnlUpdates = useCallback(() => {
+    if (pnlThrottleTimerRef.current) {
+      clearTimeout(pnlThrottleTimerRef.current);
+      pnlThrottleTimerRef.current = null;
+    }
+    pendingPnlPatchRef.current = null;
+  }, []);
 
   // Get orders for current symbol
   const currentOrders = useMemo(
@@ -255,13 +252,7 @@ export function useChartLines({
       const isPnlOnly = isPnlOnlyPatch(patch, prevLinesRef.current);
 
       if (!isPnlOnly) {
-        // Structural changes: send immediately
-        // Clear any pending PNL update
-        if (pnlThrottleTimerRef.current) {
-          clearTimeout(pnlThrottleTimerRef.current);
-          pnlThrottleTimerRef.current = null;
-        }
-        pendingPnlPatchRef.current = null;
+        clearPendingPnlUpdates();
         doSendPatch(patch);
         return;
       }
@@ -289,32 +280,16 @@ export function useChartLines({
         }
       }
     },
-    [doSendPatch],
+    [doSendPatch, clearPendingPnlUpdates],
   );
 
   // Cleanup throttle timer on unmount
-  useEffect(
-    () => () => {
-      if (pnlThrottleTimerRef.current) {
-        clearTimeout(pnlThrottleTimerRef.current);
-        pnlThrottleTimerRef.current = null;
-      }
-    },
-    [],
-  );
+  useEffect(() => clearPendingPnlUpdates, [clearPendingPnlUpdates]);
 
   // Handle symbol change
   useEffect(() => {
     if (prevSymbolRef.current !== symbol) {
-      // Symbol changed, clear old lines and sync new ones
-      // Also clear any pending PNL updates
-      if (pnlThrottleTimerRef.current) {
-        clearTimeout(pnlThrottleTimerRef.current);
-        pnlThrottleTimerRef.current = null;
-      }
-      pendingPnlPatchRef.current = null;
-
-      // Clear prev lines to force full sync
+      clearPendingPnlUpdates();
       prevLinesRef.current.clear();
 
       if (isReady) {
@@ -326,7 +301,7 @@ export function useChartLines({
       }
       prevSymbolRef.current = symbol;
     }
-  }, [symbol, isReady, sendLinesClear, sendLinesSync]);
+  }, [symbol, isReady, sendLinesClear, sendLinesSync, clearPendingPnlUpdates]);
 
   // Handle user logout
   useEffect(() => {
@@ -335,46 +310,33 @@ export function useChartLines({
     }
   }, [userAddress, isReady, sendLinesClear]);
 
-  // Handle WebView reload (when isReady changes from true to false, or from false to true after reload)
+  // Handle WebView reload
   useEffect(() => {
     const prevIsReady = prevIsReadyRef.current;
-    const isReloading = prevIsReady && !isReady; // WebView is reloading
-    const isReloaded = !prevIsReady && isReady; // WebView just finished reloading
+    const isReloading = prevIsReady && !isReady;
+    const isReloaded = !prevIsReady && isReady;
 
-    if (isReloading) {
-      // WebView is reloading, clear prev lines to force full sync when ready
+    if (isReloading || isReloaded) {
+      clearPendingPnlUpdates();
       prevLinesRef.current.clear();
-      // Clear any pending PNL updates
-      if (pnlThrottleTimerRef.current) {
-        clearTimeout(pnlThrottleTimerRef.current);
-        pnlThrottleTimerRef.current = null;
-      }
-      pendingPnlPatchRef.current = null;
-    } else if (isReloaded) {
-      // WebView just finished reloading, ensure prevLinesRef is clear to force full sync
-      if (prevLinesRef.current.size > 0) {
-        prevLinesRef.current.clear();
-      }
-      // Clear any pending PNL updates
-      if (pnlThrottleTimerRef.current) {
-        clearTimeout(pnlThrottleTimerRef.current);
-        pnlThrottleTimerRef.current = null;
-      }
-      pendingPnlPatchRef.current = null;
+    }
 
-      // Immediately trigger sync if we have lines and user address
-      // Use a small delay to ensure iframe is fully ready
-      if (userAddress && currentLines.length > 0) {
-        setTimeout(() => {
-          if (isReady && userAddress && currentLines.length > 0) {
-            sendLinesSync();
-          }
-        }, 100);
-      }
+    if (isReloaded && userAddress && currentLines.length > 0) {
+      setTimeout(() => {
+        if (isReady && userAddress && currentLines.length > 0) {
+          sendLinesSync();
+        }
+      }, 100);
     }
 
     prevIsReadyRef.current = isReady;
-  }, [isReady, userAddress, currentLines, sendLinesSync]);
+  }, [
+    isReady,
+    userAddress,
+    currentLines,
+    sendLinesSync,
+    clearPendingPnlUpdates,
+  ]);
 
   // Handle lines update (incremental)
   useEffect(() => {
