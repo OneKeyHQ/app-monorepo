@@ -271,6 +271,9 @@ export function createBaseConfig({
                     },
                   },
                   externalHelpers: true,
+                  experimental: {
+                    cacheRoot: path.join(basePath, 'node_modules/.cache/swc'),
+                  },
                 },
                 isModule: 'unknown',
                 env: {
@@ -311,6 +314,9 @@ export function createBaseConfig({
                     decoratorMetadata: true,
                   },
                   externalHelpers: true,
+                  experimental: {
+                    cacheRoot: path.join(basePath, 'node_modules/.cache/swc'),
+                  },
                 },
                 isModule: 'unknown',
                 env: {
@@ -356,6 +362,9 @@ export function createBaseConfig({
                     },
                   },
                   externalHelpers: true,
+                  experimental: {
+                    cacheRoot: path.join(basePath, 'node_modules/.cache/swc'),
+                  },
                 },
                 isModule: 'unknown',
                 env: {
@@ -392,6 +401,9 @@ export function createBaseConfig({
                     },
                   },
                   externalHelpers: true,
+                  experimental: {
+                    cacheRoot: path.join(basePath, 'node_modules/.cache/swc'),
+                  },
                 },
                 isModule: 'unknown',
                 env: {
@@ -418,6 +430,9 @@ export function createBaseConfig({
                     tsx: true,
                   },
                   externalHelpers: true,
+                  experimental: {
+                    cacheRoot: path.join(basePath, 'node_modules/.cache/swc'),
+                  },
                 },
                 module: {
                   type: 'es6',
