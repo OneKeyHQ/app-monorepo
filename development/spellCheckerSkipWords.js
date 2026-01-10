@@ -1058,4 +1058,6 @@ module.exports = [
   'Flatpak',
   'Rspack',
   'rspack',
+  'myposition',
+  'favs',
 ];
