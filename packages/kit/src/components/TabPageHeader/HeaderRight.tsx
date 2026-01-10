@@ -262,7 +262,7 @@ export function HeaderRight({
     }
     return '100%';
   }, []);
-  return (
+  return items ? (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"
       className="app-region-no-drag"
@@ -271,5 +271,5 @@ export function HeaderRight({
     >
       {items}
     </HeaderButtonGroup>
-  );
+  ) : null;
 }
