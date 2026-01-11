@@ -8949,6 +8949,7 @@ __metadata:
     react-native-safe-area-context: "npm:5.6.2"
     react-native-screens: "npm:4.19.0"
     react-native-svg: "npm:15.15.1"
+
     react-native-tcp-socket: "npm:6.3.0"
     react-native-video: "npm:6.18.0"
     react-native-view-shot: "npm:4.0.3"
