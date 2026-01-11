@@ -151,8 +151,6 @@ function SenderAddressesInput() {
     selectedTokenDetail?.balanceParsed,
   ]);
 
-  console.log('addressBadges', addressBadges);
-
   return (
     <Form.Field
       name="senderAddresses"
