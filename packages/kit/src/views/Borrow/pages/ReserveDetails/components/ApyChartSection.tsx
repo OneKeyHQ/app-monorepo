@@ -2,13 +2,7 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  SegmentControl,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { ApyChartBase } from '@onekeyhq/kit/src/views/Staking/components/ApyChartBase';
 import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/GridItemV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,6 +14,8 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { CapUsageChart } from '../../../components/CapUsageChart';
+
+import { ApyChartTimePeriodSelector } from './ApyChartTimePeriodSelector';
 
 import type { ITimePeriod } from '../hooks/useBorrowChartData';
 
@@ -98,10 +94,10 @@ function ApyChartSectionComponent({
             {Number(apyValue).toFixed(2)}% {apyLabel}
           </SizableText>
           {media.gtSm ? (
-            <SegmentControl
+            <ApyChartTimePeriodSelector
               value={timePeriod}
               options={timePeriodOptions}
-              onChange={(value) => onTimePeriodChange(value as ITimePeriod)}
+              onChange={(value) => onTimePeriodChange(value)}
             />
           ) : null}
         </XStack>
@@ -117,10 +113,10 @@ function ApyChartSectionComponent({
           tooltipLabel={tooltipLabel}
         />
         {!media.gtSm ? (
-          <SegmentControl
+          <ApyChartTimePeriodSelector
             value={timePeriod}
             options={timePeriodOptions}
-            onChange={(value) => onTimePeriodChange(value as ITimePeriod)}
+            onChange={(value) => onTimePeriodChange(value)}
             fullWidth
             jc="space-between"
             flex={1}
