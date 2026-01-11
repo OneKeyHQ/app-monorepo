@@ -2,7 +2,7 @@ const { execSync } = require('child_process');
 const { exit } = require('process');
 
 // Warning limit configuration
-const INITIAL_MAX_WARNINGS = 526;
+const INITIAL_MAX_WARNINGS = 520;
 const WEEKLY_REDUCTION = 30;
 const START_YEAR = 2026;
 

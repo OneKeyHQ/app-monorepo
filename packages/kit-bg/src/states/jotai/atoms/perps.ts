@@ -407,6 +407,8 @@ export const {
 
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
+  showTradeMarks: boolean;
+  showChartLines: boolean;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -416,6 +418,8 @@ export const {
   persist: true,
   initialValue: {
     skipOrderConfirm: false,
+    showTradeMarks: true,
+    showChartLines: true,
   },
 });
 
