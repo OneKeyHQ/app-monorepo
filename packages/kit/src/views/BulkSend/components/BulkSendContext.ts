@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export type IBulkSendContext = {
   selectedAccountId: string | undefined;
@@ -11,6 +11,18 @@ export type IBulkSendContext = {
   setSelectedToken: (token: IToken | undefined) => void;
   selectedIndexedAccountId: string | undefined;
   setSelectedIndexedAccountId: (indexedAccountId: string | undefined) => void;
+  selectedTokenDetail: ({ info: IToken } & ITokenFiat) | undefined;
+  setSelectedTokenDetail: (
+    tokenDetail: ({ info: IToken } & ITokenFiat) | undefined,
+  ) => void;
+  tokenDetailsState: {
+    initialized: boolean;
+    isRefreshing: boolean;
+  };
+  setTokenDetailsState: (state: {
+    initialized: boolean;
+    isRefreshing: boolean;
+  }) => void;
 };
 export const BulkSendContext = createContext<IBulkSendContext>({
   selectedAccountId: undefined,
@@ -21,6 +33,13 @@ export const BulkSendContext = createContext<IBulkSendContext>({
   setSelectedToken: () => {},
   selectedIndexedAccountId: undefined,
   setSelectedIndexedAccountId: () => {},
+  selectedTokenDetail: undefined,
+  setSelectedTokenDetail: () => {},
+  tokenDetailsState: {
+    initialized: false,
+    isRefreshing: false,
+  },
+  setTokenDetailsState: () => {},
 });
 
 export const useBulkSendContext = () => useContext(BulkSendContext);
