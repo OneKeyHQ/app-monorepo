@@ -7,6 +7,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ApyChartBase } from '@onekeyhq/kit/src/views/Staking/components/ApyChartBase';
 import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/GridItemV2';
@@ -75,6 +76,7 @@ function ApyChartSectionComponent({
   tooltipLabel,
 }: IApyChartSectionProps) {
   const intl = useIntl();
+  const media = useMedia();
 
   return (
     <YStack gap="$6">
@@ -95,11 +97,13 @@ function ApyChartSectionComponent({
           <SizableText size="$headingXl">
             {Number(apyValue).toFixed(2)}% {apyLabel}
           </SizableText>
-          <SegmentControl
-            value={timePeriod}
-            options={timePeriodOptions}
-            onChange={(value) => onTimePeriodChange(value as ITimePeriod)}
-          />
+          {media.gtSm ? (
+            <SegmentControl
+              value={timePeriod}
+              options={timePeriodOptions}
+              onChange={(value) => onTimePeriodChange(value as ITimePeriod)}
+            />
+          ) : null}
         </XStack>
         <ApyChartBase
           data={history}
@@ -112,6 +116,17 @@ function ApyChartSectionComponent({
           showDivider={showDivider}
           tooltipLabel={tooltipLabel}
         />
+        {!media.gtSm ? (
+          <SegmentControl
+            value={timePeriod}
+            options={timePeriodOptions}
+            onChange={(value) => onTimePeriodChange(value as ITimePeriod)}
+            fullWidth
+            jc="space-between"
+            flex={1}
+            mt="$5"
+          />
+        ) : null}
 
         {/* Supply Metrics (optional) */}
         {metrics ? (
