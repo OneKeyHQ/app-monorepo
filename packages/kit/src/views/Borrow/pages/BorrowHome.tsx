@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,8 +9,11 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { NoAddressWarning } from '../../Staking/components/ProtocolDetails/NoAddressWarning';
+import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { BorrowProvider, useBorrowContext } from '../BorrowProvider';
 import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
@@ -27,9 +30,31 @@ const BorrowHomeContent = memo(() => {
   const { gtMd } = useMedia();
   const intl = useIntl();
   const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
-  const { reserves } = useBorrowContext();
+  const { reserves, market } = useBorrowContext();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { earnAccount, refreshAccount } = useEarnAccount({
+    networkId: market?.networkId,
+  });
   const alerts = reserves?.alerts;
-  const hasAlerts = Boolean(alerts?.length);
+  const accountId = activeAccount.account?.id ?? '';
+  const indexedAccountId = activeAccount.indexedAccount?.id;
+  const showNoAddressWarning = useMemo(() => {
+    if (!market?.networkId || !activeAccount.ready) {
+      return false;
+    }
+    return (!accountId && !indexedAccountId) || !earnAccount?.accountAddress;
+  }, [
+    accountId,
+    indexedAccountId,
+    earnAccount?.accountAddress,
+    market?.networkId,
+    activeAccount.ready,
+  ]);
+  const hasAlerts = Boolean(alerts?.length) || showNoAddressWarning;
+
+  const handleCreateAddress = useCallback(async () => {
+    await refreshAccount();
+  }, [refreshAccount]);
 
   const tabOptions = useMemo(
     () => [
@@ -51,7 +76,15 @@ const BorrowHomeContent = memo(() => {
         <Markets />
         <Overview showBottomSpacing={!hasAlerts} />
         {hasAlerts ? (
-          <YStack my="$7">
+          <YStack my="$7" gap="$3">
+            {showNoAddressWarning ? (
+              <NoAddressWarning
+                accountId={accountId}
+                networkId={market?.networkId ?? ''}
+                indexedAccountId={indexedAccountId}
+                onCreateAddress={handleCreateAddress}
+              />
+            ) : null}
             <BorrowAlerts alerts={alerts} />
           </YStack>
         ) : null}
