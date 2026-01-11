@@ -6,6 +6,7 @@ import {
   Button,
   Divider,
   Icon,
+  IconButton,
   SizableText,
   XStack,
   YStack,
@@ -34,6 +35,11 @@ import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
 import { useBorrowRewards } from '../hooks/useBorrowRewards';
 import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
+import {
+  createBorrowRefreshScope,
+  registerBorrowRefreshHandler,
+  requestBorrowRefresh,
+} from '../refresh/borrowRefreshCoordinator';
 
 import { BorrowBonusTooltip } from './BorrowBonusTooltip';
 import { showBorrowClaimRewardsDialog } from './BorrowClaimRewardsDialog';
@@ -78,6 +84,7 @@ export const Overview = () => {
     reserves,
     market,
     setReserves,
+    reservesLoading,
     setReservesLoading,
     pendingTxs,
     refreshRewardsRef,
@@ -95,7 +102,17 @@ export const Overview = () => {
   const provider = market?.provider;
   const networkId = market?.networkId;
   const marketAddress = market?.marketAddress;
-  const earnAccountId = earnAccount?.account.id;
+  const earnAccountId = earnAccount?.accountId ?? earnAccount?.account?.id;
+  const refreshScope = useMemo(
+    () =>
+      createBorrowRefreshScope({
+        accountId: earnAccountId,
+        networkId,
+        provider,
+        marketAddress,
+      }),
+    [earnAccountId, marketAddress, networkId, provider],
+  );
   const historyLabel = useMemo(
     () => intl.formatMessage({ id: ETranslations.global_history }),
     [intl],
@@ -134,13 +151,14 @@ export const Overview = () => {
   );
 
   // Fetch health factor separately with 30s polling
-  const { healthFactorData } = useBorrowHealthFactor({
-    networkId,
-    provider,
-    marketAddress,
-    accountId: earnAccountId,
-    enabled: !!(networkId && provider && marketAddress && earnAccountId),
-  });
+  const { healthFactorData, refresh: refreshHealthFactor } =
+    useBorrowHealthFactor({
+      networkId,
+      provider,
+      marketAddress,
+      accountId: earnAccountId,
+      enabled: !!(networkId && provider && marketAddress && earnAccountId),
+    });
 
   const { borrowRewards, refresh: refreshBorrowRewards } = useBorrowRewards({
     networkId,
@@ -155,7 +173,7 @@ export const Overview = () => {
     accountId: earnAccountId ?? '',
   });
 
-  const handleRefresh = useCallback(async () => {
+  const refreshBorrowData = useCallback(async () => {
     if (!provider || !networkId || !marketAddress) return;
     setReservesLoading(true);
     try {
@@ -166,7 +184,7 @@ export const Overview = () => {
         accountId: earnAccountId,
       });
       setReserves(result);
-      void refreshBorrowRewards();
+      await Promise.all([refreshBorrowRewards(), refreshHealthFactor()]);
     } finally {
       setReservesLoading(false);
     }
@@ -179,11 +197,30 @@ export const Overview = () => {
     marketAddress,
     earnAccountId,
     refreshBorrowRewards,
+    refreshHealthFactor,
   ]);
 
   useEffect(() => {
     refreshRewardsRef.current = refreshBorrowRewards;
   }, [refreshBorrowRewards, refreshRewardsRef]);
+
+  useEffect(() => {
+    if (!refreshScope) return;
+    return registerBorrowRefreshHandler(refreshScope, async () => {
+      await refreshBorrowData();
+    });
+  }, [refreshBorrowData, refreshScope]);
+
+  const requestRefresh = useCallback(
+    (reason: 'manual' | 'txSuccess') => {
+      if (!refreshScope) return;
+      requestBorrowRefresh({
+        scope: refreshScope,
+        reason,
+      });
+    },
+    [refreshScope],
+  );
 
   const handleHistoryPress = useCallback(() => {
     if (!provider || !networkId || !marketAddress || !earnAccountId) return;
@@ -247,7 +284,7 @@ export const Overview = () => {
           marketAddress,
           ids: [item.id],
           stakingInfo,
-          onSuccess: handleRefresh,
+          onSuccess: () => requestRefresh('txSuccess'),
         });
       },
       onClaimAll: async () => {
@@ -272,10 +309,10 @@ export const Overview = () => {
           marketAddress,
           ids: allIds,
           stakingInfo,
-          onSuccess: handleRefresh,
+          onSuccess: () => requestRefresh('txSuccess'),
         });
       },
-      onClose: handleRefresh,
+      onClose: () => requestRefresh('manual'),
     });
   }, [
     borrowRewards?.button,
@@ -285,8 +322,8 @@ export const Overview = () => {
     earnAccountId,
     market?.logoURI,
     handleBorrowClaim,
-    handleRefresh,
     pendingClaimIds,
+    requestRefresh,
   ]);
 
   const { gtMd } = useMedia();
@@ -330,6 +367,13 @@ export const Overview = () => {
             )}
           </YStack>
           <XStack ai="center" gap="$3">
+            <IconButton
+              icon="RefreshCcwOutline"
+              variant="tertiary"
+              size="small"
+              loading={reservesLoading}
+              onPress={() => requestRefresh('manual')}
+            />
             {pendingCount > 0 ? (
               <PendingIndicator
                 num={pendingCount}
@@ -538,6 +582,13 @@ export const Overview = () => {
       ) : null}
 
       <XStack ml="auto" ai="center" gap="$3">
+        <IconButton
+          icon="RefreshCcwOutline"
+          variant="tertiary"
+          size="small"
+          loading={reservesLoading}
+          onPress={() => requestRefresh('manual')}
+        />
         {pendingCount > 0 ? (
           <PendingIndicator num={pendingCount} onPress={handleHistoryPress} />
         ) : null}

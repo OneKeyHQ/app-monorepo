@@ -16,11 +16,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  borrowRefreshPendingRef,
-  borrowRefreshReservesRef,
-} from '@onekeyhq/kit/src/views/Borrow/BorrowProvider';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import {
+  createBorrowRefreshScope,
+  requestBorrowRefresh,
+} from '@onekeyhq/kit/src/views/Borrow/refresh/borrowRefreshCoordinator';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
@@ -199,6 +199,17 @@ export function ManagePositionContent({
     [accountId, indexedAccountId, earnAccount?.accountAddress],
   );
 
+  const borrowRefreshScope = useMemo(
+    () =>
+      createBorrowRefreshScope({
+        accountId: earnAccount?.accountId ?? accountId,
+        networkId,
+        provider,
+        marketAddress,
+      }),
+    [accountId, earnAccount?.accountId, marketAddress, networkId, provider],
+  );
+
   // Determine if we should show warning instead of normal content
   // This includes: no address, no account, or BTC-only firmware on non-BTC network
   const shouldShowWarning = useMemo(
@@ -356,8 +367,12 @@ export function ManagePositionContent({
     // Immediately refresh pending transactions after operation
     void refreshPendingRef.current?.();
     if (isBorrowType) {
-      void borrowRefreshPendingRef.current?.();
-      void borrowRefreshReservesRef.current?.();
+      if (borrowRefreshScope) {
+        requestBorrowRefresh({
+          scope: borrowRefreshScope,
+          reason: 'txSuccess',
+        });
+      }
     }
     onStakeWithdrawSuccess?.();
     if (isInModalContext) {
@@ -366,6 +381,7 @@ export function ManagePositionContent({
   }, [
     refreshManageData,
     isBorrowType,
+    borrowRefreshScope,
     onStakeWithdrawSuccess,
     isInModalContext,
     appNavigation,

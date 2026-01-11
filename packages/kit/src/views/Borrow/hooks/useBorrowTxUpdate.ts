@@ -156,8 +156,9 @@ export const useBorrowTxUpdate = ({
     },
   );
 
-  const isPending = txs.length > 0;
-  const prevIsPending = usePrevious(isPending);
+  const pendingCount = txs.length;
+  const isPending = pendingCount > 0;
+  const prevPendingCount = usePrevious(pendingCount);
 
   const refreshPendingWithHistory = useCallback(async () => {
     if (!accountMeta) {
@@ -186,19 +187,22 @@ export const useBorrowTxUpdate = ({
   );
 
   useEffect(() => {
-    if (!isPending && prevIsPending) {
+    if (prevPendingCount !== undefined && pendingCount < prevPendingCount) {
+      if (!onRefreshRef.current) {
+        return undefined;
+      }
       const timeoutId = setTimeout(() => {
         onRefreshRef.current?.();
       }, timerUtils.getTimeDurationMs({ seconds: 1 }));
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isPending, prevIsPending]);
+  }, [pendingCount, prevPendingCount]);
 
   return {
     isPending,
     pendingTxs: txs,
-    pendingCount: txs.length,
+    pendingCount,
     refreshPending: refreshPendingWithHistory,
   };
 };
