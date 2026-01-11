@@ -18,6 +18,7 @@ import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 export type INotificationProviderBaseOptions = {
   disabledWebSocket?: boolean;
   disabledJPush?: boolean;
+  disabledUnifiedPush?: boolean;
   instanceId: string;
 };
 export type INotificationProviderBaseParams = {

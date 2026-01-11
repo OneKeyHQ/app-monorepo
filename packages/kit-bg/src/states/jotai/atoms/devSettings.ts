@@ -160,6 +160,8 @@ export type INotificationsDevSettings = {
   showMessagePushSource?: boolean;
   disabledWebSocket?: boolean;
   disabledJPush?: boolean;
+  disabledUnifiedPush?: boolean;
+  preferUnifiedPush?: boolean;
 };
 export type INotificationsDevSettingsKeys = keyof INotificationsDevSettings;
 export const {
@@ -172,5 +174,7 @@ export const {
     showMessagePushSource: false,
     disabledWebSocket: false,
     disabledJPush: false,
+    disabledUnifiedPush: false,
+    preferUnifiedPush: true, // Prefer privacy-friendly UnifiedPush by default
   },
 });

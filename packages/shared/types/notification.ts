@@ -53,6 +53,7 @@ export enum EPushProviderEventNames {
 
   ws_connected = 'ws_connected',
   jpush_connected = 'jpush_connected',
+  unifiedpush_connected = 'unifiedpush_connected',
 
   notification_received = 'notification_received',
   notification_clicked = 'notification_clicked',
@@ -73,6 +74,9 @@ export interface IPushProviderEventPayload {
   };
   [EPushProviderEventNames.jpush_connected]: {
     jpushId: string;
+  };
+  [EPushProviderEventNames.unifiedpush_connected]: {
+    endpoint: string;
   };
   [EPushProviderEventNames.notification_received]: INotificationPushMessageInfo;
   [EPushProviderEventNames.notification_clicked]: INotificationClickParams;
@@ -97,6 +101,7 @@ export type INotificationPushClient = {
   apnsId?: string; // apple push notification service id
   wnsId?: string; // windows push notification service id
   webPushId?: string; // web push notification service id
+  unifiedPushEndpoint?: string; // UnifiedPush endpoint URL (privacy-friendly alternative)
 };
 export type INotificationPushSyncAccount = {
   networkId: string | undefined;
@@ -146,6 +151,11 @@ export type INotificationPushSettings = {
     impl: string;
     chainId: string;
   }[];
+  // UnifiedPush settings - privacy-friendly push notification alternative
+  unifiedPushEnabled?: boolean;
+  unifiedPushDistributor?: string; // Selected distributor package name
+  unifiedPushEndpoint?: string; // Current endpoint URL
+  preferUnifiedPush?: boolean; // Prefer UnifiedPush over proprietary solutions
 };
 export type INotificationPushTopic =
   | {
@@ -260,7 +270,7 @@ export type INotificationPushMessageInfo = {
   extras?: INotificationPushMessageExtras;
   //
   badge?: string;
-  pushSource?: 'jpush' | 'websocket' | undefined;
+  pushSource?: 'jpush' | 'websocket' | 'unifiedpush' | undefined;
 };
 export type INativeNotificationCenterMessageInfo = {
   notificationId: string;
