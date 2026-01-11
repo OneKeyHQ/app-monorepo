@@ -16,8 +16,10 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 
 import type { LayoutChangeEvent } from 'react-native';
+import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
 
 export type ILineError = {
   lineNumber: number;
@@ -39,6 +41,8 @@ export type ILineNumberedTextAreaProps = {
   showUpload?: boolean;
   showAccountSelector?: boolean;
   singleLine?: boolean;
+  showAddressBadges?: boolean;
+  addressBadges?: IAddressBadge[];
 };
 
 const FONT_SIZE = 16;
@@ -46,7 +50,8 @@ const LINE_HEIGHT = 24;
 const PADDING_VERTICAL = 12;
 const PADDING_HORIZONTAL = 12;
 const LINE_NUMBER_WIDTH = 40;
-const SINGLE_LINE_HEIGHT = LINE_HEIGHT + PADDING_VERTICAL * 2;
+// Allow 2 lines of text in singleLine mode for wrapped long addresses
+const SINGLE_LINE_HEIGHT = LINE_HEIGHT * 2 + PADDING_VERTICAL * 2;
 
 function LineNumberedTextArea({
   value = '',
@@ -63,6 +68,8 @@ function LineNumberedTextArea({
   showUpload,
   showAccountSelector,
   singleLine,
+  showAddressBadges,
+  addressBadges,
 }: ILineNumberedTextAreaProps) {
   const intl = useIntl();
   const inputRef = useRef<RNTextInput>(null);
@@ -294,43 +301,64 @@ function LineNumberedTextArea({
         </ScrollView>
 
         {/* Action buttons */}
-        {hasActions ? (
-          <XStack py="$3" px="$5" justifyContent="flex-end" gap="$4">
-            {showPaste ? (
-              <IconButton
-                variant="tertiary"
-                size="small"
-                icon="ClipboardOutline"
-                onPress={handlePaste}
-                disabled={disabled}
-                title={intl.formatMessage({
-                  id: ETranslations.send_to_paste_tooltip,
-                })}
-              />
-            ) : null}
-            {showUpload ? (
-              <IconButton
-                variant="tertiary"
-                size="small"
-                icon="UploadOutline"
-                onPress={handleUpload}
-                disabled={disabled}
-                title={intl.formatMessage({
-                  id: ETranslations.global_upload,
-                })}
-              />
-            ) : null}
-            {showAccountSelector ? (
-              <IconButton
-                variant="tertiary"
-                size="small"
-                icon="ScanOutline"
-                onPress={handleAccountSelector}
-                disabled={disabled}
-                title={intl.formatMessage({
-                  id: ETranslations.send_to_scan_tooltip,
-                })}
-              />
+        {hasActions || showAddressBadges ? (
+          <XStack
+            justifyContent="space-between"
+            flexWrap="nowrap"
+            alignItems="center"
+            py="$3"
+            px="$3"
+          >
+            <XStack gap="$2" flex={1}>
+              {addressBadges?.map((badge) => (
+                <AddressBadge
+                  key={badge.label}
+                  title={badge.label}
+                  badgeType={badge.type}
+                  content={badge.tip}
+                  icon={badge.icon}
+                />
+              ))}
+            </XStack>
+            {hasActions ? (
+              <XStack justifyContent="flex-end" gap="$6">
+                {showPaste ? (
+                  <IconButton
+                    variant="tertiary"
+                    size="small"
+                    icon="ClipboardOutline"
+                    onPress={handlePaste}
+                    disabled={disabled}
+                    title={intl.formatMessage({
+                      id: ETranslations.send_to_paste_tooltip,
+                    })}
+                  />
+                ) : null}
+                {showUpload ? (
+                  <IconButton
+                    variant="tertiary"
+                    size="small"
+                    icon="UploadOutline"
+                    onPress={handleUpload}
+                    disabled={disabled}
+                    title={intl.formatMessage({
+                      id: ETranslations.global_upload,
+                    })}
+                  />
+                ) : null}
+                {showAccountSelector ? (
+                  <IconButton
+                    variant="tertiary"
+                    size="small"
+                    icon="ScanOutline"
+                    onPress={handleAccountSelector}
+                    disabled={disabled}
+                    title={intl.formatMessage({
+                      id: ETranslations.send_to_scan_tooltip,
+                    })}
+                  />
+                ) : null}
+              </XStack>
             ) : null}
           </XStack>
         ) : null}

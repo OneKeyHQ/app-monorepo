@@ -1,3 +1,5 @@
+import { useCallback, useState } from 'react';
+
 import { isEmpty } from 'lodash';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -10,13 +12,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 
 import { useBulkSendContext } from '../BulkSendContext';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
-import { useCallback } from 'react';
-
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function SenderAddressesInput() {
   const {
@@ -27,11 +28,13 @@ function SenderAddressesInput() {
     tokenDetailsState,
   } = useBulkSendContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
+  const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>([]);
 
   const handleValidateAddresses = useCallback(
     async (_value: string) => {
       if (!_value) {
-        return true;
+        setAddressBadges([]);
+        return 'Sender address is required';
       }
 
       const result =
@@ -48,6 +51,16 @@ function SenderAddressesInput() {
               networkId: selectedNetworkId ?? '',
               address: _value.trim(),
             });
+          setAddressBadges(
+            walletAccountItems[0]
+              ? [
+                  {
+                    label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
+                    type: 'success',
+                  },
+                ]
+              : [],
+          );
 
           if (isEmpty(walletAccountItems)) {
             return 'Address not found in your wallet';
@@ -93,9 +106,11 @@ function SenderAddressesInput() {
 
           return true;
         } catch (e) {
+          setAddressBadges([]);
           return 'Address not found in your wallet';
         }
       }
+      setAddressBadges([]);
       return `Not a valid ${network?.name ?? ''} address`;
     },
     [
@@ -136,18 +151,21 @@ function SenderAddressesInput() {
     selectedTokenDetail?.balanceParsed,
   ]);
 
+  console.log('addressBadges', addressBadges);
+
   return (
     <Form.Field
       name="senderAddresses"
       label="Sending Address(es)"
       description={renderSenderAddressesDescription()}
       rules={{
-        required: true,
         validate: handleValidateAddresses,
       }}
     >
       <LineNumberedTextArea
         singleLine
+        showAddressBadges
+        addressBadges={addressBadges}
         showPaste
         showAccountSelector
         placeholder="Enter address"

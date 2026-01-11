@@ -169,6 +169,7 @@ function BaseBulkSendAddressesInput() {
           networkId: selectedNetworkId,
         });
       form.setValue('senderAddresses', address);
+      void form.trigger('senderAddresses');
     }
   }, [form, selectedAccountId, selectedNetworkId]);
 
