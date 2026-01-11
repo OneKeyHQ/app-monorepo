@@ -11,7 +11,8 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { BorrowProvider } from '../BorrowProvider';
+import { BorrowProvider, useBorrowContext } from '../BorrowProvider';
+import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
 import { BorrowDataGate } from '../components/BorrowDataGate';
 import { BorrowedCard } from '../components/BorrowedCard';
@@ -22,10 +23,13 @@ import { SupplyCard } from '../components/SupplyCard';
 
 type IBorrowTab = 'supply' | 'borrow';
 
-const BorrowHomeCmp = memo(() => {
+const BorrowHomeContent = memo(() => {
   const { gtMd } = useMedia();
   const intl = useIntl();
   const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
+  const { reserves } = useBorrowContext();
+  const alerts = reserves?.alerts;
+  const hasAlerts = Boolean(alerts?.length);
 
   const tabOptions = useMemo(
     () => [
@@ -42,48 +46,61 @@ const BorrowHomeCmp = memo(() => {
   );
 
   return (
-    <BorrowProvider>
-      <BorrowDataGate>
-        <ScrollView flex={1}>
-          <YStack flex={1} px="$5" pb="$10">
-            <Markets />
-            <Overview />
-            {gtMd ? (
-              // Desktop layout - two equal-width columns with independent vertical flow
-              <XStack gap="$5" ai="flex-start">
-                <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
-                  <SuppliedCard />
-                  <SupplyCard />
-                </YStack>
-                <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
-                  <BorrowedCard />
-                  <BorrowCard />
-                </YStack>
-              </XStack>
+    <ScrollView flex={1}>
+      <YStack flex={1} px="$5" pb="$10">
+        <Markets />
+        <Overview showBottomSpacing={!hasAlerts} />
+        {hasAlerts ? (
+          <YStack my="$7">
+            <BorrowAlerts alerts={alerts} />
+          </YStack>
+        ) : null}
+        {gtMd ? (
+          // Desktop layout - two equal-width columns with independent vertical flow
+          <XStack gap="$5" ai="flex-start">
+            <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
+              <SuppliedCard />
+              <SupplyCard />
+            </YStack>
+            <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
+              <BorrowedCard />
+              <BorrowCard />
+            </YStack>
+          </XStack>
+        ) : (
+          // Mobile layout - tabbed
+          <YStack flex={1} gap="$5">
+            <SegmentControl
+              value={activeTab}
+              options={tabOptions}
+              onChange={(value) => setActiveTab(value as IBorrowTab)}
+              fullWidth
+            />
+            {activeTab === 'supply' ? (
+              <YStack gap="$5">
+                <SuppliedCard />
+                <SupplyCard />
+              </YStack>
             ) : (
-              // Mobile layout - tabbed
-              <YStack flex={1} gap="$5">
-                <SegmentControl
-                  value={activeTab}
-                  options={tabOptions}
-                  onChange={(value) => setActiveTab(value as IBorrowTab)}
-                  fullWidth
-                />
-                {activeTab === 'supply' ? (
-                  <YStack gap="$5">
-                    <SuppliedCard />
-                    <SupplyCard />
-                  </YStack>
-                ) : (
-                  <YStack gap="$5">
-                    <BorrowedCard />
-                    <BorrowCard />
-                  </YStack>
-                )}
+              <YStack gap="$5">
+                <BorrowedCard />
+                <BorrowCard />
               </YStack>
             )}
           </YStack>
-        </ScrollView>
+        )}
+      </YStack>
+    </ScrollView>
+  );
+});
+
+BorrowHomeContent.displayName = 'BorrowHomeContent';
+
+const BorrowHomeCmp = memo(() => {
+  return (
+    <BorrowProvider>
+      <BorrowDataGate>
+        <BorrowHomeContent />
       </BorrowDataGate>
     </BorrowProvider>
   );

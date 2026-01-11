@@ -1886,8 +1886,14 @@ export interface IBorrowCheckAmount {
   riskOfLiquidationAlert?: boolean;
 }
 
+export interface IBorrowAlert {
+  title: IEarnText;
+  description?: IEarnText;
+  badge: IBadgeType;
+}
+
 export interface IBorrowReserveItem {
-  alerts?: IEarnAlert[];
+  alerts?: IBorrowAlert[];
   overview: {
     netWorth: IEarnText;
     netApy: IEarnText;

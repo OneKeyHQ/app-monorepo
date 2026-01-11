@@ -79,7 +79,11 @@ const OverviewItem = ({
   );
 };
 
-export const Overview = () => {
+export const Overview = ({
+  showBottomSpacing = true,
+}: {
+  showBottomSpacing?: boolean;
+}) => {
   const {
     reserves,
     market,
@@ -498,7 +502,7 @@ export const Overview = () => {
 
   // Desktop layout
   return (
-    <XStack mt="$2" mb="$10" ai="center">
+    <XStack mt="$2" mb={showBottomSpacing ? '$10' : undefined} ai="center">
       <OverviewItem
         needDivider
         title={{ text: labels.netWorth }}
