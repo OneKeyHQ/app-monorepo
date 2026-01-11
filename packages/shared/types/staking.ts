@@ -1887,6 +1887,7 @@ export interface IBorrowCheckAmount {
 }
 
 export interface IBorrowReserveItem {
+  alerts?: IEarnAlert[];
   overview: {
     netWorth: IEarnText;
     netApy: IEarnText;

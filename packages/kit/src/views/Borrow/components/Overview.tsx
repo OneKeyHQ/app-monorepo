@@ -338,17 +338,26 @@ export const Overview = () => {
             <SizableText size="$bodyMdMedium" color="$textText" mb="$1">
               {labels.netWorth}
             </SizableText>
-            <EarnText
-              text={
-                reserves?.overview?.netWorth ?? {
-                  text: amountPlaceholder,
-                  color: '$textDisabled',
+            <XStack ai="center" gap="$3" mb="$1.5">
+              <EarnText
+                text={
+                  reserves?.overview?.netWorth ?? {
+                    text: amountPlaceholder,
+                    color: '$textDisabled',
+                  }
                 }
-              }
-              size="$heading3xl"
-              color="$textText"
-              mb="$1.5"
-            />
+                size="$heading3xl"
+                color="$textText"
+              />
+              <IconButton
+                icon="RefreshCcwOutline"
+                iconSize="$6"
+                variant="tertiary"
+                size="small"
+                loading={reservesLoading}
+                onPress={() => requestRefresh('manual')}
+              />
+            </XStack>
             {reserves?.overview?.netApy ? (
               <XStack ai="center" gap="$1">
                 <EarnText
@@ -367,13 +376,6 @@ export const Overview = () => {
             )}
           </YStack>
           <XStack ai="center" gap="$3">
-            <IconButton
-              icon="RefreshCcwOutline"
-              variant="tertiary"
-              size="small"
-              loading={reservesLoading}
-              onPress={() => requestRefresh('manual')}
-            />
             {pendingCount > 0 ? (
               <PendingIndicator
                 num={pendingCount}
@@ -506,6 +508,15 @@ export const Overview = () => {
             color: '$textDisabled',
           }
         }
+        action={
+          <IconButton
+            icon="RefreshCcwOutline"
+            variant="tertiary"
+            size="small"
+            loading={reservesLoading}
+            onPress={() => requestRefresh('manual')}
+          />
+        }
       />
 
       <OverviewItem
@@ -582,13 +593,6 @@ export const Overview = () => {
       ) : null}
 
       <XStack ml="auto" ai="center" gap="$3">
-        <IconButton
-          icon="RefreshCcwOutline"
-          variant="tertiary"
-          size="small"
-          loading={reservesLoading}
-          onPress={() => requestRefresh('manual')}
-        />
         {pendingCount > 0 ? (
           <PendingIndicator num={pendingCount} onPress={handleHistoryPress} />
         ) : null}

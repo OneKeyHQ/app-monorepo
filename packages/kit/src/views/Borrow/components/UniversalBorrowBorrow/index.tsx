@@ -42,8 +42,8 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
-import { ApyTextV2 } from '../BorrowTableList/ApyTextV2';
 import { BorrowInfoItem } from '../BorrowInfoItem';
+import { ApyTextV2 } from '../BorrowTableList/ApyTextV2';
 import { showLiquidationRiskDialog } from '../showLiquidationRiskDialog';
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
