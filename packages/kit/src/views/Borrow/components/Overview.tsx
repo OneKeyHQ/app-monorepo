@@ -1,4 +1,10 @@
-import { isValidElement, useCallback, useEffect, useMemo } from 'react';
+import {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -32,7 +38,6 @@ import {
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
-import { useBorrowReserves } from '../hooks/useBorrowReserves';
 import { useBorrowRewards } from '../hooks/useBorrowRewards';
 import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
 import {
@@ -87,19 +92,19 @@ export const Overview = ({
   const {
     reserves,
     market,
-    setReserves,
     reservesLoading,
-    setReservesLoading,
     pendingTxs,
     refreshRewardsRef,
+    refreshReservesRef,
   } = useBorrowContext();
-  const { fetchReserves } = useBorrowReserves();
   const { earnAccount } = useEarnAccount({
     networkId: market?.networkId,
   });
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
   const amountPlaceholder = useMemo(() => {
     return `${settings.currencyInfo.symbol}0.00`;
   }, [settings.currencyInfo.symbol]);
@@ -117,6 +122,11 @@ export const Overview = ({
       }),
     [earnAccountId, marketAddress, networkId, provider],
   );
+
+  useEffect(() => {
+    setIsManualRefreshing(false);
+  }, [refreshScope]);
+
   const historyLabel = useMemo(
     () => intl.formatMessage({ id: ETranslations.global_history }),
     [intl],
@@ -178,31 +188,13 @@ export const Overview = ({
   });
 
   const refreshBorrowData = useCallback(async () => {
-    if (!provider || !networkId || !marketAddress) return;
-    setReservesLoading(true);
-    try {
-      const result = await fetchReserves({
-        provider,
-        networkId,
-        marketAddress,
-        accountId: earnAccountId,
-      });
-      setReserves(result);
-      await Promise.all([refreshBorrowRewards(), refreshHealthFactor()]);
-    } finally {
-      setReservesLoading(false);
+    const tasks: Array<Promise<void>> = [];
+    if (refreshReservesRef.current) {
+      tasks.push(refreshReservesRef.current());
     }
-  }, [
-    fetchReserves,
-    setReserves,
-    setReservesLoading,
-    provider,
-    networkId,
-    marketAddress,
-    earnAccountId,
-    refreshBorrowRewards,
-    refreshHealthFactor,
-  ]);
+    tasks.push(refreshBorrowRewards(), refreshHealthFactor());
+    await Promise.all(tasks);
+  }, [refreshBorrowRewards, refreshHealthFactor, refreshReservesRef]);
 
   useEffect(() => {
     refreshRewardsRef.current = refreshBorrowRewards;
@@ -210,20 +202,32 @@ export const Overview = ({
 
   useEffect(() => {
     if (!refreshScope) return;
-    return registerBorrowRefreshHandler(refreshScope, async () => {
-      await refreshBorrowData();
+    return registerBorrowRefreshHandler(refreshScope, async (request) => {
+      if (request.reason === 'manual' || request.reason === 'txSuccess') {
+        setIsManualRefreshing(true);
+      }
+      try {
+        await refreshBorrowData();
+      } finally {
+        if (request.reason === 'manual' || request.reason === 'txSuccess') {
+          setIsManualRefreshing(false);
+        }
+      }
     });
   }, [refreshBorrowData, refreshScope]);
 
   const requestRefresh = useCallback(
     (reason: 'manual' | 'txSuccess') => {
       if (!refreshScope) return;
+      if (reason === 'manual' || reason === 'txSuccess') {
+        setIsManualRefreshing(true);
+      }
       requestBorrowRefresh({
         scope: refreshScope,
         reason,
       });
     },
-    [refreshScope],
+    [refreshScope, setIsManualRefreshing],
   );
 
   const handleHistoryPress = useCallback(() => {
@@ -358,7 +362,7 @@ export const Overview = ({
                 iconSize="$6"
                 variant="tertiary"
                 size="small"
-                loading={reservesLoading}
+                loading={reservesLoading || isManualRefreshing}
                 onPress={() => requestRefresh('manual')}
               />
             </XStack>
@@ -517,7 +521,7 @@ export const Overview = ({
             icon="RefreshCcwOutline"
             variant="tertiary"
             size="small"
-            loading={reservesLoading}
+            loading={reservesLoading || isManualRefreshing}
             onPress={() => requestRefresh('manual')}
           />
         }
