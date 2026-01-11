@@ -105,7 +105,7 @@ export default class ServiceNotification extends ServiceBase {
 
   async getNotificationProvider(): Promise<NotificationProviderBase> {
     if (!this._notificationProvider) {
-      const { disabledWebSocket, disabledJPush } =
+      const { disabledWebSocket, disabledJPush, disabledUnifiedPush } =
         await notificationsDevSettingsPersistAtom.get();
       const settings = await settingsPersistAtom.get();
 
@@ -114,6 +114,7 @@ export default class ServiceNotification extends ServiceBase {
           instanceId: settings.instanceId,
           disabledWebSocket,
           disabledJPush,
+          disabledUnifiedPush,
         },
         backgroundApi: this.backgroundApi,
       });
@@ -124,6 +125,10 @@ export default class ServiceNotification extends ServiceBase {
       this._notificationProvider.eventEmitter.on(
         EPushProviderEventNames.jpush_connected,
         this.onPushProviderConnected,
+      );
+      this._notificationProvider.eventEmitter.on(
+        EPushProviderEventNames.unifiedpush_connected,
+        this.onUnifiedPushProviderConnected,
       );
       this._notificationProvider.eventEmitter.on(
         EPushProviderEventNames.notification_received,
@@ -156,6 +161,16 @@ export default class ServiceNotification extends ServiceBase {
     return this.pushClient;
   }
 
+  @backgroundMethod()
+  async getUnifiedPushProvider() {
+    const provider = await this.getNotificationProvider();
+    // The native provider has the getUnifiedPushProvider method
+    if ('getUnifiedPushProvider' in provider) {
+      return (provider as any).getUnifiedPushProvider();
+    }
+    return undefined;
+  }
+
   isFirstTimeAllAccountsRegistered = false;
 
   onPushProviderConnected = async ({
@@ -174,6 +189,27 @@ export default class ServiceNotification extends ServiceBase {
     if (!this.isFirstTimeAllAccountsRegistered) {
       this.isFirstTimeAllAccountsRegistered = true;
       // register when webSocket or jpush established
+      void this.registerClientWithOverrideAllAccounts();
+    } else {
+      void this.updateClientBasicAppInfo();
+    }
+  };
+
+  onUnifiedPushProviderConnected = async ({
+    endpoint,
+  }: {
+    endpoint: string;
+  }) => {
+    this.pushClient = merge(this.pushClient, {
+      unifiedPushEndpoint: endpoint,
+    });
+    defaultLogger.notification.common.consoleLog(
+      'UnifiedPush provider connected:',
+      endpoint,
+    );
+    if (!this.isFirstTimeAllAccountsRegistered) {
+      this.isFirstTimeAllAccountsRegistered = true;
+      // register when UnifiedPush endpoint is available
       void this.registerClientWithOverrideAllAccounts();
     } else {
       void this.updateClientBasicAppInfo();
@@ -205,12 +241,18 @@ export default class ServiceNotification extends ServiceBase {
       // jpush will show notification automatically
     }
 
-    // websocket push should show notification by ourselves
-    if (messageInfo.pushSource === 'websocket') {
+    // websocket and unifiedpush should show notification by ourselves
+    if (
+      messageInfo.pushSource === 'websocket' ||
+      messageInfo.pushSource === 'unifiedpush'
+    ) {
       if (!(await this.isNotificationShowed(msgId))) {
-        const prefix = showMessagePushSource ? '[wss:] ' : '';
-        // jpush will show notification automatically
-        // websocket should show notification by ourselves
+        let prefix = '';
+        if (showMessagePushSource) {
+          prefix =
+            messageInfo.pushSource === 'unifiedpush' ? '[up:] ' : '[wss:] ';
+        }
+        // unifiedpush and websocket should show notification by ourselves
         const notificationParams = {
           notificationId: msgId,
           title: prefix + messageInfo.title,

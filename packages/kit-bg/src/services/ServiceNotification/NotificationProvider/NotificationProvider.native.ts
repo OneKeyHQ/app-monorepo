@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/types/notification';
 
 import { PushProviderJPush } from '../PushProvider/PushProviderJPush';
+import { PushProviderUnifiedPush } from '../PushProvider/PushProviderUnifiedPush';
 
 import NotificationProviderBase from './NotificationProviderBase';
 
@@ -50,9 +51,12 @@ export default class NotificationProvider extends NotificationProviderBase {
     void this.configureNotifications();
     this.initWebSocketProvider();
     this.initJPushProvider();
+    this.initUnifiedPushProvider();
   }
 
   jpushProvider: PushProviderJPush | undefined;
+
+  unifiedPushProvider: PushProviderUnifiedPush | undefined;
 
   initJPushProvider() {
     if (this.options.disabledJPush) {
@@ -63,6 +67,24 @@ export default class NotificationProvider extends NotificationProviderBase {
       instanceId: this.options.instanceId,
       backgroundApi: this.backgroundApi,
     });
+  }
+
+  initUnifiedPushProvider() {
+    if (this.options.disabledUnifiedPush) {
+      return;
+    }
+    this.unifiedPushProvider = new PushProviderUnifiedPush({
+      eventEmitter: this.eventEmitter,
+      instanceId: this.options.instanceId,
+      backgroundApi: this.backgroundApi,
+    });
+  }
+
+  /**
+   * Get the UnifiedPush provider instance for configuration
+   */
+  getUnifiedPushProvider(): PushProviderUnifiedPush | undefined {
+    return this.unifiedPushProvider;
   }
 
   private async configureNotifications() {

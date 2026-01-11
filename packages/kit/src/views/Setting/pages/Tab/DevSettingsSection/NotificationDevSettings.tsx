@@ -84,6 +84,22 @@ export function NotificationDevSettings() {
         <Switch size={ESwitchSize.small} />
       </NotificationSectionFieldItem>
 
+      <NotificationSectionFieldItem
+        name="disabledUnifiedPush"
+        title="Disable UnifiedPush (Restart required)"
+        titleProps={{ color: '$text' }}
+      >
+        <Switch size={ESwitchSize.small} />
+      </NotificationSectionFieldItem>
+
+      <NotificationSectionFieldItem
+        name="preferUnifiedPush"
+        title="Prefer UnifiedPush (Privacy-friendly)"
+        titleProps={{ color: '$textSuccess' }}
+      >
+        <Switch size={ESwitchSize.small} />
+      </NotificationSectionFieldItem>
+
       <Button
         onPress={async () => {
           const res =

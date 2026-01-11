@@ -48,6 +48,7 @@ public class MainApplication extends Application implements ReactApplication {
         packages.add(new ExitPackage());
         packages.add(new WebViewCheckerPackage());
         packages.add(new LaunchOptionPackage());
+        packages.add(new UnifiedPushPackage()); // UnifiedPush for privacy-friendly push notifications
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
           packages.add(new SplashScreenPackage());
         }
