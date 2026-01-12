@@ -1,14 +1,6 @@
-import type { ReactNode } from 'react';
-
 import { useIntl } from 'react-intl';
 
-import {
-  Empty,
-  SizableText,
-  Spinner,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Empty, SizableText, Spinner, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareRecordItem } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -20,7 +12,6 @@ interface IHardwareRecordsListProps {
   records: IHardwareRecordItem[];
   isMobile: boolean;
   isLoadingMore?: boolean;
-  headerRight?: ReactNode;
 }
 
 export function HardwareRecordsList({
@@ -28,7 +19,6 @@ export function HardwareRecordsList({
   records,
   isMobile,
   isLoadingMore,
-  headerRight,
 }: IHardwareRecordsListProps) {
   const intl = useIntl();
 
@@ -58,12 +48,9 @@ export function HardwareRecordsList({
 
   return (
     <YStack px="$5" gap="$3" pb="$5">
-      <XStack jc="space-between" ai="center">
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.referral_details })}
-        </SizableText>
-        {headerRight}
-      </XStack>
+      <SizableText size="$headingLg">
+        {intl.formatMessage({ id: ETranslations.referral_details })}
+      </SizableText>
       {isMobile ? (
         records.map((record) => (
           <HardwareRecordCard key={record._id} item={record} />

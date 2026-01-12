@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,7 +12,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IScrollViewRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
@@ -60,7 +59,6 @@ function HardwareSalesRewardPageWrapper() {
   );
   const [cursor, setCursor] = useState<string | undefined>();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const scrollViewRef = useRef<IScrollViewRef>(null);
 
   // Filter state
   const { filterState, updateFilter } = useRewardFilter();
@@ -170,6 +168,7 @@ function HardwareSalesRewardPageWrapper() {
           title={intl.formatMessage({
             id: ETranslations.referral_referred_type_3,
           })}
+          headerRight={() => headerRight}
         />
       ) : (
         <TabPageHeader
@@ -195,7 +194,6 @@ function HardwareSalesRewardPageWrapper() {
             </YStack>
           ) : (
             <ScrollView
-              ref={scrollViewRef}
               flex={1}
               refreshControl={
                 <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
@@ -206,12 +204,13 @@ function HardwareSalesRewardPageWrapper() {
             >
               {/* Breadcrumb for desktop */}
               {!platformEnv.isNative && !md ? (
-                <XStack px="$5" py="$5">
+                <XStack px="$5" py="$5" jc="space-between" ai="center">
                   <BreadcrumbSection
                     secondItemLabel={intl.formatMessage({
                       id: ETranslations.referral_referred_type_3,
                     })}
                   />
+                  {headerRight}
                 </XStack>
               ) : null}
 
@@ -242,7 +241,6 @@ function HardwareSalesRewardPageWrapper() {
                 records={hardwareRecords}
                 isMobile={md}
                 isLoadingMore={isLoadingMore}
-                headerRight={headerRight}
               />
             </ScrollView>
           )}
