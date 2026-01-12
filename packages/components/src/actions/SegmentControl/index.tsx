@@ -12,7 +12,7 @@ export interface ISegmentControlProps extends IXStackProps {
   fullWidth?: boolean;
   value: string | number;
   options: {
-    label: string | ReactElement;
+    label?: string | ReactElement;
     value: string | number;
     testID?: string;
   }[];

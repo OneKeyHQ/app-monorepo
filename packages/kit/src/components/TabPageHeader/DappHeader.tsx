@@ -1,22 +1,32 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   HeaderIconButton,
+  Icon,
   Page,
   Popover,
+  SegmentControl,
+  Select,
+  SizableText,
   Tooltip,
   XStack,
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { useLanguageSelector } from '../../views/Setting/hooks';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { ListItem } from '../ListItem';
 
 import {
   DownloadButton,
@@ -29,9 +39,162 @@ import {
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+
+function LanguageListItem() {
+  const intl = useIntl();
+  const { options, value, onChange } = useLanguageSelector();
+  const label = useMemo(() => {
+    return options.find((i) => i.value === value)?.label;
+  }, [options, value]);
+  const title = useMemo(() => {
+    return intl.formatMessage({ id: ETranslations.global_language });
+  }, [intl]);
+  return (
+    <Select
+      title={title}
+      items={options}
+      value={value}
+      onChange={onChange}
+      floatingPanelProps={{ maxHeight: 280 }}
+      placement="bottom-end"
+      renderTrigger={() => (
+        <ListItem title={title} drillIn>
+          <SizableText size="$bodyMd" color="textSubdued">
+            {label}
+          </SizableText>
+        </ListItem>
+      )}
+    />
+  );
+}
+
+function CurrencyListItem() {
+  const [settings] = useSettingsPersistAtom();
+  const sections = useCurrencySections();
+  const formatSections = useMemo(() => {
+    return sections.map((i) => {
+      return {
+        title: i.title,
+        data: i.data.map((item) => {
+          return {
+            value: item.id,
+            label: `${item.id.toUpperCase()} - ${item.unit}`,
+          };
+        }),
+      };
+    });
+  }, [sections]);
+  const intl = useIntl();
+  const title = useMemo(() => {
+    return intl.formatMessage({ id: ETranslations.settings_default_currency });
+  }, [intl]);
+  const handleChange = useCallback(
+    async (currencyId: string) => {
+      if (currencyId) {
+        for (let i = 0; i < sections.length; i += 1) {
+          const item = sections[i].data.find((idx) => idx.id === currencyId);
+          if (item) {
+            await backgroundApiProxy.serviceSetting.setCurrency({
+              id: item.id,
+              symbol: item.unit,
+            });
+            setTimeout(() => {
+              void backgroundApiProxy.serviceApp.restartApp();
+            });
+            return;
+          }
+        }
+      }
+    },
+    [sections],
+  );
+  return (
+    <Select
+      title={title}
+      sections={formatSections}
+      value={settings.currencyInfo.id}
+      onChange={handleChange}
+      floatingPanelProps={{ maxHeight: 280 }}
+      placement="bottom-end"
+      renderTrigger={() => (
+        <ListItem title={title} drillIn>
+          <SizableText size="$bodyMd" color="textSubdued">
+            {settings.currencyInfo.id.toUpperCase()}
+          </SizableText>
+        </ListItem>
+      )}
+    />
+  );
+}
+
+function ThemeListItem() {
+  const intl = useIntl();
+  const [{ theme }] = useSettingsPersistAtom();
+  const tabOptions = useMemo(
+    () => [
+      {
+        label: <Icon name="LaptopOutline" size="$4" />,
+        value: 'system' as const,
+      },
+      {
+        label: <Icon name="SunOutline" size="$4" />,
+        value: 'light' as const,
+      },
+      {
+        label: <Icon name="MoonOutline" size="$4" />,
+        value: 'dark' as const,
+      },
+    ],
+    [],
+  );
+  const handleChange = useCallback(async (value: unknown) => {
+    await backgroundApiProxy.serviceSetting.setTheme(
+      value as 'light' | 'dark' | 'system',
+    );
+  }, []);
+  return (
+    <ListItem title={intl.formatMessage({ id: ETranslations.settings_theme })}>
+      <SegmentControl
+        options={tabOptions}
+        value={theme}
+        onChange={handleChange}
+      />
+    </ListItem>
+  );
+
+function DownloadOneKeyWalletListItem() {
+  const intl = useIntl();
+  const handlePress = useCallback(() => {
+      openUrlExternal(DOWNLOAD_URL);
+    }, []);
+  return (
+    <ListItem title="Download OneKey wallet" drillIn onPress={handlePress} />
+  )
+}
+
+function Web3GuideListItem() {
+  const intl = useIntl();
+  const handlePress = useCallback(() => {
+    }, []);
+  return (
+    <ListItem title="Web3 guide" drillIn onPress={handlePress} />
+  )
+}
+
+function AnnouncementListItem() {
+  const intl = useIntl();
+  const handlePress = useCallback(() => {
+    }, []);
+  return (
+    <ListItem title="Announcement" drillIn onPress={handlePress} />
+  )
+}
 
 function MoreDappAction() {
   const intl = useIntl();
+
   return (
     <Popover
       title={intl.formatMessage({ id: ETranslations.address_book_menu_title })}
@@ -60,7 +223,17 @@ function MoreDappAction() {
           })}
         />
       }
-      renderContent={<YStack>123</YStack>}
+      renderContent={
+        <YStack py="$3">
+          <ThemeListItem />
+          <LanguageListItem />
+          <CurrencyListItem />
+          <DownloadOneKeyWalletListItem />
+          <Web3GuideListItem />
+          <Divider />
+          <AnnouncementListItem />
+        </YStack>
+      }
     />
   );
 }
