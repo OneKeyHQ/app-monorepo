@@ -661,27 +661,26 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     let cleanupUpdateCheck: (() => void) | undefined;
 
     const fetchUpdateInfo = (_trigger: string) => {
-      void checkForUpdates()
-        .then(
-          async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
-            if (isShowForceUpdatePreviewPage) {
-              return;
+      void checkForUpdates().then(
+        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+          if (isShowForceUpdatePreviewPage) {
+            return;
+          }
+          const updateStrategy =
+            response?.updateStrategy ?? EUpdateStrategy.manual;
+          if (needUpdate) {
+            if (isAutoUpdateStrategy(updateStrategy)) {
+              void downloadPackage();
+            } else if (isForceUpdate) {
+              toUpdatePreviewPage(true, response);
+            } else if (platformEnv.isNative || platformEnv.isDesktop) {
+              setTimeout(() => {
+                showUpdateDialog(false, response);
+              }, 200);
             }
-            const updateStrategy =
-              response?.updateStrategy ?? EUpdateStrategy.manual;
-            if (needUpdate) {
-              if (isAutoUpdateStrategy(updateStrategy)) {
-                void downloadPackage();
-              } else if (isForceUpdate) {
-                toUpdatePreviewPage(true, response);
-              } else if (platformEnv.isNative || platformEnv.isDesktop) {
-                setTimeout(() => {
-                  showUpdateDialog(false, response);
-                }, 200);
-              }
-            }
-          },
-        );
+          }
+        },
+      );
     };
 
     const scheduleFetchUpdateInfo = () => {
