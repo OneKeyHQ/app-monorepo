@@ -500,7 +500,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       action: async (sdk, compatibleConnectId, device) =>
         sdk
           .deviceSettings(compatibleConnectId, {
-            language: `${language.toLowerCase()}-1`,
+            language,
           })
           .then(async (res) => {
             if (res.success && device.featuresInfo) {

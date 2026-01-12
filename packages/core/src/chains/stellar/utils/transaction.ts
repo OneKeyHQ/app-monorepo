@@ -73,10 +73,8 @@ export function assembleTransaction(
     );
   }
 
-  const classicFeeNum = new BigNumber(raw.fee || '0').toNumber();
-  const minResourceFeeNum = new BigNumber(
-    simulation.minResourceFee || '0',
-  ).toNumber();
+  const classicFeeNum = new BigNumber(raw.fee || '0');
+  const minResourceFeeNum = new BigNumber(simulation.minResourceFee || '0');
   const txnBuilder = StellarSdk.TransactionBuilder.cloneFrom(raw, {
     // automatically update the tx fee that will be set on the resulting tx to
     // the sum of 'classic' fee provided from incoming tx.fee and minResourceFee
@@ -86,7 +84,7 @@ export function assembleTransaction(
     // operations', In soroban contract tx, there can only be single operation
     // in the tx, so can make simplification of total classic fees for the
     // soroban transaction will be equal to incoming tx.fee + minResourceFee.
-    fee: (classicFeeNum + minResourceFeeNum).toString(),
+    fee: classicFeeNum.plus(minResourceFeeNum).toFixed(0, BigNumber.ROUND_UP),
     // apply the pre-built Soroban Tx Data from simulation onto the Tx
     sorobanData: simulation.transactionData,
     networkPassphrase: raw.networkPassphrase,
