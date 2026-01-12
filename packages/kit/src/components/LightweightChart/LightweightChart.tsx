@@ -21,6 +21,7 @@ export function LightweightChart({
   bottomColor,
   lineWidth,
   showPriceScale,
+  showHorzGridLines,
   onHover,
 }: ILightweightChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -34,6 +35,7 @@ export function LightweightChart({
     bottomColor,
     lineWidth,
     showPriceScale,
+    showHorzGridLines,
   });
 
   useEffect(() => {
@@ -42,8 +44,24 @@ export function LightweightChart({
     // Capture container for cleanup
     const container = chartContainerRef.current;
 
+    const baseOptions = createChartOptions(
+      chartConfig.theme,
+      chartConfig.showPriceScale,
+    );
+    const gridOptions = {
+      vertLines: { visible: false },
+      horzLines: chartConfig.showHorzGridLines
+        ? {
+            visible: true,
+            color: chartConfig.horzLineColor ?? '#E5E5EA',
+            style: chartConfig.horzLineStyle ?? 2,
+          }
+        : { visible: false },
+    };
+
     const chart = createChart(container, {
-      ...createChartOptions(chartConfig.theme, chartConfig.showPriceScale),
+      ...baseOptions,
+      grid: gridOptions,
       width: container.clientWidth,
       height,
     });
