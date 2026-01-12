@@ -56,6 +56,7 @@ export enum EAtomNames {
   primeLoginDialogAtom = 'primeLoginDialogAtom',
   primeTransferAtom = 'primeTransferAtom',
   keylessDialogAtom = 'keylessDialogAtom',
+  keylessPinConfirmStatusAtom = 'keylessPinConfirmStatusAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
   accountSelectorStatusAtom = 'accountSelectorStatusAtom',
   allNetworksPersistAtom = 'allNetworksPersistAtom',
