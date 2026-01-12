@@ -19,12 +19,6 @@ export function RiskSection({ risk }: { risk?: IBorrowReserveDetail['risk'] }) {
   return (
     <>
       <YStack gap="$6">
-        <EarnText
-          text={{
-            text: intl.formatMessage({ id: ETranslations.global_risk }),
-          }}
-          size="$headingLg"
-        />
         <YStack gap="$3">
           {risk.items.map((item, index) => (
             <Fragment key={`${item.title.text}-${index}`}>

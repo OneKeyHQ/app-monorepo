@@ -12,6 +12,6 @@
 "NSCameraUsageDescription" = "Use Camera to scan QR Code.";
 "NSFaceIDUsageDescription" = "Use Face ID to authenticate and unlock your wallet.";
 "NSMicrophoneUsageDescription" = "Use Microphone to record videos.";
-"NSPhotoLibraryAddUsageDescription" = "Use photo library to save QR images.";
+"NSPhotoLibraryAddUsageDescription" = "Utilisez la bibliothèque de photos pour enregistrer des images.";
 "NSPhotoLibraryUsageDescription" = "Use photo library to read QR images.";
 "NSLocalNetworkUsageDescription" = "This app will be able to discover and connect to devices on the networks you use.";

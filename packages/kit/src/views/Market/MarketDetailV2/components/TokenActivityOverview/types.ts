@@ -8,17 +8,17 @@ export interface ITimeRangeOption {
 
 export interface ITransactionRowProps {
   label: string;
-  buyCount: number;
-  sellCount: number;
-  totalCount: number;
+  buyCount: number | undefined;
+  sellCount: number | undefined;
+  totalCount: number | undefined;
   isLoading?: boolean;
 }
 
 export interface IVolumeRowProps {
   label: string;
-  buyVolume: number;
-  sellVolume: number;
-  totalVolume: number;
+  buyVolume: number | undefined;
+  sellVolume: number | undefined;
+  totalVolume: number | undefined;
   isLoading?: boolean;
 }
 
