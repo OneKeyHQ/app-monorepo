@@ -1,11 +1,7 @@
 import { useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { NavBackButton, Page, XStack, useMedia } from '@onekeyhq/components';
-import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 

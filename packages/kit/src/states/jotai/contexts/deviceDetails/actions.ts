@@ -151,7 +151,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
     });
   });
 
-  updateBrightness = contextAtomMethod(async (get, set) => {
+  updateBrightness = contextAtomMethod(async (get, _set) => {
     const walletId = get(currentWalletIdAtom());
     if (!walletId) return;
 

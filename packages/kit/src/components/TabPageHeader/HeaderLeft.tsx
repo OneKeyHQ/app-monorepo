@@ -103,7 +103,7 @@ export function HeaderLeft({
   tabRoute: ETabRoutes;
   customHeaderLeftItems?: ReactNode;
 }) {
-  const { gtMd } = useMedia();
+  const { gtMd: _gtMd } = useMedia();
 
   const items = useMemo(() => {
     if (customHeaderLeftItems) {
