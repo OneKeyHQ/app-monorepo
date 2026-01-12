@@ -30,6 +30,7 @@ ${jsonFiles
       : `  '${file.split('.')[0].replace(/_/g, '-')}': enUS,`,
   )
   .join('\n')}
+  'en': enUS,
 };
 
 export { enUS };
