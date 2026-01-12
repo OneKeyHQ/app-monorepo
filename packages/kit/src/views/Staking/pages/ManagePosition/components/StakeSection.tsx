@@ -135,7 +135,7 @@ export const StakeSection = ({
     }
   }, [estimateFeeUTXO]);
 
-  const { result, isLoading = true } = usePromiseResult(
+  const { result, isLoading: _isLoading = true } = usePromiseResult(
     async () => {
       if (!hasRequiredData || !protocolInfo?.approve?.approveTarget) {
         return undefined;
