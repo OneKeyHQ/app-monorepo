@@ -126,7 +126,6 @@ import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import {
   EIndexedDBBucketNames,
-  IKeylessWalletDetailsInfo,
   type IDBAccount,
   type IDBAddress,
   type IDBCreateHwWalletParams,
@@ -147,6 +146,7 @@ import {
   type IDBWallet,
   type IDBWalletId,
   type IDBWalletIdSingleton,
+  type IKeylessWalletDetailsInfo,
 } from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
