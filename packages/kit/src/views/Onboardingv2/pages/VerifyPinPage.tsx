@@ -139,6 +139,16 @@ function VerifyPinPage() {
     [isInputDisabled],
   );
 
+  const handleForgotPin = useCallback(() => {
+    if (isVerifyPinOnly) {
+      navigation.push(EOnboardingPagesV2.CreatePin, {
+        action: EKeylessFinalizeAction.ResetPin,
+      });
+    } else {
+      navigation.push(EOnboardingPagesV2.ResetPin);
+    }
+  }, [navigation, isVerifyPinOnly]);
+
   const handleVerify = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -159,7 +169,7 @@ function VerifyPinPage() {
 
         if (newAttemptsRemaining <= 0) {
           // Max attempts reached - redirect to reset PIN page
-          navigation.replace(EOnboardingPagesV2.ResetPin);
+          void handleForgotPin();
         } else {
           // Get cooldown time for this attempt
           const cooldownTime = COOLDOWN_BY_ATTEMPT[attemptNumber] || 0;
@@ -189,19 +199,9 @@ function VerifyPinPage() {
     mode,
     pinInputRef,
     verifyKeylessOnboardingPin,
-    navigation,
+    handleForgotPin,
     startCooldown,
   ]);
-
-  const handleForgotPin = useCallback(() => {
-    if (isVerifyPinOnly) {
-      navigation.push(EOnboardingPagesV2.CreatePin, {
-        action: EKeylessFinalizeAction.ResetPin,
-      });
-    } else {
-      navigation.push(EOnboardingPagesV2.ResetPin);
-    }
-  }, [navigation, isVerifyPinOnly]);
 
   // Build error message based on state
   const displayErrorMessage = (() => {

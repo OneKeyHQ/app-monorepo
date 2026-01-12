@@ -12,6 +12,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useVerifyKeylessPinChecking } from '../../../components/KeylessWallet/useKeylessWallet';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 const fn = debounce(
   async () => {
@@ -45,6 +46,7 @@ export function NotificationRegisterDaily() {
   const isFocused = useRouteIsFocused();
   const [{ locale, currencyInfo }] = useSettingsPersistAtom();
   const [{ hideValue }] = useSettingsValuePersistAtom();
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
   const isFirstRender = useRef(true);
@@ -55,9 +57,18 @@ export function NotificationRegisterDaily() {
     }
     if (isFocused) {
       void fn();
-      void fn2({ verifyKeylessPinChecking });
+      void fn2({
+        verifyKeylessPinChecking: () => {
+          if (activeAccount?.wallet) {
+            return verifyKeylessPinChecking({
+              wallet: activeAccount.wallet,
+            });
+          }
+          return Promise.resolve();
+        },
+      });
     }
-  }, [isFocused, verifyKeylessPinChecking]);
+  }, [isFocused, verifyKeylessPinChecking, activeAccount?.wallet]);
 
   useDeepCompareEffect(() => {
     if (isFirstRender.current) {
