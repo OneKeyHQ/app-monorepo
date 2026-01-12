@@ -183,7 +183,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       connectId,
       featuresDeviceId,
       debugMethodName: 'deviceSettings.changePin',
-      action: async (hardwareSDK, compatibleConnectId, device) =>
+      action: async (hardwareSDK, compatibleConnectId, _device) =>
         hardwareSDK?.deviceChangePin(compatibleConnectId, {
           remove,
         }),

@@ -253,7 +253,7 @@ export function FirmwareChangeFirmwareWarn({
 
   tips.push({
     content: intl.formatMessage({
-      id: ETranslations.device_wipe_data_bannner,
+      id: ETranslations.device_wipe_data_banner,
     }),
     type: 'danger',
   });

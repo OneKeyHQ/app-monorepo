@@ -5,15 +5,11 @@ import {
   useRoute,
 } from '@react-navigation/native';
 
-import { Toast, useIsTabletDetailView } from '@onekeyhq/components';
+import { useIsTabletDetailView } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ERootRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 export function useMarketDetailBackNavigation() {
   const navigation = useAppNavigation();

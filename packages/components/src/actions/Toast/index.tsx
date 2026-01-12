@@ -354,7 +354,7 @@ function toastNotification({
 }: IToastNotificationProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   return showMessage({
-    renderContent: (props) => (
+    renderContent: (_props) => (
       <ToastNotificationContent
         onClose={handleClose}
         title={title}
