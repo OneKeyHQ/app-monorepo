@@ -135,6 +135,8 @@ export const ManagePositionPart = ({
           </YStack>
           {userInfo?.walletBalance?.button ? (
             <Button
+              mt="auto"
+              mb="$1.5"
               variant="primary"
               size="medium"
               disabled={userInfo.walletBalance.button.disabled}
@@ -173,6 +175,8 @@ export const ManagePositionPart = ({
           </YStack>
           {userInfo?.availableBorrowBalance?.button ? (
             <Button
+              mt="auto"
+              mb="$1.5"
               variant="primary"
               size="medium"
               disabled={userInfo.availableBorrowBalance.button.disabled}
