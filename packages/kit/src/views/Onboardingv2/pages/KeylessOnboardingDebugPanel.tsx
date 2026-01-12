@@ -186,6 +186,12 @@ export function KeylessOnboardingDebugPanelView({
         重置社交登录 Token
       </Button>
 
+      {activeAccount?.wallet?.isKeyless ? null : (
+        <SizableText size="$bodySmMedium">
+          当前钱包不是 Keyless 钱包
+        </SizableText>
+      )}
+
       <YStack gap="$1" p="$2" backgroundColor="$bgSubdued" borderRadius="$2">
         <SizableText size="$bodySmMedium">Pin Confirm Status:</SizableText>
         <SizableText size="$bodySm">

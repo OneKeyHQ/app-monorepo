@@ -4,7 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  primePersistAtom,
+  useKeylessPinConfirmStatusAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   devSettingsPersistAtom,
   useDevSettingsPersistAtom,
@@ -16,7 +19,9 @@ import {
   OneKeyLocalError,
   PrimeSendEmailOTPCancelError,
 } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EKeylessFinalizeAction,
   EKeylessWalletEnableScene,
@@ -977,12 +982,53 @@ export function useKeylessWallet() {
 export function useVerifyKeylessPinChecking() {
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const intl = useIntl();
+  const [keylessPinConfirmStatus] = useKeylessPinConfirmStatusAtom();
+
+  const cancelVerifyPin = useCallback(async (ownerId: string) => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    // Try to refresh session if refreshToken is valid
+    let refreshResult;
+    try {
+      refreshResult =
+        await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
+          { ownerId },
+        );
+    } catch (error) {
+      // Continue to navigation if refresh fails
+    }
+
+    if (
+      refreshResult &&
+      refreshResult?.accessToken &&
+      refreshResult?.refreshToken
+    ) {
+      await backgroundApiProxy.serviceKeylessWallet.apiUpdatePinConfirmStatus({
+        token: refreshResult.accessToken,
+        isCancelAction: true,
+      });
+    }
+  }, []);
+
   const verifyKeylessPinChecking = useCallback(
     async (options: { forceVerify?: boolean; wallet: IDBWallet }) => {
       const activeWallet = options.wallet;
       if (activeWallet?.isKeyless) {
         const ownerId = activeWallet?.keylessDetailsInfo?.keylessOwnerId;
         if (!ownerId) {
+          return;
+        }
+        let shouldChecking = true;
+        if (
+          keylessPinConfirmStatus?.socialProvider ===
+            activeWallet?.keylessDetailsInfo?.keylessProvider &&
+          keylessPinConfirmStatus?.socialUserIdHash ===
+            activeWallet?.keylessDetailsInfo?.socialUserIdHash &&
+          keylessPinConfirmStatus?.remindTime &&
+          keylessPinConfirmStatus?.remindTime > Date.now()
+        ) {
+          shouldChecking = false;
+        }
+        if (!shouldChecking && !options.forceVerify) {
           return;
         }
         const checkShouldVerifyPin = async () => {
@@ -1012,6 +1058,7 @@ export function useVerifyKeylessPinChecking() {
         if (shouldVerifyPin) {
           const showPinReminderDialog = () => {
             Dialog.show({
+              showExitButton: false,
               disableDrag: true,
               dismissOnOverlayPress: false,
               icon: 'Shield2CheckOutline',
@@ -1022,7 +1069,25 @@ export function useVerifyKeylessPinChecking() {
               description: intl.formatMessage({
                 id: ETranslations.pin_verify_reminder_dialog_desc,
               }),
-              showCancelButton: false,
+              showCancelButton: true,
+              onCancelText: 'Skip now',
+              onCancel: async () => {
+                try {
+                  await cancelVerifyPin(ownerId);
+                } catch (error) {
+                  // Continue to navigation if cancel fails
+                  if (
+                    errorUtils.isErrorByClassName({
+                      error,
+                      className: [
+                        EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+                      ],
+                    })
+                  ) {
+                    showPinReminderDialog();
+                  }
+                }
+              },
               onConfirmText: intl.formatMessage({
                 id: ETranslations.pin_verify_reminder_dialog_button_label,
               }),
@@ -1040,18 +1105,23 @@ export function useVerifyKeylessPinChecking() {
                 // Use void to start async flow without blocking dialog close
                 void (async () => {
                   try {
-                    await backgroundApiProxy.servicePassword.promptPasswordVerify(
-                      {
-                        reason: EReasonForNeedPassword.Security,
-                      },
-                    );
+                    await backgroundApiProxy.servicePassword.promptPasswordVerify();
                     // Password verified, continue to next step
                     void goToOneKeyIDLoginPageForKeylessWallet({
                       mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
                     });
-                  } catch {
-                    // Password verification cancelled, show first dialog again
-                    showPinReminderDialog();
+                  } catch (error) {
+                    // Continue to navigation if cancel fails
+                    if (
+                      errorUtils.isErrorByClassName({
+                        error,
+                        className: [
+                          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+                        ],
+                      })
+                    ) {
+                      showPinReminderDialog();
+                    }
                   }
                 })();
               },
@@ -1062,7 +1132,14 @@ export function useVerifyKeylessPinChecking() {
         }
       }
     },
-    [goToOneKeyIDLoginPageForKeylessWallet, intl],
+    [
+      cancelVerifyPin,
+      goToOneKeyIDLoginPageForKeylessWallet,
+      intl,
+      keylessPinConfirmStatus?.remindTime,
+      keylessPinConfirmStatus?.socialProvider,
+      keylessPinConfirmStatus?.socialUserIdHash,
+    ],
   );
-  return { verifyKeylessPinChecking };
+  return { verifyKeylessPinChecking, cancelVerifyPin };
 }

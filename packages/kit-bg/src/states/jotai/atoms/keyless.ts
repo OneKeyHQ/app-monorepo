@@ -21,18 +21,12 @@ export type IKeylessPinConfirmStatusAtomData = {
   needRemind: boolean | undefined;
   remindTime: number | undefined;
   confirmedCount: number | undefined;
-};
+} | null;
 
 export const {
   target: keylessPinConfirmStatusAtom,
   use: useKeylessPinConfirmStatusAtom,
 } = globalAtom<IKeylessPinConfirmStatusAtomData>({
   name: EAtomNames.keylessPinConfirmStatusAtom,
-  initialValue: {
-    socialUserIdHash: undefined,
-    socialProvider: undefined,
-    needRemind: undefined,
-    remindTime: undefined,
-    confirmedCount: undefined,
-  },
+  initialValue: null,
 });

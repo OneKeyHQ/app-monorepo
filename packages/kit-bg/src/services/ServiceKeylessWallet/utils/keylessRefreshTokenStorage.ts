@@ -223,25 +223,17 @@ async function saveTokensToStorage(params: {
 async function getTokensFromStorage(params: {
   ownerId: string;
   backgroundApi: IBackgroundApi;
-}): Promise<{ token: string; refreshToken: string } | null> {
+}): Promise<{ token: string | null; refreshToken: string | null }> {
   const { ownerId, backgroundApi } = params;
 
   // Get accessToken first (without passcode)
   const token = await getAccessTokenFromStorage({ ownerId, backgroundApi });
-
-  if (!token) {
-    return null;
-  }
 
   // Then get refreshToken (with passcode)
   const refreshToken = await getRefreshTokenFromStorage({
     ownerId,
     backgroundApi,
   });
-
-  if (!refreshToken) {
-    return null;
-  }
 
   return { token, refreshToken };
 }

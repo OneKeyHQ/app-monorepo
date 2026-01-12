@@ -1925,7 +1925,7 @@ class ServiceKeylessWallet extends ServiceBase {
           backgroundApi: this.backgroundApi,
         });
 
-      if (!storedTokens) {
+      if (!storedTokens?.refreshToken) {
         return null;
       }
 
@@ -1953,6 +1953,12 @@ class ServiceKeylessWallet extends ServiceBase {
       };
 
       if (refreshResult?.access_token && refreshResult?.refresh_token) {
+        await keylessRefreshTokenStorage.saveTokensToStorage({
+          ownerId,
+          refreshToken: refreshResult.refresh_token,
+          token: refreshResult.access_token,
+          backgroundApi: this.backgroundApi,
+        });
         return {
           accessToken: refreshResult.access_token,
           refreshToken: refreshResult.refresh_token,
@@ -1984,19 +1990,25 @@ class ServiceKeylessWallet extends ServiceBase {
 
     if (!isSuccess) {
       throw new OneKeyLocalError('Failed to reset pin confirm status');
+    } else {
+      await keylessPinConfirmStatusAtom.set(null);
     }
   }
 
   @backgroundMethod()
   @toastIfError()
-  async apiUpdatePinConfirmStatus(params: { token: string }): Promise<void> {
-    const { token } = params;
+  async apiUpdatePinConfirmStatus(params: {
+    token: string;
+    isCancelAction?: boolean;
+  }): Promise<void> {
+    const { token, isCancelAction } = params;
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
     const res = await client.post<IApiClientResponse<{ ok: boolean }>>(
       '/prime/v1/keyless-wallet/updatePinConfirmStatus',
       {
         token,
+        isCancelAction,
       },
     );
 
@@ -2035,15 +2047,15 @@ class ServiceKeylessWallet extends ServiceBase {
     const remindTime = res?.data?.data?.remind_time;
     const confirmedCount = res?.data?.data?.confirmed_count;
 
-    await keylessPinConfirmStatusAtom.set({
-      socialUserIdHash,
-      socialProvider,
-      needRemind: shouldRemind,
-      remindTime,
-      confirmedCount,
-    });
-
     if (isSuccess) {
+      await keylessPinConfirmStatusAtom.set({
+        socialUserIdHash,
+        socialProvider,
+        needRemind: shouldRemind,
+        remindTime,
+        confirmedCount,
+      });
+
       return {
         shouldRemind: !!shouldRemind,
       };
