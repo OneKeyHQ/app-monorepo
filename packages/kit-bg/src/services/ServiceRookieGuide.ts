@@ -71,7 +71,7 @@ class ServiceRookieGuide extends ServiceBase {
           ? value
           : Object.values(value)
               .reduce((acc, val) => acc.plus(val || '0'), new BigNumber(0))
-              .toString();
+              .toFixed();
 
       return { balance, currency: currency || 'usd' };
     } catch {
