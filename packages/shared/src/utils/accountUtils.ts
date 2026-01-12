@@ -1028,6 +1028,10 @@ function buildKeylessRefreshTokenKey({ ownerId }: { ownerId: string }): string {
   return `OneKey_Keyless_RefreshToken__${ownerId}`;
 }
 
+function buildKeylessTokenKey({ ownerId }: { ownerId: string }): string {
+  return `OneKey_Keyless_Token__${ownerId}`;
+}
+
 function isValidDeriveType(deriveType: string): boolean {
   if (!deriveType) return false;
   const validDeriveTypes: Record<IAccountDeriveTypes, true> = {
@@ -1051,6 +1055,7 @@ export default {
   buildKeylessDevicePackKey,
   buildKeylessMnemonicPasswordKey,
   buildKeylessRefreshTokenKey,
+  buildKeylessTokenKey,
   buildKeylessWalletId,
   buildAccountValueKey,
   parseAccountValueKey,

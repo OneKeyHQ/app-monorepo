@@ -1,7 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  useHyperliquidActions,
+  useTradingFormEnvAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -10,10 +15,10 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
-import { useTradeUpdates } from './hooks';
+import { useChartLines, useTradeUpdates } from './hooks';
 import { usePerpsTradingViewMessageHandler } from './messageHandlers';
 
-import type { ITradeEvent } from './types';
+import type { ITVOrderCancelPayload, ITradeEvent } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
@@ -101,9 +106,24 @@ export function TradingViewPerpsV2(
   const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
+  const actions = useHyperliquidActions();
+
+  // Chart lines state
+  const [isChartLinesReady, setIsChartLinesReady] = useState(false);
+  const [{ szDecimals }] = useTradingFormEnvAtom();
   const _webviewKey = useMemo(() => {
     return `${theme}-${webviewKey || ''}`;
   }, [theme, webviewKey]);
+
+  // Track webviewKey changes and reset isChartLinesReady when it changes
+  const prevWebviewKeyRef = useRef(_webviewKey);
+  useEffect(() => {
+    if (prevWebviewKeyRef.current !== _webviewKey) {
+      // WebView will reload due to key change, reset ready state
+      setIsChartLinesReady(false);
+      prevWebviewKeyRef.current = _webviewKey;
+    }
+  }, [_webviewKey]);
 
   useEffect(() => {
     setMounted({ mounted: true });
@@ -143,10 +163,70 @@ export function TradingViewPerpsV2(
     symbol,
   });
 
+  // Callback when TradingView iframe signals chart lines are ready
+  const onChartLinesReady = useCallback(() => {
+    setIsChartLinesReady(true);
+  }, []);
+
+  // Callback when user clicks cancel button on order line in TradingView chart
+  const onOrderCancel = useCallback(
+    async (payload: ITVOrderCancelPayload) => {
+      const { symbol: orderSymbol, orderId } = payload;
+
+      if (!orderId) {
+        console.warn('[TradingViewPerpsV2] Order cancel: missing orderId');
+        return;
+      }
+
+      try {
+        // Ensure trading is enabled before canceling
+        await actions.current.ensureTradingEnabled();
+
+        // Get symbol metadata to obtain assetId
+        const symbolMeta =
+          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+            coin: orderSymbol,
+          });
+
+        if (!symbolMeta) {
+          console.warn(
+            '[TradingViewPerpsV2] Token info not found for coin:',
+            orderSymbol,
+          );
+          return;
+        }
+
+        // Cancel the order
+        await actions.current.cancelOrder({
+          orders: [
+            {
+              assetId: symbolMeta.assetId,
+              oid: parseInt(orderId, 10),
+            },
+          ],
+        });
+      } catch (error) {
+        console.error('[TradingViewPerpsV2] Failed to cancel order:', error);
+      }
+    },
+    [actions],
+  );
+
   const { customReceiveHandler } = usePerpsTradingViewMessageHandler({
     symbol,
     userAddress,
     webRef,
+    onChartLinesReady,
+    onOrderCancel,
+  });
+
+  // Chart lines management (liquidation, position, orders)
+  useChartLines({
+    symbol,
+    szDecimals: szDecimals ?? 3,
+    userAddress,
+    webRef,
+    isReady: isChartLinesReady,
   });
 
   // trade update push

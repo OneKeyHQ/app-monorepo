@@ -971,6 +971,7 @@ interface ITradingSizeContext {
   price?: string;
   markPrice?: string;
   availableToTrade?: Array<number | string>;
+  maxTradeSzs?: Array<number | string>;
   leverageValue?: number | string | null;
   fallbackLeverage?: number | string | null;
   szDecimals?: number;
@@ -1015,7 +1016,7 @@ const computeMaxTradeSize = ({
   side,
   price,
   markPrice,
-  availableToTrade,
+  maxTradeSzs,
   leverageValue,
   fallbackLeverage,
   szDecimals,
@@ -1025,21 +1026,29 @@ const computeMaxTradeSize = ({
     return new BigNumber(0);
   }
 
-  const availableIndex = side === 'long' ? 0 : 1;
-  const availableValue = availableToTrade?.[availableIndex] ?? 0;
-  const availableBN = new BigNumber(availableValue);
-  if (!availableBN.isFinite() || availableBN.lte(0)) {
-    return new BigNumber(0);
-  }
-
   const leverageCandidate = leverageValue ?? fallbackLeverage ?? 1;
   const leverageBN = new BigNumber(leverageCandidate);
   const leverageSafe =
     leverageBN.isFinite() && leverageBN.gt(0) ? leverageBN : new BigNumber(1);
 
-  const maxTokens = availableBN
+  const index = side === 'long' ? 0 : 1;
+  const maxTradeSz = new BigNumber(maxTradeSzs?.[index] ?? 0);
+  const markPriceBN = new BigNumber(markPrice ?? 0);
+
+  if (!maxTradeSz.gt(0) || !markPriceBN.gt(0)) {
+    return new BigNumber(0);
+  }
+
+  // availableMargin = maxTradeSzs[side] * markPx / leverage
+  const availableMargin = maxTradeSz
+    .multipliedBy(markPriceBN)
+    .dividedBy(leverageSafe);
+
+  // maxTokens = availableMargin * leverage / effectivePrice
+  const maxTokens = availableMargin
     .multipliedBy(leverageSafe)
     .dividedBy(effectivePrice);
+
   if (!maxTokens.isFinite() || maxTokens.lte(0)) {
     return new BigNumber(0);
   }
@@ -1055,7 +1064,7 @@ const resolveTradingSizeBN = ({
   side,
   price,
   markPrice,
-  availableToTrade,
+  maxTradeSzs,
   leverageValue,
   fallbackLeverage,
   szDecimals,
@@ -1078,7 +1087,7 @@ const resolveTradingSizeBN = ({
     side,
     price,
     markPrice,
-    availableToTrade,
+    maxTradeSzs,
     leverageValue,
     fallbackLeverage,
     szDecimals,

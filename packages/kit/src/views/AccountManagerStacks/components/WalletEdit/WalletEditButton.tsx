@@ -1,20 +1,25 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { ActionList, Divider } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 
@@ -42,6 +47,9 @@ function WalletEditButtonView({
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
+
+  const [isResetPinLoading, setIsResetPinLoading] = useState(false);
+  const [isVerifyPinLoading, setIsVerifyPinLoading] = useState(false);
 
   const isPrimeUser = useMemo(() => {
     return user?.primeSubscription?.isActive && user?.onekeyUserId;
@@ -101,6 +109,34 @@ function WalletEditButtonView({
     );
   }, [wallet, isPrimeAvailable]);
 
+  const navigation = useAppNavigation();
+
+  const handleKeylessWalletAction = useCallback(
+    async ({
+      setLoading,
+      mode,
+    }: {
+      setLoading: (loading: boolean) => void;
+      mode: EOnboardingV2OneKeyIDLoginMode;
+    }) => {
+      try {
+        // setLoading(true);
+        await timerUtils.wait(100);
+        await backgroundApiProxy.servicePassword.promptPasswordVerify({
+          reason: EReasonForNeedPassword.Security,
+        });
+        if (platformEnv.isNative) {
+          navigation.popStack();
+          await timerUtils.wait(200);
+        }
+        await goToOneKeyIDLoginPageForKeylessWallet({ mode });
+      } finally {
+        // setLoading(false);
+      }
+    },
+    [navigation, goToOneKeyIDLoginPageForKeylessWallet],
+  );
+
   const renderItems = useCallback(
     async ({
       handleActionListClose,
@@ -125,8 +161,10 @@ function WalletEditButtonView({
               icon="InputOutline"
               label={intl.formatMessage({ id: ETranslations.reset_pin })}
               onClose={handleActionListClose}
+              isLoading={isResetPinLoading}
               onPress={() => {
-                void goToOneKeyIDLoginPageForKeylessWallet({
+                void handleKeylessWalletAction({
+                  setLoading: setIsResetPinLoading,
                   mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
                 });
               }}
@@ -139,8 +177,10 @@ function WalletEditButtonView({
               icon="ChecklistOutline"
               label="Verify PIN"
               onClose={handleActionListClose}
+              isLoading={isVerifyPinLoading}
               onPress={() => {
-                void goToOneKeyIDLoginPageForKeylessWallet({
+                void handleKeylessWalletAction({
+                  setLoading: setIsVerifyPinLoading,
                   mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
                 });
               }}
@@ -207,6 +247,9 @@ function WalletEditButtonView({
       config,
       wallet,
       isKeyless,
+      intl,
+      isResetPinLoading,
+      isVerifyPinLoading,
       showBackupButton,
       showDeviceManagementButton,
       showBulkCopyAddressesButton,
@@ -215,8 +258,7 @@ function WalletEditButtonView({
       showAddHiddenWalletButton,
       showRemoveWalletButton,
       showRemoveDeviceButton,
-      goToOneKeyIDLoginPageForKeylessWallet,
-      intl,
+      handleKeylessWalletAction,
     ],
   );
 

@@ -1,6 +1,6 @@
 import type * as RNFS from 'react-native-fs';
 
-const module: typeof RNFS | undefined = {
+const rnfsMock: typeof RNFS | undefined = {
   DocumentDirectoryPath: '',
   CachesDirectoryPath: '',
   exists: async () => false,
@@ -19,4 +19,4 @@ const module: typeof RNFS | undefined = {
     lastModified: 0,
   }),
 } as any;
-export default module;
+export default rnfsMock;

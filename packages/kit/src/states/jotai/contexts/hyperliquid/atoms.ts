@@ -228,6 +228,7 @@ export const { atom: perpsLedgerUpdatesAtom, use: usePerpsLedgerUpdatesAtom } =
 export interface ITradingFormEnv {
   markPrice?: string;
   availableToTrade?: Array<number | string>;
+  maxTradeSzs?: Array<number | string>;
   leverageValue?: number;
   fallbackLeverage?: number;
   szDecimals?: number;
@@ -252,7 +253,7 @@ export const {
     side: form.side,
     price,
     markPrice: env.markPrice,
-    availableToTrade: env.availableToTrade,
+    maxTradeSzs: env.maxTradeSzs,
     leverageValue: env.leverageValue,
     fallbackLeverage: env.fallbackLeverage,
     szDecimals: env.szDecimals,
@@ -265,7 +266,7 @@ export const {
     side: form.side,
     price,
     markPrice: env.markPrice,
-    availableToTrade: env.availableToTrade,
+    maxTradeSzs: env.maxTradeSzs,
     leverageValue: env.leverageValue,
     fallbackLeverage: env.fallbackLeverage,
     szDecimals: env.szDecimals,

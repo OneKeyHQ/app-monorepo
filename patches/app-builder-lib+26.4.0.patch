@@ -1,8 +1,8 @@
 diff --git a/node_modules/app-builder-lib/out/macPackager.js b/node_modules/app-builder-lib/out/macPackager.js
-index 4ee5f88..e79bba0 100644
+index a52a853..1815f53 100644
 --- a/node_modules/app-builder-lib/out/macPackager.js
 +++ b/node_modules/app-builder-lib/out/macPackager.js
-@@ -189,6 +189,37 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+@@ -205,6 +205,37 @@ class MacPackager extends platformPackager_1.PlatformPackager {
              this.packageInDistributableFormat(appPath, arch, targets, taskManager);
          }
      }
@@ -17,7 +17,7 @@ index 4ee5f88..e79bba0 100644
 +              entitlements = path.join(this.info.buildResourcesDir, p);
 +          }
 +          else {
-+              entitlements = pathManager_1.getTemplatePath("entitlements.mac.plist");
++              entitlements = (0, pathManager_1.getTemplatePath)("entitlements.mac.plist");
 +          }
 +      }
 +      signOptions.entitlements = entitlements;
@@ -28,7 +28,7 @@ index 4ee5f88..e79bba0 100644
 +              entitlementsInherit = path.join(this.info.buildResourcesDir, p);
 +          }
 +          else {
-+              entitlementsInherit = pathManager_1.getTemplatePath("entitlements.mac.plist");
++              entitlementsInherit = (0, pathManager_1.getTemplatePath)("entitlements.mac.plist");
 +          }
 +      }
 +      signOptions["entitlements-inherit"] = entitlementsInherit;
@@ -40,25 +40,25 @@ index 4ee5f88..e79bba0 100644
      async sign(appPath, outDir, masOptions, arch) {
          if (!(0, macCodeSign_1.isSignAllowed)()) {
              return false;
-@@ -196,7 +227,7 @@ class MacPackager extends platformPackager_1.PlatformPackager {
-         const isMas = masOptions != null;
+@@ -213,7 +244,7 @@ class MacPackager extends platformPackager_1.PlatformPackager {
          const options = masOptions == null ? this.platformSpecificBuildOptions : masOptions;
          const qualifier = options.identity;
+         const fallBackToAdhoc = (arch === builder_util_1.Arch.arm64 || arch === builder_util_1.Arch.universal) && !this.forceCodeSigning;
 -        if (qualifier === null) {
 +        if (!isMas && qualifier === null) {
              if (this.forceCodeSigning) {
                  throw new builder_util_1.InvalidConfigurationError("identity explicitly is set to null, but forceCodeSigning is set to true");
              }
-@@ -222,7 +253,7 @@ class MacPackager extends platformPackager_1.PlatformPackager {
-                     builder_util_1.log.warn("Mac Developer is used to sign app — it is only for development and testing, not for production");
-                 }
+@@ -250,7 +281,7 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+                 builder_util_1.log.warn(null, "falling back to ad-hoc signature for macOS application code signing");
+                 identity = new util_identities_1.Identity("-", undefined);
              }
--            if (!options.sign && identity == null) {
-+            if (!isMas && !options.sign && identity == null) {
+-            else if (noIdentity) {
++            else if (!isMas && noIdentity) {
                  await (0, macCodeSign_1.reportError)(isMas, certificateTypes, qualifier, keychainFile, this.forceCodeSigning);
                  return false;
              }
-@@ -287,6 +318,15 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+@@ -318,6 +349,15 @@ class MacPackager extends platformPackager_1.PlatformPackager {
              optionsForFile: await this.getOptionsForFile(appPath, isMas, customSignOptions),
              provisioningProfile: customSignOptions.provisioningProfile || undefined,
          };

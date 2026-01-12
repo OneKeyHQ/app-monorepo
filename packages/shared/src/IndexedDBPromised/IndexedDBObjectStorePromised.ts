@@ -168,7 +168,7 @@ export class IndexedDBObjectStorePromised<
     return this.store.autoIncrement;
   }
 
-  get keyPath(): string | string[] {
+  get keyPath(): string | string[] | null {
     return this.store.keyPath;
   }
 
