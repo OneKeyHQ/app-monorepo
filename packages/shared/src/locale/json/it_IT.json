@@ -548,6 +548,7 @@
   "device.recover_data_banner": "Per recuperare l’accesso alle tue monete, devi ripristinare il portafoglio utilizzando il backup del portafoglio. Assicurati che il backup del portafoglio sia accessibile e leggibile.",
   "device.select_device_popup": "Fai clic sul pulsante qui sotto, quindi seleziona il tuo dispositivo nel popup per connetterti.",
   "device.setting_not_provided": "La versione attuale dell'hardware non supporta questa impostazione. È possibile riprovare dopo l'aggiornamento del firmware.",
+  "device.setting_not_support_language": "La versione attuale del firmware supporta solo {language}",
   "device.settings_switch_firmware_type": "Passa a {type}",
   "device.try_reconnecting_usb": "Se non rilevato, provare a ricollegare l'USB",
   "device.wipe_data_bannner": "Questa azione cancellerà tutti i dati del tuo dispositivo, inclusi portafogli, chiavi e account.",

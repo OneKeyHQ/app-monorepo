@@ -548,6 +548,7 @@
   "device.recover_data_banner": "Untuk mendapatkan kembali akses ke koin Anda, Anda harus memulihkan dompet dengan menggunakan cadangan dompet Anda. Pastikan cadangan dompet Anda dapat diakses dan terbaca.",
   "device.select_device_popup": "Klik tombol di bawah lalu pilih perangkat Anda di popup untuk terhubung.",
   "device.setting_not_provided": "Versi perangkat keras saat ini tidak mendukung pengaturan ini. Anda dapat mencobanya lagi setelah meng-upgrade firmware.",
+  "device.setting_not_support_language": "Versi firmware saat ini hanya mendukung {language}",
   "device.settings_switch_firmware_type": "Beralih ke {type}",
   "device.try_reconnecting_usb": "Jika tidak terdeteksi, coba sambungkan kembali USB",
   "device.wipe_data_bannner": "Tindakan ini akan menghapus semua data perangkat Anda, termasuk dompet, kunci, dan akun.",

@@ -548,6 +548,7 @@
   "device.recover_data_banner": "Para recuperar el acceso a tus monedas, debes restaurar tu billetera utilizando la copia de seguridad de tu billetera. Asegúrate de que la copia de seguridad de tu billetera sea accesible y legible.",
   "device.select_device_popup": "Haga clic en el botón de abajo y luego seleccione su dispositivo en la ventana emergente para conectar.",
   "device.setting_not_provided": "La versión actual del hardware no admite esta configuración. Puedes volver a intentarlo después de actualizar el firmware.",
+  "device.setting_not_support_language": "La versión actual del firmware sólo admite {language}",
   "device.settings_switch_firmware_type": "Cambiar a {type}",
   "device.try_reconnecting_usb": "Si no se detecta, intente reconectar el USB",
   "device.wipe_data_bannner": "Esta acción borrará todos los datos de tu dispositivo, incluidas las billeteras, las claves y las cuentas.",

@@ -548,6 +548,7 @@
   "device.recover_data_banner": "要重新访问您的币,您必须使用钱包备份恢复您的钱包。请确保您的钱包备份可访问且清晰可读。",
   "device.select_device_popup": "点击下方按钮，然后在弹出窗口中选择您的设备以连接。",
   "device.setting_not_provided": "当前硬件固件版本不支持此设置。您可以升级固件后再此尝试。",
+  "device.setting_not_support_language": "当前固件版本仅支持 {language}",
   "device.settings_switch_firmware_type": "切换到 {type}",
   "device.try_reconnecting_usb": "如果未检测到，请尝试重新连接 USB",
   "device.wipe_data_bannner": "此操作将清除您设备上的所有数据,包括钱包、密钥和账户。",
