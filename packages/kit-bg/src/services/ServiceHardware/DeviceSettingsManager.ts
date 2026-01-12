@@ -527,7 +527,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       connectId,
       featuresDeviceId,
       debugMethodName: 'deviceSettings.setBrightness',
-      action: async (sdk, compatibleConnectId, device) =>
+      action: async (sdk, compatibleConnectId, _device) =>
         sdk.deviceSettings(compatibleConnectId, {
           changeBrightness: true,
         }),
@@ -576,7 +576,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       connectId,
       featuresDeviceId,
       debugMethodName: 'deviceSettings.wipeDevice',
-      action: async (sdk, compatibleConnectId, device) =>
+      action: async (sdk, compatibleConnectId, _device) =>
         sdk.deviceWipe(compatibleConnectId),
     });
   }

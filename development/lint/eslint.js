@@ -1,25 +1,32 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
+// Get files changed in the last N commits
+function getRecentCommitFiles(commitCount = 10) {
+  try {
+    const result = execSync(
+      `git log --name-only --pretty=format: -n ${commitCount}`,
+      { encoding: 'utf-8' },
+    );
+    const files = result
+      .split('\n')
+      .filter(
+        (line) =>
+          line.trim() && (line.endsWith('.ts') || line.endsWith('.tsx')),
+      )
+      .map((file) => file.trim());
+    // Return unique files
+    return [...new Set(files)];
+  } catch {
+    return [];
+  }
+}
+
 // Warning limit configuration
-const INITIAL_MAX_WARNINGS = 520;
-const WEEKLY_REDUCTION = 30;
-const START_YEAR = 2026;
+const INITIAL_MAX_WARNINGS = 394;
 
 function getMaxWarnings() {
-  const now = new Date();
-  const startOfYear = new Date(START_YEAR, 0, 1);
-
-  if (now < startOfYear) {
-    return INITIAL_MAX_WARNINGS;
-  }
-
-  // Calculate weeks since start of 2026
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-  const weeksSinceStart = Math.floor((now - startOfYear) / msPerWeek);
-  console.log(`Weeks since start of ${START_YEAR}: ${weeksSinceStart}`);
-  const maxWarnings = INITIAL_MAX_WARNINGS - weeksSinceStart * WEEKLY_REDUCTION;
-  return Math.max(0, maxWarnings); // Never go below 0
+  return INITIAL_MAX_WARNINGS;
 }
 
 // lint results example:
@@ -94,11 +101,38 @@ function handleProblems(result) {
   const selectedWarningGroups = [];
   if (warningOverflow > 0) {
     // Need to show some warning files to alert user
-    // Randomly select files until we cover the overflow
-    const shuffled = [...warningOnlyGroups].sort(() => Math.random() - 0.5);
+    // Prioritize files from recent commits, then randomly select others
+    console.log(
+      `Detected ${warningOverflow} warnings over the limit of ${maxWarnings}. Prioritizing recent files...`,
+    );
+    const recentFiles = getRecentCommitFiles(10);
+    console.log(`Recent changed files: ${recentFiles.join(', ')}`);
+    // Separate warning groups into recent and non-recent
+    const recentWarningGroups = [];
+    const otherWarningGroups = [];
+
+    for (const item of warningOnlyGroups) {
+      const filePath = item.group[0]; // First line is file path
+      const isRecent = recentFiles.some((f) => filePath.includes(f));
+      if (isRecent) {
+        recentWarningGroups.push(item);
+      } else {
+        otherWarningGroups.push(item);
+      }
+    }
+
+    // First add recent files, then randomly select from others if needed
+    const shuffledRecent = [...recentWarningGroups].sort(
+      () => Math.random() - 0.5,
+    );
+    const shuffledOther = [...otherWarningGroups].sort(
+      () => Math.random() - 0.5,
+    );
+    const prioritized = [...shuffledRecent, ...shuffledOther];
+
     let accumulatedWarnings = 0;
 
-    for (const item of shuffled) {
+    for (const item of prioritized) {
       selectedWarningGroups.push(item.group);
       accumulatedWarnings += item.warningCount;
       if (accumulatedWarnings >= warningOverflow) {
@@ -142,10 +176,10 @@ function handleProblems(result) {
 
       if (warningOverflow > 0) {
         console.log(
-          `⚠️  WARNING LIMIT EXCEEDED by ${warningOverflow}! Showing ${selectedWarningGroups.length} random file(s) with warnings.`,
+          `⚠️  WARNING LIMIT EXCEEDED by ${warningOverflow}! Showing ${selectedWarningGroups.length} file(s) with warnings (prioritizing recent commits).`,
         );
         console.log(
-          `Please fix these warnings! Limit reduces by ${WEEKLY_REDUCTION} every week.`,
+          `Please fix these warnings! Limit is set to ${maxWarnings} to gradually reduce overall warnings.`,
         );
       }
     }

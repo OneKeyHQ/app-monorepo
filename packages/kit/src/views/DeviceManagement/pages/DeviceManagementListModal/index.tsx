@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { intlFormat } from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import {
@@ -158,27 +157,6 @@ const ListEmptyComponent = () => (
     <Spinner size="large" />
   </Stack>
 );
-
-function DeviceDetailsModalV2Header() {
-  const intl = useIntl();
-  const { gtMd } = useMedia();
-
-  if (gtMd) {
-    return (
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.DeviceManagement}
-      />
-    );
-  }
-  return (
-    <Page.Header
-      title={intl.formatMessage({
-        id: ETranslations.global_device_management,
-      })}
-    />
-  );
-}
 
 function DeviceManagementV2ListWeb() {
   const intl = useIntl();

@@ -7,7 +7,6 @@ import type {
 } from 'react';
 import { isValidElement, useCallback } from 'react';
 
-import type { ISwitchProps } from '@onekeyhq/components';
 import {
   Divider,
   Icon,
@@ -17,7 +16,6 @@ import {
   SizableText,
   Spinner,
   Stack,
-  Switch,
   Unspaced,
   withStaticProperties,
 } from '@onekeyhq/components';
