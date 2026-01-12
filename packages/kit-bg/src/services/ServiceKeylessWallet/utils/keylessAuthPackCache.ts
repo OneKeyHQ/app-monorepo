@@ -2,8 +2,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAuthKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { settingsPersistAtom } from '../../../states/jotai/atoms/settings';
-
 import { buildKeylessLocalEncryptionKey } from './keylessLocalEncryptionKey';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';

@@ -32,7 +32,7 @@ const storage: ISecureStorage = {
   getSecureItem,
   removeSecureItem,
   supportSecureStorage,
-  setSecureItemWithBiometrics(key, data, options) {
+  setSecureItemWithBiometrics(_key, _data, _options) {
     // TODO: mac use keychain to set secure item
     throw new OneKeyLocalError('use webauthn/keychain to set secure item');
   },

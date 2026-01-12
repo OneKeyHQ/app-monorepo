@@ -453,6 +453,7 @@ const TabsWithInfiniteScrollDemo = () => {
             </Stack>
           )}
           keyExtractor={(item) => item.id.toString()}
+          // eslint-disable-next-line react/no-unstable-nested-components
           ListFooterComponent={(() => {
             if (loading1) {
               return (
@@ -497,6 +498,7 @@ const TabsWithInfiniteScrollDemo = () => {
             </Stack>
           )}
           keyExtractor={(item) => item.id.toString()}
+          // eslint-disable-next-line react/no-unstable-nested-components
           ListFooterComponent={(() => {
             if (loading2) {
               return (
