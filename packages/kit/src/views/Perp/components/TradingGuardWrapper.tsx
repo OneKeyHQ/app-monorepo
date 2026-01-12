@@ -14,6 +14,8 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
 
+import { showHyperliquidTermsDialog } from './HyperliquidTerms';
+
 interface ITradingGuardWrapperProps {
   children?: ReactNode;
   forceShowEnableTrading?: boolean;
@@ -40,6 +42,14 @@ function TradingGuardWrapperInternal({
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const enableTrading = useCallback(async () => {
     try {
+      // Check if terms are accepted before enabling trading
+      const isTermsAccepted =
+        await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
+      if (!isTermsAccepted) {
+        await showHyperliquidTermsDialog();
+        return;
+      }
+
       const status =
         await backgroundApiProxy.serviceHyperliquid.enableTrading();
       if (
