@@ -273,6 +273,14 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   return (
     <SwapPanelContent
+      currentMarketToken={{
+        networkId: networkId || '',
+        contractAddress: tokenDetail?.address || '',
+        symbol: tokenDetail?.symbol || '',
+        decimals: tokenDetail?.decimals || 0,
+        logoURI: tokenDetail?.logoUrl || '',
+        isNative: !!tokenDetail?.isNative,
+      }}
       onCloseDialog={onCloseDialog}
       priceRate={priceRate}
       swapMevNetConfig={swapMevNetConfig}
