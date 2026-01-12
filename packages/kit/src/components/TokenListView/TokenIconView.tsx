@@ -2,8 +2,8 @@ import { memo, useMemo } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import { useAccountData } from '../../hooks/useAccountData';
 import {
   useAggregateTokensListMapAtom,
   useAllTokenListMapAtom,
@@ -31,13 +31,12 @@ function TokenIconView(props: IProps) {
     isAggregateToken,
   } = props;
 
-  const { network } = useAccountData({ networkId });
   const { gtMd } = useMedia();
 
   const tokenSize = gtMd ? 'md' : 'lg';
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
-  const { allAggregateTokenMap } = useTokenListViewContext();
+  const { allAggregateTokenMap, networksMap } = useTokenListViewContext();
   const [allTokenListMap] = useAllTokenListMapAtom();
   const allAggregateTokenList = useMemo(
     () => allAggregateTokenMap?.[$key]?.tokens ?? [],
@@ -48,9 +47,6 @@ function TokenIconView(props: IProps) {
     [aggregateTokensListMap, $key],
   );
   const firstAggregateToken = aggregateTokenList?.[0];
-  const { network: firstAggregateTokenNetwork } = useAccountData({
-    networkId: firstAggregateToken?.networkId,
-  });
 
   const { tokenHasBalance, tokenHasBalanceCount } = useMemo(() => {
     if (isAggregateToken) {
@@ -71,20 +67,31 @@ function TokenIconView(props: IProps) {
     isAggregateToken,
   ]);
 
+  const selectedNetworkId =
+    (firstAggregateToken?.networkId &&
+      aggregateTokenList?.length === 1 &&
+      allAggregateTokenList.length === 0) ||
+    (tokenHasBalance && tokenHasBalanceCount === 1)
+      ? tokenHasBalance?.networkId ?? firstAggregateToken?.networkId ?? ''
+      : networkId ?? '';
+
+  const network = useMemo(() => {
+    if (!selectedNetworkId) {
+      return undefined;
+    }
+    return (
+      networksMap?.[selectedNetworkId] ??
+      networkUtils.getLocalNetworkInfo(selectedNetworkId)
+    );
+  }, [networksMap, selectedNetworkId]);
+
   if (isAllNetworks && showNetworkIcon) {
     return (
       <Token
         size={tokenSize}
         tokenImageUri={icon}
         networkImageUri={network?.logoURI}
-        networkId={
-          (firstAggregateTokenNetwork &&
-            aggregateTokenList?.length === 1 &&
-            allAggregateTokenList.length === 0) ||
-          (tokenHasBalance && tokenHasBalanceCount === 1)
-            ? tokenHasBalance?.networkId ?? firstAggregateTokenNetwork?.id ?? ''
-            : networkId
-        }
+        networkId={selectedNetworkId}
         showNetworkIcon
       />
     );

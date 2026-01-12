@@ -40,6 +40,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { runAfterTokensDone } from '../../hooks/useRunAfterTokensDone';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 import type { IntlShape } from 'react-intl';
@@ -655,28 +656,50 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     }
     isFirstLaunch = false;
     let isShowForceUpdatePreviewPage = false;
+    let cancelled = false;
+    let hasTriggeredUpdateCheck = false;
+    let cleanupUpdateCheck: (() => void) | undefined;
 
-    const fetchUpdateInfo = () => {
-      void checkForUpdates().then(
-        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
-          if (isShowForceUpdatePreviewPage) {
-            return;
-          }
-          const updateStrategy =
-            response?.updateStrategy ?? EUpdateStrategy.manual;
-          if (needUpdate) {
-            if (isAutoUpdateStrategy(updateStrategy)) {
-              void downloadPackage();
-            } else if (isForceUpdate) {
-              toUpdatePreviewPage(true, response);
-            } else if (platformEnv.isNative || platformEnv.isDesktop) {
-              setTimeout(() => {
-                showUpdateDialog(false, response);
-              }, 200);
+    const fetchUpdateInfo = (_trigger: string) => {
+      void checkForUpdates()
+        .then(
+          async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+            if (isShowForceUpdatePreviewPage) {
+              return;
             }
-          }
-        },
-      );
+            const updateStrategy =
+              response?.updateStrategy ?? EUpdateStrategy.manual;
+            if (needUpdate) {
+              if (isAutoUpdateStrategy(updateStrategy)) {
+                void downloadPackage();
+              } else if (isForceUpdate) {
+                toUpdatePreviewPage(true, response);
+              } else if (platformEnv.isNative || platformEnv.isDesktop) {
+                setTimeout(() => {
+                  showUpdateDialog(false, response);
+                }, 200);
+              }
+            }
+          },
+        );
+    };
+
+    const scheduleFetchUpdateInfo = () => {
+      if (cancelled || hasTriggeredUpdateCheck || cleanupUpdateCheck) {
+        return;
+      }
+
+      const triggerFetch = (trigger: string) => {
+        if (cancelled || hasTriggeredUpdateCheck) return;
+        hasTriggeredUpdateCheck = true;
+        cleanupUpdateCheck?.();
+        cleanupUpdateCheck = undefined;
+        fetchUpdateInfo(trigger);
+      };
+
+      cleanupUpdateCheck = runAfterTokensDone({
+        onRun: (trigger) => triggerFetch(trigger),
+      });
     };
 
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
@@ -685,9 +708,13 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       }
       setTimeout(async () => {
         await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
-        fetchUpdateInfo();
+        scheduleFetchUpdateInfo();
       }, 250);
-      return;
+      return () => {
+        cancelled = true;
+        cleanupUpdateCheck?.();
+        cleanupUpdateCheck = undefined;
+      };
     }
 
     const forceUpdate = isForceUpdateStrategy(appUpdateInfo.updateStrategy);
@@ -722,8 +749,14 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         showUpdateDialog();
       }
     } else {
-      fetchUpdateInfo();
+      scheduleFetchUpdateInfo();
     }
+
+    return () => {
+      cancelled = true;
+      cleanupUpdateCheck?.();
+      cleanupUpdateCheck = undefined;
+    };
   }, [
     autoCheck,
     appUpdateInfo.status,

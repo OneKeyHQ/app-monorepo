@@ -12,8 +12,8 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import { useAccountData } from '../../hooks/useAccountData';
 import {
   useAggregateTokensListMapAtom,
   useAllTokenListMapAtom,
@@ -50,9 +50,8 @@ function TokenNameView(props: IProps) {
   } = props;
   const intl = useIntl();
 
-  const { network } = useAccountData({ networkId });
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
-  const { allAggregateTokenMap } = useTokenListViewContext();
+  const { allAggregateTokenMap, networksMap } = useTokenListViewContext();
   const [allTokenListMap] = useAllTokenListMapAtom();
   const allAggregateTokenList = useMemo(
     () => allAggregateTokenMap?.[$key]?.tokens ?? [],
@@ -63,9 +62,6 @@ function TokenNameView(props: IProps) {
     [aggregateTokensListMap, $key],
   );
   const firstAggregateToken = aggregateTokenList?.[0];
-  const { network: firstAggregateTokenNetwork } = useAccountData({
-    networkId: firstAggregateToken?.networkId,
-  });
 
   const { tokenHasBalance, tokenHasBalanceCount } = useMemo(() => {
     return checkIsOnlyOneTokenHasBalance({
@@ -75,9 +71,22 @@ function TokenNameView(props: IProps) {
     });
   }, [aggregateTokenList, allTokenListMap, allAggregateTokenList]);
 
-  const { network: tokenHasBalanceNetwork } = useAccountData({
-    networkId: tokenHasBalance?.networkId,
-  });
+  const network = useMemo(() => {
+    if (!networkId) return undefined;
+    return networksMap?.[networkId] ?? networkUtils.getLocalNetworkInfo(networkId);
+  }, [networksMap, networkId]);
+
+  const firstAggregateTokenNetwork = useMemo(() => {
+    const id = firstAggregateToken?.networkId;
+    if (!id) return undefined;
+    return networksMap?.[id] ?? networkUtils.getLocalNetworkInfo(id);
+  }, [firstAggregateToken?.networkId, networksMap]);
+
+  const tokenHasBalanceNetwork = useMemo(() => {
+    const id = tokenHasBalance?.networkId;
+    if (!id) return undefined;
+    return networksMap?.[id] ?? networkUtils.getLocalNetworkInfo(id);
+  }, [networksMap, tokenHasBalance?.networkId]);
 
   return (
     <XStack alignItems="center" gap="$1" {...rest}>

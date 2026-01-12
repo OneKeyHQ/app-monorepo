@@ -16,6 +16,7 @@ import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRunAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -40,8 +41,15 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const navigation = useAppNavigation();
   const [popularTrading, setPopularTrading] = useState<IPopularTrading[]>([]);
+  const [fetchEnabled, setFetchEnabled] = useState(false);
 
   const initializedRef = useRef(false);
+
+  useRunAfterTokensDone({
+    run: () => {
+      setFetchEnabled(true);
+    },
+  });
 
   const columns = useMemo(() => {
     if (tableLayout) {
@@ -187,6 +195,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const { isLoading } = usePromiseResult(
     async () => {
+      if (!fetchEnabled) {
+        return;
+      }
+
       const result = await backgroundApiProxy.serviceSwap.fetchPopularTrading({
         limit: 3,
         saveToLocal: true,
@@ -194,15 +206,16 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       setPopularTrading(result);
       initializedRef.current = true;
     },
-    [],
+    [fetchEnabled],
     {
       watchLoading: true,
       debounced: POLLING_DEBOUNCE_INTERVAL,
+      overrideIsFocused: (focused) => focused && fetchEnabled,
     },
   );
 
   const renderContent = useCallback(() => {
-    if (!initializedRef.current && isLoading) {
+    if (!initializedRef.current && (isLoading || !fetchEnabled)) {
       return (
         <ListLoading
           listCount={3}
@@ -269,6 +282,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     columns,
     popularTrading,
     isLoading,
+    fetchEnabled,
     isSoftwareWalletOnlyUser,
     navigation,
     wallet?.type,
