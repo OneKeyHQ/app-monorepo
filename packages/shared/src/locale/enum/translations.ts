@@ -553,6 +553,7 @@
   device_recover_data_banner = 'device.recover_data_banner',
   device_select_device_popup = 'device.select_device_popup',
   device_setting_not_provided = 'device.setting_not_provided',
+  device_setting_not_support_language = 'device.setting_not_support_language',
   device_settings_switch_firmware_type = 'device.settings_switch_firmware_type',
   device_try_reconnecting_usb = 'device.try_reconnecting_usb',
   device_wipe_data_bannner = 'device.wipe_data_bannner',

@@ -21,8 +21,11 @@ export const FIRMWARE_UPDATE_BRIDGE_GUIDE =
   'https://help.onekey.so/articles/11461117';
 
 export const HELP_CENTER_URL = 'https://help.onekey.so';
-export const HELP_CENTER_COMMON_FAQ_URL =
+export const HELP_CENTER_APP_FAQ_URL =
+  'https://help.onekey.so/collections/13034407';
+export const HELP_CENTER_HARDWARE_FAQ_URL =
   'https://help.onekey.so/collections/13034346';
+
 export const LITE_CARD_URL =
   'https://onekey.so/products/onekey-lite-hardware-wallet/';
 export const BRIDGE_STATUS_URL = 'http://127.0.0.1:21320/status/';

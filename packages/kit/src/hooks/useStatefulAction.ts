@@ -54,6 +54,7 @@ export function useStatefulAction<T>({
       try {
         await onAction(next);
       } catch (e) {
+        console.error('=========>>>>>>>> useStatefulAction error', e);
         setInnerValue(prevValueRef.current);
         onError?.(e, prevValueRef.current);
         throw e;
