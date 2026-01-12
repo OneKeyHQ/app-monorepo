@@ -45,7 +45,6 @@ interface IFirmwareChangeDialogContentProps {
 }
 
 interface IUseFirmwareChangeDialogParams {
-  device: IDBDevice | undefined;
   onSuccess: (
     targetFirmwareType: EFirmwareType,
     fromFirmwareType: EFirmwareType,
@@ -338,7 +337,6 @@ const FirmwareChangeDialogContent = memo(FirmwareChangeDialogContentBase);
 // ============== Custom Hook ==============
 
 export function useFirmwareChangeDialog({
-  device,
   onSuccess,
   onUpgradeFirmware,
 }: IUseFirmwareChangeDialogParams) {
@@ -381,10 +379,12 @@ export function useFirmwareChangeDialog({
   // use useCallback to cache show function
   const show = useCallback(
     ({
+      device,
       hasAllowChangeFirmwareType,
       targetFirmwareType,
       fromFirmwareType,
     }: {
+      device: IDBDevice | undefined;
       hasAllowChangeFirmwareType: boolean;
       targetFirmwareType: EFirmwareType;
       fromFirmwareType: EFirmwareType;
@@ -426,14 +426,7 @@ export function useFirmwareChangeDialog({
         ),
       });
     },
-    [
-      device,
-      intl,
-      handleStateChange,
-      handleCancel,
-      onSuccess,
-      onUpgradeFirmware,
-    ],
+    [intl, handleStateChange, handleCancel, onSuccess, onUpgradeFirmware],
   );
 
   return { show };
