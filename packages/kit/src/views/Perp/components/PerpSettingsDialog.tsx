@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Button,
   ESwitchSize,
   Icon,
   Popover,
@@ -103,6 +102,48 @@ function PerpSettingsPopoverContent({
             setPerpsCustomSettings((prev) => ({
               ...prev,
               skipOrderConfirm: value,
+            }));
+          }}
+        />
+      </ListItem>
+
+      <ListItem
+        mx="$0"
+        px="$2.5"
+        titleProps={{ size: '$bodyMdMedium' }}
+        subtitleProps={{ size: '$bodySm' }}
+        title="Show Trade Marks"
+        subtitle="Display buy/sell marks on chart"
+      >
+        <Switch
+          size={ESwitchSize.small}
+          cursor="pointer"
+          value={perpsCustomSettings.showTradeMarks ?? true}
+          onChange={(value) => {
+            setPerpsCustomSettings((prev) => ({
+              ...prev,
+              showTradeMarks: value,
+            }));
+          }}
+        />
+      </ListItem>
+
+      <ListItem
+        mx="$0"
+        px="$2.5"
+        titleProps={{ size: '$bodyMdMedium' }}
+        subtitleProps={{ size: '$bodySm' }}
+        title="Show Positions & Orders"
+        subtitle="Display position and order lines on chart"
+      >
+        <Switch
+          size={ESwitchSize.small}
+          cursor="pointer"
+          value={perpsCustomSettings.showChartLines ?? true}
+          onChange={(value) => {
+            setPerpsCustomSettings((prev) => ({
+              ...prev,
+              showChartLines: value,
             }));
           }}
         />

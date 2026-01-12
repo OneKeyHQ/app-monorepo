@@ -1,7 +1,7 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
 
-import type { SizeTokens } from '@onekeyhq/components';
+import type { IStackProps, SizeTokens } from '@onekeyhq/components';
 import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -24,6 +24,7 @@ export type IWalletAvatarProps = IWalletAvatarBaseProps & {
   status?: IWalletProps['status'];
   badge?: number | string;
   firmwareTypeBadge?: EFirmwareType;
+  firmwareTypeProps?: IStackProps & { badgeSize?: number };
 };
 
 export function WalletAvatarBase({
@@ -68,8 +69,11 @@ export function WalletAvatar({
   firmwareTypeBadge,
   img,
   wallet,
+  firmwareTypeProps,
 }: IWalletAvatarProps) {
   const socialLoginProvider = wallet?.keylessDetailsInfo?.keylessProvider;
+  const { badgeSize, ...restFirmwareTypeProps } = firmwareTypeProps ?? {};
+
   return (
     <Stack w={size} h={size} justifyContent="center" alignItems="center">
       <WalletAvatarBase size={size} img={img} wallet={wallet} />
@@ -96,8 +100,12 @@ export function WalletAvatar({
           left={0}
           borderRadius="$full"
           zIndex="$1"
+          {...restFirmwareTypeProps}
         >
-          <NetworkAvatar networkId={presetNetworksMap.btc.id} size={14} />
+          <NetworkAvatar
+            networkId={presetNetworksMap.btc.id}
+            size={badgeSize ?? 14}
+          />
         </Stack>
       ) : null}
       {!isNil(badge) ? (

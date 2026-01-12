@@ -30,6 +30,7 @@ export * from './staking';
 export * from './swap';
 export * from './tab';
 export * from './tabDeveloper';
+export * from './tabDeviceManagement';
 export * from './tabDiscovery';
 export * from './tabEarn';
 export * from './tabHome';

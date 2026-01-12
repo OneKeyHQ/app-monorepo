@@ -16,7 +16,6 @@ const {
   Provider: ProviderJotaiContextEarn,
   contextAtom,
   contextAtomMethod,
-  contextAtomComputed,
 } = createJotaiContext();
 export { ProviderJotaiContextEarn, contextAtomMethod };
 

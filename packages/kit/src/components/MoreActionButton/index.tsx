@@ -55,7 +55,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalDeviceManagementRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EOnboardingPagesV2,
@@ -76,6 +75,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
+import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { useOnPrimeButtonPressed } from '../../views/Prime/components/PrimeHeaderIconButton/PrimeHeaderIconButton';
@@ -92,7 +92,7 @@ import {
 } from '../UpdateReminder/hooks';
 import { WalletAvatar } from '../WalletAvatar';
 
-import type { IDeviceManagementListModalItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
+import type { IDeviceManagementListItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
 
 function MoreActionProvider({ children }: PropsWithChildren) {
@@ -1020,7 +1020,7 @@ const MoreActionWalletGrid = () => {
   const { user } = useOneKeyAuth();
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const checkIsPrimeUser = useCallback(
     (showFeature: EPrimeFeatures) => {
@@ -1067,8 +1067,15 @@ const MoreActionWalletGrid = () => {
     void navigateToBulkSend({
       networkId: network?.id,
       accountId: account?.id,
+      indexedAccountId: indexedAccount?.id,
     });
-  }, [network?.id, account?.id, navigateToBulkSend, checkIsPrimeUser]);
+  }, [
+    network?.id,
+    account?.id,
+    indexedAccount?.id,
+    navigateToBulkSend,
+    checkIsPrimeUser,
+  ]);
 
   const items = useMemo(() => {
     return [
@@ -1201,9 +1208,9 @@ const MoreActionMoreGrid = () => {
 
 function MoreActionDevice() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
+  const { pushToDeviceList } = useDeviceManagerNavigation();
   const { result: hwQrWalletList = [] } = usePromiseResult<
-    Array<IDeviceManagementListModalItem>
+    Array<IDeviceManagementListItem>
   >(
     async () => {
       const r =
@@ -1211,7 +1218,7 @@ function MoreActionDevice() {
           filterHiddenWallet: true,
           skipDuplicateDevice: true,
         });
-      const devices: Array<IDeviceManagementListModalItem> = Object.values(r)
+      const devices: Array<IDeviceManagementListItem> = Object.values(r)
         .filter(
           (item): item is IHwQrWalletWithDevice =>
             Boolean(item.device) && !item.wallet.deprecated,
@@ -1238,10 +1245,9 @@ function MoreActionDevice() {
   );
 
   const handleDevice = useCallback(() => {
-    navigation.pushModal(EModalRoutes.DeviceManagementModal, {
-      screen: EModalDeviceManagementRoutes.DeviceListModal,
-    });
-  }, [navigation]);
+    pushToDeviceList();
+  }, [pushToDeviceList]);
+
   return (
     <YStack
       bg="$bgSubdued"

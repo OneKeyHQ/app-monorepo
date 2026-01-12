@@ -1,17 +1,12 @@
 import { Fragment } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Divider, XStack, YStack } from '@onekeyhq/components';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 export function RiskSection({ risk }: { risk?: IBorrowReserveDetail['risk'] }) {
-  const intl = useIntl();
-
   if (!risk?.items?.length) {
     return null;
   }
@@ -19,12 +14,6 @@ export function RiskSection({ risk }: { risk?: IBorrowReserveDetail['risk'] }) {
   return (
     <>
       <YStack gap="$6">
-        <EarnText
-          text={{
-            text: intl.formatMessage({ id: ETranslations.global_risk }),
-          }}
-          size="$headingLg"
-        />
         <YStack gap="$3">
           {risk.items.map((item, index) => (
             <Fragment key={`${item.title.text}-${index}`}>

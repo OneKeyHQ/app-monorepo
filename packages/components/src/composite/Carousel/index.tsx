@@ -15,6 +15,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { IconButton } from '../../actions/IconButton';
 import { Stack, XStack, YStack } from '../../primitives';
 
 import { PagerView } from './pager';
@@ -70,6 +71,7 @@ export function Carousel<T>({
   renderItem,
   containerStyle,
   paginationContainerStyle,
+  showPaginationButton = false,
   activeDotStyle,
   dotStyle,
   onPageChanged,
@@ -286,25 +288,43 @@ export function Carousel<T>({
         </XStack>
         {showPagination && data.length > 1 ? (
           <XStack
-            gap="$0.5"
+            gap="$1"
             ai="center"
-            jc="center"
+            jc="space-between"
             {...(paginationContainerStyle as any)}
           >
-            {data.map((item, index) => {
-              return renderPaginationItem?.(
-                {
-                  data: item,
-                  dotStyle,
-                  activeDotStyle:
-                    index === pageIndex
-                      ? activeDotStyle || { bg: '$bgPrimary' }
-                      : undefined,
-                  onPress: () => onPressPagination(index),
-                },
-                index,
-              );
-            })}
+            {showPaginationButton ? (
+              <IconButton
+                icon="ChevronLeftSmallOutline"
+                variant="tertiary"
+                onPress={() => scrollToPreviousPage()}
+                disabled={data.length <= 1}
+              />
+            ) : null}
+            <XStack flex={1} gap="$0.5" ai="center" jc="center">
+              {data.map((item, index) => {
+                return renderPaginationItem?.(
+                  {
+                    data: item,
+                    dotStyle,
+                    activeDotStyle:
+                      index === pageIndex
+                        ? activeDotStyle || { bg: '$bgPrimary' }
+                        : undefined,
+                    onPress: () => onPressPagination(index),
+                  },
+                  index,
+                );
+              })}
+            </XStack>
+            {showPaginationButton ? (
+              <IconButton
+                icon="ChevronRightSmallOutline"
+                variant="tertiary"
+                onPress={() => scrollToNextPage()}
+                disabled={data.length <= 1}
+              />
+            ) : null}
           </XStack>
         ) : (
           <XStack />

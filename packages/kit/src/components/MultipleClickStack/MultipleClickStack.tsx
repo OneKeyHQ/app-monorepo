@@ -28,7 +28,8 @@ export function MultipleClickStack({
   return (
     <>
       <Stack
-        bg={showDevBgColor && platformEnv.isDev ? '$bgCritical' : undefined}
+        bg={undefined}
+        // bg={showDevBgColor && platformEnv.isDev ? '$bgCritical' : undefined}
         {...others}
         onPress={(event) => {
           if (clickCount > triggerAt) {

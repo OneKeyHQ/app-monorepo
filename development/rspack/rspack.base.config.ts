@@ -125,10 +125,13 @@ const baseResolve = ({
   fullySpecified: false,
 });
 
-const basePlugins: (RspackPluginInstance | false | null | undefined)[] = [
+const buildBasePlugins: (
+  platform: string,
+) => (RspackPluginInstance | false | null | undefined)[] = (platform) => [
   new rspack.DefinePlugin({
     __DEV__: isDev,
     'process.env.ONEKEY_PROXY': JSON.stringify(onekeyProxy),
+    'process.env.ONEKEY_PLATFORM': JSON.stringify(platform),
     'process.env.NODE_ENV': JSON.stringify(nodeEnv),
     'process.env.TAMAGUI_TARGET': JSON.stringify('web'),
   }),
@@ -139,10 +142,19 @@ const basePlugins: (RspackPluginInstance | false | null | undefined)[] = [
   isDev && new BuildDoneNotifyPlugin(),
 ];
 
-const baseExperiments: RspackOptions['experiments'] = {
+const buildBaseExperiments: (
+  basePath: string,
+) => RspackOptions['experiments'] = (basePath) => ({
+  cache: {
+    type: 'persistent',
+    storage: {
+      type: 'filesystem',
+      directory: path.join(basePath, 'node_modules/.cache/rspack'),
+    },
+  },
   asyncWebAssembly: true,
   incremental: true,
-};
+});
 
 const basePerformance: RspackOptions['performance'] = {
   maxAssetSize: 600_000,
@@ -222,7 +234,7 @@ export function createBaseConfig({
           ROOT_ID: 'root',
         },
       }) as unknown as RspackPluginInstance,
-      ...basePlugins.filter(Boolean),
+      ...buildBasePlugins(platform).filter(Boolean),
     ],
     module: {
       rules: [
@@ -494,7 +506,7 @@ export function createBaseConfig({
       },
     },
     lazyCompilation: false,
-    experiments: baseExperiments,
+    experiments: buildBaseExperiments(basePath),
     performance: basePerformance,
     optimization: {
       splitChunks: {
