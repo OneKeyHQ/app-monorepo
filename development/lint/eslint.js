@@ -17,7 +17,7 @@ function getMaxWarnings() {
   // Calculate weeks since start of 2026
   const msPerWeek = 7 * 24 * 60 * 60 * 1000;
   const weeksSinceStart = Math.floor((now - startOfYear) / msPerWeek);
-
+  console.log(`Weeks since start of ${START_YEAR}: ${weeksSinceStart}`);
   const maxWarnings = INITIAL_MAX_WARNINGS - weeksSinceStart * WEEKLY_REDUCTION;
   return Math.max(0, maxWarnings); // Never go below 0
 }
