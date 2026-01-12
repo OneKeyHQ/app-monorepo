@@ -189,7 +189,7 @@ export function InterestRateModelChart({
         },
         horzLines: {
           visible: true,
-          color: '#E5E5EA',
+          color: theme.borderSubdued?.val || '#E5E5EA',
           style: 2,
         },
       },
@@ -301,6 +301,7 @@ export function InterestRateModelChart({
     supplyTheme,
     borrowTheme,
     utilizationRatio,
+    theme.borderSubdued?.val,
     theme.iconSubdued?.val,
     handleCrosshairMove,
   ]);

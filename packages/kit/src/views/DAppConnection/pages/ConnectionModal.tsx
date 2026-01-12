@@ -12,6 +12,7 @@ import {
   EDAppModalPageStatus,
   type IConnectionAccountInfo,
 } from '@onekeyhq/shared/types/dappConnection';
+import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -180,6 +181,9 @@ function ConnectionModal() {
         action: 'ConnectWallet',
         network: network?.name,
       });
+      void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
+        ERookieTaskType.DAPP,
+      );
     },
     [
       intl,
