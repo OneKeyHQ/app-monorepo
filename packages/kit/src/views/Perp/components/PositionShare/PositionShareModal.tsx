@@ -1,10 +1,13 @@
 import { useCallback, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { useInPageDialog } from '@onekeyhq/components';
 import { Dialog, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
@@ -29,6 +32,7 @@ interface IShareContentProps {
 
 function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   const generatorRef = useRef<IShareImageGeneratorRef | null>(null);
+  const intl = useIntl();
   const { side, token, tokenDisplayName } = data;
 
   const [config, setConfig] = useState<IShareConfig>({
@@ -64,14 +68,35 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
         return;
       }
 
-      if (platformEnv.isNative && onClose) {
-        onClose();
+      const result = await saveImage(base64);
+
+      if (result?.success) {
+        if (platformEnv.isNative && onClose) {
+          onClose();
+        }
+      } else if (result?.permissionPermanentlyDenied) {
+        // TODO: Add proper i18n keys for photo library permission
+        Dialog.show({
+          tone: 'warning',
+          icon: 'ErrorOutline',
+          title: 'Photo Library Access Denied',
+          description:
+            'OneKey requires photo library access to save images. Please go to Settings and enable photo library permissions.',
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_go_settings,
+          }),
+          showCancelButton: true,
+          showConfirmButton: true,
+          onConfirm: () => {
+            openSettings('camera');
+          },
+        });
       }
-      await saveImage(base64);
+      // permissionDenied: user can try again by clicking save button
     } finally {
       setIsActionLoading(false);
     }
-  }, [saveImage, onClose]);
+  }, [saveImage, onClose, intl]);
 
   const handleShareToX = useCallback(async () => {
     setIsActionLoading(true);
