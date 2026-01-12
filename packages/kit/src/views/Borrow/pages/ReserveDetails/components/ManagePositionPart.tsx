@@ -140,10 +140,7 @@ export const ManagePositionPart = ({
               disabled={userInfo.walletBalance.button.disabled}
               onPress={handleSupply}
             >
-              <EarnText
-                text={userInfo.walletBalance.button.text}
-                color="$textInverse"
-              />
+              {userInfo.walletBalance.button.text.text}
             </Button>
           ) : null}
         </XStack>
@@ -181,10 +178,7 @@ export const ManagePositionPart = ({
               disabled={userInfo.availableBorrowBalance.button.disabled}
               onPress={handleBorrow}
             >
-              <EarnText
-                text={userInfo.availableBorrowBalance.button.text}
-                color="$textInverse"
-              />
+              {userInfo.availableBorrowBalance.button.text.text}
             </Button>
           ) : null}
         </XStack>

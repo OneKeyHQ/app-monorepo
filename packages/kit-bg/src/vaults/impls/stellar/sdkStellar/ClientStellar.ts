@@ -113,12 +113,6 @@ export default class ClientStellar {
         const sequence = account.seqNum().toString();
         const subentryCount = account.numSubEntries();
 
-        console.log('=====>>>>> getAccountInfo: ', {
-          nativeBalance,
-          sequence,
-          subentryCount,
-        });
-
         // Note: Account entry does NOT contain trustlines
         // Trustlines are separate ledger entries
         const balances: IStellarBalance[] = [
@@ -204,12 +198,6 @@ export default class ClientStellar {
         assetCode,
         assetIssuer,
       );
-      console.log('=====>>>>> getTrustline: ', {
-        address,
-        assetCode,
-        assetIssuer,
-        ledgerKey,
-      });
       const response = await this.transport.getLedgerEntries([ledgerKey]);
       const entry = response.entries?.[0];
       if (!entry) {

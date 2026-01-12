@@ -5,6 +5,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 function parseBorrowEncodedTx(tx: string): IEncodedTx {
   try {
@@ -17,6 +18,42 @@ function parseBorrowEncodedTx(tx: string): IEncodedTx {
   }
   return tx;
 }
+
+const attachBorrowOrderId = ({
+  stakingInfo,
+  orderId,
+}: {
+  stakingInfo?: IStakingInfo;
+  orderId: string;
+}): IStakingInfo | undefined =>
+  stakingInfo ? { ...stakingInfo, orderId } : undefined;
+
+const handleBorrowSuccess = async ({
+  data,
+  orderId,
+  networkId,
+  onSuccess,
+}: {
+  data: ISendTxOnSuccessData[];
+  orderId: string;
+  networkId: string;
+  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+}) => {
+  if (
+    orderId &&
+    Array.isArray(data) &&
+    data.length === 1 &&
+    data[0].signedTx?.txid
+  ) {
+    await backgroundApiProxy.serviceStaking.addEarnOrder({
+      orderId,
+      networkId,
+      txId: data[0].signedTx.txid,
+      status: data[0].decodedTx.status,
+    });
+  }
+  onSuccess?.(data);
+};
 
 type IBorrowBuildTxParams = {
   amount: string;
@@ -62,10 +99,22 @@ export function useUniversalBorrowSupply({
           amount,
         });
 
+      const stakingInfoWithOrderId = attachBorrowOrderId({
+        stakingInfo,
+        orderId: resp.orderId,
+      });
+
       await navigationToTxConfirm({
         encodedTx: resp.tx,
-        stakingInfo,
-        onSuccess,
+        stakingInfo: stakingInfoWithOrderId,
+        onSuccess: async (data) => {
+          await handleBorrowSuccess({
+            data,
+            orderId: resp.orderId,
+            networkId,
+            onSuccess,
+          });
+        },
         onFail,
       });
     },
@@ -107,10 +156,22 @@ export function useUniversalBorrowWithdraw({
           withdrawAll,
         });
 
+      const stakingInfoWithOrderId = attachBorrowOrderId({
+        stakingInfo,
+        orderId: resp.orderId,
+      });
+
       await navigationToTxConfirm({
         encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo,
-        onSuccess,
+        stakingInfo: stakingInfoWithOrderId,
+        onSuccess: async (data) => {
+          await handleBorrowSuccess({
+            data,
+            orderId: resp.orderId,
+            networkId,
+            onSuccess,
+          });
+        },
         onFail,
       });
     },
@@ -150,10 +211,22 @@ export function useUniversalBorrowBorrow({
           amount,
         });
 
+      const stakingInfoWithOrderId = attachBorrowOrderId({
+        stakingInfo,
+        orderId: resp.orderId,
+      });
+
       await navigationToTxConfirm({
         encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo,
-        onSuccess,
+        stakingInfo: stakingInfoWithOrderId,
+        onSuccess: async (data) => {
+          await handleBorrowSuccess({
+            data,
+            orderId: resp.orderId,
+            networkId,
+            onSuccess,
+          });
+        },
         onFail,
       });
     },
@@ -195,10 +268,22 @@ export function useUniversalBorrowRepay({
           repayAll,
         });
 
+      const stakingInfoWithOrderId = attachBorrowOrderId({
+        stakingInfo,
+        orderId: resp.orderId,
+      });
+
       await navigationToTxConfirm({
         encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo,
-        onSuccess,
+        stakingInfo: stakingInfoWithOrderId,
+        onSuccess: async (data) => {
+          await handleBorrowSuccess({
+            data,
+            orderId: resp.orderId,
+            networkId,
+            onSuccess,
+          });
+        },
         onFail,
       });
     },
@@ -245,10 +330,22 @@ export function useUniversalBorrowClaim({
           ids,
         });
 
+      const stakingInfoWithOrderId = attachBorrowOrderId({
+        stakingInfo,
+        orderId: resp.orderId,
+      });
+
       await navigationToTxConfirm({
         encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo,
-        onSuccess,
+        stakingInfo: stakingInfoWithOrderId,
+        onSuccess: async (data) => {
+          await handleBorrowSuccess({
+            data,
+            orderId: resp.orderId,
+            networkId,
+            onSuccess,
+          });
+        },
         onFail,
       });
     },
