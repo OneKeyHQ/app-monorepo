@@ -13,22 +13,18 @@ export class SimpleDbEntityRookieGuide extends SimpleDbEntityBase<IRookieGuidePr
 
   @backgroundMethod()
   async getProgress(): Promise<IRookieGuideProgress> {
-    const rawData = await this.getRawData();
-    return rawData ?? {};
+    return (await this.getRawData()) ?? {};
   }
 
   @backgroundMethod()
   async recordTaskCompleted(taskType: ERookieTaskType): Promise<void> {
-    await this.setRawData((rawData) => {
-      const currentProgress = rawData ?? {};
-      // Only record if not already completed (idempotent)
-      if (currentProgress[taskType]) {
-        return currentProgress;
+    await this.setRawData((current) => {
+      const progress = current ?? {};
+      // Idempotent: skip if already completed
+      if (progress[taskType]) {
+        return progress;
       }
-      return {
-        ...currentProgress,
-        [taskType]: Date.now(),
-      };
+      return { ...progress, [taskType]: Date.now() };
     });
   }
 
