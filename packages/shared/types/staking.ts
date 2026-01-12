@@ -777,6 +777,13 @@ export interface IEarnListaCheckActionIcon {
   text: IEarnText;
 }
 
+export type IHealthFactorLevel = 'critical' | 'warning' | 'success';
+
+export interface IHealthFactorGradientStop {
+  percent: number;
+  level: IHealthFactorLevel;
+}
+
 export interface IBorrowHealthFactorRiskDetail {
   type: 'healthFactorRiskDetail';
   disabled: boolean;
@@ -787,6 +794,7 @@ export interface IBorrowHealthFactorRiskDetail {
       value: string;
       lowerLimit: string;
       upperLimit: string;
+      gradientStops?: IHealthFactorGradientStop[];
       status: {
         tag: string;
         badge: IBadgeType;
