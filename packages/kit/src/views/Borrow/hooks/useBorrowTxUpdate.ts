@@ -156,8 +156,9 @@ export const useBorrowTxUpdate = ({
     },
   );
 
-  const isPending = txs.length > 0;
-  const prevIsPending = usePrevious(isPending);
+  const pendingCount = txs.length;
+  const isPending = pendingCount > 0;
+  const prevPendingCount = usePrevious(pendingCount);
 
   const refreshPendingWithHistory = useCallback(async () => {
     if (!accountMeta) {
@@ -168,7 +169,7 @@ export const useBorrowTxUpdate = ({
         accountId: accountMeta.accountId,
         networkId: accountMeta.networkId,
       });
-      await refreshPendingTxs();
+      await refreshPendingTxs({ alwaysSetState: true });
     } catch {
       // Silently handle errors during refresh
     }
@@ -186,16 +187,22 @@ export const useBorrowTxUpdate = ({
   );
 
   useEffect(() => {
-    if (!isPending && prevIsPending) {
-      // Trigger refresh immediately when pending transactions complete
-      onRefreshRef.current?.();
+    if (prevPendingCount !== undefined && pendingCount < prevPendingCount) {
+      if (!onRefreshRef.current) {
+        return undefined;
+      }
+      const timeoutId = setTimeout(() => {
+        onRefreshRef.current?.();
+      }, timerUtils.getTimeDurationMs({ seconds: 1 }));
+      return () => clearTimeout(timeoutId);
     }
-  }, [isPending, prevIsPending]);
+    return undefined;
+  }, [pendingCount, prevPendingCount]);
 
   return {
     isPending,
     pendingTxs: txs,
-    pendingCount: txs.length,
+    pendingCount,
     refreshPending: refreshPendingWithHistory,
   };
 };

@@ -56,6 +56,8 @@ type IUniversalBorrowSupplyProps = {
   borrowMarketAddress: string;
   borrowReserveAddress: string;
   balance: string;
+  // Max balance for max button. If provided, balance is for display only.
+  maxBalance?: string;
   tokenSymbol?: string;
   tokenImageUri?: string;
   decimals?: number;
@@ -82,6 +84,7 @@ export function UniversalBorrowSupply({
   borrowMarketAddress,
   borrowReserveAddress,
   balance,
+  maxBalance,
   tokenSymbol,
   tokenImageUri,
   decimals,
@@ -174,27 +177,34 @@ export function UniversalBorrowSupply({
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
 
+  const maxAmountValue = useMemo(() => {
+    // Use maxBalance for max button if provided, otherwise use balance
+    const valueForMax = maxBalance ?? balance;
+    const valueBN = new BigNumber(valueForMax);
+    if (valueBN.isNaN()) {
+      return '0';
+    }
+    if (typeof decimals === 'number') {
+      return valueBN.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed();
+    }
+    return valueForMax;
+  }, [balance, maxBalance, decimals]);
+
   const onMax = useCallback(() => {
-    const formattedMaxAmount =
-      typeof decimals === 'number'
-        ? new BigNumber(balance)
-            .decimalPlaces(decimals, BigNumber.ROUND_DOWN)
-            .toFixed()
-        : balance;
-    onChangeAmountValue(formattedMaxAmount);
-  }, [balance, decimals, onChangeAmountValue]);
+    onChangeAmountValue(maxAmountValue);
+  }, [maxAmountValue, onChangeAmountValue]);
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
       onChangeAmountValue(
         calcPercentBalance({
-          balance,
+          balance: maxBalance ?? balance,
           percent,
           decimals,
         }),
       );
     },
-    [balance, decimals, onChangeAmountValue],
+    [balance, maxBalance, decimals, onChangeAmountValue],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -288,6 +298,37 @@ export function UniversalBorrowSupply({
     tokenSelectorDisabled,
   ]);
 
+  const balanceIconText = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_available }),
+    [intl],
+  );
+
+  const inputProps = useMemo(
+    () => ({
+      placeholder: '0',
+      autoFocus: !amountInputDisabled,
+    }),
+    [amountInputDisabled],
+  );
+
+  const balanceProps = useMemo(
+    () => ({
+      value: balance,
+      // When maxBalance is provided, balance is for display only, show wallet icon instead of "Available" text
+      iconText: maxBalance ? undefined : balanceIconText,
+      onPress: amountInputDisabled ? undefined : onMax,
+    }),
+    [balance, maxBalance, balanceIconText, amountInputDisabled, onMax],
+  );
+
+  const valueProps = useMemo(
+    () => ({
+      value: currentValue,
+      currency: currentValue ? symbol : undefined,
+    }),
+    [currentValue, symbol],
+  );
+
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
@@ -305,18 +346,9 @@ export function UniversalBorrowSupply({
             onPress: handleOpenTokenSelector,
             disabled: tokenSelectorDisabled,
           }}
-          inputProps={{
-            placeholder: '0',
-            autoFocus: !amountInputDisabled,
-          }}
-          balanceProps={{
-            value: balance,
-            onPress: amountInputDisabled ? undefined : onMax,
-          }}
-          valueProps={{
-            value: currentValue,
-            currency: currentValue ? symbol : undefined,
-          }}
+          inputProps={inputProps}
+          balanceProps={balanceProps}
+          valueProps={valueProps}
           enableMaxAmount
           onSelectPercentageStage={onSelectPercentageStage}
         />
