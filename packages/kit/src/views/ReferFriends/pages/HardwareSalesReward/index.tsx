@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Page,
   RefreshControl,
   ScrollView,
@@ -15,7 +14,6 @@ import {
 import type { IScrollViewRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -25,7 +23,6 @@ import type {
   IHardwareRecordItem,
 } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { BreadcrumbSection, ReferFriendsPageContainer } from '../../components';
@@ -37,9 +34,6 @@ function HardwareSalesRewardPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
-  const { tourTimes, tourVisited } = useSpotlight(
-    ESpotlightTour.hardwareSalesRewardAlert,
-  );
   const intl = useIntl();
   const { md } = useMedia();
 
@@ -180,20 +174,6 @@ function HardwareSalesRewardPageWrapper() {
                     })}
                   />
                 </XStack>
-              ) : null}
-
-              {/* Alert tip */}
-              {tourTimes === 0 ? (
-                <Alert
-                  closable
-                  description={intl.formatMessage({
-                    id: ETranslations.referral_sales_reward_tips,
-                  })}
-                  type="info"
-                  mx="$5"
-                  mb="$2.5"
-                  onClose={tourVisited}
-                />
               ) : null}
 
               {/* Hardware Sales Reward Header */}
