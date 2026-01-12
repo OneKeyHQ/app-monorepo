@@ -17,7 +17,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import type { ISwapConfig } from './components/BorrowTableList';
-import type { IBorrowPendingTx } from './hooks/useBorrowTxUpdate';
+import type { IBorrowPendingTx } from './hooks/useBorrowPendingTxs';
 
 export type IBorrowRefreshReservesFn = (options?: {
   alwaysSetState?: boolean;

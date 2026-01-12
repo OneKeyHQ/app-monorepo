@@ -540,11 +540,16 @@ export function UniversalBorrowSupply({
           ) : null}
           {transactionConfirmation?.canBeCollateral ? (
             <BorrowInfoItem
+              gap="$1"
               title={intl.formatMessage({
                 id: ETranslations.defi_use_as_collateral,
               })}
             >
-              <Icon name="CheckmarkSolid" size="$4" color="$textSuccess" />
+              <Icon
+                name="Checkmark2SmallOutline"
+                size="$5"
+                color="$textSuccess"
+              />
               <EarnText
                 text={{
                   text: intl.formatMessage({
