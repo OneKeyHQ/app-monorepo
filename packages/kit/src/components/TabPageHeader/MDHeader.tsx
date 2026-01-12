@@ -67,7 +67,6 @@ export function MDHeader({
       tabRoute === ETabRoutes.DeviceManagement
     );
   }, [tabRoute]);
-  console.log('showBaseHeader', showBaseHeader);
   return (
     <>
       <Page.Header headerShown={false} />
