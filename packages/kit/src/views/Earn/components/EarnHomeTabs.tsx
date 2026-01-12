@@ -1,6 +1,6 @@
 import { Stack, YStack } from '@onekeyhq/components';
 
-import { MarketSelector, type IEarnHomeMode } from './MarketSelector';
+import { type IEarnHomeMode, MarketSelector } from './MarketSelector';
 
 export const EarnHomeTabs = ({
   earn,

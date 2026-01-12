@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -12,46 +13,64 @@ import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight, SelectorTrigger } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 
-import type { ITabPageHeaderProp } from './type';
-
-export function TabPageHeader({
-  sceneName,
+export function MDHeader({
   tabRoute,
-  customHeaderRightItems,
+  sceneName,
+  hideSearch,
   selectedHeaderTab,
-  renderCustomHeaderRightItems,
   customHeaderLeftItems,
-  hideSearch = false,
-}: ITabPageHeaderProp) {
+  customHeaderRightItems,
+  renderCustomHeaderRightItems,
+}: {
+  tabRoute: ETabRoutes;
+  sceneName: EAccountSelectorSceneName;
+  hideSearch: boolean;
+  selectedHeaderTab?: ETranslations;
+  customHeaderLeftItems?: ReactNode;
+  customHeaderRightItems?: ReactNode;
+  renderCustomHeaderRightItems?: ({
+    fixedItems,
+  }: {
+    fixedItems: ReactNode;
+  }) => ReactNode;
+}) {
   const { top } = useSafeAreaInsets();
-
-  const headerRight = useMemo(() => {
-    return (
-      <HomeTokenListProviderMirror>
-        <HeaderRight
-          selectedHeaderTab={selectedHeaderTab}
-          sceneName={sceneName}
-          tabRoute={tabRoute}
-          customHeaderRightItems={customHeaderRightItems}
-          renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-        />
-      </HomeTokenListProviderMirror>
+  const rightActions = useMemo(() => {
+    return sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
+      <XStack flexShrink={1}>
+        <HomeTokenListProviderMirror>
+          <SelectorTrigger />
+        </HomeTokenListProviderMirror>
+      </XStack>
+    ) : (
+      <HeaderRight
+        selectedHeaderTab={selectedHeaderTab}
+        sceneName={sceneName}
+        tabRoute={tabRoute}
+        customHeaderRightItems={customHeaderRightItems}
+        renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+      />
     );
   }, [
-    selectedHeaderTab,
-    sceneName,
-    tabRoute,
     customHeaderRightItems,
     renderCustomHeaderRightItems,
+    sceneName,
+    selectedHeaderTab,
+    tabRoute,
   ]);
-
+  const showBaseHeader = useMemo(() => {
+    return (
+      tabRoute === ETabRoutes.Home ||
+      tabRoute === ETabRoutes.Discovery ||
+      tabRoute === ETabRoutes.Earn ||
+      tabRoute === ETabRoutes.Perp ||
+      tabRoute === ETabRoutes.DeviceManagement
+    );
+  }, [tabRoute]);
   return (
     <>
       <Page.Header headerShown={false} />
-      {tabRoute === ETabRoutes.Home ||
-      tabRoute === ETabRoutes.Discovery ||
-      tabRoute === ETabRoutes.Earn ||
-      tabRoute === ETabRoutes.Perp ? (
+      {showBaseHeader ? (
         <>
           <XStack
             alignItems="center"
@@ -71,11 +90,7 @@ export function TabPageHeader({
             <View>
               <HeaderTitle sceneName={sceneName} />
             </View>
-            {sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
-              headerRight
-            ) : (
-              <SelectorTrigger />
-            )}
+            {rightActions}
           </XStack>
 
           {!hideSearch ? (
