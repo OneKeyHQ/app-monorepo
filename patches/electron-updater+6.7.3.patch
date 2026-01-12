@@ -1,0 +1,128 @@
+diff --git a/node_modules/electron-updater/out/AppUpdater.d.ts b/node_modules/electron-updater/out/AppUpdater.d.ts
+index 5979c30..13f8f25 100644
+--- a/node_modules/electron-updater/out/AppUpdater.d.ts
++++ b/node_modules/electron-updater/out/AppUpdater.d.ts
+@@ -15,6 +15,7 @@ export type AppUpdaterEvents = {
+     error: (error: Error, message?: string) => void;
+     login: (info: AuthInfo, callback: LoginCallback) => void;
+     "checking-for-update": () => void;
++    "update-download-fileInfo": (fileInfo: ResolvedUpdateFileInfo) => void;
+     "update-not-available": (info: UpdateInfo) => void;
+     "update-available": (info: UpdateInfo) => void;
+     "update-downloaded": (event: UpdateDownloadedEvent) => void;
+@@ -204,6 +205,8 @@ export declare abstract class AppUpdater extends AppUpdater_base {
+     private getOrCreateDownloadHelper;
+     protected executeDownload(taskOptions: DownloadExecutorTask): Promise<Array<string>>;
+     protected differentialDownloadInstaller(fileInfo: ResolvedUpdateFileInfo, downloadUpdateOptions: DownloadUpdateOptions, installerPath: string, provider: Provider<any>, oldInstallerFileName: string): Promise<boolean>;
++    public isExistInstallerPath(): boolean;
++    public updateInstallerPath(installerPath: string): Promise<void>;
+ }
+ export interface DownloadUpdateOptions {
+     readonly updateInfoAndProvider: UpdateInfoAndProvider;
+diff --git a/node_modules/electron-updater/out/AppUpdater.js b/node_modules/electron-updater/out/AppUpdater.js
+index 7358a8f..412ecf4 100644
+--- a/node_modules/electron-updater/out/AppUpdater.js
++++ b/node_modules/electron-updater/out/AppUpdater.js
+@@ -558,6 +558,7 @@ class AppUpdater extends events_1.EventEmitter {
+     }
+     async executeDownload(taskOptions) {
+         const fileInfo = taskOptions.fileInfo;
++        this.emit("update-download-fileInfo", fileInfo);
+         const downloadOptions = {
+             headers: taskOptions.downloadUpdateOptions.requestHeaders,
+             cancellationToken: taskOptions.downloadUpdateOptions.cancellationToken,
+diff --git a/node_modules/electron-updater/out/BaseUpdater.d.ts b/node_modules/electron-updater/out/BaseUpdater.d.ts
+index e5dd61f..1797c9f 100644
+--- a/node_modules/electron-updater/out/BaseUpdater.d.ts
++++ b/node_modules/electron-updater/out/BaseUpdater.d.ts
+@@ -19,6 +19,8 @@ export declare abstract class BaseUpdater extends AppUpdater {
+      *   - node 10: Emit the error(Need to listen with on)
+      */
+     protected spawnLog(cmd: string, args?: string[], env?: any, stdio?: StdioOptions): Promise<boolean>;
++    isExistInstallerPath(): boolean;
++    updateInstallerPath(installerPath: string): void;
+ }
+ export interface InstallOptions {
+     readonly isSilent: boolean;
+diff --git a/node_modules/electron-updater/out/BaseUpdater.js b/node_modules/electron-updater/out/BaseUpdater.js
+index 00f99bd..2f801c0 100644
+--- a/node_modules/electron-updater/out/BaseUpdater.js
++++ b/node_modules/electron-updater/out/BaseUpdater.js
+@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.BaseUpdater = void 0;
+ const child_process_1 = require("child_process");
+ const AppUpdater_1 = require("./AppUpdater");
++const fs_extra_1 = require("fs-extra");
++const path = require("path");
+ class BaseUpdater extends AppUpdater_1.AppUpdater {
+     constructor(options, app) {
+         super(options, app);
+@@ -37,6 +39,35 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
+     get installerPath() {
+         return this.downloadedUpdateHelper == null ? null : this.downloadedUpdateHelper.file;
+     }
++
++    // return true if installer path is available
++    isExistInstallerPath() {
++        const installerPath = this.installerPath;
++        return installerPath
++    }
++
++    // update installer path if not set
++    async updateInstallerPath(installerPath) {
++        if (!this.downloadedUpdateHelper) {
++          this.downloadedUpdateHelper = await this.getOrCreateDownloadHelper();
++        }
++        const cacheDir = this.downloadedUpdateHelper?.cacheDirForPendingUpdate;
++        const updateInfoFilePath = path.join(cacheDir, "update-info.json");
++        const doesUpdateInfoFileExist = await (0, fs_extra_1.pathExists)(updateInfoFilePath);
++         if (!doesUpdateInfoFileExist) {
++            return;
++        }
++        try {
++          cachedInfo = await (0, fs_extra_1.readJson)(updateInfoFilePath);
++          this.downloadedUpdateHelper.updateFile(installerPath);
++          this.downloadedUpdateHelper.updateDownloadedFileInfo(cachedInfo.downloadedFileInfo);
++        }
++        catch (error) {
++            logger.info(error);
++            return null;
++        }
++    }
++
+     // must be sync (because quit even handler is not async)
+     install(isSilent = false, isForceRunAfter = false) {
+         if (this.quitAndInstallCalled) {
+diff --git a/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts b/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts
+index 26ea883..eeb032b 100644
+--- a/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts
++++ b/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts
+@@ -25,6 +25,8 @@ export declare class DownloadedUpdateHelper {
+      */
+     private getValidCachedUpdateFile;
+     private getUpdateInfoFile;
++    public updateFile(file: string): void;
++    public updateDownloadedFileInfo(info: ResolvedUpdateFileInfo): void;
+ }
+ interface CachedUpdateInfo {
+     fileName: string;
+diff --git a/node_modules/electron-updater/out/DownloadedUpdateHelper.js b/node_modules/electron-updater/out/DownloadedUpdateHelper.js
+index e6c33ea..15169a8 100644
+--- a/node_modules/electron-updater/out/DownloadedUpdateHelper.js
++++ b/node_modules/electron-updater/out/DownloadedUpdateHelper.js
+@@ -50,6 +50,15 @@ class DownloadedUpdateHelper {
+         this._file = cachedUpdateFile;
+         return cachedUpdateFile;
+     }
++
++    async updateFile(filePath) {
++        this._file = filePath;
++    }
++
++    async updateDownloadedFileInfo(downloadedFileInfo) {
++        this._downloadedFileInfo = downloadedFileInfo;
++    }
++
+     async setDownloadedFile(downloadedFile, packageFile, versionInfo, fileInfo, updateFileName, isSaveCache) {
+         this._file = downloadedFile;
+         this._packageFile = packageFile;

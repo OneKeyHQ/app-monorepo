@@ -27,4 +27,3 @@ module.exports = {
     target: [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
 };
-

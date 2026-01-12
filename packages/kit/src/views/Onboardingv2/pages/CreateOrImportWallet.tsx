@@ -306,11 +306,11 @@ function CreateOrImportWallet() {
               </>
             ) : null}
             {/* keyless wallet */}
-            {isKeylessWalletEnabled && platformEnv.isDev ? (
+            {/* {isKeylessWalletEnabled && platformEnv.isDev ? (
               <Button onPress={handleKeylessWalletLegacyClick}>
                 Keyless wallet legacy
               </Button>
-            ) : null}
+            ) : null} */}
             {isKeylessWalletEnabled ? (
               <Card onPress={handleKeylessWalletClick}>
                 <Card.Header>

@@ -1055,4 +1055,11 @@ module.exports = [
   'promode',
   'moblie',
   'Overscroll',
+  'Flatpak',
+  'Rspack',
+  'rspack',
+  'myposition',
+  'favs',
+  'extractable',
+  'Cipheriv',
 ];

@@ -1154,3 +1154,23 @@ export class HomeScreenNotSupportFormatError extends OneKeyAppError {
     );
   }
 }
+
+export type IIncorrectPinErrorInfo = {
+  guessesRemaining: number;
+};
+
+export class IncorrectPinError extends OneKeyAppError<IIncorrectPinErrorInfo> {
+  constructor(props: IOneKeyError<IIncorrectPinErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'IncorrectPinError',
+        defaultKey: ETranslations.incorrect_pin,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.IncorrectPinError;
+
+  override name = EOneKeyErrorClassNames.IncorrectPinError;
+}
