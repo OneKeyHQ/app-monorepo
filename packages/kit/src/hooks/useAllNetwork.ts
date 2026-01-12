@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 
@@ -10,6 +10,10 @@ import type {
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -279,6 +283,11 @@ function useAllNetworkRequests<T>(params: {
   }) => Promise<void>;
   revalidateOnFocus?: boolean;
 }) {
+  type IAllNetworkRequestsRunConfig = {
+    triggerByDeps?: boolean;
+    pollingNonce?: number;
+    alwaysSetState?: boolean;
+  };
   const {
     accountId: currentAccountId,
     networkId: currentNetworkId,
@@ -303,6 +312,38 @@ function useAllNetworkRequests<T>(params: {
   const runCountRef = useRef(0);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
   const [isLocked] = useAppIsLockedAtom();
+  const [enabledNetworksChangedNonce, setEnabledNetworksChangedNonce] =
+    useState(0);
+  const rerunAfterCurrentRef = useRef(false);
+  const rerunConfigRef = useRef<IAllNetworkRequestsRunConfig | undefined>(
+    undefined,
+  );
+  const runWithQueueRef = useRef<
+    ((config?: IAllNetworkRequestsRunConfig) => Promise<void>) | undefined
+  >(undefined);
+
+  useEffect(() => {
+    const onEnabledNetworksChanged = () => {
+      if (!isAllNetworks) {
+        return;
+      }
+      allNetworkAccountsBaseCache.clear();
+      allNetworkDataInit.current = false;
+      runCountRef.current = 0;
+      setEnabledNetworksChangedNonce((v) => v + 1);
+      void runWithQueueRef.current?.({ triggerByDeps: true });
+    };
+    appEventBus.on(
+      EAppEventBusNames.EnabledNetworksChanged,
+      onEnabledNetworksChanged,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.EnabledNetworksChanged,
+        onEnabledNetworksChanged,
+      );
+    };
+  }, [isAllNetworks]);
 
   useEffect(() => {
     if (currentAccountId && currentNetworkId && currentWalletId) {
@@ -317,6 +358,7 @@ function useAllNetworkRequests<T>(params: {
     isAllNetworks,
     isNFTRequests,
     isDeFiRequests,
+    enabledNetworksChangedNonce,
   ]);
 
   const { run, result } = usePromiseResult(
@@ -346,7 +388,10 @@ function useAllNetworkRequests<T>(params: {
       const requestsUUID = generateUUID();
 
       if (disabled) return;
-      if (isFetching.current) return;
+      if (isFetching.current) {
+        rerunAfterCurrentRef.current = true;
+        return;
+      }
       if (!currentAccountId || !currentNetworkId || !currentWalletId) return;
       if (!isAllNetworks) return;
       runCountRef.current += 1;
@@ -519,6 +564,7 @@ function useAllNetworkRequests<T>(params: {
             abortAllNetworkRequests?.();
           }
         } else {
+          const respTemp: Array<T> = [];
           try {
             const promises = Array.from(accountsInfoBackendIndexed).map(
               (networkDataString) => {
@@ -531,9 +577,12 @@ function useAllNetworkRequests<T>(params: {
                 });
               },
             );
-            await promiseAllSettledEnhanced(promises, {
-              continueOnError: true,
-            });
+            const r = (
+              await promiseAllSettledEnhanced(promises, {
+                continueOnError: true,
+              })
+            ).filter(Boolean) as Array<T>;
+            respTemp.push(...r);
           } catch (e) {
             console.error(e);
             // pass
@@ -551,13 +600,17 @@ function useAllNetworkRequests<T>(params: {
                 });
               },
             );
-            await promiseAllSettledEnhanced(promises, {
-              continueOnError: true,
-            });
+            const r = (
+              await promiseAllSettledEnhanced(promises, {
+                continueOnError: true,
+              })
+            ).filter(Boolean) as Array<T>;
+            respTemp.push(...r);
           } catch (e) {
             console.error(e);
             // pass
           }
+          resp = respTemp.length ? respTemp : null;
 
           // // 处理顺序请求的网络
           // await (async (uuid: string) => {
@@ -601,6 +654,14 @@ function useAllNetworkRequests<T>(params: {
         return resp;
       } finally {
         isFetching.current = false;
+        if (rerunAfterCurrentRef.current) {
+          rerunAfterCurrentRef.current = false;
+          const rerunConfig = rerunConfigRef.current;
+          rerunConfigRef.current = undefined;
+          setTimeout(() => {
+            void runWithQueueRef.current?.(rerunConfig);
+          }, 0);
+        }
       }
     },
     [
@@ -628,8 +689,28 @@ function useAllNetworkRequests<T>(params: {
     },
   );
 
+  const runWithQueue = useCallback(
+    async (config?: IAllNetworkRequestsRunConfig) => {
+      if (isFetching.current) {
+        rerunAfterCurrentRef.current = true;
+        rerunConfigRef.current = {
+          ...rerunConfigRef.current,
+          ...config,
+          alwaysSetState:
+            !!rerunConfigRef.current?.alwaysSetState ||
+            !!config?.alwaysSetState,
+        };
+        return;
+      }
+      await run(config);
+    },
+    [run],
+  );
+
+  runWithQueueRef.current = runWithQueue;
+
   return {
-    run,
+    run: runWithQueue,
     result,
     isEmptyAccount,
     allNetworkDataInit,
