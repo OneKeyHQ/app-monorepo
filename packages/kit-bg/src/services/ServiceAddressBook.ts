@@ -534,18 +534,19 @@ class ServiceAddressBook extends ServiceBase {
     });
   }
 
-  @backgroundMethod()
-  public async findItem(params: {
-    password: string;
-    networkImpl?: string;
+  _findItemByConditions({
+    items,
+    networkId,
+    networkImpl,
+    address,
+    name,
+  }: {
+    items: IAddressItem[];
     networkId?: string;
+    networkImpl?: string;
     address?: string;
     name?: string;
-  }): Promise<IAddressItem | undefined> {
-    const { address, name, networkId, networkImpl, password } = params;
-
-    const { items } = await this.getSafeRawItems({ password });
-
+  }): IAddressItem | undefined {
     return items.find((item) => {
       // 创建条件检查函数数组
       const conditions = [];
@@ -580,6 +581,26 @@ class ServiceAddressBook extends ServiceBase {
 
       // 所有条件都必须为true
       return conditions.every((condition) => condition());
+    });
+  }
+
+  @backgroundMethod()
+  public async findItem(params: {
+    password: string;
+    networkImpl?: string;
+    networkId?: string;
+    address?: string;
+    name?: string;
+  }): Promise<IAddressItem | undefined> {
+    const { address, name, networkId, networkImpl, password } = params;
+
+    const { items } = await this.getSafeRawItems({ password });
+    return this._findItemByConditions({
+      items,
+      networkId,
+      networkImpl,
+      address,
+      name,
     });
   }
 
@@ -693,6 +714,24 @@ class ServiceAddressBook extends ServiceBase {
         items: itemsToAdd,
         password,
       });
+    });
+  }
+
+  @backgroundMethod()
+  async dangerouslyFindItemWithoutSafeCheck(params: {
+    networkImpl?: string;
+    networkId?: string;
+    address?: string;
+    name?: string;
+  }): Promise<IAddressItem | undefined> {
+    const { networkId, networkImpl, address, name } = params;
+    const items = await this.getItems();
+    return this._findItemByConditions({
+      items,
+      networkId,
+      networkImpl,
+      address,
+      name,
     });
   }
 }
