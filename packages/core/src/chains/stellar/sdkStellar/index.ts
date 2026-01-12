@@ -38,6 +38,7 @@ export const {
   Keypair,
   StrKey,
   xdr,
+
 } = StellarSdk;
 
 export { StellarSdk };
