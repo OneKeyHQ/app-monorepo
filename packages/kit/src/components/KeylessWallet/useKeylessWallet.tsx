@@ -587,11 +587,13 @@ export function useKeylessWallet() {
               { token },
             );
           if (!isValid) {
-            // TODO i18n @franco
             Toast.error({
-              title: 'Keyless Wallet',
-              message:
-                'The logged-in account does not match the local keyless wallet.',
+              title: intl.formatMessage({
+                id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+              }),
             });
             navigation.navigate(ERootRoutes.Onboarding, {
               screen: EOnboardingV2Routes.OnboardingV2,
@@ -604,7 +606,9 @@ export function useKeylessWallet() {
             });
             // TODO logout google account
             throw new OneKeyLocalError(
-              'The logged-in account does not match the local keyless wallet.',
+              intl.formatMessage({
+                id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+              }),
             );
           }
         }
@@ -922,20 +926,13 @@ export function useKeylessWallet() {
         },
       );
 
-      // VerifyPinOnly: just verify, show success dialog and close modal
+      // VerifyPinOnly: just verify, show success toast and close modal
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
         navigation.popStack();
-
-        Dialog.show({
-          title: 'PIN Verified',
-          description: 'PIN verified successfully',
-          showCancelButton: false,
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.global_got_it,
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.keyless_wallet_pin_verified_successfully,
           }),
-          onConfirm: () => {
-            //
-          },
         });
         return;
       }
@@ -1017,17 +1014,25 @@ export function useVerifyKeylessPinChecking() {
           Dialog.show({
             disableDrag: true,
             dismissOnOverlayPress: false,
-            // TODO i18n @franco
-            title: 'PIN Verification Required',
-            description: 'Please verify your PIN to continue',
+            icon: 'Shield2CheckOutline',
+            tone: 'success',
+            title: intl.formatMessage({
+              id: ETranslations.pin_verify_reminder_dialog_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.pin_verify_reminder_dialog_desc,
+            }),
             showCancelButton: false,
-            onConfirmText: 'Verify PIN',
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.pin_verify_reminder_dialog_button_label,
+            }),
             onConfirm: async () => {
               const shouldVerifyPin0 = await checkShouldVerifyPin();
               if (!shouldVerifyPin0) {
-                // TODO i18n @franco
                 Toast.success({
-                  title: 'PIN Verified on other device',
+                  title: intl.formatMessage({
+                    id: ETranslations.pin_verify_reminder_dialog_verified_toast,
+                  }),
                 });
                 return;
               }
@@ -1046,6 +1051,7 @@ export function useVerifyKeylessPinChecking() {
       activeAccount.wallet?.isKeyless,
       activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId,
       goToOneKeyIDLoginPageForKeylessWallet,
+      intl,
     ],
   );
   return { verifyKeylessPinChecking };
