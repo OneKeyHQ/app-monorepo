@@ -34,15 +34,18 @@ export function AddressInputHyperlinkText({
         if (!address) {
           return;
         }
-        const { addressBookId, addressBookName, isAllowListed } =
-          await backgroundApiProxy.serviceAccountProfile.queryAddress({
-            accountId,
-            networkId,
-            address,
-            enableAddressBook: true,
-            enableWalletName: true,
-            skipValidateAddress: true,
-          });
+        const {
+          addressBookId,
+          addressBookName: _addressBookName,
+          isAllowListed,
+        } = await backgroundApiProxy.serviceAccountProfile.queryAddress({
+          accountId,
+          networkId,
+          address,
+          enableAddressBook: true,
+          enableWalletName: true,
+          skipValidateAddress: true,
+        });
 
         if (!isAllowListed) {
           navigation.pushModal(EModalRoutes.AddressBookModal, {

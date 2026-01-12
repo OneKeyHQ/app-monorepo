@@ -1,43 +1,59 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import {
-  Page,
-  View,
-  XStack,
-  YStack,
-  useMedia,
-  useTheme,
-} from '@onekeyhq/components';
+import { Page, XStack, YStack, useMedia, useTheme } from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
-import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-import { GiftAction, WalletConnectionForWeb } from './components';
+import {
+  GiftAction,
+  WalletConnectionForWeb,
+  WalletConnectionGroup,
+} from './components';
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
+import { DappHeader } from './DappHeader';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
-import { HeaderMDSearch } from './HeaderMDSearch';
-import { HeaderRight, SelectorTrigger } from './HeaderRight';
-import { HeaderTitle } from './HeaderTitle';
+import { MDHeader } from './MDHeader';
+import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 import type { ITabPageHeaderProp } from './type';
 
 export { DiscoveryHeaderSegment };
 
-export function TabPageHeader({
+function InPageHeader({
+  tabRoute,
+  sceneName,
+}: {
+  sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
+}) {
+  const item = useMemo(() => {
+    if (
+      tabRoute === ETabRoutes.Home &&
+      sceneName !== EAccountSelectorSceneName.homeUrlAccount
+    ) {
+      return <WalletConnectionGroup tabRoute={tabRoute} />;
+    }
+    if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+      return <UrlAccountPageHeader />;
+    }
+  }, [sceneName, tabRoute]);
+  return (
+    <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
+      {item}
+    </XStack>
+  );
+}
+
+function BaseDesktopTabPageHeader({
   sceneName,
   tabRoute,
   selectedHeaderTab,
-  renderCustomHeaderRightItems,
   customHeaderRightItems,
   customHeaderLeftItems,
-  hideSearch = false,
-  hideHeaderLeft = false,
 }: ITabPageHeaderProp) {
   const renderHeaderLeft = useCallback(
     () => (
@@ -51,39 +67,6 @@ export function TabPageHeader({
     [selectedHeaderTab, sceneName, tabRoute, customHeaderLeftItems],
   );
 
-  const { config } = useAccountSelectorContextData();
-
-  const renderHeaderRight = useCallback(
-    () =>
-      config ? (
-        <HomeTokenListProviderMirror>
-          <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <HeaderRight
-              selectedHeaderTab={selectedHeaderTab}
-              sceneName={sceneName}
-              tabRoute={tabRoute}
-              customHeaderRightItems={customHeaderRightItems}
-              renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-            />
-          </AccountSelectorProviderMirror>
-        </HomeTokenListProviderMirror>
-      ) : null,
-    [
-      config,
-      selectedHeaderTab,
-      sceneName,
-      tabRoute,
-      customHeaderRightItems,
-      renderCustomHeaderRightItems,
-    ],
-  );
-
-  const renderHeaderTitle = useCallback(
-    () => <HeaderTitle sceneName={sceneName} />,
-    [sceneName],
-  );
-
-  const { gtMd } = useMedia();
   const theme = useTheme();
 
   const renderUniversalSearchInput = useCallback(
@@ -129,123 +112,74 @@ export function TabPageHeader({
     return null;
   }, [renderHeaderLeft, sceneName]);
 
-  if (platformEnv.isWebDappMode || platformEnv.isExtensionUiExpandTab) {
-    if (gtMd) {
-      return (
-        <Page.Header
-          headerTitleAlign="center"
-          headerStyle={{ backgroundColor: theme.bgSubdued.val }}
-          headerTitle={renderHeaderTitle}
-          headerRight={renderHeaderRight}
-          headerLeft={renderHeaderLeft}
-        />
-      );
-    }
-    return (
-      <>
-        <Page.Header
-          headerTitleAlign="left"
-          headerTitle={renderHeaderTitle}
-          headerRight={renderHeaderRight}
-          headerLeft={renderHeaderLeft}
-        />
-        {!hideSearch ? (
-          <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
-        ) : null}
-      </>
-    );
-  }
-
-  if (tabRoute === ETabRoutes.DeviceManagement) {
-    return (
+  return (
+    <>
       <Page.Header
-        headerShown={gtMd}
-        headerTitleAlign={gtMd ? 'center' : 'left'}
+        headerShown
+        headerTitleAlign="center"
         headerStyle={{ backgroundColor: theme.bgSubdued.val }}
         headerTitle={renderUniversalSearchInput}
         headerRight={renderDesktopModeRightButtons}
-        headerLeft={renderHeaderLeft}
+        headerLeft={
+          tabRoute === ETabRoutes.Home
+            ? renderHeaderLeftInHomeRouter
+            : undefined
+        }
+      />
+      <InPageHeader tabRoute={tabRoute} sceneName={sceneName} />
+    </>
+  );
+}
+
+export function TabPageHeader({
+  sceneName,
+  tabRoute,
+  selectedHeaderTab,
+  renderCustomHeaderRightItems,
+  customHeaderRightItems,
+  customHeaderLeftItems,
+  hideSearch = false,
+  hideHeaderLeft = false,
+}: ITabPageHeaderProp) {
+  const media = useMedia();
+
+  if (platformEnv.isWebDappMode) {
+    return (
+      <DappHeader
+        tabRoute={tabRoute}
+        sceneName={sceneName}
+        hideSearch={hideSearch}
+        selectedHeaderTab={selectedHeaderTab}
+        customHeaderRightItems={customHeaderRightItems}
+        customHeaderLeftItems={customHeaderLeftItems}
+        hideHeaderLeft={hideHeaderLeft}
+        renderCustomHeaderRightItems={renderCustomHeaderRightItems}
       />
     );
   }
 
-  if (gtMd) {
+  if (media.md || platformEnv.isNative) {
     return (
-      <>
-        <Page.Header
-          headerShown
-          headerTitleAlign="center"
-          headerStyle={{ backgroundColor: theme.bgSubdued.val }}
-          headerTitle={renderUniversalSearchInput}
-          headerRight={renderDesktopModeRightButtons}
-          headerLeft={
-            tabRoute === ETabRoutes.Home
-              ? renderHeaderLeftInHomeRouter
-              : undefined
-          }
-        />
-        {tabRoute === ETabRoutes.Home &&
-        sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
-          <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
-            {hideHeaderLeft ? undefined : renderHeaderLeft()}
-          </XStack>
-        ) : null}
-        {sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
-          <XStack px="$5" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
-            {renderHeaderTitle()}
-          </XStack>
-        ) : null}
-      </>
+      <MDHeader
+        tabRoute={tabRoute}
+        sceneName={sceneName}
+        hideSearch={hideSearch}
+        selectedHeaderTab={selectedHeaderTab}
+        renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+      />
     );
   }
 
   return (
-    <>
-      <Page.Header headerShown={false} />
-      {tabRoute === ETabRoutes.Home ||
-      tabRoute === ETabRoutes.Discovery ||
-      tabRoute === ETabRoutes.Earn ||
-      tabRoute === ETabRoutes.Perp ? (
-        <>
-          <XStack
-            alignItems="center"
-            justifyContent="space-between"
-            px="$5"
-            h="$11"
-          >
-            <View>
-              <HeaderLeft
-                selectedHeaderTab={selectedHeaderTab}
-                sceneName={sceneName}
-                tabRoute={tabRoute}
-                customHeaderLeftItems={customHeaderLeftItems}
-              />
-            </View>
-            <View>
-              <HeaderTitle sceneName={sceneName} />
-            </View>
-            <XStack flexShrink={1}>
-              <HomeTokenListProviderMirror>
-                {sceneName !== EAccountSelectorSceneName.homeUrlAccount ? (
-                  <HeaderRight
-                    selectedHeaderTab={selectedHeaderTab}
-                    sceneName={sceneName}
-                    tabRoute={tabRoute}
-                    customHeaderRightItems={customHeaderRightItems}
-                    renderCustomHeaderRightItems={renderCustomHeaderRightItems}
-                  />
-                ) : (
-                  <SelectorTrigger />
-                )}
-              </HomeTokenListProviderMirror>
-            </XStack>
-          </XStack>
-
-          {!hideSearch ? (
-            <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
-          ) : null}
-        </>
-      ) : null}
-    </>
+    <BaseDesktopTabPageHeader
+      tabRoute={tabRoute}
+      sceneName={sceneName}
+      hideSearch={hideSearch}
+      selectedHeaderTab={selectedHeaderTab}
+      customHeaderRightItems={customHeaderRightItems}
+      customHeaderLeftItems={customHeaderLeftItems}
+      hideHeaderLeft={hideHeaderLeft}
+      renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+    />
   );
 }

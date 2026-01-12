@@ -290,6 +290,19 @@ const SwapProActionButton = ({
       };
     }
 
+    if (
+      currentQuoteRes &&
+      !currentQuoteRes.toAmount &&
+      !currentQuoteRes.limit
+    ) {
+      return {
+        resValue: intl.formatMessage({
+          id: ETranslations.swap_page_alert_no_provider_supports_trade,
+        }),
+        subValue: '',
+      };
+    }
+
     // Format: "Buy {amount} {fromToken} ({Value})"
     const directionText = intl.formatMessage({
       id:
@@ -342,14 +355,15 @@ const SwapProActionButton = ({
   }, [
     hasEnoughBalance,
     swapProAccount?.result?.addressDetail.address,
+    currentQuoteRes,
     intl,
     swapProDirection,
     inputToken?.symbol,
     currencyInfo?.symbol,
     inputTokenValue,
     toToken?.symbol,
-    inputAmount,
     quoteToAmount,
+    inputAmount,
   ]);
 
   return (

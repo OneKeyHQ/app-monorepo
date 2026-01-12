@@ -130,7 +130,7 @@ function AddCustomTokenModal() {
 
   const isAllNetwork = networkUtils.isAllNetwork({ networkId });
 
-  const { result: allNetworksState, run: refreshAllNetworkState } =
+  const { result: allNetworksState, run: _refreshAllNetworkState } =
     usePromiseResult(
       async () => {
         if (isAllNetwork) {
