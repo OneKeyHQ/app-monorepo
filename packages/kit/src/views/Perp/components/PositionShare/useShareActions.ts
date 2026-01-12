@@ -78,7 +78,7 @@ export function useShareActions(referralQrCodeUrl?: string) {
             'base64',
           );
 
-          const savedAsset = await MediaLibrary.saveToLibraryAsync(filepath);
+          await MediaLibrary.saveToLibraryAsync(filepath);
           await RNFS.unlink(filepath);
 
           const titleText = intl.formatMessage({
@@ -89,10 +89,10 @@ export function useShareActions(referralQrCodeUrl?: string) {
           });
 
           const openPhotoLibrary = () => {
-            if (platformEnv.isNativeAndroid && savedAsset?.uri) {
-              void Linking.openURL(savedAsset.uri).catch(() => {
-                void Linking.openURL('content://media/internal/images/media');
-              });
+            if (platformEnv.isNativeAndroid) {
+              void Linking.openURL(
+                'content://media/external/images/media',
+              ).catch(() => {});
             } else {
               void Linking.openURL('photos-redirect://');
             }
