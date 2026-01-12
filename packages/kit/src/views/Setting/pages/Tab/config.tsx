@@ -742,7 +742,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_user_agreement,
               }),
-              onPress: (navigation) => {
+              onPress: (_navigation) => {
                 openUrlExternal(userAgreementUrl);
               },
             },
@@ -751,7 +751,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_privacy_policy,
               }),
-              onPress: (navigation) => {
+              onPress: (_navigation) => {
                 openUrlExternal(privacyPolicyUrl);
               },
             },
