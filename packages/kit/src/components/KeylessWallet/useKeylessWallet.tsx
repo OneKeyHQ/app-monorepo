@@ -667,7 +667,7 @@ export function useKeylessWallet() {
         });
       }
     },
-    [handleKeylessOnboardingTimeout, navigation],
+    [handleKeylessOnboardingTimeout, intl, navigation],
   );
 
   // goToOneKeyIDLoginPageForKeylessWallet
