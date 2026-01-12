@@ -22,6 +22,13 @@ import type { IDeFiDBStruct } from '../dbs/simple/entity/SimpleDbEntityDeFi';
 
 @backgroundClass()
 class ServiceDeFi extends ServiceBase {
+  private enabledNetworksMapEmptyCacheExpiresAt = 0;
+
+  private ensureEnabledNetworksMapPromise:
+    | Promise<Record<string, boolean>>
+    | undefined
+    | null = null;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -284,7 +291,42 @@ class ServiceDeFi extends ServiceBase {
 
   @backgroundMethod()
   public async getDeFiEnabledNetworksMap() {
-    return this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap();
+    const existing =
+      (await this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap()) ?? {};
+    if (!isEmpty(existing)) {
+      this.enabledNetworksMapEmptyCacheExpiresAt = 0;
+      return existing;
+    }
+
+    const now = Date.now();
+    if (this.enabledNetworksMapEmptyCacheExpiresAt > now) {
+      return existing;
+    }
+
+    if (this.ensureEnabledNetworksMapPromise) {
+      return this.ensureEnabledNetworksMapPromise;
+    }
+
+    this.ensureEnabledNetworksMapPromise = (async () => {
+      try {
+        await this.syncDeFiEnabledNetworks();
+      } catch (error) {
+        console.error(error);
+      }
+      const refreshed =
+        await this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap();
+      const result = refreshed ?? {};
+      if (isEmpty(result)) {
+        this.enabledNetworksMapEmptyCacheExpiresAt = Date.now() + 30_000;
+      } else {
+        this.enabledNetworksMapEmptyCacheExpiresAt = 0;
+      }
+      return result;
+    })().finally(() => {
+      this.ensureEnabledNetworksMapPromise = null;
+    });
+
+    return this.ensureEnabledNetworksMapPromise;
   }
 
   @backgroundMethod()

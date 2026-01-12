@@ -21,6 +21,8 @@ type IHealthFactorProps = {
   max?: number;
   thresholdValue?: number;
   liquidationText?: IEarnText;
+  gradientStops?: IHealthFactorGradientStop[];
+  levelColors?: Partial<Record<IHealthFactorLevel, string>>;
 };
 
 type IIndicatorProps = {
@@ -28,6 +30,49 @@ type IIndicatorProps = {
   containerWidth: number;
   children: React.ReactNode;
   position: 'top' | 'bottom';
+};
+
+export type IHealthFactorLevel = 'critical' | 'warning' | 'success';
+
+export type IHealthFactorGradientStop = {
+  percent: number;
+  level: IHealthFactorLevel;
+};
+
+const DEFAULT_GRADIENT_STOPS: IHealthFactorGradientStop[] = [
+  { percent: 0, level: 'critical' },
+  { percent: 50, level: 'warning' },
+  { percent: 100, level: 'success' },
+];
+
+const clampPercent = (value: number) => Math.min(Math.max(value, 0), 100);
+
+const normalizeGradientStops = (
+  stops: IHealthFactorGradientStop[],
+): IHealthFactorGradientStop[] => {
+  const normalized = stops
+    .filter((stop) => Number.isFinite(stop.percent))
+    .map((stop) => ({
+      ...stop,
+      percent: clampPercent(stop.percent),
+    }))
+    .sort((a, b) => a.percent - b.percent);
+
+  if (normalized.length < 2) {
+    return DEFAULT_GRADIENT_STOPS;
+  }
+
+  return normalized;
+};
+
+const toGradientLocations = (
+  stops: IHealthFactorGradientStop[],
+): readonly [number, number, ...number[]] => {
+  const locations = stops.map((stop) => stop.percent / 100);
+  const first = locations[0] ?? 0;
+  const second = locations[1] ?? 1;
+  const rest = locations.slice(2);
+  return [first, second, ...rest];
 };
 
 // Determine text alignment based on position to prevent overflow
@@ -96,11 +141,35 @@ export const HealthFactor = ({
   max = 3,
   thresholdValue = 1,
   liquidationText,
+  gradientStops,
+  levelColors,
 }: IHealthFactorProps) => {
   const theme = useTheme();
-  const criticalColor = theme.bgCriticalStrong.val;
-  const cautionColor = theme.bgCautionStrong.val;
-  const successColor = theme.bgSuccessStrong.val;
+  const { gradientColors, gradientLocations } = useMemo(() => {
+    const resolvedLevelColors = {
+      critical: levelColors?.critical ?? theme.bgCriticalStrong.val,
+      warning: levelColors?.warning ?? theme.bgCautionStrong.val,
+      success: levelColors?.success ?? theme.bgSuccessStrong.val,
+    };
+    const resolvedStops = normalizeGradientStops(
+      gradientStops ?? DEFAULT_GRADIENT_STOPS,
+    );
+
+    return {
+      gradientColors: resolvedStops.map(
+        (stop) => resolvedLevelColors[stop.level],
+      ),
+      gradientLocations: toGradientLocations(resolvedStops),
+    };
+  }, [
+    gradientStops,
+    levelColors?.critical,
+    levelColors?.warning,
+    levelColors?.success,
+    theme.bgCriticalStrong.val,
+    theme.bgCautionStrong.val,
+    theme.bgSuccessStrong.val,
+  ]);
 
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -174,7 +243,8 @@ export const HealthFactor = ({
       <LinearGradient
         start={[0, 0]}
         end={[1, 0]}
-        colors={[criticalColor, cautionColor, successColor]}
+        colors={gradientColors}
+        locations={gradientLocations}
         height="$1"
         width="100%"
         borderRadius={9999}

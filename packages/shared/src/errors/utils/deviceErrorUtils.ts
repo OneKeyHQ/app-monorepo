@@ -221,6 +221,10 @@ export function convertDeviceError(
       return new HardwareErrors.DefectiveFirmware({ payload });
     case HardwareErrorCode.FirmwareDowngradeNotAllowed:
       return new HardwareErrors.FirmwareDowngradeNotAllowedError({ payload });
+    case HardwareErrorCode.DeviceSettingsNotProvided:
+      return new HardwareErrors.DeviceNotSupportSettingOption({ payload });
+    case HardwareErrorCode.CosmosInvalidJsonMessage:
+      return new HardwareErrors.CosmosInvalidJsonMessage({ payload });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':

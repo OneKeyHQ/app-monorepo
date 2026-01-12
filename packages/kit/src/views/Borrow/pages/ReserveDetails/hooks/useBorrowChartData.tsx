@@ -20,7 +20,7 @@ export const APY_CHART_COLORS = {
     bottom: '#42FFA400',
   },
   borrow: {
-    line: '#DA8A00C9',
+    line: '#BF7000A3',
     top: '#BF700026',
     bottom: '#BF700000',
   },

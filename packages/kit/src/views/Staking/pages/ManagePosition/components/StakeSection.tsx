@@ -280,6 +280,14 @@ export const StakeSection = ({
     ],
   );
 
+  // Determine the effective max balance for supply
+  const effectiveMaxBalance = useMemo(() => {
+    if (borrowAction !== 'supply') {
+      return undefined;
+    }
+    return protocolInfo?.maxSupplyBalance;
+  }, [borrowAction, protocolInfo?.maxSupplyBalance]);
+
   const onBorrowConfirm = useCallback(
     async (amount: string) => {
       if (!hasRequiredData || !borrowApiCtx.isBorrow) return;
@@ -357,6 +365,7 @@ export const StakeSection = ({
           beforeFooter={beforeFooter}
           borrowReserves={borrowReserves}
           actionLabel={borrowActionLabel}
+          maxBalance={undefined}
         />
       );
     }
@@ -390,6 +399,7 @@ export const StakeSection = ({
             protocolInfo?.protocolInputDecimals ?? tokenInfo?.token?.decimals
           }
           balance={tokenInfo?.balanceParsed ?? ''}
+          maxBalance={effectiveMaxBalance}
           tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
           tokenSymbol={tokenInfo?.token.symbol}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}

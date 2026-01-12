@@ -17,6 +17,7 @@ import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { runAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
 import {
   useAccountDeFiOverviewAtom,
   useAccountOverviewActions,
@@ -94,6 +95,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   } = useActiveAccount({ num: 0 });
 
   const [isDeFiEnabled, setIsDeFiEnabled] = useState(false);
+  const [isAllNetRequestsEnabled, setIsAllNetRequestsEnabled] =
+    useState<boolean>(false);
 
   const checkDeFiEnabled = useCallback(async () => {
     if (!network?.id) {
@@ -113,6 +116,32 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   useEffect(() => {
     void checkDeFiEnabled();
   }, [checkDeFiEnabled]);
+
+  useEffect(() => {
+    const isAllNetworks = networkUtils.isAllNetwork({ networkId: network?.id });
+    if (!isAllNetworks) {
+      setIsAllNetRequestsEnabled(true);
+      return;
+    }
+
+    setIsAllNetRequestsEnabled(false);
+    if (isDeFiEnabled && !initialized && !isRefreshing) {
+      updateDeFiListState({
+        initialized: false,
+        isRefreshing: true,
+      });
+    }
+    return runAfterTokensDone({
+      onRun: () => setIsAllNetRequestsEnabled(true),
+    });
+  }, [
+    account?.id,
+    network?.id,
+    initialized,
+    isDeFiEnabled,
+    isRefreshing,
+    updateDeFiListState,
+  ]);
 
   const { run } = usePromiseResult(
     async () => {
@@ -461,6 +490,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     allNetworkRequests: handleAllNetworkRequests,
     clearAllNetworkData: handleClearAllNetworkData,
     isDeFiRequests: true,
+    disabled: network?.isAllNetworks ? !isAllNetRequestsEnabled : false,
   });
 
   const handleRefreshAllNetworkData = useCallback(() => {

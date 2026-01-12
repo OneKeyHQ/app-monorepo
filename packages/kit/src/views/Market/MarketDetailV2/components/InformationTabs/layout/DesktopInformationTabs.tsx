@@ -51,7 +51,7 @@ export function DesktopInformationTabs({
   isRefreshing,
 }: IDesktopInformationTabsProps) {
   const intl = useIntl();
-  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
+  const { tokenAddress, networkId, tokenDetail, isNative } = useTokenDetail();
   const { handleTabChange } = useBottomTabAnalytics();
   const { accountAddress } = useNetworkAccountAddress(networkId);
 
@@ -70,8 +70,8 @@ export function DesktopInformationTabs({
   }, [intl, tokenDetail?.holders]);
 
   const tabs = useMemo(() => {
-    // Check if current network supports holders tab
-    const shouldShowHoldersTab = isHoldersTabSupported(networkId);
+    // Check if current network supports holders tab (not available for native tokens)
+    const shouldShowHoldersTab = !isNative && isHoldersTabSupported(networkId);
     // Check if there's an account address available
     const shouldShowPortfolioTab = !!accountAddress;
 
@@ -116,13 +116,14 @@ export function DesktopInformationTabs({
     portfolioData,
     isRefreshing,
     holdersTabName,
+    isNative,
   ]);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <DesktopInformationTabsHeader {...props} />;
   }, []);
 
-  if (!tokenAddress || !networkId) {
+  if (!networkId) {
     return null;
   }
 
