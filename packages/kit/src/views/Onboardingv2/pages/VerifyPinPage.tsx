@@ -3,6 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { JUICEBOX_ALLOWED_GUESSES } from '@onekeyhq/shared/src/consts/authConsts';
+import type { IIncorrectPinErrorInfo } from '@onekeyhq/shared/src/errors/errors/appErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { EKeylessFinalizeAction } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -22,7 +27,7 @@ import {
 
 import type { RouteProp } from '@react-navigation/core';
 
-const MAX_ATTEMPTS = 7;
+const MAX_ATTEMPTS = JUICEBOX_ALLOWED_GUESSES;
 
 // Cooldown times based on attempt number (in seconds)
 // Attempt 1: 0, Attempt 2: 30s, Attempt 3: 60s, Attempt 4: 120s, Attempt 5-6: 300s
@@ -45,11 +50,6 @@ function VerifyPinPage() {
   const [isLoading, setIsLoading] = useState(false);
   const pinInputRef = useRef<IPinInputLayoutRef | null>(null);
 
-  const isVerifyPinOnly =
-    mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
-  // Social login mode: when mode is not VerifyPinOnly (or no mode specified)
-  const isSocialLogin = !isVerifyPinOnly;
-
   const [pin, setPin] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [attemptsRemaining, setAttemptsRemaining] = useState(MAX_ATTEMPTS);
@@ -57,24 +57,26 @@ function VerifyPinPage() {
   const [showAttemptError, setShowAttemptError] = useState(false);
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isInputDisabled = isSocialLogin && cooldownSeconds > 0;
+  const isInputDisabled = cooldownSeconds > 0;
+  const isVerifyPinOnly =
+    mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
 
   const { title, description } = useMemo(() => {
-    if (isSocialLogin) {
+    if (isVerifyPinOnly) {
       return {
-        title: intl.formatMessage({ id: ETranslations.enter_your_pin }),
+        title: intl.formatMessage({ id: ETranslations.remember_your_pin }),
         description: intl.formatMessage({
-          id: ETranslations.enter_your_pin_desc,
+          id: ETranslations.remember_your_pin_desc,
         }),
       };
     }
     return {
-      title: intl.formatMessage({ id: ETranslations.remember_your_pin }),
+      title: intl.formatMessage({ id: ETranslations.enter_your_pin }),
       description: intl.formatMessage({
-        id: ETranslations.remember_your_pin_desc,
+        id: ETranslations.enter_your_pin_desc,
       }),
     };
-  }, [isSocialLogin, intl]);
+  }, [isVerifyPinOnly, intl]);
 
   // Clear cooldown timer on unmount
   useEffect(() => {
@@ -141,49 +143,15 @@ function VerifyPinPage() {
     try {
       setIsLoading(true);
       await verifyKeylessOnboardingPin({ pin, mode });
-    } finally {
-      setIsLoading(false);
-      setPin('');
-      // Focus the input after clearing PIN
-      setTimeout(
-        () => {
-          if (pinInputRef.current) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-            pinInputRef.current.focus();
-          }
-        },
-        platformEnv.isNative ? 100 : 50,
-      );
-    }
-  }, [pin, mode, pinInputRef, verifyKeylessOnboardingPin]);
-
-  const _handleVerifyLegacy = useCallback(() => {
-    // TODO: Verify against actual stored PIN on server
-    const isCorrect = false; // Mock: always fail for testing
-
-    if (isCorrect) {
-      if (isSocialLogin) {
-        navigation.push(EOnboardingPagesV2.CreatePasscode);
-      } else {
-        // For periodic verification, just go back
-        navigation.pop();
-      }
-    } else {
-      setPin('');
-      // Focus the input after clearing PIN
-      setTimeout(
-        () => {
-          if (pinInputRef.current) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-            pinInputRef.current.focus();
-          }
-        },
-        platformEnv.isNative ? 100 : 50,
-      );
-
-      if (isSocialLogin) {
-        // Social login: apply retry mechanism with cooldown
-        const newAttemptsRemaining = attemptsRemaining - 1;
+    } catch (e) {
+      if (
+        errorUtils.isErrorByClassName({
+          error: e,
+          className: EOneKeyErrorClassNames.IncorrectPinError,
+        })
+      ) {
+        const errorInfo = (e as { info?: IIncorrectPinErrorInfo })?.info;
+        const newAttemptsRemaining = errorInfo?.guessesRemaining ?? 0;
         const attemptNumber = MAX_ATTEMPTS - newAttemptsRemaining;
 
         setAttemptsRemaining(newAttemptsRemaining);
@@ -200,28 +168,40 @@ function VerifyPinPage() {
           }
         }
       } else {
-        // Periodic verification: simple error message, no retry mechanism
-        setErrorMessage(
-          intl.formatMessage({ id: ETranslations.incorrect_pin }),
-        );
+        throw e;
       }
+    } finally {
+      setIsLoading(false);
+      setPin('');
+      // Focus the input after clearing PIN
+      setTimeout(
+        () => {
+          if (pinInputRef.current) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+            pinInputRef.current.focus();
+          }
+        },
+        platformEnv.isNative ? 100 : 50,
+      );
     }
   }, [
-    attemptsRemaining,
-    intl,
-    isSocialLogin,
-    navigation,
+    pin,
+    mode,
     pinInputRef,
+    verifyKeylessOnboardingPin,
+    navigation,
     startCooldown,
   ]);
 
   const handleForgotPin = useCallback(() => {
-    if (isSocialLogin) {
-      navigation.push(EOnboardingPagesV2.ResetPin);
+    if (isVerifyPinOnly) {
+      navigation.push(EOnboardingPagesV2.CreatePin, {
+        action: EKeylessFinalizeAction.ResetPin,
+      });
     } else {
-      navigation.push(EOnboardingPagesV2.CreatePin, { isResetPin: true });
+      navigation.push(EOnboardingPagesV2.ResetPin);
     }
-  }, [isSocialLogin, navigation]);
+  }, [navigation, isVerifyPinOnly]);
 
   // Build error message based on state
   const displayErrorMessage = (() => {
@@ -229,7 +209,6 @@ function VerifyPinPage() {
       return errorMessage;
     }
     if (
-      isSocialLogin &&
       showAttemptError &&
       attemptsRemaining < MAX_ATTEMPTS &&
       attemptsRemaining > 0
@@ -248,7 +227,7 @@ function VerifyPinPage() {
           {
             seconds: formatCooldownTime(cooldownSeconds),
           },
-        )}.`;
+        )}`;
       }
       return baseMessage;
     }
@@ -264,7 +243,7 @@ function VerifyPinPage() {
       description={description}
       buttonText={intl.formatMessage({ id: ETranslations.global_continue })}
       secondaryButtonText={
-        isSocialLogin
+        isVerifyPinOnly
           ? intl.formatMessage({ id: ETranslations.forgot_pin })
           : intl.formatMessage({ id: ETranslations.reset_pin })
       }

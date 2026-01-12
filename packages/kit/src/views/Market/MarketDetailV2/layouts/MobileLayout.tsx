@@ -98,14 +98,11 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   );
 
   const tradingViewHeight = useMemo(() => {
-    if (isNative) {
-      return Number(height) * 0.9;
-    }
     if (platformEnv.isNative) {
       return Number(height) * 0.58;
     }
     return '40vh';
-  }, [height, isNative]);
+  }, [height]);
 
   const informationHeader = useMemo(() => {
     return (
@@ -141,16 +138,12 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       if (index === 0) {
         return (
           <YStack flex={1} height={height}>
-            {isNative ? (
-              informationHeader
-            ) : (
-              <MobileInformationTabs
-                onScrollEnd={noop}
-                renderHeader={renderInformationHeader}
-                portfolioData={portfolioData}
-                isRefreshing={isRefreshing}
-              />
-            )}
+            <MobileInformationTabs
+              onScrollEnd={noop}
+              renderHeader={renderInformationHeader}
+              portfolioData={portfolioData}
+              isRefreshing={isRefreshing}
+            />
           </YStack>
         );
       }
@@ -164,14 +157,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         </YStack>
       );
     },
-    [
-      height,
-      isNative,
-      informationHeader,
-      renderInformationHeader,
-      portfolioData,
-      isRefreshing,
-    ],
+    [height, renderInformationHeader, portfolioData, isRefreshing],
   );
 
   const toSwapPanelToken = useMemo(() => {

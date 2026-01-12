@@ -133,10 +133,14 @@ const validChannels = [
 const getChannel = () => {
   let channel;
   try {
-    if (process.platform === 'linux' && process.env.APPIMAGE) {
-      channel = 'appImage';
-    } else if (process.platform === 'linux' && process.env.SNAP) {
-      channel = 'snap';
+    if (process.platform === 'linux') {
+      if (process.env.APPIMAGE) {
+        channel = 'appImage';
+      } else if (process.env.SNAP) {
+        channel = 'snap';
+      } else if (process.env.FLATPAK) {
+        channel = 'flatpak';
+      }
     }
   } catch (e) {
     // ignore

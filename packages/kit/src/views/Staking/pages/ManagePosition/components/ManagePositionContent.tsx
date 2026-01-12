@@ -17,6 +17,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import {
+  createBorrowRefreshScope,
+  requestBorrowRefresh,
+} from '@onekeyhq/kit/src/views/Borrow/refresh/borrowRefreshCoordinator';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
@@ -195,6 +199,17 @@ export function ManagePositionContent({
     [accountId, indexedAccountId, earnAccount?.accountAddress],
   );
 
+  const borrowRefreshScope = useMemo(
+    () =>
+      createBorrowRefreshScope({
+        accountId: earnAccount?.accountId ?? accountId,
+        networkId,
+        provider,
+        marketAddress,
+      }),
+    [accountId, earnAccount?.accountId, marketAddress, networkId, provider],
+  );
+
   // Determine if we should show warning instead of normal content
   // This includes: no address, no account, or BTC-only firmware on non-BTC network
   const shouldShowWarning = useMemo(
@@ -351,12 +366,22 @@ export function ManagePositionContent({
     void refreshManageData();
     // Immediately refresh pending transactions after operation
     void refreshPendingRef.current?.();
+    if (isBorrowType) {
+      if (borrowRefreshScope) {
+        requestBorrowRefresh({
+          scope: borrowRefreshScope,
+          reason: 'txSuccess',
+        });
+      }
+    }
     onStakeWithdrawSuccess?.();
     if (isInModalContext) {
       appNavigation.popStack();
     }
   }, [
     refreshManageData,
+    isBorrowType,
+    borrowRefreshScope,
     onStakeWithdrawSuccess,
     isInModalContext,
     appNavigation,

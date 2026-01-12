@@ -7,14 +7,48 @@ import {
   useState,
 } from 'react';
 
-import { Icon, ScrollView, Stack, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  ScrollView,
+  SegmentControl,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  type IPerpFavoritesDisplayMode,
+  usePerpTokenFavoritesPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { usePerpsFavorites } from '../../hooks/usePerpsFavorites';
 
 import { FavoriteTokenItem } from './FavoriteTokenItem';
 
 const SCROLL_DISTANCE = 250;
+
+const DisplayModeToggle = memo(
+  ({
+    displayMode,
+    onToggle,
+  }: {
+    displayMode: IPerpFavoritesDisplayMode;
+    onToggle: () => void;
+  }) => (
+    <XStack onPress={onToggle}>
+      <SegmentControl
+        value={displayMode}
+        onChange={() => {}}
+        options={[
+          { label: '$', value: 'price' },
+          { label: '%', value: 'percent' },
+        ]}
+        flexShrink={0}
+        pointerEvents="none"
+      />
+    </XStack>
+  ),
+);
+DisplayModeToggle.displayName = 'DisplayModeToggle';
 
 const ScrollButton = memo(
   ({
@@ -74,6 +108,16 @@ function FavoritesBar() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [favoritesSettings, setFavoritesSettings] =
+    usePerpTokenFavoritesPersistAtom();
+  const displayMode = favoritesSettings.displayMode ?? 'price';
+
+  const toggleDisplayMode = useCallback(() => {
+    setFavoritesSettings((prev) => ({
+      ...prev,
+      displayMode: prev.displayMode === 'price' ? 'percent' : 'price',
+    }));
+  }, [setFavoritesSettings]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
@@ -112,43 +156,60 @@ function FavoritesBar() {
   }
 
   return (
-    <Stack position="relative" h={40}>
-      <ScrollView
-        ref={scrollRef as any}
-        horizontal
-        showsHorizontalScrollIndicator={false}
+    <XStack position="relative" h={40} alignItems="flex-start">
+      <XStack
+        alignItems="center"
+        h={40}
         bg="$bgApp"
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
-        h={24}
-        contentContainerStyle={{
-          alignItems: 'center',
-          px: '$3',
-          gap: '$1',
-        }}
-        onScroll={updateScrollState}
-        scrollEventThrottle={16}
+        pl="$3"
+        flexShrink={0}
       >
-        {favoriteItems.map((item) => (
-          <FavoriteTokenItem
-            key={`${item.assetId}`}
-            displayName={item.displayName}
-            coinName={item.coinName}
-            dexIndex={item.dexIndex}
-            assetId={item.assetId}
-            onPress={() =>
-              void actions.current.changeActiveAsset({ coin: item.coinName })
-            }
-          />
-        ))}
-      </ScrollView>
-      {canScrollLeft ? (
-        <ScrollButton direction="left" onPress={scrollLeft} />
-      ) : null}
-      {canScrollRight ? (
-        <ScrollButton direction="right" onPress={scrollRight} />
-      ) : null}
-    </Stack>
+        <DisplayModeToggle
+          displayMode={displayMode}
+          onToggle={toggleDisplayMode}
+        />
+      </XStack>
+      <Stack position="relative" flex={1} h={40} pr="$2">
+        <ScrollView
+          ref={scrollRef as any}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          bg="$bgApp"
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+          h={24}
+          contentContainerStyle={{
+            alignItems: 'center',
+            px: '$2',
+            gap: '$1',
+          }}
+          onScroll={updateScrollState}
+          scrollEventThrottle={16}
+        >
+          {favoriteItems.map((item) => (
+            <FavoriteTokenItem
+              key={`${item.assetId}`}
+              displayName={item.displayName}
+              coinName={item.coinName}
+              dexIndex={item.dexIndex}
+              assetId={item.assetId}
+              displayMode={displayMode}
+              onPress={() =>
+                void actions.current.changeActiveAsset({ coin: item.coinName })
+              }
+            />
+          ))}
+        </ScrollView>
+        {canScrollLeft ? (
+          <ScrollButton direction="left" onPress={scrollLeft} />
+        ) : null}
+        {canScrollRight ? (
+          <ScrollButton direction="right" onPress={scrollRight} />
+        ) : null}
+      </Stack>
+    </XStack>
   );
 }
 

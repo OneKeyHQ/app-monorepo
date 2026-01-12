@@ -4,7 +4,6 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-import type { EFirmwareType } from '@onekeyfe/hd-shared';
 import type { AvatarImageProps } from 'tamagui';
 
 export type IAccountProps = {

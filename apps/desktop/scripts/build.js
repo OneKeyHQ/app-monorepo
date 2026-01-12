@@ -7,24 +7,14 @@ const glob = require('glob');
 const fs = require('fs');
 const pkg = require('../app/package.json');
 
-// Add passport-desktop-win32-x64-msvc dependency for Windows
-if (process.platform === 'win32') {
-  pkg.dependencies = pkg.dependencies || {};
-  pkg.dependencies['passport-desktop-win32-x64-msvc'] = '0.1.2';
-
-  // Write back to package.json file
-  const packageJsonPath = path.join(__dirname, '..', 'app', 'package.json');
-  fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
-}
-
+const isProduction = process.env.NODE_ENV === 'production';
+console.log('building for', isProduction ? 'production' : 'development');
 const electronSource = path.join(__dirname, '..', 'app');
 
 const gitRevision = childProcess
   .execSync('git rev-parse HEAD')
   .toString()
   .trim();
-
-const isProduction = process.env.NODE_ENV === 'production';
 
 const hrstart = process.hrtime();
 
@@ -35,7 +25,10 @@ const serviceFiles = glob
 
 console.log('process.env.NODE_ENV', process.env.NODE_ENV);
 console.log('process.env.DESK_CHANNEL', process.env.DESK_CHANNEL);
+console.log('process.env.COMMITHASH', process.env.COMMITHASH);
+console.log('process.env.APPIMAGE', process.env.APPIMAGE);
 console.log('process.env.SNAP', process.env.SNAP);
+console.log('process.env.FLATPAK', process.env.FLATPAK);
 console.log('process.env.BUILD_NUMBER', process.env.BUILD_NUMBER);
 console.log('process.env.BUILD_TIME', process.env.BUILD_TIME);
 console.log('process.env.VERSION', process.env.VERSION);
@@ -107,6 +100,7 @@ build({
     ),
     'process.env.APPIMAGE': JSON.stringify(process.env.APPIMAGE || ''),
     'process.env.SNAP': JSON.stringify(process.env.SNAP || ''),
+    'process.env.FLATPAK': JSON.stringify(process.env.FLATPAK || ''),
     'process.env.SENTRY_DSN_MAS': JSON.stringify(
       process.env.SENTRY_DSN_MAS || '',
     ),

@@ -7,6 +7,7 @@ import { Keyboard, StyleSheet } from 'react-native';
 
 import {
   Alert,
+  Divider,
   Icon,
   Page,
   Stack,
@@ -28,6 +29,7 @@ import {
   useOnBlurAmountValue,
 } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
+import { TradeOrBuy } from '@onekeyhq/kit/src/views/Staking/components/TradeOrBuy';
 import { countDecimalPlaces } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -35,11 +37,12 @@ import type {
   IBorrowAsset,
   IEarnTokenInfo,
 } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { createBorrowAssetSelectPopoverContent } from '../BorrowAssetSelectPopover';
 import { BorrowInfoItem } from '../BorrowInfoItem';
+import { ApyTextV2 } from '../BorrowTableList/ApyTextV2';
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
 type IUniversalBorrowRepayProps = {
@@ -270,6 +273,11 @@ export function UniversalBorrowRepay({
       setSubmitting(false);
     }
   }, [amountValue, isRepayAll, onConfirm]);
+
+  const token = useMemo(
+    () => _tokenInfo?.token as IToken | undefined,
+    [_tokenInfo?.token],
+  );
 
   // Wrap onTokenSelect to clear amount when token changes
   const handleTokenSelectInternal = useCallback(
@@ -528,19 +536,30 @@ export function UniversalBorrowRepay({
                 ) : null}
               </BorrowInfoItem>
             ) : null}
+          </YStack>
+          <Divider my="$5" />
+          <YStack gap="$6">
             {showApyDetail && transactionConfirmation?.apyDetail ? (
               <BorrowInfoItem
                 title={intl.formatMessage({
                   id: ETranslations.defi_supply_apy,
                 })}
               >
-                <YStack ai="flex-end">
-                  <EarnActionIcon
-                    title={transactionConfirmation.apyDetail.title.text}
-                    actionIcon={transactionConfirmation.apyDetail.button}
-                  />
-                </YStack>
+                <ApyTextV2
+                  apyDetail={transactionConfirmation.apyDetail}
+                  triggerMode="icon"
+                />
               </BorrowInfoItem>
+            ) : null}
+            {token ? (
+              <TradeOrBuy
+                token={token}
+                accountId={accountId}
+                networkId={networkId}
+                containerStyle={{
+                  pt: '$0',
+                }}
+              />
             ) : null}
           </YStack>
         </YStack>

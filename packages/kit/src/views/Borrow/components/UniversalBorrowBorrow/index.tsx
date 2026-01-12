@@ -30,7 +30,6 @@ import {
   useOnBlurAmountValue,
 } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
-import { TradeOrBuy } from '@onekeyhq/kit/src/views/Staking/components/TradeOrBuy';
 import { countDecimalPlaces } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -41,10 +40,10 @@ import type {
   IBorrowReserveItem,
   IEarnTokenInfo,
 } from '@onekeyhq/shared/types/staking';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { BorrowInfoItem } from '../BorrowInfoItem';
+import { ApyTextV2 } from '../BorrowTableList/ApyTextV2';
 import { showLiquidationRiskDialog } from '../showLiquidationRiskDialog';
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
@@ -247,11 +246,6 @@ export function UniversalBorrowBorrow({
       setSubmitting(false);
     }
   }, [amountValue, onConfirm, riskOfLiquidationAlert, intl]);
-
-  const token = useMemo(
-    () => tokenInfo?.token as IToken | undefined,
-    [tokenInfo?.token],
-  );
 
   useEffect(() => {
     setAmountValue('');
@@ -465,27 +459,22 @@ export function UniversalBorrowBorrow({
                 ) : null}
               </BorrowInfoItem>
             ) : null}
+          </YStack>
+          <Divider my="$5" />
+          <YStack gap="$6">
             {showApyDetail && transactionConfirmation?.apyDetail ? (
               <BorrowInfoItem
                 title={intl.formatMessage({
                   id: ETranslations.defi_supply_apy,
                 })}
               >
-                <EarnText text={transactionConfirmation.apyDetail.title} />
+                <ApyTextV2
+                  apyDetail={transactionConfirmation.apyDetail}
+                  triggerMode="icon"
+                />
               </BorrowInfoItem>
             ) : null}
           </YStack>
-          <Divider my="$5" />
-          {token ? (
-            <TradeOrBuy
-              token={token}
-              accountId={accountId}
-              networkId={networkId}
-              containerStyle={{
-                pt: '$0',
-              }}
-            />
-          ) : null}
         </YStack>
       ) : null}
 

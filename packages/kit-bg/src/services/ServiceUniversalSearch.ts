@@ -16,6 +16,7 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -26,10 +27,12 @@ import {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
   IUniversalSearchDappResult,
+  IUniversalSearchPerpResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
 } from '@onekeyhq/shared/types/search';
@@ -134,6 +137,9 @@ class ServiceUniversalSearch extends ServiceBase {
       searchTypes.includes(EUniversalSearchType.Dapp)
         ? this.universalSearchOfDapp({ input })
         : Promise.resolve({ items: [] }),
+      searchTypes.includes(EUniversalSearchType.Perp)
+        ? this.universalSearchOfPerp({ input })
+        : Promise.resolve({ items: [] }),
     ]);
     const [
       addressResultSettled,
@@ -141,6 +147,7 @@ class ServiceUniversalSearch extends ServiceBase {
       marketTokenResultSettled,
       accountAssetsResultSettled,
       dappResultSettled,
+      perpResultSettled,
     ] = promiseResults;
 
     if (
@@ -202,6 +209,14 @@ class ServiceUniversalSearch extends ServiceBase {
       dappResultSettled.value.items.length > 0
     ) {
       result[EUniversalSearchType.Dapp] = dappResultSettled.value;
+    }
+
+    if (
+      perpResultSettled.status === 'fulfilled' &&
+      perpResultSettled.value &&
+      perpResultSettled.value.items.length > 0
+    ) {
+      result[EUniversalSearchType.Perp] = perpResultSettled.value;
     }
 
     return result;
@@ -961,6 +976,81 @@ class ServiceUniversalSearch extends ServiceBase {
     console.log('[searchAccountsByName] items: ', items);
 
     return { items } as IUniversalSearchSingleResult;
+  }
+
+  private universalSearchOfPerpCached = memoizee(
+    async (input: string): Promise<IUniversalSearchPerpResult> => {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+
+      const [dex1Response, xyzResponse] = await Promise.allSettled([
+        client.get<{
+          data: Record<string, string>;
+        }>('/wallet/v1/proxy/hyperliquid/mids', {
+          params: { query: input },
+        }),
+        client.get<{
+          data: Record<string, string>;
+        }>('/wallet/v1/proxy/hyperliquid/mids', {
+          params: { query: input, dex: 'xyz' },
+        }),
+      ]);
+
+      const items: IUniversalSearchPerpResult['items'] = [];
+      const searchTerm = input.toLowerCase().trim();
+
+      const matchesCoin = (coin: string): boolean => {
+        if (!searchTerm) return true;
+        const { displayName, dexLabel } = parseDexCoin(coin);
+        return (
+          displayName.toLowerCase().includes(searchTerm) ||
+          (dexLabel?.toLowerCase() || '').includes(searchTerm)
+        );
+      };
+
+      if (
+        dex1Response.status === 'fulfilled' &&
+        dex1Response.value?.data?.data
+      ) {
+        const dex1Data = dex1Response.value.data.data;
+        Object.entries(dex1Data).forEach(([coin, price]) => {
+          if (matchesCoin(coin)) {
+            items.push({
+              type: EUniversalSearchType.Perp,
+              payload: { coin, price },
+            });
+          }
+        });
+      }
+
+      if (xyzResponse.status === 'fulfilled' && xyzResponse.value?.data?.data) {
+        const xyzData = xyzResponse.value.data.data;
+        Object.entries(xyzData).forEach(([coin, price]) => {
+          if (matchesCoin(coin)) {
+            const exists = items.some((item) => item.payload.coin === coin);
+            if (!exists) {
+              items.push({
+                type: EUniversalSearchType.Perp,
+                payload: { coin, price },
+              });
+            }
+          }
+        });
+      }
+
+      return { items };
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  async universalSearchOfPerp({
+    input,
+  }: {
+    input: string;
+  }): Promise<IUniversalSearchPerpResult> {
+    return this.universalSearchOfPerpCached(input);
   }
 
   async universalSearchOfDapp({

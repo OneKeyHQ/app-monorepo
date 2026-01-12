@@ -18,6 +18,8 @@ export interface ISegmentControlProps extends IXStackProps {
   }[];
   onChange: (value: string | number) => void;
   segmentControlItemStyleProps?: GetProps<typeof YStack>;
+  slotBackgroundColor?: IXStackProps['backgroundColor'];
+  activeBackgroundColor?: GetProps<typeof YStack>['bg'];
 }
 
 function SegmentControlItem({
@@ -26,6 +28,7 @@ function SegmentControlItem({
   onChange,
   active,
   disabled,
+  activeBackgroundColor,
   testID,
   ...rest
 }: {
@@ -34,6 +37,7 @@ function SegmentControlItem({
   active: boolean;
   disabled?: boolean;
   onChange: (value: string | number) => void;
+  activeBackgroundColor?: GetProps<typeof YStack>['bg'];
 } & GetProps<typeof YStack>) {
   const handleChange = useCallback(() => {
     onChange(value);
@@ -56,7 +60,7 @@ function SegmentControlItem({
       testID={testID}
       {...(active
         ? {
-            bg: '$bg',
+            bg: activeBackgroundColor ?? '$bg',
             elevation: 2,
             '$platform-native': {
               elevation: 2,
@@ -100,6 +104,8 @@ function SegmentControlFrame({
   onChange,
   fullWidth,
   segmentControlItemStyleProps,
+  slotBackgroundColor,
+  activeBackgroundColor,
   ...rest
 }: ISegmentControlProps) {
   const handleChange = useCallback(
@@ -112,7 +118,7 @@ function SegmentControlFrame({
     <XStack
       width={fullWidth ? '100%' : 'auto'}
       alignSelf={fullWidth ? undefined : 'flex-start'}
-      backgroundColor="$neutral5"
+      backgroundColor={slotBackgroundColor ?? '$neutral5'}
       borderRadius="$2.5"
       borderCurve="continuous"
       p="$0.5"
@@ -126,6 +132,7 @@ function SegmentControlFrame({
           value={v}
           active={value === v}
           onChange={handleChange}
+          activeBackgroundColor={activeBackgroundColor}
           {...(index !== 0 && {
             ml: '$0.5',
           })}
