@@ -548,6 +548,7 @@
   "device.recover_data_banner": "Para recuperar o acesso às suas moedas, você deve restaurar sua carteira usando o backup da carteira. Certifique-se de que o backup da sua carteira esteja acessível e legível.",
   "device.select_device_popup": "Clique no botão abaixo e selecione seu dispositivo na janela pop-up para conectar.",
   "device.setting_not_provided": "A versão atual do hardware não suporta esta definição. Pode tentar novamente depois de atualizar o firmware.",
+  "device.setting_not_support_language": "A versão atual do firmware apenas suporta {language}",
   "device.settings_switch_firmware_type": "Mudar para {type}",
   "device.try_reconnecting_usb": "Se não for detectado, tente reconectar o USB",
   "device.wipe_data_bannner": "Esta ação irá apagar todos os dados do seu dispositivo, incluindo carteiras, chaves e contas.",

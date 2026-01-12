@@ -3,10 +3,12 @@ import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty, isNaN, orderBy } from 'lodash';
 
+import type { StellarSdk } from '@onekeyhq/core/src/chains/stellar/sdkStellar';
 import type {
   IEncodedTxStellar,
   IStellarAsset,
 } from '@onekeyhq/core/src/chains/stellar/types';
+import { assembleTransaction } from '@onekeyhq/core/src/chains/stellar/utils/transaction';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveTextAsync,
@@ -115,8 +117,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import { assembleTransaction } from '@onekeyhq/core/src/chains/stellar/utils/transaction';
-import type { StellarSdk } from '@onekeyhq/core/src/chains/stellar/sdkStellar';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.stellar.hd;
@@ -500,7 +500,7 @@ export default class Vault extends VaultBase {
           throw new OneKeyInternalError('Soroban simulation failed');
         }
 
-        const auth = simulation.results?.flatMap((result) => {
+        const authEntry = simulation.results?.flatMap((result) => {
           return result.auth.map((auth) => {
             return sdkStellar.StellarSdk.xdr.SorobanAuthorizationEntry.fromXDR(
               Buffer.from(auth, 'base64'),
@@ -511,7 +511,7 @@ export default class Vault extends VaultBase {
         transactionBuilder = assembleTransaction(transaction, {
           minResourceFee: simulation.minResourceFee,
           transactionData: simulation.transactionData,
-          auth: auth ?? [],
+          auth: authEntry ?? [],
         });
       } else if (
         tokenAddressParsed.type === EStellarAssetType.StellarAsset &&

@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import sdkStellar, { StellarSdk, TransactionBuilder } from '../sdkStellar';
 
 /**
@@ -71,8 +73,10 @@ export function assembleTransaction(
     );
   }
 
-  const classicFeeNum = parseInt(raw.fee) || 0;
-  const minResourceFeeNum = parseInt(simulation.minResourceFee) || 0;
+  const classicFeeNum = new BigNumber(raw.fee || '0').toNumber();
+  const minResourceFeeNum = new BigNumber(
+    simulation.minResourceFee || '0',
+  ).toNumber();
   const txnBuilder = StellarSdk.TransactionBuilder.cloneFrom(raw, {
     // automatically update the tx fee that will be set on the resulting tx to
     // the sum of 'classic' fee provided from incoming tx.fee and minResourceFee

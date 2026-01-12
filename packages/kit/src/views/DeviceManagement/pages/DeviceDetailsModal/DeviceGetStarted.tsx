@@ -13,11 +13,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { HELP_CENTER_HARDWARE_FAQ_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 
 function DeviceBanner() {
   const { result: getStartedItems } = usePromiseResult(

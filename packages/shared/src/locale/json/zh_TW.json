@@ -548,6 +548,7 @@
   "device.recover_data_banner": "若要重新存取您的加密貨幣,您必須使用錢包備份來復原您的錢包。請確保您的錢包備份可存取且清晰可讀。",
   "device.select_device_popup": "點擊下方按鈕，然後在彈出窗口中選擇您的設備以進行連接。",
   "device.setting_not_provided": "目前硬體版本不支援此設定。升級韌體後請重試。",
+  "device.setting_not_support_language": "目前韌體版本僅支援 {language}",
   "device.settings_switch_firmware_type": "切換至 {type}",
   "device.try_reconnecting_usb": "如果未檢測到，請嘗試重新連接 USB",
   "device.wipe_data_bannner": "此操作將清除您裝置上的所有資料,包括錢包、金鑰和帳戶。",
