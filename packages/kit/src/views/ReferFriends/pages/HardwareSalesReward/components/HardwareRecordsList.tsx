@@ -1,6 +1,14 @@
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Empty, SizableText, Spinner, YStack } from '@onekeyhq/components';
+import {
+  Empty,
+  SizableText,
+  Spinner,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareRecordItem } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -12,6 +20,7 @@ interface IHardwareRecordsListProps {
   records: IHardwareRecordItem[];
   isMobile: boolean;
   isLoadingMore?: boolean;
+  headerRight?: ReactNode;
 }
 
 export function HardwareRecordsList({
@@ -19,6 +28,7 @@ export function HardwareRecordsList({
   records,
   isMobile,
   isLoadingMore,
+  headerRight,
 }: IHardwareRecordsListProps) {
   const intl = useIntl();
 
@@ -46,38 +56,26 @@ export function HardwareRecordsList({
     );
   }
 
-  const renderLoadingMore = () => {
-    if (!isLoadingMore) {
-      return null;
-    }
-    return (
-      <YStack ai="center" py="$4">
-        <Spinner size="small" />
-      </YStack>
-    );
-  };
-
-  if (isMobile) {
-    return (
-      <YStack px="$5" gap="$3" pb="$5">
+  return (
+    <YStack px="$5" gap="$3" pb="$5">
+      <XStack jc="space-between" ai="center">
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.referral_details })}
         </SizableText>
-        {records.map((record) => (
+        {headerRight}
+      </XStack>
+      {isMobile ? (
+        records.map((record) => (
           <HardwareRecordCard key={record._id} item={record} />
-        ))}
-        {renderLoadingMore()}
-      </YStack>
-    );
-  }
-
-  return (
-    <YStack px="$5" gap="$3" pb="$5">
-      <SizableText size="$headingLg">
-        {intl.formatMessage({ id: ETranslations.referral_details })}
-      </SizableText>
-      <HardwareRecordTable records={records} />
-      {renderLoadingMore()}
+        ))
+      ) : (
+        <HardwareRecordTable records={records} />
+      )}
+      {isLoadingMore ? (
+        <YStack ai="center" py="$4">
+          <Spinner size="small" />
+        </YStack>
+      ) : null}
     </YStack>
   );
 }

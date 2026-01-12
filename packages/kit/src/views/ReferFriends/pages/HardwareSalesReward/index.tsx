@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,7 +28,13 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { BreadcrumbSection, ReferFriendsPageContainer } from '../../components';
+import {
+  BreadcrumbSection,
+  ExportButton,
+  FilterButton,
+  ReferFriendsPageContainer,
+} from '../../components';
+import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 import { HardwareRecordsList } from './components/HardwareRecordsList';
 import { HardwareSalesRewardHeader } from './components/HardwareSalesRewardHeader';
@@ -56,13 +62,36 @@ function HardwareSalesRewardPageWrapper() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const scrollViewRef = useRef<IScrollViewRef>(null);
 
+  // Filter state
+  const { filterState, updateFilter } = useRewardFilter();
+
+  const headerRight = useMemo(
+    () => (
+      <XStack gap="$2">
+        <FilterButton filterState={filterState} onFilterChange={updateFilter} />
+        <ExportButton
+          timeRange={filterState.timeRange}
+          inviteCode={filterState.inviteCode}
+        />
+      </XStack>
+    ),
+    [filterState, updateFilter],
+  );
+
   const onRefresh = useCallback(async () => {
     setIsLoading(true);
     try {
       const [cumulativeRewardsResult, recordsResult] = await Promise.allSettled(
         [
-          backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(),
-          backgroundApiProxy.serviceReferralCode.getHardwareRecords(),
+          backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(
+            filterState.inviteCode,
+            filterState.timeRange,
+          ),
+          backgroundApiProxy.serviceReferralCode.getHardwareRecords(
+            undefined,
+            filterState.timeRange,
+            filterState.inviteCode,
+          ),
         ],
       );
 
@@ -82,7 +111,7 @@ function HardwareSalesRewardPageWrapper() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [filterState.inviteCode, filterState.timeRange]);
 
   const onLoadMore = useCallback(async () => {
     if (!cursor || isLoadingMore) {
@@ -91,7 +120,11 @@ function HardwareSalesRewardPageWrapper() {
     setIsLoadingMore(true);
     try {
       const result =
-        await backgroundApiProxy.serviceReferralCode.getHardwareRecords(cursor);
+        await backgroundApiProxy.serviceReferralCode.getHardwareRecords(
+          cursor,
+          filterState.timeRange,
+          filterState.inviteCode,
+        );
       const items = result.items || [];
       setHardwareRecords((prev) => [...prev, ...items]);
       // Use last item's _id as cursor, undefined if no more data (items < limit)
@@ -102,7 +135,7 @@ function HardwareSalesRewardPageWrapper() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [cursor, isLoadingMore]);
+  }, [cursor, isLoadingMore, filterState.timeRange, filterState.inviteCode]);
 
   const handleScroll = useCallback(
     (event: {
@@ -209,6 +242,7 @@ function HardwareSalesRewardPageWrapper() {
                 records={hardwareRecords}
                 isMobile={md}
                 isLoadingMore={isLoadingMore}
+                headerRight={headerRight}
               />
             </ScrollView>
           )}
