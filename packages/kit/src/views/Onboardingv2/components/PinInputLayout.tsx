@@ -120,7 +120,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
     return (
       <Page
         onClose={() => {
-          onClose?.();
+          void onClose?.();
         }}
       >
         <OnboardingLayout>
