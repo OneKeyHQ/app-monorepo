@@ -2,12 +2,7 @@ import { Suspense, memo, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Stack,
-  Toast,
-  XStack,
-} from '@onekeyhq/components';
+import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
