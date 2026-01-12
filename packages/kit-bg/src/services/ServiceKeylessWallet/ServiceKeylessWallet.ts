@@ -55,7 +55,11 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import localDb from '../../dbs/local/localDb';
-import { keylessDialogAtom, primePersistAtom } from '../../states/jotai/atoms';
+import {
+  keylessDialogAtom,
+  keylessPinConfirmStatusAtom,
+  primePersistAtom,
+} from '../../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import ServiceBase from '../ServiceBase';
 
@@ -2015,13 +2019,29 @@ class ServiceKeylessWallet extends ServiceBase {
       IApiClientResponse<{
         need_remind: boolean;
         remind_time: number;
+        confirmed_count: number;
       }>
     >('/prime/v1/keyless-wallet/getPinConfirmStatus', {
       token,
     });
 
+    const socialUserIdHash = await accountUtils.hashKeylessSocialUserId({
+      socialUserId: this.buildKeylessSocialUserIdFromToken({ token }),
+    });
+    const socialProvider = this.buildKeylessProviderFromSocialToken({ token });
+
     const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
     const shouldRemind = res?.data?.data?.need_remind;
+    const remindTime = res?.data?.data?.remind_time;
+    const confirmedCount = res?.data?.data?.confirmed_count;
+
+    await keylessPinConfirmStatusAtom.set({
+      socialUserIdHash,
+      socialProvider,
+      needRemind: shouldRemind,
+      remindTime,
+      confirmedCount,
+    });
 
     if (isSuccess) {
       return {

@@ -990,9 +990,6 @@ export function useVerifyKeylessPinChecking() {
           return;
         }
         const checkShouldVerifyPin = async () => {
-          if (options.forceVerify) {
-            return true;
-          }
           const accessToken =
             await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
               { ownerId },
@@ -1008,6 +1005,9 @@ export function useVerifyKeylessPinChecking() {
             shouldVerifyPin = shouldRemind;
           } else {
             shouldVerifyPin = true;
+          }
+          if (options.forceVerify) {
+            return true;
           }
           return shouldVerifyPin;
         };
