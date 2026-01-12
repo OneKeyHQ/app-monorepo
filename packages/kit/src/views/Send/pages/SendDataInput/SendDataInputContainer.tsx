@@ -100,13 +100,13 @@ import {
   getAccountIdOnNetwork,
   parseOnChainAmount,
 } from '../../../ScanQrCode/hooks/useParseQRCode';
+import { showSimilarAddressDialog } from '../../../SignatureConfirm/components/SimilarAddressDialog';
 import CoinControlBadge from '../../components/CoinControlBadge';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
-import { showSimilarAddressDialog } from '../../../SignatureConfirm/components/SimilarAddressDialog';
 
 export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';
 const showTxMessageFaq = (isContractTo: boolean) => {

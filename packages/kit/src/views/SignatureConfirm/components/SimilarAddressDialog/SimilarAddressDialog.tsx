@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -106,12 +106,7 @@ function SimilarAddressContent({
   );
 
   const [checkState, setCheckState] = useState(false as CheckedState);
-  const handleConfirm = useCallback(() => {
-    onConfirm();
-  }, [onConfirm]);
-  const handleCancel = useCallback(() => {
-    onCancel();
-  }, [onCancel]);
+
   return (
     <YStack gap="$5">
       <YStack
@@ -185,8 +180,8 @@ function SimilarAddressContent({
           onChange={setCheckState}
         />
         <Dialog.Footer
-          onConfirm={handleConfirm}
-          onCancel={handleCancel}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
           onConfirmText={intl.formatMessage({
             id: ETranslations.global_continue,
           })}
