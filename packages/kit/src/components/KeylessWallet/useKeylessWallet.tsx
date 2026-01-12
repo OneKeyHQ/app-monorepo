@@ -1011,39 +1011,55 @@ export function useVerifyKeylessPinChecking() {
         const shouldVerifyPin = await checkShouldVerifyPin();
 
         if (shouldVerifyPin) {
-          Dialog.show({
-            disableDrag: true,
-            dismissOnOverlayPress: false,
-            icon: 'Shield2CheckOutline',
-            tone: 'success',
-            title: intl.formatMessage({
-              id: ETranslations.pin_verify_reminder_dialog_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.pin_verify_reminder_dialog_desc,
-            }),
-            showCancelButton: false,
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.pin_verify_reminder_dialog_button_label,
-            }),
-            onConfirm: async () => {
-              const shouldVerifyPin0 = await checkShouldVerifyPin();
-              if (!shouldVerifyPin0) {
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.pin_verify_reminder_dialog_verified_toast,
-                  }),
-                });
-                return;
-              }
-              await backgroundApiProxy.servicePassword.promptPasswordVerify({
-                reason: EReasonForNeedPassword.Security,
-              });
-              void goToOneKeyIDLoginPageForKeylessWallet({
-                mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
-              });
-            },
-          });
+          const showPinReminderDialog = () => {
+            Dialog.show({
+              disableDrag: true,
+              dismissOnOverlayPress: false,
+              icon: 'Shield2CheckOutline',
+              tone: 'success',
+              title: intl.formatMessage({
+                id: ETranslations.pin_verify_reminder_dialog_title,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.pin_verify_reminder_dialog_desc,
+              }),
+              showCancelButton: false,
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.pin_verify_reminder_dialog_button_label,
+              }),
+              onConfirm: async () => {
+                const shouldVerifyPin0 = await checkShouldVerifyPin();
+                if (!shouldVerifyPin0) {
+                  Toast.success({
+                    title: intl.formatMessage({
+                      id: ETranslations.pin_verify_reminder_dialog_verified_toast,
+                    }),
+                  });
+                  return;
+                }
+
+                // Use void to start async flow without blocking dialog close
+                void (async () => {
+                  try {
+                    await backgroundApiProxy.servicePassword.promptPasswordVerify(
+                      {
+                        reason: EReasonForNeedPassword.Security,
+                      },
+                    );
+                    // Password verified, continue to next step
+                    void goToOneKeyIDLoginPageForKeylessWallet({
+                      mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
+                    });
+                  } catch {
+                    // Password verification cancelled, show first dialog again
+                    showPinReminderDialog();
+                  }
+                })();
+              },
+            });
+          };
+
+          showPinReminderDialog();
         }
       }
     },

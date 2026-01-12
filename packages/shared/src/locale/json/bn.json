@@ -2076,7 +2076,7 @@
   "keyless_wallet_login_successful_helptext": "যদি এই উইন্ডোটি স্বয়ংক্রিয়ভাবে বন্ধ না হয়, তাহলে নিচের বোতামে ক্লিক করুন।",
   "keyless_wallet_pin_verified_successfully": "পিন যাচাই করা হয়েছে",
   "keyless_wallet_verify_pin_account_mismatch": "অ্যাকাউন্ট মিসম্যাচ",
-  "keyless_wallet_verify_pin_account_mismatch_desc": "登录的帐户与此无钥匙钱包关联的帐户不匹配。",
+  "keyless_wallet_verify_pin_account_mismatch_desc": "লগইন করা অ্যাকাউন্টটি এই কী-বিহীন ওয়ালেটের সাথে সংযুক্ত অ্যাকাউন্টের সাথে মেলে না।",
   "learn_how_to_withdraw_crypto_from_exchange": "এই এক্সচেঞ্জগুলো থেকে ক্রিপ্টো সম্পদ OneKey-এ কীভাবে উত্তোলন করবেন তা জানুন",
   "learn_more_about_qr_code_wallet": "QR-based ওয়ালেট সম্পর্কে আরও জানুন",
   "lightning_invoice": "লাইটনিং ইনভয়েস",
