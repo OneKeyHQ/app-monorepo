@@ -576,9 +576,42 @@ export function useKeylessWallet() {
       }
       await cacheKeylessOnboardingToken({ token, refreshToken });
 
-      // ResetPin: skip check, go to CreatePin
+      // ResetPin or VerifyPinOnly: validate token matches local keyless wallet
+      const checkLoginMatchedKeylessWallet = async () => {
+        if (
+          mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
+          mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
+        ) {
+          const { isValid } =
+            await backgroundApiProxy.serviceKeylessWallet.validateTokenMatchesKeylessWallet(
+              { token },
+            );
+          if (!isValid) {
+            // TODO i18n @franco
+            Toast.error({
+              title: 'Keyless Wallet',
+              message:
+                'The logged-in account does not match the local keyless wallet.',
+            });
+            navigation.navigate(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
+              params: {
+                screen: EOnboardingPagesV2.OneKeyIDLogin,
+                params: {
+                  mode,
+                },
+              },
+            });
+            // TODO logout google account
+            throw new OneKeyLocalError(
+              'The logged-in account does not match the local keyless wallet.',
+            );
+          }
+        }
+      };
+      await checkLoginMatchedKeylessWallet();
+
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin) {
-        // TODO check if keyless wallet matched with ownerId
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
@@ -591,9 +624,7 @@ export function useKeylessWallet() {
         return;
       }
 
-      // VerifyPinOnly: skip check, go to VerifyPin
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
-        // TODO check if keyless wallet matched with ownerId
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {

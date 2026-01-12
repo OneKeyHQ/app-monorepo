@@ -65,7 +65,11 @@ import keylessMnemonicPasswordStorage from './utils/keylessMnemonicPasswordStora
 import keylessRefreshTokenStorage from './utils/keylessRefreshTokenStorage';
 
 import type { JuiceboxClient } from './utils/JuiceboxClient';
-import type { IDBIndexedAccount, IDBWallet } from '../../dbs/local/types';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+  IKeylessWalletDetailsInfo,
+} from '../../dbs/local/types';
 import type { IKeylessDialogAtomData } from '../../states/jotai/atoms';
 
 const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
@@ -1146,14 +1150,19 @@ class ServiceKeylessWallet extends ServiceBase {
     }
   }
 
+  private buildKeylessSocialUserIdFromToken(params: { token: string }): string {
+    const { token } = params;
+    const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
+    return decodedToken?.user_metadata?.sub || '';
+  }
+
   async buildKeylessOwnerIdFromSocialToken(params: {
     token: string;
     hashId: string;
   }): Promise<string> {
     const { token, hashId } = params;
-    const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
+    const socialUserId = this.buildKeylessSocialUserIdFromToken({ token });
     const provider = this.buildKeylessProviderFromSocialToken({ token });
-    const socialUserId = decodedToken?.user_metadata?.sub || '';
     const devSettings = await devSettingsPersistAtom.get();
     const isTestEndpointEnabled = Boolean(
       devSettings.enabled && devSettings.settings?.enableTestEndpoint,
@@ -1624,7 +1633,11 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string | undefined;
     refreshToken?: string | undefined;
     pin: string | undefined;
-  }) {
+  }): Promise<{
+    ownerId: string;
+    mnemonic: string;
+    keylessDetailsInfo: IKeylessWalletDetailsInfo;
+  }> {
     const { token, refreshToken, pin } = params;
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
@@ -1708,6 +1721,9 @@ class ServiceKeylessWallet extends ServiceBase {
       keylessDetailsInfo: {
         keylessOwnerId: ownerId,
         keylessProvider,
+        socialUserIdHash: await accountUtils.hashKeylessSocialUserId({
+          socialUserId: this.buildKeylessSocialUserIdFromToken({ token }),
+        }),
       },
     };
   }
@@ -1719,7 +1735,11 @@ class ServiceKeylessWallet extends ServiceBase {
     refreshToken?: string | undefined;
     pin: string | undefined;
     customMnemonic?: string;
-  }) {
+  }): Promise<{
+    ownerId: string;
+    mnemonic: string;
+    keylessDetailsInfo: IKeylessWalletDetailsInfo;
+  }> {
     const { token, refreshToken, pin, customMnemonic } = params;
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
@@ -1823,6 +1843,8 @@ class ServiceKeylessWallet extends ServiceBase {
           token,
         });
 
+      const socialUserId = this.buildKeylessSocialUserIdFromToken({ token });
+
       return {
         ownerId,
         mnemonic: await this.backgroundApi.servicePassword.encodeSensitiveText({
@@ -1831,6 +1853,9 @@ class ServiceKeylessWallet extends ServiceBase {
         keylessDetailsInfo: {
           keylessOwnerId: ownerId,
           keylessProvider,
+          socialUserIdHash: await accountUtils.hashKeylessSocialUserId({
+            socialUserId,
+          }),
         },
       };
     } finally {
@@ -2005,6 +2030,56 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     throw new OneKeyLocalError('Failed to get pin confirm status');
+  }
+
+  /**
+   * Clear keyless refresh token storage.
+   * Requires dev settings to be enabled.
+   */
+  @backgroundMethod()
+  @toastIfError()
+  async clearKeylessRefreshTokenStorage(params: {
+    ownerId: string;
+  }): Promise<{ success: boolean }> {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError('Dev settings is not enabled');
+    }
+
+    await keylessRefreshTokenStorage.removeTokensFromStorage({
+      ownerId: params.ownerId,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Validate that the social user ID from the token matches the keyless wallet's social user ID.
+   * Used during KeylessResetPin and KeylessVerifyPinOnly flows to ensure the logged-in user
+   * owns the local keyless wallet.
+   */
+  @backgroundMethod()
+  async validateTokenMatchesKeylessWallet(params: { token: string }): Promise<{
+    isValid: boolean;
+  }> {
+    const { token } = params;
+    const socialUserIdHash = await accountUtils.hashKeylessSocialUserId({
+      socialUserId: this.buildKeylessSocialUserIdFromToken({ token }),
+    });
+    const socialProvider = this.buildKeylessProviderFromSocialToken({ token });
+
+    const keylessWallet =
+      await this.backgroundApi.serviceAccount.getKeylessWallet();
+    const walletSocialUserIdHash =
+      keylessWallet?.keylessDetailsInfo?.socialUserIdHash || '';
+    const walletSocialProvider =
+      keylessWallet?.keylessDetailsInfo?.keylessProvider || '';
+
+    return {
+      isValid:
+        socialUserIdHash === walletSocialUserIdHash &&
+        socialProvider === walletSocialProvider,
+    };
   }
 }
 

@@ -126,6 +126,7 @@ import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import {
   EIndexedDBBucketNames,
+  IKeylessWalletDetailsInfo,
   type IDBAccount,
   type IDBAddress,
   type IDBCreateHwWalletParams,
@@ -3048,7 +3049,7 @@ class ServiceAccount extends ServiceBase {
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
     avatarInfo?: IAvatarInfo;
-    keylessDetailsInfo?: import('../../dbs/local/types').IKeylessWalletDetailsInfo;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -3147,7 +3148,7 @@ class ServiceAccount extends ServiceBase {
     walletXfp: string;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
-    keylessDetailsInfo?: import('../../dbs/local/types').IKeylessWalletDetailsInfo;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;

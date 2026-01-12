@@ -24,6 +24,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 export function KeylessOnboardingDebugPanel({
   isResetMode,
@@ -37,6 +38,9 @@ export function KeylessOnboardingDebugPanel({
   const [devSettings] = useDevSettingsPersistAtom();
   const isDeletionAllowed =
     devSettings.enabled && !!devSettings.settings?.allowDeleteKeylessKey;
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const keylessOwnerId =
+    activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId;
 
   const handleImportCustomMnemonic = useCallback(() => {
     Dialog.confirm({
@@ -153,6 +157,36 @@ export function KeylessOnboardingDebugPanel({
             </Button>
 
             <Button onPress={handleShowAuthConsts}>显示 Auth Consts</Button>
+
+            <Button
+              disabled={!keylessOwnerId}
+              onPress={async () => {
+                if (!keylessOwnerId) {
+                  Toast.error({
+                    title: '无法获取 Owner ID',
+                    message: '请先登录无私钥钱包',
+                  });
+                  return;
+                }
+                try {
+                  await backgroundApiProxy.serviceKeylessWallet.clearKeylessRefreshTokenStorage(
+                    {
+                      ownerId: keylessOwnerId,
+                    },
+                  );
+                  Toast.success({
+                    title: '已清空 Refresh Token Storage',
+                  });
+                } catch (error: unknown) {
+                  Toast.error({
+                    title: '清空失败',
+                    message: (error as Error)?.message || 'Unknown error',
+                  });
+                }
+              }}
+            >
+              重置 Refresh Token Storage
+            </Button>
 
             {/* <Button
               onPress={async () => {
