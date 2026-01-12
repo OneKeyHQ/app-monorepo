@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Divider,
   HeaderIconButton,
   Icon,
@@ -11,7 +12,6 @@ import {
   SegmentControl,
   Select,
   SizableText,
-  Tooltip,
   XStack,
   YStack,
   useTheme,
@@ -20,11 +20,16 @@ import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
+import useAppNavigation from '../../hooks/useAppNavigation';
+import {
+  useAccountSelectorContextData,
+  useActiveAccount,
+} from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { useLanguageSelector } from '../../views/Setting/hooks';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
@@ -39,6 +44,7 @@ import {
   WebHeaderNavigation,
 } from './components';
 import { HeaderTitle } from './HeaderTitle';
+import { UniversalSearchInput } from './UniversalSearchInput';
 
 import type { ITabPageHeaderProp } from './type';
 
@@ -60,8 +66,14 @@ function LanguageListItem() {
       floatingPanelProps={{ maxHeight: 280 }}
       placement="bottom-end"
       renderTrigger={() => (
-        <ListItem title={title} drillIn>
-          <SizableText size="$bodyMd" color="textSubdued">
+        <ListItem
+          title={title}
+          drillIn
+          titleProps={{
+            size: '$bodyMdMedium',
+          }}
+        >
+          <SizableText size="$bodyMd" color="textSubdued" userSelect="none">
             {label}
           </SizableText>
         </ListItem>
@@ -119,8 +131,14 @@ function CurrencyListItem() {
       floatingPanelProps={{ maxHeight: 280 }}
       placement="bottom-end"
       renderTrigger={() => (
-        <ListItem title={title} drillIn>
-          <SizableText size="$bodyMd" color="textSubdued">
+        <ListItem
+          title={title}
+          drillIn
+          titleProps={{
+            size: '$bodyMdMedium',
+          }}
+        >
+          <SizableText size="$bodyMd" color="textSubdued" userSelect="none">
             {settings.currencyInfo.id.toUpperCase()}
           </SizableText>
         </ListItem>
@@ -155,7 +173,12 @@ function ThemeListItem() {
     );
   }, []);
   return (
-    <ListItem title={intl.formatMessage({ id: ETranslations.settings_theme })}>
+    <ListItem
+      title={intl.formatMessage({ id: ETranslations.settings_theme })}
+      titleProps={{
+        size: '$bodyMdMedium',
+      }}
+    >
       <SegmentControl
         options={tabOptions}
         value={theme}
@@ -166,29 +189,59 @@ function ThemeListItem() {
 }
 
 function DownloadOneKeyWalletListItem() {
+  const intl = useIntl();
   const handlePress = useCallback(() => {
     openUrlExternal(DOWNLOAD_URL);
   }, []);
   return (
-    <ListItem title="Download OneKey wallet" drillIn onPress={handlePress} />
+    <ListItem
+      title={intl.formatMessage({
+        id: ETranslations.global_download_onekey_wallet,
+      })}
+      titleProps={{
+        size: '$bodyMdMedium',
+      }}
+      drillIn
+      onPress={handlePress}
+    />
   );
 }
 
 function Web3GuideListItem() {
+  const intl = useIntl();
   const handlePress = useCallback(() => {
     // TODO: implement Web3 guide link
   }, []);
-  return <ListItem title="Web3 guide" drillIn onPress={handlePress} />;
+  return (
+    <ListItem
+      title={intl.formatMessage({ id: ETranslations.global_web3_guide })}
+      titleProps={{
+        size: '$bodyMdMedium',
+      }}
+      drillIn
+      onPress={handlePress}
+    />
+  );
 }
 
 function AnnouncementListItem() {
+  const intl = useIntl();
   const handlePress = useCallback(() => {
-    // TODO: implement Announcement link
+    openUrlExternal('https://help.onekey.so/collections/13034490');
   }, []);
-  return <ListItem title="Announcement" drillIn onPress={handlePress} />;
+  return (
+    <ListItem
+      title={intl.formatMessage({ id: ETranslations.global_announcement })}
+      drillIn
+      titleProps={{
+        size: '$bodyMdMedium',
+      }}
+      onPress={handlePress}
+    />
+  );
 }
 
-function MoreDappAction() {
+function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
   const intl = useIntl();
 
   return (
@@ -205,18 +258,13 @@ function MoreDappAction() {
       }}
       placement="bottom-end"
       renderTrigger={
-        <Tooltip
-          placement="bottom"
-          renderTrigger={
-            <HeaderIconButton
-              testID="moreActions"
-              title={intl.formatMessage({ id: ETranslations.explore_options })}
-              icon="DotGridOutline"
-            />
-          }
-          renderContent={intl.formatMessage({
+        <HeaderIconButton
+          testID="moreActions"
+          title={intl.formatMessage({
             id: ETranslations.address_book_menu_title,
           })}
+          icon="DotGridOutline"
+          size={size}
         />
       }
       renderContent={
@@ -225,8 +273,10 @@ function MoreDappAction() {
           <LanguageListItem />
           <CurrencyListItem />
           <DownloadOneKeyWalletListItem />
-          <Web3GuideListItem />
-          <Divider />
+          {/* <Web3GuideListItem /> */}
+          <YStack py="$1.5" px="$3">
+            <Divider />
+          </YStack>
           <AnnouncementListItem />
         </YStack>
       }
@@ -234,23 +284,78 @@ function MoreDappAction() {
   );
 }
 
+function DepositButton() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const {
+    activeAccount: { wallet, account, network, indexedAccount },
+  } = useActiveAccount({
+    num: 0,
+  });
+
+  const shouldShow = useMemo(() => {
+    return !!account && !!wallet;
+  }, [account, wallet]);
+
+  const handlePress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveToken,
+      params: {
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        walletId: wallet?.id ?? '',
+        indexedAccountId: indexedAccount?.id,
+      },
+    });
+  }, [navigation, network?.id, account?.id, wallet?.id, indexedAccount?.id]);
+
+  if (!shouldShow) {
+    return null;
+  }
+
+  return (
+    <Button size="small" variant="primary" onPress={handlePress}>
+      {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+    </Button>
+  );
+}
+
 function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
+  const {
+    activeAccount: { wallet, account },
+  } = useActiveAccount({
+    num: 0,
+  });
+
+  const isWalletConnected = !!wallet && !!account;
+
   return (
     <XStack ai="center" gap="$2">
-      <WalletConnectionForWeb tabRoute={tabRoute} />
+      <XStack
+        ai="center"
+        px={isWalletConnected ? '$1.5' : undefined}
+        borderRadius="$2"
+        bg={isWalletConnected ? '$bgStrong' : undefined}
+      >
+        <WalletConnectionForWeb tabRoute={tabRoute} />
+      </XStack>
+      <DepositButton />
       <XStack
         ai="center"
         gap="$2.5"
         px="$1.5"
-        py="$1"
+        py="$1.5"
         borderRadius="$2"
         bg="$bgStrong"
       >
-        <HeaderNotificationIconButton testID="header-right-notification" />
-        <MoreDappAction />
-        <DownloadButton />
-        <LanguageButton />
-        <ThemeButton />
+        <HeaderNotificationIconButton
+          testID="header-right-notification"
+          size="small"
+        />
+        <MoreDappAction size="small" />
+        <DownloadButton size="small" />
+        <LanguageButton size="small" />
+        <ThemeButton size="small" />
       </XStack>
     </XStack>
   );
@@ -274,13 +379,22 @@ export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
   );
 
   const renderHeaderTitle = useCallback(
-    () => <HeaderTitle sceneName={sceneName} />,
+    () => (
+      <HeaderTitle sceneName={sceneName}>
+        <XStack maxWidth={288} width="100%">
+          <UniversalSearchInput />
+        </XStack>
+      </HeaderTitle>
+    ),
     [sceneName],
   );
   return (
     <Page.Header
       headerTitleAlign="center"
-      headerStyle={{ backgroundColor: theme.bgSubdued.val }}
+      headerShadowVisible={false}
+      headerStyle={{
+        backgroundColor: 'transparent',
+      }}
       headerTitle={renderHeaderTitle}
       headerRight={renderHeaderRight}
       headerLeft={renderHeaderLeft}

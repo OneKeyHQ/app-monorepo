@@ -88,15 +88,14 @@ function ApyDetailSection({
 
       {/* Section Descriptions - at the bottom */}
       {section.descriptions?.map((desc, index) => (
-        <SizableText
+        <EarnText
           key={index}
+          text={desc}
           size="$bodySm"
           color="$textSubdued"
           mt="$3.5"
-          mb="$4"
-        >
-          <EarnText text={desc} />
-        </SizableText>
+          mb="$1"
+        />
       ))}
 
       {showDivider ? <Divider my="$3" /> : null}

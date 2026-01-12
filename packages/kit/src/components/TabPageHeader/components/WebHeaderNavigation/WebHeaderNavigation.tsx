@@ -14,8 +14,6 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { UniversalSearchInput } from '../../UniversalSearchInput';
-
 import { HeaderNavigation } from './HeaderNavigation';
 
 import type { IHeaderNavigationItem } from './HeaderNavigation';
@@ -159,18 +157,13 @@ export function WebHeaderNavigation({
     useWebHeaderNavigation(rest);
 
   return (
-    <XStack ai="center" gap="$16" width="100%" jc="space-between">
-      <XStack ai="center" gap="$4">
-        <OneKeyLogo px="$0" />
-        <HeaderNavigation
-          items={navigationItems}
-          activeKey={activeNavigationKey}
-          onTabChange={handleNavigationChange}
-        />
-      </XStack>
-      <XStack maxWidth={288}>
-        <UniversalSearchInput />
-      </XStack>
+    <XStack ai="center" gap="$4">
+      <OneKeyLogo px="$0" />
+      <HeaderNavigation
+        items={navigationItems}
+        activeKey={activeNavigationKey}
+        onTabChange={handleNavigationChange}
+      />
     </XStack>
   );
 }

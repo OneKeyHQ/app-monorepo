@@ -4,20 +4,17 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
 
-import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
+import { useBorrowPendingTxs } from '../hooks/useBorrowPendingTxs';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
-import { useBorrowTxUpdate } from '../hooks/useBorrowTxUpdate';
 import {
   createBorrowRefreshScope,
   registerBorrowRefreshHandler,
-  requestBorrowRefresh,
 } from '../refresh/borrowRefreshCoordinator';
 
 enum EBorrowDataStatus {
@@ -184,33 +181,16 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     }
   }, [dataStatus, fetchKey, reservesResult, setReserves, setReservesLoading]);
 
-  const { pendingTxs, refreshPending } = useBorrowTxUpdate({
+  const { pendingTxs, refreshPending } = useBorrowPendingTxs({
     accountId,
     networkId: marketNetworkId,
     provider: marketProvider,
   });
-  const pendingCount = pendingTxs.length;
-  const prevPendingCount = usePrevious(pendingCount);
 
   // Sync pending transactions to context
   useEffect(() => {
     setPendingTxs(pendingTxs);
   }, [pendingTxs, setPendingTxs]);
-
-  useEffect(() => {
-    if (
-      !refreshScope ||
-      prevPendingCount === undefined ||
-      pendingCount >= prevPendingCount
-    ) {
-      return;
-    }
-    requestBorrowRefresh({
-      scope: refreshScope,
-      reason: 'pendingCompleted',
-      delayMs: timerUtils.getTimeDurationMs({ seconds: 1 }),
-    });
-  }, [pendingCount, prevPendingCount, refreshScope]);
 
   useEffect(() => {
     refreshReservesRef.current = refreshReserves;
