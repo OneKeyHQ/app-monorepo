@@ -1,4 +1,10 @@
-import { isValidElement, useCallback, useMemo } from 'react';
+import {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,6 +12,7 @@ import {
   Button,
   Divider,
   Icon,
+  IconButton,
   SizableText,
   XStack,
   YStack,
@@ -31,9 +38,13 @@ import {
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
-import { useBorrowReserves } from '../hooks/useBorrowReserves';
 import { useBorrowRewards } from '../hooks/useBorrowRewards';
 import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
+import {
+  createBorrowRefreshScope,
+  registerBorrowRefreshHandler,
+  requestBorrowRefresh,
+} from '../refresh/borrowRefreshCoordinator';
 
 import { BorrowBonusTooltip } from './BorrowBonusTooltip';
 import { showBorrowClaimRewardsDialog } from './BorrowClaimRewardsDialog';
@@ -73,23 +84,49 @@ const OverviewItem = ({
   );
 };
 
-export const Overview = () => {
-  const { reserves, market, setReserves, setReservesLoading, pendingTxs } =
-    useBorrowContext();
-  const { fetchReserves } = useBorrowReserves();
+export const Overview = ({
+  showBottomSpacing = true,
+}: {
+  showBottomSpacing?: boolean;
+}) => {
+  const {
+    reserves,
+    market,
+    reservesLoading,
+    pendingTxs,
+    refreshRewardsRef,
+    refreshReservesRef,
+  } = useBorrowContext();
   const { earnAccount } = useEarnAccount({
     networkId: market?.networkId,
   });
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
   const amountPlaceholder = useMemo(() => {
     return `${settings.currencyInfo.symbol}0.00`;
   }, [settings.currencyInfo.symbol]);
   const provider = market?.provider;
   const networkId = market?.networkId;
   const marketAddress = market?.marketAddress;
-  const earnAccountId = earnAccount?.account.id;
+  const earnAccountId = earnAccount?.accountId ?? earnAccount?.account?.id;
+  const refreshScope = useMemo(
+    () =>
+      createBorrowRefreshScope({
+        accountId: earnAccountId,
+        networkId,
+        provider,
+        marketAddress,
+      }),
+    [earnAccountId, marketAddress, networkId, provider],
+  );
+
+  useEffect(() => {
+    setIsManualRefreshing(false);
+  }, [refreshScope]);
+
   const historyLabel = useMemo(
     () => intl.formatMessage({ id: ETranslations.global_history }),
     [intl],
@@ -128,15 +165,16 @@ export const Overview = () => {
   );
 
   // Fetch health factor separately with 30s polling
-  const { healthFactorData } = useBorrowHealthFactor({
-    networkId,
-    provider,
-    marketAddress,
-    accountId: earnAccountId,
-    enabled: !!(networkId && provider && marketAddress && earnAccountId),
-  });
+  const { healthFactorData, refresh: refreshHealthFactor } =
+    useBorrowHealthFactor({
+      networkId,
+      provider,
+      marketAddress,
+      accountId: earnAccountId,
+      enabled: !!(networkId && provider && marketAddress && earnAccountId),
+    });
 
-  const { borrowRewards } = useBorrowRewards({
+  const { borrowRewards, refresh: refreshBorrowRewards } = useBorrowRewards({
     networkId,
     provider,
     marketAddress,
@@ -149,29 +187,48 @@ export const Overview = () => {
     accountId: earnAccountId ?? '',
   });
 
-  const handleRefresh = useCallback(async () => {
-    if (!provider || !networkId || !marketAddress) return;
-    setReservesLoading(true);
-    try {
-      const result = await fetchReserves({
-        provider,
-        networkId,
-        marketAddress,
-        accountId: earnAccountId,
-      });
-      setReserves(result);
-    } finally {
-      setReservesLoading(false);
+  const refreshBorrowData = useCallback(async () => {
+    const tasks: Array<Promise<void>> = [];
+    if (refreshReservesRef.current) {
+      tasks.push(refreshReservesRef.current());
     }
-  }, [
-    fetchReserves,
-    setReserves,
-    setReservesLoading,
-    provider,
-    networkId,
-    marketAddress,
-    earnAccountId,
-  ]);
+    tasks.push(refreshBorrowRewards(), refreshHealthFactor());
+    await Promise.all(tasks);
+  }, [refreshBorrowRewards, refreshHealthFactor, refreshReservesRef]);
+
+  useEffect(() => {
+    refreshRewardsRef.current = refreshBorrowRewards;
+  }, [refreshBorrowRewards, refreshRewardsRef]);
+
+  useEffect(() => {
+    if (!refreshScope) return;
+    return registerBorrowRefreshHandler(refreshScope, async (request) => {
+      if (request.reason === 'manual' || request.reason === 'txSuccess') {
+        setIsManualRefreshing(true);
+      }
+      try {
+        await refreshBorrowData();
+      } finally {
+        if (request.reason === 'manual' || request.reason === 'txSuccess') {
+          setIsManualRefreshing(false);
+        }
+      }
+    });
+  }, [refreshBorrowData, refreshScope]);
+
+  const requestRefresh = useCallback(
+    (reason: 'manual' | 'txSuccess') => {
+      if (!refreshScope) return;
+      if (reason === 'manual' || reason === 'txSuccess') {
+        setIsManualRefreshing(true);
+      }
+      requestBorrowRefresh({
+        scope: refreshScope,
+        reason,
+      });
+    },
+    [refreshScope, setIsManualRefreshing],
+  );
 
   const handleHistoryPress = useCallback(() => {
     if (!provider || !networkId || !marketAddress || !earnAccountId) return;
@@ -203,10 +260,13 @@ export const Overview = () => {
 
     const rewardsDetails = borrowRewards.button;
     const claimableGroups = rewardsDetails.data.rewardsDetail.claimable;
+    const pendingIdSet = new Set(pendingClaimIds);
     const allIds: string[] = [];
     for (const group of claimableGroups) {
       for (const item of group.items) {
-        allIds.push(item.id);
+        if (!pendingIdSet.has(item.id)) {
+          allIds.push(item.id);
+        }
       }
     }
 
@@ -232,10 +292,13 @@ export const Overview = () => {
           marketAddress,
           ids: [item.id],
           stakingInfo,
-          onSuccess: handleRefresh,
+          onSuccess: () => requestRefresh('txSuccess'),
         });
       },
       onClaimAll: async () => {
+        if (allIds.length === 0) {
+          return;
+        }
         // Build stakingInfo with proper tag for all items claim
         const stakingInfo = {
           label: EEarnLabels.Claim,
@@ -254,10 +317,10 @@ export const Overview = () => {
           marketAddress,
           ids: allIds,
           stakingInfo,
-          onSuccess: handleRefresh,
+          onSuccess: () => requestRefresh('txSuccess'),
         });
       },
-      onClose: handleRefresh,
+      onClose: () => requestRefresh('manual'),
     });
   }, [
     borrowRewards?.button,
@@ -267,8 +330,8 @@ export const Overview = () => {
     earnAccountId,
     market?.logoURI,
     handleBorrowClaim,
-    handleRefresh,
     pendingClaimIds,
+    requestRefresh,
   ]);
 
   const { gtMd } = useMedia();
@@ -283,17 +346,26 @@ export const Overview = () => {
             <SizableText size="$bodyMdMedium" color="$textText" mb="$1">
               {labels.netWorth}
             </SizableText>
-            <EarnText
-              text={
-                reserves?.overview?.netWorth ?? {
-                  text: amountPlaceholder,
-                  color: '$textDisabled',
+            <XStack ai="center" gap="$3" mb="$1.5">
+              <EarnText
+                text={
+                  reserves?.overview?.netWorth ?? {
+                    text: amountPlaceholder,
+                    color: '$textDisabled',
+                  }
                 }
-              }
-              size="$heading3xl"
-              color="$textText"
-              mb="$1.5"
-            />
+                size="$heading3xl"
+                color="$textText"
+              />
+              <IconButton
+                icon="RefreshCcwOutline"
+                iconSize="$6"
+                variant="tertiary"
+                size="small"
+                loading={reservesLoading || isManualRefreshing}
+                onPress={() => requestRefresh('manual')}
+              />
+            </XStack>
             {reserves?.overview?.netApy ? (
               <XStack ai="center" gap="$1">
                 <EarnText
@@ -434,7 +506,7 @@ export const Overview = () => {
 
   // Desktop layout
   return (
-    <XStack mt="$2" mb="$10" ai="center">
+    <XStack mt="$2" mb={showBottomSpacing ? '$10' : undefined} ai="center">
       <OverviewItem
         needDivider
         title={{ text: labels.netWorth }}
@@ -443,6 +515,15 @@ export const Overview = () => {
             text: amountPlaceholder,
             color: '$textDisabled',
           }
+        }
+        action={
+          <IconButton
+            icon="RefreshCcwOutline"
+            variant="tertiary"
+            size="small"
+            loading={reservesLoading || isManualRefreshing}
+            onPress={() => requestRefresh('manual')}
+          />
         }
       />
 

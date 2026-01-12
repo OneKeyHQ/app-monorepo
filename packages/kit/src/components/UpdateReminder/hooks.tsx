@@ -40,6 +40,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { runAfterTokensDone } from '../../hooks/useRunAfterTokensDone';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 import type { IntlShape } from 'react-intl';
@@ -655,8 +656,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     }
     isFirstLaunch = false;
     let isShowForceUpdatePreviewPage = false;
+    let cancelled = false;
+    let hasTriggeredUpdateCheck = false;
+    let cleanupUpdateCheck: (() => void) | undefined;
 
-    const fetchUpdateInfo = () => {
+    const fetchUpdateInfo = (_trigger: string) => {
       void checkForUpdates().then(
         async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
           if (isShowForceUpdatePreviewPage) {
@@ -679,15 +683,37 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       );
     };
 
+    const scheduleFetchUpdateInfo = () => {
+      if (cancelled || hasTriggeredUpdateCheck || cleanupUpdateCheck) {
+        return;
+      }
+
+      const triggerFetch = (trigger: string) => {
+        if (cancelled || hasTriggeredUpdateCheck) return;
+        hasTriggeredUpdateCheck = true;
+        cleanupUpdateCheck?.();
+        cleanupUpdateCheck = undefined;
+        fetchUpdateInfo(trigger);
+      };
+
+      cleanupUpdateCheck = runAfterTokensDone({
+        onRun: (trigger) => triggerFetch(trigger),
+      });
+    };
+
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       if (appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless) {
         onViewReleaseInfo();
       }
       setTimeout(async () => {
         await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
-        fetchUpdateInfo();
+        scheduleFetchUpdateInfo();
       }, 250);
-      return;
+      return () => {
+        cancelled = true;
+        cleanupUpdateCheck?.();
+        cleanupUpdateCheck = undefined;
+      };
     }
 
     const forceUpdate = isForceUpdateStrategy(appUpdateInfo.updateStrategy);
@@ -722,8 +748,14 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         showUpdateDialog();
       }
     } else {
-      fetchUpdateInfo();
+      scheduleFetchUpdateInfo();
     }
+
+    return () => {
+      cancelled = true;
+      cleanupUpdateCheck?.();
+      cleanupUpdateCheck = undefined;
+    };
   }, [
     autoCheck,
     appUpdateInfo.status,

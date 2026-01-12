@@ -59,10 +59,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
-import {
-  isOpenedMyOneKeyModal,
-  useToMyOneKeyModal,
-} from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
+import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 
 import type { IntlShape } from 'react-intl';
 
@@ -83,8 +80,6 @@ const useDesktopEvents = platformEnv.isDesktop
       const onLock = useOnLockCallback();
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
-
-      const toMyOneKeyModal = useToMyOneKeyModal();
 
       const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
         false,
@@ -297,13 +292,9 @@ const useDesktopEvents = platformEnv.isDesktop
             });
             break;
           case EShortcutEvents.TabMyOneKey:
-            if (!isOpenedMyOneKeyModal()) {
-              ensureModalClosedAndNavigate(() => {
-                void toMyOneKeyModal();
-              });
-            } else {
-              ensureModalClosedAndNavigate();
-            }
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.DeviceManagement);
+            });
             break;
           case EShortcutEvents.TabBrowser:
             ensureModalClosedAndNavigate(() => {
@@ -378,9 +369,11 @@ const useAboutVersion =
     : noop;
 
 export const useFetchCurrencyList = () => {
-  useEffect(() => {
-    void backgroundApiProxy.serviceSetting.fetchCurrencyList();
-  }, []);
+  useRunAfterTokensDone({
+    run: () => {
+      void backgroundApiProxy.serviceSetting.fetchCurrencyList();
+    },
+  });
 };
 
 export const useFetchMarketBasicConfig = () => {
@@ -390,9 +383,11 @@ export const useFetchMarketBasicConfig = () => {
 };
 
 export const useFetchPerpConfig = () => {
-  useEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
-  }, []);
+  useRunAfterTokensDone({
+    run: () => {
+      void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+    },
+  });
 };
 
 const launchFloatingIconEvent = async (intl: IntlShape) => {

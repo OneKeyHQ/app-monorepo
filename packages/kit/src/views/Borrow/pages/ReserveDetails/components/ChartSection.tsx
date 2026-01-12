@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { YStack } from '@onekeyhq/components';
+import { YStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
@@ -36,6 +36,7 @@ export function ChartSection({
   details,
 }: IChartSectionProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const [supplyTimePeriod, setSupplyTimePeriod] = useState<ITimePeriod>('week');
   const [borrowTimePeriod, setBorrowTimePeriod] = useState<ITimePeriod>('week');
 
@@ -66,6 +67,7 @@ export function ChartSection({
       <DetailsSectionContainer
         title={intl.formatMessage({ id: ETranslations.defi_supply_info })}
         titleAfter={supplyBadge}
+        showDivider={gtMd}
       >
         <ApyChartSection
           apyValue={supplyData.latestApy}
@@ -79,6 +81,7 @@ export function ChartSection({
           topColor={APY_CHART_COLORS.supply.top}
           bottomColor={APY_CHART_COLORS.supply.bottom}
           lineWidth={APY_CHART_COLORS.lineWidth}
+          showDivider={false}
           capUsage={details?.supply.usage}
           capUsageLabel={intl.formatMessage({
             id: ETranslations.defi_supply_cap_usage,
@@ -99,7 +102,7 @@ export function ChartSection({
       <DetailsSectionContainer
         title={intl.formatMessage({ id: ETranslations.defi_borrow_info })}
         titleAfter={borrowBadge}
-        showDivider={false}
+        showDivider={gtMd}
       >
         <ApyChartSection
           apyValue={borrowData.latestApy}

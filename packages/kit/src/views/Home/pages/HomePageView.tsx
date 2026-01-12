@@ -36,6 +36,7 @@ import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import {
   useAccountOverviewActions,
   useApprovalsInfoAtom,
@@ -194,7 +195,7 @@ export function HomePageView({
       updateApprovalsInfo({ hasRiskApprovals: false });
     }
 
-    const run = async () => {
+    const run = async (_trigger: string) => {
       if (!isBulkRevokeApprovalEnabled) return;
       if (!account?.id || !network?.id) return;
 
@@ -219,14 +220,24 @@ export function HomePageView({
         if (error instanceof CanceledError) {
           return;
         }
-        throw error;
+        console.error(error);
       }
     };
 
-    void run();
+    const cleanup = runAfterTokensDone({
+      enabled: isBulkRevokeApprovalEnabled,
+      fallbackDelayMs: 12_000,
+      deferWhileRefreshing: true,
+      retryDelayMs: 2000,
+      maxWaitMs: 30_000,
+      networkId: network?.id,
+      matchNetworkId: true,
+      onRun: run,
+    });
 
     return () => {
       cancelled = true;
+      cleanup();
     };
   }, [
     account?.address,

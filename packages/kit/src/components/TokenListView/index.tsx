@@ -29,12 +29,15 @@ import {
   sortTokensByName,
   sortTokensByPrice,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 import type {
   IAccountToken,
   IHomeDefaultToken,
 } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
@@ -694,11 +697,40 @@ function TokenListViewCmp(props: IProps) {
 }
 
 const TokenListView = memo((props: IProps) => {
+  const needNetworksMap =
+    !!props.isAllNetworks && (!!props.showNetworkIcon || !!props.withNetwork);
+  const { result: allNetworksResp } = usePromiseResult<{
+    networks: IServerNetwork[];
+  }>(
+    async () => {
+      if (!needNetworksMap) {
+        return { networks: [] };
+      }
+      return backgroundApiProxy.serviceNetwork.getAllNetworks();
+    },
+    [needNetworksMap],
+    {
+      initResult: { networks: [] },
+    },
+  );
+  const networksMap = useMemo(() => {
+    if (!needNetworksMap) {
+      return undefined;
+    }
+    const networks = allNetworksResp?.networks ?? [];
+    const map: Record<string, IServerNetwork> = {};
+    for (const n of networks) {
+      map[n.id] = n;
+    }
+    return map;
+  }, [needNetworksMap, allNetworksResp]);
+
   const contextValue = useMemo(() => {
     return {
       allAggregateTokenMap: props.allAggregateTokenMap,
+      networksMap,
     };
-  }, [props.allAggregateTokenMap]);
+  }, [props.allAggregateTokenMap, networksMap]);
 
   return (
     <TokenListViewContext.Provider value={contextValue}>

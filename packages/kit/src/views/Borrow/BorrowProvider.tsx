@@ -19,6 +19,21 @@ import type {
 import type { ISwapConfig } from './components/BorrowTableList';
 import type { IBorrowPendingTx } from './hooks/useBorrowTxUpdate';
 
+export type IBorrowRefreshReservesFn = (options?: {
+  alwaysSetState?: boolean;
+}) => Promise<void>;
+
+type IBorrowRef<T> = {
+  current: T | null;
+};
+
+export const borrowRefreshReservesRef: IBorrowRef<IBorrowRefreshReservesFn> = {
+  current: null,
+};
+export const borrowRefreshPendingRef: IBorrowRef<() => Promise<void>> = {
+  current: null,
+};
+
 type IBorrowContextValue = {
   reserves: IBorrowReserveItem | null;
   setReserves: React.Dispatch<React.SetStateAction<IBorrowReserveItem | null>>;
@@ -30,7 +45,9 @@ type IBorrowContextValue = {
   // Pending transactions state
   pendingTxs: IBorrowPendingTx[];
   setPendingTxs: (txs: IBorrowPendingTx[]) => void;
-  refreshPendingRef: React.MutableRefObject<(() => Promise<void>) | null>;
+  refreshReservesRef: IBorrowRef<IBorrowRefreshReservesFn>;
+  refreshPendingRef: IBorrowRef<() => Promise<void>>;
+  refreshRewardsRef: IBorrowRef<() => Promise<void>>;
 };
 
 const defaultSwapConfig: ISwapConfig = {
@@ -49,7 +66,9 @@ export const BorrowProvider = ({
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
   const [reservesLoading, setReservesLoading] = useState(false);
   const [pendingTxs, setPendingTxsState] = useState<IBorrowPendingTx[]>([]);
-  const refreshPendingRef = useRef<(() => Promise<void>) | null>(null);
+  const refreshReservesRef = borrowRefreshReservesRef;
+  const refreshPendingRef = borrowRefreshPendingRef;
+  const refreshRewardsRef = useRef<(() => Promise<void>) | null>(null);
 
   // Stable setter that won't cause unnecessary re-renders
   const setPendingTxs = useCallback((txs: IBorrowPendingTx[]) => {
@@ -82,7 +101,9 @@ export const BorrowProvider = ({
       swapConfig,
       pendingTxs,
       setPendingTxs,
+      refreshReservesRef,
       refreshPendingRef,
+      refreshRewardsRef,
     };
   }, [
     reserves,
@@ -91,6 +112,8 @@ export const BorrowProvider = ({
     swapConfig,
     pendingTxs,
     setPendingTxs,
+    refreshReservesRef,
+    refreshPendingRef,
   ]);
 
   return (
