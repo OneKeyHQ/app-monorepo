@@ -1,8 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import {
@@ -18,7 +16,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
-import { PERPS_TERMS_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -249,92 +246,33 @@ export function HyperliquidTermsContent({
   );
 }
 
-export function HyperliquidTermsOverlay() {
-  const [isVisible, setIsVisible] = useState(false);
-
-  const handleConfirm = useCallback(() => {
-    setIsVisible(false);
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      const checkTermsAccepted = async () => {
-        const isTermsAccepted =
-          await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
-        if (!isTermsAccepted) {
-          setTimeout(() => {
-            setIsVisible(true);
-          }, 600);
-        }
-      };
-      void checkTermsAccepted();
-    }, []),
-  );
-  const { width } = useWindowDimensions();
-  const { gtMd } = useMedia();
-  if (!isVisible) {
-    return null;
+export async function showHyperliquidTermsDialog(): Promise<boolean> {
+  const isTermsAccepted =
+    await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
+  if (isTermsAccepted) {
+    return true;
   }
 
-  return (
-    <Stack
-      position="absolute"
-      top={0}
-      left={0}
-      right={0}
-      bottom={0}
-      bg="$bgBackdrop"
-      zIndex={PERPS_TERMS_OVERLAY_Z_INDEX}
-      alignItems="center"
-      justifyContent="center"
-      p="$6"
-    >
-      <Stack
-        width={Math.min(gtMd ? 460 : 320, width)}
-        bg="$bgApp"
-        borderRadius="$4"
-        overflow="hidden"
-      >
+  return new Promise((resolve) => {
+    const dialog = Dialog.show({
+      renderContent: (
         <HyperliquidTermsContent
+          renderDelay={300}
           onConfirm={async () => {
             await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
               true,
             );
-            handleConfirm();
+            await dialog.close();
+            resolve(true);
           }}
         />
-      </Stack>
-    </Stack>
-  );
-}
-
-export async function showHyperliquidTermsDialog() {
-  const isTermsAccepted =
-    await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
-  if (isTermsAccepted) {
-    return;
-  }
-
-  const dialog = Dialog.show({
-    // title: 'Hyperliquid Introduction',
-    renderContent: (
-      <HyperliquidTermsContent
-        renderDelay={300}
-        onConfirm={async () => {
-          await dialog.close();
-          await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
-            true,
-          );
-        }}
-      />
-    ),
-    showExitButton: false,
-    disableDrag: true,
-    dismissOnOverlayPress: false,
-    showFooter: false,
-    showCancelButton: false,
-    showConfirmButton: false,
+      ),
+      showExitButton: false,
+      disableDrag: true,
+      dismissOnOverlayPress: false,
+      showFooter: false,
+      showCancelButton: false,
+      showConfirmButton: false,
+    });
   });
-
-  return dialog;
 }
