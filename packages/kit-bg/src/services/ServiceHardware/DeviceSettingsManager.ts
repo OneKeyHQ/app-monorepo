@@ -545,7 +545,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       walletId,
       connectId,
       featuresDeviceId,
-      debugMethodName: 'deviceSettings.getBrightness',
+      debugMethodName: 'deviceSettings.setHapticFeedback',
       action: async (sdk, compatibleConnectId, device) =>
         sdk
           .deviceSettings(compatibleConnectId, {

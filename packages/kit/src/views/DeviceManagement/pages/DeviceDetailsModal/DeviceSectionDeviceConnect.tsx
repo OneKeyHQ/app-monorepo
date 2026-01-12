@@ -40,7 +40,7 @@ function DeviceSectionDeviceConnect() {
           });
           handleBackPress();
         } catch (error) {
-          Toast.success({
+          Toast.error({
             title: intl.formatMessage({
               id: ETranslations.global_cancel,
             }),
