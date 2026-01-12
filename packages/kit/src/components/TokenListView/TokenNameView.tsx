@@ -11,8 +11,8 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
   useAggregateTokensListMapAtom,
@@ -73,7 +73,9 @@ function TokenNameView(props: IProps) {
 
   const network = useMemo(() => {
     if (!networkId) return undefined;
-    return networksMap?.[networkId] ?? networkUtils.getLocalNetworkInfo(networkId);
+    return (
+      networksMap?.[networkId] ?? networkUtils.getLocalNetworkInfo(networkId)
+    );
   }, [networksMap, networkId]);
 
   const firstAggregateTokenNetwork = useMemo(() => {
