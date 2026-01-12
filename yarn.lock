@@ -8083,7 +8083,7 @@ __metadata:
     react-native-worklets: "npm:0.7.1"
     react-refresh: "npm:^0.14.0"
     react-render-tracker: "npm:^0.7.6"
-    react-router-dom: "npm:^7.1.1"
+    react-router-dom: "npm:^7.12.0"
     react-virtualized: "npm:^9.22.6"
     rimraf: "npm:3.0.2"
     rlp: "npm:^3.0.0"
@@ -8354,6 +8354,7 @@ __metadata:
     expo-linking: "npm:7.1.5"
     expo-local-authentication: "npm:17.0.8"
     expo-localization: "npm:16.1.5"
+    expo-media-library: "npm:^18.2.1"
     expo-navigation-bar: "npm:5.0.10"
     expo-notifications: "npm:0.31.3"
     expo-screen-capture: "npm:7.1.5"
@@ -15490,13 +15491,6 @@ __metadata:
   version: 0.4.1
   resolution: "@types/cookie@npm:0.4.1"
   checksum: 10/427c9220217d3d74f3e5d53d68cd39502f3bbebdb1af4ecf0d05076bcbe9ddab299ad6369fe0f517389296ba4ca49ddf9a8c22f68e5e9eb8ae6d0076cfab90b2
-  languageName: node
-  linkType: hard
-
-"@types/cookie@npm:^0.6.0":
-  version: 0.6.0
-  resolution: "@types/cookie@npm:0.6.0"
-  checksum: 10/b883348d5bf88695fbc2c2276b1c49859267a55cae3cf11ea1dccc1b3be15b466e637ce3242109ba27d616c77c6aa4efe521e3d557110b4fdd9bc332a12445c2
   languageName: node
   linkType: hard
 
@@ -25517,6 +25511,16 @@ __metadata:
     expo: "*"
     react: "*"
   checksum: 10/7e96b5d722d7d5dd524b4833a6721987e2068eef363d42eb64478b9b10ca9640e7758626b0a1d7a5944700fc1fc13d5afaf6a5f1e942a021d7cd53e508606560
+  languageName: node
+  linkType: hard
+
+"expo-media-library@npm:^18.2.1":
+  version: 18.2.1
+  resolution: "expo-media-library@npm:18.2.1"
+  peerDependencies:
+    expo: "*"
+    react-native: "*"
+  checksum: 10/650ff267755dfadb1d1ab8e36e3a14f618ced0fc2b3226d09771f1d279893b54b9d992483d9ca3f715b3ed26913803d2104becdb34dbd366a5dbb264ec73684f
   languageName: node
   linkType: hard
 
@@ -36472,33 +36476,31 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-router-dom@npm:^7.1.1":
-  version: 7.1.1
-  resolution: "react-router-dom@npm:7.1.1"
+"react-router-dom@npm:^7.12.0":
+  version: 7.12.0
+  resolution: "react-router-dom@npm:7.12.0"
   dependencies:
-    react-router: "npm:7.1.1"
+    react-router: "npm:7.12.0"
   peerDependencies:
     react: ">=18"
     react-dom: ">=18"
-  checksum: 10/d7b978959f89051cf6705cdc0907d92167e39f2835b20b78508cc69e46ebecdbb0b7b95c4d2f954b60c01cdfc70ffc842ee261c0b7b22507a51990e4cebc41ee
+  checksum: 10/d2733cbb00f00617a227a454b3fb76645433ce8564b02a0ff05064a2da782ce192a8d87a2f2ab0c92f899689c0b562096ec8217b6af483b97c17e540257ed5e9
   languageName: node
   linkType: hard
 
-"react-router@npm:7.1.1":
-  version: 7.1.1
-  resolution: "react-router@npm:7.1.1"
+"react-router@npm:7.12.0":
+  version: 7.12.0
+  resolution: "react-router@npm:7.12.0"
   dependencies:
-    "@types/cookie": "npm:^0.6.0"
     cookie: "npm:^1.0.1"
     set-cookie-parser: "npm:^2.6.0"
-    turbo-stream: "npm:2.4.0"
   peerDependencies:
     react: ">=18"
     react-dom: ">=18"
   peerDependenciesMeta:
     react-dom:
       optional: true
-  checksum: 10/f12e229d79bd6de561e697b64556959361365610450c12bfd89116fccca8428728d7c372a096eff570a917ef02473ef4f5145beb6a2881d6935f69fe25bebcfd
+  checksum: 10/578324f792721200bd57a220c7931af692613943051c9bb0c6303613849ec9a2c2365a3a6afe1b3976c13edc8f71616bb9cfdb13c0ac501f239ad11a6884e3f8
   languageName: node
   linkType: hard
 
@@ -40335,13 +40337,6 @@ __metadata:
   dependencies:
     safe-buffer: "npm:^5.0.1"
   checksum: 10/7f0d9ed5c22404072b2ae8edc45c071772affd2ed14a74f03b4e71b4dd1a14c3714d85aed64abcaaee5fec2efc79002ba81155c708f4df65821b444abb0cfade
-  languageName: node
-  linkType: hard
-
-"turbo-stream@npm:2.4.0":
-  version: 2.4.0
-  resolution: "turbo-stream@npm:2.4.0"
-  checksum: 10/7079bbc82b58340f783144cd669cc7e598288523103a8d68bb8a4c6bb28c64eccb71d389b33aab07788d3a9030638b795709e15cb8486f722b1cdac59cb58afc
   languageName: node
   linkType: hard
 

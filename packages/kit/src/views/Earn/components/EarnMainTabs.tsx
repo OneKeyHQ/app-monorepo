@@ -41,6 +41,30 @@ interface IEarnMainTabsProps {
   portfolioData: IUseEarnPortfolioReturn;
 }
 
+const TabContentContainer = ({
+  children,
+  withHorizontalPadding,
+  maxWidth,
+}: {
+  children: React.ReactNode;
+  withHorizontalPadding?: boolean;
+  maxWidth?: number;
+}) => {
+  return (
+    <Tabs.ScrollView>
+      <YStack
+        pt="$6"
+        pb="$6"
+        gap="$8"
+        {...(withHorizontalPadding ? { px: '$5' } : {})}
+        {...(maxWidth ? { maxWidth } : {})}
+      >
+        {children}
+      </YStack>
+    </Tabs.ScrollView>
+  );
+};
+
 const EarnMainTabsComponent = ({
   faqList,
   isFaqLoading = false,
@@ -202,28 +226,22 @@ const EarnMainTabsComponent = ({
       {...containerProps}
     >
       <Tabs.Tab name={tabNames.assets}>
-        <Tabs.ScrollView>
-          <YStack pt="$6" gap="$8">
-            <ProtocolsTabContent />
-          </YStack>
-        </Tabs.ScrollView>
+        <TabContentContainer>
+          <ProtocolsTabContent />
+        </TabContentContainer>
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.portfolio}>
-        <Tabs.ScrollView>
-          <YStack pt="$6" gap="$8">
-            <PortfolioTabContent
-              portfolioData={portfolioData}
-              hideSmallAssets={hideSmallAssets}
-            />
-          </YStack>
-        </Tabs.ScrollView>
+        <TabContentContainer>
+          <PortfolioTabContent
+            portfolioData={portfolioData}
+            hideSmallAssets={hideSmallAssets}
+          />
+        </TabContentContainer>
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.faqs}>
-        <Tabs.ScrollView>
-          <YStack px="$5" pt="$6" gap="$8" maxWidth={960}>
-            <FAQContent faqList={faqList} isLoading={isFaqLoading} />
-          </YStack>
-        </Tabs.ScrollView>
+        <TabContentContainer withHorizontalPadding maxWidth={960}>
+          <FAQContent faqList={faqList} isLoading={isFaqLoading} />
+        </TabContentContainer>
       </Tabs.Tab>
     </Tabs.Container>
   );

@@ -472,6 +472,8 @@ export type IProtocolInfo = {
   protocolInputDecimals?: number;
   // Max repay balance (debt balance) for repay max button
   maxRepayBalance?: string;
+  // Max supply balance for supply max button
+  maxSupplyBalance?: string;
 };
 
 export interface IEarnToken {
@@ -943,6 +945,7 @@ export interface IEarnSupplyActionData {
   text: IEarnText;
   data?: {
     balance: string;
+    maxBalance?: string;
     token?: {
       info: IEarnToken;
       price: string;
@@ -1883,7 +1886,14 @@ export interface IBorrowCheckAmount {
   riskOfLiquidationAlert?: boolean;
 }
 
+export interface IBorrowAlert {
+  title: IEarnText;
+  description?: IEarnText;
+  badge: IBadgeType;
+}
+
 export interface IBorrowReserveItem {
+  alerts?: IBorrowAlert[];
   overview: {
     netWorth: IEarnText;
     netApy: IEarnText;

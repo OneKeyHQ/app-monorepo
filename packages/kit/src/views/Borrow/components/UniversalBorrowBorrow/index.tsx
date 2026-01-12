@@ -30,7 +30,6 @@ import {
   useOnBlurAmountValue,
 } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
-import { TradeOrBuy } from '@onekeyhq/kit/src/views/Staking/components/TradeOrBuy';
 import { countDecimalPlaces } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -41,7 +40,6 @@ import type {
   IBorrowReserveItem,
   IEarnTokenInfo,
 } from '@onekeyhq/shared/types/staking';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { BorrowInfoItem } from '../BorrowInfoItem';
@@ -248,11 +246,6 @@ export function UniversalBorrowBorrow({
       setSubmitting(false);
     }
   }, [amountValue, onConfirm, riskOfLiquidationAlert, intl]);
-
-  const token = useMemo(
-    () => tokenInfo?.token as IToken | undefined,
-    [tokenInfo?.token],
-  );
 
   useEffect(() => {
     setAmountValue('');
@@ -466,6 +459,9 @@ export function UniversalBorrowBorrow({
                 ) : null}
               </BorrowInfoItem>
             ) : null}
+          </YStack>
+          <Divider my="$5" />
+          <YStack gap="$6">
             {showApyDetail && transactionConfirmation?.apyDetail ? (
               <BorrowInfoItem
                 title={intl.formatMessage({
@@ -479,17 +475,6 @@ export function UniversalBorrowBorrow({
               </BorrowInfoItem>
             ) : null}
           </YStack>
-          <Divider my="$5" />
-          {token ? (
-            <TradeOrBuy
-              token={token}
-              accountId={accountId}
-              networkId={networkId}
-              containerStyle={{
-                pt: '$0',
-              }}
-            />
-          ) : null}
         </YStack>
       ) : null}
 
