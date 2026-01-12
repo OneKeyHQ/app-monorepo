@@ -17,8 +17,8 @@ export type IEarnHomeMode = 'earn' | 'borrow';
 export const MarketSelector = ({
   mode,
   onModeChange,
-  backgroundColor = '$BJ',
-  activeBackgroundColor = '$BJ',
+  backgroundColor = '$bg',
+  activeBackgroundColor = '$bg',
 }: {
   mode: IEarnHomeMode;
   onModeChange?: (mode: IEarnHomeMode) => void;
