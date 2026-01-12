@@ -1162,7 +1162,7 @@ class ServiceKeylessWallet extends ServiceBase {
 
   async buildKeylessOwnerIdFromSocialToken(params: {
     token: string;
-    hashId: string;
+    hashId: string; // return from server
   }): Promise<string> {
     const { token, hashId } = params;
     const socialUserId = this.buildKeylessSocialUserIdFromToken({ token });

@@ -2708,7 +2708,10 @@ class ServiceAccount extends ServiceBase {
     const { index, walletXfp, name, ...others } = params;
     let wallets: IDBWallet[] = [];
     if (walletXfp) {
-      wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
+      wallets = await localDb.getWalletsByXfp({
+        xfp: walletXfp,
+        includingKeylessWallets: true,
+      });
     } else if (params.indexedAccountId) {
       const { walletId } = accountUtils.parseIndexedAccountId({
         indexedAccountId: params.indexedAccountId,
@@ -2721,6 +2724,7 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
+    let isAccountNameChanged = false;
     if (params.shouldCheckDuplicate && params.indexedAccountId) {
       // if it is manually triggered, call the non-try-catch modification once first to ensure that the duplicate name detection takes effect and terminates the function with an error
       await this.setAccountName({
@@ -2731,6 +2735,7 @@ class ServiceAccount extends ServiceBase {
         skipSaveLocalSyncItem: params.skipSaveLocalSyncItem,
         shouldCheckDuplicate: params.shouldCheckDuplicate,
       });
+      isAccountNameChanged = true;
     }
 
     for (const wallet of wallets) {
@@ -2752,11 +2757,12 @@ class ServiceAccount extends ServiceBase {
             ? params.shouldCheckDuplicate
             : false,
         });
+        isAccountNameChanged = true;
       } catch (e) {
         console.error('setUniversalIndexedAccountName ERROR', e);
       }
     }
-    if (wallets.length && !params.skipEventEmit) {
+    if (!params.skipEventEmit && isAccountNameChanged) {
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     }
   }

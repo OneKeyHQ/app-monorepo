@@ -182,7 +182,9 @@ function WalletEditButtonView({
               onClose={handleActionListClose}
               isLoading={isVerifyPinLoading}
               onPress={() => {
-                void verifyKeylessPinChecking({ forceVerify: true });
+                if (wallet) {
+                  void verifyKeylessPinChecking({ forceVerify: true, wallet });
+                }
               }}
             />
           ) : null}

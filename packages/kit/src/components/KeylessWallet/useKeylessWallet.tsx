@@ -3,11 +3,13 @@ import { useCallback, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   devSettingsPersistAtom,
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import type { IWallet } from '@onekeyhq/kit-bg/src/vaults/impls/ton/sdkTon/utils';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
@@ -973,16 +975,13 @@ export function useKeylessWallet() {
 }
 
 export function useVerifyKeylessPinChecking() {
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const intl = useIntl();
   const verifyKeylessPinChecking = useCallback(
-    async (options: { forceVerify?: boolean } = {}) => {
-      // 必须是无私钥钱包
-      // 1 分钟只检测一次
-      if (activeAccount.wallet?.isKeyless) {
-        const ownerId =
-          activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId;
+    async (options: { forceVerify?: boolean; wallet: IDBWallet }) => {
+      const activeWallet = options.wallet;
+      if (activeWallet?.isKeyless) {
+        const ownerId = activeWallet?.keylessDetailsInfo?.keylessOwnerId;
         if (!ownerId) {
           return;
         }
@@ -1063,12 +1062,7 @@ export function useVerifyKeylessPinChecking() {
         }
       }
     },
-    [
-      activeAccount.wallet?.isKeyless,
-      activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId,
-      goToOneKeyIDLoginPageForKeylessWallet,
-      intl,
-    ],
+    [goToOneKeyIDLoginPageForKeylessWallet, intl],
   );
   return { verifyKeylessPinChecking };
 }
