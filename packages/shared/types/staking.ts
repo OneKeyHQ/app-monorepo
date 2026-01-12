@@ -2218,6 +2218,7 @@ export interface IBorrowTransactionConfirmation {
 
 export interface IBorrowUnsignedTransaction {
   tx: string;
+  orderId: string;
 }
 
 export type IBorrowManagePage = IEarnManagePageResponse;
