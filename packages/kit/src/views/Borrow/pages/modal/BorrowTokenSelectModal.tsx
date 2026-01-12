@@ -105,9 +105,6 @@ export default function BorrowTokenSelectModal() {
     const supplied = intl.formatMessage({
       id: ETranslations.wallet_defi_asset_type_supplied,
     });
-    const walletBalance = `${intl.formatMessage({
-      id: ETranslations.global_wallet,
-    })} ${intl.formatMessage({ id: ETranslations.global_balance })}`;
     const available = intl.formatMessage({
       id: ETranslations.global_available,
     });
@@ -116,7 +113,9 @@ export default function BorrowTokenSelectModal() {
       available,
       borrowed,
       supplied,
-      walletBalance,
+      walletBalance: intl.formatMessage({
+        id: ETranslations.global_wallet_balance,
+      }),
       borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
       supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
       assetAvailable: `${asset} / ${available}`,
