@@ -1,30 +1,76 @@
-import { useCallback } from 'react';
+import { createElement, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Linking } from 'react-native';
 
-import { Toast, useClipboard } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  Toast,
+  XStack,
+  useClipboard,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import ExpoSharing from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
+import MediaLibrary from '@onekeyhq/shared/src/modules3rdParty/expo-media-library';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+export type ISaveImageResult = {
+  success: boolean;
+  permissionDenied?: boolean;
+  permissionPermanentlyDenied?: boolean;
+};
 
 export function useShareActions(referralQrCodeUrl?: string) {
   const { copyText } = useClipboard();
   const intl = useIntl();
+
   const saveImage = useCallback(
-    async (base64Image: string) => {
+    async (base64Image: string): Promise<ISaveImageResult> => {
       try {
         if (platformEnv.isNative) {
-          if (!RNFS || !ExpoSharing) {
+          if (!RNFS) {
             Toast.error({ title: 'File system not available' });
-            return;
+            return { success: false };
+          }
+
+          // writeOnly: true for iOS 14+ add-only permission
+          let currentPermission: {
+            status: string;
+            canAskAgain?: boolean;
+          } | null = null;
+
+          try {
+            currentPermission = await MediaLibrary.getPermissionsAsync(true);
+          } catch (error) {
+            console.error('Get permissions failed:', error);
+          }
+
+          const isGranted = currentPermission?.status === 'granted';
+          const canRequest =
+            currentPermission?.status === 'undetermined' ||
+            (currentPermission?.status === 'denied' &&
+              currentPermission?.canAskAgain !== false);
+
+          if (!isGranted && canRequest) {
+            try {
+              const requestResult = await MediaLibrary.requestPermissionsAsync(
+                true,
+              );
+              if (requestResult?.status !== 'granted') {
+                return { success: false, permissionDenied: true };
+              }
+            } catch (permissionError) {
+              console.error('Permission request failed:', permissionError);
+              return { success: false, permissionDenied: true };
+            }
+          } else if (!isGranted && !canRequest) {
+            return { success: false, permissionPermanentlyDenied: true };
           }
 
           const filename = `onekey-position-${Date.now()}.png`;
-          const filepath = platformEnv.isNativeAndroid
-            ? `${RNFS.CachesDirectoryPath}/${filename}`
-            : `${RNFS.DocumentDirectoryPath}/${filename}`;
+          const filepath = `${RNFS.CachesDirectoryPath}/${filename}`;
 
           await RNFS.writeFile(
             filepath,
@@ -32,45 +78,92 @@ export function useShareActions(referralQrCodeUrl?: string) {
             'base64',
           );
 
-          const shareFilePath = platformEnv.isNativeAndroid
-            ? `file://${filepath}`
-            : filepath;
+          const savedAsset = await MediaLibrary.saveToLibraryAsync(filepath);
+          await RNFS.unlink(filepath);
 
-          await ExpoSharing.shareAsync(shareFilePath, {
-            mimeType: 'image/png',
-            UTI: 'public.png',
+          const titleText = intl.formatMessage({
+            id: ETranslations.perp_share_image_saved,
           });
-        } else {
-          const byteString = atob(base64Image.split(',')[1]);
-          const arrayBuffer = new ArrayBuffer(byteString.length);
-          const uint8Array = new Uint8Array(arrayBuffer);
-          for (let i = 0; i < byteString.length; i += 1) {
-            uint8Array[i] = byteString.charCodeAt(i);
-          }
-
-          const blob = new Blob([uint8Array], { type: 'image/png' });
-          const url = URL.createObjectURL(blob);
-
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `onekey-position-${Date.now()}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
-          URL.revokeObjectURL(url);
-
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.perp_share_image_saved,
-            }),
+          const viewButtonText = intl.formatMessage({
+            id: ETranslations.global_view,
           });
+
+          const openPhotoLibrary = () => {
+            if (platformEnv.isNativeAndroid && savedAsset?.uri) {
+              void Linking.openURL(savedAsset.uri).catch(() => {
+                void Linking.openURL('content://media/internal/images/media');
+              });
+            } else {
+              void Linking.openURL('photos-redirect://');
+            }
+          };
+
+          Toast.show({
+            children: createElement(
+              XStack,
+              {
+                alignItems: 'center',
+                gap: '$2',
+                paddingVertical: '$3',
+                paddingHorizontal: '$4',
+              },
+              createElement(Icon, {
+                name: 'CheckRadioSolid',
+                color: '$iconSuccess',
+                size: '$5',
+              }),
+              createElement(
+                SizableText,
+                { size: '$bodyMd', flex: 1 },
+                titleText,
+              ),
+              createElement(
+                Button,
+                {
+                  variant: 'tertiary',
+                  size: 'small',
+                  onPress: openPhotoLibrary,
+                },
+                viewButtonText,
+              ),
+            ),
+          });
+
+          return { success: true };
         }
+        // Web platform
+        const byteString = atob(base64Image.split(',')[1]);
+        const arrayBuffer = new ArrayBuffer(byteString.length);
+        const uint8Array = new Uint8Array(arrayBuffer);
+        for (let i = 0; i < byteString.length; i += 1) {
+          uint8Array[i] = byteString.charCodeAt(i);
+        }
+
+        const blob = new Blob([uint8Array], { type: 'image/png' });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `onekey-position-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.perp_share_image_saved,
+          }),
+        });
+
+        return { success: true };
       } catch (error) {
         Toast.error({
           title: 'Failed to save image',
           message: error instanceof Error ? error.message : undefined,
         });
+        return { success: false };
       }
     },
     [intl],
