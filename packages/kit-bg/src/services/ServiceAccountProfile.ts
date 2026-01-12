@@ -436,7 +436,6 @@ class ServiceAccountProfile extends ServiceBase {
             networkId,
             address: resolveAddress,
           });
-        console.log('walletAccountItems', walletAccountItems);
       } catch (e) {
         console.error(e);
       }

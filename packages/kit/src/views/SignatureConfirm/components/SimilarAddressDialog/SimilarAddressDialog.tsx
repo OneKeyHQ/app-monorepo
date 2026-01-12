@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -93,6 +94,7 @@ function SimilarAddressContent({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const intl = useIntl();
   const diffResult = useMemo(
     () => compareAddresses(similarAddress, currentAddress),
     [similarAddress, currentAddress],
@@ -139,7 +141,9 @@ function SimilarAddressContent({
       >
         <YStack gap={6}>
           <SizableText size="$bodyMd" color="$textSubdued">
-            Your usual address
+            {intl.formatMessage({
+              id: ETranslations.wallet_your_usual_address,
+            })}
           </SizableText>
           <SizableText fontFamily="$monoMedium">
             {formattedSimilarAddress}
@@ -148,16 +152,23 @@ function SimilarAddressContent({
 
         <YStack gap={6}>
           <SizableText size="$bodyMd" color="$textSubdued">
-            This address
+            {intl.formatMessage({
+              id: ETranslations.wallet_this_address,
+            })}
           </SizableText>
           <AddressWithDiff diffResult={diffResult} />
         </YStack>
       </YStack>
       <YStack gap="$1">
-        <SizableText size="$bodyMd">What you should do now?</SizableText>
+        <SizableText size="$bodyMd">
+          {intl.formatMessage({
+            id: ETranslations.wallet_what_you_should_do_now,
+          })}
+        </SizableText>
         <SizableText size="$bodySm" color="$textDisabled">
-          Do not continue this transfer. Copy the address again from a trusted
-          source. Verify it matches exactly.
+          {intl.formatMessage({
+            id: ETranslations.wallet_do_not_proceed_tip,
+          })}
         </SizableText>
       </YStack>
       <XStack gap="$3" alignItems="center">
@@ -168,14 +179,20 @@ function SimilarAddressContent({
       <YStack gap="$6">
         <Checkbox
           value={checkState}
-          label="I understand the risks and want to proceed"
+          label={intl.formatMessage({
+            id: ETranslations.wallet_i_understand_risks_and_proceed,
+          })}
           onChange={setCheckState}
         />
         <Dialog.Footer
           onConfirm={handleConfirm}
           onCancel={handleCancel}
-          onConfirmText="Continue"
-          onCancelText="Cancel"
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_continue,
+          })}
+          onCancelText={intl.formatMessage({
+            id: ETranslations.global_cancel,
+          })}
           confirmButtonProps={{
             disabled: !checkState,
           }}
@@ -194,7 +211,9 @@ export const showSimilarAddressDialog = async ({
 }) => {
   return new Promise((resolve, reject) => {
     const dialog = Dialog.show({
-      title: 'High-risk address detected',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.wallet_high_risk_address_detected,
+      }),
       icon: 'ShieldOutline',
       tone: 'warning',
       showConfirmButton: false,
