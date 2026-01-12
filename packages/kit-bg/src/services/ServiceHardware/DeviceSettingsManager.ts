@@ -9,6 +9,7 @@ import {
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import type { IDeviceResponseResult } from '@onekeyhq/shared/types/device';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
@@ -19,7 +20,9 @@ import type {
   IDBDevice,
   IDBDeviceSettings as IDBDeviceDbSettings,
 } from '../../dbs/local/types';
+import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
 import type {
+  CoreApi,
   DeviceSettingsParams,
   DeviceUploadResourceParams,
   DeviceUploadResourceResponse,
@@ -30,15 +33,39 @@ export type ISetInputPinOnSoftwareParams = {
   inputPinOnSoftware: boolean;
 };
 
-export type ISetPassphraseEnabledParams = {
-  walletId: string;
+export type IBaseDeviceProcessingParams = {
+  walletId?: string;
   connectId?: string;
   featuresDeviceId?: string;
+};
+
+export type ISetAutoLockDelayMsParams = IBaseDeviceProcessingParams & {
+  autoLockDelayMs: number;
+};
+
+export type ISetAutoShutDownDelayMsParams = IBaseDeviceProcessingParams & {
+  autoShutdownDelayMs: number;
+};
+
+export type ISetLanguageParams = IBaseDeviceProcessingParams & {
+  language: string;
+};
+
+export type ISetHapticFeedbackParams = IBaseDeviceProcessingParams & {
+  hapticFeedback: boolean;
+};
+
+export type ISetPassphraseEnabledParams = IBaseDeviceProcessingParams & {
   passphraseEnabled: boolean;
 };
 
+export type IWipeDeviceParams = IBaseDeviceProcessingParams;
+
 export type IGetDeviceAdvanceSettingsParams = { walletId: string };
 export type IGetDeviceLabelParams = { walletId: string };
+export type IChangePinParams = IBaseDeviceProcessingParams & {
+  remove: boolean;
+};
 export type ISetDeviceLabelParams = { walletId: string; label: string };
 
 export type IHardwareHomeScreenData = {
@@ -75,23 +102,92 @@ export type IDeviceHomeScreenConfig = {
   thumbnailSize?: IDeviceHomeScreenSizeInfo;
 };
 
-export class DeviceSettingsManager extends ServiceHardwareManagerBase {
-  @backgroundMethod()
-  async changePin(connectId: string, remove = false): Promise<Success> {
-    const compatibleConnectId =
-      await this.serviceHardware.getCompatibleConnectId({
-        connectId,
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      });
-    const hardwareSDK = await this.getSDKInstance({
-      connectId: compatibleConnectId,
-    });
+type IWithDeviceProcessingParams = {
+  debugMethodName?: string;
+  walletId?: string;
+  connectId?: string;
+  featuresDeviceId?: string;
+  hardwareCallContext?: EHardwareCallContext;
+  dbDevice?: IDBDevice;
+  params?: IWithHardwareProcessingControlParams;
+};
 
-    return convertDeviceResponse(() =>
-      hardwareSDK?.deviceChangePin(compatibleConnectId, {
-        remove,
-      }),
+export class DeviceSettingsManager extends ServiceHardwareManagerBase {
+  async _withDeviceProcessing<T>({
+    walletId,
+    connectId,
+    featuresDeviceId,
+    dbDevice,
+    hardwareCallContext,
+    debugMethodName,
+    action,
+    params,
+  }: IWithDeviceProcessingParams & {
+    action: (
+      hardwareSDK: CoreApi,
+      connectId: string,
+      device: IDBDevice,
+    ) => Promise<IDeviceResponseResult<T>>;
+  }): Promise<T> {
+    let device = dbDevice;
+    if (!device && walletId) {
+      device = await localDb.getWalletDevice({ walletId });
+    }
+    if (!device) {
+      if (connectId || featuresDeviceId) {
+        device = await localDb.getDeviceByQuery({
+          connectId,
+          featuresDeviceId,
+        });
+      }
+    }
+    if (!device) {
+      throw new OneKeyLocalError('Device not found');
+    }
+
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      async () => {
+        const compatibleConnectId =
+          await this.serviceHardware.getCompatibleConnectId({
+            connectId: device.connectId,
+            hardwareCallContext:
+              hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
+          });
+        const hardwareSDK = await this.getSDKInstance({
+          connectId: compatibleConnectId,
+        });
+        return convertDeviceResponse(() =>
+          action(hardwareSDK, compatibleConnectId, device),
+        );
+      },
+      {
+        deviceParams: {
+          dbDevice: device,
+        },
+        ...params,
+        debugMethodName:
+          debugMethodName || 'deviceSettings.withDeviceProcessing',
+      },
     );
+  }
+
+  @backgroundMethod()
+  async changePin({
+    walletId,
+    connectId,
+    featuresDeviceId,
+    remove,
+  }: IChangePinParams): Promise<Success> {
+    return this._withDeviceProcessing({
+      walletId,
+      connectId,
+      featuresDeviceId,
+      debugMethodName: 'deviceSettings.changePin',
+      action: async (hardwareSDK, compatibleConnectId, device) =>
+        hardwareSDK?.deviceChangePin(compatibleConnectId, {
+          remove,
+        }),
+    });
   }
 
   @backgroundMethod()
@@ -303,33 +399,186 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     featuresDeviceId,
     passphraseEnabled,
   }: ISetPassphraseEnabledParams) {
-    let device: IDBDevice | undefined;
-    if (walletId) {
-      device = await localDb.getWalletDevice({ walletId });
-    }
-    if (!device) {
-      if (connectId || featuresDeviceId) {
-        device = await localDb.getDeviceByQuery({
-          connectId,
-          featuresDeviceId,
-        });
-      }
-    }
-    if (!device) {
-      throw new OneKeyLocalError('Device not found');
-    }
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      () =>
-        this.applySettingsToDevice(device.connectId, {
-          usePassphrase: passphraseEnabled,
+    return this._withDeviceProcessing({
+      walletId,
+      connectId,
+      featuresDeviceId,
+      debugMethodName: 'deviceSettings.setPassphraseEnabled',
+      action: async (sdk, compatibleConnectId, device) =>
+        sdk
+          .deviceSettings(compatibleConnectId, {
+            usePassphrase: passphraseEnabled,
+          })
+          .then(async (res) => {
+            if (device.featuresInfo) {
+              await localDb.updateDevice({
+                features: {
+                  ...device.featuresInfo,
+                  passphrase_protection: passphraseEnabled,
+                },
+              });
+            }
+            return res;
+          }),
+    });
+  }
+
+  @backgroundMethod()
+  async setAutoLockDelayMs({
+    walletId,
+    connectId,
+    featuresDeviceId,
+    autoLockDelayMs,
+  }: ISetAutoLockDelayMsParams) {
+    return this._withDeviceProcessing({
+      walletId,
+      connectId,
+      featuresDeviceId,
+      debugMethodName: 'deviceSettings.setAutoLockDelayMs',
+      action: async (sdk, compatibleConnectId, device) =>
+        sdk
+          .deviceSettings(compatibleConnectId, {
+            autoLockDelayMs,
+          })
+          .then(async (res) => {
+            if (device.featuresInfo) {
+              await localDb.updateDevice({
+                features: {
+                  ...device.featuresInfo,
+                  auto_lock_delay_ms: autoLockDelayMs,
+                },
+              });
+            }
+            return res;
+          }),
+    });
+  }
+
+  @backgroundMethod()
+  async setAutoShutDownDelayMs({
+    walletId,
+    connectId,
+    featuresDeviceId,
+    autoShutdownDelayMs,
+  }: ISetAutoShutDownDelayMsParams) {
+    return this._withDeviceProcessing({
+      walletId,
+      connectId,
+      featuresDeviceId,
+      debugMethodName: 'deviceSettings.setAutoShutDownDelayMs',
+      action: async (sdk, compatibleConnectId, device) =>
+        sdk
+          .deviceSettings(compatibleConnectId, {
+            autoShutdownDelayMs,
+          })
+          .then(async (res) => {
+            if (device.featuresInfo) {
+              await localDb.updateDevice({
+                features: {
+                  ...device.featuresInfo,
+                  auto_shutdown_delay_ms: autoShutdownDelayMs,
+                },
+              });
+            }
+            return res;
+          }),
+    });
+  }
+
+  @backgroundMethod()
+  async setLanguage({
+    walletId,
+    connectId,
+    featuresDeviceId,
+    language,
+  }: ISetLanguageParams) {
+    return this._withDeviceProcessing({
+      walletId,
+      connectId,
+      featuresDeviceId,
+      debugMethodName: 'deviceSettings.setLanguage',
+      action: async (sdk, compatibleConnectId, device) =>
+        sdk
+          .deviceSettings(compatibleConnectId, {
+            language,
+          })
+          .then(async (res) => {
+            if (device.featuresInfo) {
+              await localDb.updateDevice({
+                features: {
+                  ...device.featuresInfo,
+                  language,
+                },
+              });
+            }
+            return res;
+          }),
+    });
+  }
+
+  @backgroundMethod()
+  async setBrightness({
+    walletId,
+    connectId,
+    featuresDeviceId,
+  }: IBaseDeviceProcessingParams) {
+    return this._withDeviceProcessing({
+      walletId,
+      connectId,
+      featuresDeviceId,
+      debugMethodName: 'deviceSettings.setBrightness',
+      action: async (sdk, compatibleConnectId, device) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          changeBrightness: true,
         }),
-      {
-        deviceParams: {
-          dbDevice: device,
-        },
-        debugMethodName: 'deviceSettings.applySettingsToDevice',
-      },
-    );
+    });
+  }
+
+  @backgroundMethod()
+  async setHapticFeedback({
+    walletId,
+    connectId,
+    featuresDeviceId,
+    hapticFeedback,
+  }: ISetHapticFeedbackParams) {
+    return this._withDeviceProcessing({
+      walletId,
+      connectId,
+      featuresDeviceId,
+      debugMethodName: 'deviceSettings.setHapticFeedback',
+      action: async (sdk, compatibleConnectId, device) =>
+        sdk
+          .deviceSettings(compatibleConnectId, {
+            hapticFeedback,
+          })
+          .then(async (res) => {
+            if (device.featuresInfo) {
+              await localDb.updateDevice({
+                features: {
+                  ...device.featuresInfo,
+                  haptic_feedback: hapticFeedback,
+                },
+              });
+            }
+            return res;
+          }),
+    });
+  }
+
+  @backgroundMethod()
+  async wipeDevice({
+    walletId,
+    connectId,
+    featuresDeviceId,
+  }: IWipeDeviceParams) {
+    return this._withDeviceProcessing({
+      walletId,
+      connectId,
+      featuresDeviceId,
+      debugMethodName: 'deviceSettings.wipeDevice',
+      action: async (sdk, compatibleConnectId, device) =>
+        sdk.deviceWipe(compatibleConnectId),
+    });
   }
 
   @backgroundMethod()

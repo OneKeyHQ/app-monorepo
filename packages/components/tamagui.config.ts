@@ -552,6 +552,7 @@ const mergedTokens = createTokens({
     '-24': -96,
     '-28': -112,
     '-32': -128,
+    'pageWidth': 1024,
   },
   color: {
     ...postfixObjKeys(lightColors, 'Light'),
