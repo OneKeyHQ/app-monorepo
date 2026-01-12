@@ -185,7 +185,7 @@ export function KeylessOnboardingDebugPanel({
                 }
               }}
             >
-              重置 Refresh Token Storage
+              重置社交登录 Token
             </Button>
 
             {/* <Button
