@@ -16,6 +16,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 type IHealthFactorProps = {
   value: number;
+  displayValue?: string;
   index?: number;
   min?: number;
   max?: number;
@@ -136,6 +137,7 @@ const Indicator = ({
 
 export const HealthFactor = ({
   value,
+  displayValue,
   index,
   min = 0,
   max = 3,
@@ -177,7 +179,7 @@ export const HealthFactor = ({
     setContainerWidth(e.nativeEvent.layout.width);
   }, []);
 
-  const { displayValue, pointerPercent, thresholdPercent } = useMemo(() => {
+  const { displayText, pointerPercent, thresholdPercent } = useMemo(() => {
     const safeMin = Number.isFinite(min) ? min : 0;
     const safeMaxInput = Number.isFinite(max) ? max : safeMin;
     const safeMax = Math.max(safeMaxInput, safeMin + 0.0001);
@@ -206,13 +208,13 @@ export const HealthFactor = ({
     }
 
     return {
-      displayValue: valueIsFinite ? value.toFixed(2) : '-',
+      displayText: displayValue ?? (valueIsFinite ? value.toFixed(2) : '-'),
       pointerPercent: computedPointerPercent,
       thresholdPercent: canComputeThreshold
         ? ((clampedThreshold - safeMin) / range) * 100
         : 0,
     };
-  }, [index, max, min, thresholdValue, value]);
+  }, [displayValue, index, max, min, thresholdValue, value]);
 
   const pointerAlignment = getTextAlignment(pointerPercent);
   const thresholdAlignment = getTextAlignment(thresholdPercent);
@@ -228,7 +230,7 @@ export const HealthFactor = ({
         >
           <YStack ai={pointerAlignment}>
             <SizableText size="$bodySmMedium" whiteSpace="nowrap">
-              {displayValue}
+              {displayText}
             </SizableText>
             <Icon
               name="ChevronTriangleDownSmallOutline"

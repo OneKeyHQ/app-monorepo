@@ -998,6 +998,22 @@ export class DeviceNotSupportSettingOption extends OneKeyHardwareError {
   }
 }
 
+export class DeviceNotSupportLanguage extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(
+        {
+          info: { 'language': get(props, 'payload.params.languages', '') },
+        },
+        {
+          defaultMessage: 'DeviceNotSupportLanguage',
+          defaultKey: ETranslations.device_setting_not_support_language,
+        },
+      ),
+    );
+  }
+}
+
 export class SelectDeviceError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(

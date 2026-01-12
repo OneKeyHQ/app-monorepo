@@ -3,10 +3,12 @@ import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty, isNaN, orderBy } from 'lodash';
 
+import type { StellarSdk } from '@onekeyhq/core/src/chains/stellar/sdkStellar';
 import type {
   IEncodedTxStellar,
   IStellarAsset,
 } from '@onekeyhq/core/src/chains/stellar/types';
+import { assembleTransaction } from '@onekeyhq/core/src/chains/stellar/utils/transaction';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveTextAsync,
@@ -115,7 +117,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import type * as StellarSdk from '@stellar/stellar-base';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.stellar.hd;
@@ -403,7 +404,7 @@ export default class Vault extends VaultBase {
     const sourceAccount = new Account(from, fromAccountInfo.sequence);
 
     // Build transaction
-    const transactionBuilder = new TransactionBuilder(sourceAccount, {
+    let transactionBuilder = new TransactionBuilder(sourceAccount, {
       fee,
       networkPassphrase,
     });
@@ -413,6 +414,11 @@ export default class Vault extends VaultBase {
     if (memoField) {
       transactionBuilder.addMemo(memoField);
     }
+
+    // Set timeout
+    transactionBuilder.setTimeout(
+      timerUtils.getTimeDurationMs({ minute: 5 }) / 1000,
+    );
 
     // Add operation based on account existence and token type
     if (tokenInfo.isNative) {
@@ -484,6 +490,29 @@ export default class Vault extends VaultBase {
             ],
           }),
         );
+
+        const transaction = transactionBuilder.build();
+        const simulation = await client.simulateTransaction(
+          transaction.toXDR(),
+        );
+
+        if (!simulation.minResourceFee || !simulation.transactionData) {
+          throw new OneKeyInternalError('Soroban simulation failed');
+        }
+
+        const authEntry = simulation.results?.flatMap((result) => {
+          return result.auth.map((auth) => {
+            return sdkStellar.StellarSdk.xdr.SorobanAuthorizationEntry.fromXDR(
+              Buffer.from(auth, 'base64'),
+            );
+          });
+        });
+
+        transactionBuilder = assembleTransaction(transaction, {
+          minResourceFee: simulation.minResourceFee,
+          transactionData: simulation.transactionData,
+          auth: authEntry ?? [],
+        });
       } else if (
         tokenAddressParsed.type === EStellarAssetType.StellarAsset &&
         tokenAddressParsed.code &&
@@ -524,11 +553,6 @@ export default class Vault extends VaultBase {
         );
       }
     }
-
-    // Set timeout
-    transactionBuilder.setTimeout(
-      timerUtils.getTimeDurationMs({ minute: 5 }) / 1000,
-    );
 
     // Build transaction
     const transaction = transactionBuilder.build();
