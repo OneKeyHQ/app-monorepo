@@ -3,8 +3,6 @@ import { Suspense, memo, useCallback, useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Dialog,
-  Icon,
   SizableText,
   Stack,
   Toast,
