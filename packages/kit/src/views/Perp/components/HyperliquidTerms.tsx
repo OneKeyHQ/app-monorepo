@@ -246,33 +246,33 @@ export function HyperliquidTermsContent({
   );
 }
 
-export async function showHyperliquidTermsDialog() {
+export async function showHyperliquidTermsDialog(): Promise<boolean> {
   const isTermsAccepted =
     await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
   if (isTermsAccepted) {
-    return;
+    return true;
   }
 
-  const dialog = Dialog.show({
-    // title: 'Hyperliquid Introduction',
-    renderContent: (
-      <HyperliquidTermsContent
-        renderDelay={300}
-        onConfirm={async () => {
-          await dialog.close();
-          await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
-            true,
-          );
-        }}
-      />
-    ),
-    showExitButton: false,
-    disableDrag: true,
-    dismissOnOverlayPress: false,
-    showFooter: false,
-    showCancelButton: false,
-    showConfirmButton: false,
+  return new Promise((resolve) => {
+    const dialog = Dialog.show({
+      renderContent: (
+        <HyperliquidTermsContent
+          renderDelay={300}
+          onConfirm={async () => {
+            await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
+              true,
+            );
+            await dialog.close();
+            resolve(true);
+          }}
+        />
+      ),
+      showExitButton: false,
+      disableDrag: true,
+      dismissOnOverlayPress: false,
+      showFooter: false,
+      showCancelButton: false,
+      showConfirmButton: false,
+    });
   });
-
-  return dialog;
 }

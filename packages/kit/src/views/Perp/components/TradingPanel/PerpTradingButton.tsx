@@ -75,11 +75,8 @@ export function PerpTradingButton({
   ]);
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const enableTrading = useCallback(async () => {
-    // Check if terms are accepted before enabling trading
-    const isTermsAccepted =
-      await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
-    if (!isTermsAccepted) {
-      await showHyperliquidTermsDialog();
+    const didAcceptTerms = await showHyperliquidTermsDialog();
+    if (!didAcceptTerms) {
       return;
     }
 
