@@ -194,23 +194,44 @@ export function KeylessOnboardingDebugPanelView({
 
       <YStack gap="$1" p="$2" backgroundColor="$bgSubdued" borderRadius="$2">
         <SizableText size="$bodySmMedium">Pin Confirm Status:</SizableText>
+        <Button
+          onPress={async () => {
+            const accessToken =
+              await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
+                {
+                  ownerId:
+                    activeAccount?.wallet?.keylessDetailsInfo?.keylessOwnerId ??
+                    '',
+                },
+              );
+            if (accessToken) {
+              await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus(
+                {
+                  token: accessToken,
+                },
+              );
+            }
+          }}
+        >
+          Refresh
+        </Button>
         <SizableText size="$bodySm">
-          socialUserIdHash: {keylessPinConfirmStatus.socialUserIdHash ?? '-'}
+          socialUserIdHash: {keylessPinConfirmStatus?.socialUserIdHash ?? '-'}
         </SizableText>
         <SizableText size="$bodySm">
-          socialProvider: {keylessPinConfirmStatus.socialProvider ?? '-'}
+          socialProvider: {keylessPinConfirmStatus?.socialProvider ?? '-'}
         </SizableText>
         <SizableText size="$bodySm">
-          needRemind: {keylessPinConfirmStatus.needRemind?.toString() ?? '-'}
+          needRemind: {keylessPinConfirmStatus?.needRemind?.toString() ?? '-'}
         </SizableText>
         <SizableText size="$bodySm">
           remindTime:{' '}
-          {keylessPinConfirmStatus.remindTime
+          {keylessPinConfirmStatus?.remindTime
             ? dateUtils.formatDate(new Date(keylessPinConfirmStatus.remindTime))
             : '-'}
         </SizableText>
         <SizableText size="$bodySm">
-          confirmedCount: {keylessPinConfirmStatus.confirmedCount ?? '-'}
+          confirmedCount: {keylessPinConfirmStatus?.confirmedCount ?? '-'}
         </SizableText>
       </YStack>
     </YStack>
