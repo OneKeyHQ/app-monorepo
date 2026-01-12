@@ -53,14 +53,16 @@ function hasLineChanged(prev: ITVLine, current: ITVLine): boolean {
 function isPnlOnlyChange(prev: ITVLine, current: ITVLine): boolean {
   if (current.kind !== 'position') return false;
 
-  const onlyPnlFieldsChanged =
-    (prev.label?.left !== current.label?.left ||
-      prev.pnlPositive !== current.pnlPositive) &&
+  const pnlFieldsChanged =
+    prev.label?.left !== current.label?.left ||
+    prev.pnlPositive !== current.pnlPositive;
+
+  const nonPnlFieldsUnchanged =
     prev.price === current.price &&
     prev.qty === current.qty &&
     prev.label?.right === current.label?.right;
 
-  return onlyPnlFieldsChanged;
+  return pnlFieldsChanged && nonPnlFieldsUnchanged;
 }
 
 function isPnlOnlyPatch(
