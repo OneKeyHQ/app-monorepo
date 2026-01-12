@@ -2,7 +2,14 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  ScrollView,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -124,6 +131,8 @@ function BorrowClaimRewardsDialogContent({
   const [claimingItemId, setClaimingItemId] = useState<string | null>(null);
   const [claimingAllIds, setClaimingAllIds] = useState<string[]>([]);
   const dialogInstance = useDialogInstance();
+  const { gtMd } = useMedia();
+  const listMaxHeight = gtMd ? 520 : 360;
 
   const claimableGroups = rewardsDetails.data.rewardsDetail.claimable;
 
@@ -181,18 +190,20 @@ function BorrowClaimRewardsDialogContent({
 
   return (
     <YStack gap="$4">
-      <YStack gap="$2">
-        {claimableGroups.map((group, index) => (
-          <ClaimGroup
-            key={index}
-            group={group}
-            onClaim={handleClaimItem}
-            claimingItemId={claimingItemId}
-            claimingAllIds={claimingAllIds}
-            pendingClaimIds={pendingClaimIds}
-          />
-        ))}
-      </YStack>
+      <ScrollView maxHeight={listMaxHeight}>
+        <YStack gap="$2">
+          {claimableGroups.map((group, index) => (
+            <ClaimGroup
+              key={index}
+              group={group}
+              onClaim={handleClaimItem}
+              claimingItemId={claimingItemId}
+              claimingAllIds={claimingAllIds}
+              pendingClaimIds={pendingClaimIds}
+            />
+          ))}
+        </YStack>
+      </ScrollView>
 
       <Dialog.Footer
         showCancelButton
