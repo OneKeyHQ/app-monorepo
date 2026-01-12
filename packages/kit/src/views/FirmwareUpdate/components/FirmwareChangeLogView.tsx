@@ -253,7 +253,8 @@ export function FirmwareChangeFirmwareWarn({
 
   tips.push({
     content: intl.formatMessage({
-      id: ETranslations.device_wipe_data_banner,
+      // eslint-disable-next-line spellcheck/spell-checker
+      id: ETranslations.device_wipe_data_bannner,
     }),
     type: 'danger',
   });
