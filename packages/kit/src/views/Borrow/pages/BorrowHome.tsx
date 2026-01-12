@@ -27,7 +27,7 @@ import { SupplyCard } from '../components/SupplyCard';
 type IBorrowTab = 'supply' | 'borrow';
 
 const BorrowHomeContent = memo(() => {
-  const { gtMd } = useMedia();
+  const { gtMd, gtLg } = useMedia();
   const intl = useIntl();
   const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
   const { reserves, market } = useBorrowContext();
@@ -70,6 +70,8 @@ const BorrowHomeContent = memo(() => {
     [intl],
   );
 
+  const isMidWidth = gtMd && !gtLg;
+
   return (
     <ScrollView flex={1}>
       <YStack flex={1} px="$5" pb="$10">
@@ -88,7 +90,7 @@ const BorrowHomeContent = memo(() => {
             <BorrowAlerts alerts={alerts} />
           </YStack>
         ) : null}
-        {gtMd ? (
+        {gtMd && !isMidWidth ? (
           // Desktop layout - two equal-width columns with independent vertical flow
           <XStack gap="$5" ai="flex-start">
             <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
