@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, Toast } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -19,11 +18,13 @@ export function WalletRemoveDialog({
   wallet,
   showCheckBox,
   isRemoveToMocked,
+  onConfirmRemove,
 }: {
   defaultValue: boolean;
   wallet?: IDBWallet;
   showCheckBox: boolean;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
+  onConfirmRemove?: () => void;
 }) {
   const intl = useIntl();
   const [value, changeValue] = useState(defaultValue);
@@ -54,6 +55,7 @@ export function WalletRemoveDialog({
             isRemoveToMocked,
           });
           defaultLogger.account.wallet.deleteWallet();
+          onConfirmRemove?.();
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.feedback_change_saved,
@@ -155,6 +157,7 @@ export function showWalletRemoveDialog({
   config,
   showCheckBox,
   isRemoveToMocked,
+  onConfirmRemove,
 }: {
   defaultChecked: boolean;
   title: string;
@@ -163,6 +166,7 @@ export function showWalletRemoveDialog({
   config: IAccountSelectorContextData | undefined;
   showCheckBox: boolean;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
+  onConfirmRemove?: () => void;
 }) {
   return Dialog.show({
     icon: 'ErrorOutline',
@@ -176,6 +180,7 @@ export function showWalletRemoveDialog({
           defaultValue={defaultChecked}
           showCheckBox={showCheckBox}
           isRemoveToMocked={isRemoveToMocked}
+          onConfirmRemove={onConfirmRemove}
         />
       </AccountSelectorProviderMirror>
     ) : null,

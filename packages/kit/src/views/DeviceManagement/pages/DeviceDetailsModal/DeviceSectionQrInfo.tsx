@@ -3,7 +3,7 @@ import { useIntl } from 'react-intl';
 import { SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-function DeviceQrInfoSection() {
+function DeviceSectionQrInfo() {
   const intl = useIntl();
 
   return (
@@ -36,4 +36,4 @@ function DeviceQrInfoSection() {
   );
 }
 
-export default DeviceQrInfoSection;
+export default DeviceSectionQrInfo;
