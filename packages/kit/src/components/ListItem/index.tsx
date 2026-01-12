@@ -7,6 +7,7 @@ import type {
 } from 'react';
 import { isValidElement, useCallback } from 'react';
 
+import type { ISwitchProps } from '@onekeyhq/components';
 import {
   Divider,
   Icon,
@@ -16,6 +17,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Switch,
   Unspaced,
   withStaticProperties,
 } from '@onekeyhq/components';
@@ -35,6 +37,7 @@ import type {
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
+import { useStatefulAction } from '../../hooks/useStatefulAction';
 import { AccountAvatar } from '../AccountAvatar';
 
 import type { IAccountAvatarProps } from '../AccountAvatar';
@@ -317,6 +320,11 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       ...rest
     } = props;
 
+    const handleItemPress = useCallback(async () => {
+      if (props.disabled) return;
+      await onPress?.();
+    }, [onPress, props.disabled]);
+
     return (
       <Stack
         ref={ref}
@@ -329,7 +337,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
         mx="$2"
         borderRadius="$3"
         borderCurve="continuous"
-        onPress={onPress}
+        onPress={onPress ? handleItemPress : undefined}
         {...(props.disabled && {
           opacity: 0.5,
         })}
@@ -388,6 +396,73 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
   },
 );
 
+type IStatefulItemProps<T> = Omit<
+  ComponentProps<typeof ListItem>,
+  'children' | 'onPress'
+> & {
+  value: T;
+  onAction: (value: T) => Promise<void>;
+  children: (props: {
+    value: T;
+    loading: boolean;
+    disabled: boolean;
+    onChange: (value: T, e?: any) => void;
+  }) => ReactNode;
+  disableRowPress?: boolean;
+};
+
+function StatefulListItem<T>({
+  value,
+  onAction,
+  children,
+  disableRowPress,
+  ...props
+}: IStatefulItemProps<T>) {
+  const {
+    value: innerValue,
+    loading: isLoading,
+    disabled,
+    onChange,
+    onToggle,
+    withClickLock,
+  } = useStatefulAction<T>({
+    value,
+    onAction,
+  });
+
+  const handleControlChange = useCallback(
+    (newValue: T, e?: { stopPropagation?: () => void }) => {
+      // prevent the row press
+      e?.stopPropagation?.();
+      // clickLock + rollback is handled in the hook
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return withClickLock(() => onChange(newValue))();
+    },
+    [withClickLock, onChange],
+  );
+
+  const handleRowPress = useCallback(() => {
+    if (typeof innerValue === 'boolean') {
+      withClickLock(() => onToggle())();
+    }
+    // do nothing for non-boolean row press, let the children handle it
+  }, [innerValue, onToggle, withClickLock]);
+
+  return (
+    <ListItemComponent
+      {...props}
+      onPress={disableRowPress ? undefined : handleRowPress}
+    >
+      {children({
+        value: innerValue,
+        loading: isLoading,
+        disabled: disabled || !!props.disabled,
+        onChange: handleControlChange,
+      })}
+    </ListItemComponent>
+  );
+}
+
 export const ListItem = withStaticProperties(
   ListItemComponent as ComponentType<IListItemProps>,
   {
@@ -400,5 +475,6 @@ export const ListItem = withStaticProperties(
     CheckMark: ListItemCheckMark,
     Separator: ListItemSeparator,
     DrillIn: ListItemDrillIn,
+    StatefulItem: StatefulListItem,
   },
 );

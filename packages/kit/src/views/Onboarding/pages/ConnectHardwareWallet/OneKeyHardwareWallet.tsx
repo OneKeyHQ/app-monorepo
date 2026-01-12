@@ -20,6 +20,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -33,7 +34,7 @@ export function OneKeyHardwareWallet() {
   const intl = useIntl();
 
   const handleBuyButtonPress = useCallback(async () => {
-    const url = 'https://bit.ly/3YtpXgh';
+    const url = ONEKEY_BUY_HARDWARE_URL;
 
     const supported = await Linking.canOpenURL(url);
 

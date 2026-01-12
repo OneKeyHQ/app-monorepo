@@ -976,6 +976,28 @@ export class FirmwareUpdateVersionMismatchError extends OneKeyHardwareError {
   }
 }
 
+export class CosmosInvalidJsonMessage extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CosmosInvalidJsonMessage',
+        defaultKey: ETranslations.device_cosmos_invalid_json_message,
+      }),
+    );
+  }
+}
+
+export class DeviceNotSupportSettingOption extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceNotSupportSettingOption',
+        defaultKey: ETranslations.device_setting_not_provided,
+      }),
+    );
+  }
+}
+
 export class SelectDeviceError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(

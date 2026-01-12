@@ -281,6 +281,23 @@ function getFixedUpdatingConnectId({
   return updatingConnectId;
 }
 
+function checkInputPinOnSoftwareSupport(deviceType: IDeviceType) {
+  return [
+    EDeviceType.Classic,
+    EDeviceType.Mini,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+  ].includes(deviceType);
+}
+
+function checkAllowChangeFirmwareType(deviceType: IDeviceType) {
+  return [
+    EDeviceType.Pro,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+  ].includes(deviceType);
+}
+
 async function buildDeviceLabel({
   features,
   buildModelName,
@@ -685,6 +702,26 @@ async function attachAppParamsToFeatures({
   return { ...features, $app_firmware_type: firmwareType };
 }
 
+async function getLanguageConfig({ deviceType }: { deviceType: IDeviceType }) {
+  const { getLanguageConfig: sdkGetLanguageConfig } = await CoreSDKLoader();
+  return sdkGetLanguageConfig(deviceType);
+}
+
+async function getAutoLockOptions({ deviceType }: { deviceType: IDeviceType }) {
+  const { getAutoLockOptions: sdkGetAutoLockOptions } = await CoreSDKLoader();
+  return sdkGetAutoLockOptions(deviceType);
+}
+
+async function getAutoShutDownOptions({
+  deviceType,
+}: {
+  deviceType: IDeviceType;
+}) {
+  const { getAutoShutDownOptions: sdkGetAutoShutDownOptions } =
+    await CoreSDKLoader();
+  return sdkGetAutoShutDownOptions(deviceType);
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -720,4 +757,9 @@ export default {
   isTouchDevice,
   buildDeviceUSBConnectId,
   attachAppParamsToFeatures,
+  checkInputPinOnSoftwareSupport,
+  checkAllowChangeFirmwareType,
+  getLanguageConfig,
+  getAutoLockOptions,
+  getAutoShutDownOptions,
 };
