@@ -129,3 +129,5 @@ export const HYPERLIQUID_EXPLORER_URL = 'https://hypurrscan.io/address/';
 export const DESKTOP_ICLOUD_CONTAINER_ID = 'iCloud.so.onekey.wallet';
 
 export const ONEKEY_SIFU_URL = 'https://onekey.so/products/onekey-sifu';
+
+export const ONEKEY_BUY_HARDWARE_URL = 'https://bit.ly/3YtpXgh';

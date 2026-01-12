@@ -71,14 +71,21 @@ import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
+  IBaseDeviceProcessingParams,
+  IChangePinParams,
   IDeviceHomeScreenConfig,
   IGetDeviceAdvanceSettingsParams,
   IGetDeviceLabelParams,
   IHardwareHomeScreenData,
+  ISetAutoLockDelayMsParams,
+  ISetAutoShutDownDelayMsParams,
   ISetDeviceHomeScreenParams,
   ISetDeviceLabelParams,
+  ISetHapticFeedbackParams,
   ISetInputPinOnSoftwareParams,
+  ISetLanguageParams,
   ISetPassphraseEnabledParams,
+  IWipeDeviceParams,
 } from './DeviceSettingsManager';
 import type {
   IFirmwareAuthenticateParams,
@@ -1001,6 +1008,42 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async setAutoLockDelayMs(p: ISetAutoLockDelayMsParams) {
+    return this.deviceSettingsManager.setAutoLockDelayMs(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setAutoShutDownDelayMs(p: ISetAutoShutDownDelayMsParams) {
+    return this.deviceSettingsManager.setAutoShutDownDelayMs(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setLanguage(p: ISetLanguageParams) {
+    return this.deviceSettingsManager.setLanguage(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setBrightness(p: IBaseDeviceProcessingParams) {
+    return this.deviceSettingsManager.setBrightness(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setHapticFeedback(p: ISetHapticFeedbackParams) {
+    return this.deviceSettingsManager.setHapticFeedback(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async wipeDevice(p: IWipeDeviceParams) {
+    return this.deviceSettingsManager.wipeDevice(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async setPassphraseEnabled(p: ISetPassphraseEnabledParams) {
     const result = await this.deviceSettingsManager.setPassphraseEnabled(p);
     if (result.message) {
@@ -1036,6 +1079,12 @@ class ServiceHardware extends ServiceBase {
   @toastIfError()
   async getDeviceLabel(p: IGetDeviceLabelParams) {
     return this.deviceSettingsManager.getDeviceLabel(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async changePin(p: IChangePinParams) {
+    return this.deviceSettingsManager.changePin(p);
   }
 
   @backgroundMethod()

@@ -156,6 +156,19 @@ export function TabPageHeader({
     );
   }
 
+  if (tabRoute === ETabRoutes.DeviceManagement) {
+    return (
+      <Page.Header
+        headerShown={gtMd}
+        headerTitleAlign={gtMd ? 'center' : 'left'}
+        headerStyle={{ backgroundColor: theme.bgSubdued.val }}
+        headerTitle={renderUniversalSearchInput}
+        headerRight={renderDesktopModeRightButtons}
+        headerLeft={renderHeaderLeft}
+      />
+    );
+  }
+
   if (gtMd) {
     return (
       <>
@@ -185,6 +198,7 @@ export function TabPageHeader({
       </>
     );
   }
+
   return (
     <>
       <Page.Header headerShown={false} />
