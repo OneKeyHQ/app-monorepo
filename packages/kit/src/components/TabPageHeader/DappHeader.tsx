@@ -18,8 +18,10 @@ import {
 } from '@onekeyhq/components';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
@@ -39,8 +41,6 @@ import {
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 
 function LanguageListItem() {
   const intl = useIntl();
@@ -163,33 +163,29 @@ function ThemeListItem() {
       />
     </ListItem>
   );
+}
 
 function DownloadOneKeyWalletListItem() {
-  const intl = useIntl();
   const handlePress = useCallback(() => {
-      openUrlExternal(DOWNLOAD_URL);
-    }, []);
+    openUrlExternal(DOWNLOAD_URL);
+  }, []);
   return (
     <ListItem title="Download OneKey wallet" drillIn onPress={handlePress} />
-  )
+  );
 }
 
 function Web3GuideListItem() {
-  const intl = useIntl();
   const handlePress = useCallback(() => {
-    }, []);
-  return (
-    <ListItem title="Web3 guide" drillIn onPress={handlePress} />
-  )
+    // TODO: implement Web3 guide link
+  }, []);
+  return <ListItem title="Web3 guide" drillIn onPress={handlePress} />;
 }
 
 function AnnouncementListItem() {
-  const intl = useIntl();
   const handlePress = useCallback(() => {
-    }, []);
-  return (
-    <ListItem title="Announcement" drillIn onPress={handlePress} />
-  )
+    // TODO: implement Announcement link
+  }, []);
+  return <ListItem title="Announcement" drillIn onPress={handlePress} />;
 }
 
 function MoreDappAction() {
