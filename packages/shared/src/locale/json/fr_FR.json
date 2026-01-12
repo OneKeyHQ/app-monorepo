@@ -548,6 +548,7 @@
   "device.recover_data_banner": "Pour récupérer l'accès à vos pièces, vous devez restaurer votre portefeuille à l'aide de votre sauvegarde de portefeuille. Assurez-vous que votre sauvegarde de portefeuille est accessible et lisible.",
   "device.select_device_popup": "Cliquez sur le bouton ci-dessous, puis sélectionnez votre appareil dans la fenêtre contextuelle pour vous connecter.",
   "device.setting_not_provided": "La version actuelle du matériel ne prend pas en charge ce paramètre. Vous pourrez réessayer après avoir mis à jour le micrologiciel.",
+  "device.setting_not_support_language": "La version actuelle du micrologiciel ne prend en charge que {language}",
   "device.settings_switch_firmware_type": "Basculer vers {type}",
   "device.try_reconnecting_usb": "Si non détecté, essayez de reconnecter l'USB",
   "device.wipe_data_bannner": "Cette action effacera toutes les données de votre appareil, y compris les portefeuilles, les clés et les comptes.",
