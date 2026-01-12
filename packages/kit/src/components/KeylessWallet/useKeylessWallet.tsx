@@ -979,67 +979,74 @@ export function useVerifyKeylessPinChecking() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const intl = useIntl();
-  const verifyKeylessPinChecking = useCallback(async () => {
-    // 必须是无私钥钱包
-    // 1 分钟只检测一次
-    if (activeAccount.wallet?.isKeyless) {
-      const ownerId = activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId;
-      if (!ownerId) {
-        return;
-      }
-      const checkShouldVerifyPin = async () => {
-        const accessToken =
-          await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
-            { ownerId },
-          );
-        let shouldVerifyPin = false;
-        if (accessToken) {
-          const { shouldRemind } =
-            await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus(
-              {
-                token: accessToken,
-              },
-            );
-          shouldVerifyPin = shouldRemind;
-        } else {
-          shouldVerifyPin = true;
+  const verifyKeylessPinChecking = useCallback(
+    async (options: { forceVerify?: boolean } = {}) => {
+      // 必须是无私钥钱包
+      // 1 分钟只检测一次
+      if (activeAccount.wallet?.isKeyless) {
+        const ownerId =
+          activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId;
+        if (!ownerId) {
+          return;
         }
-        return shouldVerifyPin;
-      };
-      const shouldVerifyPin = await checkShouldVerifyPin();
+        const checkShouldVerifyPin = async () => {
+          if (options.forceVerify) {
+            return true;
+          }
+          const accessToken =
+            await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
+              { ownerId },
+            );
+          let shouldVerifyPin = false;
+          if (accessToken) {
+            const { shouldRemind } =
+              await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus(
+                {
+                  token: accessToken,
+                },
+              );
+            shouldVerifyPin = shouldRemind;
+          } else {
+            shouldVerifyPin = true;
+          }
+          return shouldVerifyPin;
+        };
+        const shouldVerifyPin = await checkShouldVerifyPin();
 
-      if (shouldVerifyPin) {
-        Dialog.show({
-          disableDrag: true,
-          dismissOnOverlayPress: false,
-          // TODO i18n @franco
-          title: 'PIN Verification Required',
-          description: 'Please verify your PIN to continue',
-          showCancelButton: false,
-          onConfirmText: 'Verify PIN',
-          onConfirm: async () => {
-            const shouldVerifyPin0 = await checkShouldVerifyPin();
-            if (!shouldVerifyPin0) {
-              // TODO i18n @franco
-              Toast.success({
-                title: 'PIN Verified on other device',
+        if (shouldVerifyPin) {
+          Dialog.show({
+            disableDrag: true,
+            dismissOnOverlayPress: false,
+            // TODO i18n @franco
+            title: 'PIN Verification Required',
+            description: 'Please verify your PIN to continue',
+            showCancelButton: false,
+            onConfirmText: 'Verify PIN',
+            onConfirm: async () => {
+              const shouldVerifyPin0 = await checkShouldVerifyPin();
+              if (!shouldVerifyPin0) {
+                // TODO i18n @franco
+                Toast.success({
+                  title: 'PIN Verified on other device',
+                });
+                return;
+              }
+              await backgroundApiProxy.servicePassword.promptPasswordVerify({
+                reason: EReasonForNeedPassword.Security,
               });
-              return;
-            }
-            await backgroundApiProxy.servicePassword.promptPasswordVerify({
-              reason: EReasonForNeedPassword.Security,
-            });
-            void goToOneKeyIDLoginPageForKeylessWallet({
-              mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
-            });
-          },
-        });
+              void goToOneKeyIDLoginPageForKeylessWallet({
+                mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
+              });
+            },
+          });
+        }
       }
-    }
-  }, [
-    activeAccount.wallet?.isKeyless,
-    activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId,
-    goToOneKeyIDLoginPageForKeylessWallet,
-  ]);
+    },
+    [
+      activeAccount.wallet?.isKeyless,
+      activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId,
+      goToOneKeyIDLoginPageForKeylessWallet,
+    ],
+  );
   return { verifyKeylessPinChecking };
 }
