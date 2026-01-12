@@ -11,7 +11,6 @@ import {
   ListView,
   Page,
   SizableText,
-  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
