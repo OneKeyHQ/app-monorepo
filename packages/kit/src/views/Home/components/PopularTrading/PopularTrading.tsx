@@ -282,6 +282,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     columns,
     popularTrading,
     isLoading,
+    fetchEnabled,
     isSoftwareWalletOnlyUser,
     navigation,
     wallet?.type,

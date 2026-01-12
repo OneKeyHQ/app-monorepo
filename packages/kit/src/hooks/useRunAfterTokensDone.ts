@@ -6,7 +6,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
-export type RunAfterTokensDoneOptions = {
+export type IRunAfterTokensDoneOptions = {
   enabled?: boolean;
   onRun: (trigger: string) => void | Promise<void>;
   fallbackDelayMs?: number;
@@ -37,7 +37,7 @@ export function runAfterTokensDone({
   networkId,
   matchAccountId = false,
   matchNetworkId = false,
-}: RunAfterTokensDoneOptions): () => void {
+}: IRunAfterTokensDoneOptions): () => void {
   if (!enabled) {
     return () => undefined;
   }
@@ -47,6 +47,26 @@ export function runAfterTokensDone({
   let tokensRefreshing: boolean | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const startAt = Date.now();
+
+  const triggerRef: { current: (triggerName: string) => void } = {
+    current: () => undefined,
+  };
+
+  function onTabListStateUpdate(data?: ITabListStateUpdatePayload) {
+    if (!data) return;
+    if (data.type !== EHomeTab.TOKENS) return;
+    if (matchAccountId && accountId && data.accountId !== accountId) return;
+    if (matchNetworkId && networkId && data.networkId !== networkId) return;
+
+    if (data.isRefreshing === true) {
+      tokensRefreshing = true;
+      return;
+    }
+    if (data.isRefreshing === false) {
+      tokensRefreshing = false;
+      triggerRef.current('tokensDone');
+    }
+  }
 
   function cleanup() {
     if (timer) {
@@ -65,21 +85,7 @@ export function runAfterTokensDone({
     });
   }
 
-  function onTabListStateUpdate(data?: ITabListStateUpdatePayload) {
-    if (!data) return;
-    if (data.type !== EHomeTab.TOKENS) return;
-    if (matchAccountId && accountId && data.accountId !== accountId) return;
-    if (matchNetworkId && networkId && data.networkId !== networkId) return;
-
-    if (data.isRefreshing === true) {
-      tokensRefreshing = true;
-      return;
-    }
-    if (data.isRefreshing === false) {
-      tokensRefreshing = false;
-      trigger('tokensDone');
-    }
-  }
+  triggerRef.current = trigger;
 
   function schedule(delayMs: number) {
     if (timer) {
@@ -88,11 +94,7 @@ export function runAfterTokensDone({
     timer = setTimeout(() => {
       if (cancelled || hasTriggered) return;
       const elapsedMs = Date.now() - startAt;
-      if (
-        deferWhileRefreshing &&
-        tokensRefreshing &&
-        elapsedMs < maxWaitMs
-      ) {
+      if (deferWhileRefreshing && tokensRefreshing && elapsedMs < maxWaitMs) {
         schedule(retryDelayMs);
         return;
       }
@@ -109,34 +111,50 @@ export function runAfterTokensDone({
   };
 }
 
-export type UseRunAfterTokensDoneOptions = Omit<
-  RunAfterTokensDoneOptions,
+export type IUseRunAfterTokensDoneOptions = Omit<
+  IRunAfterTokensDoneOptions,
   'onRun'
 > & {
-  run: RunAfterTokensDoneOptions['onRun'];
+  run: IRunAfterTokensDoneOptions['onRun'];
 };
 
 export function useRunAfterTokensDone({
   run,
-  ...options
-}: UseRunAfterTokensDoneOptions) {
+  enabled,
+  fallbackDelayMs,
+  deferWhileRefreshing,
+  retryDelayMs,
+  maxWaitMs,
+  accountId,
+  networkId,
+  matchAccountId,
+  matchNetworkId,
+}: IUseRunAfterTokensDoneOptions) {
   const runRef = useRef(run);
   runRef.current = run;
 
   useEffect(() => {
     return runAfterTokensDone({
-      ...options,
+      enabled,
+      fallbackDelayMs,
+      deferWhileRefreshing,
+      retryDelayMs,
+      maxWaitMs,
+      accountId,
+      networkId,
+      matchAccountId,
+      matchNetworkId,
       onRun: (trigger) => runRef.current(trigger),
     });
   }, [
-    options.enabled,
-    options.fallbackDelayMs,
-    options.deferWhileRefreshing,
-    options.retryDelayMs,
-    options.maxWaitMs,
-    options.accountId,
-    options.networkId,
-    options.matchAccountId,
-    options.matchNetworkId,
+    enabled,
+    fallbackDelayMs,
+    deferWhileRefreshing,
+    retryDelayMs,
+    maxWaitMs,
+    accountId,
+    networkId,
+    matchAccountId,
+    matchNetworkId,
   ]);
 }
