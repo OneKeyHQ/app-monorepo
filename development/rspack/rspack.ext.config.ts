@@ -191,7 +191,7 @@ function enableCodeSplitChunks(config: RspackOptions): void {
     minSize: 100 * 1024,
     maxSize: maxSizeMb * 1024 * 1024,
     name: false,
-    hidePathInfo: true,
+    hidePathInfo: false,
     automaticNameDelimiter: '.',
   };
 }
