@@ -322,6 +322,12 @@ export interface IMarketBasicConfigLowLiquidKlineSourceToken {
   tokenAddress: string;
 }
 
+export interface IMarketBasicConfigHyperLiquidKlineSourceToken {
+  networkId: string;
+  tokenAddress: string;
+  symbol: string;
+}
+
 export interface IMarketBasicConfigData {
   tradingViewUrl: string;
   networkList: IMarketBasicConfigNetwork[];
@@ -334,6 +340,7 @@ export interface IMarketBasicConfigData {
   };
   feature?: IMarketBasicConfigFeature;
   lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
+  HyperLiquidKlineSourceTokens?: IMarketBasicConfigHyperLiquidKlineSourceToken[];
 }
 
 export interface IMarketBasicConfigResponse {
