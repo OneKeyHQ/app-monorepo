@@ -1,20 +1,9 @@
-diff --git a/node_modules/expo-image/build/index.d.ts b/node_modules/expo-image/build/index.d.ts
-index ce18dad..4043e77 100644
---- a/node_modules/expo-image/build/index.d.ts
-+++ b/node_modules/expo-image/build/index.d.ts
-@@ -2,4 +2,5 @@ export * from './Image.types';
- export { Image } from './Image';
- export { ImageBackground } from './ImageBackground';
- export { useImage } from './useImage';
-+export { resolveSource, resolveSources } from './utils/resolveSources';
- //# sourceMappingURL=index.d.ts.map
-\ No newline at end of file
 diff --git a/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt b/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt
-index abcdefg..1234567 100644
+index 00e8ca9..ad070dd 100644
 --- a/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt
 +++ b/node_modules/expo-image/android/src/main/java/expo/modules/image/CustomDownsampleStrategy.kt
-@@ -187,14 +187,28 @@ class SafeDownsampleStrategy(
-
+@@ -186,11 +186,26 @@ class SafeDownsampleStrategy(
+ 
    private val maxBitmapSize by lazy {
      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
 -      return@lazy -1
@@ -23,7 +12,7 @@ index abcdefg..1234567 100644
 +      // that cause NullPointerException in penfeizhou GIF decoder
 +      return@lazy 48 * 1024 * 1024 // 48 MB
      }
-
+ 
      return@lazy try {
 -      val defaultSize = 100 * 1024 * 1024 // 100 MB - from `RecordingCanvas` src
 +      // PATCHED: Reduced from 100MB to 48MB to prevent OutOfMemoryError with large GIFs
@@ -39,10 +28,10 @@ index abcdefg..1234567 100644
 +      // - 1732x1732 ARGB_8888 images
 +      // - 2449x2449 RGB_565 images
 +      val defaultSize = 48 * 1024 * 1024 // 48 MB (reduced from 100 MB)
-
+ 
        // We're trying to get the value of `ro.hwui.max_texture_allocation_size` property
        // which is used by `RecordingCanvas` to determine the maximum bitmap size.
-@@ -206,8 +220,14 @@ class SafeDownsampleStrategy(
+@@ -202,8 +217,17 @@ class SafeDownsampleStrategy(
        (getIntMethod.invoke(null, "ro.hwui.max_texture_allocation_size", defaultSize) as Int)
          .coerceAtLeast(defaultSize)
      } catch (e: Throwable) {
@@ -61,13 +50,24 @@ index abcdefg..1234567 100644
 +      48 * 1024 * 1024 // 48 MB fallback (was -1)
      }
    }
- }
+ 
+diff --git a/node_modules/expo-image/build/index.d.ts b/node_modules/expo-image/build/index.d.ts
+index ce18dad..4043e77 100644
+--- a/node_modules/expo-image/build/index.d.ts
++++ b/node_modules/expo-image/build/index.d.ts
+@@ -2,4 +2,5 @@ export * from './Image.types';
+ export { Image } from './Image';
+ export { ImageBackground } from './ImageBackground';
+ export { useImage } from './useImage';
++export { resolveSource, resolveSources } from './utils/resolveSources';
+ //# sourceMappingURL=index.d.ts.map
+\ No newline at end of file
 diff --git a/node_modules/expo-image/ios/ExpoImage.podspec b/node_modules/expo-image/ios/ExpoImage.podspec
 index 818e050..271ae26 100644
 --- a/node_modules/expo-image/ios/ExpoImage.podspec
 +++ b/node_modules/expo-image/ios/ExpoImage.podspec
 @@ -20,10 +20,10 @@ Pod::Spec.new do |s|
-
+ 
    s.dependency 'ExpoModulesCore'
    s.dependency 'SDWebImage', '~> 5.21.0'
 -  s.dependency 'SDWebImageAVIFCoder', '~> 0.11.0'
@@ -76,7 +76,7 @@ index 818e050..271ae26 100644
    s.dependency 'SDWebImageWebPCoder', '~> 0.14.6'
 -  s.dependency 'libavif/libdav1d'
 +  # s.dependency 'libavif/libdav1d'
-
+ 
    # Swift/Objective-C compatibility
    s.pod_target_xcconfig = {
 diff --git a/node_modules/expo-image/ios/ImageModule.swift b/node_modules/expo-image/ios/ImageModule.swift
@@ -84,16 +84,16 @@ index b44f431..9a51548 100644
 --- a/node_modules/expo-image/ios/ImageModule.swift
 +++ b/node_modules/expo-image/ios/ImageModule.swift
 @@ -2,7 +2,7 @@
-
+ 
  import ExpoModulesCore
  import SDWebImage
 -import SDWebImageAVIFCoder
 +// import SDWebImageAVIFCoder
  import SDWebImageSVGCoder
-
+ 
  public final class ImageModule: Module {
 @@ -251,8 +251,9 @@ public final class ImageModule: Module {
-
+ 
    static func registerCoders() {
      SDImageCodersManager.shared.addCoder(WebPCoder.shared)
 -    SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
@@ -103,9 +103,9 @@ index b44f431..9a51548 100644
 +    // SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
      SDImageCodersManager.shared.addCoder(SDImageHEICCoder.shared)
    }
-
+ 
 diff --git a/node_modules/expo-image/src/index.ts b/node_modules/expo-image/src/index.ts
-index 6fa0066..858ae95 100644
+index 6fa0066..ea0ad81 100644
 --- a/node_modules/expo-image/src/index.ts
 +++ b/node_modules/expo-image/src/index.ts
 @@ -2,3 +2,4 @@ export * from './Image.types';
