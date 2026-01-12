@@ -2080,6 +2080,8 @@
   keyless_wallet_login_successful_desc = 'keyless_wallet_login_successful_desc',
   keyless_wallet_login_successful_helptext = 'keyless_wallet_login_successful_helptext',
   keyless_wallet_pin_verified_successfully = 'keyless_wallet_pin_verified_successfully',
+  keyless_wallet_verify_pin_account_mismatch = 'keyless_wallet_verify_pin_account_mismatch',
+  keyless_wallet_verify_pin_account_mismatch_desc = 'keyless_wallet_verify_pin_account_mismatch_desc',
   learn_how_to_withdraw_crypto_from_exchange = 'learn_how_to_withdraw_crypto_from_exchange',
   learn_more_about_qr_code_wallet = 'learn_more_about_qr_code_wallet',
   lightning_invoice = 'lightning_invoice',

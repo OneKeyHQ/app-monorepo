@@ -587,11 +587,13 @@ export function useKeylessWallet() {
               { token },
             );
           if (!isValid) {
-            // TODO i18n @franco
             Toast.error({
-              title: 'Keyless Wallet',
-              message:
-                'The logged-in account does not match the local keyless wallet.',
+              title: intl.formatMessage({
+                id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+              }),
             });
             navigation.navigate(ERootRoutes.Onboarding, {
               screen: EOnboardingV2Routes.OnboardingV2,
@@ -604,7 +606,9 @@ export function useKeylessWallet() {
             });
             // TODO logout google account
             throw new OneKeyLocalError(
-              'The logged-in account does not match the local keyless wallet.',
+              intl.formatMessage({
+                id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+              }),
             );
           }
         }

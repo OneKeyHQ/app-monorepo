@@ -2075,6 +2075,8 @@
   "keyless_wallet_login_successful_desc": "你可以關閉此視窗並返回 OneKey。",
   "keyless_wallet_login_successful_helptext": "如果此視窗未自動關閉，請按下方按鈕。",
   "keyless_wallet_pin_verified_successfully": "PIN 驗證成功",
+  "keyless_wallet_verify_pin_account_mismatch": "帳戶不匹配",
+  "keyless_wallet_verify_pin_account_mismatch_desc": "登錄的帳戶與此無鑰匙錢包所鏈接的帳戶不匹配。",
   "learn_how_to_withdraw_crypto_from_exchange": "了解如何從這些交易所提取加密資產到 OneKey",
   "learn_more_about_qr_code_wallet": "了解更多關於二維碼錢包的信息",
   "lightning_invoice": "閃電發票",

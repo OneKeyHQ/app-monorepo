@@ -2075,6 +2075,8 @@
   "keyless_wallet_login_successful_desc": "You can close this window and return to OneKey.",
   "keyless_wallet_login_successful_helptext": "Click the button below if this window does not close automatically.",
   "keyless_wallet_pin_verified_successfully": "PIN verified successfully",
+  "keyless_wallet_verify_pin_account_mismatch": "Account mismatch",
+  "keyless_wallet_verify_pin_account_mismatch_desc": "The logged-in account doesn't match the one linked to this keyless wallet.",
   "learn_how_to_withdraw_crypto_from_exchange": "Learn how to withdraw crypto assets from these Exchanges to OneKey",
   "learn_more_about_qr_code_wallet": "Learn more about QR-based wallet",
   "lightning_invoice": "Lightning Invoice",
