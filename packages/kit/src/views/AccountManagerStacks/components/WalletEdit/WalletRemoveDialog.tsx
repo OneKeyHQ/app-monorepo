@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, Toast } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -12,6 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export function WalletRemoveDialog({
   defaultValue,
@@ -61,6 +63,11 @@ export function WalletRemoveDialog({
           variant: 'destructive',
         }}
         onConfirm={async () => {
+          if (isKeyless) {
+            await backgroundApiProxy.servicePassword.promptPasswordVerify({
+              reason: EReasonForNeedPassword.Security,
+            });
+          }
           await actions.current.removeWallet({
             walletId: wallet?.id || '',
             isRemoveToMocked,

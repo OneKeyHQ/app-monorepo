@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { isNil } from 'lodash';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   JUICEBOX_ALLOWED_GUESSES,
   JUICEBOX_AUTH_SERVER,
@@ -10,8 +11,12 @@ import {
   IncorrectPinError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
+
+import { devSettingsPersistAtom } from '../../../states/jotai/atoms';
 
 import { Client, Configuration } from './juicebox-sdk';
 
@@ -186,6 +191,11 @@ export class JuiceboxClient {
     userInfo: string; // ownerId
     skipTokenCacheClear?: boolean;
   }): Promise<string> {
+    const devSettingsPersist = await devSettingsPersistAtom.get();
+    const enableKeylessDebugInfo =
+      !!devSettingsPersist.enabled &&
+      !!devSettingsPersist.settings?.enableKeylessDebugInfo;
+
     try {
       const { pin, userInfo, skipTokenCacheClear } = params;
 
@@ -223,17 +233,43 @@ export class JuiceboxClient {
 
       return secretUtf8;
     } catch (e) {
+      if (enableKeylessDebugInfo) {
+        void appGlobals.$backgroundApiProxy.serviceApp.showToast({
+          method: 'error',
+          title: stringUtils.stableStringify(e),
+        });
+      }
       const error = e as
-        | { guesses_remaining: number; reason: number }
+        | {
+            guesses_remaining?: number; // web sdk
+            guessesRemaining?: number; // native sdk
+            reason: number;
+            message?: string;
+          }
         | undefined;
-      if (!isNil(error?.guesses_remaining)) {
+      const guessesRemaining =
+        error?.guesses_remaining ?? error?.guessesRemaining;
+
+      defaultLogger.wallet.keyless.juiceboxRecoverError({
+        message: error?.message || 'Juicebox SDK recover unknown error',
+        sdkError: error,
+      });
+
+      if (!isNil(guessesRemaining)) {
         throw new IncorrectPinError({
           info: {
-            guessesRemaining: error.guesses_remaining,
+            guessesRemaining,
           },
         });
       }
-      throw e;
+
+      throw new OneKeyLocalError({
+        message: error?.message || 'Juicebox SDK recover unknown error',
+        data: {
+          guessesRemaining,
+          reason: error?.reason,
+        },
+      });
     }
   }
 

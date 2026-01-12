@@ -138,8 +138,11 @@ export const DEFAULT_EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
   EExtensionOAuthMethod.CHROME_IDENTITY_API;
 export const DEFAULT_DESKTOP_OAUTH_METHOD: EDesktopOAuthMethod =
   EDesktopOAuthMethod.LOCALHOST_SERVER;
+
 export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
   ENativeOAuthMethod.NATIVE_SDK;
+// export const DEFAULT_NATIVE_OAUTH_METHOD: ENativeOAuthMethod =
+// ENativeOAuthMethod.WEB_BROWSER;
 
 // Google OAuth clients
 //  - https://console.cloud.google.com/auth/clients

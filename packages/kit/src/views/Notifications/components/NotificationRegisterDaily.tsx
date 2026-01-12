@@ -33,7 +33,8 @@ const fn2 = debounce(
   }: {
     verifyKeylessPinChecking: () => Promise<void>;
   }) => {
-    void verifyKeylessPinChecking();
+    await timerUtils.wait(600);
+    await verifyKeylessPinChecking();
   },
   timerUtils.getTimeDurationMs({ seconds: 10 }),
   {

@@ -152,7 +152,7 @@ export class OAuthPopup extends OAuthPopupBase {
         return await OAuthPopup.openWithGoogleSignin(options);
       } catch (error) {
         // If GoogleSignin fails due to setup issues, fall back to WebBrowser
-        if (OAuthPopup.shouldFallbackToWebBrowser(error)) {
+        if (OAuthPopup.shouldFallbackToWebBrowserForGoogle(error)) {
           console.warn(
             'GoogleSignin not available, falling back to WebBrowser:',
             error instanceof Error ? error.message : error,
@@ -200,16 +200,20 @@ export class OAuthPopup extends OAuthPopupBase {
    * Check if error indicates GoogleSignin is not properly configured
    * and we should fall back to WebBrowser.
    */
-  private static shouldFallbackToWebBrowser(error: unknown): boolean {
+  private static shouldFallbackToWebBrowserForGoogle(error: unknown): boolean {
     if (error instanceof Error) {
       const message = error.message.toLowerCase();
-      // Common GoogleSignin setup errors that indicate fallback is needed
+      // Common GoogleSignin setup errors that indicate fallback is needed.
+      // Note: some messages contain "Google Sign-In" (with hyphen) and/or "is not available".
       return (
         message.includes('developer_error') ||
         message.includes('sign_in_required') ||
         message.includes('play services') ||
         message.includes('not configured') ||
-        message.includes('google sign in not available')
+        message.includes('google sign in not available') ||
+        message.includes('google sign-in not available') ||
+        message.includes('google sign in is not available') ||
+        message.includes('google sign-in is not available')
       );
     }
     return false;
@@ -223,13 +227,18 @@ export class OAuthPopup extends OAuthPopupBase {
    */
   private static shouldFallbackToWebBrowserForApple(error: unknown): boolean {
     if (error instanceof Error) {
+      const errorWithCode = error as Error & { code?: string };
+      const code = errorWithCode.code || '';
       const message = error.message.toLowerCase();
       // Common Apple Sign-In setup errors that indicate fallback is needed
       return (
+        code === 'ERR_REQUEST_NOT_HANDLED' ||
         message.includes('not available') ||
         message.includes('not configured') ||
         message.includes('capability') ||
-        message.includes('entitlement')
+        message.includes('entitlement') ||
+        message.includes('authorization attempt failed') ||
+        message.includes('unknown reason')
       );
     }
     return false;
@@ -577,6 +586,37 @@ export class OAuthPopup extends OAuthPopupBase {
   // ============ Private Methods - WebBrowser ============
 
   /**
+   * Compare callback URL against redirectTo by base components (scheme/host/path),
+   * ignoring query/hash ordering differences.
+   *
+   * Why: On Android, OAuth providers may reorder query params (e.g. put `code` first),
+   * so matching via `startsWith(redirectTo)` is unreliable when `redirectTo` includes
+   * query params such as `onekey_oauth_state`.
+   */
+  private static isOAuthCallbackUrlMatch({
+    callbackUrl,
+    redirectTo,
+  }: {
+    callbackUrl: string;
+    redirectTo: string;
+  }): boolean {
+    try {
+      const cb = new URL(callbackUrl);
+      const rt = new URL(redirectTo);
+
+      const normalizePath = (p: string) => (p === '' ? '/' : p);
+
+      return (
+        cb.protocol === rt.protocol &&
+        cb.host === rt.host &&
+        normalizePath(cb.pathname) === normalizePath(rt.pathname)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Set up Linking + AppState listeners for Android to catch OAuth callback.
    * Chrome Custom Tabs on Android has timing issues where Linking.addEventListener
    * may miss the deep link. We use AppState to detect app foreground and check getInitialURL.
@@ -610,7 +650,13 @@ export class OAuthPopup extends OAuthPopupBase {
 
       // Method 1: Linking.addEventListener - catches deep links in some cases
       subscriptionRef.current = Linking.addEventListener('url', (event) => {
-        if (event.url && event.url.startsWith(redirectTo)) {
+        if (
+          event.url &&
+          OAuthPopup.isOAuthCallbackUrlMatch({
+            callbackUrl: event.url,
+            redirectTo,
+          })
+        ) {
           resolveOnce(event.url);
         }
       });
@@ -622,7 +668,13 @@ export class OAuthPopup extends OAuthPopupBase {
           // Small delay to ensure Intent is processed by React Native Linking module
           await new Promise((r) => setTimeout(r, 100));
           const initialUrl = await Linking.getInitialURL();
-          if (initialUrl && initialUrl.startsWith(redirectTo)) {
+          if (
+            initialUrl &&
+            OAuthPopup.isOAuthCallbackUrlMatch({
+              callbackUrl: initialUrl,
+              redirectTo,
+            })
+          ) {
             resolveOnce(initialUrl);
           }
         }
@@ -806,7 +858,13 @@ export class OAuthPopup extends OAuthPopupBase {
         const getUrlFromMethods = async (): Promise<string | null> => {
           // Try getInitialURL first - this catches URLs that launched/resumed the app
           const initialUrl = await Linking.getInitialURL();
-          if (initialUrl && initialUrl.startsWith(redirectTo)) {
+          if (
+            initialUrl &&
+            OAuthPopup.isOAuthCallbackUrlMatch({
+              callbackUrl: initialUrl,
+              redirectTo,
+            })
+          ) {
             return initialUrl;
           }
 
