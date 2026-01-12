@@ -36,6 +36,7 @@ interface IChartConfig {
     bgColor: string;
     textColor: string;
     textSubduedColor: string;
+    gridLineColor: string;
     supplyLineColor: string;
     supplyTopColor: string;
     supplyBottomColor: string;
@@ -90,7 +91,7 @@ function generateChartHTML(config: IChartConfig): string {
           vertLines: { visible: false },
           horzLines: { 
             visible: true, 
-            color: '#E5E5EA',
+            color: config.theme.gridLineColor,
             style: 2,
           },
         },
@@ -296,6 +297,7 @@ export function InterestRateModelChart({
         bgColor: 'transparent',
         textColor: theme.text?.val || '#000000',
         textSubduedColor: theme.textSubdued?.val || '#666666',
+        gridLineColor: theme.borderSubdued?.val || '#E5E5EA',
         supplyLineColor: INTEREST_RATE_CHART_COLORS.supply.line,
         supplyTopColor: INTEREST_RATE_CHART_COLORS.supply.top,
         supplyBottomColor: INTEREST_RATE_CHART_COLORS.supply.bottom,
@@ -311,6 +313,7 @@ export function InterestRateModelChart({
     utilizationRatio,
     theme.text?.val,
     theme.textSubdued?.val,
+    theme.borderSubdued?.val,
     theme.iconSubdued?.val,
   ]);
 
