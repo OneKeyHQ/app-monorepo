@@ -10,10 +10,7 @@ import {
   Stack,
   TextArea,
 } from '@onekeyhq/components';
-import {
-  ONEKEY_API_HOST,
-  ONEKEY_HEALTH_CHECK_URL,
-} from '@onekeyhq/shared/src/config/appConfig';
+import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   DEFAULT_IP_TABLE_CONFIG,
   IP_TABLE_SPEED_TEST_TIMEOUT_MS,

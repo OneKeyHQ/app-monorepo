@@ -6,7 +6,6 @@ import {
 import type {
   IMarginTableMap as IMarginTablesMap,
   IPerpsUniverse,
-  IPerpsUniverseRaw,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IHyperLiquidErrorLocaleItem,

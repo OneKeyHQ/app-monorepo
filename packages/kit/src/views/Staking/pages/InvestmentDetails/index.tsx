@@ -141,7 +141,7 @@ const hasPositiveReward = ({
 
 function BasicInvestmentDetails() {
   const accountInfo = useActiveAccount({ num: 0 });
-  const actions = useEarnActions();
+  const _actions = useEarnActions();
   const [EarnData] = useEarnAtom();
   const earnAccount = EarnData.earnAccount;
   const [settings] = useSettingsPersistAtom();

@@ -28,7 +28,7 @@ const parseLightingAddress = (emailAddress: string) => {
   return null;
 };
 
-const parseLnurl = (lnurl: string) => {
+const _parseLnurl = (lnurl: string) => {
   try {
     const decodedUrl = bech32Decode(lnurl);
     return new URL(decodedUrl);

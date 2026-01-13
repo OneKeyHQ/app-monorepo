@@ -242,7 +242,7 @@ export function useDeviceConnect({
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
-  const handleNotActivatedDevicePress = useCallback(
+  const _handleNotActivatedDevicePress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
       const dialog = Dialog.show({
         icon: 'WalletCryptoOutline',

@@ -72,7 +72,7 @@ class ServiceHistory extends ServiceBase {
       targetCurrency,
       currencyMap,
       excludeTestNetwork,
-      limit,
+      limit: _limit,
     } = params;
     let dbAccount;
     try {
