@@ -42,6 +42,7 @@ import SectionHeader from './SectionHeader';
 import { VerifiedBadge } from './VerifiedBadge';
 
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
+import { isEmpty } from 'lodash';
 
 export type IDeviceManagementListItem = IHwQrWalletWithDevice & {
   firmwareTypeBadge?: EFirmwareType;
@@ -82,9 +83,11 @@ function DeviceListItem({
           <Badge badgeSize="sm" badgeType="info">
             <XStack ai="center" gap="$1.5">
               <Icon name="DownloadCircleOutline" color="$iconInfo" size="$4" />
-              <SizableText size="$bodySmMedium" color="$textInfo">
-                {item.updateVersionDisplay}
-              </SizableText>
+              {item.updateVersionDisplay ? (
+                <SizableText size="$bodySmMedium" color="$textInfo">
+                  {item.updateVersionDisplay}
+                </SizableText>
+              ) : null}
             </XStack>
           </Badge>
         );
@@ -221,7 +224,10 @@ function DeviceManagementV2ListWeb() {
           deviceVersion.firmwareVersion ?? '-'
         }`;
         item.shouldUpdate = shouldUpdate;
-        item.updateVersionDisplay = `v${updateVersionDisplay ?? '-'}`;
+        item.updateVersionDisplay =
+          updateVersionDisplay && !isEmpty(updateVersionDisplay)
+            ? `v${updateVersionDisplay}`
+            : undefined;
       }
 
       return devices;
