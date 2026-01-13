@@ -6,6 +6,7 @@ import { isEmpty } from 'lodash';
 
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { useBorrowContext } from '../BorrowProvider';
@@ -27,10 +28,23 @@ enum EBorrowDataStatus {
 }
 
 const BORROW_POLLING_INTERVAL = 3 * 60 * 1000; // 3 minutes
+const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
 
-export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
+export const BorrowDataGate = ({
+  children,
+  isActive = true,
+}: {
+  children: ReactNode;
+  isActive?: boolean;
+}) => {
   const isFocused = useIsFocused();
-  const { markets, isLoading: marketsLoading } = useBorrowMarkets();
+  const isViewActive = isFocused && isActive;
+  const isViewActiveRef = useRef(isViewActive);
+  const {
+    markets,
+    isLoading: marketsLoading,
+    refetchMarkets,
+  } = useBorrowMarkets({ isActive: isViewActive });
   const market = useMemo(() => markets?.[0], [markets]);
   const {
     reserves,
@@ -47,6 +61,11 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
   });
   const { fetchReserves } = useBorrowReserves();
   const lastFetchKeyRef = useRef<string | null>(null);
+  const prevFetchKeyRef = useRef<string | null>(null);
+  const lastReservesUpdatedAtRef = useRef<number | null>(null);
+  const reservesResultRef = useRef<IBorrowReserveItem | undefined>(undefined);
+  const forceReservesRefreshRef = useRef(false);
+  const wasActiveRef = useRef(isViewActive);
   const accountId = earnAccount?.accountId ?? earnAccount?.account?.id;
   const activeAccountId = activeAccount.account?.id;
   const shouldWaitForAccount =
@@ -86,14 +105,28 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
         !marketAddress ||
         shouldWaitForAccount
       ) {
-        return undefined;
+        return reservesResultRef.current;
       }
-      return fetchReserves({
+      if (!isViewActiveRef.current) {
+        return reservesResultRef.current;
+      }
+      const lastUpdatedAt = lastReservesUpdatedAtRef.current;
+      const isStale =
+        !lastUpdatedAt || Date.now() - lastUpdatedAt > BORROW_STALE_TTL;
+      const shouldFetch = forceReservesRefreshRef.current || isStale;
+      if (!shouldFetch) {
+        return reservesResultRef.current;
+      }
+      forceReservesRefreshRef.current = false;
+      const result = await fetchReserves({
         provider: marketProvider,
         networkId: marketNetworkId,
         marketAddress,
         accountId,
       });
+      reservesResultRef.current = result;
+      lastReservesUpdatedAtRef.current = Date.now();
+      return result;
     },
     [
       fetchKey,
@@ -109,13 +142,13 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
       checkIsFocused: true,
       undefinedResultIfReRun: true,
       undefinedResultIfError: true,
-      pollingInterval: BORROW_POLLING_INTERVAL,
+      pollingInterval: isViewActive ? BORROW_POLLING_INTERVAL : undefined,
       revalidateOnFocus: true,
     },
   );
 
   const dataStatus = useMemo(() => {
-    if (!isFocused) return EBorrowDataStatus.Idle;
+    if (!isViewActive) return EBorrowDataStatus.Idle;
     if (marketsLoading) {
       if (!market) return EBorrowDataStatus.LoadingMarkets;
       return EBorrowDataStatus.Refreshing;
@@ -136,7 +169,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
 
     return EBorrowDataStatus.Idle;
   }, [
-    isFocused,
+    isViewActive,
     marketsLoading,
     market,
     fetchKey,
@@ -145,6 +178,23 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     reserves,
     reservesResult,
   ]);
+
+  useEffect(() => {
+    isViewActiveRef.current = isViewActive;
+    if (isViewActive && !wasActiveRef.current) {
+      void refetchMarkets();
+      void refreshReserves();
+    }
+    wasActiveRef.current = isViewActive;
+  }, [isViewActive, refetchMarkets, refreshReserves]);
+
+  useEffect(() => {
+    if (prevFetchKeyRef.current !== fetchKey) {
+      prevFetchKeyRef.current = fetchKey;
+      lastReservesUpdatedAtRef.current = null;
+      reservesResultRef.current = undefined;
+    }
+  }, [fetchKey]);
 
   useEffect(() => {
     setMarket(market ?? null);
@@ -185,6 +235,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     accountId,
     networkId: marketNetworkId,
     provider: marketProvider,
+    isActive: isViewActive,
   });
 
   // Sync pending transactions to context
@@ -192,9 +243,16 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     setPendingTxs(pendingTxs);
   }, [pendingTxs, setPendingTxs]);
 
+  const refreshReservesWithForce = useMemo(() => {
+    return async () => {
+      forceReservesRefreshRef.current = true;
+      await refreshReserves();
+    };
+  }, [refreshReserves]);
+
   useEffect(() => {
-    refreshReservesRef.current = refreshReserves;
-  }, [refreshReserves, refreshReservesRef]);
+    refreshReservesRef.current = refreshReservesWithForce;
+  }, [refreshReservesRef, refreshReservesWithForce]);
 
   // Store refreshPending function in ref for external access
   useEffect(() => {
@@ -208,6 +266,12 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
       await refreshPending();
     });
   }, [refreshPending, refreshScope]);
+
+  useEffect(() => {
+    if (reservesResult !== undefined) {
+      reservesResultRef.current = reservesResult;
+    }
+  }, [reservesResult]);
 
   return <>{children}</>;
 };

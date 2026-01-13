@@ -87,8 +87,10 @@ const OverviewItem = ({
 
 export const Overview = ({
   showBottomSpacing = true,
+  isActive = true,
 }: {
   showBottomSpacing?: boolean;
+  isActive?: boolean;
 }) => {
   const {
     reserves,
@@ -173,7 +175,8 @@ export const Overview = ({
       provider,
       marketAddress,
       accountId: earnAccountId,
-      enabled: !!(networkId && provider && marketAddress && earnAccountId),
+      enabled:
+        isActive && !!(networkId && provider && marketAddress && earnAccountId),
     });
 
   const { borrowRewards, refresh: refreshBorrowRewards } = useBorrowRewards({
@@ -181,7 +184,8 @@ export const Overview = ({
     provider,
     marketAddress,
     accountId: earnAccountId,
-    enabled: !!(networkId && provider && marketAddress && earnAccountId),
+    enabled:
+      isActive && !!(networkId && provider && marketAddress && earnAccountId),
   });
 
   const handleBorrowClaim = useUniversalBorrowClaim({
