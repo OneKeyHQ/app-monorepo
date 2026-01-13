@@ -19,10 +19,12 @@ import { showLabelSetDialog as showHardwareLabelSetDialog } from './HardwareLabe
 export function WalletRenameButton({
   wallet,
   editable,
+  textSize = '$bodyLgMedium',
   ...rest
 }: ComponentProps<typeof XStack> & {
   wallet: IDBWallet;
   editable: boolean | undefined;
+  textSize?: '$bodyLgMedium' | '$heading2xl' | '$headingXl' | '$headingLg';
 }) {
   const { serviceAccount } = backgroundApiProxy;
   const intl = useIntl();
@@ -103,7 +105,7 @@ export function WalletRenameButton({
         })}
         {...rest}
       >
-        <SizableText size="$bodyLgMedium" pr="$1.5" numberOfLines={1}>
+        <SizableText size={textSize} pr="$1.5" numberOfLines={1}>
           {wallet?.name}
         </SizableText>
         {canRename ? (
