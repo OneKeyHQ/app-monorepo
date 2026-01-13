@@ -138,7 +138,16 @@ function getAllNetworkAccountsBaseCached({
   });
 
   const promise: Promise<IAllNetworkAccountsInfoResult> = baseTask
-    .then((res) => res)
+    .then((res) => {
+      // Don't cache empty results - new accounts may not have network accounts yet
+      if (!res.accountsInfo.length) {
+        const current = allNetworkAccountsBaseCache.get(cacheKey);
+        if (current?.promise === promise) {
+          allNetworkAccountsBaseCache.delete(cacheKey);
+        }
+      }
+      return res;
+    })
     .catch((error) => {
       const current = allNetworkAccountsBaseCache.get(cacheKey);
       if (current?.promise === promise) {
