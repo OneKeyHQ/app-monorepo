@@ -170,7 +170,6 @@ export function PrimeTransferDirection({
   const navigation = useAppNavigation();
   const [primeTransferAtom, setPrimeTransferAtom] = usePrimeTransferAtom();
   const { exitTransferFlow } = usePrimeTransferExit();
-  const [_isCheckingCode, _setIsCheckingCode] = useState(false);
   const [waitingAlertVisible, setWaitingAlertVisible] = useState(false);
   const [isSendingData, setIsSendingData] = useState(false);
 

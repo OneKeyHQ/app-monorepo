@@ -25,7 +25,6 @@ export function EarnBlockedOverview(props: {
     refresh,
     refreshing,
     showHeader,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     showContent: _showContent,
   } = props;
 

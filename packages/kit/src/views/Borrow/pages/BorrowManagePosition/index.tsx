@@ -18,8 +18,6 @@ import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 
-// type EManagePositionType imported in route params but handled internally
-
 const BorrowManagePosition = () => {
   const route = useAppRoute<
     IModalStakingParamList,
