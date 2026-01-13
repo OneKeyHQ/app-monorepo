@@ -11,10 +11,7 @@ import type {
 } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useKeylessWalletExistsLocal,
-  useKeylessWalletFeatureIsEnabled,
-} from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
@@ -159,7 +156,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
 
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
 
-  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
   return useMemo(

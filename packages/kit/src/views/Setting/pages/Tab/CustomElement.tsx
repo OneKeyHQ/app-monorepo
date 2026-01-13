@@ -63,7 +63,7 @@ import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
-import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes/onboardingv2';
 import openUrlUtils, {
   openUrlExternal,
@@ -692,7 +692,7 @@ export function ResetPinListItem(props: ICustomElementProps) {
       const state = rootNavigationRef.current?.getRootState();
       if (state) {
         const filteredRoutes = state.routes.filter(
-          (route) => route.name !== 'modal',
+          (route) => route.name !== ERootRoutes.Modal,
         );
         rootNavigationRef.current?.dispatch(
           CommonActions.reset({
