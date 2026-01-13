@@ -16,7 +16,6 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -980,64 +979,39 @@ class ServiceUniversalSearch extends ServiceBase {
 
   private universalSearchOfPerpCached = memoizee(
     async (input: string): Promise<IUniversalSearchPerpResult> => {
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-
-      const [dex1Response, xyzResponse] = await Promise.allSettled([
-        client.get<{
-          data: Record<string, string>;
-        }>('/wallet/v1/proxy/hyperliquid/mids', {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Wallet);
+        const response = await client.get<{
+          data: Array<{
+            type: string;
+            logoUrl: string;
+            name: string;
+            maxLeverage: number;
+            midPx: string;
+            dayNtlVlm: string;
+          }>;
+        }>('/wallet/v1/proxy/hyperliquid/perpsAsset', {
           params: { query: input },
-        }),
-        client.get<{
-          data: Record<string, string>;
-        }>('/wallet/v1/proxy/hyperliquid/mids', {
-          params: { query: input, dex: 'xyz' },
-        }),
-      ]);
-
-      const items: IUniversalSearchPerpResult['items'] = [];
-      const searchTerm = input.toLowerCase().trim();
-
-      const matchesCoin = (coin: string): boolean => {
-        if (!searchTerm) return true;
-        const { displayName, dexLabel } = parseDexCoin(coin);
-        return (
-          displayName.toLowerCase().includes(searchTerm) ||
-          (dexLabel?.toLowerCase() || '').includes(searchTerm)
-        );
-      };
-
-      if (
-        dex1Response.status === 'fulfilled' &&
-        dex1Response.value?.data?.data
-      ) {
-        const dex1Data = dex1Response.value.data.data;
-        Object.entries(dex1Data).forEach(([coin, price]) => {
-          if (matchesCoin(coin)) {
-            items.push({
-              type: EUniversalSearchType.Perp,
-              payload: { coin, price },
-            });
-          }
         });
-      }
 
-      if (xyzResponse.status === 'fulfilled' && xyzResponse.value?.data?.data) {
-        const xyzData = xyzResponse.value.data.data;
-        Object.entries(xyzData).forEach(([coin, price]) => {
-          if (matchesCoin(coin)) {
-            const exists = items.some((item) => item.payload.coin === coin);
-            if (!exists) {
-              items.push({
-                type: EUniversalSearchType.Perp,
-                payload: { coin, price },
-              });
-            }
-          }
-        });
-      }
+        const items: IUniversalSearchPerpResult['items'] =
+          response?.data?.data?.map((asset) => ({
+            type: EUniversalSearchType.Perp,
+            payload: {
+              assetType: asset.type,
+              logoUrl: asset.logoUrl,
+              name: asset.name,
+              maxLeverage: asset.maxLeverage,
+              midPx: asset.midPx,
+              dayNtlVlm: asset.dayNtlVlm,
+            },
+          })) ?? [];
 
-      return { items };
+        return { items };
+      } catch (error) {
+        console.error('[universalSearchOfPerp] error:', error);
+        throw error; // Re-throw to prevent caching failed results
+      }
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),

@@ -22,6 +22,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import type { IRookieGuideInfo } from '@onekeyhq/shared/types/rookieGuide';
 
 import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
 
@@ -572,6 +573,31 @@ class ProviderApiPrivate extends ProviderApiBase {
       params.toastId = generateUUID();
       return this.backgroundApi.serviceApp.showToast(params);
     }
+  }
+
+  // ----------------------------------------------
+  // Rookie Guide API
+  // ----------------------------------------------
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_getRookieGuideInfo',
+    });
+  */
+  @providerApiMethod()
+  async wallet_getRookieGuideInfo(): Promise<IRookieGuideInfo> {
+    return this.backgroundApi.serviceRookieGuide.getRookieGuideInfo();
+  }
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_resetRookieGuideProgress',
+    });
+  */
+  @providerApiMethod()
+  async wallet_resetRookieGuideProgress(): Promise<{ success: boolean }> {
+    await this.backgroundApi.serviceRookieGuide.resetProgress();
+    return { success: true };
   }
 }
 

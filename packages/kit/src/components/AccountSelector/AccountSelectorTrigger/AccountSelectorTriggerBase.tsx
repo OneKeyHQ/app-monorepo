@@ -10,7 +10,6 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import { brandDark } from '@onekeyhq/components/colors/primitive/brand';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
@@ -87,8 +86,7 @@ export function AccountSelectorTriggerBase({
           <Button
             size="small"
             variant="primary"
-            bg={brandDark.brand11}
-            color="$text"
+            h="$8"
             shadowOpacity={0}
             elevation={0}
             hoverStyle={{

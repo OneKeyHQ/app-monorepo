@@ -106,13 +106,26 @@ export function BorrowAssetSelectPopoverContent({
 
   if (isLoading) {
     return (
-      <YStack p="$3" gap="$3">
+      <YStack p="$2" gap="$3">
+        <XStack px="$3" pb="$1" justifyContent="space-between">
+          <Skeleton w="$10" h="$3" />
+          <Skeleton w="$14" h="$3" />
+        </XStack>
         {[1, 2, 3].map((i) => (
-          <XStack key={i} alignItems="center" gap="$3" py="$2">
-            <Skeleton w="$8" h="$8" radius="round" />
-            <Stack flex={1}>
-              <Skeleton w="$12" h="$4" />
-            </Stack>
+          <XStack
+            key={i}
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$3"
+            py="$2"
+            px="$3"
+          >
+            <XStack flex={1} alignItems="center" gap="$2.5">
+              <Skeleton w="$8" h="$8" radius="round" />
+              <Stack>
+                <Skeleton w="$12" h="$4" />
+              </Stack>
+            </XStack>
             <YStack alignItems="flex-end">
               <Skeleton w="$16" h="$4" />
               <Skeleton w="$12" h="$3" mt="$1" />

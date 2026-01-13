@@ -41,6 +41,7 @@ const BorrowHomeContent = memo(({ header }: IBorrowHomeProps) => {
   });
   const alerts = reserves?.alerts;
   const accountId = activeAccount.account?.id ?? '';
+  const walletId = activeAccount.wallet?.id;
   const indexedAccountId = activeAccount.indexedAccount?.id;
   const showNoAddressWarning = useMemo(() => {
     if (!market?.networkId || !activeAccount.ready) {
@@ -92,7 +93,13 @@ const BorrowHomeContent = memo(({ header }: IBorrowHomeProps) => {
                 onCreateAddress={handleCreateAddress}
               />
             ) : null}
-            <BorrowAlerts alerts={alerts} />
+            <BorrowAlerts
+              alerts={alerts}
+              accountId={accountId || undefined}
+              walletId={walletId}
+              indexedAccountId={indexedAccountId}
+              marketNetworkId={market?.networkId}
+            />
           </YStack>
         ) : null}
         {gtMd && !isMidWidth ? (

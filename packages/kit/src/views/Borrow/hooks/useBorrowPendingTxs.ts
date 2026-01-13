@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
-  buildLocalTxStatusSyncId,
   isBorrowTag,
   parseBorrowTag,
 } from '@onekeyhq/kit/src/views/Staking/utils/utils';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { type IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
@@ -24,17 +22,15 @@ type IAccountMeta = {
 
 const DEFAULT_POLLING_INTERVAL = timerUtils.getTimeDurationMs({ seconds: 30 });
 
-export const useBorrowTxUpdate = ({
+export const useBorrowPendingTxs = ({
   accountId,
   networkId,
   provider,
-  symbol,
   onRefresh,
 }: {
   accountId?: string;
   networkId?: string;
   provider?: string;
-  symbol?: string;
   onRefresh?: () => void;
 }) => {
   const onRefreshRef = useRef(onRefresh);
@@ -42,7 +38,6 @@ export const useBorrowTxUpdate = ({
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
 
-  // Get polling interval for this network
   const { result: pollingInterval } = usePromiseResult(
     async () => {
       if (!networkId) return DEFAULT_POLLING_INTERVAL;
@@ -60,7 +55,6 @@ export const useBorrowTxUpdate = ({
     { initResult: DEFAULT_POLLING_INTERVAL },
   );
 
-  // Cache account metadata to avoid repeated calls during polling
   const { result: accountMeta } = usePromiseResult<IAccountMeta | null>(
     async () => {
       if (!accountId || !networkId) {
@@ -86,22 +80,13 @@ export const useBorrowTxUpdate = ({
     { initResult: null },
   );
 
-  // Build stake tag for filtering transactions
-  const stakeTag = useMemo(() => {
-    if (!provider || !symbol) return undefined;
-    return buildLocalTxStatusSyncId({
-      providerName: provider,
-      tokenSymbol: symbol,
-    });
-  }, [provider, symbol]);
-
-  const { result: txs, run: refreshPendingTxs } = usePromiseResult(
+  const { result: pendingTxs, run: refreshPendingTxs } = usePromiseResult(
     async () => {
-      if (!accountMeta || !provider) {
+      if (!accountMeta) {
         return [];
       }
       try {
-        const pendingTxs =
+        const pending =
           await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
             {
               networkId: accountMeta.networkId,
@@ -110,53 +95,31 @@ export const useBorrowTxUpdate = ({
             },
           );
 
-        const borrowProviderName = earnUtils.getEarnProviderName({
-          providerName: provider,
-        });
-        const providerLower = provider.toLowerCase();
+        const providerLower = provider?.toLowerCase();
 
-        // Filter transactions by:
-        // 1. New borrow tag format (borrow:{provider}:{action})
-        // 2. Legacy stakeTag format ({provider}-{symbol})
-        // 3. Protocol name match
-        return pendingTxs.filter((tx): tx is IBorrowPendingTx => {
+        return pending.filter((tx): tx is IBorrowPendingTx => {
           if (!tx.stakingInfo) return false;
-
-          // Check tags for matches
           const tags = tx.stakingInfo.tags ?? [];
-          for (const tag of tags) {
-            // Match new borrow tag format: borrow:{provider}:{action}
-            if (isBorrowTag(tag)) {
-              const parsed = parseBorrowTag(tag);
-              if (parsed?.provider === providerLower) {
-                return true;
-              }
-            }
-            // Match legacy stakeTag format
-            if (stakeTag && tag === stakeTag) {
-              return true;
-            }
-          }
-
-          // Match by protocol name (fallback)
-          if (tx.stakingInfo.protocol === borrowProviderName) {
-            return true;
-          }
-
-          return false;
+          return tags.some((tag) => {
+            if (!isBorrowTag(tag)) return false;
+            const parsed = parseBorrowTag(tag);
+            if (!parsed) return false;
+            if (!providerLower) return true;
+            return parsed.provider === providerLower;
+          });
         });
       } catch {
         return [];
       }
     },
-    [accountMeta, provider, stakeTag],
+    [accountMeta, provider],
     {
       initResult: [],
       revalidateOnFocus: true,
     },
   );
 
-  const pendingCount = txs.length;
+  const pendingCount = pendingTxs.length;
   const isPending = pendingCount > 0;
   const prevPendingCount = usePrevious(pendingCount);
 
@@ -164,15 +127,11 @@ export const useBorrowTxUpdate = ({
     if (!accountMeta) {
       return;
     }
-    try {
-      await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-        accountId: accountMeta.accountId,
-        networkId: accountMeta.networkId,
-      });
-      await refreshPendingTxs({ alwaysSetState: true });
-    } catch {
-      // Silently handle errors during refresh
-    }
+    await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+      accountId: accountMeta.accountId,
+      networkId: accountMeta.networkId,
+    });
+    await refreshPendingTxs();
   }, [accountMeta, refreshPendingTxs]);
 
   usePromiseResult(
@@ -188,9 +147,6 @@ export const useBorrowTxUpdate = ({
 
   useEffect(() => {
     if (prevPendingCount !== undefined && pendingCount < prevPendingCount) {
-      if (!onRefreshRef.current) {
-        return undefined;
-      }
       const timeoutId = setTimeout(() => {
         onRefreshRef.current?.();
       }, timerUtils.getTimeDurationMs({ seconds: 1 }));
@@ -200,8 +156,7 @@ export const useBorrowTxUpdate = ({
   }, [pendingCount, prevPendingCount]);
 
   return {
-    isPending,
-    pendingTxs: txs,
+    pendingTxs,
     pendingCount,
     refreshPending: refreshPendingWithHistory,
   };

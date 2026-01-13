@@ -64,6 +64,7 @@ import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServiceOneKeyID from '../services/ServiceOneKeyID';
 import type ServicePassword from '../services/ServicePassword';
+import type ServiceRookieGuide from '../services/ServiceRookieGuide';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
@@ -392,6 +393,10 @@ class BackgroundApiProxy
   serviceOneKeyID = this._createProxyService(
     'serviceOneKeyID',
   ) as ServiceOneKeyID;
+
+  serviceRookieGuide = this._createProxyService(
+    'serviceRookieGuide',
+  ) as ServiceRookieGuide;
 }
 
 export default BackgroundApiProxy;
