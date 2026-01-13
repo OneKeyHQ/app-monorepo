@@ -62,6 +62,7 @@ function DeviceSectionDeviceConnect() {
         title={intl.formatMessage({
           id: ETranslations.global_forget_device,
         })}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressForgetDevice}
       />

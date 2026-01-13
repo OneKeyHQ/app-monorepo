@@ -49,10 +49,13 @@ function DeviceSectionAdvancePassphrase() {
     <ListItem.StatefulItem
       mx="$0"
       px="$5"
+      py="$3"
       borderRadius="$0"
+      $gtMd={{ py: '$0' }}
       title={intl.formatMessage({
         id: ETranslations.global_passphrase,
       })}
+      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
       justifyContent="center"
       value={passphraseEnabled}
       onAction={onPressPassphrase}
@@ -84,10 +87,13 @@ function DeviceSectionAdvanceInputPinOnSoftware() {
     <ListItem.StatefulItem
       mx="$0"
       px="$5"
+      py="$3"
       borderRadius="$0"
+      $gtMd={{ py: '$0' }}
       title={intl.formatMessage({
         id: ETranslations.enter_pin_on_app,
       })}
+      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
       justifyContent="center"
       value={inputPinOnSoftwareEnabled}
       onAction={actions.updateInputPinOnSoftware}
@@ -109,7 +115,7 @@ function DeviceSectionAdvance() {
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ h: '$12' }}
+      itemProps={{ minHeight: '$12' }}
       title={intl.formatMessage({
         id: ETranslations.global_advance,
       })}

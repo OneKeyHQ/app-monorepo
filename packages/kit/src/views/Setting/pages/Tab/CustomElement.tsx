@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useContext, useMemo, useState } from 'react';
 
+import { CommonActions } from '@react-navigation/native';
 import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -23,6 +24,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  rootNavigationRef,
   startViewTransition,
   useClipboard,
 } from '@onekeyhq/components';
@@ -61,7 +63,7 @@ import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
-import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes/onboardingv2';
 import openUrlUtils, {
   openUrlExternal,
@@ -686,6 +688,20 @@ export function ResetPinListItem(props: ICustomElementProps) {
       });
       // Show loading only after password verification succeeds
       setIsLoading(true);
+      // Reset navigation state to remove modal without triggering tab state change
+      const state = rootNavigationRef.current?.getRootState();
+      if (state) {
+        const filteredRoutes = state.routes.filter(
+          (route) => route.name !== ERootRoutes.Modal,
+        );
+        rootNavigationRef.current?.dispatch(
+          CommonActions.reset({
+            ...state,
+            routes: filteredRoutes,
+            index: filteredRoutes.length - 1,
+          }),
+        );
+      }
       await goToOneKeyIDLoginPageForKeylessWallet({
         mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
       });
