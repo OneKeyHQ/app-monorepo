@@ -183,7 +183,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       connectId,
       featuresDeviceId,
       debugMethodName: 'deviceSettings.changePin',
-      action: async (hardwareSDK, compatibleConnectId, device) =>
+      action: async (hardwareSDK, compatibleConnectId, _device) =>
         hardwareSDK?.deviceChangePin(compatibleConnectId, {
           remove,
         }),
@@ -410,7 +410,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             usePassphrase: passphraseEnabled,
           })
           .then(async (res) => {
-            if (device.featuresInfo) {
+            if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
                 features: {
                   ...device.featuresInfo,
@@ -441,7 +441,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             autoLockDelayMs,
           })
           .then(async (res) => {
-            if (device.featuresInfo) {
+            if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
                 features: {
                   ...device.featuresInfo,
@@ -472,7 +472,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             autoShutdownDelayMs,
           })
           .then(async (res) => {
-            if (device.featuresInfo) {
+            if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
                 features: {
                   ...device.featuresInfo,
@@ -503,7 +503,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             language,
           })
           .then(async (res) => {
-            if (device.featuresInfo) {
+            if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
                 features: {
                   ...device.featuresInfo,
@@ -527,7 +527,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       connectId,
       featuresDeviceId,
       debugMethodName: 'deviceSettings.setBrightness',
-      action: async (sdk, compatibleConnectId, device) =>
+      action: async (sdk, compatibleConnectId, _device) =>
         sdk.deviceSettings(compatibleConnectId, {
           changeBrightness: true,
         }),
@@ -552,7 +552,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             hapticFeedback,
           })
           .then(async (res) => {
-            if (device.featuresInfo) {
+            if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
                 features: {
                   ...device.featuresInfo,
@@ -576,7 +576,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       connectId,
       featuresDeviceId,
       debugMethodName: 'deviceSettings.wipeDevice',
-      action: async (sdk, compatibleConnectId, device) =>
+      action: async (sdk, compatibleConnectId, _device) =>
         sdk.deviceWipe(compatibleConnectId),
     });
   }

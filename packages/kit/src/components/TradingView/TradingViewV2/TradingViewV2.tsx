@@ -18,6 +18,7 @@ import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 import {
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
+  useHyperLiquidKlineSource,
   useTradingViewV2WebSocket,
 } from './hooks';
 import {
@@ -68,35 +69,51 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenSymbol: symbol,
   });
 
-  const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
-    additionalParams: {
-      symbol,
+  const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
+    useHyperLiquidKlineSource(networkId, tokenAddress);
+
+  const additionalParams = useMemo(() => {
+    const useHyperLiquid = isHyperLiquidSource && hyperLiquidSymbol;
+    return {
       decimal: decimal?.toString(),
       networkId,
       address: tokenAddress,
-    },
+      symbol: useHyperLiquid ? hyperLiquidSymbol : symbol,
+      ...(useHyperLiquid && { type: 'perps' }),
+    };
+  }, [
+    decimal,
+    networkId,
+    tokenAddress,
+    isHyperLiquidSource,
+    hyperLiquidSymbol,
+    symbol,
+  ]);
+
+  const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
+    additionalParams,
   });
 
+  // Disable OneKey data hooks when using HyperLiquid source
   useAutoKLineUpdate({
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && dataSource !== 'websocket',
+    enabled: isVisible && dataSource !== 'websocket' && !isHyperLiquidSource,
   });
 
   useAutoTokenDetailUpdate({
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible,
+    enabled: isVisible && !isHyperLiquidSource,
   });
 
-  // Enhanced WebSocket connection for real-time market data
   useTradingViewV2WebSocket({
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && dataSource === 'websocket',
+    enabled: isVisible && dataSource === 'websocket' && !isHyperLiquidSource,
     chartType: '1m',
     currency: currencyInfo.id,
   });

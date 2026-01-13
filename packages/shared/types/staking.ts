@@ -777,6 +777,13 @@ export interface IEarnListaCheckActionIcon {
   text: IEarnText;
 }
 
+export type IHealthFactorLevel = 'critical' | 'warning' | 'success';
+
+export interface IHealthFactorGradientStop {
+  percent: number;
+  level: IHealthFactorLevel;
+}
+
 export interface IBorrowHealthFactorRiskDetail {
   type: 'healthFactorRiskDetail';
   disabled: boolean;
@@ -787,6 +794,7 @@ export interface IBorrowHealthFactorRiskDetail {
       value: string;
       lowerLimit: string;
       upperLimit: string;
+      gradientStops?: IHealthFactorGradientStop[];
       status: {
         tag: string;
         badge: IBadgeType;
@@ -1886,10 +1894,17 @@ export interface IBorrowCheckAmount {
   riskOfLiquidationAlert?: boolean;
 }
 
+export interface IBorrowAlertButton {
+  type: 'receive' | 'bridge' | string;
+  text: IEarnText;
+  disabled?: boolean;
+}
+
 export interface IBorrowAlert {
   title: IEarnText;
   description?: IEarnText;
   badge: IBadgeType;
+  buttons?: IBorrowAlertButton[];
 }
 
 export interface IBorrowReserveItem {
@@ -2210,6 +2225,7 @@ export interface IBorrowTransactionConfirmation {
 
 export interface IBorrowUnsignedTransaction {
   tx: string;
+  orderId: string;
 }
 
 export type IBorrowManagePage = IEarnManagePageResponse;

@@ -135,15 +135,14 @@ export const ManagePositionPart = ({
           </YStack>
           {userInfo?.walletBalance?.button ? (
             <Button
+              mt="auto"
+              mb="$1.5"
               variant="primary"
               size="medium"
               disabled={userInfo.walletBalance.button.disabled}
               onPress={handleSupply}
             >
-              <EarnText
-                text={userInfo.walletBalance.button.text}
-                color="$textInverse"
-              />
+              {userInfo.walletBalance.button.text.text}
             </Button>
           ) : null}
         </XStack>
@@ -176,15 +175,14 @@ export const ManagePositionPart = ({
           </YStack>
           {userInfo?.availableBorrowBalance?.button ? (
             <Button
+              mt="auto"
+              mb="$1.5"
               variant="primary"
               size="medium"
               disabled={userInfo.availableBorrowBalance.button.disabled}
               onPress={handleBorrow}
             >
-              <EarnText
-                text={userInfo.availableBorrowBalance.button.text}
-                color="$textInverse"
-              />
+              {userInfo.availableBorrowBalance.button.text.text}
             </Button>
           ) : null}
         </XStack>

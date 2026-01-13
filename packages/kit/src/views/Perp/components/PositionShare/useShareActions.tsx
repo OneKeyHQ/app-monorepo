@@ -1,4 +1,4 @@
-import { createElement, useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Linking } from 'react-native';
@@ -78,7 +78,7 @@ export function useShareActions(referralQrCodeUrl?: string) {
             'base64',
           );
 
-          const savedAsset = await MediaLibrary.saveToLibraryAsync(filepath);
+          await MediaLibrary.saveToLibraryAsync(filepath);
           await RNFS.unlink(filepath);
 
           const titleText = intl.formatMessage({
@@ -89,43 +89,35 @@ export function useShareActions(referralQrCodeUrl?: string) {
           });
 
           const openPhotoLibrary = () => {
-            if (platformEnv.isNativeAndroid && savedAsset?.uri) {
-              void Linking.openURL(savedAsset.uri).catch(() => {
-                void Linking.openURL('content://media/internal/images/media');
-              });
+            if (platformEnv.isNativeAndroid) {
+              void Linking.openURL(
+                'content://media/external/images/media',
+              ).catch(() => {});
             } else {
               void Linking.openURL('photos-redirect://');
             }
           };
 
           Toast.show({
-            children: createElement(
-              XStack,
-              {
-                alignItems: 'center',
-                gap: '$2',
-                paddingVertical: '$3',
-                paddingHorizontal: '$4',
-              },
-              createElement(Icon, {
-                name: 'CheckRadioSolid',
-                color: '$iconSuccess',
-                size: '$5',
-              }),
-              createElement(
-                SizableText,
-                { size: '$bodyMd', flex: 1 },
-                titleText,
-              ),
-              createElement(
-                Button,
-                {
-                  variant: 'tertiary',
-                  size: 'small',
-                  onPress: openPhotoLibrary,
-                },
-                viewButtonText,
-              ),
+            children: (
+              <XStack
+                alignItems="center"
+                gap="$2"
+                paddingVertical="$3"
+                paddingHorizontal="$4"
+              >
+                <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />
+                <SizableText size="$bodyMd" flex={1}>
+                  {titleText}
+                </SizableText>
+                <Button
+                  variant="tertiary"
+                  size="small"
+                  onPress={openPhotoLibrary}
+                >
+                  {viewButtonText}
+                </Button>
+              </XStack>
             ),
           });
 

@@ -133,6 +133,7 @@ export type IServerAccountBadgeResp = {
   isScam?: boolean;
   badges?: IAddressBadge[];
   label?: string;
+  similarAddress?: string;
 };
 
 export enum EAddressInteractionStatus {
@@ -166,6 +167,7 @@ export type IQueryCheckAddressArgs = {
     accountName: string;
     accountId: string;
   };
+  ignoreSimilarAddressInAddressBook?: boolean;
 };
 
 export type IFetchServerAccountDetailsParams = IFetchAccountDetailsParams & {

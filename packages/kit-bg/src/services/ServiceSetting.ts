@@ -456,6 +456,30 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async fetchGetStartedLinks({
+    slots,
+  }: {
+    slots: ('hardware_faqs' | 'hardware_getstarteds')[];
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: {
+        linkId: string;
+        title: string;
+        mode: number;
+        payload: string;
+        image: string;
+        description: string;
+      }[];
+    }>('/utility/v1/link-config', {
+      params: {
+        slots: slots.join(','),
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
   public async getInscriptionProtection() {
     const { inscriptionProtection } = await settingsPersistAtom.get();
     return inscriptionProtection;

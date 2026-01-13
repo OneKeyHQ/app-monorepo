@@ -91,8 +91,12 @@ export type IUniversalSearchDapp = {
 export type IUniversalSearchPerp = {
   type: EUniversalSearchType.Perp;
   payload: {
-    coin: string;
-    price: string;
+    assetType: string; // 'perps' or other (e.g. xyz)
+    logoUrl: string;
+    name: string;
+    maxLeverage: number;
+    midPx: string;
+    dayNtlVlm: string;
   };
 };
 

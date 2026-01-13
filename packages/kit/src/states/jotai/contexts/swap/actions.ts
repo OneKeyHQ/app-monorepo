@@ -954,7 +954,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         swapProDirection === ESwapDirection.BUY
           ? selectedToken
           : sellSelectToken;
-      if (!fromToken || !toToken) {
+      if (!fromToken || !toToken || fromToken.networkId !== toToken.networkId) {
         return;
       }
       void this.runSpeedQuote.call(

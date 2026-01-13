@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '@tamagui/core';
 import { LineType, createChart } from 'lightweight-charts';
 
-import { Skeleton, Stack, YStack } from '@onekeyhq/components';
+import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { ILightweightChartTheme } from '@onekeyhq/kit/src/components/LightweightChart/types';
 import {
   createAreaSeriesOptions,
@@ -189,7 +189,7 @@ export function InterestRateModelChart({
         },
         horzLines: {
           visible: true,
-          color: '#E5E5EA',
+          color: theme.borderSubdued?.val || '#E5E5EA',
           style: 2,
         },
       },
@@ -301,6 +301,7 @@ export function InterestRateModelChart({
     supplyTheme,
     borrowTheme,
     utilizationRatio,
+    theme.borderSubdued?.val,
     theme.iconSubdued?.val,
     handleCrosshairMove,
   ]);
@@ -313,9 +314,17 @@ export function InterestRateModelChart({
 
   if (isLoading) {
     return (
-      <Stack height={CHART_HEIGHT}>
-        <Skeleton width="100%" height={CHART_HEIGHT} />
-      </Stack>
+      <YStack gap="$6">
+        <Skeleton width={180} height={24} borderRadius="$2" />
+        <XStack gap="$3" ai="center">
+          <Skeleton width={80} height={16} borderRadius="$2" />
+          <Skeleton width={80} height={16} borderRadius="$2" />
+          <Skeleton width={120} height={16} borderRadius="$2" />
+        </XStack>
+        <Stack height={CHART_HEIGHT}>
+          <Skeleton width="100%" height={CHART_HEIGHT} />
+        </Stack>
+      </YStack>
     );
   }
 

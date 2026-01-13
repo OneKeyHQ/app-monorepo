@@ -36,6 +36,7 @@ import { EarnBlockedOverview } from './components/EarnBlockedOverview';
 import { EarnHomeTabs } from './components/EarnHomeTabs';
 import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnPageContainer } from './components/EarnPageContainer';
+import { MarketSelector } from './components/MarketSelector';
 import { Overview } from './components/Overview';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
@@ -223,7 +224,7 @@ function BasicEarnHome({
       },
       allowHeaderOverscroll: true,
       renderHeader: () => (
-        <YStack gap="$4" pt="$6" bg="$bgApp" pointerEvents="box-none">
+        <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
           <YStack gap="$7.5">
             <YStack px="$5">
               <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
@@ -259,40 +260,40 @@ function BasicEarnHome({
   }
 
   if (platformEnv.isNative) {
-    return (
-      <EarnHomeTabs
-        defaultMode={defaultMode}
-        onModeChange={handleModeChange}
-        earn={
-          <YStack flex={1}>
-            <EarnMainTabs
-              faqList={faqList || []}
-              isFaqLoading={isFaqLoading}
-              defaultTab={defaultTab}
-              portfolioData={portfolioData}
-              containerProps={mobileContainerProps}
-            />
+    const marketSelectorHeader = (
+      <MarketSelector mode={defaultMode} onModeChange={handleModeChange} />
+    );
 
-            {showHeader && showContent && media.md ? (
-              <YStack
-                position="absolute"
-                top={-20}
-                left={0}
-                bg="$bgApp"
-                pt="$5"
-                width="100%"
-                // onLayout={handleTabPageLayout}
-              >
-                <TabPageHeader
-                  sceneName={EAccountSelectorSceneName.home}
-                  tabRoute={ETabRoutes.Earn}
-                />
-              </YStack>
-            ) : null}
+    return defaultMode === 'earn' ? (
+      <YStack flex={1}>
+        <EarnMainTabs
+          faqList={faqList || []}
+          isFaqLoading={isFaqLoading}
+          defaultTab={defaultTab}
+          portfolioData={portfolioData}
+          containerProps={mobileContainerProps}
+          header={marketSelectorHeader}
+        />
+
+        {showHeader && showContent && media.md ? (
+          <YStack
+            position="absolute"
+            top={-20}
+            left={0}
+            bg="$bgApp"
+            pt="$5"
+            width="100%"
+            // onLayout={handleTabPageLayout}
+          >
+            <TabPageHeader
+              sceneName={EAccountSelectorSceneName.home}
+              tabRoute={ETabRoutes.Earn}
+            />
           </YStack>
-        }
-        borrow={<BorrowHome />}
-      />
+        ) : null}
+      </YStack>
+    ) : (
+      <BorrowHome header={marketSelectorHeader} />
     );
   }
 

@@ -31,14 +31,18 @@ import { PortfolioTabContent } from './PortfolioTabContent';
 import { ProtocolsTabContent } from './ProtocolsTabContent';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
-import type { TabBarProps } from 'react-native-collapsible-tab-view';
+import type {
+  CollapsibleProps,
+  TabBarProps,
+} from 'react-native-collapsible-tab-view';
 
 interface IEarnMainTabsProps {
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading?: boolean;
-  containerProps?: any;
+  containerProps?: Partial<CollapsibleProps>;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   portfolioData: IUseEarnPortfolioReturn;
+  header?: React.ReactNode;
 }
 
 const TabContentContainer = ({
@@ -71,6 +75,7 @@ const EarnMainTabsComponent = ({
   containerProps,
   defaultTab,
   portfolioData,
+  header,
 }: IEarnMainTabsProps) => {
   const intl = useIntl();
   const tabsRef = useRef<ITabContainerRef>(null);
@@ -216,14 +221,30 @@ const EarnMainTabsComponent = ({
     [hideSmallAssets, intl, tabNames.portfolio],
   );
 
+  const mergedContainerProps = useMemo<
+    Partial<CollapsibleProps> | undefined
+  >(() => {
+    if (!header) return containerProps;
+    const renderHeader = containerProps?.renderHeader;
+    return {
+      ...(containerProps ?? {}),
+      renderHeader: (props: TabBarProps<string>) => (
+        <YStack>
+          {header}
+          {renderHeader ? renderHeader(props) : null}
+        </YStack>
+      ),
+    };
+  }, [containerProps, header]);
+
   return (
     <Tabs.Container
-      width={platformEnv.isNative ? tabContainerWidth : undefined}
-      ref={tabsRef}
+      width={platformEnv.isNative ? Number(tabContainerWidth) : undefined}
+      ref={tabsRef as any}
       renderTabBar={renderTabBar}
       initialTabName={initialTabName}
       onTabChange={handleTabChange}
-      {...containerProps}
+      {...mergedContainerProps}
     >
       <Tabs.Tab name={tabNames.assets}>
         <TabContentContainer>
