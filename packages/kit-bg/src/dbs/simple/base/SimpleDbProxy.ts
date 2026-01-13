@@ -51,6 +51,7 @@ import type { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRec
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
 import type { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import type { SimpleDbEntityRookieGuide } from '../entity/SimpleDbEntityRookieGuide';
 import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
@@ -60,7 +61,6 @@ import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniv
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
 import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
-import type { SimpleDbEntityRookieGuide } from '../entity/SimpleDbEntityRookieGuide';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase

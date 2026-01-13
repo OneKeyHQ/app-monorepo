@@ -28,6 +28,8 @@ type IOneKeyPerfTrace = {
 };
 
 declare global {
+  var JuiceboxGetAuthToken: (realmId: Uint8Array) => Promise<string>;
+
   var $desktopMainAppFunctions: {
     getSafelyMainWindow: () => BrowserWindow | undefined;
     getSafelyBrowserWindow: () => BrowserWindow | undefined;

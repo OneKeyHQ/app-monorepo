@@ -144,12 +144,19 @@ const buildBasePlugins: (
 
 const buildBaseExperiments: (
   basePath: string,
-) => RspackOptions['experiments'] = (basePath) => ({
+  configName?: string,
+) => RspackOptions['experiments'] = (basePath, configName) => ({
   cache: {
     type: 'persistent',
     storage: {
       type: 'filesystem',
-      directory: path.join(basePath, 'node_modules/.cache/rspack'),
+      // Use separate cache directories for each config to avoid conflicts
+      // in multi-config builds (ext has 5 parallel configs)
+      directory: path.join(
+        basePath,
+        'node_modules/.cache/rspack',
+        configName || 'default',
+      ),
     },
   },
   asyncWebAssembly: true,
@@ -506,7 +513,7 @@ export function createBaseConfig({
       },
     },
     lazyCompilation: false,
-    experiments: buildBaseExperiments(basePath),
+    experiments: buildBaseExperiments(basePath, configName),
     performance: basePerformance,
     optimization: {
       splitChunks: {
