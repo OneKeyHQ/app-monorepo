@@ -112,8 +112,9 @@ function PerpSettingsPopoverContent({
         px="$2.5"
         titleProps={{ size: '$bodyMdMedium' }}
         subtitleProps={{ size: '$bodySm' }}
-        title="Show Trade Marks"
-        subtitle="Display buy/sell marks on chart"
+        title={intl.formatMessage({
+          id: ETranslations.perps_settings_shows_buy_sell_title,
+        })}
       >
         <Switch
           size={ESwitchSize.small}
@@ -133,8 +134,9 @@ function PerpSettingsPopoverContent({
         px="$2.5"
         titleProps={{ size: '$bodyMdMedium' }}
         subtitleProps={{ size: '$bodySm' }}
-        title="Show Positions & Orders"
-        subtitle="Display position and order lines on chart"
+        title={intl.formatMessage({
+          id: ETranslations.perps_settings_shows_positions_title,
+        })}
       >
         <Switch
           size={ESwitchSize.small}

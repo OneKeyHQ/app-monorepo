@@ -23,7 +23,7 @@ export {
 export const useMedia = useTamaguiMedia;
 
 export type IThemeColorKeys = keyof UseThemeResult;
-const getValue = (
+const _getValue = (
   theme: UseThemeResult,
   key: IThemeColorKeys,
   fallback?: VariableVal,

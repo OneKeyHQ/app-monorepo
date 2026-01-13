@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isEqual, noop } from 'lodash';
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {

@@ -1,5 +1,3 @@
-import type { EMessageTypesStellar } from '@onekeyhq/shared/types/message';
-
 // Stellar asset types
 export type IStellarAsset =
   | {

@@ -41,7 +41,11 @@ function useReceiveToken({
   isMultipleDerive?: boolean;
 }) {
   const intl = useIntl();
-  const { vaultSettings, account, network } = useAccountData({
+  const {
+    vaultSettings,
+    account: _account,
+    network,
+  } = useAccountData({
     networkId,
     accountId,
   });

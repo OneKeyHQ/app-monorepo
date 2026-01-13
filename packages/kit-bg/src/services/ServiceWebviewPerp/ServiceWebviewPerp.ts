@@ -535,7 +535,7 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async approveBuilderFeeIfRequired({
-    request,
+    request: _request,
     userAddress,
     chainId,
     skipApproveAction,

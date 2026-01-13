@@ -19,7 +19,6 @@ import {
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 

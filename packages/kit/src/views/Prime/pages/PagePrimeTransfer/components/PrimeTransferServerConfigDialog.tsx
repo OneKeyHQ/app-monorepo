@@ -13,7 +13,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { buildChangeHistoryInputAddon } from '@onekeyhq/kit/src/components/ChangeHistoryDialog/ChangeHistoryDialog';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {

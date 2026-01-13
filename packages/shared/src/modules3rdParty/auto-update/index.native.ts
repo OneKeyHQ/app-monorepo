@@ -16,7 +16,6 @@ import type {
   IDownloadASC,
   IDownloadPackage,
   IInstallPackage,
-  IJSBundle,
   IManualInstallPackage,
   IUseDownloadProgress,
   IVerifyASC,

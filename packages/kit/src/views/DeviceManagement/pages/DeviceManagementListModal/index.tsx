@@ -18,7 +18,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -28,7 +27,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';

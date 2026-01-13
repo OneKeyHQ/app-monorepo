@@ -86,7 +86,7 @@ type IProps = {
 };
 
 const DEFAULT_GAS_LIMIT_MIN = 21_000;
-const DEFAULT_GAS_LIMIT_MAX = 15_000_000;
+const _DEFAULT_GAS_LIMIT_MAX = 15_000_000;
 const DEFAULT_FEER_ATE_MIN = 0;
 const DEFAULT_FEE_RATE_MAX = 1_000_000; // shared cross multi-networks
 
@@ -210,21 +210,24 @@ function TxFeeEditor(props: IProps) {
   const { feeSymbol, feeDecimals, nativeSymbol, nativeTokenPrice } =
     customFee?.common ?? {};
 
-  const { vaultSettings, network, defaultCustomFeeInfo } =
-    usePromiseResult(async () => {
-      const [v, n, d] = await Promise.all([
-        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
-        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        backgroundApiProxy.serviceGas.getCustomFeeInfo({ networkId }),
-      ]);
-      setDefaultCustomFeeInfoEnabled(d?.enabled ?? false);
+  const {
+    vaultSettings,
+    network,
+    defaultCustomFeeInfo: _defaultCustomFeeInfo,
+  } = usePromiseResult(async () => {
+    const [v, n, d] = await Promise.all([
+      backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+      backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+      backgroundApiProxy.serviceGas.getCustomFeeInfo({ networkId }),
+    ]);
+    setDefaultCustomFeeInfoEnabled(d?.enabled ?? false);
 
-      return {
-        vaultSettings: v,
-        network: n,
-        defaultCustomFeeInfo: d,
-      };
-    }, [networkId]).result ?? {};
+    return {
+      vaultSettings: v,
+      network: n,
+      defaultCustomFeeInfo: d,
+    };
+  }, [networkId]).result ?? {};
 
   const originalMaxBaseFee = new BigNumber(
     customFee?.gasEIP1559?.maxFeePerGas ?? '0',
@@ -426,7 +429,7 @@ function TxFeeEditor(props: IProps) {
     const gasLimit = new BigNumber(
       feeInfo.gasEIP1559?.gasLimit ?? feeInfo.gas?.gasLimit ?? '0',
     );
-    const gasLimitForDisplay = new BigNumber(
+    const _gasLimitForDisplay = new BigNumber(
       feeInfo.gasEIP1559?.gasLimitForDisplay ??
         feeInfo.gas?.gasLimitForDisplay ??
         '0',
@@ -435,7 +438,7 @@ function TxFeeEditor(props: IProps) {
     return {
       gasLimit: gasLimit.toFixed(),
       // description: `Estimate gas limit is ${gasLimit.toFixed()}, recommend ${
-      //   gasLimitForDisplay.isEqualTo(gasLimit) ? '1.0x' : '1.2x'
+      //   _gasLimitForDisplay.isEqualTo(gasLimit) ? '1.0x' : '1.2x'
       // }`,
     };
   }, [feeSelectorItems]);
@@ -902,14 +905,14 @@ function TxFeeEditor(props: IProps) {
     if (replaceTxMode) return null;
     if (!vaultSettings?.editFeeEnabled) return null;
 
-    let feeTitle = '';
+    let _feeTitle = '';
 
     if (customFee?.feeUTXO) {
-      feeTitle = `${intl.formatMessage({
+      _feeTitle = `${intl.formatMessage({
         id: ETranslations.fee_fee_rate,
       })} (sat/vB)`;
     } else {
-      feeTitle = intl.formatMessage(
+      _feeTitle = intl.formatMessage(
         { id: ETranslations.content__gas_price },
         { 'network': feeSymbol },
       );
@@ -918,7 +921,7 @@ function TxFeeEditor(props: IProps) {
     return (
       <>
         {/* <SizableText mb={6} size="$bodyMdMedium">
-          {feeTitle}
+          {_feeTitle}
         </SizableText> */}
         <SegmentControl
           fullWidth
@@ -2111,7 +2114,7 @@ function TxFeeEditor(props: IProps) {
                   id: ETranslations.edit_fee_custom_set_as_default_description,
                 },
                 {
-                  network: network?.name,
+                  network: (network as { name?: string } | undefined)?.name,
                 },
               )}
             />

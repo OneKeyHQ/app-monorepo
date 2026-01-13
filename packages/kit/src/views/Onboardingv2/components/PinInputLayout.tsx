@@ -12,7 +12,7 @@ import {
 } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
-import { KeyboardAvoidingView, type TextInput } from 'react-native';
+import { type TextInput } from 'react-native';
 
 import {
   Button,
@@ -46,6 +46,7 @@ interface IPinInputLayoutProps {
   errorMessage?: string;
   isLoading?: boolean;
   placeholder?: string;
+  onClose?: () => Promise<void>;
 }
 
 export interface IPinInputLayoutRef {
@@ -69,6 +70,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       errorMessage,
       isLoading,
       placeholder = '••••',
+      onClose,
     },
     ref,
   ) => {
@@ -116,7 +118,11 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
     );
 
     return (
-      <Page>
+      <Page
+        onClose={() => {
+          void onClose?.();
+        }}
+      >
         <OnboardingLayout>
           <OnboardingLayout.Header />
           <OnboardingLayout.Body constrained={false} scrollable={false}>

@@ -1,8 +1,3 @@
-import type {
-  IEarnWalletHistoryItem,
-  IEarnWalletHistoryNetwork,
-} from '../referralCode/type';
-
 export enum ETabReferFriendsRoutes {
   TabReferAFriend = 'TabReferAFriend',
   TabInviteReward = 'TabInviteReward',

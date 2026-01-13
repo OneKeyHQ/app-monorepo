@@ -46,38 +46,23 @@ export function HardwareRecordsList({
     );
   }
 
-  const renderLoadingMore = () => {
-    if (!isLoadingMore) {
-      return null;
-    }
-    return (
-      <YStack ai="center" py="$4">
-        <Spinner size="small" />
-      </YStack>
-    );
-  };
-
-  if (isMobile) {
-    return (
-      <YStack px="$5" gap="$3" pb="$5">
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.referral_details })}
-        </SizableText>
-        {records.map((record) => (
-          <HardwareRecordCard key={record._id} item={record} />
-        ))}
-        {renderLoadingMore()}
-      </YStack>
-    );
-  }
-
   return (
     <YStack px="$5" gap="$3" pb="$5">
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.referral_details })}
       </SizableText>
-      <HardwareRecordTable records={records} />
-      {renderLoadingMore()}
+      {isMobile ? (
+        records.map((record) => (
+          <HardwareRecordCard key={record._id} item={record} />
+        ))
+      ) : (
+        <HardwareRecordTable records={records} />
+      )}
+      {isLoadingMore ? (
+        <YStack ai="center" py="$4">
+          <Spinner size="small" />
+        </YStack>
+      ) : null}
     </YStack>
   );
 }

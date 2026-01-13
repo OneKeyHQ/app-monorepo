@@ -10,7 +10,7 @@ import {
 import {
   Icon,
   ScrollView,
-  SegmentControl,
+  SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -34,17 +34,59 @@ const DisplayModeToggle = memo(
     displayMode: IPerpFavoritesDisplayMode;
     onToggle: () => void;
   }) => (
-    <XStack onPress={onToggle}>
-      <SegmentControl
-        value={displayMode}
-        onChange={() => {}}
-        options={[
-          { label: '$', value: 'price' },
-          { label: '%', value: 'percent' },
-        ]}
-        flexShrink={0}
-        pointerEvents="none"
-      />
+    <XStack
+      onPress={onToggle}
+      height={24}
+      bg="$bgStrong"
+      borderRadius="$2"
+      borderCurve="continuous"
+      p="$0.5"
+      alignItems="center"
+      cursor="pointer"
+      userSelect="none"
+      hoverStyle={{
+        bg: '$bgStrongHover',
+      }}
+      pressStyle={{
+        bg: '$bgStrongActive',
+      }}
+    >
+      <XStack
+        height={20}
+        px="$1"
+        alignItems="center"
+        justifyContent="center"
+        borderRadius="$1"
+        borderCurve="continuous"
+        bg={displayMode === 'price' ? '$bg' : 'transparent'}
+        minWidth={24}
+      >
+        <SizableText
+          size="$bodySm"
+          color={displayMode === 'price' ? '$text' : '$textSubdued'}
+          fontWeight={displayMode === 'price' ? '600' : '400'}
+        >
+          $
+        </SizableText>
+      </XStack>
+      <XStack
+        height={20}
+        px="$1"
+        alignItems="center"
+        justifyContent="center"
+        borderRadius="$1"
+        borderCurve="continuous"
+        bg={displayMode === 'percent' ? '$bg' : 'transparent'}
+        minWidth={24}
+      >
+        <SizableText
+          size="$bodySm"
+          color={displayMode === 'percent' ? '$text' : '$textSubdued'}
+          fontWeight={displayMode === 'percent' ? '600' : '400'}
+        >
+          %
+        </SizableText>
+      </XStack>
     </XStack>
   ),
 );
