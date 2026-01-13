@@ -1,5 +1,6 @@
 import type * as RNFS from 'react-native-fs';
 
+// eslint-disable-next-line spellcheck/spell-checker
 const rnfsMock: typeof RNFS | undefined = {
   DocumentDirectoryPath: '',
   CachesDirectoryPath: '',
