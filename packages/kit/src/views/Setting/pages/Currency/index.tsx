@@ -3,7 +3,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { INavSearchBarProps } from '@onekeyhq/components';
 import {
   Empty,
   Page,
@@ -13,10 +12,8 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import {
-  useCurrencyPersistAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type ICurrencyType = 'crypto' | 'fiat' | 'popular';
@@ -35,13 +32,6 @@ type ISectionItem = {
 };
 
 const emptySections: ISectionItem[] = [];
-const currencyFilterFn = (keyword: string, item: ICurrencyItem) => {
-  const text = keyword.toLowerCase();
-  return (
-    item.id.toLowerCase().includes(text) ||
-    item.name.toLowerCase().includes(text)
-  );
-};
 
 const CurrencyItem: FC<{
   item: ICurrencyItem;
@@ -74,42 +64,7 @@ export default function SettingCurrencyModal() {
     currencyRef.current as ICurrencyItem,
   );
   const intl = useIntl();
-  const [{ currencyMap }] = useCurrencyPersistAtom();
-  const sections = useMemo(() => {
-    const currencyItems = Object.values(currencyMap);
-    if (currencyItems.length === 0) {
-      return [];
-    }
-    const section: Record<ICurrencyType, ICurrencyItem[]> = {
-      'crypto': [],
-      'fiat': [],
-      'popular': [],
-    };
-    const data = currencyItems.filter((item) => currencyFilterFn(text, item));
-    for (let i = 0; i < data.length; i += 1) {
-      const item = data[i];
-      item.type.forEach((type) => {
-        if (section[type]) {
-          section[type].push(item);
-        }
-      });
-    }
-    return [
-      {
-        title: intl.formatMessage({ id: ETranslations.global_popular }),
-        data: section.popular,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_crypto }),
-        data: section.crypto,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.settings_fiat }),
-        data: section.fiat,
-      },
-    ].filter((item) => item.data.length > 0);
-  }, [currencyMap, intl, text]);
-
+  const sections = useCurrencySections(text);
   const handlePress = useCallback((item: ICurrencyItem) => {
     setCurrency(item);
   }, []);

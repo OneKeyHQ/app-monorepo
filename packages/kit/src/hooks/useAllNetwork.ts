@@ -44,14 +44,18 @@ const allNetworkAccountsBaseCache = new Map<
 >();
 
 function sweepAllNetworkAccountsBaseCache(now = Date.now()) {
-  for (const [key, entry] of Array.from(allNetworkAccountsBaseCache.entries())) {
+  for (const [key, entry] of Array.from(
+    allNetworkAccountsBaseCache.entries(),
+  )) {
     if (now - entry.createdAt >= ALL_NETWORK_ACCOUNTS_BASE_CACHE_TTL_MS) {
       allNetworkAccountsBaseCache.delete(key);
     }
   }
-  while (allNetworkAccountsBaseCache.size > ALL_NETWORK_ACCOUNTS_BASE_CACHE_MAX_ENTRIES) {
-    const oldestKey = allNetworkAccountsBaseCache.keys().next()
-      .value as IAllNetworkAccountsBaseCacheKey | undefined;
+  while (
+    allNetworkAccountsBaseCache.size >
+    ALL_NETWORK_ACCOUNTS_BASE_CACHE_MAX_ENTRIES
+  ) {
+    const oldestKey = allNetworkAccountsBaseCache.keys().next().value;
     if (!oldestKey) {
       break;
     }

@@ -1,8 +1,8 @@
 import { memo, useMemo } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
-import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
   useAggregateTokensListMapAtom,

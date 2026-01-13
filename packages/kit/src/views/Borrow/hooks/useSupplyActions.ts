@@ -6,6 +6,8 @@ import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IBorrowToken } from '@onekeyhq/shared/types/staking';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -54,6 +56,38 @@ function buildSwapToken(token: IBorrowToken, network: IServerNetwork) {
     logoURI: isNative ? network.logoURI : token.logoURI,
     networkLogoURI: network.logoURI,
   };
+}
+
+// Get the default fromToken based on the selected token
+// If the selected token is native (e.g., SOL), use the default toToken as fromToken
+// to avoid native-to-native swap pairs (e.g., SOL to SOL)
+function getDefaultFromToken(
+  token: IBorrowToken,
+  network: IServerNetwork,
+): ReturnType<typeof buildNativeSwapToken> | ISwapToken {
+  const isTokenNative = !token.address || token.address === '';
+
+  if (isTokenNative) {
+    // If the selected token is native, use the default toToken as fromToken
+    const defaultConfig = swapDefaultSetTokens[network.id] as
+      | { fromToken?: ISwapToken; toToken?: ISwapToken }
+      | undefined;
+    if (defaultConfig?.toToken) {
+      return defaultConfig.toToken;
+    }
+  }
+
+  // For non-native tokens or fallback, use native token as fromToken
+  return buildNativeSwapToken(network);
+}
+
+// Get Ethereum ETH token from swap configuration for bridge
+function getEthereumEthToken(): ISwapToken {
+  const ethConfig = swapDefaultSetTokens['evm--1'] as {
+    fromToken: ISwapToken;
+    toToken?: ISwapToken;
+  };
+  return ethConfig.fromToken;
 }
 
 export const useSupplyActions = ({
@@ -134,10 +168,12 @@ export const useSupplyActions = ({
           return;
         }
 
+        const fromToken = getDefaultFromToken(token, onekeyNetwork);
+
         navigation.pushModal(EModalRoutes.SwapModal, {
           screen: EModalSwapRoutes.SwapMainLand,
           params: {
-            importFromToken: buildNativeSwapToken(onekeyNetwork),
+            importFromToken: fromToken,
             importToToken: buildSwapToken(token, onekeyNetwork),
             swapTabSwitchType: supportSwap
               ? ESwapTabSwitchType.SWAP
@@ -184,10 +220,13 @@ export const useSupplyActions = ({
           return;
         }
 
+        // For bridge, always use Ethereum ETH as fromToken
+        const fromToken = getEthereumEthToken();
+
         navigation.pushModal(EModalRoutes.SwapModal, {
           screen: EModalSwapRoutes.SwapMainLand,
           params: {
-            importFromToken: buildNativeSwapToken(onekeyNetwork),
+            importFromToken: fromToken,
             importToToken: buildSwapToken(token, onekeyNetwork),
             swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
             swapSource: ESwapSource.MARKET,

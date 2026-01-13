@@ -10,6 +10,7 @@ import {
   Page,
   SectionList,
   Select,
+  Skeleton,
   SizableText,
   XStack,
   YStack,
@@ -30,7 +31,6 @@ import type { IBorrowHistory } from '@onekeyhq/shared/types/staking';
 
 import {
   PageFrame,
-  SimpleSpinnerSkeleton,
   isErrorState,
   isLoadingState,
 } from '../../Staking/components/PageFrame';
@@ -43,6 +43,46 @@ type IHistoryItemProps = {
   };
   provider?: string;
 };
+
+const HistorySectionHeaderSkeleton = () => (
+  <XStack h="$9" px="$5" alignItems="center" bg="$bgApp">
+    <Skeleton h="$4" w={120} borderRadius="$2" />
+  </XStack>
+);
+
+const HistoryItemSkeleton = () => (
+  <ListItem>
+    <Skeleton h="$10" w="$10" radius="round" />
+    <YStack flex={1} gap="$1">
+      <Skeleton h="$4" w={120} borderRadius="$2" />
+      <Skeleton h="$3" w={90} borderRadius="$2" />
+    </YStack>
+    <YStack alignItems="flex-end" gap="$1">
+      <Skeleton h="$4" w={80} borderRadius="$2" />
+      <Skeleton h="$3" w={60} borderRadius="$2" />
+    </YStack>
+  </ListItem>
+);
+
+const BorrowHistorySkeleton = ({ hideFilter }: { hideFilter: boolean }) => (
+  <YStack>
+    {!hideFilter ? (
+      <XStack px="$5" pb="$2">
+        <XStack h="$12" alignItems="center">
+          <Skeleton h="$4" w={140} borderRadius="$2" />
+        </XStack>
+      </XStack>
+    ) : null}
+    {[0, 1].map((section) => (
+      <YStack key={section}>
+        <HistorySectionHeaderSkeleton />
+        {[0, 1, 2].map((row) => (
+          <HistoryItemSkeleton key={row} />
+        ))}
+      </YStack>
+    ))}
+  </YStack>
+);
 
 const HistoryItem = ({ item, provider }: IHistoryItemProps) => {
   const navigation = useAppNavigation();
@@ -314,7 +354,7 @@ function BorrowHistoryList() {
       />
       <Page.Body>
         <PageFrame
-          LoadingSkeleton={SimpleSpinnerSkeleton}
+          LoadingSkeleton={() => <BorrowHistorySkeleton hideFilter={!!type} />}
           error={isErrorState({ result, isLoading })}
           loading={isLoadingState({ result, isLoading })}
           onRefresh={run}

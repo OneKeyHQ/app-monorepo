@@ -171,6 +171,7 @@ class ServiceAccountProfile extends ServiceBase {
     interacted: EAddressInteractionStatus;
     addressLabel?: string;
     badges: IAddressBadge[];
+    similarAddress?: string;
   }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
@@ -204,6 +205,7 @@ class ServiceAccountProfile extends ServiceBase {
         isScam,
         isCex,
         badges,
+        similarAddress,
       } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
@@ -221,6 +223,7 @@ class ServiceAccountProfile extends ServiceBase {
         interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
         addressLabel,
         badges: badges ?? [],
+        similarAddress,
       };
     } catch {
       return {
@@ -266,13 +269,20 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
 
-    const { isContract, interacted, addressLabel, isScam, isCex, badges } =
-      await this.getAddressAccountBadge({
-        networkId,
-        fromAddress,
-        toAddress,
-        checkInteraction,
-      });
+    const {
+      isContract,
+      interacted,
+      addressLabel,
+      isScam,
+      isCex,
+      badges,
+      similarAddress,
+    } = await this.getAddressAccountBadge({
+      networkId,
+      fromAddress,
+      toAddress,
+      checkInteraction,
+    });
     if (
       checkInteractionStatus &&
       toAddress.toLowerCase() !== fromAddress &&
@@ -287,6 +297,7 @@ class ServiceAccountProfile extends ServiceBase {
     result.isScam = isScam;
     result.isCex = isCex;
     result.addressBadges = badges;
+    result.similarAddress = similarAddress;
   }
 
   private async verifyCannotSendToSelf({
@@ -328,6 +339,7 @@ class ServiceAccountProfile extends ServiceBase {
     skipValidateAddress,
     enableAddressDeriveInfo,
     walletAccountItem,
+    ignoreSimilarAddressInAddressBook,
   }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
@@ -386,27 +398,24 @@ class ServiceAccountProfile extends ServiceBase {
     }
     if (enableAddressBook && resolveAddress) {
       try {
-        const password =
-          await this.backgroundApi.servicePassword.getCachedPassword();
-        if (password) {
-          // handleAddressBookName
-          const addressBookItem =
-            await this.backgroundApi.serviceAddressBook.findItem({
+        // handleAddressBookName
+        const addressBookItem =
+          await this.backgroundApi.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
+            {
               networkId: !networkUtils.isEvmNetwork({ networkId })
                 ? networkId
                 : undefined,
               address: resolveAddress,
-              password,
-            });
-          result.addressBookId = addressBookItem?.id;
-          result.isAllowListed = addressBookItem?.isAllowListed;
-          result.addressNote = addressBookItem?.note;
-          result.addressMemo = addressBookItem?.memo;
-          if (addressBookItem?.name) {
-            result.addressBookName = `${appLocale.intl.formatMessage({
-              id: ETranslations.global_contact,
-            })} / ${addressBookItem?.name}`;
-          }
+            },
+          );
+        result.addressBookId = addressBookItem?.id;
+        result.isAllowListed = addressBookItem?.isAllowListed;
+        result.addressNote = addressBookItem?.note;
+        result.addressMemo = addressBookItem?.memo;
+        if (addressBookItem?.name) {
+          result.addressBookName = `${appLocale.intl.formatMessage({
+            id: ETranslations.global_contact,
+          })} / ${addressBookItem?.name}`;
         }
       } catch (e) {
         console.error(e);
@@ -533,6 +542,12 @@ class ServiceAccountProfile extends ServiceBase {
         ),
         result,
       });
+
+      if (result.similarAddress && ignoreSimilarAddressInAddressBook) {
+        if (result.addressBookId) {
+          result.similarAddress = undefined;
+        }
+      }
     }
 
     // Check if address is in allowlist

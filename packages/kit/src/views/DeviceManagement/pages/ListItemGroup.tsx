@@ -26,7 +26,6 @@ function ListItemGroupBase({
     const res: ReactNode[] = [];
 
     arr.forEach((child, idx) => {
-      console.log('=========>>>>>>>> child', idx, child);
       const isListItem = isValidElement(child);
       if (!isListItem) {
         res.push(child);

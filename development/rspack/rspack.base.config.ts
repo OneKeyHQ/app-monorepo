@@ -125,10 +125,13 @@ const baseResolve = ({
   fullySpecified: false,
 });
 
-const basePlugins: (RspackPluginInstance | false | null | undefined)[] = [
+const buildBasePlugins: (
+  platform: string,
+) => (RspackPluginInstance | false | null | undefined)[] = (platform) => [
   new rspack.DefinePlugin({
     __DEV__: isDev,
     'process.env.ONEKEY_PROXY': JSON.stringify(onekeyProxy),
+    'process.env.ONEKEY_PLATFORM': JSON.stringify(platform),
     'process.env.NODE_ENV': JSON.stringify(nodeEnv),
     'process.env.TAMAGUI_TARGET': JSON.stringify('web'),
   }),
@@ -231,7 +234,7 @@ export function createBaseConfig({
           ROOT_ID: 'root',
         },
       }) as unknown as RspackPluginInstance,
-      ...basePlugins.filter(Boolean),
+      ...buildBasePlugins(platform).filter(Boolean),
     ],
     module: {
       rules: [

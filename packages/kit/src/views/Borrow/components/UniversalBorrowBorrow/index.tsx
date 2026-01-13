@@ -84,7 +84,7 @@ export function UniversalBorrowBorrow({
   tokenImageUri,
   decimals,
   price: inputPrice,
-  tokenInfo,
+  tokenInfo: _tokenInfo,
   isDisabled,
   beforeFooter,
   showApyDetail = false,
@@ -465,7 +465,7 @@ export function UniversalBorrowBorrow({
             {showApyDetail && transactionConfirmation?.apyDetail ? (
               <BorrowInfoItem
                 title={intl.formatMessage({
-                  id: ETranslations.defi_supply_apy,
+                  id: ETranslations.defi_borrow_apy,
                 })}
               >
                 <ApyTextV2

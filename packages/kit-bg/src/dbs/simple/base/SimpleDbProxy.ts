@@ -60,6 +60,7 @@ import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniv
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
 import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
+import type { SimpleDbEntityRookieGuide } from '../entity/SimpleDbEntityRookieGuide';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -286,4 +287,8 @@ export class SimpleDbProxy
   ipTable = this._createProxyService('ipTable') as SimpleDbEntityIpTable;
 
   deFi = this._createProxyService('deFi') as SimpleDbEntityDeFi;
+
+  rookieGuide = this._createProxyService(
+    'rookieGuide',
+  ) as SimpleDbEntityRookieGuide;
 }
