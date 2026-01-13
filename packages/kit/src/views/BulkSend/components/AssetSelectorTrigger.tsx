@@ -16,11 +16,14 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import useConfigurableChainSelector from '../../ChainSelector/hooks/useChainSelector';
 
 import { useBulkSendContext } from './BulkSendContext';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 function AssetSelectorTrigger() {
   const intl = useIntl();
   const media = useMedia();
   const {
+    selectedAccountId,
     selectedNetworkId,
     selectedToken,
     setSelectedToken,
@@ -55,22 +58,32 @@ function AssetSelectorTrigger() {
       networkIds: availableNetworkIds,
       defaultNetworkId: selectedNetworkId,
       onSelect: async (_network) => {
-        const networkAccounts =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-            {
-              networkIds: [_network.id],
-              indexedAccountId: selectedIndexedAccountId ?? '',
-            },
-          );
+        let accountId = '';
+        if (
+          accountUtils.isOthersAccount({ accountId: selectedAccountId }) ||
+          (networkUtils.isAllNetwork({ networkId: selectedNetworkId }) &&
+            selectedAccountId)
+        ) {
+          accountId = selectedAccountId ?? '';
+        } else {
+          const networkAccounts =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+              {
+                networkIds: [_network.id],
+                indexedAccountId: selectedIndexedAccountId ?? '',
+              },
+            );
+          accountId = networkAccounts[0].account?.id ?? '';
+        }
 
-        if (networkAccounts[0].account) {
+        if (accountId) {
           navigation.push(EChainSelectorPages.TokenSelector, {
-            activeAccountId: networkAccounts[0]?.account?.id ?? '',
+            activeAccountId: accountId,
             activeNetworkId: _network.id,
             indexedAccountId: selectedIndexedAccountId ?? '',
             onSelect: (token: IToken) => {
               setSelectedToken(token);
-              setSelectedAccountId(networkAccounts[0]?.account?.id ?? '');
+              setSelectedAccountId(accountId);
               setSelectedNetworkId(_network.id);
               navigation.popStack();
             },
@@ -90,6 +103,7 @@ function AssetSelectorTrigger() {
     openChainSelector,
     availableNetworkIds,
     selectedNetworkId,
+    selectedAccountId,
     selectedIndexedAccountId,
     navigation,
     setSelectedToken,

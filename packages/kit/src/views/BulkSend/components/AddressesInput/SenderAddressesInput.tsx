@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 
@@ -12,9 +12,13 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IAddressBadge } from '@onekeyhq/shared/types/address';
+import {
+  EInputAddressChangeType,
+  type IAddressBadge,
+} from '@onekeyhq/shared/types/address';
 
 import { useBulkSendContext } from '../BulkSendContext';
 
@@ -32,6 +36,10 @@ function SenderAddressesInput() {
   } = useBulkSendContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>([]);
+
+  // Use refs to store latest values for validation closure
+  const selectedAccountIdRef = useRef(selectedAccountId);
+  const selectedIndexedAccountIdRef = useRef(selectedIndexedAccountId);
 
   const handleValidateAddresses = useCallback(
     async (_value: string) => {
@@ -54,52 +62,87 @@ function SenderAddressesInput() {
               networkId: selectedNetworkId ?? '',
               address: _value.trim(),
             });
-          setAddressBadges(
-            walletAccountItems[0]
-              ? [
-                  {
-                    label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
-                    type: 'success',
-                  },
-                ]
-              : [],
-          );
 
           if (isEmpty(walletAccountItems)) {
             return 'Address not found in your wallet';
           }
 
+          let accountItem:
+            | { walletName: string; accountName: string; accountId: string }
+            | undefined;
+
+          // Use refs to get the latest values (avoid closure stale state issue)
+          const currentAccountId = selectedAccountIdRef.current;
+          const currentIndexedAccountId = selectedIndexedAccountIdRef.current;
+
+          if (currentAccountId || currentIndexedAccountId) {
+            accountItem = walletAccountItems.find((item) => {
+              if (currentIndexedAccountId) {
+                return item.accountId === currentIndexedAccountId;
+              }
+              return item.accountId === currentAccountId;
+            });
+          }
+
           let isWatchingAccount = false;
 
-          for (const item of walletAccountItems) {
-            if (
-              accountUtils.isHdAccount({ accountId: item.accountId }) ||
-              accountUtils.isHwAccount({ accountId: item.accountId })
-            ) {
-              const networkAccounts =
-                await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-                  {
-                    indexedAccountId: item.accountId,
-                    networkIds: [selectedNetworkId ?? ''],
-                  },
-                );
-              if (networkAccounts[0].account) {
-                setSelectedAccountId(networkAccounts[0].account.id);
-                setSelectedIndexedAccountId(item.accountId);
-                return true;
+          if (accountItem) {
+            setAddressBadges([
+              {
+                label: `${accountItem.walletName} / ${accountItem.accountName}`,
+                type: 'success',
+              },
+            ]);
+            isWatchingAccount = accountUtils.isWatchingAccount({
+              accountId: accountItem.accountId,
+            });
+          } else {
+            setAddressBadges(
+              walletAccountItems[0]
+                ? [
+                    {
+                      label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
+                      type: 'success',
+                    },
+                  ]
+                : [],
+            );
+            for (const item of walletAccountItems) {
+              if (
+                accountUtils.isHdAccount({ accountId: item.accountId }) ||
+                accountUtils.isHwAccount({ accountId: item.accountId })
+              ) {
+                const networkAccounts =
+                  await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+                    {
+                      indexedAccountId: item.accountId,
+                      networkIds: [selectedNetworkId ?? ''],
+                    },
+                  );
+                if (networkAccounts[0].account) {
+                  // Update refs immediately before setState
+                  selectedAccountIdRef.current = networkAccounts[0].account.id;
+                  selectedIndexedAccountIdRef.current = item.accountId;
+                  setSelectedAccountId(networkAccounts[0].account.id);
+                  setSelectedIndexedAccountId(item.accountId);
+                  return true;
+                }
+              } else if (
+                accountUtils.isExternalAccount({ accountId: item.accountId }) ||
+                accountUtils.isImportedAccount({ accountId: item.accountId })
+              ) {
+                // Update refs immediately before setState
+                selectedAccountIdRef.current = item.accountId;
+                selectedIndexedAccountIdRef.current = undefined;
+                setSelectedAccountId(item.accountId);
+                setSelectedIndexedAccountId(undefined);
+                break;
+              } else if (
+                accountUtils.isWatchingAccount({ accountId: item.accountId })
+              ) {
+                isWatchingAccount = true;
+                break;
               }
-            } else if (
-              accountUtils.isExternalAccount({ accountId: item.accountId }) ||
-              accountUtils.isImportedAccount({ accountId: item.accountId })
-            ) {
-              setSelectedAccountId(item.accountId);
-              setSelectedIndexedAccountId(undefined);
-              break;
-            } else if (
-              accountUtils.isWatchingAccount({ accountId: item.accountId })
-            ) {
-              isWatchingAccount = true;
-              break;
             }
           }
 
@@ -154,6 +197,35 @@ function SenderAddressesInput() {
     selectedTokenDetail?.balanceParsed,
   ]);
 
+  const handleActiveAccountChange = useCallback(
+    (activeAccount: IAccountSelectorActiveAccountInfo) => {
+      if (activeAccount.account?.id) {
+        selectedAccountIdRef.current = activeAccount.account.id;
+        setSelectedAccountId(activeAccount.account.id);
+      }
+      if (activeAccount.indexedAccount?.id) {
+        selectedIndexedAccountIdRef.current = activeAccount.indexedAccount.id;
+        setSelectedIndexedAccountId(activeAccount.indexedAccount.id);
+      } else {
+        selectedIndexedAccountIdRef.current = undefined;
+        setSelectedIndexedAccountId(undefined);
+      }
+    },
+    [setSelectedAccountId, setSelectedIndexedAccountId],
+  );
+
+  const handleInputTypeChange = useCallback((type: EInputAddressChangeType) => {
+    if (type !== EInputAddressChangeType.AccountSelector) {
+      selectedAccountIdRef.current = undefined;
+      selectedIndexedAccountIdRef.current = undefined;
+    }
+  }, []);
+
+  useEffect(() => {
+    selectedAccountIdRef.current = selectedAccountId;
+    selectedIndexedAccountIdRef.current = selectedIndexedAccountId;
+  }, [selectedAccountId, selectedIndexedAccountId]);
+
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -190,7 +262,8 @@ function SenderAddressesInput() {
           }}
           networkId={selectedNetworkId}
           accountId={selectedAccountId}
-          indexedAccountId={selectedIndexedAccountId}
+          onActiveAccountChange={handleActiveAccountChange}
+          onInputTypeChange={handleInputTypeChange}
         />
       </Form.Field>
     </AccountSelectorProviderMirror>

@@ -22,6 +22,7 @@ import {
   useBulkSendContext,
 } from '../components/BulkSendContext';
 import BulkSendHeader from '../components/BulkSendHeader';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 function BaseBulkSendAddressesInput() {
   const route = useAppRoute<
@@ -61,16 +62,25 @@ function BaseBulkSendAddressesInput() {
     let _selectedNetworkId: string | undefined;
     let _selectedTokenInfo: IToken | undefined;
     let _selectedIndexedAccountId: string | undefined;
+    let isAllNetwork = false;
+
+    if (networkId) {
+      _selectedNetworkId = networkId;
+    } else {
+      _selectedNetworkId = activeAccount?.network?.id;
+    }
 
     if (accountId) {
       _selectedAccountId = accountId;
     } else if (activeAccount?.account?.id) {
       _selectedAccountId = activeAccount?.account?.id;
     }
-    if (networkId) {
-      _selectedNetworkId = networkId;
-    } else {
-      _selectedNetworkId = activeAccount?.network?.id;
+
+    if (
+      _selectedNetworkId &&
+      networkUtils.isAllNetwork({ networkId: _selectedNetworkId })
+    ) {
+      isAllNetwork = true;
     }
 
     _selectedNetworkId = bulkSendUtils.fixBulkSendSupportedNetworkId({
@@ -81,6 +91,17 @@ function BaseBulkSendAddressesInput() {
       _selectedIndexedAccountId = indexedAccountId;
     } else if (activeAccount?.account?.indexedAccountId) {
       _selectedIndexedAccountId = activeAccount?.account?.indexedAccountId;
+    }
+
+    if (isAllNetwork) {
+      const networkAccounts =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+          {
+            networkIds: [_selectedNetworkId ?? ''],
+            indexedAccountId: _selectedIndexedAccountId ?? '',
+          },
+        );
+      _selectedAccountId = networkAccounts[0].account?.id ?? '';
     }
 
     if (tokenInfo) {

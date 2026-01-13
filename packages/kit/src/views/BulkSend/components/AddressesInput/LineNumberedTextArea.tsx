@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { TextInput as RNTextInput, StyleSheet } from 'react-native';
@@ -12,7 +12,6 @@ import {
   XStack,
   YStack,
   useClipboard,
-  useFormContext,
   useTheme,
 } from '@onekeyhq/components';
 import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
@@ -20,10 +19,8 @@ import { SelectorPlugin } from '@onekeyhq/kit/src/components/AddressInput/plugin
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  EInputAddressChangeType,
-  IAddressBadge,
-} from '@onekeyhq/shared/types/address';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
+import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -59,7 +56,7 @@ export type ILineNumberedTextAreaProps = {
   ) => void;
   networkId?: string;
   accountId?: string;
-  indexedAccountId?: string;
+  onInputTypeChange?: (type: EInputAddressChangeType) => void;
 };
 
 const FONT_SIZE = 16;
@@ -91,14 +88,12 @@ function LineNumberedTextArea({
   onActiveAccountChange,
   networkId,
   accountId,
-  indexedAccountId,
+  onInputTypeChange,
 }: ILineNumberedTextAreaProps) {
   const intl = useIntl();
   const inputRef = useRef<RNTextInput>(null);
   const [lineHeights, setLineHeights] = useState<Record<number, number>>({});
   const { getClipboard } = useClipboard();
-  const { watch } = useFormContext();
-  const rawSenderAddress = watch('senderAddresses');
   const theme = useTheme();
   const textColor = theme.text?.val;
   const [inputText, setInputText] = useState<string>(value);
@@ -140,6 +135,7 @@ function LineNumberedTextArea({
         // In multi-line mode, append clipboard content
         newValue = value ? `${value}\n${clipboardText}` : clipboardText;
       }
+      onInputTypeChange?.(EInputAddressChangeType.Paste);
       handleChangeText(newValue);
       Toast.success({
         title: intl.formatMessage({
@@ -147,7 +143,14 @@ function LineNumberedTextArea({
         }),
       });
     }
-  }, [getClipboard, value, handleChangeText, intl, singleLine]);
+  }, [
+    getClipboard,
+    value,
+    handleChangeText,
+    intl,
+    singleLine,
+    onInputTypeChange,
+  ]);
 
   // Only split into lines if there's content
   const lines = useMemo(() => {
@@ -189,10 +192,18 @@ function LineNumberedTextArea({
   }, []);
 
   const handleSelectedAccountChange = useCallback(
-    ({ text }: { text: string; inputType: EInputAddressChangeType }) => {
+    ({
+      text,
+      inputType,
+    }: {
+      text: string;
+      inputType: EInputAddressChangeType;
+    }) => {
+      onInputTypeChange?.(inputType);
+
       handleChangeText(text);
     },
-    [handleChangeText],
+    [handleChangeText, onInputTypeChange],
   );
 
   const styles = useMemo(
@@ -219,12 +230,6 @@ function LineNumberedTextArea({
       }),
     [textColor],
   );
-
-  useEffect(() => {
-    if (rawSenderAddress && inputTextRef.current !== rawSenderAddress) {
-      handleChangeText(rawSenderAddress);
-    }
-  }, [rawSenderAddress, handleChangeText]);
 
   return (
     <YStack>
@@ -324,6 +329,9 @@ function LineNumberedTextArea({
               <RNTextInput
                 ref={inputRef}
                 value={value}
+                onChange={() => {
+                  onInputTypeChange?.(EInputAddressChangeType.Manual);
+                }}
                 onChangeText={handleChangeText}
                 editable={!disabled}
                 multiline
