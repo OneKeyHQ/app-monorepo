@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { TextInput as RNTextInput, StyleSheet } from 'react-native';
@@ -12,14 +12,20 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useFormContext,
   useTheme,
 } from '@onekeyhq/components';
+import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
+import { SelectorPlugin } from '@onekeyhq/kit/src/components/AddressInput/plugins/selector';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IAddressBadge } from '@onekeyhq/shared/types/address';
+import type {
+  EInputAddressChangeType,
+  IAddressBadge,
+} from '@onekeyhq/shared/types/address';
 
 import type { LayoutChangeEvent } from 'react-native';
-import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
 
 export type ILineError = {
   lineNumber: number;
@@ -43,6 +49,17 @@ export type ILineNumberedTextAreaProps = {
   singleLine?: boolean;
   showAddressBadges?: boolean;
   addressBadges?: IAddressBadge[];
+  accountSelector?: {
+    num?: number;
+    clearNotMatch?: boolean;
+    onBeforeAccountSelectorOpen?: () => void;
+  };
+  onActiveAccountChange?: (
+    activeAccount: IAccountSelectorActiveAccountInfo,
+  ) => void;
+  networkId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
 };
 
 const FONT_SIZE = 16;
@@ -70,14 +87,22 @@ function LineNumberedTextArea({
   singleLine,
   showAddressBadges,
   addressBadges,
+  accountSelector,
+  onActiveAccountChange,
+  networkId,
+  accountId,
+  indexedAccountId,
 }: ILineNumberedTextAreaProps) {
   const intl = useIntl();
   const inputRef = useRef<RNTextInput>(null);
   const [lineHeights, setLineHeights] = useState<Record<number, number>>({});
   const { getClipboard } = useClipboard();
-
+  const { watch } = useFormContext();
+  const rawSenderAddress = watch('senderAddresses');
   const theme = useTheme();
   const textColor = theme.text?.val;
+  const [inputText, setInputText] = useState<string>(value);
+  const inputTextRef = useRef<string>('');
 
   // Calculate height based on singleLine mode
   const height = singleLine && !heightProp ? SINGLE_LINE_HEIGHT : heightProp;
@@ -95,6 +120,8 @@ function LineNumberedTextArea({
         const firstLine = text.split('\n')[0];
         processedText = firstLine ?? '';
       }
+      inputTextRef.current = processedText;
+      setInputText(processedText);
       onChangeText?.(processedText);
       onChange?.(processedText);
     },
@@ -161,10 +188,12 @@ function LineNumberedTextArea({
     console.log('Upload clicked');
   }, []);
 
-  const handleAccountSelector = useCallback(() => {
-    // TODO: Implement account selector
-    console.log('Account selector clicked');
-  }, []);
+  const handleSelectedAccountChange = useCallback(
+    ({ text }: { text: string; inputType: EInputAddressChangeType }) => {
+      handleChangeText(text);
+    },
+    [handleChangeText],
+  );
 
   const styles = useMemo(
     () =>
@@ -190,6 +219,12 @@ function LineNumberedTextArea({
       }),
     [textColor],
   );
+
+  useEffect(() => {
+    if (rawSenderAddress && inputTextRef.current !== rawSenderAddress) {
+      handleChangeText(rawSenderAddress);
+    }
+  }, [rawSenderAddress, handleChangeText]);
 
   return (
     <YStack>
@@ -325,7 +360,6 @@ function LineNumberedTextArea({
                 {showPaste ? (
                   <IconButton
                     variant="tertiary"
-                    size="small"
                     icon="ClipboardOutline"
                     onPress={handlePaste}
                     disabled={disabled}
@@ -337,7 +371,6 @@ function LineNumberedTextArea({
                 {showUpload ? (
                   <IconButton
                     variant="tertiary"
-                    size="small"
                     icon="UploadOutline"
                     onPress={handleUpload}
                     disabled={disabled}
@@ -347,15 +380,18 @@ function LineNumberedTextArea({
                   />
                 ) : null}
                 {showAccountSelector ? (
-                  <IconButton
-                    variant="tertiary"
-                    size="small"
-                    icon="ScanOutline"
-                    onPress={handleAccountSelector}
+                  <SelectorPlugin
                     disabled={disabled}
-                    title={intl.formatMessage({
-                      id: ETranslations.send_to_scan_tooltip,
-                    })}
+                    onChange={handleSelectedAccountChange}
+                    onActiveAccountChange={onActiveAccountChange}
+                    networkId={networkId}
+                    accountId={accountId}
+                    num={accountSelector?.num}
+                    currentAddress={inputText}
+                    clearNotMatch={accountSelector?.clearNotMatch}
+                    onBeforeAccountSelectorOpen={
+                      accountSelector?.onBeforeAccountSelectorOpen
+                    }
                   />
                 ) : null}
               </XStack>

@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 
 import { isEmpty } from 'lodash';
-import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Form,
@@ -11,8 +10,10 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 
 import { useBulkSendContext } from '../BulkSendContext';
@@ -21,7 +22,9 @@ import LineNumberedTextArea from './LineNumberedTextArea';
 
 function SenderAddressesInput() {
   const {
+    selectedAccountId,
     selectedNetworkId,
+    selectedIndexedAccountId,
     setSelectedAccountId,
     setSelectedIndexedAccountId,
     selectedTokenDetail,
@@ -152,24 +155,45 @@ function SenderAddressesInput() {
   ]);
 
   return (
-    <Form.Field
-      name="senderAddresses"
-      label="Sending Address(es)"
-      description={renderSenderAddressesDescription()}
-      rules={{
-        validate: handleValidateAddresses,
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.addressInput,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+      availableNetworksMap={{
+        0: {
+          networkIds: [selectedNetworkId ?? ''],
+          defaultNetworkId: selectedNetworkId,
+        },
       }}
     >
-      <LineNumberedTextArea
-        singleLine
-        showAddressBadges
-        addressBadges={addressBadges}
-        showPaste
-        showAccountSelector
-        placeholder="Enter address"
-        showLineNumbers={false}
-      />
-    </Form.Field>
+      <Form.Field
+        name="senderAddresses"
+        label="Sending Address(es)"
+        description={renderSenderAddressesDescription()}
+        rules={{
+          validate: handleValidateAddresses,
+        }}
+      >
+        <LineNumberedTextArea
+          singleLine
+          showAddressBadges
+          addressBadges={addressBadges}
+          showPaste
+          showAccountSelector
+          placeholder="Enter address"
+          showLineNumbers={false}
+          accountSelector={{
+            num: 0,
+            clearNotMatch: true,
+          }}
+          networkId={selectedNetworkId}
+          accountId={selectedAccountId}
+          indexedAccountId={selectedIndexedAccountId}
+        />
+      </Form.Field>
+    </AccountSelectorProviderMirror>
   );
 }
 
