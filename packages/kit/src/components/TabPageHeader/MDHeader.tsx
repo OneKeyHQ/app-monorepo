@@ -76,7 +76,7 @@ export function MDHeader({
             alignItems="center"
             justifyContent="space-between"
             px="$5"
-            h="$11"
+            h={44}
             {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
           >
             <View>
