@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useContext, useMemo, useState } from 'react';
 
+import { CommonActions } from '@react-navigation/native';
 import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -23,6 +24,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  rootNavigationRef,
   startViewTransition,
   useClipboard,
 } from '@onekeyhq/components';
@@ -677,7 +679,6 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
 export function ResetPinListItem(props: ICustomElementProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
-  const navigation = useAppNavigation();
 
   const onPress = useCallback(async () => {
     try {
@@ -687,19 +688,29 @@ export function ResetPinListItem(props: ICustomElementProps) {
       });
       // Show loading only after password verification succeeds
       setIsLoading(true);
-      // Close Settings modal stack first, then open PIN page
-      navigation.popStack();
-      setTimeout(() => {
-        void goToOneKeyIDLoginPageForKeylessWallet({
-          mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
-        });
-      }, 0);
+      // Reset navigation state to remove modal without triggering tab state change
+      const state = rootNavigationRef.current?.getRootState();
+      if (state) {
+        const filteredRoutes = state.routes.filter(
+          (route) => route.name !== 'modal',
+        );
+        rootNavigationRef.current?.dispatch(
+          CommonActions.reset({
+            ...state,
+            routes: filteredRoutes,
+            index: filteredRoutes.length - 1,
+          }),
+        );
+      }
+      await goToOneKeyIDLoginPageForKeylessWallet({
+        mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
+      });
     } catch {
       // User cancelled password verification, do nothing
     } finally {
       setIsLoading(false);
     }
-  }, [goToOneKeyIDLoginPageForKeylessWallet, navigation]);
+  }, [goToOneKeyIDLoginPageForKeylessWallet]);
 
   return (
     <TabSettingsListItem
