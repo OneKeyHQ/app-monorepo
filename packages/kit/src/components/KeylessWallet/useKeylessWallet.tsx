@@ -28,6 +28,7 @@ import type {
   IDeviceKeyPack,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
@@ -45,6 +46,11 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
+
+import {
+  showAppleIDMismatchDialog,
+  showGoogleDriveMismatchDialog,
+} from './AccountMismatchDialog';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
   return true;
@@ -586,14 +592,44 @@ export function useKeylessWallet() {
               { token },
             );
           if (!isValid) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
-              }),
-              message: intl.formatMessage({
-                id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
-              }),
-            });
+            // Platform-specific account mismatch handling
+            if (platformEnv.isNativeAndroid) {
+              // Android: Check if Google Drive account differs from OAuth account
+              const { isCloudAccountMismatch, oauthEmail, cloudEmail } =
+                await backgroundApiProxy.serviceKeylessWallet.checkCloudAccountMismatch();
+              if (isCloudAccountMismatch) {
+                // Google Drive is logged in with a different account - show dialog with logout option
+                await showGoogleDriveMismatchDialog({
+                  intl,
+                  oauthEmail,
+                  cloudEmail,
+                });
+              } else {
+                // No Google Drive mismatch - show Toast for OAuth account selection issue
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
+                  }),
+                  message: intl.formatMessage({
+                    id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+                  }),
+                });
+              }
+            } else if (platformEnv.isNativeIOS) {
+              // iOS: Show dialog with Apple ID switching instructions
+              showAppleIDMismatchDialog({ intl });
+            } else {
+              // Other platforms: Show Toast
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
+                }),
+                message: intl.formatMessage({
+                  id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+                }),
+              });
+            }
+
             navigation.navigate(ERootRoutes.Onboarding, {
               screen: EOnboardingV2Routes.OnboardingV2,
               params: {
@@ -603,7 +639,6 @@ export function useKeylessWallet() {
                 },
               },
             });
-            // TODO logout google account
             throw new OneKeyLocalError(
               intl.formatMessage({
                 id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
