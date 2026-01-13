@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { KeylessOnboardingDebugPanelView } from '@onekeyhq/kit/src/views/Onboardingv2/pages/KeylessOnboardingDebugPanel';
 import type {
   IKeylessMnemonicInfo,
   IKeylessWalletPacks,
@@ -51,6 +52,10 @@ export const KeylessWalletGallery = () => {
       suggestions={['Generate Wallet', 'Restore Mnemonic']}
       boundaryConditions={['Needs 2 of 3 keys to restore']}
       elements={[
+        {
+          title: 'KeylessOnboardingDebugPanel',
+          element: <KeylessOnboardingDebugPanelView />,
+        },
         {
           title: 'Generate Keyless Wallet',
           element: (

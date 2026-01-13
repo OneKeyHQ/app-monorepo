@@ -9,6 +9,10 @@ import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/Ac
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -253,6 +257,8 @@ function AllNetworksManager() {
       enabledNetworks: networksState.enabledNetworks,
       disabledNetworks: networksState.disabledNetworks,
     });
+
+    appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
 
     navigation.pop();
 
