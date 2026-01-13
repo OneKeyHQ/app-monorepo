@@ -677,6 +677,7 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
 export function ResetPinListItem(props: ICustomElementProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
+  const navigation = useAppNavigation();
 
   const onPress = useCallback(async () => {
     try {
@@ -686,15 +687,19 @@ export function ResetPinListItem(props: ICustomElementProps) {
       });
       // Show loading only after password verification succeeds
       setIsLoading(true);
-      await goToOneKeyIDLoginPageForKeylessWallet({
-        mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
-      });
+      // Close Settings modal stack first, then open PIN page
+      navigation.popStack();
+      setTimeout(() => {
+        void goToOneKeyIDLoginPageForKeylessWallet({
+          mode: EOnboardingV2OneKeyIDLoginMode.KeylessResetPin,
+        });
+      }, 0);
     } catch {
       // User cancelled password verification, do nothing
     } finally {
       setIsLoading(false);
     }
-  }, [goToOneKeyIDLoginPageForKeylessWallet]);
+  }, [goToOneKeyIDLoginPageForKeylessWallet, navigation]);
 
   return (
     <TabSettingsListItem
