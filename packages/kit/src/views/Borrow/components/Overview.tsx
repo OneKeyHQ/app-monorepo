@@ -222,7 +222,7 @@ export const Overview = ({
   }, [refreshBorrowRewards, refreshRewardsRef]);
 
   const requestRefresh = useCallback(
-    async (reason: 'manual' | 'txSuccess') => {
+    async (_reason: 'manual' | 'txSuccess') => {
       setIsManualRefreshing(true);
       try {
         await refreshBorrowData();
