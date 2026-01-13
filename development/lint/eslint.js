@@ -106,7 +106,6 @@ function handleProblems(result) {
       `Detected ${warningOverflow} warnings over the limit of ${maxWarnings}. Prioritizing recent files...`,
     );
     const recentFiles = getRecentCommitFiles(10);
-    console.log(`Recent changed files: ${recentFiles.join(', ')}`);
     // Separate warning groups into recent and non-recent
     const recentWarningGroups = [];
     const otherWarningGroups = [];
