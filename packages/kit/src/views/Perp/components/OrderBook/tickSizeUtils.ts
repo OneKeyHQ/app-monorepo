@@ -100,6 +100,7 @@ function mapTickToParams(
     const d = Math.abs(p.step - tickSize);
     return !best || d < best.d ? { p, d } : best;
   }, null as null | { p: ReturnType<typeof allowedPairs>[number]; d: number });
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const nearest = nearestResult!.p;
 
   return {

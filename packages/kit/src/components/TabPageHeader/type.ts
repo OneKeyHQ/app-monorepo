@@ -18,6 +18,7 @@ export interface ITabPageHeaderProp {
   customHeaderLeftItems?: ReactNode;
   hideSearch?: boolean;
   hideHeaderLeft?: boolean;
+  headerPx?: string;
 }
 
 export interface ITabPageHeaderContainerProps {

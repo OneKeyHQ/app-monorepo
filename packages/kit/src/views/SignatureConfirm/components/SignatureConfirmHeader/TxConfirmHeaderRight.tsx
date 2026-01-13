@@ -2,7 +2,6 @@ import { memo, useEffect, useMemo, useState } from 'react';
 
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Image as RNImage } from 'react-native';
 
 import {
   Button,

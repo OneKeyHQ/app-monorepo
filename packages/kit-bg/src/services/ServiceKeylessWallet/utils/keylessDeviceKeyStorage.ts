@@ -1,11 +1,8 @@
-import { decodeSensitiveTextAsync, sha256 } from '@onekeyhq/core/src/secret';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IDeviceKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-
-import { settingsPersistAtom } from '../../../states/jotai/atoms';
 
 import { buildKeylessLocalEncryptionKey } from './keylessLocalEncryptionKey';
 import keylessStorageUtils from './keylessStorageUtils';

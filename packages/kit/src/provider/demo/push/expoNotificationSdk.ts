@@ -20,7 +20,7 @@ addNotificationResponseReceivedListener(async (event, ...others) => {
 });
 
 setNotificationHandler({
-  handleNotification: async ({ request }) =>
+  handleNotification: async ({ request: _request }) =>
     ({
       shouldShowAlert: true,
       shouldPlaySound: true,

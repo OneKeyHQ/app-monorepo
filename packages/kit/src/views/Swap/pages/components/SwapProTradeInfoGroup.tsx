@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -206,6 +206,17 @@ const SwapProTradeInfoGroup = ({
           py: '$1',
         }}
       />
+      {swapProDirection === ESwapDirection.SELL ? (
+        <SellForSelector
+          defaultTokens={defaultTokensFromType}
+          currentSelectToken={swapProSelectToken as ISwapTokenBase}
+          onTokenSelect={(token) => handleTokenSelect(token as IToken)}
+          symbol={swapProSellToToken?.symbol ?? '-'}
+          isLoading={swapProQuoteFetching}
+          itemTitleProps={ITEM_TITLE_PROPS}
+          itemValueProps={ITEM_VALUE_PROPS}
+        />
+      ) : null}
       {swapProTradeType === ESwapProTradeType.LIMIT ? (
         <SwapCommonInfoItem
           title={intl.formatMessage({
@@ -272,17 +283,6 @@ const SwapProTradeInfoGroup = ({
           py: '$1',
         }}
       />
-      {swapProDirection === ESwapDirection.SELL ? (
-        <SellForSelector
-          defaultTokens={defaultTokensFromType}
-          currentSelectToken={swapProSelectToken as ISwapTokenBase}
-          onTokenSelect={(token) => handleTokenSelect(token as IToken)}
-          symbol={swapProSellToToken?.symbol ?? '-'}
-          isLoading={swapProQuoteFetching}
-          itemTitleProps={ITEM_TITLE_PROPS}
-          itemValueProps={ITEM_VALUE_PROPS}
-        />
-      ) : null}
       <SwapCommonInfoItem
         title={intl.formatMessage({
           id: ETranslations.provider_ios_popover_wallet_fee,

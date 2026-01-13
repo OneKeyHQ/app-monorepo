@@ -62,14 +62,17 @@ const ListRoute = () => (
 );
 
 function HomePage() {
-  const screenWidth = useWindowDimensions().width;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _screenWidth = useWindowDimensions().width;
   const actions = useAccountSelectorActions();
 
-  const onRefresh = useCallback(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _onRefresh = useCallback(() => {
     // tabsViewRef?.current?.setRefreshing(true);
   }, []);
 
-  const data = useMemo(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _data = useMemo(
     () => [
       {
         title: 'Label',
@@ -91,7 +94,8 @@ function HomePage() {
     [],
   );
 
-  const renderHeaderView = useCallback(() => <HeaderView />, []);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _renderHeaderView = useCallback(() => <HeaderView />, []);
 
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
 
