@@ -791,7 +791,9 @@ export interface IBorrowHealthFactorRiskDetail {
   data: {
     healthFactorDetail: {
       index: string;
+      liquidationAtIndex: string;
       value: string;
+      valueColor: ColorTokens;
       lowerLimit: string;
       upperLimit: string;
       gradientStops?: IHealthFactorGradientStop[];
