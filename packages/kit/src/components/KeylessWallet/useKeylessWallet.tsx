@@ -1070,7 +1070,9 @@ export function useVerifyKeylessPinChecking() {
                 id: ETranslations.pin_verify_reminder_dialog_desc,
               }),
               showCancelButton: true,
-              onCancelText: 'Skip now',
+              onCancelText: intl.formatMessage({
+                id: ETranslations.global_not_now,
+              }),
               onCancel: async () => {
                 try {
                   await cancelVerifyPin(ownerId);
