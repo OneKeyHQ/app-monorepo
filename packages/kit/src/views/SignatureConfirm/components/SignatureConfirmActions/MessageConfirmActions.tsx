@@ -342,7 +342,7 @@ function MessageConfirmActions(props: IProps) {
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
       >
-        <Stack gap="$3">
+        <Stack gap="$3" flexShrink={1}>
           {showTakeRiskAlert ? (
             <Checkbox
               label={intl.formatMessage({

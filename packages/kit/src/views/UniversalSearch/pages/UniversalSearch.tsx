@@ -557,7 +557,7 @@ export function UniversalSearch({
         case EUniversalSearchType.Dapp:
           return `${item.type}-${item.payload.dappId || index}`;
         case EUniversalSearchType.Perp:
-          return `${item.type}-${item.payload.coin}-${index}`;
+          return `${item.type}-${item.payload.name}-${index}`;
         default:
           return `${index}`;
       }

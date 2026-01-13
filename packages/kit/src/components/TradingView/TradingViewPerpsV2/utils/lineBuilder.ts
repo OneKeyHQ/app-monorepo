@@ -104,6 +104,7 @@ export function buildPositionLine(
     price: toChartPriceString(position.entryPx),
     qty: formatWithPrecision(absSize, szDecimals),
     side,
+    pnlPositive: unrealizedPnl.gte(0),
     label: { left: pnlFormatted, right: sizeFormatted },
     editable: false,
     meta: { leverageType },

@@ -67,6 +67,8 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'tradingview_analytics_studyRemoved',
   'btc_requestAccount',
   'btc_signTransaction',
+  'wallet_getRookieGuideInfo',
+  'wallet_resetRookieGuideProgress',
 ];
 
 // white list method which can be called from any origin

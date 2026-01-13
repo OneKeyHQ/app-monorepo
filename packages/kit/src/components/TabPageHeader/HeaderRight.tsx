@@ -203,6 +203,7 @@ export function HeaderRight({
       className="app-region-no-drag"
       width={width}
       jc={platformEnv.isNative ? undefined : 'flex-end'}
+      flexShrink={platformEnv.isNative ? undefined : 1}
     >
       {items}
     </HeaderButtonGroup>
