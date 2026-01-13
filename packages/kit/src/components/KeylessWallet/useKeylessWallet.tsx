@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Toast } from '@onekeyhq/components';
+import { Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   primePersistAtom,
@@ -28,7 +28,11 @@ import type {
   IDeviceKeyPack,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
   EOnboardingV2KeylessWalletCreationMode,
@@ -1048,6 +1052,24 @@ export function useVerifyKeylessPinChecking() {
         const shouldVerifyPin = await checkShouldVerifyPin();
 
         if (shouldVerifyPin) {
+          // Check if the current route is still the Home tab before showing the dialog
+          const isHomeTabFocused = () => {
+            const state = rootNavigationRef.current?.getRootState();
+            if (!state || state.routes.length > 1) {
+              // There are modals or other routes on top
+              return false;
+            }
+            const mainRoute = state.routes[0];
+            const mainState = mainRoute?.state;
+            // Check if the current tab is Home
+            const currentTabRoute = mainState?.routes?.[mainState?.index ?? 0];
+            return currentTabRoute?.name === ETabRoutes.Home;
+          };
+
+          if (!isHomeTabFocused()) {
+            return;
+          }
+
           const showPinReminderDialog = () => {
             Dialog.show({
               showExitButton: false,
@@ -1062,7 +1084,9 @@ export function useVerifyKeylessPinChecking() {
                 id: ETranslations.pin_verify_reminder_dialog_desc,
               }),
               showCancelButton: true,
-              onCancelText: 'Skip now',
+              onCancelText: intl.formatMessage({
+                id: ETranslations.global_not_now,
+              }),
               onCancel: async () => {
                 try {
                   await cancelVerifyPin(ownerId);
