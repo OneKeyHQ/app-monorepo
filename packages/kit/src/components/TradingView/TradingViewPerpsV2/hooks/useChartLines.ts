@@ -40,25 +40,29 @@ function hasLineChanged(prev: ITVLine, current: ITVLine): boolean {
   return (
     prev.price !== current.price ||
     prev.qty !== current.qty ||
+    prev.pnlPositive !== current.pnlPositive ||
     prev.label?.left !== current.label?.left ||
     prev.label?.right !== current.label?.right
   );
 }
 
 /**
- * Check if a line change is PNL-only (only left label changed for position lines).
+ * Check if a line change is PNL-only (only left label or pnlPositive changed for position lines).
  * PNL changes are frequent and should be throttled.
  */
 function isPnlOnlyChange(prev: ITVLine, current: ITVLine): boolean {
   if (current.kind !== 'position') return false;
 
-  const onlyLeftLabelChanged =
-    prev.label?.left !== current.label?.left &&
+  const pnlFieldsChanged =
+    prev.label?.left !== current.label?.left ||
+    prev.pnlPositive !== current.pnlPositive;
+
+  const nonPnlFieldsUnchanged =
     prev.price === current.price &&
     prev.qty === current.qty &&
     prev.label?.right === current.label?.right;
 
-  return onlyLeftLabelChanged;
+  return pnlFieldsChanged && nonPnlFieldsUnchanged;
 }
 
 function isPnlOnlyPatch(
