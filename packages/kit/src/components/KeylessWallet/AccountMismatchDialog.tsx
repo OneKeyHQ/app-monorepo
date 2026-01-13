@@ -13,7 +13,7 @@ export function showGoogleDriveMismatchDialog(params: {
 }): void {
   const { intl } = params;
 
-  Dialog.show({
+  void Dialog.show({
     icon: 'ErrorOutline',
     title: intl.formatMessage({
       id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
@@ -51,7 +51,7 @@ export function showGoogleDriveMismatchDialog(params: {
 export function showAppleIDMismatchDialog(params: { intl: IntlShape }): void {
   const { intl } = params;
 
-  Dialog.show({
+  void Dialog.show({
     icon: 'ErrorOutline',
     title: intl.formatMessage({
       id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
