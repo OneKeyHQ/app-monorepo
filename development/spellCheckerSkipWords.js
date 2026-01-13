@@ -871,6 +871,8 @@ module.exports = [
   'uniswap',
   'unittest',
   'unlink',
+  'rmdir',
+  'lstat',
   'unmaximize',
   'unmount',
   'Unprefixed',
