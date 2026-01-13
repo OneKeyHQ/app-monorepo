@@ -17,8 +17,12 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
+import {
+  useKeylessWallet,
+  useVerifyKeylessPinChecking,
+} from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   type IPinInputLayoutRef,
@@ -47,6 +51,7 @@ function VerifyPinPage() {
     useRoute<RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.VerifyPin>>();
   const { mode } = route.params ?? {};
   const { verifyKeylessOnboardingPin } = useKeylessWallet();
+  const { cancelVerifyPin } = useVerifyKeylessPinChecking();
   const [isLoading, setIsLoading] = useState(false);
   const pinInputRef = useRef<IPinInputLayoutRef | null>(null);
 
@@ -139,11 +144,25 @@ function VerifyPinPage() {
     [isInputDisabled],
   );
 
+  const handleForgotPin = useCallback(() => {
+    if (isVerifyPinOnly) {
+      navigation.push(EOnboardingPagesV2.CreatePin, {
+        action: EKeylessFinalizeAction.ResetPin,
+      });
+    } else {
+      navigation.push(EOnboardingPagesV2.ResetPin);
+    }
+  }, [navigation, isVerifyPinOnly]);
+
+  const isSubmitSuccessRef = useRef(false);
   const handleVerify = useCallback(async () => {
     try {
+      isSubmitSuccessRef.current = false;
       setIsLoading(true);
       await verifyKeylessOnboardingPin({ pin, mode });
+      isSubmitSuccessRef.current = true;
     } catch (e) {
+      isSubmitSuccessRef.current = false;
       if (
         errorUtils.isErrorByClassName({
           error: e,
@@ -159,7 +178,7 @@ function VerifyPinPage() {
 
         if (newAttemptsRemaining <= 0) {
           // Max attempts reached - redirect to reset PIN page
-          navigation.replace(EOnboardingPagesV2.ResetPin);
+          void handleForgotPin();
         } else {
           // Get cooldown time for this attempt
           const cooldownTime = COOLDOWN_BY_ATTEMPT[attemptNumber] || 0;
@@ -189,19 +208,9 @@ function VerifyPinPage() {
     mode,
     pinInputRef,
     verifyKeylessOnboardingPin,
-    navigation,
+    handleForgotPin,
     startCooldown,
   ]);
-
-  const handleForgotPin = useCallback(() => {
-    if (isVerifyPinOnly) {
-      navigation.push(EOnboardingPagesV2.CreatePin, {
-        action: EKeylessFinalizeAction.ResetPin,
-      });
-    } else {
-      navigation.push(EOnboardingPagesV2.ResetPin);
-    }
-  }, [navigation, isVerifyPinOnly]);
 
   // Build error message based on state
   const displayErrorMessage = (() => {
@@ -238,6 +247,18 @@ function VerifyPinPage() {
     <PinInputLayout
       ref={pinInputRef}
       isLoading={isLoading}
+      onClose={async () => {
+        if (
+          mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly &&
+          !isSubmitSuccessRef.current
+        ) {
+          const wallet =
+            await backgroundApiProxy.serviceAccount.getKeylessWallet();
+          if (wallet?.keylessDetailsInfo?.keylessOwnerId) {
+            void cancelVerifyPin(wallet.keylessDetailsInfo.keylessOwnerId);
+          }
+        }
+      }}
       title={title}
       placeholder=""
       description={description}

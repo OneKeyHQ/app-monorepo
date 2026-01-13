@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, Toast } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -12,18 +13,21 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export function WalletRemoveDialog({
   defaultValue,
   wallet,
   showCheckBox,
   isRemoveToMocked,
+  isKeyless,
   onConfirmRemove,
 }: {
   defaultValue: boolean;
   wallet?: IDBWallet;
   showCheckBox: boolean;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
+  isKeyless?: boolean;
   onConfirmRemove?: () => void;
 }) {
   const intl = useIntl();
@@ -32,24 +36,40 @@ export function WalletRemoveDialog({
     changeValue(!!checked);
   }, []);
   const actions = useAccountSelectorActions();
+
+  // Keyless wallet always requires checkbox confirmation
+  const shouldShowCheckbox = showCheckBox || isKeyless;
+  const isConfirmDisabled = shouldShowCheckbox && !value;
+
   return (
     <>
-      {showCheckBox ? (
+      {shouldShowCheckbox ? (
         <Checkbox
           value={value}
           onChange={handleChange}
           label={intl.formatMessage({
-            id: ETranslations.remove_wallet_double_confirm_message,
+            id: isKeyless
+              ? ETranslations.log_out_wallet_checkbox_label
+              : ETranslations.remove_wallet_double_confirm_message,
           })}
         />
       ) : null}
       <Dialog.Footer
-        onConfirmText={intl.formatMessage({ id: ETranslations.global_remove })}
+        onConfirmText={intl.formatMessage({
+          id: isKeyless
+            ? ETranslations.global_logout
+            : ETranslations.global_remove,
+        })}
         confirmButtonProps={{
-          disabled: showCheckBox && !value,
+          disabled: isConfirmDisabled,
           variant: 'destructive',
         }}
         onConfirm={async () => {
+          if (isKeyless) {
+            await backgroundApiProxy.servicePassword.promptPasswordVerify({
+              reason: EReasonForNeedPassword.Security,
+            });
+          }
           await actions.current.removeWallet({
             walletId: wallet?.id || '',
             isRemoveToMocked,
@@ -157,6 +177,7 @@ export function showWalletRemoveDialog({
   config,
   showCheckBox,
   isRemoveToMocked,
+  isKeyless,
   onConfirmRemove,
 }: {
   defaultChecked: boolean;
@@ -166,6 +187,7 @@ export function showWalletRemoveDialog({
   config: IAccountSelectorContextData | undefined;
   showCheckBox: boolean;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
+  isKeyless?: boolean;
   onConfirmRemove?: () => void;
 }) {
   return Dialog.show({
@@ -180,6 +202,7 @@ export function showWalletRemoveDialog({
           defaultValue={defaultChecked}
           showCheckBox={showCheckBox}
           isRemoveToMocked={isRemoveToMocked}
+          isKeyless={isKeyless}
           onConfirmRemove={onConfirmRemove}
         />
       </AccountSelectorProviderMirror>

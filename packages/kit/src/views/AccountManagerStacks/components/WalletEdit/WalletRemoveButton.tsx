@@ -75,11 +75,12 @@ export function WalletRemoveButton({
           config,
           title,
           description,
-          // No checkbox for hw/qr wallets and keyless wallets
+          // No checkbox for hw/qr wallets (keyless has its own checkbox logic)
           showCheckBox: !isHwOrQr && !isKeyless,
           defaultChecked: false,
           wallet,
           isRemoveToMocked,
+          isKeyless,
         });
       }}
     />
