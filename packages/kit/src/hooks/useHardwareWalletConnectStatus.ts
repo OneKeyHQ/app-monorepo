@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ONEKEY_WEBUSB_FILTER } from '@onekeyfe/hd-shared';
 
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-/**
- * Check if a USB device is a OneKey hardware wallet
- */
+const EMPTY_SET = new Set<string>();
+
 function isOneKeyDevice(device: USBDevice): boolean {
   return (
     ONEKEY_WEBUSB_FILTER?.some(
@@ -18,57 +16,58 @@ function isOneKeyDevice(device: USBDevice): boolean {
   );
 }
 
+function areSetsEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const item of a) {
+    if (!b.has(item)) return false;
+  }
+  return true;
+}
+
+async function fetchConnectedDevices(): Promise<Set<string>> {
+  if (!platformEnv.isSupportWebUSB) {
+    return EMPTY_SET;
+  }
+
+  const usb = globalThis?.navigator?.usb;
+  if (!usb || typeof usb.getDevices !== 'function') {
+    return EMPTY_SET;
+  }
+
+  const devices = await usb.getDevices();
+  const deviceIds = new Set<string>();
+
+  for (const device of devices) {
+    if (isOneKeyDevice(device) && device.serialNumber) {
+      deviceIds.add(device.serialNumber);
+    }
+  }
+
+  return deviceIds.size > 0 ? deviceIds : EMPTY_SET;
+}
+
 /**
- * Hook to detect connected hardware wallets via WebUSB
- *
- * Features:
- * - Real-time detection using WebUSB connect/disconnect events
- * - Returns a Set of connected device IDs (USB serial numbers)
- * - Use connectedDevices.has(deviceId) to check if a specific wallet is connected
+ * Detect connected hardware wallets via WebUSB.
+ * Returns stable Set reference - only changes when device list actually changes.
  */
 export function useHardwareWalletConnectStatus() {
-  // State to trigger re-fetch when USB events occur
-  const [eventTrigger, setEventTrigger] = useState(0);
+  const prevDevicesRef = useRef<Set<string>>(EMPTY_SET);
+  const [connectedDevices, setConnectedDevices] =
+    useState<Set<string>>(EMPTY_SET);
 
-  const {
-    result: connectedDevices,
-    isLoading,
-    run: refresh,
-  } = usePromiseResult(
-    async () => {
-      // Only run on platforms that support WebUSB
-      if (!platformEnv.isSupportWebUSB) {
-        return new Set<string>();
-      }
+  const refreshDevices = async () => {
+    const newDevices = await fetchConnectedDevices();
+    if (!areSetsEqual(prevDevicesRef.current, newDevices)) {
+      prevDevicesRef.current = newDevices;
+      setConnectedDevices(newDevices);
+    }
+  };
 
-      const usb = globalThis?.navigator?.usb;
-      if (!usb || typeof usb.getDevices !== 'function') {
-        return new Set<string>();
-      }
-
-      // Get connected USB devices
-      const devices = await usb.getDevices();
-
-      // Filter OneKey devices and collect their serial numbers
-      const deviceIds = new Set<string>();
-      for (const device of devices) {
-        if (isOneKeyDevice(device) && device.serialNumber) {
-          deviceIds.add(device.serialNumber);
-        }
-      }
-
-      return deviceIds;
-    },
-    // eventTrigger is used to re-fetch when USB connect/disconnect events occur
+  useEffect(() => {
+    void refreshDevices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventTrigger],
-    {
-      initResult: new Set<string>(),
-      checkIsFocused: false,
-    },
-  );
+  }, []);
 
-  // Set up WebUSB event listeners for real-time connection detection
   useEffect(() => {
     if (!platformEnv.isSupportWebUSB) {
       return;
@@ -79,35 +78,21 @@ export function useHardwareWalletConnectStatus() {
       return;
     }
 
-    const handleConnect = (event: USBConnectionEvent) => {
+    const handleUSBEvent = (event: USBConnectionEvent) => {
       if (isOneKeyDevice(event.device)) {
-        setEventTrigger((prev) => prev + 1);
+        void refreshDevices();
       }
     };
 
-    const handleDisconnect = (event: USBConnectionEvent) => {
-      if (isOneKeyDevice(event.device)) {
-        setEventTrigger((prev) => prev + 1);
-      }
-    };
-
-    usb.addEventListener('connect', handleConnect);
-    usb.addEventListener('disconnect', handleDisconnect);
+    usb.addEventListener('connect', handleUSBEvent);
+    usb.addEventListener('disconnect', handleUSBEvent);
 
     return () => {
-      usb.removeEventListener('connect', handleConnect);
-      usb.removeEventListener('disconnect', handleDisconnect);
+      usb.removeEventListener('connect', handleUSBEvent);
+      usb.removeEventListener('disconnect', handleUSBEvent);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return useMemo(
-    () => ({
-      /** Set of connected device IDs (USB serial numbers) */
-      connectedDevices: connectedDevices ?? new Set<string>(),
-      isLoading,
-      /** Manually refresh connection status */
-      refresh,
-    }),
-    [connectedDevices, isLoading, refresh],
-  );
+  return { connectedDevices, refresh: refreshDevices };
 }

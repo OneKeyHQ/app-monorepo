@@ -97,28 +97,8 @@ export function AccountSelectorWalletListSideBar({
   const focusWalletChanged = useRef<boolean>(false);
 
   // Detect connected hardware wallets via WebUSB
+  // Note: connectedDevices reference is stable - only changes when device list actually changes
   const { connectedDevices } = useHardwareWalletConnectStatus();
-
-  // Stable reference for connected devices - only update when Set contents actually change
-  const connectedDevicesRef = useRef<Set<string>>(connectedDevices);
-  const [stableConnectedDevices, setStableConnectedDevices] =
-    useState<Set<string>>(connectedDevices);
-
-  useEffect(() => {
-    const prev = connectedDevicesRef.current;
-    const next = connectedDevices;
-
-    // Check if the Set contents actually changed
-    const hasChanged =
-      prev.size !== next.size ||
-      [...next].some((id) => !prev.has(id)) ||
-      [...prev].some((id) => !next.has(id));
-
-    if (hasChanged) {
-      connectedDevicesRef.current = next;
-      setStableConnectedDevices(next);
-    }
-  }, [connectedDevices]);
 
   const [layoutRefreshTS, setLayoutRefreshTS] = useState(0);
   useEffect(() => {
@@ -354,11 +334,11 @@ export function AccountSelectorWalletListSideBar({
       const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
       const deviceId = wallet.associatedDeviceInfo?.deviceId;
       const isConnected =
-        isHwWallet && deviceId ? stableConnectedDevices.has(deviceId) : false;
+        isHwWallet && deviceId ? connectedDevices.has(deviceId) : false;
       map.set(wallet.id, isConnected);
     });
     return map;
-  }, [wallets, stableConnectedDevices]);
+  }, [wallets, connectedDevices]);
 
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
   return (
