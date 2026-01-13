@@ -17,6 +17,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
   IDBWalletIdSingleton,
+  IKeylessWalletDetailsInfo,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IAccountSelectorFocusedWallet,
@@ -848,7 +849,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         mnemonic: string;
         isWalletBackedUp?: boolean;
         isKeylessWallet?: boolean;
-        keylessDetailsInfo?: import('@onekeyhq/kit-bg/src/dbs/local/types').IKeylessWalletDetailsInfo;
+        keylessDetailsInfo?: IKeylessWalletDetailsInfo;
       },
     ) =>
       this.withFinalizeWalletSetupStep.call(set, {

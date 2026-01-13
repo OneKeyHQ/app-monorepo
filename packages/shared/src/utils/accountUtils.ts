@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import appCrypto from '../appCrypto';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import {
@@ -37,6 +38,7 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { OneKeyInternalError } from '../errors';
 
+import bufferUtils from './bufferUtils';
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
@@ -1032,6 +1034,21 @@ function buildKeylessTokenKey({ ownerId }: { ownerId: string }): string {
   return `OneKey_Keyless_Token__${ownerId}`;
 }
 
+async function hashKeylessSocialUserId({
+  socialUserId,
+}: {
+  socialUserId: string;
+}): Promise<string> {
+  return bufferUtils.bytesToHex(
+    await appCrypto.hash.sha256(
+      Buffer.from(
+        `${socialUserId}98635F65-A052-4EF1-B84B-AF749D08DCF4`,
+        'utf-8',
+      ),
+    ),
+  );
+}
+
 function isValidDeriveType(deriveType: string): boolean {
   if (!deriveType) return false;
   const validDeriveTypes: Record<IAccountDeriveTypes, true> = {
@@ -1076,6 +1093,7 @@ export default {
   buildAllNetworkIndexedAccountIdFromAccountId,
 
   isKeylessWallet,
+  hashKeylessSocialUserId,
   isHdWallet,
   isQrWallet,
   isHwWallet,

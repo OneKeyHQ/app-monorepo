@@ -4,7 +4,6 @@ export enum ESpotlightTour {
   switchDappAccount = 'switchDappAccount',
   showFloatingIconDialog = 'showFloatingIconDialog',
   referAFriend = 'referAFriend',
-  hardwareSalesRewardAlert = 'hardwareSalesRewardAlert',
   earnRewardAlert = 'earnRewardAlert',
   allNetworksInfo = 'allNetworksInfo',
   earnRewardHistory = 'earnRewardHistory',

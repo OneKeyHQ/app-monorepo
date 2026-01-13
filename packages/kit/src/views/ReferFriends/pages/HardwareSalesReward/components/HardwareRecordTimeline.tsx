@@ -38,7 +38,7 @@ const historyTypeConfig: Record<IHistoryType, IHistoryTypeConfig> = {
     iconColor: '$iconCaution',
   },
   RewardConfirmed: {
-    iconName: 'InfoCircleSolid',
+    iconName: 'NoteSolid',
     iconColor: '$iconInfo',
   },
   OrderPlaced: {

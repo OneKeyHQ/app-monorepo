@@ -8,8 +8,8 @@ import {
 } from '@onekeyhq/kit/src/views/Staking/components/PageFrame';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
-import { BorrowReserveDetailsSkeleton } from './BorrowReserveDetailsSkeleton';
 import { BorrowFAQSection } from './BorrowFAQSection';
+import { BorrowReserveDetailsSkeleton } from './BorrowReserveDetailsSkeleton';
 import { ChartSection } from './ChartSection';
 import { DailyCapsSection } from './DailyCapsSection';
 import { ReserveDetailsTabs } from './ReserveDetailsTabs';
