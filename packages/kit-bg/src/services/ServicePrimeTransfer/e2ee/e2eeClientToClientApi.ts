@@ -120,7 +120,11 @@ export class E2EEClientToClientApi {
   async verifyPairingCode(
     keyExchangeRequest: IECDHEKeyExchangeRequest,
   ): Promise<IECDHEKeyExchangeResponse> {
-    const { userId, encryptedData, clientPublicKey } = keyExchangeRequest;
+    const {
+      userId: _userId,
+      encryptedData,
+      clientPublicKey,
+    } = keyExchangeRequest;
 
     if (isVerifiedRoomId === this.roomId) {
       const message = appLocale.intl.formatMessage({

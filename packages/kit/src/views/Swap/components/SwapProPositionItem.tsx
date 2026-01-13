@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import {
-  IStackProps,
   Icon,
   NumberSizeableText,
   SizableText,

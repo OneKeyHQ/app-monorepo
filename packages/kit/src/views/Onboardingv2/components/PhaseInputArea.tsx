@@ -167,8 +167,8 @@ function SuggestionList({
 }
 
 function PageFooter({
-  suggestions,
-  updateInputValue,
+  suggestions: _suggestions,
+  updateInputValue: _updateInputValue,
   onConfirm,
 }: {
   suggestions: string[];

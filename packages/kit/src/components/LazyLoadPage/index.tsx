@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { ComponentProps, ComponentType } from 'react';
+import type { ComponentType } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';

@@ -125,7 +125,6 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<
       disabled,
       beforeShowTrigger,
       loadingDuration,
-      ...rest
     }: INetworkSelectorTriggerDappConnectionProps,
     _: any,
   ) => {

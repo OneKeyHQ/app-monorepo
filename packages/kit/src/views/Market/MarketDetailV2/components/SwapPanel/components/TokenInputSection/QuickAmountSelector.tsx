@@ -2,13 +2,7 @@ import { Fragment, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import {
-  Button,
-  Divider,
-  SizableText,
-  Skeleton,
-  XStack,
-} from '@onekeyhq/components';
+import { Button, Divider, SizableText, XStack } from '@onekeyhq/components';
 import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
