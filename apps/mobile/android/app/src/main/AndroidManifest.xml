@@ -17,8 +17,7 @@
         android:maxSdkVersion="30"
         tools:node="replace" />
 
-  <!-- Android 13+ (API 33+) media permissions for saving images to gallery -->
-  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
   <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
   <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
 

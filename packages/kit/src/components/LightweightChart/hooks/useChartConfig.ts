@@ -15,6 +15,7 @@ interface IUseChartConfigProps {
   bottomColor?: string;
   lineWidth?: number;
   showPriceScale?: boolean;
+  showHorzGridLines?: boolean;
 }
 
 export function useChartConfig({
@@ -24,6 +25,7 @@ export function useChartConfig({
   bottomColor = DEFAULT_CHART_COLORS.bottomColor,
   lineWidth = 3,
   showPriceScale = false,
+  showHorzGridLines = false,
 }: IUseChartConfigProps): ILightweightChartConfig {
   const theme = useTheme();
 
@@ -39,17 +41,22 @@ export function useChartConfig({
       },
       lineWidth,
       showPriceScale,
+      showHorzGridLines,
+      horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
+      horzLineStyle: 2,
       data: data.map(([time, value]: [number, number]) => ({ time, value })),
     }),
     [
       data,
       theme.text?.val,
       theme.textSubdued?.val,
+      theme.borderSubdued?.val,
       lineColor,
       topColor,
       bottomColor,
       lineWidth,
       showPriceScale,
+      showHorzGridLines,
     ],
   );
 }

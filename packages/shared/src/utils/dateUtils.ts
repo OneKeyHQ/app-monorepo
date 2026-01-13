@@ -233,9 +233,9 @@ export function formatTime(date: Date | string, options?: IFormatDateOptions) {
 
   if (options?.hideSeconds) {
     formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
-  }
-
-  if (options?.hideMilliseconds) {
+    // Also hide milliseconds when hiding seconds
+    formatTemplate = formatTemplate.replace('.SSS', '');
+  } else if (options?.hideMilliseconds) {
     formatTemplate = formatTemplate.replace('.SSS', '');
   }
 

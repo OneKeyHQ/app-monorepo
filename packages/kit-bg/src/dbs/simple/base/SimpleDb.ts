@@ -521,4 +521,13 @@ export class SimpleDb {
     Object.defineProperty(this, 'deFi', { value });
     return value;
   }
+
+  get rookieGuide() {
+    const SimpleDbEntityRookieGuide = (
+      require('../entity/SimpleDbEntityRookieGuide') as unknown as typeof import('../entity/SimpleDbEntityRookieGuide')
+    ).SimpleDbEntityRookieGuide;
+    const value = new SimpleDbEntityRookieGuide();
+    Object.defineProperty(this, 'rookieGuide', { value });
+    return value;
+  }
 }
