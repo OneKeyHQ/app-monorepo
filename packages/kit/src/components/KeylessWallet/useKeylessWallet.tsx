@@ -595,15 +595,11 @@ export function useKeylessWallet() {
             // Platform-specific account mismatch handling
             if (platformEnv.isNativeAndroid) {
               // Android: Check if Google Drive account differs from OAuth account
-              const { isCloudAccountMismatch, oauthEmail, cloudEmail } =
+              const { isCloudAccountMismatch } =
                 await backgroundApiProxy.serviceKeylessWallet.checkCloudAccountMismatch();
               if (isCloudAccountMismatch) {
                 // Google Drive is logged in with a different account - show dialog with logout option
-                await showGoogleDriveMismatchDialog({
-                  intl,
-                  oauthEmail,
-                  cloudEmail,
-                });
+                await showGoogleDriveMismatchDialog({ intl });
               } else {
                 // No Google Drive mismatch - show Toast for OAuth account selection issue
                 Toast.error({

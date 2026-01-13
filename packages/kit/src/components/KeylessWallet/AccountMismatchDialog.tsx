@@ -10,18 +10,8 @@ import type { IntlShape } from 'react-intl';
  */
 export async function showGoogleDriveMismatchDialog(params: {
   intl: IntlShape;
-  oauthEmail?: string;
-  cloudEmail?: string;
 }): Promise<{ loggedOut: boolean }> {
-  const { intl, oauthEmail, cloudEmail } = params;
-
-  // TODO: Replace with proper translation key when available
-  // Translation key: keyless_wallet_google_drive_mismatch_desc
-  const description = `Your Google Drive is signed in with ${
-    cloudEmail || 'a different account'
-  }, but you authenticated with ${
-    oauthEmail || 'another account'
-  }. Log out of Google Drive to sign in with the correct account.`;
+  const { intl } = params;
 
   return new Promise((resolve) => {
     Dialog.show({
@@ -32,12 +22,17 @@ export async function showGoogleDriveMismatchDialog(params: {
       renderContent: (
         <YStack>
           <Dialog.Description>
-            <SizableText>{description}</SizableText>
+            <SizableText>
+              {intl.formatMessage({
+                id: ETranslations.keyless_wallet_google_drive_mismatch_desc,
+              })}
+            </SizableText>
           </Dialog.Description>
           <Dialog.Footer
             showCancelButton
-            // TODO: Replace with translation key: keyless_wallet_logout_google_drive
-            onConfirmText="Log out of Google Drive"
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.keyless_wallet_logout_google_drive,
+            })}
             onConfirm={async () => {
               await backgroundApiProxy.serviceCloudBackup.logoutFromGoogleDrive(
                 true,
@@ -61,14 +56,6 @@ export async function showGoogleDriveMismatchDialog(params: {
 export function showAppleIDMismatchDialog(params: { intl: IntlShape }): void {
   const { intl } = params;
 
-  // TODO: Replace with proper translation key when available
-  // Translation key: keyless_wallet_apple_id_mismatch_desc
-  const description = `The Apple ID on this device doesn't match the one used to create this keyless wallet. To resolve this:
-
-1. Go to Settings > [Your Name] > Sign Out
-2. Sign in with the correct Apple ID
-3. Return to the app and try again`;
-
   Dialog.show({
     icon: 'ErrorOutline',
     title: intl.formatMessage({
@@ -77,7 +64,11 @@ export function showAppleIDMismatchDialog(params: { intl: IntlShape }): void {
     renderContent: (
       <YStack>
         <Dialog.Description>
-          <SizableText>{description}</SizableText>
+          <SizableText>
+            {intl.formatMessage({
+              id: ETranslations.keyless_wallet_apple_id_mismatch_desc,
+            })}
+          </SizableText>
         </Dialog.Description>
         <Dialog.Footer
           showCancelButton={false}

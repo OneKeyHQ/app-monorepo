@@ -2118,17 +2118,10 @@ class ServiceKeylessWallet extends ServiceBase {
    * Check if the current cloud account (Google Drive on Android) matches the OAuth account.
    * Used to determine if the account mismatch is caused by Google Drive being logged in
    * with a different account.
-   *
-   * Returns:
-   * - isCloudAccountMismatch: true if Google Drive email differs from OAuth email
-   * - oauthEmail: the email from the current OAuth session
-   * - cloudEmail: the email from the current Google Drive account
    */
   @backgroundMethod()
   async checkCloudAccountMismatch(): Promise<{
     isCloudAccountMismatch: boolean;
-    oauthEmail?: string;
-    cloudEmail?: string;
   }> {
     try {
       // Get OAuth email from Prime user info
@@ -2151,11 +2144,7 @@ class ServiceKeylessWallet extends ServiceBase {
         !!cloudEmail &&
         oauthEmail.toLowerCase() !== cloudEmail.toLowerCase();
 
-      return {
-        isCloudAccountMismatch,
-        oauthEmail,
-        cloudEmail,
-      };
+      return { isCloudAccountMismatch };
     } catch {
       return { isCloudAccountMismatch: false };
     }
