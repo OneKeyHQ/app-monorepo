@@ -268,6 +268,16 @@ function NFTListContainer() {
 
   useEffect(() => {
     const initNFTsState = async (accountId: string, networkId: string) => {
+      updateSearchKey('');
+      void backgroundApiProxy.serviceNFT.updateCurrentAccount({
+        networkId,
+        accountId,
+      });
+
+      if (network?.isAllNetworks) {
+        return;
+      }
+
       const localNFTs = await backgroundApiProxy.serviceNFT.getAccountLocalNFTs(
         {
           accountId,
@@ -287,17 +297,17 @@ function NFTListContainer() {
           isRefreshing: true,
         });
       }
-
-      updateSearchKey('');
-      void backgroundApiProxy.serviceNFT.updateCurrentAccount({
-        networkId,
-        accountId,
-      });
     };
     if (account?.id && network?.id && wallet?.id) {
       void initNFTsState(account.id, network.id);
     }
-  }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
+  }, [
+    account?.id,
+    network?.id,
+    network?.isAllNetworks,
+    updateSearchKey,
+    wallet?.id,
+  ]);
 
   useEffect(() => {
     if (isHeaderRefreshing) {
