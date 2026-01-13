@@ -306,6 +306,7 @@ export default class Vault extends VaultBase {
 
       if (nativeToken) {
         const amount = nativeTx.amt?.toString() || '0';
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const to = sdkAlgo.encodeAddress(nativeTx.rcv!);
         const transfer: IDecodedTxTransferInfo = {
           from: sender,
@@ -329,9 +330,11 @@ export default class Vault extends VaultBase {
     }
 
     if (nativeTx.type === sdkAlgo.TransactionType.axfer) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const to = sdkAlgo.encodeAddress(nativeTx.arcv!);
       const token = await this.backgroundApi.serviceToken.getToken({
         networkId: this.networkId,
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         tokenIdOnNetwork: nativeTx.xaid!.toString(),
         accountId: this.accountId,
       });

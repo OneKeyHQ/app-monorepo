@@ -396,9 +396,9 @@ const OverviewComponent = ({
         </XStack>
       </XStack>
 
-      {shouldShowReferralBonus ? (
+      {shouldShowReferralBonus && rebateData ? (
         <Rebate
-          rebateData={rebateData!}
+          rebateData={rebateData}
           handleHistoryPress={handleHistoryPress}
         />
       ) : null}

@@ -1143,6 +1143,8 @@ module.exports = [
   'sifu',
   'coord',
   'lifi',
+  'Bech32',
+  'Algodv2',
   // TODO: Known typos in translation keys or type definitions - should be fixed eventually
   // exsited -> existed (ETranslations.feedback_wallet_exsited_due_to_same_pin_desc)
   'exsited',

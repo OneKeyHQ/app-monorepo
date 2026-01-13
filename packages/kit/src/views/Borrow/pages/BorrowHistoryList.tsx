@@ -354,6 +354,7 @@ function BorrowHistoryList() {
       />
       <Page.Body>
         <PageFrame
+          // eslint-disable-next-line react/no-unstable-nested-components
           LoadingSkeleton={() => <BorrowHistorySkeleton hideFilter={!!type} />}
           error={isErrorState({ result, isLoading })}
           loading={isLoadingState({ result, isLoading })}
