@@ -1,9 +1,15 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { CommonActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { OneKeyLogo, XStack, useOnRouterChange } from '@onekeyhq/components';
+import {
+  OneKeyLogo,
+  XStack,
+  rootNavigationRef,
+  useOnRouterChange,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useToReferFriendsModalByRootNavigation } from '@onekeyhq/kit/src/hooks/useReferFriends';
@@ -11,8 +17,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ERootRoutes,
   ETabEarnRoutes,
+  ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { HeaderNavigation } from './HeaderNavigation';
 
@@ -22,6 +30,31 @@ interface IUseWebHeaderNavigationParams {
   onNavigationChange?: (key: string) => void;
   activeNavigationKey?: string;
 }
+
+const resolveKey = (key: string, perpTabShowWeb: boolean) => {
+  switch (key) {
+    case 'market':
+      return ETabRoutes.Market;
+    case 'perps':
+      return perpTabShowWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp;
+    case 'defi':
+      return ETabRoutes.Earn;
+    case 'swap':
+      return ETabRoutes.Swap;
+    default:
+      break;
+  }
+};
+
+const backToTabHomePage = async (depth: number) => {
+  if (depth > 0) {
+    if (rootNavigationRef.current?.canGoBack) {
+      rootNavigationRef.current?.goBack();
+      await timerUtils.wait(50);
+      await backToTabHomePage(depth - 1);
+    }
+  }
+};
 
 function useWebHeaderNavigation({
   onNavigationChange,
@@ -73,30 +106,72 @@ function useWebHeaderNavigation({
     (key: string) => {
       onNavigationChange?.(key);
 
-      switch (key) {
-        case 'market':
-          navigation.switchTab(ETabRoutes.Market);
-          break;
-        case 'perps':
-          if (perpTabShowWeb) {
-            navigation.switchTab(ETabRoutes.WebviewPerpTrade);
-          } else {
-            navigation.switchTab(ETabRoutes.Perp);
+      const tabKey = resolveKey(key, !!perpTabShowWeb);
+
+      const rootState = rootNavigationRef.current?.getRootState();
+
+      if (rootState) {
+        const mainRouteState = rootState.routes?.[rootState.index]?.state;
+        if (mainRouteState) {
+          const tabRoute =
+            mainRouteState.routes[
+              mainRouteState?.index === undefined ? -1 : mainRouteState?.index
+            ];
+          console.log('tabRoute', tabRoute);
+          if (tabRoute?.name === tabKey) {
+            const stackDepths = tabRoute.state?.index || 0;
+            if (stackDepths > 0) {
+              void backToTabHomePage(stackDepths);
+            } else {
+              const tabHomeRouteName = tabRoute.state?.routes[0]?.name;
+              if (tabHomeRouteName === 'commission') {
+                return;
+              }
+              if (tabKey && tabHomeRouteName !== tabKey) {
+                let tabName = '';
+                switch (tabKey) {
+                  case ETabRoutes.Market:
+                    tabName = ETabMarketRoutes.TabMarket;
+                    break;
+                  case ETabRoutes.Earn:
+                    tabName = ETabEarnRoutes.EarnHome;
+                    break;
+                  default:
+                    break;
+                }
+                if (tabName) {
+                  navigation.dispatch(
+                    CommonActions.reset({
+                      index: 0,
+                      routes: [
+                        {
+                          name: tabName,
+                        },
+                      ],
+                    }),
+                  );
+                }
+              }
+            }
+            return;
           }
-          break;
-        case 'defi':
-          navigation.switchTab(ETabRoutes.Earn, {
-            screen: ETabEarnRoutes.EarnHome,
-          });
-          break;
-        case 'swap':
-          navigation.switchTab(ETabRoutes.Swap);
-          break;
-        case 'commission':
-          void toReferFriendsModal();
-          break;
-        default:
-          break;
+        }
+      }
+
+      if (key === 'commission') {
+        void toReferFriendsModal();
+        return;
+      }
+
+      if (key === 'defi') {
+        navigation.switchTab(ETabRoutes.Earn, {
+          screen: ETabEarnRoutes.EarnHome,
+        });
+        return;
+      }
+
+      if (tabKey) {
+        navigation.switchTab(tabKey as ETabRoutes);
       }
     },
     [navigation, onNavigationChange, perpTabShowWeb, toReferFriendsModal],
