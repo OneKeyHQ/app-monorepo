@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
@@ -94,6 +95,30 @@ export function AccountSelectorWalletListSideBar({
   const isEditableRouteParams = route.params?.editable;
   const { selectedAccount } = useSelectedAccount({ num });
   const focusWalletChanged = useRef<boolean>(false);
+
+  // Detect connected hardware wallets via WebUSB
+  const { connectedDevices } = useHardwareWalletConnectStatus();
+
+  // Stable reference for connected devices - only update when Set contents actually change
+  const connectedDevicesRef = useRef<Set<string>>(connectedDevices);
+  const [stableConnectedDevices, setStableConnectedDevices] =
+    useState<Set<string>>(connectedDevices);
+
+  useEffect(() => {
+    const prev = connectedDevicesRef.current;
+    const next = connectedDevices;
+
+    // Check if the Set contents actually changed
+    const hasChanged =
+      prev.size !== next.size ||
+      [...next].some((id) => !prev.has(id)) ||
+      [...prev].some((id) => !next.has(id));
+
+    if (hasChanged) {
+      connectedDevicesRef.current = next;
+      setStableConnectedDevices(next);
+    }
+  }, [connectedDevices]);
 
   const [layoutRefreshTS, setLayoutRefreshTS] = useState(0);
   useEffect(() => {
@@ -322,6 +347,19 @@ export function AccountSelectorWalletListSideBar({
   const listViewRef =
     useRef<ISortableListViewRef<IAccountSelectorWalletInfo>>(null);
 
+  // Pre-compute wallet connection status map for stable reference
+  const walletConnectionMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    wallets.forEach((wallet) => {
+      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
+      const deviceId = wallet.associatedDeviceInfo?.deviceId;
+      const isConnected =
+        isHwWallet && deviceId ? stableConnectedDevices.has(deviceId) : false;
+      map.set(wallet.id, isConnected);
+    });
+    return map;
+  }, [wallets, stableConnectedDevices]);
+
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
   return (
     <Stack
@@ -389,25 +427,24 @@ export function AccountSelectorWalletListSideBar({
           });
         }}
         extraData={[selectedAccount.focusedWallet, reloadWalletsHook]}
-        renderItem={({ item, drag, dragProps }) => {
-          return (
-            <Stack pb="$3" dataSet={dragProps}>
-              <WalletListItem
-                key={item.id}
-                wallet={item}
-                focusedWallet={selectedAccount.focusedWallet}
-                onWalletPress={onWalletPress}
-                onWalletLongPress={drag}
-                testID={`wallet-${item.id}`}
-                badge={item.badge}
-                isEditMode={isEditableRouteParams}
-                shouldShowCreateHiddenWalletButtonFn={
-                  shouldShowCreateHiddenWalletButtonFn
-                }
-              />
-            </Stack>
-          );
-        }}
+        renderItem={({ item, drag, dragProps }) => (
+          <Stack pb="$3" dataSet={dragProps}>
+            <WalletListItem
+              key={item.id}
+              wallet={item}
+              focusedWallet={selectedAccount.focusedWallet}
+              onWalletPress={onWalletPress}
+              onWalletLongPress={drag}
+              testID={`wallet-${item.id}`}
+              badge={item.badge}
+              isEditMode={isEditableRouteParams}
+              shouldShowCreateHiddenWalletButtonFn={
+                shouldShowCreateHiddenWalletButtonFn
+              }
+              isConnected={walletConnectionMap.get(item.id) ?? false}
+            />
+          </Stack>
+        )}
       />
       {/* Others */}
       {isEditableRouteParams ? (

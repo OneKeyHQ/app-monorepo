@@ -397,8 +397,8 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
-// Desktop (Electron) now supports WebUSB directly through Chromium, no need for bridge
-const isSupportWebUSB = isExtension || isWeb || isDesktop;
+// Desktop (Electron) supports WebUSB through Chromium, except Linux which uses Bridge due to udev permission issues
+const isSupportWebUSB = isExtension || isWeb || (isDesktop && !isDesktopLinux);
 
 const isSupportDesktopBle = isDesktopMac || isDesktopWin;
 
