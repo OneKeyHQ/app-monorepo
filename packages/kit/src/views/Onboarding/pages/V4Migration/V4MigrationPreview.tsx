@@ -49,11 +49,11 @@ function BackupDialogContent({
   confirmText: string;
 }) {
   const intl = useIntl();
-  const [migrationData, setMigrationData] = useV4migrationAtom();
+  const [_migrationData, setMigrationData] = useV4migrationAtom();
   const [isMasked, setIsMasked] = useState(true);
   const { copyText } = useClipboard();
   const [secretText, setSecretText] = useState('');
-  const networkInfo = item?.network ? (
+  const _networkInfo = item?.network ? (
     <XStack mb="$4">
       <NetworkAvatar networkId={item.network.id} />
       <SizableText ml="$2" color="$textSubdued">
@@ -266,7 +266,7 @@ function AccountsSectionList() {
     <SectionList
       // ListHeaderComponent={V4MigrationWarningMessage}
       sections={walletsForBackup}
-      renderSectionHeader={({ section: { title }, index }) => (
+      renderSectionHeader={({ section: { title } }) => (
         <SectionList.SectionHeader title={title} />
       )}
       estimatedItemSize="$10"
@@ -390,7 +390,7 @@ function ConfirmMigrationContent({
 }
 
 export function V4MigrationPreview({
-  route,
+  route: _route,
 }: IPageScreenProps<
   IOnboardingParamList,
   EOnboardingPages.V4MigrationPreview
@@ -398,7 +398,7 @@ export function V4MigrationPreview({
   const navigation = useAppNavigation();
   const intl = useIntl();
   const [migrateLoading, setMigrateLoading] = useState(false);
-  const { serviceV4Migration } = backgroundApiProxy;
+  const { serviceV4Migration: _serviceV4Migration } = backgroundApiProxy;
 
   const handleMigrateFromV4 = useCallback(async () => {
     try {

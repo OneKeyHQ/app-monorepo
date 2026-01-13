@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import type { IAlertProps, IStackStyle } from '@onekeyhq/components';
+import type { IAlertProps } from '@onekeyhq/components';
 import { Alert, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';

@@ -25,13 +25,7 @@ interface IRecentRecipientsProps {
 
 function RecentRecipients(props: IRecentRecipientsProps) {
   const intl = useIntl();
-  const {
-    accountId,
-    networkId,
-    searchKey: rawSearchKey,
-    isSearchMode,
-    onSelect,
-  } = props;
+  const { networkId, searchKey: rawSearchKey, isSearchMode, onSelect } = props;
 
   const { vaultSettings } = useAccountData({ networkId });
 

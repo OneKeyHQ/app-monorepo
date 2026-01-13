@@ -2,7 +2,6 @@ import { Base64 } from 'js-base64';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 export const base64Encode = function (arraybuffer: ArrayBuffer): string {
   const uint8Array = new Uint8Array(arraybuffer);

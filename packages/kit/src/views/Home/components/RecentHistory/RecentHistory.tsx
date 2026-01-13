@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { Button } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,

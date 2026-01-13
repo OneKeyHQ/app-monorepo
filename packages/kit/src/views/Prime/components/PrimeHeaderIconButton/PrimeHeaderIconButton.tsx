@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { HeaderIconButton, Stack, Toast } from '@onekeyhq/components';
+import { HeaderIconButton, Stack } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -15,7 +15,7 @@ export function useOnPrimeButtonPressed({
   onPress?: () => void | Promise<void>;
   networkId?: string;
 }) {
-  const { isReady, user } = useOneKeyAuth();
+  const { user } = useOneKeyAuth();
   const isPrime = user?.primeSubscription?.isActive;
 
   const navigation = useAppNavigation();

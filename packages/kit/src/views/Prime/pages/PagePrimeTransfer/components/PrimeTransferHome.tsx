@@ -13,7 +13,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
@@ -46,8 +45,6 @@ export function PrimeTransferHome({
   defaultTab?: 'qr-code' | 'enter-link';
   transferType?: EPrimeTransferDataType;
 }) {
-  const [primeTransferAtom] = usePrimeTransferAtom();
-
   const intl = useIntl();
   const TRANSFER_OPTIONS = useMemo(
     () =>

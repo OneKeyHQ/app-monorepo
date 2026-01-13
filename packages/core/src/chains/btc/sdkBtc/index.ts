@@ -326,6 +326,7 @@ export function validateBtcAddress({
   } catch (e) {
     errorUtils.autoPrintErrorIgnore(e);
     try {
+      // eslint-disable-next-line spellcheck/spell-checker
       const decoded = BitcoinJsAddress.fromBech32(address);
       if (
         decoded.version === 0x00 &&

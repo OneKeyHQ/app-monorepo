@@ -177,7 +177,7 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     return loadingStates[key] || false;
   });
 
-  getRecommendedTokens = contextAtomMethod((get, set) => {
+  getRecommendedTokens = contextAtomMethod((get, _set) => {
     const { recommendedTokens } = get(earnAtom());
     return recommendedTokens || [];
   });
@@ -190,7 +190,7 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     },
   );
 
-  getBanners = contextAtomMethod((get, set) => {
+  getBanners = contextAtomMethod((get, _set) => {
     const { banners } = get(earnAtom());
     return banners || [];
   });

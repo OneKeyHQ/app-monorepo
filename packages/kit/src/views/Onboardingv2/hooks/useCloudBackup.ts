@@ -29,8 +29,6 @@ import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTrans
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { showPrimeTransferImportProcessingDialog } from '../../Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
 import {
   showCloudBackupDeleteDialog,
@@ -74,7 +72,7 @@ export function useCloudBackup() {
         });
         return false;
       }
-      const showAlertDialog = () => {
+      const _showAlertDialogUnused = () => {
         Dialog.confirm({
           icon: 'InfoCircleOutline',
           title: intl.formatMessage({

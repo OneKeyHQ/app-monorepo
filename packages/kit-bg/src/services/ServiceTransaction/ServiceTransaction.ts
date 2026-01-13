@@ -143,6 +143,7 @@ class ServiceTransaction extends ServiceBase {
       };
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const { feeAmount, feeTokenSymbol, doubleConfirm } = verifyTxFeeInfoParams!;
 
     const accountAddress =
@@ -229,6 +230,7 @@ class ServiceTransaction extends ServiceBase {
       };
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const { origin } = verifyTxDappInfoParams!.sourceInfo!;
     const urlSecurityInfo =
       await this.backgroundApi.serviceDiscovery.checkUrlSecurity({

@@ -472,7 +472,7 @@ export function List<Item>({
   if (numColumns > 1) {
     return (
       <AutoSizer disableHeight>
-        {({ width: autoSizerWidth }) => {
+        {({ width: _autoSizerWidth }) => {
           return (
             <div
               ref={ref as React.RefObject<HTMLDivElement>}

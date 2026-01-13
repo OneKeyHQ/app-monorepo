@@ -65,7 +65,7 @@ export function NormalManageContent({
   networkId,
   symbol,
   provider,
-  vault,
+  vault: _vault,
   marketAddress,
   reserveAddress,
   tokenInfo,
