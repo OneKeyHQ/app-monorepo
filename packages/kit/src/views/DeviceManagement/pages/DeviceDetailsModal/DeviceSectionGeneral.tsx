@@ -76,14 +76,24 @@ export function LanguageListItem() {
         <ListItem
           mx="$0"
           px="$5"
+          py="$3"
           borderRadius="$0"
+          $gtMd={{ py: '$0' }}
           title={intl.formatMessage({
             id: ETranslations.global_language,
           })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
           disabled={stateful.loading}
         >
           <XStack alignItems="center">
-            <ListItem.Text primary={displayLabel} align="right" />
+            <ListItem.Text
+              primary={displayLabel}
+              align="right"
+              primaryTextProps={{
+                size: '$bodyMdMedium',
+                color: '$textSubdued',
+              }}
+            />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
         </ListItem>
@@ -167,14 +177,24 @@ export function AutoLockListItem() {
         <ListItem
           mx="$0"
           px="$5"
+          py="$3"
           borderRadius="$0"
+          $gtMd={{ py: '$0' }}
           title={intl.formatMessage({
             id: ETranslations.global_auto_lock,
           })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
           disabled={stateful.loading}
         >
           <XStack alignItems="center">
-            <ListItem.Text primary={displayLabel} align="right" />
+            <ListItem.Text
+              primary={displayLabel}
+              align="right"
+              primaryTextProps={{
+                size: '$bodyMdMedium',
+                color: '$textSubdued',
+              }}
+            />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
         </ListItem>
@@ -259,14 +279,24 @@ export function AutoShutDownListItem() {
         <ListItem
           mx="$0"
           px="$5"
+          py="$3"
           borderRadius="$0"
+          $gtMd={{ py: '$0' }}
           title={intl.formatMessage({
             id: ETranslations.global_auto_shutdown,
           })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
           disabled={stateful.loading}
         >
           <XStack alignItems="center">
-            <ListItem.Text primary={displayLabel} align="right" />
+            <ListItem.Text
+              primary={displayLabel}
+              align="right"
+              primaryTextProps={{
+                size: '$bodyMdMedium',
+                color: '$textSubdued',
+              }}
+            />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
         </ListItem>
@@ -294,6 +324,7 @@ export function HapticFeedbackListItem() {
       title={intl.formatMessage({
         id: ETranslations.global_vibration_haptic,
       })}
+      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
       value={hapticFeedback}
       onAction={onUpdateHapticFeedback}
     >
@@ -334,7 +365,7 @@ function DeviceSectionGeneral() {
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ h: '$12' }}
+      itemProps={{ minHeight: '$12' }}
       title={intl.formatMessage({
         id: ETranslations.global_general,
       })}
@@ -345,6 +376,7 @@ function DeviceSectionGeneral() {
         title={intl.formatMessage({
           id: deviceMeta.addWallpaperTitleId,
         })}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressHomescreen}
       />
@@ -353,6 +385,7 @@ function DeviceSectionGeneral() {
         title={intl.formatMessage({
           id: ETranslations.global_brightness,
         })}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressBrightness}
       />

@@ -1673,6 +1673,7 @@
   "global.nonce_faq": "Nonce คืออะไร?",
   "global.nonce_faq_desc": "คุณได้เปิดใช้งานการแสดงหมายเลขซีเรียลธุรกรรม (nonce) แล้ว คุณสามารถแก้ไขหมายเลขซีเรียลเพื่อปรับลำดับธุรกรรมของบัญชีปัจจุบันของคุณได้ นี่เป็นฟีเจอร์ขั้นสูง โปรดใช้ด้วยความระมัดระวัง",
   "global.not_available": "ไม่สามารถใช้ได้",
+  "global.not_now": "ไม่ตอนนี้",
   "global.notifications": "การแจ้งเตือน",
   "global.number_accounts": "{number} บัญชี",
   "global.number_items": "{number} รายการ",
