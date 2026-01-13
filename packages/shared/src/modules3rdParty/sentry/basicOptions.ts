@@ -78,16 +78,22 @@ const checkAndRedactMnemonicWords = (words: string[]): string[] => {
   return result;
 };
 
-// Sanitize a single text string (check for private keys and mnemonics)
+// Maximum word length before redacting (long strings may contain sensitive data)
+const MAX_WORD_LENGTH = 20;
+
+// Sanitize a single text string (check for private keys, long words, and mnemonics)
 const sanitizeText = (text: string): string => {
   if (typeof text !== 'string' || !text) {
     return text;
   }
   let words = text.split(' ');
-  // Check for private keys
+  // Check for private keys and long words
   for (let i = 0; i < words.length; i += 1) {
     if (checkPrivateKey(words[i])) {
       words[i] = '****';
+    } else if (words[i].length > MAX_WORD_LENGTH) {
+      // Redact words longer than MAX_WORD_LENGTH (may contain sensitive data like tokens, keys, etc.)
+      words[i] = '***';
     }
   }
   // Check for mnemonic sequences
@@ -140,7 +146,6 @@ export const testUtils = {
   checkAndRedactMnemonicWords,
   sanitizeText,
   sanitizeStacktrace,
-  MIN_MNEMONIC_SEQUENCE_LENGTH,
 };
 
 export const SENTRY_IPC = 'sentry-ipc://';
