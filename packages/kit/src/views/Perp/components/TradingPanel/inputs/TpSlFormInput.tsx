@@ -10,7 +10,6 @@ import {
   Select,
   SizableText,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {

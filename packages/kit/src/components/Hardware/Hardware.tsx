@@ -989,6 +989,7 @@ export function EnterPhase({
                     id: ETranslations.hidden_wallet_accessibility_title,
                   },
                   {
+                    // eslint-disable-next-line react/no-unstable-nested-components
                     strong: (chunks: ReactNode[]) => (
                       <SizableText size="$bodyMdMedium" color="$text">
                         {chunks}

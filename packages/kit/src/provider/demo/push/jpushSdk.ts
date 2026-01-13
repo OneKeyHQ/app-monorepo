@@ -13,7 +13,7 @@ const sdk: IDemoNotificationSdk = {
   init: async () => {
     // await JPush.init();
   },
-  showNotification: async (params) => {
+  showNotification: async (_params) => {
     // await JPush.showNotification(params);
   },
 };

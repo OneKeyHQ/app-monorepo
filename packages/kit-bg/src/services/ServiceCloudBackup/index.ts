@@ -48,7 +48,6 @@ import ServiceBase from '../ServiceBase';
 import { ERestoreResult } from './types';
 import {
   accountCountWithBackup,
-  filterWillRemoveBackupList,
   isAvailableBackupWithBackup,
 } from './utils/BackupUtils';
 

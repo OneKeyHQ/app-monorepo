@@ -53,7 +53,7 @@ function WalletEditButtonView({
   const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
   const [isResetPinLoading, setIsResetPinLoading] = useState(false);
-  const [isVerifyPinLoading, setIsVerifyPinLoading] = useState(false);
+  const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
 
   const isPrimeUser = useMemo(() => {
     return user?.primeSubscription?.isActive && user?.onekeyUserId;
@@ -117,14 +117,14 @@ function WalletEditButtonView({
 
   const handleKeylessWalletAction = useCallback(
     async ({
-      setLoading,
+      setLoading: _setLoading,
       mode,
     }: {
       setLoading: (loading: boolean) => void;
       mode: EOnboardingV2OneKeyIDLoginMode;
     }) => {
       try {
-        // setLoading(true);
+        // _setLoading(true);
         await timerUtils.wait(100);
         await backgroundApiProxy.servicePassword.promptPasswordVerify({
           reason: EReasonForNeedPassword.Security,

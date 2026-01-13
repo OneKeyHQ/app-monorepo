@@ -14,7 +14,6 @@ import {
   SizableText,
   XStack,
   YStack,
-  useTheme,
 } from '@onekeyhq/components';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -207,7 +206,7 @@ function DownloadOneKeyWalletListItem() {
   );
 }
 
-function Web3GuideListItem() {
+function _Web3GuideListItem() {
   const intl = useIntl();
   const handlePress = useCallback(() => {
     // TODO: implement Web3 guide link
@@ -362,7 +361,6 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
 }
 
 export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
-  const theme = useTheme();
   const renderHeaderLeft = useCallback(() => <WebHeaderNavigation />, []);
   const { config } = useAccountSelectorContextData();
 
