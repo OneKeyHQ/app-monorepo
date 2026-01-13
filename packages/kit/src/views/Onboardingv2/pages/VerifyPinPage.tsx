@@ -22,7 +22,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import {
-  getKeylessOnboardingToken,
   useKeylessWallet,
   useVerifyKeylessPinChecking,
 } from '../../../components/KeylessWallet/useKeylessWallet';
@@ -44,7 +43,8 @@ function VerifyPinPage() {
   const route =
     useRoute<RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.VerifyPin>>();
   const { mode } = route.params ?? {};
-  const { verifyKeylessOnboardingPin } = useKeylessWallet();
+  const { verifyKeylessOnboardingPin, getKeylessOnboardingToken } =
+    useKeylessWallet();
   const { cancelVerifyPin } = useVerifyKeylessPinChecking();
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingRateLimit, setIsCheckingRateLimit] = useState(true);
@@ -179,7 +179,7 @@ function VerifyPinPage() {
         );
       }
     },
-    [startCooldown, pinInputRef],
+    [getKeylessOnboardingToken, startCooldown],
   );
 
   // Check rate limit status on page enter

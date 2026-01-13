@@ -965,6 +965,7 @@ export function useKeylessWallet() {
     keylessOnboardingCache,
     cacheKeylessOnboardingPin,
     getKeylessOnboardingPin,
+    getKeylessOnboardingToken,
     handleKeylessOnboardingTimeout,
     cacheKeylessOnboardingCustomMnemonic,
     getKeylessOnboardingCustomMnemonic,
@@ -1135,5 +1136,3 @@ export function useVerifyKeylessPinChecking() {
   );
   return { verifyKeylessPinChecking, cancelVerifyPin };
 }
-
-export { getKeylessOnboardingToken };
