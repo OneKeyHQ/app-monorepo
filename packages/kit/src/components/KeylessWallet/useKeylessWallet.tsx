@@ -1135,3 +1135,5 @@ export function useVerifyKeylessPinChecking() {
   );
   return { verifyKeylessPinChecking, cancelVerifyPin };
 }
+
+export { getKeylessOnboardingToken };
