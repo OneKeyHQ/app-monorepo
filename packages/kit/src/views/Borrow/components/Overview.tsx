@@ -41,11 +41,6 @@ import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
 import { useBorrowRewards } from '../hooks/useBorrowRewards';
 import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
-import {
-  createBorrowRefreshScope,
-  registerBorrowRefreshHandler,
-  requestBorrowRefresh,
-} from '../refresh/borrowRefreshCoordinator';
 
 import { BorrowBonusTooltip } from './BorrowBonusTooltip';
 import { showBorrowClaimRewardsDialog } from './BorrowClaimRewardsDialog';
@@ -115,20 +110,6 @@ export const Overview = ({
   const networkId = market?.networkId;
   const marketAddress = market?.marketAddress;
   const earnAccountId = earnAccount?.accountId ?? earnAccount?.account?.id;
-  const refreshScope = useMemo(
-    () =>
-      createBorrowRefreshScope({
-        accountId: earnAccountId,
-        networkId,
-        provider,
-        marketAddress,
-      }),
-    [earnAccountId, marketAddress, networkId, provider],
-  );
-
-  useEffect(() => {
-    setIsManualRefreshing(false);
-  }, [refreshScope]);
 
   const historyLabel = useMemo(
     () => intl.formatMessage({ id: ETranslations.global_history }),
@@ -206,15 +187,15 @@ export const Overview = ({
     if (prevPendingCount === undefined || pendingCount >= prevPendingCount) {
       return undefined;
     }
-    let isActive = true;
+    let _isActive = true;
     setIsManualRefreshing(true);
     void refreshBorrowData().finally(() => {
-      if (isActive) {
+      if (_isActive) {
         setIsManualRefreshing(false);
       }
     });
     return () => {
-      isActive = false;
+      _isActive = false;
     };
   }, [pendingCount, prevPendingCount, refreshBorrowData]);
 
@@ -222,39 +203,16 @@ export const Overview = ({
     refreshRewardsRef.current = refreshBorrowRewards;
   }, [refreshBorrowRewards, refreshRewardsRef]);
 
-  useEffect(() => {
-    if (!refreshScope) return;
-    return registerBorrowRefreshHandler(refreshScope, async (request) => {
-      const shouldShowRefreshing = [
-        'manual',
-        'txSuccess',
-        'pendingCompleted',
-      ].includes(request.reason);
-      if (shouldShowRefreshing) {
-        setIsManualRefreshing(true);
-      }
+  const requestRefresh = useCallback(
+    async (reason: 'manual' | 'txSuccess') => {
+      setIsManualRefreshing(true);
       try {
         await refreshBorrowData();
       } finally {
-        if (shouldShowRefreshing) {
-          setIsManualRefreshing(false);
-        }
+        setIsManualRefreshing(false);
       }
-    });
-  }, [refreshBorrowData, refreshScope]);
-
-  const requestRefresh = useCallback(
-    (reason: 'manual' | 'txSuccess') => {
-      if (!refreshScope) return;
-      if (reason === 'manual' || reason === 'txSuccess') {
-        setIsManualRefreshing(true);
-      }
-      requestBorrowRefresh({
-        scope: refreshScope,
-        reason,
-      });
     },
-    [refreshScope, setIsManualRefreshing],
+    [refreshBorrowData],
   );
 
   const handleHistoryPress = useCallback(() => {

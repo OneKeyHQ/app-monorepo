@@ -139,7 +139,7 @@ export const useBorrowPendingTxs = ({
 
   const pendingCount = pendingTxs.length;
   const isPending = pendingCount > 0;
-  const prevPendingCount = usePrevious(pendingCount);
+  const prevIsPending = usePrevious(isPending);
 
   const refreshPendingWithHistory = useCallback(async () => {
     if (!isActiveRef.current) {
@@ -167,15 +167,17 @@ export const useBorrowPendingTxs = ({
     },
   );
 
+  // Trigger onRefresh callback when all pending transactions complete
+  // Use 3-second delay to allow backend data sync after transaction confirmation
   useEffect(() => {
-    if (prevPendingCount !== undefined && pendingCount < prevPendingCount) {
+    if (!isPending && prevIsPending) {
       const timeoutId = setTimeout(() => {
         onRefreshRef.current?.();
-      }, timerUtils.getTimeDurationMs({ seconds: 1 }));
+      }, timerUtils.getTimeDurationMs({ seconds: 3 }));
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [pendingCount, prevPendingCount]);
+  }, [isPending, prevIsPending]);
 
   useEffect(() => {
     if (accountMeta) {

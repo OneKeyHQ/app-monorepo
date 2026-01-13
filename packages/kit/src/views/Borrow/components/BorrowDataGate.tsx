@@ -13,10 +13,6 @@ import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowPendingTxs } from '../hooks/useBorrowPendingTxs';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
-import {
-  createBorrowRefreshScope,
-  registerBorrowRefreshHandler,
-} from '../refresh/borrowRefreshCoordinator';
 
 enum EBorrowDataStatus {
   Idle = 'Idle',
@@ -74,16 +70,6 @@ export const BorrowDataGate = ({
   const marketProvider = market?.provider;
   const marketNetworkId = market?.networkId;
   const marketAddress = market?.marketAddress;
-  const refreshScope = useMemo(
-    () =>
-      createBorrowRefreshScope({
-        accountId,
-        networkId: marketNetworkId,
-        provider: marketProvider,
-        marketAddress,
-      }),
-    [accountId, marketAddress, marketNetworkId, marketProvider],
-  );
   const fetchKey = useMemo(
     () =>
       !isEmpty(market)
@@ -258,14 +244,6 @@ export const BorrowDataGate = ({
   useEffect(() => {
     refreshPendingRef.current = refreshPending;
   }, [refreshPending, refreshPendingRef]);
-
-  useEffect(() => {
-    if (!refreshScope) return;
-    return registerBorrowRefreshHandler(refreshScope, async (request) => {
-      if (request.reason !== 'txSuccess') return;
-      await refreshPending();
-    });
-  }, [refreshPending, refreshScope]);
 
   useEffect(() => {
     if (reservesResult !== undefined) {
