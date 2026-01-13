@@ -103,7 +103,13 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
         title={intl.formatMessage({ id: ETranslations.global_about_device })}
       />
       <DeviceUpdateAlert type="top" />
-      <Page.Body alignItems="stretch" py="$8" testID="device-details-content">
+      <Page.Body
+        alignItems="stretch"
+        pt="$0"
+        pb="$8"
+        testID="device-details-content"
+        $gtMd={{ pt: '$8' }}
+      >
         <XStack
           w="100%"
           maxWidth="$pageWidth"
