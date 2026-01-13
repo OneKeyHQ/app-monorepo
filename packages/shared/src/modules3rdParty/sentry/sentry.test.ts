@@ -1,6 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { testUtils } from './basicOptions';
+import { buildBasicOptions, testUtils } from './basicOptions';
 
 const {
   checkPrivateKey,
@@ -459,6 +459,157 @@ describe('isFilterErrorAndSkipSentry', () => {
           value: 'Error invoking remote method GUEST_VIEW_MANAGER_CALL',
         }),
       ).toBe(false);
+    });
+  });
+});
+
+describe('buildBasicOptions', () => {
+  test('should return config object with correct properties', () => {
+    const onError = jest.fn();
+    const options = buildBasicOptions({ onError });
+
+    expect(options.enabled).toBe(true);
+    expect(options.maxBreadcrumbs).toBe(100);
+    expect(options.tracesSampleRate).toBe(0.1);
+    expect(options.profilesSampleRate).toBe(0.1);
+    expect(typeof options.beforeSend).toBe('function');
+  });
+
+  describe('beforeSend', () => {
+    const callBeforeSend = (
+      options: ReturnType<typeof buildBasicOptions>,
+      event: any,
+    ) => {
+      if (options.beforeSend) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return options.beforeSend(event, {});
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return event;
+    };
+
+    test('should sanitize error message and call onError callback', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: {
+          values: [
+            {
+              value: `Error with key ${TEST_ETH_PRIVATE_KEY}`,
+              stacktrace: { frames: [] },
+            },
+          ],
+        },
+      };
+
+      void callBeforeSend(options, event);
+
+      expect(event.exception.values[0].value).toBe('Error with key ****');
+      expect(onError).toHaveBeenCalledWith('Error with key ****', {
+        frames: [],
+      });
+    });
+
+    test('should sanitize stacktrace variables', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: {
+          values: [
+            {
+              value: 'Test error',
+              stacktrace: {
+                frames: [
+                  {
+                    vars: {
+                      secret: TEST_ETH_PRIVATE_KEY,
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      };
+
+      void callBeforeSend(options, event);
+
+      expect(event.exception.values[0].stacktrace.frames[0].vars.secret).toBe(
+        '****',
+      );
+    });
+
+    test('should filter breadcrumbs with sentry.event category and error level', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: { values: [] },
+        breadcrumbs: [
+          { category: 'sentry.event', level: 'info' },
+          { category: 'navigation', level: 'info' },
+          { category: 'http', level: 'error' },
+          { category: 'console', level: 'info' },
+        ],
+      };
+
+      const result = callBeforeSend(options, event);
+
+      expect(result).not.toBeNull();
+      expect(event.breadcrumbs).toEqual([
+        { category: 'navigation', level: 'info' },
+        { category: 'console', level: 'info' },
+      ]);
+    });
+
+    test('should return null for filtered error types', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: {
+          values: [
+            {
+              type: 'AxiosError',
+              value: 'Network error',
+            },
+          ],
+        },
+      };
+
+      const result = callBeforeSend(options, event);
+
+      expect(result).toBeNull();
+    });
+
+    test('should handle event without exception values', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        message: 'Simple message',
+      };
+
+      const result = callBeforeSend(options, event);
+
+      expect(result).toBe(event);
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    test('should handle exception value without stacktrace', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: {
+          values: [
+            {
+              value: `Secret: ${TEST_MNEMONIC_3}`,
+            },
+          ],
+        },
+      };
+
+      void callBeforeSend(options, event);
+
+      expect(event.exception.values[0].value).toBe('Secret: **** **** ****');
+      expect(onError).toHaveBeenCalledWith('Secret: **** **** ****', undefined);
     });
   });
 });
