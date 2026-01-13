@@ -9,7 +9,7 @@ import {
   useKeylessPinConfirmStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyLocalError,
@@ -592,30 +592,28 @@ export function useKeylessWallet() {
               { token },
             );
           if (!isValid) {
-            // Platform-specific account mismatch handling
-            if (platformEnv.isNativeAndroid) {
-              // Android: Check if Google Drive account differs from OAuth account
-              const { isCloudAccountMismatch } =
-                await backgroundApiProxy.serviceKeylessWallet.checkCloudAccountMismatch();
-              if (isCloudAccountMismatch) {
-                // Google Drive is logged in with a different account - show dialog with logout option
-                await showGoogleDriveMismatchDialog({ intl });
-              } else {
-                // No Google Drive mismatch - show Toast for OAuth account selection issue
-                Toast.error({
-                  title: intl.formatMessage({
-                    id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
-                  }),
-                  message: intl.formatMessage({
-                    id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
-                  }),
-                });
-              }
-            } else if (platformEnv.isNativeIOS) {
-              // iOS: Show dialog with Apple ID switching instructions
+            // Get keyless wallet provider type to determine which dialog to show
+            const keylessWallet =
+              await backgroundApiProxy.serviceAccount.getKeylessWallet();
+            const keylessProvider =
+              keylessWallet?.keylessDetailsInfo?.keylessProvider;
+
+            // Platform-specific account mismatch handling based on provider type
+            const isAndroidWithGoogle =
+              platformEnv.isNativeAndroid &&
+              keylessProvider === EOAuthSocialLoginProvider.Google;
+            const isIOSWithApple =
+              platformEnv.isNativeIOS &&
+              keylessProvider === EOAuthSocialLoginProvider.Apple;
+
+            if (isAndroidWithGoogle) {
+              // Android + Google: Show dialog with Google Drive logout option
+              await showGoogleDriveMismatchDialog({ intl });
+            } else if (isIOSWithApple) {
+              // iOS + Apple: Show dialog with Apple ID switching instructions
               showAppleIDMismatchDialog({ intl });
             } else {
-              // Other platforms: Show Toast
+              // Other cases: Show Toast
               Toast.error({
                 title: intl.formatMessage({
                   id: ETranslations.keyless_wallet_verify_pin_account_mismatch,

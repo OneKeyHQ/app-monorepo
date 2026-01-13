@@ -2113,42 +2113,6 @@ class ServiceKeylessWallet extends ServiceBase {
         socialProvider === walletSocialProvider,
     };
   }
-
-  /**
-   * Check if the current cloud account (Google Drive on Android) matches the OAuth account.
-   * Used to determine if the account mismatch is caused by Google Drive being logged in
-   * with a different account.
-   */
-  @backgroundMethod()
-  async checkCloudAccountMismatch(): Promise<{
-    isCloudAccountMismatch: boolean;
-  }> {
-    try {
-      // Get OAuth email from Prime user info
-      const primeUserInfo = await primePersistAtom.get();
-      const oauthEmail = primeUserInfo?.email;
-
-      // Get current cloud account info
-      const cloudAccount =
-        await this.backgroundApi.serviceCloudBackupV2.getCloudAccountInfo();
-      const cloudEmail = cloudAccount?.userEmail;
-
-      // If no cloud account is logged in, no mismatch to report
-      if (!cloudEmail) {
-        return { isCloudAccountMismatch: false };
-      }
-
-      // Compare emails (case-insensitive)
-      const isCloudAccountMismatch =
-        !!oauthEmail &&
-        !!cloudEmail &&
-        oauthEmail.toLowerCase() !== cloudEmail.toLowerCase();
-
-      return { isCloudAccountMismatch };
-    } catch {
-      return { isCloudAccountMismatch: false };
-    }
-  }
 }
 
 export default ServiceKeylessWallet;
