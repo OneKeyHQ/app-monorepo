@@ -1,11 +1,12 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IIconButtonProps } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { useIntl } from 'react-intl';
 
 export interface IDownloadButtonProps {
   size?: IIconButtonProps['size'];

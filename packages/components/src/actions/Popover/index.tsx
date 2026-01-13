@@ -60,6 +60,7 @@ const gtMdShFrameStyle = {
 } as const;
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
+  description?: string;
   showHeader?: boolean;
   usingSheet?: boolean;
   renderTrigger: ReactNode;
@@ -218,6 +219,7 @@ const getPlacement = (
 
 function RawPopover({
   title,
+  description,
   open: isOpen,
   renderTrigger,
   renderContent,
@@ -461,24 +463,34 @@ function RawPopover({
                     mx="$5"
                     p="$5"
                     justifyContent="space-between"
-                    alignItems="center"
+                    alignItems="flex-start"
                     borderCurve="continuous"
                     gap="$2"
                   >
-                    {typeof title === 'string' ? (
-                      <SizableText
-                        size="$headingXl"
-                        color="$text"
-                        flexShrink={1}
-                        style={{
-                          wordBreak: 'break-all',
-                        }}
-                      >
-                        {title}
-                      </SizableText>
-                    ) : (
-                      title
-                    )}
+                    <YStack flexShrink={1}>
+                      {typeof title === 'string' ? (
+                        <SizableText
+                          size="$headingXl"
+                          color="$text"
+                          style={{
+                            wordBreak: 'break-all',
+                          }}
+                        >
+                          {title}
+                        </SizableText>
+                      ) : (
+                        title
+                      )}
+                      {description ? (
+                        <SizableText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          pt="$2"
+                        >
+                          {description}
+                        </SizableText>
+                      ) : null}
+                    </YStack>
                     <IconButton
                       icon="CrossedSmallOutline"
                       size="small"

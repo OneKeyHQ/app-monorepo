@@ -4,7 +4,10 @@ import { MDUniversalSearchInput } from './LegacyUniversalSearchInput';
 
 import type { ITabPageHeaderProp } from './type';
 
-export function HeaderMDSearch({ sceneName, tabRoute }: ITabPageHeaderProp) {
+export function HeaderMDSearch({
+  sceneName: _sceneName,
+  tabRoute,
+}: ITabPageHeaderProp) {
   return tabRoute === ETabRoutes.Home || tabRoute === ETabRoutes.Market ? (
     <MDUniversalSearchInput />
   ) : null;

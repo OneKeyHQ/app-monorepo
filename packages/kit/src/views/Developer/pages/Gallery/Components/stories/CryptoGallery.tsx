@@ -31,10 +31,6 @@ import type { ICurveName } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDemoPriceInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/demo';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
-import {
-  AES256_IV_LENGTH,
-  PBKDF2_SALT_LENGTH,
-} from '@onekeyhq/shared/src/appCrypto/consts';
 import type { IRunAppCryptoTestTaskResult } from '@onekeyhq/shared/src/appCrypto/utils';
 import {
   AppCryptoTestEmoji,
@@ -42,7 +38,6 @@ import {
 } from '@onekeyhq/shared/src/appCrypto/utils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { Layout } from './utils/Layout';
 

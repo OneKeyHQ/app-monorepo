@@ -3,8 +3,16 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
+import {
+  AppState,
+  type AppStateStatus,
+  type EmitterSubscription,
+  Linking,
+  type NativeEventSubscription,
+} from 'react-native';
 
 import { Dialog } from '@onekeyhq/components';
+import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   APPLE_SIGNIN_USE_NONCE,
   DEFAULT_NATIVE_OAUTH_METHOD,
@@ -144,7 +152,7 @@ export class OAuthPopup extends OAuthPopupBase {
         return await OAuthPopup.openWithGoogleSignin(options);
       } catch (error) {
         // If GoogleSignin fails due to setup issues, fall back to WebBrowser
-        if (OAuthPopup.shouldFallbackToWebBrowser(error)) {
+        if (OAuthPopup.shouldFallbackToWebBrowserForGoogle(error)) {
           console.warn(
             'GoogleSignin not available, falling back to WebBrowser:',
             error instanceof Error ? error.message : error,
@@ -192,16 +200,20 @@ export class OAuthPopup extends OAuthPopupBase {
    * Check if error indicates GoogleSignin is not properly configured
    * and we should fall back to WebBrowser.
    */
-  private static shouldFallbackToWebBrowser(error: unknown): boolean {
+  private static shouldFallbackToWebBrowserForGoogle(error: unknown): boolean {
     if (error instanceof Error) {
       const message = error.message.toLowerCase();
-      // Common GoogleSignin setup errors that indicate fallback is needed
+      // Common GoogleSignin setup errors that indicate fallback is needed.
+      // Note: some messages contain "Google Sign-In" (with hyphen) and/or "is not available".
       return (
         message.includes('developer_error') ||
         message.includes('sign_in_required') ||
         message.includes('play services') ||
         message.includes('not configured') ||
-        message.includes('google sign in not available')
+        message.includes('google sign in not available') ||
+        message.includes('google sign-in not available') ||
+        message.includes('google sign in is not available') ||
+        message.includes('google sign-in is not available')
       );
     }
     return false;
@@ -215,13 +227,18 @@ export class OAuthPopup extends OAuthPopupBase {
    */
   private static shouldFallbackToWebBrowserForApple(error: unknown): boolean {
     if (error instanceof Error) {
+      const errorWithCode = error as Error & { code?: string };
+      const code = errorWithCode.code || '';
       const message = error.message.toLowerCase();
       // Common Apple Sign-In setup errors that indicate fallback is needed
       return (
+        code === 'ERR_REQUEST_NOT_HANDLED' ||
         message.includes('not available') ||
         message.includes('not configured') ||
         message.includes('capability') ||
-        message.includes('entitlement')
+        message.includes('entitlement') ||
+        message.includes('authorization attempt failed') ||
+        message.includes('unknown reason')
       );
     }
     return false;
@@ -569,10 +586,183 @@ export class OAuthPopup extends OAuthPopupBase {
   // ============ Private Methods - WebBrowser ============
 
   /**
+   * Compare callback URL against redirectTo by base components (scheme/host/path),
+   * ignoring query/hash ordering differences.
+   *
+   * Why: On Android, OAuth providers may reorder query params (e.g. put `code` first),
+   * so matching via `startsWith(redirectTo)` is unreliable when `redirectTo` includes
+   * query params such as `onekey_oauth_state`.
+   */
+  private static isOAuthCallbackUrlMatch({
+    callbackUrl,
+    redirectTo,
+  }: {
+    callbackUrl: string;
+    redirectTo: string;
+  }): boolean {
+    try {
+      const cb = new URL(callbackUrl);
+      const rt = new URL(redirectTo);
+
+      const normalizePath = (p: string) => (p === '' ? '/' : p);
+
+      return (
+        cb.protocol === rt.protocol &&
+        cb.host === rt.host &&
+        normalizePath(cb.pathname) === normalizePath(rt.pathname)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Set up Linking + AppState listeners for Android to catch OAuth callback.
+   * Chrome Custom Tabs on Android has timing issues where Linking.addEventListener
+   * may miss the deep link. We use AppState to detect app foreground and check getInitialURL.
+   * Reference: Expo issue #23781, #6289
+   */
+  private static setupAndroidLinkingListener(redirectTo: string): {
+    cleanup: () => void;
+    urlPromise: Promise<string | null> | null;
+  } {
+    if (!platformEnv.isNativeAndroid) {
+      return { cleanup: () => {}, urlPromise: null };
+    }
+
+    const subscriptionRef: { current: EmitterSubscription | null } = {
+      current: null,
+    };
+    const appStateSubscriptionRef: {
+      current: NativeEventSubscription | null;
+    } = {
+      current: null,
+    };
+    let resolved = false;
+
+    const urlPromise = new Promise<string | null>((resolve) => {
+      const resolveOnce = (url: string | null) => {
+        if (!resolved && url) {
+          resolved = true;
+          resolve(url);
+        }
+      };
+
+      // Method 1: Linking.addEventListener - catches deep links in some cases
+      subscriptionRef.current = Linking.addEventListener('url', (event) => {
+        if (
+          event.url &&
+          OAuthPopup.isOAuthCallbackUrlMatch({
+            callbackUrl: event.url,
+            redirectTo,
+          })
+        ) {
+          resolveOnce(event.url);
+        }
+      });
+
+      // Method 2: AppState + getInitialURL - catches deep links when app returns to foreground
+      // This is critical for Chrome Custom Tabs where the intent is delivered via onNewIntent
+      const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+        if (nextAppState === 'active' && !resolved) {
+          // Small delay to ensure Intent is processed by React Native Linking module
+          await new Promise((r) => setTimeout(r, 100));
+          const initialUrl = await Linking.getInitialURL();
+          if (
+            initialUrl &&
+            OAuthPopup.isOAuthCallbackUrlMatch({
+              callbackUrl: initialUrl,
+              redirectTo,
+            })
+          ) {
+            resolveOnce(initialUrl);
+          }
+        }
+      };
+
+      appStateSubscriptionRef.current = AppState.addEventListener(
+        'change',
+        handleAppStateChange,
+      );
+    });
+
+    return {
+      cleanup: () => {
+        subscriptionRef.current?.remove();
+        appStateSubscriptionRef.current?.remove();
+      },
+      urlPromise,
+    };
+  }
+
+  private static async processOAuthCallbackUrl(
+    callbackUrl: URL,
+    options: IOAuthPopupOptions & {
+      expectedState: string | null;
+      expectedOneKeyState: string | null;
+    },
+  ): Promise<IOAuthPopupResult> {
+    const {
+      client,
+      handleSessionPersistence,
+      expectedState,
+      expectedOneKeyState,
+    } = options;
+
+    // Check for error in callback
+    const error =
+      callbackUrl.searchParams.get('error') ||
+      callbackUrl.searchParams.get('error_description');
+    if (error) {
+      throw new OneKeyLocalError(error);
+    }
+
+    // PKCE flow: extract authorization code
+    const code = callbackUrl.searchParams.get('code');
+    const state = callbackUrl.searchParams.get('state');
+    const oneKeyState = callbackUrl.searchParams.get(ONEKEY_OAUTH_STATE_KEY);
+
+    if (code && client) {
+      // Validate states
+      OAuthPopup.validateOneKeyState(expectedOneKeyState, oneKeyState);
+      OAuthPopup.validateSupabaseState(expectedState, state);
+
+      // Exchange code for session using PKCE
+      const { accessToken, refreshToken } =
+        await OAuthPopup.exchangeCodeForSession(client, code);
+
+      await handleSessionPersistence({
+        accessToken,
+        refreshToken,
+      });
+
+      return {
+        success: true,
+        session: { accessToken, refreshToken },
+      };
+    }
+
+    // NOTE: We intentionally do NOT support Implicit Flow fallback here.
+    // Implicit Flow returns access_token directly in URL hash, which is less secure.
+    // Since Supabase is configured with flowType: 'pkce', only authorization codes
+    // are returned, and this fallback would never be triggered anyway.
+    // If we reach here without a code, the OAuth flow has failed.
+    throw new OneKeyLocalError(
+      'OAuth callback missing authorization code. PKCE flow required.',
+    );
+  }
+
+  /**
    * Open OAuth using expo-web-browser.openAuthSessionAsync.
    *
    * This is the fallback method that opens an in-app browser.
    * Uses PKCE flow: extracts authorization code and exchanges for session.
+   *
+   * Android Workaround:
+   * On Android, expo-web-browser uses a polyfill that may return 'dismiss' even when
+   * OAuth completes successfully. This is a known issue (Expo #23781, #6289).
+   * To handle this, we set up a Linking listener BEFORE opening the browser to catch
+   * the deep link callback even if browserResult.type is 'dismiss'.
    */
   private static async openWithWebBrowser(
     options: IOAuthPopupOptions,
@@ -600,79 +790,136 @@ export class OAuthPopup extends OAuthPopupBase {
       );
     }
 
+    const devSettingsPersist = await devSettingsPersistAtom.get();
+    const enableKeylessDebugInfo =
+      !!devSettingsPersist.enabled &&
+      !!devSettingsPersist.settings?.enableKeylessDebugInfo;
+
     const redirectTo = redirectToFromOptions;
 
     // Parse expected states for validation
     const { expectedState, expectedOneKeyState } =
       OAuthPopup.parseExpectedStates(authUrl);
 
-    // Open in-app browser for OAuth
-    const browserResult = await WebBrowser.openAuthSessionAsync(
-      authUrl,
-      redirectTo,
-      {
-        showInRecents: true,
-        preferEphemeralSession: false,
-      },
-    );
+    // =========================================================================
+    // Android Workaround: Set up Linking listener BEFORE opening browser
+    // =========================================================================
+    // On Android, Chrome Custom Tabs may close before the deep link intent fires,
+    // causing openAuthSessionAsync to return 'dismiss' even on successful OAuth.
+    // We set up a Linking listener to catch the callback URL independently.
+    // Reference: Expo issue #23781, #6289
+    // =========================================================================
+    const androidLinkingState =
+      OAuthPopup.setupAndroidLinkingListener(redirectTo);
 
-    Dialog.debugMessage({
-      title: 'WebBrowser.openAuthSessionAsync',
-      debugMessage: {
-        browserResult,
-      },
-    });
-
-    if (browserResult.type === 'success' && browserResult.url) {
-      const url = new URL(browserResult.url);
-
-      // Check for error in callback
-      const error =
-        url.searchParams.get('error') ||
-        url.searchParams.get('error_description');
-      if (error) {
-        throw new OneKeyLocalError(error);
-      }
-
-      // PKCE flow: extract authorization code
-      const code = url.searchParams.get('code');
-      const state = url.searchParams.get('state');
-      const oneKeyState = url.searchParams.get(ONEKEY_OAUTH_STATE_KEY);
-
-      if (code) {
-        // Validate states
-        OAuthPopup.validateOneKeyState(expectedOneKeyState, oneKeyState);
-        OAuthPopup.validateSupabaseState(expectedState, state);
-
-        // Exchange code for session using PKCE
-        const { accessToken, refreshToken } =
-          await OAuthPopup.exchangeCodeForSession(client, code);
-
-        await handleSessionPersistence({
-          accessToken,
-          refreshToken,
-        });
-
-        return {
-          success: true,
-          session: { accessToken, refreshToken },
-        };
-      }
-
-      // NOTE: We intentionally do NOT support Implicit Flow fallback here.
-      // Implicit Flow returns access_token directly in URL hash, which is less secure.
-      // Since Supabase is configured with flowType: 'pkce', only authorization codes
-      // are returned, and this fallback would never be triggered anyway.
-      // If we reach here without a code, the OAuth flow has failed.
-      throw new OneKeyLocalError(
-        'OAuth callback missing authorization code. PKCE flow required.',
+    try {
+      // Open in-app browser for OAuth
+      const browserResult = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        redirectTo,
+        {
+          showInRecents: true,
+          preferEphemeralSession: false,
+          createTask: false,
+        },
       );
-    }
 
-    if (browserResult.type === 'cancel') {
-      throw new OAuthLoginCancelError();
-    }
+      if (enableKeylessDebugInfo) {
+        Dialog.debugMessage({
+          title: 'WebBrowser_openAuthSessionAsync___result',
+          debugMessage: {
+            browserResult,
+          },
+        });
+      }
 
-    throw new OneKeyLocalError('OAuth sign-in failed');
+      // Case 1: Browser returned success with URL
+      if (browserResult.type === 'success' && browserResult.url) {
+        const url = new URL(browserResult.url);
+        return await OAuthPopup.processOAuthCallbackUrl(url, {
+          ...options,
+          expectedState,
+          expectedOneKeyState,
+        });
+      }
+
+      // Case 2: Android dismiss workaround - check if Linking caught the URL
+      if (
+        platformEnv.isNativeAndroid &&
+        (browserResult.type === WebBrowser.WebBrowserResultType.DISMISS ||
+          browserResult.type === WebBrowser.WebBrowserResultType.CANCEL)
+      ) {
+        // Try multiple methods to catch the deep link URL
+        // Method 1: Check addEventListener promise (may have already resolved)
+        // Method 2: Check getInitialURL (for cold start scenarios)
+        // Method 3: Wait for addEventListener with timeout
+        const LINKING_TIMEOUT_MS = 2000;
+
+        const getUrlFromMethods = async (): Promise<string | null> => {
+          // Try getInitialURL first - this catches URLs that launched/resumed the app
+          const initialUrl = await Linking.getInitialURL();
+          if (
+            initialUrl &&
+            OAuthPopup.isOAuthCallbackUrlMatch({
+              callbackUrl: initialUrl,
+              redirectTo,
+            })
+          ) {
+            return initialUrl;
+          }
+
+          // Wait for addEventListener to fire
+          if (androidLinkingState.urlPromise) {
+            const linkedUrl = await Promise.race([
+              androidLinkingState.urlPromise,
+              new Promise<null>((resolve) =>
+                setTimeout(() => resolve(null), LINKING_TIMEOUT_MS),
+              ),
+            ]);
+            if (linkedUrl) {
+              return linkedUrl;
+            }
+          }
+
+          return null;
+        };
+
+        const linkedUrl = await getUrlFromMethods();
+
+        if (enableKeylessDebugInfo) {
+          Dialog.debugMessage({
+            title: 'Android_Linking_fallback___result',
+            debugMessage: {
+              linkedUrl,
+              browserResultType: browserResult.type,
+            },
+          });
+        }
+
+        if (linkedUrl) {
+          const url = new URL(linkedUrl);
+          return await OAuthPopup.processOAuthCallbackUrl(url, {
+            ...options,
+            expectedState,
+            expectedOneKeyState,
+          });
+        }
+
+        // If no URL from Linking either, it's a real cancellation
+        throw new OAuthLoginCancelError();
+      }
+
+      // Case 3: Non-Android cancel/dismiss - user actually cancelled
+      if (
+        browserResult.type === WebBrowser.WebBrowserResultType.CANCEL ||
+        browserResult.type === WebBrowser.WebBrowserResultType.DISMISS
+      ) {
+        throw new OAuthLoginCancelError();
+      }
+
+      throw new OneKeyLocalError('OAuth sign-in failed: 77732');
+    } finally {
+      androidLinkingState.cleanup();
+    }
   }
 }

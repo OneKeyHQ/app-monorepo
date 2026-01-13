@@ -108,7 +108,7 @@ class ProviderApiStellar extends ProviderApiBase {
     info.send(data, info.targetOrigin);
   }
 
-  notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
+  notifyDappChainChanged(_info: IProviderBaseBackgroundNotifyInfo): void {
     // Stellar doesn't have chain changed events like EVM chains
     // Network changes are handled differently
   }

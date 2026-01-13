@@ -55,7 +55,6 @@ class ServiceSpotlight extends ServiceBase {
         [ESpotlightTour.switchDappAccount]: 0,
         [ESpotlightTour.allNetworkAccountValue]: 0,
         [ESpotlightTour.showFloatingIconDialog]: 0,
-        [ESpotlightTour.hardwareSalesRewardAlert]: 0,
         [ESpotlightTour.referAFriend]: 0,
         [ESpotlightTour.earnRewardAlert]: 0,
         [ESpotlightTour.allNetworksInfo]: 0,

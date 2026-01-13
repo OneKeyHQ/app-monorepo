@@ -34,7 +34,8 @@ export const BATCH_CREATE_ACCONT_MAX_FROM =
 
 function AdvancedSettingsFormField({
   form,
-  isAllNetwork,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  isAllNetwork: _isAllNetwork,
   alwaysShowAdvancedSettings,
 }: {
   form: UseFormReturn<IBatchCreateAccountFormValues, any, undefined>;
@@ -165,7 +166,8 @@ function AdvancedSettingsFormField({
 
 export function BatchCreateAccountFormBase({
   alwaysShowAdvancedSettings,
-  networkReadyOnly,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  networkReadyOnly: _networkReadyOnly,
   defaultCount,
   defaultDeriveType,
   defaultFrom,

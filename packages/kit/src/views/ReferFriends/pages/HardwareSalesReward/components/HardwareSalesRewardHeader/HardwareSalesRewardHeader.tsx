@@ -1,12 +1,12 @@
-import { useCallback } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { XStack, YStack, useMedia } from '@onekeyhq/components';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareCumulativeRewards } from '@onekeyhq/shared/src/referralCode/type';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { StatCard } from './StatCard';
 
@@ -23,6 +23,7 @@ export function HardwareSalesRewardHeader({
 }: IHardwareSalesRewardHeaderProps) {
   const intl = useIntl();
   const { md } = useMedia();
+  const locale = useLocaleVariant();
 
   const isWideScreen = !md;
 
@@ -33,9 +34,20 @@ export function HardwareSalesRewardHeader({
 
   const totalEarned = BigNumber(distributed).plus(undistributed).toFixed();
 
-  const handleRefresh = useCallback(() => {
-    onRefresh?.();
-  }, [onRefresh]);
+  const formattedNextDistributionDate = useMemo(() => {
+    const { nextDistribution } = cumulativeRewards;
+    if (!nextDistribution) return '';
+
+    const date =
+      typeof nextDistribution === 'string'
+        ? new Date(nextDistribution)
+        : nextDistribution;
+
+    return new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
+  }, [cumulativeRewards, locale]);
 
   const renderSecondaryCards = (isWide: boolean) => (
     <>
@@ -50,7 +62,7 @@ export function HardwareSalesRewardHeader({
         subtitle={intl.formatMessage(
           { id: ETranslations.referral_expected_by_date },
           {
-            date: formatDateFns(cumulativeRewards.nextDistribution, 'MMMM d'),
+            date: formattedNextDistributionDate,
           },
         )}
         isWide={isWide}
@@ -86,7 +98,7 @@ export function HardwareSalesRewardHeader({
           amount={totalEarned}
           showRefreshButton
           isLoading={isLoading}
-          onRefresh={handleRefresh}
+          onRefresh={onRefresh}
           isWide
         />
         {renderSecondaryCards(true)}
@@ -107,7 +119,7 @@ export function HardwareSalesRewardHeader({
         amount={totalEarned}
         showRefreshButton
         isLoading={isLoading}
-        onRefresh={handleRefresh}
+        onRefresh={onRefresh}
         isWide={false}
         fullWidth
       />

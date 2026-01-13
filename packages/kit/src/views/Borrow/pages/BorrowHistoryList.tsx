@@ -10,8 +10,8 @@ import {
   Page,
   SectionList,
   Select,
-  Skeleton,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -345,6 +345,10 @@ function BorrowHistoryList() {
     { watchLoading: true, pollingInterval: 30 * 1000 },
   );
 
+  const skeleton = useCallback(() => {
+    return <BorrowHistorySkeleton hideFilter={!!type} />;
+  }, [type]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -354,7 +358,7 @@ function BorrowHistoryList() {
       />
       <Page.Body>
         <PageFrame
-          LoadingSkeleton={() => <BorrowHistorySkeleton hideFilter={!!type} />}
+          LoadingSkeleton={skeleton}
           error={isErrorState({ result, isLoading })}
           loading={isLoadingState({ result, isLoading })}
           onRefresh={run}

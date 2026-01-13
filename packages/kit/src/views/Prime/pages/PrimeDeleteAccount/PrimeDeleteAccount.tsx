@@ -27,11 +27,7 @@ export default function PrimeDeleteAccount() {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const {
-    result: canDeleteAccount,
-    isLoading,
-    run: checkDeleteEligibility,
-  } = usePromiseResult(
+  const { result: _canDeleteAccount } = usePromiseResult(
     async () => {
       // Check if user has active subscription or other restrictions
       const token = await getAccessToken();

@@ -467,6 +467,7 @@ export default class Vault extends VaultBase {
 
       if (tokenAddressParsed.type === 'contract') {
         // Contract Token (Soroban Token) transfer
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const contractId = tokenAddressParsed.contractId!;
         const amountFormatted = new BigNumber(amount)
           .shiftedBy(tokenInfo.decimals)
@@ -840,7 +841,7 @@ export default class Vault extends VaultBase {
     return decodedTx;
   }
 
-  override async attachFeeInfoToDAppEncodedTx(params: {
+  override async attachFeeInfoToDAppEncodedTx(_params: {
     encodedTx: IEncodedTx;
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTx> {
@@ -1299,10 +1300,13 @@ export default class Vault extends VaultBase {
 
       const parsed = parseTokenAddress(contract);
       if (parsed.type === 'contract') {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         contractTokenList.push(parsed.contractId!);
       } else if (parsed.type === 'classic') {
         classicAssetList.push({
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           assetCode: parsed.code!,
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           assetIssuer: parsed.issuer!,
         });
       }
@@ -1428,7 +1432,9 @@ export default class Vault extends VaultBase {
         }
 
         // Classic Asset
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const assetCode = parsed.code!;
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const assetIssuer = parsed.issuer!;
 
         let balanceForAccount = '0';

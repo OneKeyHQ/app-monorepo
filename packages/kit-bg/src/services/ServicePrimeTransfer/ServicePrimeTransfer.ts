@@ -858,7 +858,8 @@ class ServicePrimeTransfer extends ServiceBase {
   }: {
     isForCloudBackup?: boolean;
   } = {}): Promise<IPrimeTransferData> {
-    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    const { serviceAccount, serviceNetwork: _serviceNetwork } =
+      this.backgroundApi;
 
     const credentials = await serviceAccount.dumpCredentials();
 
@@ -1686,7 +1687,7 @@ class ServicePrimeTransfer extends ServiceBase {
         if (!password) {
           throw new OneKeyLocalError('Password is required');
         }
-        const decryptedCredential1 = await decryptRevealableSeed({
+        const _decryptedCredential1 = await decryptRevealableSeed({
           rs: walletCredential,
           password,
           allowRawPassword: true,
@@ -1695,7 +1696,7 @@ class ServicePrimeTransfer extends ServiceBase {
         if (!password) {
           throw new OneKeyLocalError('Password is required');
         }
-        const decryptedCredential2 = await decryptImportedCredential({
+        const _decryptedCredential2 = await decryptImportedCredential({
           credential: importedAccountCredential,
           password,
           allowRawPassword: true,
@@ -1926,8 +1927,11 @@ class ServicePrimeTransfer extends ServiceBase {
     createNetworkParams: IPrimeTransferHDWalletCreateNetworkParams;
     indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames;
   }> {
-    const { serviceAccount, serviceNetwork, servicePassword } =
-      this.backgroundApi;
+    const {
+      serviceAccount,
+      serviceNetwork,
+      servicePassword: _servicePassword,
+    } = this.backgroundApi;
 
     const defaultCustomNetworks = [
       { networkId: 'tron--0x2b6653dc', deriveType: 'default' },
@@ -2053,7 +2057,7 @@ class ServicePrimeTransfer extends ServiceBase {
     decryptedCredentialsHex,
     selectedTransferData,
     includingDefaultNetworks = false,
-    isFromCloudBackupRestore,
+    isFromCloudBackupRestore: _isFromCloudBackupRestore,
     password,
   }: {
     decryptedCredentialsHex?: string;
