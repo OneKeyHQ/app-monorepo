@@ -1894,10 +1894,17 @@ export interface IBorrowCheckAmount {
   riskOfLiquidationAlert?: boolean;
 }
 
+export interface IBorrowAlertButton {
+  type: 'receive' | 'bridge' | string;
+  text: IEarnText;
+  disabled?: boolean;
+}
+
 export interface IBorrowAlert {
   title: IEarnText;
   description?: IEarnText;
   badge: IBadgeType;
+  buttons?: IBorrowAlertButton[];
 }
 
 export interface IBorrowReserveItem {

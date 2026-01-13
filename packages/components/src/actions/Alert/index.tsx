@@ -23,6 +23,7 @@ import {
 import { IconButton } from '../IconButton';
 
 import type {
+  IButtonProps,
   IKeyOfIcons,
   ISizableTextProps,
   IStackProps,
@@ -47,6 +48,8 @@ type IAlertActionProps = {
   isSecondaryLoading?: boolean;
   isPrimaryDisabled?: boolean;
   isSecondaryDisabled?: boolean;
+  primaryVariant?: IButtonProps['variant'];
+  secondaryVariant?: IButtonProps['variant'];
 };
 
 interface IAlertContext {
@@ -232,6 +235,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
         <XStack gap="$4" alignItems="center">
           <Button
             size="small"
+            variant={action.primaryVariant}
             onPress={action.onPrimaryPress}
             loading={action.isPrimaryLoading}
             disabled={action.isPrimaryDisabled}
@@ -241,7 +245,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
           {action.secondary ? (
             <Button
               size="small"
-              variant="tertiary"
+              variant={action.secondaryVariant ?? 'tertiary'}
               onPress={action.onSecondaryPress}
               loading={action.isSecondaryLoading}
               disabled={action.isSecondaryDisabled}

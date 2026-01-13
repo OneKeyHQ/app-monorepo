@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import Svg, { Line } from 'react-native-svg';
 
 import {
+  DashText,
   Divider,
   Icon,
   Popover,
@@ -11,7 +11,6 @@ import {
   Stack,
   XStack,
   YStack,
-  useTheme,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
@@ -196,25 +195,7 @@ function ApyDetailPopoverContent({
   );
 }
 
-// SVG Dotted line component for cross-platform consistency
-function DottedLine({ color, width }: { color: string; width: number }) {
-  return (
-    <Svg height={3} width={width}>
-      <Line
-        x1={1}
-        y1={1.5}
-        x2={width - 1}
-        y2={1.5}
-        stroke={color}
-        strokeWidth={1.5}
-        strokeDasharray="0.1,4"
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
-// Text with dotted underline component
+// Text with dashed underline component
 function TextWithDottedUnderline({
   text,
   color,
@@ -224,26 +205,19 @@ function TextWithDottedUnderline({
   color?: string;
   size?: '$bodyMdMedium' | '$bodyMd';
 }) {
-  const theme = useTheme();
-  const [textWidth, setTextWidth] = useState(0);
-
-  // Get the actual color value from theme token
-  const colorValue = useMemo(() => {
-    if (!color) return theme.text.val;
-    const colorKey = color.replace('$', '') as keyof typeof theme;
-    return (theme[colorKey] as { val: string })?.val || color;
-  }, [color, theme]);
+  const textColor = color || '$text';
 
   return (
-    <YStack alignItems="flex-end" gap="$0.5">
-      <Stack onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}>
-        <SizableText size={size} textAlign="right" color={color || '$text'}>
-          {text}
-        </SizableText>
-      </Stack>
-      {textWidth > 0 ? (
-        <DottedLine color={colorValue} width={textWidth} />
-      ) : null}
+    <YStack alignItems="flex-end">
+      <DashText
+        size={size}
+        color={textColor}
+        textAlign="right"
+        dashColor={textColor}
+        dashThickness={0.5}
+      >
+        {text}
+      </DashText>
     </YStack>
   );
 }
