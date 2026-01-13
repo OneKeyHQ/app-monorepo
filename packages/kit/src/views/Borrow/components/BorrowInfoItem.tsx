@@ -21,7 +21,7 @@ export function BorrowInfoItem({
       <EarnText
         text={{ text: title }}
         color={isHighlight ? '$text' : '$textSubdued'}
-        size={isHighlight ? '$bodyLg' : '$bodyMd'}
+        size="$bodyMd"
       />
     ) : (
       title

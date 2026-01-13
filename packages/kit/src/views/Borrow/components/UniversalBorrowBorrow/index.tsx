@@ -383,11 +383,14 @@ export function UniversalBorrowBorrow({
                 variant="highlight"
               >
                 <YStack ai="flex-end">
-                  <XStack ai="center" gap="$1">
+                  <XStack ai="center" gap="$3">
                     <EarnText
                       text={transactionConfirmation.healthFactor.current?.title}
                       color="$textText"
                       size="$bodyLg"
+                      opacity={
+                        transactionConfirmation.healthFactor.latest ? 0.5 : 1
+                      }
                     />
                     {transactionConfirmation.healthFactor.latest ? (
                       <>
