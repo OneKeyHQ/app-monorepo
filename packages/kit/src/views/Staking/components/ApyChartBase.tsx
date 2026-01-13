@@ -23,6 +23,7 @@ interface IApyChartBaseProps {
   topColor?: string;
   bottomColor?: string;
   lineWidth?: number;
+  showHorzGridLines?: boolean;
   showPriceScale?: boolean;
   showDivider?: boolean;
   tooltipLabel?: string;
@@ -36,6 +37,7 @@ const ApyChartBaseComponent = ({
   topColor,
   bottomColor,
   lineWidth,
+  showHorzGridLines,
   showPriceScale,
   showDivider = true,
   tooltipLabel = 'APY',
@@ -230,6 +232,7 @@ const ApyChartBaseComponent = ({
             topColor={topColor}
             bottomColor={bottomColor}
             lineWidth={lineWidth}
+            showHorzGridLines={showHorzGridLines}
             showPriceScale={showPriceScale}
             onHover={handleHover}
           />
