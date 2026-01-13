@@ -5,10 +5,12 @@ import {
   Checkbox,
   Dialog,
   Input,
+  SizableText,
   Toast,
   YStack,
 } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { useKeylessPinConfirmStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/keyless';
 import {
   GOOGLE_OAUTH_CLIENT_IDS,
   JUICEBOX_ALLOWED_GUESSES,
@@ -19,13 +21,15 @@ import {
   SUPABASE_PROJECT_URL,
   SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
+import dateUtils from '@onekeyhq/shared/src/utils/dateUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
-export function KeylessOnboardingDebugPanel({
+export function KeylessOnboardingDebugPanelView({
   isResetMode,
   onResetModeChange,
 }: {
@@ -35,8 +39,12 @@ export function KeylessOnboardingDebugPanel({
   const _navigation = useAppNavigation();
   const { cacheKeylessOnboardingCustomMnemonic } = useKeylessWallet();
   const [devSettings] = useDevSettingsPersistAtom();
+  const [keylessPinConfirmStatus] = useKeylessPinConfirmStatusAtom();
   const isDeletionAllowed =
     devSettings.enabled && !!devSettings.settings?.allowDeleteKeylessKey;
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const keylessOwnerId =
+    activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId;
 
   const handleImportCustomMnemonic = useCallback(() => {
     Dialog.confirm({
@@ -105,93 +113,149 @@ export function KeylessOnboardingDebugPanel({
   }, []);
 
   return (
+    <YStack gap="$2" py="$4">
+      {onResetModeChange ? (
+        <Checkbox
+          label="重置云端无私钥钱包（先勾选，再登录 Google 或 Apple 生效）"
+          value={isResetMode}
+          disabled={!isDeletionAllowed}
+          onChangeForDisabled={() => {
+            Toast.error({
+              title: 'Operation not allowed',
+              message:
+                'Please enable "允许重置 Keyless 钱包" in Dev Settings first.',
+            });
+          }}
+          onChange={(checked) => {
+            // This reset flow may delete deviceKey/authKey, guard it with allowDeleteKeylessKey.
+            if (!isDeletionAllowed) {
+              Toast.error({
+                title: 'Operation not allowed',
+                message:
+                  'Please enable "允许重置 Keyless 钱包" in Dev Settings first.',
+              });
+              return;
+            }
+            onResetModeChange?.(!!checked);
+          }}
+        />
+      ) : null}
+
+      <Button
+        onPress={async () => {
+          await backgroundApiProxy.servicePassword.clearCachedPassword();
+          Toast.success({
+            title: '已清空内存密码',
+          });
+        }}
+      >
+        清空内存密码
+      </Button>
+
+      <Button onPress={handleImportCustomMnemonic}>自定义助记词创建钱包</Button>
+
+      <Button onPress={handleShowAuthConsts}>显示 Auth Consts</Button>
+
+      <Button
+        disabled={!keylessOwnerId}
+        onPress={async () => {
+          if (!keylessOwnerId) {
+            Toast.error({
+              title: '无法获取 Owner ID',
+              message: '请先登录无私钥钱包',
+            });
+            return;
+          }
+          try {
+            await backgroundApiProxy.serviceKeylessWallet.clearKeylessRefreshTokenStorage(
+              {
+                ownerId: keylessOwnerId,
+              },
+            );
+            Toast.success({
+              title: '已清空 Refresh Token Storage',
+            });
+          } catch (error: unknown) {
+            Toast.error({
+              title: '清空失败',
+              message: (error as Error)?.message || 'Unknown error',
+            });
+          }
+        }}
+      >
+        重置社交登录 Token
+      </Button>
+
+      {activeAccount?.wallet?.isKeyless ? null : (
+        <SizableText size="$bodySmMedium">
+          当前钱包不是 Keyless 钱包
+        </SizableText>
+      )}
+
+      <YStack gap="$1" p="$2" backgroundColor="$bgSubdued" borderRadius="$2">
+        <SizableText size="$bodySmMedium">Pin Confirm Status:</SizableText>
+        <Button
+          onPress={async () => {
+            const accessToken =
+              await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
+                {
+                  ownerId:
+                    activeAccount?.wallet?.keylessDetailsInfo?.keylessOwnerId ??
+                    '',
+                },
+              );
+            if (accessToken) {
+              await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus(
+                {
+                  token: accessToken,
+                },
+              );
+            }
+          }}
+        >
+          Refresh
+        </Button>
+        <SizableText size="$bodySm">
+          socialUserIdHash: {keylessPinConfirmStatus?.socialUserIdHash ?? '-'}
+        </SizableText>
+        <SizableText size="$bodySm">
+          socialProvider: {keylessPinConfirmStatus?.socialProvider ?? '-'}
+        </SizableText>
+        <SizableText size="$bodySm">
+          needRemind: {keylessPinConfirmStatus?.needRemind?.toString() ?? '-'}
+        </SizableText>
+        <SizableText size="$bodySm">
+          remindTime:{' '}
+          {keylessPinConfirmStatus?.remindTime
+            ? dateUtils.formatDate(new Date(keylessPinConfirmStatus.remindTime))
+            : '-'}
+        </SizableText>
+        <SizableText size="$bodySm">
+          confirmedCount: {keylessPinConfirmStatus?.confirmedCount ?? '-'}
+        </SizableText>
+      </YStack>
+    </YStack>
+  );
+}
+
+export function KeylessOnboardingDebugPanel({
+  isResetMode,
+  onResetModeChange,
+}: {
+  isResetMode?: boolean;
+  onResetModeChange?: (val: boolean) => void;
+}) {
+  return (
     <YStack>
       <MultipleClickStack
         h="$10"
         w="100%"
         showDevBgColor
         debugComponent={
-          <YStack gap="$2" py="$4">
-            <Checkbox
-              label="重置云端无私钥钱包（先勾选，再登录 Google 或 Apple 生效）"
-              value={isResetMode}
-              disabled={!isDeletionAllowed}
-              onChangeForDisabled={() => {
-                Toast.error({
-                  title: 'Operation not allowed',
-                  message:
-                    'Please enable "允许重置 Keyless 钱包" in Dev Settings first.',
-                });
-              }}
-              onChange={(checked) => {
-                // This reset flow may delete deviceKey/authKey, guard it with allowDeleteKeylessKey.
-                if (!isDeletionAllowed) {
-                  Toast.error({
-                    title: 'Operation not allowed',
-                    message:
-                      'Please enable "允许重置 Keyless 钱包" in Dev Settings first.',
-                  });
-                  return;
-                }
-                onResetModeChange?.(!!checked);
-              }}
-            />
-
-            <Button
-              onPress={async () => {
-                await backgroundApiProxy.servicePassword.clearCachedPassword();
-                Toast.success({
-                  title: '已清空内存密码',
-                });
-              }}
-            >
-              清空内存密码
-            </Button>
-
-            <Button onPress={handleImportCustomMnemonic}>
-              自定义助记词创建钱包
-            </Button>
-
-            <Button onPress={handleShowAuthConsts}>显示 Auth Consts</Button>
-
-            {/* <Button
-              onPress={async () => {
-                try {
-                  await backgroundApiProxy.serviceKeylessWallet.updatePinConfirmStatus();
-                  Toast.success({
-                    title: '更新 PIN 确认状态成功',
-                  });
-                } catch (error: any) {
-                  Toast.error({
-                    title: '更新 PIN 确认状态失败',
-                    message: error?.message || 'Unknown error',
-                  });
-                }
-              }}
-            >
-              测试: 更新 PIN 确认状态
-            </Button>
-
-            <Button
-              onPress={async () => {
-                try {
-                  const result =
-                    await backgroundApiProxy.serviceKeylessWallet.getPinConfirmStatus();
-                  Toast.success({
-                    title: '获取 PIN 确认状态成功',
-                    message: `确认状态: ${result.confirmed ? '已确认' : '未确认'}`,
-                  });
-                } catch (error: any) {
-                  Toast.error({
-                    title: '获取 PIN 确认状态失败',
-                    message: error?.message || 'Unknown error',
-                  });
-                }
-              }}
-            >
-              测试: 获取 PIN 确认状态
-            </Button> */}
-          </YStack>
+          <KeylessOnboardingDebugPanelView
+            isResetMode={isResetMode}
+            onResetModeChange={onResetModeChange}
+          />
         }
       />
     </YStack>

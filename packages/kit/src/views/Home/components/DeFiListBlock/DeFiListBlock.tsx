@@ -81,6 +81,11 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
   const [{ protocols }] = useDeFiListProtocolsAtom();
 
   const deFiRawDataRef = useRef<IDeFiDBStruct | undefined>(undefined);
+  const initializedRef = useRef(initialized);
+  const isRefreshingRef = useRef(isRefreshing);
+  initializedRef.current = initialized;
+  isRefreshingRef.current = isRefreshing;
+  const pendingRefreshRef = useRef(false);
 
   const [overflowState, setOverflowState] = useState<{
     isOverflow: boolean;
@@ -124,24 +129,33 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       return;
     }
 
+    if (!isDeFiEnabled) {
+      setIsAllNetRequestsEnabled(false);
+      return;
+    }
+
+    if (!account?.id || !network?.id) {
+      setIsAllNetRequestsEnabled(false);
+      return;
+    }
+
     setIsAllNetRequestsEnabled(false);
-    if (isDeFiEnabled && !initialized && !isRefreshing) {
+    if (!initializedRef.current && !isRefreshingRef.current) {
       updateDeFiListState({
         initialized: false,
         isRefreshing: true,
       });
     }
     return runAfterTokensDone({
+      accountId: account?.id,
+      networkId: network?.id,
+      matchAccountId: true,
+      matchNetworkId: true,
+      fallbackDelayMs: POLLING_DEBOUNCE_INTERVAL * 2,
+      deferWhileRefreshing: true,
       onRun: () => setIsAllNetRequestsEnabled(true),
     });
-  }, [
-    account?.id,
-    network?.id,
-    initialized,
-    isDeFiEnabled,
-    isRefreshing,
-    updateDeFiListState,
-  ]);
+  }, [account?.id, network?.id, isDeFiEnabled, updateDeFiListState]);
 
   const { run } = usePromiseResult(
     async () => {
@@ -636,11 +650,25 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       }
     };
 
-    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+    const onRefresh = () => {
+      if (isFocused) {
+        pendingRefreshRef.current = false;
+        refresh();
+      } else {
+        pendingRefreshRef.current = true;
+      }
+    };
+
+    if (isFocused && pendingRefreshRef.current) {
+      pendingRefreshRef.current = false;
+      refresh();
+    }
+
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, onRefresh);
     return () => {
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
-      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, onRefresh);
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, onRefresh);
     };
   }, [isFocused, network?.isAllNetworks, handleRefreshAllNetworkData, run]);
 

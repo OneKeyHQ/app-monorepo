@@ -14,3 +14,19 @@ export const { target: keylessDialogAtom, use: useKeylessDialogAtom } =
       promptKeylessAuthPackDialog: undefined,
     },
   });
+
+export type IKeylessPinConfirmStatusAtomData = {
+  socialUserIdHash: string | undefined;
+  socialProvider: string | undefined;
+  needRemind: boolean | undefined;
+  remindTime: number | undefined;
+  confirmedCount: number | undefined;
+} | null;
+
+export const {
+  target: keylessPinConfirmStatusAtom,
+  use: useKeylessPinConfirmStatusAtom,
+} = globalAtom<IKeylessPinConfirmStatusAtomData>({
+  name: EAtomNames.keylessPinConfirmStatusAtom,
+  initialValue: null,
+});

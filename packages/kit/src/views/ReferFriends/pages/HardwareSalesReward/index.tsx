@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Page,
   RefreshControl,
   ScrollView,
@@ -12,10 +11,8 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IScrollViewRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -25,10 +22,15 @@ import type {
   IHardwareRecordItem,
 } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { BreadcrumbSection, ReferFriendsPageContainer } from '../../components';
+import {
+  BreadcrumbSection,
+  ExportButton,
+  FilterButton,
+  ReferFriendsPageContainer,
+} from '../../components';
+import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 import { HardwareRecordsList } from './components/HardwareRecordsList';
 import { HardwareSalesRewardHeader } from './components/HardwareSalesRewardHeader';
@@ -37,9 +39,6 @@ function HardwareSalesRewardPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
-  const { tourTimes, tourVisited } = useSpotlight(
-    ESpotlightTour.hardwareSalesRewardAlert,
-  );
   const intl = useIntl();
   const { md } = useMedia();
 
@@ -54,15 +53,37 @@ function HardwareSalesRewardPageWrapper() {
   );
   const [cursor, setCursor] = useState<string | undefined>();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const scrollViewRef = useRef<IScrollViewRef>(null);
+
+  // Filter state
+  const { filterState, updateFilter } = useRewardFilter();
+
+  const headerRight = useMemo(
+    () => (
+      <XStack gap="$2">
+        <FilterButton filterState={filterState} onFilterChange={updateFilter} />
+        <ExportButton
+          timeRange={filterState.timeRange}
+          inviteCode={filterState.inviteCode}
+        />
+      </XStack>
+    ),
+    [filterState, updateFilter],
+  );
 
   const onRefresh = useCallback(async () => {
     setIsLoading(true);
     try {
       const [cumulativeRewardsResult, recordsResult] = await Promise.allSettled(
         [
-          backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(),
-          backgroundApiProxy.serviceReferralCode.getHardwareRecords(),
+          backgroundApiProxy.serviceReferralCode.getHardwareCumulativeRewards(
+            filterState.inviteCode,
+            filterState.timeRange,
+          ),
+          backgroundApiProxy.serviceReferralCode.getHardwareRecords(
+            undefined,
+            filterState.timeRange,
+            filterState.inviteCode,
+          ),
         ],
       );
 
@@ -82,7 +103,7 @@ function HardwareSalesRewardPageWrapper() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [filterState.inviteCode, filterState.timeRange]);
 
   const onLoadMore = useCallback(async () => {
     if (!cursor || isLoadingMore) {
@@ -91,7 +112,11 @@ function HardwareSalesRewardPageWrapper() {
     setIsLoadingMore(true);
     try {
       const result =
-        await backgroundApiProxy.serviceReferralCode.getHardwareRecords(cursor);
+        await backgroundApiProxy.serviceReferralCode.getHardwareRecords(
+          cursor,
+          filterState.timeRange,
+          filterState.inviteCode,
+        );
       const items = result.items || [];
       setHardwareRecords((prev) => [...prev, ...items]);
       // Use last item's _id as cursor, undefined if no more data (items < limit)
@@ -102,7 +127,7 @@ function HardwareSalesRewardPageWrapper() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [cursor, isLoadingMore]);
+  }, [cursor, isLoadingMore, filterState.timeRange, filterState.inviteCode]);
 
   const handleScroll = useCallback(
     (event: {
@@ -137,6 +162,7 @@ function HardwareSalesRewardPageWrapper() {
           title={intl.formatMessage({
             id: ETranslations.referral_referred_type_3,
           })}
+          headerRight={() => headerRight}
         />
       ) : (
         <TabPageHeader
@@ -162,7 +188,6 @@ function HardwareSalesRewardPageWrapper() {
             </YStack>
           ) : (
             <ScrollView
-              ref={scrollViewRef}
               flex={1}
               refreshControl={
                 <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
@@ -173,27 +198,14 @@ function HardwareSalesRewardPageWrapper() {
             >
               {/* Breadcrumb for desktop */}
               {!platformEnv.isNative && !md ? (
-                <XStack px="$5" py="$5">
+                <XStack px="$5" py="$5" jc="space-between" ai="center">
                   <BreadcrumbSection
                     secondItemLabel={intl.formatMessage({
                       id: ETranslations.referral_referred_type_3,
                     })}
                   />
+                  {headerRight}
                 </XStack>
-              ) : null}
-
-              {/* Alert tip */}
-              {tourTimes === 0 ? (
-                <Alert
-                  closable
-                  description={intl.formatMessage({
-                    id: ETranslations.referral_sales_reward_tips,
-                  })}
-                  type="info"
-                  mx="$5"
-                  mb="$2.5"
-                  onClose={tourVisited}
-                />
               ) : null}
 
               {/* Hardware Sales Reward Header */}
