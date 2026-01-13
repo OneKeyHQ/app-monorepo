@@ -140,7 +140,7 @@ export function useSupabaseAuth() {
 
       if (enableKeylessDebugInfo) {
         Dialog.debugMessage({
-          title: 'performOAuthSignIn',
+          title: 'performOAuthSignIn__params',
           debugMessage: {
             provider,
             redirectTo,

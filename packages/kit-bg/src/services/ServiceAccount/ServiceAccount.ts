@@ -146,6 +146,7 @@ import {
   type IDBWallet,
   type IDBWalletId,
   type IDBWalletIdSingleton,
+  type IKeylessWalletDetailsInfo,
 } from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
@@ -2706,7 +2707,10 @@ class ServiceAccount extends ServiceBase {
     const { index, walletXfp, name, ...others } = params;
     let wallets: IDBWallet[] = [];
     if (walletXfp) {
-      wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
+      wallets = await localDb.getWalletsByXfp({
+        xfp: walletXfp,
+        includingKeylessWallets: true,
+      });
     } else if (params.indexedAccountId) {
       const { walletId } = accountUtils.parseIndexedAccountId({
         indexedAccountId: params.indexedAccountId,
@@ -2719,6 +2723,7 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
+    let isAccountNameChanged = false;
     if (params.shouldCheckDuplicate && params.indexedAccountId) {
       // if it is manually triggered, call the non-try-catch modification once first to ensure that the duplicate name detection takes effect and terminates the function with an error
       await this.setAccountName({
@@ -2729,6 +2734,7 @@ class ServiceAccount extends ServiceBase {
         skipSaveLocalSyncItem: params.skipSaveLocalSyncItem,
         shouldCheckDuplicate: params.shouldCheckDuplicate,
       });
+      isAccountNameChanged = true;
     }
 
     for (const wallet of wallets) {
@@ -2750,11 +2756,12 @@ class ServiceAccount extends ServiceBase {
             ? params.shouldCheckDuplicate
             : false,
         });
+        isAccountNameChanged = true;
       } catch (e) {
         console.error('setUniversalIndexedAccountName ERROR', e);
       }
     }
-    if (wallets.length && !params.skipEventEmit) {
+    if (!params.skipEventEmit && isAccountNameChanged) {
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     }
   }
@@ -3047,7 +3054,7 @@ class ServiceAccount extends ServiceBase {
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
     avatarInfo?: IAvatarInfo;
-    keylessDetailsInfo?: import('../../dbs/local/types').IKeylessWalletDetailsInfo;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -3146,7 +3153,7 @@ class ServiceAccount extends ServiceBase {
     walletXfp: string;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
-    keylessDetailsInfo?: import('../../dbs/local/types').IKeylessWalletDetailsInfo;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
