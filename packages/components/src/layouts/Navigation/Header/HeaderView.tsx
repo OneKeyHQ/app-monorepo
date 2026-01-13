@@ -179,6 +179,9 @@ function HeaderView({
     if (headerTransparent) {
       return 'transparent';
     }
+    if (platformEnv.isWebDappMode) {
+      return '$bgApp';
+    }
     return isDesktopModeUI ? '$bgSubdued' : '$bgApp';
   }, [headerTransparent, isDesktopModeUI]);
 

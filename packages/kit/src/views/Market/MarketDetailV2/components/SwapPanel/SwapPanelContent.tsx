@@ -58,6 +58,7 @@ export type ISwapPanelContentProps = {
     loading?: boolean;
   };
   hasInitialReady: boolean;
+  currentMarketToken?: ISwapToken;
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -80,6 +81,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     isWrapped,
     hasInitialReady,
     onCloseDialog,
+    currentMarketToken,
   } = props;
 
   const {
@@ -92,7 +94,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     setSlippage,
     networkId,
   } = swapPanel;
-  const tokenInputRef = useRef<ITokenInputSectionRef>(null);
+  const tokenBuyInputRef = useRef<ITokenInputSectionRef>(null);
+  const tokenSellInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
 
   // Initialize analytics hook
@@ -110,18 +113,27 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         balance.minus(new BigNumber(reserveGas)),
       ).decimalPlaces(balanceToken?.decimals ?? 6, BigNumber.ROUND_DOWN);
       setPaymentAmount(maxAmount);
-      tokenInputRef.current?.setValue(maxAmount.toFixed());
+      if (tradeType === ESwapDirection.BUY) {
+        tokenBuyInputRef.current?.setValue(maxAmount.toFixed());
+      } else {
+        tokenSellInputRef.current?.setValue(maxAmount.toFixed());
+      }
     } else {
       setPaymentAmount(balance);
-      tokenInputRef.current?.setValue(balance.toFixed());
+      if (tradeType === ESwapDirection.BUY) {
+        tokenBuyInputRef.current?.setValue(balance.toFixed());
+      } else {
+        tokenSellInputRef.current?.setValue(balance.toFixed());
+      }
     }
   }, [
-    balance,
+    swapNativeTokenReserveGas,
     balanceToken?.isNative,
     balanceToken?.networkId,
     balanceToken?.decimals,
+    balance,
     setPaymentAmount,
-    swapNativeTokenReserveGas,
+    tradeType,
   ]);
 
   useEffect(() => {
@@ -136,9 +148,18 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         paymentAmountRef.current?.toFixed(),
       ).decimalPlaces(balanceToken?.decimals ?? 0, BigNumber.ROUND_DOWN);
       setPaymentAmount(changeAmount);
-      tokenInputRef.current?.setValue(changeAmount.toFixed());
+      if (tradeType === ESwapDirection.BUY) {
+        tokenBuyInputRef.current?.setValue(changeAmount.toFixed());
+      } else {
+        tokenSellInputRef.current?.setValue(changeAmount.toFixed());
+      }
     }
   }, [tradeType, balanceToken?.decimals, setPaymentAmount]);
+
+  useEffect(() => {
+    tokenBuyInputRef.current?.setValue('');
+    tokenSellInputRef.current?.setValue('');
+  }, [currentMarketToken?.networkId, currentMarketToken?.contractAddress]);
 
   return (
     <YStack gap="$4">
@@ -154,7 +175,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           handleBalanceClick={handleBalanceClick}
         />
         <TokenInputSection
-          ref={tokenInputRef}
+          ref={tokenBuyInputRef}
           style={tradeType === ESwapDirection.BUY ? {} : { display: 'none' }}
           tradeType={ESwapDirection.BUY}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
@@ -166,7 +187,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
         />
         <TokenInputSection
-          ref={tokenInputRef}
+          ref={tokenSellInputRef}
           style={tradeType === ESwapDirection.SELL ? {} : { display: 'none' }}
           tradeType={ESwapDirection.SELL}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}

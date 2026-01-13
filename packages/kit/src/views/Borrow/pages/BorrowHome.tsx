@@ -26,7 +26,11 @@ import { SupplyCard } from '../components/SupplyCard';
 
 type IBorrowTab = 'supply' | 'borrow';
 
-const BorrowHomeContent = memo(() => {
+type IBorrowHomeProps = {
+  header?: React.ReactNode;
+};
+
+const BorrowHomeContent = memo(({ header }: IBorrowHomeProps) => {
   const { gtMd, gtLg } = useMedia();
   const intl = useIntl();
   const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
@@ -37,6 +41,7 @@ const BorrowHomeContent = memo(() => {
   });
   const alerts = reserves?.alerts;
   const accountId = activeAccount.account?.id ?? '';
+  const walletId = activeAccount.wallet?.id;
   const indexedAccountId = activeAccount.indexedAccount?.id;
   const showNoAddressWarning = useMemo(() => {
     if (!market?.networkId || !activeAccount.ready) {
@@ -74,6 +79,7 @@ const BorrowHomeContent = memo(() => {
 
   return (
     <ScrollView flex={1}>
+      {header ? <YStack pb="$4">{header}</YStack> : null}
       <YStack flex={1} px="$5" pb="$10">
         <Markets />
         <Overview showBottomSpacing={!hasAlerts} />
@@ -87,7 +93,13 @@ const BorrowHomeContent = memo(() => {
                 onCreateAddress={handleCreateAddress}
               />
             ) : null}
-            <BorrowAlerts alerts={alerts} />
+            <BorrowAlerts
+              alerts={alerts}
+              accountId={accountId || undefined}
+              walletId={walletId}
+              indexedAccountId={indexedAccountId}
+              marketNetworkId={market?.networkId}
+            />
           </YStack>
         ) : null}
         {gtMd && !isMidWidth ? (
@@ -131,11 +143,11 @@ const BorrowHomeContent = memo(() => {
 
 BorrowHomeContent.displayName = 'BorrowHomeContent';
 
-const BorrowHomeCmp = memo(() => {
+const BorrowHomeCmp = memo(({ header }: IBorrowHomeProps) => {
   return (
     <BorrowProvider>
       <BorrowDataGate>
-        <BorrowHomeContent />
+        <BorrowHomeContent header={header} />
       </BorrowDataGate>
     </BorrowProvider>
   );

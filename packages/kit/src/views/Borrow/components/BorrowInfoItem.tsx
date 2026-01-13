@@ -8,9 +8,11 @@ export function BorrowInfoItem({
   title,
   children,
   variant = 'default',
+  gap = '$3',
 }: {
   title: ReactNode | string;
   children?: ReactNode;
+  gap?: string | number;
   variant?: 'default' | 'highlight';
 }) {
   const isHighlight = variant === 'highlight';
@@ -28,7 +30,7 @@ export function BorrowInfoItem({
   return (
     <XStack ai="flex-start" gap="$1" jc="space-between">
       {titleContent}
-      <XStack ai="center" gap="$3">
+      <XStack ai="center" gap={gap}>
         {children}
       </XStack>
     </XStack>

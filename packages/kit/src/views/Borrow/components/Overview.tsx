@@ -19,6 +19,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -147,6 +148,7 @@ export const Overview = ({
 
   // Calculate pending count and claim IDs from pending transactions
   const pendingCount = pendingTxs.length;
+  const prevPendingCount = usePrevious(pendingCount);
   const pendingClaimIds = useMemo(
     () =>
       pendingTxs
@@ -197,19 +199,40 @@ export const Overview = ({
   }, [refreshBorrowRewards, refreshHealthFactor, refreshReservesRef]);
 
   useEffect(() => {
+    if (prevPendingCount === undefined || pendingCount >= prevPendingCount) {
+      return undefined;
+    }
+    let isActive = true;
+    setIsManualRefreshing(true);
+    void refreshBorrowData().finally(() => {
+      if (isActive) {
+        setIsManualRefreshing(false);
+      }
+    });
+    return () => {
+      isActive = false;
+    };
+  }, [pendingCount, prevPendingCount, refreshBorrowData]);
+
+  useEffect(() => {
     refreshRewardsRef.current = refreshBorrowRewards;
   }, [refreshBorrowRewards, refreshRewardsRef]);
 
   useEffect(() => {
     if (!refreshScope) return;
     return registerBorrowRefreshHandler(refreshScope, async (request) => {
-      if (request.reason === 'manual' || request.reason === 'txSuccess') {
+      const shouldShowRefreshing = [
+        'manual',
+        'txSuccess',
+        'pendingCompleted',
+      ].includes(request.reason);
+      if (shouldShowRefreshing) {
         setIsManualRefreshing(true);
       }
       try {
         await refreshBorrowData();
       } finally {
-        if (request.reason === 'manual' || request.reason === 'txSuccess') {
+        if (shouldShowRefreshing) {
           setIsManualRefreshing(false);
         }
       }

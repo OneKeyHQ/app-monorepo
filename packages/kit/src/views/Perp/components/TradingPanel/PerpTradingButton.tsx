@@ -30,6 +30,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
+import { showHyperliquidTermsDialog } from '../HyperliquidTerms';
 
 const sharedButtonProps = {
   size: 'medium',
@@ -74,6 +75,11 @@ export function PerpTradingButton({
   ]);
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const enableTrading = useCallback(async () => {
+    const didAcceptTerms = await showHyperliquidTermsDialog();
+    if (!didAcceptTerms) {
+      return;
+    }
+
     const status = await backgroundApiProxy.serviceHyperliquid.enableTrading();
     if (
       status?.details?.activatedOk === false &&

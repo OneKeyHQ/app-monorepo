@@ -326,7 +326,11 @@ export function useSwapProTokenInfoSync() {
       if (balanceTokenInfo?.length) {
         if (swapProDirection === ESwapDirection.BUY) {
           setSwapProUseSelectBuyTokenAtom((prev) =>
-            prev
+            prev &&
+            equalTokenNoCaseSensitive({
+              token1: prev,
+              token2: balanceTokenInfo[0],
+            })
               ? {
                   ...prev,
                   isNative: balanceTokenInfo[0].isNative ?? false,
@@ -336,11 +340,15 @@ export function useSwapProTokenInfoSync() {
                   accountAddress:
                     netAccountRes.result?.addressDetail.address ?? '',
                 }
-              : undefined,
+              : prev,
           );
         } else {
           setSwapProSelectToken((prev) =>
-            prev
+            prev &&
+            equalTokenNoCaseSensitive({
+              token1: prev,
+              token2: balanceTokenInfo[0],
+            })
               ? {
                   ...prev,
                   isNative: balanceTokenInfo[0].isNative ?? false,
@@ -350,7 +358,7 @@ export function useSwapProTokenInfoSync() {
                   accountAddress:
                     netAccountRes.result?.addressDetail.address ?? '',
                 }
-              : undefined,
+              : prev,
           );
         }
       }
@@ -453,13 +461,14 @@ export function useSwapProTokenInfoSync() {
       });
     if (balanceTokenInfo?.length) {
       setSwapProSellToToken((prev) =>
-        prev
+        prev &&
+        equalTokenNoCaseSensitive({ token1: prev, token2: balanceTokenInfo[0] })
           ? {
               ...prev,
               isNative: balanceTokenInfo[0].isNative ?? false,
               price: balanceTokenInfo[0].price ?? '',
             }
-          : undefined,
+          : prev,
       );
     }
   }, [
@@ -476,9 +485,10 @@ export function useSwapProTokenInfoSync() {
       });
     if (balanceTokenInfo?.length) {
       setSwapProSelectToken((prev) =>
-        prev
+        prev &&
+        equalTokenNoCaseSensitive({ token1: prev, token2: balanceTokenInfo[0] })
           ? { ...prev, isNative: balanceTokenInfo[0].isNative ?? false }
-          : undefined,
+          : prev,
       );
     }
   }, [

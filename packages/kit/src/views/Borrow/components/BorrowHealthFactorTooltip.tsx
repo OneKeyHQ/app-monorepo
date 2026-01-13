@@ -28,14 +28,26 @@ export const BorrowHealthFactorTooltip = ({
   detail,
 }: IBorrowHealthFactorTooltipProps) => {
   const intl = useIntl();
-  const { value, index, lowerLimit, upperLimit } = useMemo(() => {
+  const { value, displayValue, index, lowerLimit, upperLimit } = useMemo(() => {
+    const numericValue = Number(detail?.value);
     return {
-      value: Number(detail?.value) || 0,
+      value: Number.isFinite(numericValue) ? numericValue : 0,
+      displayValue: detail?.value ?? '-',
       index: detail?.index ? Number(detail.index) : undefined,
       lowerLimit: Number(detail?.lowerLimit) || 0,
       upperLimit: Number(detail?.upperLimit) || 3,
     };
   }, [detail?.index, detail?.lowerLimit, detail?.upperLimit, detail?.value]);
+  const gradientStops = useMemo(() => {
+    if (!detail?.gradientStops?.length) return undefined;
+    const parsedStops = detail.gradientStops
+      .map((stop) => ({
+        percent: stop.percent,
+        level: stop.level,
+      }))
+      .filter((stop) => Number.isFinite(stop.percent));
+    return parsedStops.length ? parsedStops : undefined;
+  }, [detail?.gradientStops]);
   const healthFactorLabel = intl.formatMessage({
     id: ETranslations.defi_health_factor,
   });
@@ -95,11 +107,13 @@ export const BorrowHealthFactorTooltip = ({
           {/* Health Factor progress bar */}
           <HealthFactor
             value={value}
+            displayValue={displayValue}
             index={index}
             min={lowerLimit}
             max={upperLimit}
             thresholdValue={1}
             liquidationText={detail.liquidationAt?.description}
+            gradientStops={gradientStops}
           />
 
           {/* Liquidation description */}

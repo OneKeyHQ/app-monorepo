@@ -154,7 +154,6 @@ import {
   devSettingsPersistAtom,
   hardwareWalletXfpStatusAtom,
   indexedAccountAddressCreationStateAtom,
-  primePersistAtom,
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { vaultFactory } from '../../vaults/factory';
