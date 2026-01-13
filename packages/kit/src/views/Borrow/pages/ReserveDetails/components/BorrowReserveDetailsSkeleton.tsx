@@ -1,4 +1,10 @@
-import { Divider, Skeleton, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Divider,
+  Skeleton,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 
 import { CHART_HEIGHT } from './InterestRateModelChartShared';
 
@@ -52,12 +58,7 @@ const MobileHeaderSkeleton = () => (
 const TabBarSkeleton = () => (
   <XStack gap="$2">
     {[0, 1, 2].map((index) => (
-      <Skeleton
-        key={index}
-        width={80}
-        height={32}
-        borderRadius="$full"
-      />
+      <Skeleton key={index} width={80} height={32} borderRadius="$full" />
     ))}
   </XStack>
 );
