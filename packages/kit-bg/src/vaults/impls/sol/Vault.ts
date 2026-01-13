@@ -811,6 +811,9 @@ export default class Vault extends VaultBase {
       client,
     });
 
+    // Track ATAs created in this transaction for quick lookup
+    const createdAta: Record<string, IATADetails> = {};
+
     for (const instruction of instructions) {
       // Check if this is a createAssociatedTokenAccountInstruction
       if (
@@ -829,12 +832,73 @@ export default class Vault extends VaultBase {
         const [, associatedToken, owner, mint, , tokenProgram] =
           instruction.keys;
         if (associatedToken && owner && mint && tokenProgram) {
-          ataDetails.push({
+          const ataDetail: IATADetails = {
             owner: owner.pubkey.toString(),
             programId: tokenProgram.pubkey.toString(),
             mintAddress: mint.pubkey.toString(),
             associatedTokenAddress: associatedToken.pubkey.toString(),
-          });
+          };
+          createdAta[associatedToken.pubkey.toString()] = ataDetail;
+          ataDetails.push(ataDetail);
+        }
+      }
+    }
+
+    // Also extract from TransferChecked and Transfer instructions
+    for (const instruction of instructions) {
+      if (
+        instruction.programId.toString() === TOKEN_PROGRAM_ID.toString() ||
+        instruction.programId.toString() === TOKEN_2022_PROGRAM_ID.toString()
+      ) {
+        try {
+          const programId =
+            instruction.programId.toString() === TOKEN_PROGRAM_ID.toString()
+              ? TOKEN_PROGRAM_ID
+              : TOKEN_2022_PROGRAM_ID;
+
+          const {
+            data: { instruction: instructionType },
+          } = decodeInstruction(instruction, programId);
+
+          let mintAddress: string | undefined;
+          let destinationAta: string | undefined;
+
+          if (instructionType === TokenInstruction.TransferChecked) {
+            // TransferChecked keys: [0] source, [1] mint, [2] destination, [3] owner
+            const {
+              keys: { mint, destination },
+            } = decodeTransferCheckedInstruction(instruction, programId);
+            mintAddress = mint.pubkey.toString();
+            destinationAta = destination.pubkey.toString();
+          } else if (instructionType === TokenInstruction.Transfer) {
+            // Transfer keys: [0] source, [1] destination, [2] owner
+            const {
+              keys: { destination },
+            } = decodeTransferInstruction(instruction, programId);
+            destinationAta = destination.pubkey.toString();
+          }
+
+          // Skip if already added from ATA creation instruction
+          if (destinationAta && !createdAta[destinationAta]) {
+            try {
+              // Get the ATA account info to find the owner and mint
+              const ataAccountInfo = await this._getAssociatedAccountInfo(
+                destinationAta,
+              );
+              const { mint, owner } = ataAccountInfo;
+
+              ataDetails.push({
+                owner,
+                programId: programId.toString(),
+                mintAddress: mintAddress || mint,
+                associatedTokenAddress: destinationAta,
+              });
+            } catch {
+              // If we can't get ATA info, skip this transfer
+            }
+          }
+        } catch {
+          // Instruction decode failed, skip
         }
       }
     }
