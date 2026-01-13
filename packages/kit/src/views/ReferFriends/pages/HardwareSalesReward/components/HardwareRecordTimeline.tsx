@@ -73,10 +73,11 @@ export function formatTimestamp(timestamp: string | undefined): string {
 
 interface ITimelineItemProps {
   historyItem: IHistoryItem;
+  isFirst: boolean;
   isLast: boolean;
 }
 
-function TimelineItem({ historyItem, isLast }: ITimelineItemProps) {
+function TimelineItem({ historyItem, isFirst, isLast }: ITimelineItemProps) {
   const config = getConfig(historyItem.type);
   const formattedDateTime = formatTimestamp(historyItem.timestamp);
 
@@ -96,7 +97,7 @@ function TimelineItem({ historyItem, isLast }: ITimelineItemProps) {
         ) : null}
       </YStack>
       <YStack flex={1} gap="$2" pb={isLast ? 0 : '$10'}>
-        <SizableText size="$bodyLgMedium" color="$text">
+        <SizableText size={isFirst ? '$bodyLgMedium' : '$bodyLg'} color="$text">
           {historyItem.eventLabel}
         </SizableText>
         {historyItem.descriptionLabel ? (
@@ -146,6 +147,7 @@ export function HardwareRecordTimeline({
           <TimelineItem
             key={`${historyItem.type}-${historyItem.timestamp}-${index}`}
             historyItem={historyItem}
+            isFirst={index === 0}
             isLast={index === history.length - 1}
           />
         ))}
