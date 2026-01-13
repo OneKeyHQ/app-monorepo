@@ -6,26 +6,51 @@ import { useIntl } from 'react-intl';
 import { Badge, Icon } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 // Type definitions
 export type ITimePeriod = 'week' | 'month' | 'quarter' | 'year';
 
-// Chart color constants
-export const APY_CHART_COLORS = {
-  supply: {
-    line: '#008347D6',
-    top: '#42FFA426',
-    bottom: '#42FFA400',
-  },
-  borrow: {
-    line: '#BF7000A3',
-    top: '#BF700026',
-    bottom: '#BF700000',
-  },
-  lineWidth: 2,
+const SUPPLY_APY_CHART_COLORS_LIGHT = {
+  line: '#008647D4',
+  top: '#00864726',
+  bottom: '#00864700',
 } as const;
+
+const SUPPLY_APY_CHART_COLORS_DARK = {
+  line: '#43FEA4AB',
+  top: '#43FEA426',
+  bottom: '#43FEA400',
+} as const;
+
+const BORROW_APY_CHART_COLORS = {
+  line: '#BF7000A3',
+  top: '#BF700026',
+  bottom: '#BF700000',
+} as const;
+
+const APY_CHART_LINE_WIDTH = 2;
+
+const APY_CHART_COLORS_LIGHT = {
+  supply: SUPPLY_APY_CHART_COLORS_LIGHT,
+  borrow: BORROW_APY_CHART_COLORS,
+  lineWidth: APY_CHART_LINE_WIDTH,
+} as const;
+
+const APY_CHART_COLORS_DARK = {
+  supply: SUPPLY_APY_CHART_COLORS_DARK,
+  borrow: BORROW_APY_CHART_COLORS,
+  lineWidth: APY_CHART_LINE_WIDTH,
+} as const;
+
+export function useApyChartColors() {
+  const themeVariant = useThemeVariant();
+  return themeVariant === 'dark'
+    ? APY_CHART_COLORS_DARK
+    : APY_CHART_COLORS_LIGHT;
+}
 
 // Time period options hook
 export function useTimePeriodOptions() {
