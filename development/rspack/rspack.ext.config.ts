@@ -61,20 +61,42 @@ class ChromeExtensionV3ViolationPlugin implements RspackPluginInstance {
       (compilation) => {
         const files = Object.keys(compilation.assets);
         files.forEach((file) => {
-          let hasFileChanged = false;
-          const asset = compilation.assets[file];
-          let content = asset.source().toString();
-          this.replaceConfigs.forEach((config) => {
-            if (config.regexToFind.test(content)) {
-              hasFileChanged = true;
-              content = content.replace(config.regexToFind, config.replacement);
-            }
-          });
-          if (hasFileChanged) {
-            compilation.assets[file] = new rspack.sources.RawSource(
-              content,
-            ) as unknown as sources.Source;
+          // Only process JS files to reduce unnecessary operations
+          if (!file.endsWith('.js')) {
+            return;
           }
+
+          const asset = compilation.assets[file];
+          const content = asset.source().toString();
+
+          // Check if any replacement is needed before modifying
+          let needsReplacement = false;
+          for (const config of this.replaceConfigs) {
+            // Reset lastIndex for global regexes to avoid stateful matching issues
+            config.regexToFind.lastIndex = 0;
+            if (config.regexToFind.test(content)) {
+              needsReplacement = true;
+              break;
+            }
+          }
+
+          if (!needsReplacement) {
+            return;
+          }
+
+          // Perform all replacements
+          let modifiedContent = content;
+          for (const config of this.replaceConfigs) {
+            config.regexToFind.lastIndex = 0;
+            modifiedContent = modifiedContent.replace(
+              config.regexToFind,
+              config.replacement,
+            );
+          }
+
+          compilation.assets[file] = new rspack.sources.RawSource(
+            modifiedContent,
+          ) as unknown as sources.Source;
         });
       },
     );
@@ -309,11 +331,9 @@ export function createExtConfig({
       },
       configUpdater(config: RspackOptions) {
         enableCodeSplitChunks(config);
-        config.plugins = [
-          ...(config.plugins || []),
-          ...uiHtmlPlugins,
-          chromeExtensionV3ViolationPlugin,
-        ].filter(Boolean);
+        config.plugins = [...(config.plugins || []), ...uiHtmlPlugins].filter(
+          Boolean,
+        );
         return config;
       },
     },
@@ -334,7 +354,6 @@ export function createExtConfig({
         config.plugins = [
           ...(config.plugins || []),
           ...passkeyHtmlPlugins,
-          chromeExtensionV3ViolationPlugin,
         ].filter(Boolean);
         return config;
       },
@@ -368,7 +387,6 @@ export function createExtConfig({
                 new rspack.ProvidePlugin({
                   process: 'process/browser',
                 }),
-                chromeExtensionV3ViolationPlugin,
               ].filter(Boolean);
               return config;
             },
@@ -395,7 +413,6 @@ export function createExtConfig({
               config.plugins = [
                 ...(config.plugins || []),
                 ...offscreenHtmlPlugins,
-                chromeExtensionV3ViolationPlugin,
               ].filter(Boolean);
               return config;
             },
