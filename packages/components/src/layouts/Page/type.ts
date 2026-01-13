@@ -14,6 +14,10 @@ export interface IPageLifeCycle {
   onConfirm?: () => void;
   // registers a callback to be called when the page closed.
   onClose?: (extra?: { flag?: string }) => void;
+  // registers a callback to be called when the page needs to redirect.
+  onRedirected?: () => void;
+  // determines whether to redirect the page.
+  shouldRedirect?: () => boolean;
 }
 
 export type IBasicPageProps = PropsWithChildren<
