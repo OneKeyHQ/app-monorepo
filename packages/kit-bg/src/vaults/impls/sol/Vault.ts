@@ -47,6 +47,7 @@ import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/c
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import { verifySignedMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/signMessage';
 import type {
+  IATADetails,
   IDecodedTxExtraSol,
   IEncodedTxSol,
   INativeTxSol,
@@ -799,6 +800,48 @@ export default class Vault extends VaultBase {
     },
   );
 
+  async _extractATADetailsFromEncodedTx(
+    encodedTx: IEncodedTxSol,
+  ): Promise<IATADetails[]> {
+    const ataDetails: IATADetails[] = [];
+    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client,
+    });
+
+    for (const instruction of instructions) {
+      // Check if this is a createAssociatedTokenAccountInstruction
+      if (
+        instruction.programId.toString() ===
+          ASSOCIATED_TOKEN_PROGRAM_ID.toString() &&
+        instruction.keys.length >= 6 &&
+        instruction.keys[4].pubkey.toString() ===
+          SystemProgram.programId.toString() &&
+        (instruction.keys[5].pubkey.toString() ===
+          TOKEN_PROGRAM_ID.toString() ||
+          instruction.keys[5].pubkey.toString() ===
+            TOKEN_2022_PROGRAM_ID.toString())
+      ) {
+        // createAssociatedTokenAccountInstruction keys order:
+        // [0] payer, [1] associatedToken, [2] owner, [3] mint, [4] systemProgram, [5] tokenProgram
+        const [, associatedToken, owner, mint, , tokenProgram] =
+          instruction.keys;
+        if (associatedToken && owner && mint && tokenProgram) {
+          ataDetails.push({
+            owner: owner.pubkey.toString(),
+            programId: tokenProgram.pubkey.toString(),
+            mintAddress: mint.pubkey.toString(),
+            associatedTokenAddress: associatedToken.pubkey.toString(),
+          });
+        }
+      }
+    }
+
+    return ataDetails;
+  }
+
   async _decodeNativeTxActions({
     instructions,
     isNFT,
@@ -1061,9 +1104,13 @@ export default class Vault extends VaultBase {
       );
     }
 
+    // Extract ATA details from the encoded transaction for hardware signing
+    const ataDetails = await this._extractATADetailsFromEncodedTx(newEncodedTx);
+
     return {
       payload: {
         feePayer: accountAddress,
+        ataDetails: ataDetails.length > 0 ? ataDetails : undefined,
       },
       encodedTx: newEncodedTx,
     };
