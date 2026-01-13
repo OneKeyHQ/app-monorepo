@@ -140,6 +140,7 @@ export function TabPageHeader({
   customHeaderLeftItems,
   hideSearch = false,
   hideHeaderLeft = false,
+  headerPx,
 }: ITabPageHeaderProp) {
   const media = useMedia();
 
@@ -166,6 +167,7 @@ export function TabPageHeader({
         hideSearch={hideSearch}
         selectedHeaderTab={selectedHeaderTab}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+        headerPx={headerPx}
       />
     );
   }
