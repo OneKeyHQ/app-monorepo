@@ -205,7 +205,7 @@ describe('sanitizeText', () => {
   });
 
   test('should redact long words that look like tokens or API keys', () => {
-    const apiKey = 'sk_live_abc123def456ghi789jkl012mno345';
+    const apiKey = 'fake_test_ef456ghi789jkl012mno345';
     const text = `API call failed with key ${apiKey}`;
     const result = sanitizeText(text);
     expect(result).toBe('API call failed with key ***');
