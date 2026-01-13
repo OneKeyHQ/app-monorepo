@@ -53,7 +53,7 @@ function WalletEditButtonView({
   const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
   const [isResetPinLoading, setIsResetPinLoading] = useState(false);
-  const [isVerifyPinLoading, setIsVerifyPinLoading] = useState(false);
+  const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
 
   const isPrimeUser = useMemo(() => {
     return user?.primeSubscription?.isActive && user?.onekeyUserId;
