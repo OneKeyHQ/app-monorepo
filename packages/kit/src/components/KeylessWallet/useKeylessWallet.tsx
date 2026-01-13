@@ -607,8 +607,8 @@ export function useKeylessWallet() {
               keylessProvider === EOAuthSocialLoginProvider.Apple;
 
             if (isAndroidWithGoogle) {
-              // Android + Google: Show dialog with Google Drive logout option
-              await showGoogleDriveMismatchDialog({ intl });
+              // Android + Google: Show dialog with Google logout option
+              showGoogleDriveMismatchDialog({ intl });
             } else if (isIOSWithApple) {
               // iOS + Apple: Show dialog with Apple ID switching instructions
               showAppleIDMismatchDialog({ intl });
