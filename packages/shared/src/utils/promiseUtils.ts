@@ -153,20 +153,23 @@ export async function promiseAllSettledEnhanced<T>(
 }
 
 export class PromiseTarget<T> {
+  // IMPORTANT: Declare _resolveFn and _rejectFn BEFORE ready!
+  // This fixes a class field initialization order issue where rspack/SWC
+  // would initialize _resolveFn to undefined AFTER the Promise executor
+  // had already set it, causing the Promise to never resolve.
+  _resolveFn: ((value: T) => void) | undefined;
+  _rejectFn: ((error: Error | IOneKeyError) => void) | undefined;
+
   ready = new Promise<T>((resolve, reject) => {
     this._resolveFn = resolve;
     this._rejectFn = reject;
   });
-
-  _resolveFn: ((value: T) => void) | undefined;
 
   resolveTarget(value: T, delay = 0) {
     setTimeout(() => {
       this._resolveFn?.(value);
     }, delay);
   }
-
-  _rejectFn: ((error: Error | IOneKeyError) => void) | undefined;
 
   rejectTarget(error: Error | IOneKeyError) {
     setTimeout(() => {
