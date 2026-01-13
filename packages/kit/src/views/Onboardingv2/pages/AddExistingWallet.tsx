@@ -82,7 +82,7 @@ export default function AddExistingWallet() {
     () =>
       [
         {
-          title: intl.formatMessage({ id: ETranslations.global_transfer }),
+          title: intl.formatMessage({ id: ETranslations.transfer_transfer }),
           icon: 'MultipleDevicesOutline' as IKeyOfIcons,
           description: intl.formatMessage({
             id: ETranslations.prime_transfer_desc,
