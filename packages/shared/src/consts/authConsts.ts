@@ -1,6 +1,6 @@
 /* eslint-disable spellcheck/spell-checker */
 
-const IS_DEV = process.env.NODE_ENV !== 'production';
+const _IS_DEV = process.env.NODE_ENV !== 'production';
 
 /**
  * OAuth IPC event channel name for desktop OAuth callback

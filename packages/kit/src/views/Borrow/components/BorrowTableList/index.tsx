@@ -34,11 +34,24 @@ const BorrowTableList = <T,>({
   onPressRow,
 }: IBorrowTableListProps<T>) => {
   const hasData = data && data.length > 0;
-  if (isLoading && !hasData) {
-    return <BorrowListSkeleton />;
-  }
 
   if (!hasData) {
+    if (isLoading) {
+      return (
+        <TableList
+          columns={columns}
+          data={[]}
+          isLoading
+          tableLayout
+          withHeader
+          onPressRow={onPressRow}
+          SkeletonComponent={
+            <BorrowListSkeleton columns={columns} rowGap={listProps.rowGap} />
+          }
+          {...listProps}
+        />
+      );
+    }
     return <Empty title={emptyContent} titleProps={{ size: '$bodyMd' }} />;
   }
 
@@ -46,9 +59,13 @@ const BorrowTableList = <T,>({
     <TableList
       columns={columns}
       data={data}
+      isLoading={isLoading}
       tableLayout
       withHeader
       onPressRow={onPressRow}
+      SkeletonComponent={
+        <BorrowListSkeleton columns={columns} rowGap={listProps.rowGap} />
+      }
       {...listProps}
     />
   );

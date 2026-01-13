@@ -12,6 +12,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -186,7 +187,7 @@ export default function PickYourDevice() {
               hoverStyle={{
                 color: '$textSubdued',
               }}
-              href="https://bit.ly/3YsKilK"
+              href={ONEKEY_BUY_HARDWARE_URL}
               target="_blank"
               size="$bodySm"
               hitSlop={{

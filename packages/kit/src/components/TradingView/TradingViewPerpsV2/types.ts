@@ -58,6 +58,7 @@ export interface ITVLine {
   price: string; // Formatted price string
   qty?: string; // Size for position/order
   side?: ITVLineSide; // For styling
+  pnlPositive?: boolean; // For position lines: true if profit, false if loss
   label?: {
     left?: string; // e.g., "PNL +$123.45"
     right?: string; // e.g., "+0.5 BTC"

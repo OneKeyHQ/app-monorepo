@@ -19,6 +19,9 @@ export interface ILightweightChartConfig {
   data: ILightweightChartData[];
   lineWidth: number;
   showPriceScale?: boolean;
+  showHorzGridLines?: boolean;
+  horzLineColor?: string;
+  horzLineStyle?: number;
 }
 
 export interface ILightweightChartProps {
@@ -29,6 +32,7 @@ export interface ILightweightChartProps {
   bottomColor?: string;
   lineWidth?: number;
   showPriceScale?: boolean;
+  showHorzGridLines?: boolean;
   onHover?: (data: {
     time?: number;
     price?: number;

@@ -68,7 +68,7 @@ export const ReserveProtocolHeader = ({
   return (
     <YStack>
       <YStack jc="center">
-        {/* Managers Section (e.g., Kamino Managed • Kamino Oracle Aggregated) */}
+        {/* Managers Section (e.g., Jeff Managed • Jeff Oracle Aggregated) */}
         {managers?.items?.length ? (
           <XStack gap="$1" ai="center" mb="$4">
             {managers.items.map((item, index) => (

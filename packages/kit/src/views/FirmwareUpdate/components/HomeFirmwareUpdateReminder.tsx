@@ -50,7 +50,7 @@ export function FirmwareUpdateReminderAlert({
       flex={1}
       {...(containerProps as IXStackProps)}
     >
-      <Icon size="$5" name="OnekeyDeviceCustom" color="$iconInfo" />
+      <Icon size="$5" name="DownloadOutline" color="$iconInfo" />
       <SizableText
         flex={1}
         size="$bodyMdMedium"

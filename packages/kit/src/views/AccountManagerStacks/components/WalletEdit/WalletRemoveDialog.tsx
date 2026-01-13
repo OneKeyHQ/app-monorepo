@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, Toast } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -14,6 +13,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 export function WalletRemoveDialog({
   defaultValue,
@@ -21,12 +21,14 @@ export function WalletRemoveDialog({
   showCheckBox,
   isRemoveToMocked,
   isKeyless,
+  onConfirmRemove,
 }: {
   defaultValue: boolean;
   wallet?: IDBWallet;
   showCheckBox: boolean;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
   isKeyless?: boolean;
+  onConfirmRemove?: () => void;
 }) {
   const intl = useIntl();
   const [value, changeValue] = useState(defaultValue);
@@ -73,6 +75,7 @@ export function WalletRemoveDialog({
             isRemoveToMocked,
           });
           defaultLogger.account.wallet.deleteWallet();
+          onConfirmRemove?.();
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.feedback_change_saved,
@@ -175,6 +178,7 @@ export function showWalletRemoveDialog({
   showCheckBox,
   isRemoveToMocked,
   isKeyless,
+  onConfirmRemove,
 }: {
   defaultChecked: boolean;
   title: string;
@@ -184,6 +188,7 @@ export function showWalletRemoveDialog({
   showCheckBox: boolean;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
   isKeyless?: boolean;
+  onConfirmRemove?: () => void;
 }) {
   return Dialog.show({
     icon: 'ErrorOutline',
@@ -198,6 +203,7 @@ export function showWalletRemoveDialog({
           showCheckBox={showCheckBox}
           isRemoveToMocked={isRemoveToMocked}
           isKeyless={isKeyless}
+          onConfirmRemove={onConfirmRemove}
         />
       </AccountSelectorProviderMirror>
     ) : null,

@@ -23,6 +23,7 @@ interface IApyChartBaseProps {
   topColor?: string;
   bottomColor?: string;
   lineWidth?: number;
+  showHorzGridLines?: boolean;
   showPriceScale?: boolean;
   showDivider?: boolean;
   tooltipLabel?: string;
@@ -36,11 +37,13 @@ const ApyChartBaseComponent = ({
   topColor,
   bottomColor,
   lineWidth,
+  showHorzGridLines,
   showPriceScale,
   showDivider = true,
   tooltipLabel = 'APY',
 }: IApyChartBaseProps) => {
   const intl = useIntl();
+  const chartHeight = 200;
   const [hoverData, setHoverData] = useState<{
     time: number;
     apy: number;
@@ -142,10 +145,7 @@ const ApyChartBaseComponent = ({
 
       {isLoading ? (
         <Stack
-          $gtMd={{ height: 200 }}
-          $md={{ height: 180 }}
-          $sm={{ height: 160 }}
-          height={160}
+          height={chartHeight}
           position="relative"
           overflow="hidden"
           animation="quick"
@@ -227,11 +227,12 @@ const ApyChartBaseComponent = ({
           ) : null}
           <LightweightChart
             data={chartData.marketChartData}
-            height={200}
+            height={chartHeight}
             lineColor={lineColor}
             topColor={topColor}
             bottomColor={bottomColor}
             lineWidth={lineWidth}
+            showHorzGridLines={showHorzGridLines}
             showPriceScale={showPriceScale}
             onHover={handleHover}
           />

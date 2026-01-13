@@ -28,10 +28,7 @@ class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceSetting.fetchReviewControl(),
         this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
         this.backgroundApi.serviceNotification.init(),
-        this.backgroundApi.serviceReferralCode.getPostConfig(),
-        this.backgroundApi.serviceSetting.syncWalletConfig(),
         this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
-        this.backgroundApi.serviceDeFi.syncDeFiEnabledNetworks(),
       ]);
     } catch (error) {
       console.error(error);

@@ -34,6 +34,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useDebouncedCallback } from '../../../hooks/useDebounce';
+import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
@@ -116,7 +117,9 @@ const InAppNotification = () => {
       swapLimitOrdersFetchLoopReload,
     ]);
 
-    void swapLimitOrdersFetchLoopReload();
+    return runAfterTokensDone({
+      onRun: () => swapLimitOrdersFetchLoopReload(),
+    });
   }, [
     activeAccount?.indexedAccount?.id,
     activeAccount?.account?.id,

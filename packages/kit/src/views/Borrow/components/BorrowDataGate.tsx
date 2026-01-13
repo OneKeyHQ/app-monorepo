@@ -10,8 +10,12 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
+import { useBorrowPendingTxs } from '../hooks/useBorrowPendingTxs';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
-import { useBorrowTxUpdate } from '../hooks/useBorrowTxUpdate';
+import {
+  createBorrowRefreshScope,
+  registerBorrowRefreshHandler,
+} from '../refresh/borrowRefreshCoordinator';
 
 enum EBorrowDataStatus {
   Idle = 'Idle',
@@ -34,6 +38,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     setReserves,
     setReservesLoading,
     setPendingTxs,
+    refreshReservesRef,
     refreshPendingRef,
   } = useBorrowContext();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -42,7 +47,7 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
   });
   const { fetchReserves } = useBorrowReserves();
   const lastFetchKeyRef = useRef<string | null>(null);
-  const accountId = earnAccount?.account?.id;
+  const accountId = earnAccount?.accountId ?? earnAccount?.account?.id;
   const activeAccountId = activeAccount.account?.id;
   const shouldWaitForAccount =
     !activeAccount.ready ||
@@ -50,6 +55,16 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
   const marketProvider = market?.provider;
   const marketNetworkId = market?.networkId;
   const marketAddress = market?.marketAddress;
+  const refreshScope = useMemo(
+    () =>
+      createBorrowRefreshScope({
+        accountId,
+        networkId: marketNetworkId,
+        provider: marketProvider,
+        marketAddress,
+      }),
+    [accountId, marketAddress, marketNetworkId, marketProvider],
+  );
   const fetchKey = useMemo(
     () =>
       !isEmpty(market)
@@ -166,14 +181,10 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     }
   }, [dataStatus, fetchKey, reservesResult, setReserves, setReservesLoading]);
 
-  const { pendingTxs, refreshPending } = useBorrowTxUpdate({
+  const { pendingTxs, refreshPending } = useBorrowPendingTxs({
     accountId,
     networkId: marketNetworkId,
     provider: marketProvider,
-    onRefresh: () => {
-      // Re-fetch all reserves when pending transactions complete
-      void refreshReserves();
-    },
   });
 
   // Sync pending transactions to context
@@ -181,10 +192,22 @@ export const BorrowDataGate = ({ children }: { children: ReactNode }) => {
     setPendingTxs(pendingTxs);
   }, [pendingTxs, setPendingTxs]);
 
+  useEffect(() => {
+    refreshReservesRef.current = refreshReserves;
+  }, [refreshReserves, refreshReservesRef]);
+
   // Store refreshPending function in ref for external access
   useEffect(() => {
     refreshPendingRef.current = refreshPending;
   }, [refreshPending, refreshPendingRef]);
+
+  useEffect(() => {
+    if (!refreshScope) return;
+    return registerBorrowRefreshHandler(refreshScope, async (request) => {
+      if (request.reason !== 'txSuccess') return;
+      await refreshPending();
+    });
+  }, [refreshPending, refreshScope]);
 
   return <>{children}</>;
 };

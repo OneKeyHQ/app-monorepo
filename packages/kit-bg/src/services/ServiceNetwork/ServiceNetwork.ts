@@ -33,7 +33,6 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   IDetectedNetwork,
   IDetectedNetworkGroupItem,
@@ -118,10 +117,13 @@ class ServiceNetwork extends ServiceBase {
       // TODO save to simpleDB
       const excludeTestNetwork = params?.excludeTestNetwork ?? false;
       const uniqByImpl = params?.uniqByImpl ?? false;
-      const excludeNetworkIds = params?.excludeNetworkIds ?? [];
-      if (params.excludeAllNetworkItem) {
-        excludeNetworkIds.push(getNetworkIdsMap().onekeyall);
-      }
+      // DO NOT mutate params/excludeNetworkIds. This function is memoized and input mutation
+      // will cause cache misses (and potentially wrong cached results).
+      const excludeNetworkIdsFromParams = params?.excludeNetworkIds ?? [];
+      const excludeNetworkIds = [
+        ...excludeNetworkIdsFromParams,
+        ...(params.excludeAllNetworkItem ? [getNetworkIdsMap().onekeyall] : []),
+      ];
       const presetNetworks = getPresetNetworks();
       perf.markEnd('getPresetNetworks');
 
@@ -184,7 +186,8 @@ class ServiceNetwork extends ServiceBase {
 
       perf.markStart('filterNetworks-excludeNetworkIds');
       if (excludeNetworkIds?.length) {
-        networks = networks.filter((n) => !excludeNetworkIds.includes(n.id));
+        const excludeSet = new Set(excludeNetworkIds);
+        networks = networks.filter((n) => !excludeSet.has(n.id));
       }
       perf.markEnd('filterNetworks-excludeNetworkIds');
 
@@ -322,8 +325,7 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async getVaultSettings({ networkId }: { networkId: string }) {
-    const settings = await getVaultSettings({ networkId });
-    return settings;
+    return this._getVaultSettingsByNetworkId(networkId);
   }
 
   @backgroundMethod()
@@ -799,6 +801,38 @@ class ServiceNetwork extends ServiceBase {
     return deriveTypes;
   }
 
+  private _getVaultSettingsByNetworkId = memoizee(
+    async (networkId: string) => getVaultSettings({ networkId }),
+    { max: 1024 },
+  );
+
+  private async _getNetworkVaultSettingsByNetworkIds(networkIds: string[]) {
+    const uniqueNetworkIds = uniq(networkIds).filter(
+      (networkId) => !networkUtils.isAllNetwork({ networkId }),
+    );
+    if (uniqueNetworkIds.length === 0) {
+      return [];
+    }
+
+    const { networks } = await this.getAllNetworks();
+    const limit = pLimit(8);
+
+    const uniqueNetworkIdsSet = new Set(uniqueNetworkIds);
+    const includedNetworks = networks.filter((network) =>
+      uniqueNetworkIdsSet.has(network.id),
+    );
+
+    const result = await Promise.all(
+      includedNetworks.map((network) =>
+        limit(async () => ({
+          network,
+          vaultSetting: await this._getVaultSettingsByNetworkId(network.id),
+        })),
+      ),
+    );
+    return result;
+  }
+
   private _getNetworkVaultSettings = memoizee(
     async () => {
       const { networks } = await this.getAllNetworks();
@@ -808,9 +842,9 @@ class ServiceNetwork extends ServiceBase {
           limit(async () => {
             // `vault.getVaultSettings()` ultimately reads from `getVaultSettings({ networkId })`,
             // so avoid creating/destroying dozens of vault instances just to fetch static settings.
-            const vaultSetting = await getVaultSettings({
-              networkId: network.id,
-            });
+            const vaultSetting = await this._getVaultSettingsByNetworkId(
+              network.id,
+            );
             return {
               network,
               vaultSetting,
@@ -1014,7 +1048,7 @@ class ServiceNetwork extends ServiceBase {
       .map((item) => {
         item.networks = item.networks
           .filter((network) => availableNetworkIds.includes(network.networkId))
-          .sort((a, b) => {
+          .sort((a, _b) => {
             if (
               [
                 presetNetworksMap.eth.id,
@@ -1148,13 +1182,9 @@ class ServiceNetwork extends ServiceBase {
     walletId?: string;
     networkIds?: string[];
   }) {
-    let networkVaultSettings = await this._getNetworkVaultSettings();
-    if (networkIds) {
-      const networkIdsSet = new Set<string>(networkIds);
-      networkVaultSettings = networkVaultSettings.filter((o) =>
-        networkIdsSet.has(o.network.id),
-      );
-    }
+    let networkVaultSettings = networkIds?.length
+      ? await this._getNetworkVaultSettingsByNetworkIds(networkIds)
+      : await this._getNetworkVaultSettings();
 
     networkVaultSettings = networkVaultSettings.filter(
       (o) => !networkUtils.isAllNetwork({ networkId: o.network.id }),
@@ -1326,16 +1356,13 @@ class ServiceNetwork extends ServiceBase {
     useDefaultPinnedNetworks?: boolean;
   }> {
     if (clearCache) {
-      await this._getNetworkVaultSettings.clear();
+      void this._getNetworkVaultSettings.clear();
+      void this._getVaultSettingsByNetworkId.clear();
     }
 
-    let networkVaultSettings = await this._getNetworkVaultSettings();
-    if (networkIds) {
-      const networkIdsSet = new Set<string>(networkIds);
-      networkVaultSettings = networkVaultSettings.filter((o) =>
-        networkIdsSet.has(o.network.id),
-      );
-    }
+    let networkVaultSettings = networkIds?.length
+      ? await this._getNetworkVaultSettingsByNetworkIds(networkIds)
+      : await this._getNetworkVaultSettings();
 
     networkVaultSettings = networkVaultSettings.filter(
       (o) => !networkUtils.isAllNetwork({ networkId: o.network.id }),
@@ -1469,6 +1496,7 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async clearNetworkVaultSettingsCache() {
     void this._getNetworkVaultSettings.clear();
+    void this._getVaultSettingsByNetworkId.clear();
   }
 
   @backgroundMethod()
