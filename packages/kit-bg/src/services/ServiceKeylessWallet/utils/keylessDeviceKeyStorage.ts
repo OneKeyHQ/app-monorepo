@@ -1,45 +1,13 @@
-import { decodeSensitiveTextAsync, sha256 } from '@onekeyhq/core/src/secret';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IDeviceKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { settingsPersistAtom } from '../../../states/jotai/atoms';
-
 import { buildKeylessLocalEncryptionKey } from './keylessLocalEncryptionKey';
+import keylessStorageUtils from './keylessStorageUtils';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
-
-async function devicePackSetItem(key: string, encryptedPayloadBase64: string) {
-  const isSecureStorageSupported =
-    await appStorage.secureStorage.supportSecureStorage();
-  if (isSecureStorageSupported) {
-    await appStorage.secureStorage.setSecureItem(key, encryptedPayloadBase64);
-  } else {
-    await appStorage.setItem(key, encryptedPayloadBase64);
-  }
-}
-
-async function devicePackGetItem(key: string): Promise<string | null> {
-  const isSecureStorageSupported =
-    await appStorage.secureStorage.supportSecureStorage();
-  if (isSecureStorageSupported) {
-    return appStorage.secureStorage.getSecureItem(key);
-  }
-  return appStorage.getItem(key);
-}
-
-async function devicePackRemoveItem(key: string): Promise<void> {
-  const isSecureStorageSupported =
-    await appStorage.secureStorage.supportSecureStorage();
-  if (isSecureStorageSupported) {
-    await appStorage.secureStorage.removeSecureItem(key);
-  } else {
-    await appStorage.removeItem(key);
-  }
-}
 
 /**
  * Save device pack to local storage with passcode encryption.
@@ -76,7 +44,7 @@ async function saveDevicePackToStorage(params: {
   );
 
   // 4. Store encrypted data, prefer secureStorage if available
-  await devicePackSetItem(key, encryptedPayloadBase64);
+  await keylessStorageUtils.storageSetItem(key, encryptedPayloadBase64);
 }
 
 /**
@@ -93,7 +61,7 @@ async function getDevicePackFromStorage(params: {
   });
 
   // 2. Read encrypted data from storage, prefer secureStorage if available
-  const encryptedPayloadBase64 = await devicePackGetItem(key);
+  const encryptedPayloadBase64 = await keylessStorageUtils.storageGetItem(key);
 
   if (!encryptedPayloadBase64) {
     return null;
@@ -142,7 +110,7 @@ async function removeDevicePackFromStorage(params: {
   });
 
   // 2. Remove encrypted data from storage, prefer secureStorage if available
-  await devicePackRemoveItem(key);
+  await keylessStorageUtils.storageRemoveItem(key);
 }
 
 export default {

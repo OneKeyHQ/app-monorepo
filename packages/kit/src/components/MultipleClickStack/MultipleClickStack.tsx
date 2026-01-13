@@ -10,7 +10,7 @@ import type { GestureResponderEvent } from 'react-native';
 export function MultipleClickStack({
   children,
   onPress,
-  showDevBgColor = false,
+  showDevBgColor: _showDevBgColor = false,
   triggerAt = platformEnv.isDev ? 3 : 10,
   debugComponent,
   ...others

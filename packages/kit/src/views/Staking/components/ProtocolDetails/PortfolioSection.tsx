@@ -261,9 +261,9 @@ function PendingInactiveItem({
   );
 }
 
-function RewardAmountPopoverContent({
+function _RewardAmountPopoverContent({
   totalRewardAmount,
-  waitingRebateRewardAmount,
+  waitingRebateRewardAmount: _waitingRebateRewardAmount,
   tokenSymbol,
   onHistory,
 }: {
@@ -289,7 +289,7 @@ function RewardAmountPopoverContent({
             formatter="balance"
             formatterOptions={{ tokenSymbol }}
           >
-            {waitingRebateRewardAmount}
+            {_waitingRebateRewardAmount}
           </NumberSizeableText>
           <SizableText size="$bodyLgMedium">
             {` ${intl.formatMessage({
@@ -367,9 +367,8 @@ function PortfolioInfo({
   showDetailWithdrawalRequested,
   unbondingDelegationList,
 
-  waitingRebateRewardAmount,
-  totalRewardAmount,
-  onHistory,
+  totalRewardAmount: _totalRewardAmount,
+  onHistory: _onHistory,
 }: IPortfolioInfoProps) {
   const intl = useIntl();
 

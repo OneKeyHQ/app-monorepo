@@ -137,6 +137,7 @@ export type IDBWalletNextIds = Partial<Record<IDBWalletNextIdKeys, number>>;
 export type IKeylessWalletDetailsInfo = {
   keylessOwnerId: string;
   keylessProvider: EOAuthSocialLoginProvider;
+  socialUserIdHash: string;
 };
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;

@@ -23,7 +23,7 @@ function getRecentCommitFiles(commitCount = 10) {
 }
 
 // Warning limit configuration
-const INITIAL_MAX_WARNINGS = 394;
+const INITIAL_MAX_WARNINGS = 0;
 
 function getMaxWarnings() {
   return INITIAL_MAX_WARNINGS;
@@ -106,7 +106,6 @@ function handleProblems(result) {
       `Detected ${warningOverflow} warnings over the limit of ${maxWarnings}. Prioritizing recent files...`,
     );
     const recentFiles = getRecentCommitFiles(10);
-    console.log(`Recent changed files: ${recentFiles.join(', ')}`);
     // Separate warning groups into recent and non-recent
     const recentWarningGroups = [];
     const otherWarningGroups = [];

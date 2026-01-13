@@ -870,7 +870,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async getWalletsByXfp({ xfp }: { xfp: string }): Promise<IDBWallet[]> {
+  async getWalletsByXfp({
+    xfp,
+    includingKeylessWallets = false,
+  }: {
+    xfp: string;
+    includingKeylessWallets?: boolean;
+  }): Promise<IDBWallet[]> {
     try {
       if (!xfp) {
         return [];
@@ -878,7 +884,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // TODO performance
       const { wallets } = await this.getWallets();
       const walletsByXfp = wallets.filter((w) => {
-        if (w.isKeyless) {
+        if (w.isKeyless && !includingKeylessWallets) {
           return false;
         }
         return w.xfp === xfp;
@@ -2008,9 +2014,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       keylessDetailsInfo,
     } = params;
     const context = await this.getContext({ verifyPassword: password });
-    const walletId = accountUtils.buildHdWalletId({
+    let walletId = accountUtils.buildHdWalletId({
       nextHD: context.nextHD,
     });
+    if (isKeylessWallet && keylessDetailsInfo?.keylessOwnerId) {
+      walletId = accountUtils.buildKeylessWalletId({
+        sharePackSetId: keylessDetailsInfo?.keylessOwnerId,
+      });
+    }
     const defaultWalletName = `Wallet ${context.nextHD}`;
     const initWalletName = name || defaultWalletName;
 

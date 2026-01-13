@@ -263,7 +263,7 @@ function getEnabledNFTNetworkIds(): string[] {
   ];
 }
 
-function getEnabledDeFiNetworkIds(): string[] {
+function _getEnabledDeFiNetworkIds(): string[] {
   const networkIdsMap = getNetworkIdsMap();
   return [
     networkIdsMap.onekeyall,
