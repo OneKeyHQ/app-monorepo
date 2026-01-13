@@ -1,11 +1,6 @@
 import { HdWalletAvatarImageNames } from './avatarUtils';
 
-import type {
-  IAllWalletAvatarImageNamesWithoutDividers,
-  IHdWalletAvatarImageNames,
-  IHwWalletAvatarImageNames,
-  IOthersWalletAvatarImageNames,
-} from './avatarUtils';
+import type { IAllWalletAvatarImageNamesWithoutDividers } from './avatarUtils';
 
 export const emojiList = [
   '😀',

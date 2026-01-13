@@ -23,7 +23,7 @@ function getRecentCommitFiles(commitCount = 10) {
 }
 
 // Warning limit configuration
-const INITIAL_MAX_WARNINGS = 394;
+const INITIAL_MAX_WARNINGS = 0;
 
 function getMaxWarnings() {
   return INITIAL_MAX_WARNINGS;

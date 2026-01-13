@@ -14,7 +14,6 @@ import {
 } from '@onekeyhq/components';
 import type { IDeferredPromise } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import { MarketDetailLinks } from './MarketDetailLinks';

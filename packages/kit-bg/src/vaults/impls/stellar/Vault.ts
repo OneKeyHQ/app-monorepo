@@ -840,7 +840,7 @@ export default class Vault extends VaultBase {
     return decodedTx;
   }
 
-  override async attachFeeInfoToDAppEncodedTx(params: {
+  override async attachFeeInfoToDAppEncodedTx(_params: {
     encodedTx: IEncodedTx;
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTx> {

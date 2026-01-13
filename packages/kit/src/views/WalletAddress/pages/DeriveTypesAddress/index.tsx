@@ -95,7 +95,7 @@ const DeriveTypesAddressItem = ({
     indexedAccountId,
     actionType,
     onSelected,
-    token,
+    token: _token,
     tokenMap,
     setIsAccountCreated,
   } = useContext(DeriveTypesAddressContent);

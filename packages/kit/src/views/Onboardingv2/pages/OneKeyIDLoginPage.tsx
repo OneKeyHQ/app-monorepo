@@ -7,7 +7,6 @@ import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Anchor,
   AnimatePresence,
-  Dialog,
   Icon,
   Page,
   SizableText,
@@ -114,7 +113,7 @@ function OptionItem({
 }
 
 function OneKeyIDLoginPage() {
-  const navigation = useAppNavigation();
+  const _navigation = useAppNavigation();
   const [loggingInProvider, setLoggingInProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
   const [isResetMode, setIsResetMode] = useState(false);
@@ -127,7 +126,7 @@ function OneKeyIDLoginPage() {
   const mode: EOnboardingV2OneKeyIDLoginMode | undefined = route?.params?.mode;
   const intl = useIntl();
 
-  const { logout, signInWithSocialLogin } = useOneKeyAuth();
+  const { signInWithSocialLogin } = useOneKeyAuth();
   const { checkKeylessWalletCreatedOnServer } = useKeylessWallet();
 
   const handleSocialLogin = useCallback(

@@ -123,7 +123,7 @@ function AddressTypeSelectorContent(
     closePopover,
     doubleConfirm,
     confirmText,
-    refreshOnOpen,
+    refreshOnOpen: _refreshOnOpen,
   } = props;
 
   const intl = useIntl();

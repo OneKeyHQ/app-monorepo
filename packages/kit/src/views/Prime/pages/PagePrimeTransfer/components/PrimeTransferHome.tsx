@@ -46,7 +46,7 @@ export function PrimeTransferHome({
   defaultTab?: 'qr-code' | 'enter-link';
   transferType?: EPrimeTransferDataType;
 }) {
-  const [primeTransferAtom] = usePrimeTransferAtom();
+  const [_primeTransferAtom] = usePrimeTransferAtom();
 
   const intl = useIntl();
   const TRANSFER_OPTIONS = useMemo(

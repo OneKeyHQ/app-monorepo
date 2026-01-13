@@ -83,7 +83,7 @@ export const ShareImageGenerator = forwardRef<
 
       const {
         side,
-        token,
+        token: _token,
         tokenDisplayName,
         tokenImageUrl,
         pnl,

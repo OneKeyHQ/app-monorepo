@@ -412,7 +412,6 @@ export default function PagePrimeFeatures() {
   // PaginationButton will cause native crash
   const showPaginationButton = !platformEnv.isNative;
   const isHovering = true;
-  const showCloseButton = false;
 
   const portalContainerName = useMemo(() => {
     return `prime-features-swiper-controls--${stringUtils.generateUUID()}`;
@@ -571,7 +570,7 @@ export default function PagePrimeFeatures() {
 
   const { height: windowHeight } = useWindowDimensions();
   const { top, bottom } = useSafeAreaInsets();
-  const height = useMemo(() => {
+  const _height = useMemo(() => {
     if (platformEnv.isNative) {
       const TAB_BAR_HEIGHT = 54;
       return windowHeight - top - bottom - TAB_BAR_HEIGHT - 120;

@@ -4,10 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  devSettingsPersistAtom,
-  useDevSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
@@ -947,7 +944,6 @@ export function useKeylessWallet() {
 export function useVerifyKeylessPinChecking() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
-  const intl = useIntl();
   const verifyKeylessPinChecking = useCallback(async () => {
     // 必须是无私钥钱包
     // 1 分钟只检测一次

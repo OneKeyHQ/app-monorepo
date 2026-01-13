@@ -7,7 +7,6 @@ import {
   Badge,
   Divider,
   IconButton,
-  NumberSizeableText,
   Progress,
   SizableText,
   XStack,
@@ -94,7 +93,7 @@ const LimitOrderCard = ({
   const networkName = useMemo(() => {
     const networkInfo = networkUtils.getLocalNetworkInfo(item?.networkId);
     return networkInfo?.name;
-  }, [item]);
+  }, [item?.networkId]);
 
   const tokenInfo = useCallback(() => {
     return (

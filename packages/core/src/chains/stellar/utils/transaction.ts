@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import sdkStellar, { StellarSdk, TransactionBuilder } from '../sdkStellar';
+import sdkStellar, { StellarSdk } from '../sdkStellar';
 
 /**
  * Extract transaction hash from encoded transaction

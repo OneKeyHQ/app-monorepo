@@ -259,7 +259,7 @@ export default function ImportPhraseOrPrivateKey() {
     [navigation],
   );
 
-  const { start: startScanQrCode } = useScanQrCode();
+  const { start: _startScanQrCode } = useScanQrCode();
 
   return (
     <Page>

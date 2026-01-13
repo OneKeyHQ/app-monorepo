@@ -113,14 +113,14 @@ function WalletEditButtonView({
 
   const handleKeylessWalletAction = useCallback(
     async ({
-      setLoading,
+      setLoading: _setLoading,
       mode,
     }: {
       setLoading: (loading: boolean) => void;
       mode: EOnboardingV2OneKeyIDLoginMode;
     }) => {
       try {
-        // setLoading(true);
+        // _setLoading(true);
         await timerUtils.wait(100);
         await backgroundApiProxy.servicePassword.promptPasswordVerify({
           reason: EReasonForNeedPassword.Security,

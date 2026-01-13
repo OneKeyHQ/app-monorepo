@@ -10,7 +10,7 @@ import type { IServerAccountTokenItem } from '@onekeyhq/shared/types/serverToken
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
-import { getMinAmount, getTransactionTypeFromTxInfo } from '../utils';
+import { getTransactionTypeFromTxInfo } from '../utils';
 
 import VaultDotSubCommon from './VaultDotSubCommon';
 

@@ -1,9 +1,8 @@
-import { Suspense, useCallback, useState } from 'react';
+import { Suspense, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Page, SizableText, Spinner, YStack } from '@onekeyhq/components';
-import { usePasswordModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EOnboardingPagesV2,
@@ -14,14 +13,11 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
-import PasswordSetup from '../../../components/Password/components/PasswordSetup';
 import PasswordSetupContainer from '../../../components/Password/container/PasswordSetupContainer';
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-
-import type { IPasswordSetupForm } from '../../../components/Password/components/PasswordSetup';
 
 function PasscodeFormView() {
   const intl = useIntl();
@@ -80,18 +76,6 @@ function PasscodeFormView() {
 }
 
 function CreatePasscodePage() {
-  const intl = useIntl();
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'create' | 'confirm'>('create');
-  const [passwordMode] = usePasswordModeAtom();
-
-  const handleSetupPasscode = useCallback((data: IPasswordSetupForm) => {
-    setLoading(true);
-    // TODO: Handle passcode setup
-    console.log('Passcode setup:', data);
-    setLoading(false);
-  }, []);
-
   return (
     <Page>
       <OnboardingLayout>

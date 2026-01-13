@@ -36,7 +36,7 @@ export function LegacyUniversalSearchInput({
     });
   }, [navigation, initialTab]);
 
-  const isLarge = size === 'large';
+  const _isLarge = size === 'large';
   if (size === 'small') {
     return (
       <IconButton

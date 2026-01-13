@@ -12,7 +12,7 @@ import {
 } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
-import { KeyboardAvoidingView, type TextInput } from 'react-native';
+import { type TextInput } from 'react-native';
 
 import {
   Button,
