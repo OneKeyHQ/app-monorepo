@@ -23,6 +23,8 @@ function EarnListView() {
         recommendedItemContainerProps={{
           bg: '$bgSubdued',
           borderColor: '$neutral3',
+          hoverStyle: { bg: '$bgHover' },
+          pressStyle: { bg: '$bgActive' },
         }}
       />
     );
