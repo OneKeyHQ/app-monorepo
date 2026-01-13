@@ -28,9 +28,9 @@ export function VerifiedBadge({ isVerified }: { isVerified: boolean }) {
     : verificationStatus.critical;
 
   return (
-    <XStack ai="center" gap="$1.5">
+    <XStack ai="center" gap="$1">
       <Icon name={status.icon} color={status.color} size="$4" />
-      <SizableText size="$bodySmMedium" color={status.color}>
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
         {intl.formatMessage({ id: status.textId })}
       </SizableText>
     </XStack>

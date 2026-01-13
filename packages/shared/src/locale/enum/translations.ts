@@ -1678,6 +1678,7 @@
   global_nonce_faq = 'global.nonce_faq',
   global_nonce_faq_desc = 'global.nonce_faq_desc',
   global_not_available = 'global.not_available',
+  global_not_now = 'global.not_now',
   global_notifications = 'global.notifications',
   global_number_accounts = 'global.number_accounts',
   global_number_items = 'global.number_items',

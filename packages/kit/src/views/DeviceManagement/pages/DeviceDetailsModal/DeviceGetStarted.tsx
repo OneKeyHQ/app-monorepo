@@ -142,20 +142,21 @@ function DeviceFaqsView() {
   return (
     <>
       {faqsItems?.length
-        ? faqsItems.map((item) => (
-            <Stack
-              cursor="pointer"
-              py="$1"
-              my="$1"
-              mx="$0"
-              onPress={() => handleOpen(item)}
-              key={item.linkId}
-            >
-              <SizableText size="$bodyMd" color="$text">
-                {item.title}
-              </SizableText>
-            </Stack>
-          ))
+        ? faqsItems
+            .filter((item) => item.title?.trim())
+            .map((item) => (
+              <Stack
+                py="$3"
+                onPress={() => handleOpen(item)}
+                key={item.linkId}
+                hoverStyle={{ opacity: 0.8 }}
+                cursor="default"
+              >
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {item.title}
+                </SizableText>
+              </Stack>
+            ))
         : null}
     </>
   );
@@ -181,7 +182,7 @@ function DeviceGetStarted() {
 
       <Stack>
         <XStack jc="space-between" ai="center" py="$2.5">
-          <SizableText size="$headingSm" color="$text">
+          <SizableText size="$headingMd" color="$text">
             {intl.formatMessage({ id: ETranslations.global_faqs })}
           </SizableText>
           <Button
@@ -190,7 +191,6 @@ function DeviceGetStarted() {
             title={intl.formatMessage({ id: ETranslations.global_learn_more })}
             iconAfter="OpenOutline"
             onPress={() => handleOpen(HELP_CENTER_HARDWARE_FAQ_URL)}
-            cursor="pointer"
           >
             {intl.formatMessage({ id: ETranslations.global_learn_more })}
           </Button>

@@ -1673,6 +1673,7 @@
   "global.nonce_faq": "Apa itu Nonce?",
   "global.nonce_faq_desc": "Anda telah mengaktifkan tampilan nomor seri transaksi (nonce). Anda dapat mengedit nomor seri untuk menyesuaikan urutan transaksi akun Anda saat ini. Ini adalah fitur tingkat lanjut, gunakan dengan hati-hati.",
   "global.not_available": "Tidak tersedia",
+  "global.not_now": "Tidak sekarang",
   "global.notifications": "Pemberitahuan",
   "global.number_accounts": "{number} Akun",
   "global.number_items": "{number} Barang",

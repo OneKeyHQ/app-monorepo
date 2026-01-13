@@ -11,10 +11,7 @@ import type {
 } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useKeylessWalletExistsLocal,
-  useKeylessWalletFeatureIsEnabled,
-} from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
@@ -76,8 +73,8 @@ import {
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
-import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
-import { OneKeyIdTabItem } from './OneKeyIdTabItem';
+// import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
+// import { OneKeyIdTabItem } from './OneKeyIdTabItem';
 import { SubSearchSettings } from './SubSettings';
 
 import type { RouteProp } from '@react-navigation/native';
@@ -159,24 +156,19 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
 
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
 
-  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
   return useMemo(
     () => [
       // OneKey ID tab with custom rendering
-      ...(isKeylessWalletEnabled
-        ? [
-            {
-              name: ESettingsTabNames.OneKeyID,
-              icon: 'PeopleSolid' as const,
-              title: 'OneKey ID',
-              renderTabItem: OneKeyIdTabItem,
-              Component: OneKeyIdSubSettings,
-              configs: [],
-            },
-          ]
-        : []),
+      // {
+      //   name: ESettingsTabNames.OneKeyID,
+      //   icon: 'PeopleSolid' as const,
+      //   title: 'OneKey ID',
+      //   renderTabItem: OneKeyIdTabItem,
+      //   Component: OneKeyIdSubSettings,
+      //   configs: [],
+      // },
       platformEnv.isWebDappMode
         ? undefined
         : {
@@ -846,7 +838,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
-      isKeylessWalletEnabled,
       isKeylessWalletExistsLocal,
       startBackup,
       onPressAddressBook,

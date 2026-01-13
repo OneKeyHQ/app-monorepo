@@ -1673,6 +1673,7 @@
   "global.nonce_faq": "Nonce とは何ですか?",
   "global.nonce_faq_desc": "トランザクションのシリアル番号 (nonce) の表示が有効になりました。シリアル番号を編集して、現在のアカウントのトランザクション順序を調整できます。これは高度な機能なので、慎重に使用してください。",
   "global.not_available": "利用できません",
+  "global.not_now": "今はやめておきます",
   "global.notifications": "通知",
   "global.number_accounts": "{number} アカウント",
   "global.number_items": "{number} アイテム",

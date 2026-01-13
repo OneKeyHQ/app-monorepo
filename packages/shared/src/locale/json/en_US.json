@@ -1673,6 +1673,7 @@
   "global.nonce_faq": "What’s Nonce?",
   "global.nonce_faq_desc": "You have enabled the display of transaction serial numbers (nonce). You can edit the serial numbers to adjust the transaction order of your current account. This is an advanced feature, use cautiously.",
   "global.not_available": "Not available",
+  "global.not_now": "Not now",
   "global.notifications": "Notifications",
   "global.number_accounts": "{number} Accounts",
   "global.number_items": "{number} Items",

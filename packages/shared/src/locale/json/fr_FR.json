@@ -1673,6 +1673,7 @@
   "global.nonce_faq": "Qu'est-ce que Nonce ?",
   "global.nonce_faq_desc": "Vous avez activé l'affichage des numéros de série des transactions (nonce). Vous pouvez modifier les numéros de série pour ajuster l'ordre des transactions de votre compte courant. Il s'agit d'une fonctionnalité avancée, à utiliser avec précaution.",
   "global.not_available": "Pas disponible",
+  "global.not_now": "Pas maintenant",
   "global.notifications": "Notifications",
   "global.number_accounts": "{number} Comptes",
   "global.number_items": "{number} Articles",

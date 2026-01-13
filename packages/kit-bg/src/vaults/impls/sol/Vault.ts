@@ -47,6 +47,7 @@ import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/c
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import { verifySignedMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/signMessage';
 import type {
+  IATADetails,
   IDecodedTxExtraSol,
   IEncodedTxSol,
   INativeTxSol,
@@ -799,6 +800,112 @@ export default class Vault extends VaultBase {
     },
   );
 
+  async _extractATADetailsFromEncodedTx(
+    encodedTx: IEncodedTxSol,
+  ): Promise<IATADetails[]> {
+    const ataDetails: IATADetails[] = [];
+    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client,
+    });
+
+    // Track ATAs created in this transaction for quick lookup
+    const createdAta: Record<string, IATADetails> = {};
+
+    for (const instruction of instructions) {
+      // Check if this is a createAssociatedTokenAccountInstruction
+      if (
+        instruction.programId.toString() ===
+          ASSOCIATED_TOKEN_PROGRAM_ID.toString() &&
+        instruction.keys.length >= 6 &&
+        instruction.keys[4].pubkey.toString() ===
+          SystemProgram.programId.toString() &&
+        (instruction.keys[5].pubkey.toString() ===
+          TOKEN_PROGRAM_ID.toString() ||
+          instruction.keys[5].pubkey.toString() ===
+            TOKEN_2022_PROGRAM_ID.toString())
+      ) {
+        // createAssociatedTokenAccountInstruction keys order:
+        // [0] payer, [1] associatedToken, [2] owner, [3] mint, [4] systemProgram, [5] tokenProgram
+        const [, associatedToken, owner, mint, , tokenProgram] =
+          instruction.keys;
+        if (associatedToken && owner && mint && tokenProgram) {
+          const ataDetail: IATADetails = {
+            owner: owner.pubkey.toString(),
+            programId: tokenProgram.pubkey.toString(),
+            mintAddress: mint.pubkey.toString(),
+            associatedTokenAddress: associatedToken.pubkey.toString(),
+          };
+          createdAta[associatedToken.pubkey.toString()] = ataDetail;
+          ataDetails.push(ataDetail);
+        }
+      }
+    }
+
+    // Also extract from TransferChecked and Transfer instructions
+    for (const instruction of instructions) {
+      if (
+        instruction.programId.toString() === TOKEN_PROGRAM_ID.toString() ||
+        instruction.programId.toString() === TOKEN_2022_PROGRAM_ID.toString()
+      ) {
+        try {
+          const programId =
+            instruction.programId.toString() === TOKEN_PROGRAM_ID.toString()
+              ? TOKEN_PROGRAM_ID
+              : TOKEN_2022_PROGRAM_ID;
+
+          const {
+            data: { instruction: instructionType },
+          } = decodeInstruction(instruction, programId);
+
+          let mintAddress: string | undefined;
+          let destinationAta: string | undefined;
+
+          if (instructionType === TokenInstruction.TransferChecked) {
+            // TransferChecked keys: [0] source, [1] mint, [2] destination, [3] owner
+            const {
+              keys: { mint, destination },
+            } = decodeTransferCheckedInstruction(instruction, programId);
+            mintAddress = mint.pubkey.toString();
+            destinationAta = destination.pubkey.toString();
+          } else if (instructionType === TokenInstruction.Transfer) {
+            // Transfer keys: [0] source, [1] destination, [2] owner
+            const {
+              keys: { destination },
+            } = decodeTransferInstruction(instruction, programId);
+            destinationAta = destination.pubkey.toString();
+          }
+
+          // Skip if already added from ATA creation instruction
+          if (destinationAta && !createdAta[destinationAta]) {
+            try {
+              // Get the ATA account info to find the owner and mint
+              const ataAccountInfo = await this._getAssociatedAccountInfo(
+                destinationAta,
+              );
+              const { mint, owner } = ataAccountInfo;
+
+              ataDetails.push({
+                owner,
+                programId: programId.toString(),
+                mintAddress: mintAddress || mint,
+                associatedTokenAddress: destinationAta,
+              });
+            } catch {
+              // If we can't get ATA info, skip this transfer
+            }
+          }
+        } catch {
+          // Instruction decode failed, skip
+        }
+      }
+    }
+
+    return ataDetails;
+  }
+
   async _decodeNativeTxActions({
     instructions,
     isNFT,
@@ -1061,9 +1168,13 @@ export default class Vault extends VaultBase {
       );
     }
 
+    // Extract ATA details from the encoded transaction for hardware signing
+    const ataDetails = await this._extractATADetailsFromEncodedTx(newEncodedTx);
+
     return {
       payload: {
         feePayer: accountAddress,
+        ataDetails: ataDetails.length > 0 ? ataDetails : undefined,
       },
       encodedTx: newEncodedTx,
     };
