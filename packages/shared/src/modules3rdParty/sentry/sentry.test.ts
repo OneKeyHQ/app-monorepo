@@ -1,15 +1,14 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { testFilterUtils, testUtils } from './basicOptions';
+import { testUtils } from './basicOptions';
 
 const {
   checkPrivateKey,
   checkAndRedactMnemonicWords,
   sanitizeText,
   sanitizeStacktrace,
+  isFilterErrorAndSkipSentry,
 } = testUtils;
-
-const { isFilterErrorAndSkipSentry } = testFilterUtils;
 
 // Test private keys (real format, fake values)
 const TEST_ETH_PRIVATE_KEY =

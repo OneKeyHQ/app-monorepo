@@ -140,14 +140,6 @@ const sanitizeStacktrace = (stacktrace?: Stacktrace): void => {
   }
 };
 
-// Export for testing purposes (sanitization functions)
-export const testUtils = {
-  checkPrivateKey,
-  checkAndRedactMnemonicWords,
-  sanitizeText,
-  sanitizeStacktrace,
-};
-
 export const SENTRY_IPC = 'sentry-ipc://';
 
 const FILTERED_ERROR_TYPES = new Set([
@@ -211,13 +203,6 @@ const isFilterErrorAndSkipSentry = (error?: {
   }
 
   return false;
-};
-
-// Export for testing purposes (error filtering)
-export const testFilterUtils = {
-  isFilterErrorAndSkipSentry,
-  FILTERED_ERROR_TYPES,
-  FILTER_ERROR_VALUES,
 };
 
 export const buildBasicOptions = ({
@@ -285,3 +270,12 @@ export const buildIntegrations = (Sentry: typeof import('@sentry/react')) => [
     xhr: true,
   }),
 ];
+
+// Export for testing purposes (sanitization functions)
+export const testUtils = {
+  checkPrivateKey,
+  checkAndRedactMnemonicWords,
+  sanitizeText,
+  sanitizeStacktrace,
+  isFilterErrorAndSkipSentry,
+};
