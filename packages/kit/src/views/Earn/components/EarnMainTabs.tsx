@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
@@ -226,10 +227,13 @@ const EarnMainTabsComponent = ({
   const mergedContainerProps = useMemo<
     Partial<CollapsibleProps> | undefined
   >(() => {
-    const headerContainerStyle = [
-      { backgroundColor: theme.bgApp.val },
+    const mergedHeaderContainerStyle = StyleSheet.flatten(
       containerProps?.headerContainerStyle,
-    ];
+    );
+    const headerContainerStyle = {
+      backgroundColor: theme.bgApp.val,
+      ...(mergedHeaderContainerStyle ?? {}),
+    };
     if (!header) {
       return {
         ...(containerProps ?? {}),
