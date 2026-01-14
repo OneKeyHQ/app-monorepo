@@ -2,7 +2,7 @@
  * Script to extract all navigable routes and generate Mode 1 JSON payloads
  * for the notification system page navigation.
  *
- * Usage: npx tsx scripts/extract-routes.ts
+ * Usage: npx tsx development/scripts/extract-routes.ts
  */
 
 import * as fs from 'node:fs';
@@ -12,9 +12,9 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const ROUTES_DIR = path.join(__dirname, '../packages/shared/src/routes');
+const ROUTES_DIR = path.join(__dirname, '../../packages/shared/src/routes');
 
-const OUTPUT_DIR = path.join(__dirname, '../build/routes');
+const OUTPUT_DIR = path.join(__dirname, '../../build/routes');
 const OUTPUT_FILE = path.join(OUTPUT_DIR, 'ROUTES.md');
 const JSON_OUTPUT_FILE = path.join(OUTPUT_DIR, 'routes.json');
 

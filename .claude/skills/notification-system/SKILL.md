@@ -379,7 +379,7 @@ Available local params:
 Run the following command to generate a complete list of all navigable routes with ready-to-use Mode 1 JSON payloads:
 
 ```bash
-npx tsx scripts/extract-routes.ts
+npx tsx development/scripts/extract-routes.ts
 ```
 
 This will generate:
