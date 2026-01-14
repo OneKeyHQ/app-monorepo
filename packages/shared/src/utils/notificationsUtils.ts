@@ -58,7 +58,10 @@ type IGetEarnAccountFunc = (params: {
   account: INetworkAccount;
 } | null>;
 
-const popToMainRoute = async () => {
+const popToMainRoute = async (maxRetryTimes = 99) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
   const rootState = appGlobals.$navigationRef.current?.getRootState();
   if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Main) {
     return;
@@ -67,7 +70,7 @@ const popToMainRoute = async () => {
     appGlobals.$navigationRef.current?.goBack?.();
   }
   await timerUtils.wait(150);
-  await popToMainRoute();
+  await popToMainRoute(maxRetryTimes - 1);
 };
 
 export async function navigateToNotificationDetailByLocalParams({
