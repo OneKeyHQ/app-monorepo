@@ -2017,9 +2017,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let walletId = accountUtils.buildHdWalletId({
       nextHD: context.nextHD,
     });
-    if (isKeylessWallet && keylessDetailsInfo?.keylessOwnerId) {
-      walletId = accountUtils.buildKeylessWalletId({
-        sharePackSetId: keylessDetailsInfo?.keylessOwnerId,
+    if (isKeylessWallet) {
+      if (!walletXfp) {
+        throw new OneKeyLocalError('walletXfp is required for keyless wallet');
+      }
+      if (!keylessDetailsInfo?.keylessOwnerId) {
+        throw new OneKeyLocalError(
+          'keylessOwnerId is required for keyless wallet',
+        );
+      }
+      walletId = await accountUtils.buildKeylessWalletIdV2({
+        ownerId: keylessDetailsInfo?.keylessOwnerId,
+        xfp: walletXfp || '',
       });
     }
     const defaultWalletName = `Wallet ${context.nextHD}`;
