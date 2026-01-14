@@ -340,6 +340,7 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressDeriveInfo,
     walletAccountItem,
     ignoreSimilarAddressInAddressBook,
+    enableCheckSimilarAddressInAddressBook,
   }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
@@ -546,6 +547,28 @@ class ServiceAccountProfile extends ServiceBase {
       if (result.similarAddress && ignoreSimilarAddressInAddressBook) {
         if (result.addressBookId) {
           result.similarAddress = undefined;
+        }
+      }
+    }
+
+    if (
+      !result.similarAddress &&
+      !result.addressBookId &&
+      !result.walletAccountId &&
+      enableCheckSimilarAddressInAddressBook
+    ) {
+      const addressBookItems =
+        await this.backgroundApi.serviceAddressBook.dangerouslyGetItemsWithoutSafeCheck(
+          {
+            networkId: !networkUtils.isEvmNetwork({ networkId })
+              ? networkId
+              : undefined,
+          },
+        );
+      for (const item of addressBookItems) {
+        if (accountUtils.isSimilarAddress(item.address, resolveAddress)) {
+          result.similarAddress = item.address;
+          break;
         }
       }
     }
