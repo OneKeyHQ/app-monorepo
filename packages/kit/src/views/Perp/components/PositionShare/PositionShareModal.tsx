@@ -51,7 +51,8 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     referralDisplayText,
     isReady: isReferralReady,
   } = useReferralUrl();
-  const { saveImage, copyLink, shareToX } = useShareActions(referralQrCodeUrl);
+  const { saveImage, shareImage, copyLink, shareToX } =
+    useShareActions(referralQrCodeUrl);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const handleSaveImage = useCallback(async () => {
@@ -70,11 +71,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
 
       const result = await saveImage(base64);
 
-      if (result?.success) {
-        if (platformEnv.isNative && onClose) {
-          onClose();
-        }
-      } else if (result?.permissionPermanentlyDenied) {
+      if (result?.permissionPermanentlyDenied) {
         // TODO: Add proper i18n keys for photo library permission
         Dialog.show({
           tone: 'warning',
@@ -96,7 +93,27 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [saveImage, onClose, intl]);
+  }, [saveImage, intl]);
+
+  const handleShareImage = useCallback(async () => {
+    setIsActionLoading(true);
+    try {
+      const generator: IShareImageGeneratorRef | null = generatorRef.current;
+      if (!generator) {
+        Toast.error({ title: 'Failed to generate image' });
+        return;
+      }
+      const base64: string = await generator.generate();
+      if (!base64) {
+        Toast.error({ title: 'Failed to generate image' });
+        return;
+      }
+
+      await shareImage(base64);
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, [shareImage]);
 
   const handleShareToX = useCallback(async () => {
     setIsActionLoading(true);
@@ -148,6 +165,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
           config={config}
           onChange={setConfig}
           onSaveImage={handleSaveImage}
+          onShareImage={handleShareImage}
           onCopyLink={copyLink}
           onShareToX={handleShareToX}
           isLoading={isActionLoading}
@@ -180,6 +198,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
         config={config}
         onChange={setConfig}
         onSaveImage={handleSaveImage}
+        onShareImage={handleShareImage}
         onCopyLink={copyLink}
         onShareToX={handleShareToX}
         isLoading={isActionLoading}
@@ -195,8 +214,7 @@ export function showPositionShareDialog(
   data: IShareData,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
-  const DialogInstance =
-    platformEnv.isNativeAndroid || !dialog ? Dialog : dialog;
+  const DialogInstance = dialog ?? Dialog;
 
   const dialogInstance = DialogInstance.show({
     title: appLocale.intl.formatMessage({

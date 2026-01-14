@@ -100,7 +100,12 @@ export function UniversalSearchPerpItem({
           </SizableText>
         }
       />
-      <NumberSizeableText formatter="price" size="$bodyLgMedium" color="$text">
+      <NumberSizeableText
+        formatter="price"
+        formatterOptions={{ currency: '$' }}
+        size="$bodyLgMedium"
+        color="$text"
+      >
         {midPx}
       </NumberSizeableText>
     </ListItem>
