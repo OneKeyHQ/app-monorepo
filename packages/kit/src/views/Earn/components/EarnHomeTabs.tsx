@@ -14,12 +14,27 @@ export const EarnHomeTabs = ({
   onModeChange?: (mode: IEarnHomeMode) => void;
 }) => {
   const activeMode = defaultMode;
+  const isEarnMode = activeMode === 'earn';
+  const isBorrowMode = activeMode === 'borrow';
 
   return (
     <YStack flex={1}>
       <MarketSelector mode={activeMode} onModeChange={onModeChange} />
       <Stack flex={1} pt="$4">
-        {activeMode === 'earn' ? earn : borrow}
+        <Stack
+          flex={1}
+          display={isEarnMode ? 'flex' : 'none'}
+          pointerEvents={isEarnMode ? 'auto' : 'none'}
+        >
+          {earn}
+        </Stack>
+        <Stack
+          flex={1}
+          display={isBorrowMode ? 'flex' : 'none'}
+          pointerEvents={isBorrowMode ? 'auto' : 'none'}
+        >
+          {borrow}
+        </Stack>
       </Stack>
     </YStack>
   );
