@@ -79,6 +79,70 @@ index 818e050..271ae26 100644
  
    # Swift/Objective-C compatibility
    s.pod_target_xcconfig = {
+diff --git a/node_modules/expo-image/ios/ImageLoader.swift b/node_modules/expo-image/ios/ImageLoader.swift
+index a0dacf9..62e08dd 100644
+--- a/node_modules/expo-image/ios/ImageLoader.swift
++++ b/node_modules/expo-image/ios/ImageLoader.swift
+@@ -6,7 +6,7 @@ import ExpoModulesCore
+ internal final class ImageLoader {
+   static let shared = ImageLoader()
+ 
+-  lazy var imageManager = SDWebImageManager(
++  let imageManager = SDWebImageManager(
+     cache: SDImageCache.shared,
+     loader: SDImageLoadersManager.shared
+   )
+@@ -20,14 +20,44 @@ internal final class ImageLoader {
+       context[.imageThumbnailPixelSize] = maxSize
+     }
+ 
+-    return try await withCheckedThrowingContinuation { continuation in
+-      imageManager.loadImage(with: source.uri, context: context, progress: nil) { image, _, error, _, _, _ in
+-        if let image {
+-          continuation.resume(returning: image)
+-        } else {
+-          continuation.resume(throwing: ImageLoadingFailed().causedBy(error))
++    // PATCHED: Fix EXC_BAD_ACCESS crash when ImageLoader is deallocated during async operation.
++    // Use a class to hold the operation reference so we can cancel it from the cancellation handler.
++    // This prevents use-after-free crashes when the Swift Task is cancelled but the SDWebImage
++    // completion block still tries to fire.
++    final class OperationHolder: @unchecked Sendable {
++      var operation: SDWebImageCombinedOperation?
++      let lock = NSLock()
++
++      func setOperation(_ op: SDWebImageCombinedOperation?) {
++        lock.lock()
++        operation = op
++        lock.unlock()
++      }
++
++      func cancel() {
++        lock.lock()
++        operation?.cancel()
++        operation = nil
++        lock.unlock()
++      }
++    }
++
++    let operationHolder = OperationHolder()
++
++    return try await withTaskCancellationHandler {
++      try await withCheckedThrowingContinuation { continuation in
++        let operation = self.imageManager.loadImage(with: source.uri, context: context, progress: nil) { image, _, error, _, finished, _ in
++          guard finished else { return }
++          if let image {
++            continuation.resume(returning: image)
++          } else {
++            continuation.resume(throwing: ImageLoadingFailed().causedBy(error))
++          }
+         }
++        operationHolder.setOperation(operation)
+       }
++    } onCancel: {
++      operationHolder.cancel()
+     }
+   }
+ }
 diff --git a/node_modules/expo-image/ios/ImageModule.swift b/node_modules/expo-image/ios/ImageModule.swift
 index b44f431..9a51548 100644
 --- a/node_modules/expo-image/ios/ImageModule.swift
