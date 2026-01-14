@@ -2113,6 +2113,18 @@ class ServiceKeylessWallet extends ServiceBase {
         socialProvider === walletSocialProvider,
     };
   }
+
+  @backgroundMethod()
+  async apiCheckRateLimitStatus(params: { token: string }): Promise<{
+    isRateLimited: boolean;
+    retryAfterSeconds: number;
+  }> {
+    const { token } = params;
+    // getJuiceboxClientFromCache already calls exchangeToken internally when creating a new client
+    // Do not call exchangeToken again as each token can only be exchanged once
+    const client = await this.getJuiceboxClientFromCache(token);
+    return client.checkRateLimitStatus();
+  }
 }
 
 export default ServiceKeylessWallet;
