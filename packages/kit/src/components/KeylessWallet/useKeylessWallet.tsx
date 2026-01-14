@@ -2,17 +2,13 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Toast } from '@onekeyhq/components';
+import { Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   primePersistAtom,
   useKeylessPinConfirmStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  devSettingsPersistAtom,
-  useDevSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import type { IWallet } from '@onekeyhq/kit-bg/src/vaults/impls/ton/sdkTon/utils';
+import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
@@ -32,7 +28,11 @@ import type {
   IDeviceKeyPack,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
   EOnboardingV2KeylessWalletCreationMode,
@@ -43,15 +43,11 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
@@ -973,6 +969,7 @@ export function useKeylessWallet() {
     keylessOnboardingCache,
     cacheKeylessOnboardingPin,
     getKeylessOnboardingPin,
+    getKeylessOnboardingToken,
     handleKeylessOnboardingTimeout,
     cacheKeylessOnboardingCustomMnemonic,
     getKeylessOnboardingCustomMnemonic,
@@ -1056,6 +1053,24 @@ export function useVerifyKeylessPinChecking() {
         const shouldVerifyPin = await checkShouldVerifyPin();
 
         if (shouldVerifyPin) {
+          // Check if the current route is still the Home tab before showing the dialog
+          const isHomeTabFocused = () => {
+            const state = rootNavigationRef.current?.getRootState();
+            if (!state || state.routes.length > 1) {
+              // There are modals or other routes on top
+              return false;
+            }
+            const mainRoute = state.routes[0];
+            const mainState = mainRoute?.state;
+            // Check if the current tab is Home
+            const currentTabRoute = mainState?.routes?.[mainState?.index ?? 0];
+            return currentTabRoute?.name === ETabRoutes.Home;
+          };
+
+          if (!isHomeTabFocused()) {
+            return;
+          }
+
           const showPinReminderDialog = () => {
             Dialog.show({
               showExitButton: false,
@@ -1070,7 +1085,9 @@ export function useVerifyKeylessPinChecking() {
                 id: ETranslations.pin_verify_reminder_dialog_desc,
               }),
               showCancelButton: true,
-              onCancelText: 'Skip now',
+              onCancelText: intl.formatMessage({
+                id: ETranslations.global_not_now,
+              }),
               onCancel: async () => {
                 try {
                   await cancelVerifyPin(ownerId);

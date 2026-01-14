@@ -212,7 +212,7 @@ function DownloadOneKeyWalletListItem() {
   );
 }
 
-function Web3GuideListItem() {
+function _Web3GuideListItem() {
   const intl = useIntl();
   const handlePress = useCallback(() => {
     // TODO: implement Web3 guide link
@@ -390,7 +390,6 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
 }
 
 export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
-  const theme = useTheme();
   const renderHeaderLeft = useCallback(() => <WebHeaderNavigation />, []);
   const { config } = useAccountSelectorContextData();
 

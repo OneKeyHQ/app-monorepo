@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
@@ -10,6 +16,7 @@ import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 function SectionHeader() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
+  const { gtMd } = useMedia();
 
   const onAddDevice = useCallback(async () => {
     appNavigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -17,10 +24,14 @@ function SectionHeader() {
     });
   }, [appNavigation]);
 
+  if (!gtMd) {
+    return null;
+  }
+
   return (
     <XStack ai="center" jc="space-between" gap="$5">
-      <YStack flex={1}>
-        <SizableText size="$heading2xl" color="$textSubdued">
+      <YStack flex={1} gap="$1">
+        <SizableText size="$heading2xl" color="$text">
           {intl.formatMessage({
             id: ETranslations.global_my_device,
           })}
@@ -31,16 +42,18 @@ function SectionHeader() {
           })}
         </SizableText>
       </YStack>
-      <YStack ai="center" jc="center" gap="$2" onPress={onAddDevice}>
+      <YStack ai="center" jc="center" gap="$0.5" onPress={onAddDevice}>
         <IconButton
           icon="PlusLargeOutline"
           size="small"
+          variant="primary"
           onPress={onAddDevice}
-          title={intl.formatMessage({
-            id: ETranslations.global_add,
-          })}
         />
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          userSelect="none"
+        >
           {intl.formatMessage({
             id: ETranslations.global_add,
           })}

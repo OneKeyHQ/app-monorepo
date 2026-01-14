@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import type {
   IKeyOfIcons,
@@ -21,7 +21,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -412,7 +411,6 @@ export default function PagePrimeFeatures() {
   // PaginationButton will cause native crash
   const showPaginationButton = !platformEnv.isNative;
   const isHovering = true;
-  const showCloseButton = false;
 
   const portalContainerName = useMemo(() => {
     return `prime-features-swiper-controls--${stringUtils.generateUUID()}`;
@@ -569,15 +567,15 @@ export default function PagePrimeFeatures() {
     showAllFeatures,
   ]);
 
-  const { height: windowHeight } = useWindowDimensions();
-  const { top, bottom } = useSafeAreaInsets();
-  const height = useMemo(() => {
-    if (platformEnv.isNative) {
-      const TAB_BAR_HEIGHT = 54;
-      return windowHeight - top - bottom - TAB_BAR_HEIGHT - 120;
-    }
-    return '100%';
-  }, [windowHeight, top, bottom]);
+  // const { height: windowHeight } = useWindowDimensions();
+  // const { top, bottom } = useSafeAreaInsets();
+  // const _height = useMemo(() => {
+  //   if (platformEnv.isNative) {
+  //     const TAB_BAR_HEIGHT = 54;
+  //     return windowHeight - top - bottom - TAB_BAR_HEIGHT - 120;
+  //   }
+  //   return '100%';
+  // }, [windowHeight, top, bottom]);
 
   const page = (
     <>

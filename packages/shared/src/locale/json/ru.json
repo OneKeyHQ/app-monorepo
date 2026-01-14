@@ -1673,6 +1673,7 @@
   "global.nonce_faq": "Что такое Nonce?",
   "global.nonce_faq_desc": "Вы включили отображение серийных номеров транзакций (nonce). Вы можете редактировать серийные номера, чтобы настроить порядок транзакций вашего текущего счета. Это расширенная функция, используйте ее осторожно.",
   "global.not_available": "Нет в наличии",
+  "global.not_now": "Не сейчас",
   "global.notifications": "Уведомления",
   "global.number_accounts": "{number} Аккаунты",
   "global.number_items": "{number} Предметы",

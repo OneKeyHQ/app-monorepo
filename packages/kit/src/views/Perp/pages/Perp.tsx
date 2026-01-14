@@ -64,6 +64,7 @@ function PerpContent() {
     <TabPageHeader
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Perp}
+      headerPx="$4"
       customHeaderLeftItems={
         platformEnv.isWebDappMode ? undefined : (
           <SizableText size="$headingXl">

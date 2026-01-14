@@ -116,7 +116,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const {
     result: listDataResult,
     run: reloadAccounts,
-    setResult: setListDataResult,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    setResult: _setListDataResult,
   } = usePromiseResult(
     async () => {
       if (!selectedAccount?.focusedWallet || !usedDeriveType) {
@@ -270,7 +271,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const listViewLayoutRef = useRef(listViewLayout);
   listViewLayoutRef.current = listViewLayout;
 
-  const { scrollToLocation, onLayout: handleLayoutForSectionList } =
+  const { onLayout: handleLayoutForSectionList } =
     useSafelyScrollToLocation(listRef);
 
   const handleLayoutForContainer = useCallback((e: LayoutChangeEvent) => {
@@ -565,7 +566,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             />
           )}
           renderSectionFooter={({
-            section,
+            section: _section,
           }: {
             section: IAccountSelectorAccountsListSectionData;
           }) =>

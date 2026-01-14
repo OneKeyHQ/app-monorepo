@@ -38,7 +38,8 @@ export const KeylessWalletGallery = () => {
   }, []);
 
   const handleRestore = useCallback(
-    (deviceKey: string, cloudKey: string, authKey: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    (_deviceKey: string, _cloudKey: string, _authKey: string) => {
       // Auto fill restore inputs if needed
       // This is handled internally by RestoreMnemonicFromShares component
     },

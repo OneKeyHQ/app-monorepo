@@ -146,7 +146,9 @@ export class LinkedDeck<T extends IHasId> {
       }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     let p = this._head!;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     for (let k = 0; k < i; k += 1) p = p.next!;
     this._current = p;
     this.emit();

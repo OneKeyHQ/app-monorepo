@@ -1673,6 +1673,7 @@
   "global.nonce_faq": "什麼是隨機數？",
   "global.nonce_faq_desc": "您已啟用交易序號（nonce，又為隨機數）的顯示。您可以編輯序號來調整您目前帳戶的交易順序。這是一項高級功能，請謹慎使用。",
   "global.not_available": "不可用",
+  "global.not_now": "以後再說",
   "global.notifications": "通知",
   "global.number_accounts": "{number} 個帳戶",
   "global.number_items": "{number} 個項目",

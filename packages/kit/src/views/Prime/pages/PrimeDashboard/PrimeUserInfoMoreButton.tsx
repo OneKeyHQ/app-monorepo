@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   ActionList,
   Dialog,
-  Divider,
   IconButton,
   SizableText,
   Stack,
@@ -199,7 +198,6 @@ export function PrimeUserInfoMoreButton({
 }: {
   onLogoutSuccess?: () => Promise<void>;
 }) {
-  const intl = useIntl();
   const renderItems = useCallback(
     ({
       handleActionListClose,

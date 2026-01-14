@@ -6,6 +6,33 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
+type ITabListStateUpdatePayload = {
+  isRefreshing: boolean;
+  type: EHomeTab;
+  accountId: string;
+  networkId: string;
+};
+
+type ITokensTabLastState = ITabListStateUpdatePayload & { at: number };
+
+let tokensTabLastState: ITokensTabLastState | undefined;
+let tokensTabLastStateListenerInited = false;
+
+function initTokensTabLastStateListener() {
+  if (tokensTabLastStateListenerInited) return;
+  tokensTabLastStateListenerInited = true;
+
+  const onTabListStateUpdate = (data?: ITabListStateUpdatePayload) => {
+    if (!data) return;
+    if (data.type !== EHomeTab.TOKENS) return;
+    tokensTabLastState = { ...data, at: Date.now() };
+  };
+
+  appEventBus.on(EAppEventBusNames.TabListStateUpdate, onTabListStateUpdate);
+}
+
+initTokensTabLastStateListener();
+
 export type IRunAfterTokensDoneOptions = {
   enabled?: boolean;
   onRun: (trigger: string) => void | Promise<void>;
@@ -17,13 +44,6 @@ export type IRunAfterTokensDoneOptions = {
   networkId?: string;
   matchAccountId?: boolean;
   matchNetworkId?: boolean;
-};
-
-type ITabListStateUpdatePayload = {
-  isRefreshing: boolean;
-  type: EHomeTab;
-  accountId: string;
-  networkId: string;
 };
 
 export function runAfterTokensDone({
@@ -42,11 +62,22 @@ export function runAfterTokensDone({
     return () => undefined;
   }
 
+  initTokensTabLastStateListener();
+
   let cancelled = false;
   let hasTriggered = false;
   let tokensRefreshing: boolean | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const startAt = Date.now();
+
+  const last = tokensTabLastState;
+  const isLastMatched =
+    !!last &&
+    (!matchAccountId || !accountId || last.accountId === accountId) &&
+    (!matchNetworkId || !networkId || last.networkId === networkId);
+  if (isLastMatched) {
+    tokensRefreshing = last?.isRefreshing;
+  }
 
   const triggerRef: { current: (triggerName: string) => void } = {
     current: () => undefined,
@@ -104,6 +135,12 @@ export function runAfterTokensDone({
 
   appEventBus.on(EAppEventBusNames.TabListStateUpdate, onTabListStateUpdate);
   schedule(fallbackDelayMs);
+
+  if (isLastMatched && tokensRefreshing === false) {
+    void Promise.resolve().then(() => {
+      triggerRef.current('tokensDoneCached');
+    });
+  }
 
   return () => {
     cancelled = true;

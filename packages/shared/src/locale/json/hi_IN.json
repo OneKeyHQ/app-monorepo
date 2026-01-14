@@ -1673,6 +1673,7 @@
   "global.nonce_faq": "नॉन्स क्या है?",
   "global.nonce_faq_desc": "आपने ट्रांजेक्शन सीरियल नंबर (नॉन-वन) का प्रदर्शन सक्षम किया है। आप अपने चालू खाते के ट्रांजेक्शन क्रम को समायोजित करने के लिए सीरियल नंबर संपादित कर सकते हैं। यह एक उन्नत सुविधा है, सावधानी से उपयोग करें।",
   "global.not_available": "उपलब्ध नहीं है",
+  "global.not_now": "अभी नहीं",
   "global.notifications": "सूचनाएं",
   "global.number_accounts": "{number} खाते",
   "global.number_items": "{number} वस्तुएं",

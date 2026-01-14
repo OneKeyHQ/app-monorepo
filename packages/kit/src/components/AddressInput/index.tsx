@@ -405,7 +405,10 @@ export function AddressInput(props: IAddressInputProps) {
 
   useEffect(() => {
     if (rawAddress && textRef.current !== rawAddress) {
-      onChangeText(rawAddress);
+      onChangeText({
+        text: rawAddress,
+        inputType: EInputAddressChangeType.Manual,
+      });
     }
   }, [rawAddress, onChangeText]);
 

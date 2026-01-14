@@ -126,7 +126,7 @@ export function ApproveBaseStake({
   estReceiveToken,
   estReceiveTokenRate = '1',
   approveType,
-  activeBalance,
+  activeBalance: _activeBalance,
   apys,
   rewardAssets,
   poolFee,
@@ -827,7 +827,7 @@ export function ApproveBaseStake({
           </NumberSizeableText>
         ) : null}
         {apys?.rewards
-          ? Object.entries(apys.rewards).map(([tokenAddress, apy]) =>
+          ? Object.entries(apys.rewards).map(([tokenAddress, _apy]) =>
               rewardAssets?.[tokenAddress] ? (
                 <NumberSizeableText
                   key={tokenAddress}

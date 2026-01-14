@@ -39,6 +39,8 @@ type IWalletListItemProps = {
   shouldShowCreateHiddenWalletButtonFn?: (params: {
     wallet: IDBWallet | undefined;
   }) => boolean;
+  /** Whether this hardware wallet is currently connected via USB */
+  isConnected?: boolean;
 } & IStackProps &
   Partial<IWalletAvatarProps>;
 
@@ -190,13 +192,21 @@ export function WalletListItem({
   badge,
   isEditMode,
   shouldShowCreateHiddenWalletButtonFn,
+  isConnected,
   ...rest
 }: IWalletListItemProps) {
   const isKeylessWallet = wallet?.isKeyless;
 
+  // Determine wallet avatar status
+  const getWalletStatus = (): IWalletAvatarProps['status'] => {
+    if (isKeylessWallet) return 'keyless';
+    if (isConnected) return 'connected';
+    return 'default';
+  };
+
   let walletAvatarProps: IWalletAvatarProps = {
     wallet,
-    status: isKeylessWallet ? 'keyless' : 'default',
+    status: getWalletStatus(),
     badge,
     firmwareTypeBadge: wallet?.firmwareTypeAtCreated,
   };
@@ -280,6 +290,7 @@ export function WalletListItem({
             focusedWallet={focusedWallet}
             onWalletPress={onWalletPress}
             onWalletLongPress={onWalletLongPress}
+            isConnected={isConnected}
             {...(media.md && {
               badge: Number(index) + 1,
             })}

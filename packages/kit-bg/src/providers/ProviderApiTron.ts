@@ -215,8 +215,8 @@ class ProviderApiTron extends ProviderApiBase {
   @permissionRequired()
   @providerApiMethod()
   async signMessageV1(
-    request: IJsBridgeMessagePayload,
-    message: string,
+    _request: IJsBridgeMessagePayload,
+    _message: string,
   ): Promise<string> {
     throw new NotImplemented();
   }
@@ -308,7 +308,7 @@ class ProviderApiTron extends ProviderApiBase {
   @providerApiMethod()
   async wallet_switchEthereumChain(
     request: IJsBridgeMessagePayload,
-    { chainId }: { chainId: string },
+    { chainId: _chainId }: { chainId: string },
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     throw new NotImplemented();
@@ -333,7 +333,7 @@ class ProviderApiTron extends ProviderApiBase {
 
   // https://tronweb.network/docu/docs/API%20List/trx/multiSign
   @providerApiMethod()
-  async eth_multiSign(request: IJsBridgeMessagePayload, transaction: any) {
+  async eth_multiSign(request: IJsBridgeMessagePayload, _transaction: any) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     throw new NotImplemented();
   }

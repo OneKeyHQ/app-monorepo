@@ -12,7 +12,7 @@ import {
 } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
-import { KeyboardAvoidingView, type TextInput } from 'react-native';
+import { type TextInput } from 'react-native';
 
 import {
   Button,
@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { KeylessOnboardingDebugPanel } from '../pages/KeylessOnboardingDebugPanel';
 
 import { OnboardingLayout } from './OnboardingLayout';
@@ -47,6 +48,7 @@ interface IPinInputLayoutProps {
   isLoading?: boolean;
   placeholder?: string;
   onClose?: () => Promise<void>;
+  onEnableInput?: () => void;
 }
 
 export interface IPinInputLayoutRef {
@@ -71,6 +73,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       isLoading,
       placeholder = '••••',
       onClose,
+      onEnableInput,
     },
     ref,
   ) => {
@@ -129,9 +132,11 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
             <OnboardingLayout.ConstrainedContent gap="$10">
               <YStack gap="$2">
                 <SizableText size="$heading2xl">{title}</SizableText>
-                <SizableText size="$bodyLg" color={descriptionColor}>
-                  {description}
-                </SizableText>
+                <MultipleClickStack onPress={onEnableInput}>
+                  <SizableText size="$bodyLg" color={descriptionColor}>
+                    {description}
+                  </SizableText>
+                </MultipleClickStack>
               </YStack>
 
               <YStack gap="$6">

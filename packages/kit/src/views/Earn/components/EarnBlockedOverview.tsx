@@ -25,7 +25,7 @@ export function EarnBlockedOverview(props: {
     refresh,
     refreshing,
     showHeader,
-    showContent,
+    showContent: _showContent,
   } = props;
 
   return (
