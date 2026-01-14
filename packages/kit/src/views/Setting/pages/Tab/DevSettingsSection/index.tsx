@@ -84,6 +84,7 @@ import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
+import { NotificationPayloadTest } from './NotificationPayloadTest';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
@@ -619,6 +620,17 @@ const BaseDevSettingsSection = () => {
                   Dialog.cancel({
                     title: 'NotificationDevSettings',
                     renderContent: <NotificationDevSettings />,
+                  });
+                }}
+              />
+              <SectionPressItem
+                icon="SendOutline"
+                title="Notification Payload Test"
+                subtitle="Test parseNotificationPayload navigation"
+                onPress={() => {
+                  Dialog.cancel({
+                    title: 'Notification Payload Test',
+                    renderContent: <NotificationPayloadTest />,
                   });
                 }}
               />
