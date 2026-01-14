@@ -8,6 +8,8 @@ const startTime = Date.now();
 
 console.log(`[${getTimestamp()}] Package versions check started...`);
 
+const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
+
 // Find all workspace package.json files (excluding node_modules)
 function findPackageJsonFiles(rootDir) {
   const result = execSync(
@@ -132,7 +134,7 @@ function main() {
   if (inconsistencies.length === 0) {
     console.log('✓ All package versions are consistent!\n');
     console.log(
-      `[${getTimestamp()}] Package versions check completed. (${duration}s)`,
+      `[${getTimestamp()}] Package versions check completed. (${getDuration()}s)`,
     );
     exit(0);
   }
@@ -170,5 +172,3 @@ function main() {
 }
 
 main();
-
-const duration = ((Date.now() - startTime) / 1000).toFixed(2);

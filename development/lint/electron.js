@@ -49,4 +49,6 @@ try {
 }
 
 const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-console.log(`[${getTimestamp()}] Electron build check completed. (${duration}s)`);
+console.log(
+  `[${getTimestamp()}] Electron build check completed. (${duration}s)`,
+);
