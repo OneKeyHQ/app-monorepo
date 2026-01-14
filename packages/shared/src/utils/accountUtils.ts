@@ -1080,6 +1080,44 @@ function isValidDeriveType(deriveType: string): boolean {
   );
 }
 
+function countMatchingPrefix(str1: string, str2: string): number {
+  let count = 0;
+  for (let i = 0; i < str1.length; i += 1) {
+    if (str1[i] !== str2[i]) break;
+    count += 1;
+  }
+  return count;
+}
+
+function countMatchingSuffix(str1: string, str2: string): number {
+  let count = 0;
+  for (let i = 1; i <= str1.length; i += 1) {
+    if (str1[str1.length - i] !== str2[str2.length - i]) break;
+    count += 1;
+  }
+  return count;
+}
+
+// Detects address poisoning attacks where scammers create addresses
+// with matching prefix/suffix to trick users into copying wrong addresses
+function isSimilarAddress(address1: string, address2: string): boolean {
+  // Must be different addresses of same length with valid input
+  if (
+    !address1 ||
+    !address2 ||
+    address1 === address2 ||
+    address1.length !== address2.length
+  ) {
+    return false;
+  }
+
+  const SIMILARITY_THRESHOLD = 8;
+  const prefixMatch = countMatchingPrefix(address1, address2);
+  const suffixMatch = countMatchingSuffix(address1, address2);
+
+  return prefixMatch + suffixMatch >= SIMILARITY_THRESHOLD;
+}
+
 export default {
   URL_ACCOUNT_ID,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
@@ -1136,6 +1174,7 @@ export default {
   isValidWalletXfp,
   isEnabledBtcFreshAddress,
   isValidDeriveType,
+  isSimilarAddress,
 
   parseAccountId,
   parseIndexedAccountId,
