@@ -58,6 +58,18 @@ type IGetEarnAccountFunc = (params: {
   account: INetworkAccount;
 } | null>;
 
+const popToMainRoute = async () => {
+  const rootState = appGlobals.$navigationRef.current?.getRootState();
+  if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Main) {
+    return;
+  }
+  if (appGlobals.$navigationRef.current?.canGoBack()) {
+    appGlobals.$navigationRef.current?.goBack?.();
+  }
+  await timerUtils.wait(150);
+  await popToMainRoute();
+};
+
 export async function navigateToNotificationDetailByLocalParams({
   payload,
   localParams: originalLocalParams,
@@ -101,11 +113,11 @@ export async function navigateToNotificationDetailByLocalParams({
     }
   }
   if (screen === ERootRoutes.Main) {
-    if (appGlobals.$navigationRef.current?.canGoBack()) {
-      appGlobals.$navigationRef.current?.goBack?.();
-    }
+    await popToMainRoute();
     await timerUtils.wait(350);
-    appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
+    appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
+      pop: true,
+    });
   } else if (screen === ERootRoutes.Modal) {
     let rootNavigator = appGlobals.$navigationRef.current;
     const rootState = appGlobals.$navigationRef.current?.getRootState();

@@ -46,6 +46,15 @@ const payloadExamples: Record<ENotificationPushMessageMode, string> = {
         },
       },
     },
+    // {
+    //   'screen': 'main',
+    //   'params': {
+    //     'screen': 'Discovery',
+    //     'params': {
+    //       'screen': 'TabDiscovery',
+    //     },
+    //   },
+    // },
     null,
     2,
   ),
