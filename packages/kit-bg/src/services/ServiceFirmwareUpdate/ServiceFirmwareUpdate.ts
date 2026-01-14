@@ -1,5 +1,5 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { isArray, isNil } from 'lodash';
+import { get, isArray, isNil } from 'lodash';
 import semver from 'semver';
 
 import {
@@ -344,6 +344,22 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
   }
 
+  private _checkCacheMeetExpectations({
+    baseReleaseInfo,
+  }: {
+    baseReleaseInfo: AllFirmwareRelease | undefined;
+  }) {
+    if (baseReleaseInfo) {
+      const firmwareVersion = get(baseReleaseInfo, 'firmware.release.version');
+      const bleVersion = get(baseReleaseInfo, 'ble.release.version');
+      const featuresCache = get(baseReleaseInfo, 'features');
+      if (featuresCache && (bleVersion || firmwareVersion)) {
+        return baseReleaseInfo;
+      }
+    }
+    return undefined;
+  }
+
   @backgroundMethod()
   @toastIfError()
   async checkAllFirmwareRelease({
@@ -359,9 +375,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }): Promise<ICheckAllFirmwareReleaseResult> {
     const { getDeviceUUID } = await CoreSDKLoader();
 
+    const releaseInfoCache = this._checkCacheMeetExpectations({
+      baseReleaseInfo: baseReleaseInfoCache,
+    });
+
     const originalConnectId = connectId;
     // Skip cancel when using cached data since device state was already verified
-    const needSkipCancel = skipCancel || !!baseReleaseInfoCache;
+    const needSkipCancel = skipCancel || !!releaseInfoCache;
 
     if (platformEnv.isNative && !originalConnectId) {
       throw new OneKeyLocalError(
@@ -410,7 +430,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.checkDeviceIsBootloaderMode({
         connectId: originalConnectId,
         allowEmptyConnectId: true,
-        featuresCache: baseReleaseInfoCache?.features,
+        featuresCache: releaseInfoCache?.features,
       });
     let features: Features = initialFeatures as Features;
 
@@ -426,7 +446,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
 
     const releaseInfo =
-      baseReleaseInfoCache ??
+      releaseInfoCache ??
       (await this.baseCheckAllFirmwareRelease({
         connectId: originalConnectId,
         firmwareType,
