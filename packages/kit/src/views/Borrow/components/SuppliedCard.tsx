@@ -46,7 +46,7 @@ const SuppliedHeader = ({
               color: '$textSubdued',
             }}
           />
-          <EarnText text={data?.suppliedBalance?.title} />
+          <EarnText text={data?.suppliedBalance?.title} size="$bodyMdMedium" />
         </XStack>
       ) : null}
       {data?.suppliedApy?.title ? (
@@ -58,7 +58,7 @@ const SuppliedHeader = ({
               color: '$textSubdued',
             }}
           />
-          <EarnText text={data?.suppliedApy?.title} />
+          <EarnText text={data?.suppliedApy?.title} size="$bodyMdMedium" />
           <EarnTooltip tooltip={data?.suppliedApy?.tooltip} />
         </XStack>
       ) : null}

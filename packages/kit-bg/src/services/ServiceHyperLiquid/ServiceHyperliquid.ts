@@ -661,32 +661,77 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
-    const statePair = data.clearinghouseStates?.[0];
-    const clearinghouseState = statePair?.[1];
-    if (!clearinghouseState) {
+    const clearinghouseStates = data.clearinghouseStates || [];
+    if (clearinghouseStates.length === 0) {
       return;
     }
 
-    const positions = (clearinghouseState?.assetPositions ||
-      []) as IPerpsAssetPosition[];
-    const totalUnrealizedPnlBN = positions.reduce(
-      (sum: BigNumber, position: IPerpsAssetPosition) => {
-        const pnl = position.position?.unrealizedPnl;
-        return pnl ? sum.plus(pnl) : sum;
+    // Aggregate all DEXs (HL perps + xyz) using BigNumber
+    const aggregated = clearinghouseStates.reduce(
+      (acc, [, state]) => {
+        if (!state) return acc;
+
+        const { marginSummary, crossMarginSummary, assetPositions } = state;
+
+        // Aggregate margin summary values
+        acc.accountValue = acc.accountValue.plus(
+          marginSummary?.accountValue || '0',
+        );
+        acc.totalMarginUsed = acc.totalMarginUsed.plus(
+          marginSummary?.totalMarginUsed || '0',
+        );
+        acc.totalNtlPos = acc.totalNtlPos.plus(
+          marginSummary?.totalNtlPos || '0',
+        );
+        acc.totalRawUsd = acc.totalRawUsd.plus(
+          marginSummary?.totalRawUsd || '0',
+        );
+
+        // Aggregate cross margin values
+        acc.crossAccountValue = acc.crossAccountValue.plus(
+          crossMarginSummary?.accountValue || '0',
+        );
+        acc.crossMaintenanceMarginUsed = acc.crossMaintenanceMarginUsed.plus(
+          state.crossMaintenanceMarginUsed || '0',
+        );
+
+        // Aggregate withdrawable
+        acc.withdrawable = acc.withdrawable.plus(state.withdrawable || '0');
+
+        // Aggregate unrealized PnL from all positions
+        const positions = (assetPositions || []) as IPerpsAssetPosition[];
+        positions.forEach((position) => {
+          const pnl = position.position?.unrealizedPnl;
+          if (pnl) {
+            acc.totalUnrealizedPnl = acc.totalUnrealizedPnl.plus(pnl);
+          }
+        });
+
+        return acc;
       },
-      new BigNumber(0),
+      {
+        accountValue: new BigNumber(0),
+        totalMarginUsed: new BigNumber(0),
+        crossAccountValue: new BigNumber(0),
+        crossMaintenanceMarginUsed: new BigNumber(0),
+        totalNtlPos: new BigNumber(0),
+        totalRawUsd: new BigNumber(0),
+        withdrawable: new BigNumber(0),
+        totalUnrealizedPnl: new BigNumber(0),
+      },
     );
 
     await perpsActiveAccountSummaryAtom.set({
       accountAddress: activeAddress as IHex,
-      accountValue: clearinghouseState.marginSummary?.accountValue,
-      totalMarginUsed: clearinghouseState.marginSummary?.totalMarginUsed,
-      crossAccountValue: clearinghouseState.crossMarginSummary?.accountValue,
-      crossMaintenanceMarginUsed: clearinghouseState.crossMaintenanceMarginUsed,
-      totalNtlPos: clearinghouseState.marginSummary?.totalNtlPos,
-      totalRawUsd: clearinghouseState.marginSummary?.totalRawUsd,
-      withdrawable: clearinghouseState.withdrawable,
-      totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
+      accountValue: aggregated.accountValue.toFixed(),
+      totalMarginUsed: aggregated.totalMarginUsed.toFixed(),
+      crossAccountValue: aggregated.crossAccountValue.toFixed(),
+      crossMaintenanceMarginUsed:
+        aggregated.crossMaintenanceMarginUsed.toFixed(),
+      totalNtlPos: aggregated.totalNtlPos.toFixed(),
+      totalRawUsd: aggregated.totalRawUsd.toFixed(),
+      withdrawable: aggregated.withdrawable.toFixed(),
+      totalUnrealizedPnl: aggregated.totalUnrealizedPnl.toFixed(),
     });
   }
 
