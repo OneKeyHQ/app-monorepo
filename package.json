@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "setup:env": "node -e \"const fs=require('fs');if(!fs.existsSync('.env'))fs.copyFileSync('.env.example','.env');\"",
