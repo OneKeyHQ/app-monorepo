@@ -2,88 +2,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import {
-  buildKeylessLocalEncryptionKey,
-  buildKeylessLocalEncryptionKeyWithPassword,
-} from './keylessLocalEncryptionKey';
+import { buildKeylessLocalEncryptionKeyWithPassword } from './keylessLocalEncryptionKey';
 import keylessStorageUtils from './keylessStorageUtils';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
-
-/**
- * Save mnemonicPassword to local storage with encryption.
- * This is used for Reset PIN flow to recover juicebox share.
- */
-async function saveMnemonicPasswordToStorage(params: {
-  ownerId: string;
-  mnemonicPassword: string;
-  backgroundApi: IBackgroundApi;
-}): Promise<void> {
-  const { ownerId, mnemonicPassword, backgroundApi } = params;
-
-  // 1. Build unique key for this ownerId
-  const key = accountUtils.buildKeylessMnemonicPasswordKey({ ownerId });
-
-  // 2. Encrypt with encryption key
-  const encryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
-
-  const encryptedPayloadHex = await backgroundApi.servicePassword.encryptString(
-    {
-      password: encryptionKey,
-      data: mnemonicPassword,
-      dataEncoding: 'utf8',
-      allowRawPassword: true,
-    },
-  );
-
-  // Convert hex to base64 for storage
-  const encryptedPayloadBase64 = bufferUtils.bytesToBase64(
-    bufferUtils.hexToBytes(encryptedPayloadHex),
-  );
-
-  // 3. Store encrypted data, prefer secureStorage if available
-  await keylessStorageUtils.storageSetItem(key, encryptedPayloadBase64);
-}
-
-/**
- * Get mnemonicPassword from local storage and decrypt it.
- */
-async function getMnemonicPasswordFromStorage(params: {
-  ownerId: string;
-  backgroundApi: IBackgroundApi;
-}): Promise<string | null> {
-  const { ownerId, backgroundApi } = params;
-
-  // 1. Build unique key for this ownerId
-  const key = accountUtils.buildKeylessMnemonicPasswordKey({ ownerId });
-
-  // 2. Read encrypted data from storage
-  const encryptedPayloadBase64 = await keylessStorageUtils.storageGetItem(key);
-
-  if (!encryptedPayloadBase64) {
-    return null;
-  }
-
-  // 3. Decrypt with encryption key
-  const decryptionKey = await buildKeylessLocalEncryptionKey({ backgroundApi });
-
-  try {
-    const mnemonicPassword = await backgroundApi.servicePassword.decryptString({
-      password: decryptionKey,
-      data: encryptedPayloadBase64,
-      dataEncoding: 'base64',
-      resultEncoding: 'utf8',
-      allowRawPassword: true,
-    });
-    return mnemonicPassword;
-  } catch (error) {
-    throw new OneKeyLocalError(
-      `Failed to decrypt mnemonicPassword: invalid password or corrupted data: ${
-        (error as Error)?.message
-      }`,
-    );
-  }
-}
 
 async function saveMnemonicPasswordToStorageWithPassword(params: {
   ownerId: string;
@@ -148,6 +70,51 @@ async function getMnemonicPasswordFromStorageWithPassword(params: {
       }`,
     );
   }
+}
+
+/**
+ * Save mnemonicPassword to local storage with encryption.
+ * This is used for Reset PIN flow to recover juicebox share.
+ *
+ * NOTE: This function requires `password` parameter. Caller is responsible for
+ * obtaining the password via promptPasswordVerify() before calling this function.
+ * This design prevents multiple password prompts when saving multiple items in a transaction.
+ */
+async function saveMnemonicPasswordToStorage(params: {
+  ownerId: string;
+  mnemonicPassword: string;
+  password: string;
+  backgroundApi: IBackgroundApi;
+}): Promise<void> {
+  const { ownerId, mnemonicPassword, password, backgroundApi } = params;
+
+  return saveMnemonicPasswordToStorageWithPassword({
+    ownerId,
+    mnemonicPassword,
+    password,
+    backgroundApi,
+  });
+}
+
+/**
+ * Get mnemonicPassword from local storage and decrypt it.
+ *
+ * NOTE: This function requires `password` parameter. Caller is responsible for
+ * obtaining the password via promptPasswordVerify() before calling this function.
+ * This design prevents multiple password prompts when getting multiple items in a transaction.
+ */
+async function getMnemonicPasswordFromStorage(params: {
+  ownerId: string;
+  password: string;
+  backgroundApi: IBackgroundApi;
+}): Promise<string | null> {
+  const { ownerId, password, backgroundApi } = params;
+
+  return getMnemonicPasswordFromStorageWithPassword({
+    ownerId,
+    password,
+    backgroundApi,
+  });
 }
 
 async function removeMnemonicPasswordFromStorage(params: {

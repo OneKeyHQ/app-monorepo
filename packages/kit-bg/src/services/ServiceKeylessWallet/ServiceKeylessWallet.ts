@@ -1497,10 +1497,13 @@ class ServiceKeylessWallet extends ServiceBase {
       refreshToken &&
       mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
     ) {
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify();
       await keylessRefreshTokenStorage.saveTokensToStorage({
         ownerId,
         refreshToken,
         token,
+        password,
         backgroundApi: this.backgroundApi,
       });
     }
@@ -1568,6 +1571,10 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('new PIN is required');
     }
 
+    // Get password first to avoid multiple prompts
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
+
     // 2. Get backendShare from server
     const { backendShareData, hashId } = await this.apiGetKeylessBackendShare({
       token,
@@ -1586,6 +1593,7 @@ class ServiceKeylessWallet extends ServiceBase {
     const mnemonicPassword =
       await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorage({
         ownerId,
+        password,
         backgroundApi: this.backgroundApi,
       });
     if (!mnemonicPassword) {
@@ -1622,6 +1630,7 @@ class ServiceKeylessWallet extends ServiceBase {
         ownerId,
         refreshToken,
         token,
+        password,
         backgroundApi: this.backgroundApi,
       });
     }
@@ -1649,6 +1658,10 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!pin) {
       throw new OneKeyLocalError('pin is required');
     }
+
+    // Get password first to avoid multiple prompts
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
 
     // Get backend share from server
     const { backendShareData, hashId } = await this.apiGetKeylessBackendShare({
@@ -1700,6 +1713,7 @@ class ServiceKeylessWallet extends ServiceBase {
     await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
       ownerId,
       mnemonicPassword,
+      password,
       backgroundApi: this.backgroundApi,
     });
 
@@ -1709,6 +1723,7 @@ class ServiceKeylessWallet extends ServiceBase {
         ownerId,
         refreshToken,
         token,
+        password,
         backgroundApi: this.backgroundApi,
       });
     }
@@ -1751,6 +1766,10 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!pin) {
       throw new OneKeyLocalError('pin is required');
     }
+
+    // Get password first to avoid multiple prompts
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
 
     // 1. Acquire distributed lock
     const { lockId, hashId } = await this.apiAcquireCreationLock({ token });
@@ -1808,6 +1827,7 @@ class ServiceKeylessWallet extends ServiceBase {
       await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
         ownerId,
         mnemonicPassword,
+        password,
         backgroundApi: this.backgroundApi,
       });
 
@@ -1836,6 +1856,7 @@ class ServiceKeylessWallet extends ServiceBase {
           ownerId,
           refreshToken,
           token,
+          password,
           backgroundApi: this.backgroundApi,
         });
       }
@@ -1918,10 +1939,15 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('ownerId is required');
     }
     try {
+      // Get password first to avoid multiple prompts
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify();
+
       // Get refreshToken from secure storage (requires passcode)
       const storedTokens =
         await keylessRefreshTokenStorage.getTokensFromStorage({
           ownerId,
+          password,
           backgroundApi: this.backgroundApi,
         });
 
@@ -1957,6 +1983,7 @@ class ServiceKeylessWallet extends ServiceBase {
           ownerId,
           refreshToken: refreshResult.refresh_token,
           token: refreshResult.access_token,
+          password,
           backgroundApi: this.backgroundApi,
         });
         return {
@@ -2154,6 +2181,7 @@ class ServiceKeylessWallet extends ServiceBase {
 
     for (const wallet of keylessWallets) {
       const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
+      // eslint-disable-next-line no-continue
       if (!ownerId) continue;
 
       const mnemonicPassword =
