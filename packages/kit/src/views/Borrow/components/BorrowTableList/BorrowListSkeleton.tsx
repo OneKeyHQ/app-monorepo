@@ -1,4 +1,4 @@
-import { Skeleton, Stack, YStack } from '@onekeyhq/components';
+import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 
@@ -104,18 +104,20 @@ export const BorrowListSkeleton = <T,>({
         <ListItem key={rowIndex} gap={rowGap ?? '$3'}>
           {columns.map((column, columnIndex) => (
             <Stack key={column.key} {...getColumnFlexStyle(column)}>
-              <YStack gap="$1">
-                <Skeleton
-                  w={columnIndex === 0 ? 140 : 90}
-                  h="$4"
-                  borderRadius="$2"
-                />
-                <Skeleton
-                  w={columnIndex === 0 ? 100 : 60}
-                  h="$3"
-                  borderRadius="$2"
-                />
-              </YStack>
+              {columnIndex === 0 ? (
+                <XStack alignItems="center" gap="$3">
+                  <Skeleton w="$8" h="$8" borderRadius="$full" />
+                  <YStack gap="$1">
+                    <Skeleton w={140} h="$4" borderRadius="$2" />
+                    <Skeleton w={100} h="$3" borderRadius="$2" />
+                  </YStack>
+                </XStack>
+              ) : (
+                <YStack gap="$1">
+                  <Skeleton w={90} h="$4" borderRadius="$2" />
+                  <Skeleton w={60} h="$3" borderRadius="$2" />
+                </YStack>
+              )}
             </Stack>
           ))}
         </ListItem>
