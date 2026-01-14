@@ -19,19 +19,39 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import SignGuardIcon from './SignGuardIcon';
 
 // Compare two addresses and return diff info for each character
+// Marks everything between first left diff and first right diff as different
 function compareAddresses(
   baseAddress: string,
   targetAddress: string,
 ): { char: string; isDiff: boolean }[] {
   const result: { char: string; isDiff: boolean }[] = [];
-  const maxLen = Math.max(baseAddress.length, targetAddress.length);
+  const len = targetAddress.length;
 
-  for (let i = 0; i < maxLen; i += 1) {
-    const baseChar = baseAddress[i] ?? '';
-    const targetChar = targetAddress[i] ?? '';
+  // Find matching prefix length
+  let prefixMatch = 0;
+  for (let i = 0; i < len && i < baseAddress.length; i += 1) {
+    if (baseAddress[i].toLowerCase() !== targetAddress[i].toLowerCase()) break;
+    prefixMatch += 1;
+  }
+
+  // Find matching suffix length
+  let suffixMatch = 0;
+  for (let i = 1; i <= len && i <= baseAddress.length; i += 1) {
+    if (
+      baseAddress[baseAddress.length - i].toLowerCase() !==
+      targetAddress[len - i].toLowerCase()
+    )
+      break;
+    suffixMatch += 1;
+  }
+
+  // Build result: prefix is white, middle is red, suffix is white
+  for (let i = 0; i < len; i += 1) {
+    const isInPrefix = i < prefixMatch;
+    const isInSuffix = i >= len - suffixMatch;
     result.push({
-      char: targetChar,
-      isDiff: baseChar.toLowerCase() !== targetChar.toLowerCase(),
+      char: targetAddress[i],
+      isDiff: !isInPrefix && !isInSuffix,
     });
   }
 

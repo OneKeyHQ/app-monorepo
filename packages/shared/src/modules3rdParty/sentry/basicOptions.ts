@@ -10,9 +10,20 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 
 import type { BrowserOptions, Stacktrace } from '@sentry/browser';
-// dirty check for common private key formats
-const checkPrivateKey = (errorText: string) =>
-  typeof errorText === 'string' && errorText.length > 26;
+// Check for common private key formats
+const PRIVATE_KEY_PATTERNS = [
+  /^0x[a-fA-F0-9]{64}$/, // Ethereum private key (hex with 0x prefix)
+  /^[a-fA-F0-9]{64}$/, // Raw 32-byte hex private key
+  /^[5KL][1-9A-HJ-NP-Za-km-z]{50,51}$/, // Bitcoin WIF format
+  /^[a-fA-F0-9]{128}$/, // 64-byte extended key hex
+];
+
+const checkPrivateKey = (text: string): boolean => {
+  if (typeof text !== 'string' || text.length < 50) {
+    return false;
+  }
+  return PRIVATE_KEY_PATTERNS.some((pattern) => pattern.test(text));
+};
 
 const lazyLoadWordSet = memoizee(() => new Set(wordLists));
 
@@ -20,36 +31,113 @@ export const navigationIntegration = reactNavigationIntegration({
   enableTimeToInitialDisplay: true,
 });
 
-// Check if text contains mnemonic phrases
-const checkAndRedactMnemonicWords = (words: string[]) => {
-  if (!Array.isArray(words)) {
+// Minimum consecutive mnemonic words to trigger redaction (12-word mnemonic could partially leak)
+const MIN_MNEMONIC_SEQUENCE_LENGTH = 3;
+
+// Check if text contains mnemonic phrases and redact them
+const checkAndRedactMnemonicWords = (words: string[]): string[] => {
+  if (!Array.isArray(words) || words.length === 0) {
     return words;
   }
 
   const wordSet = lazyLoadWordSet();
   const result = words.slice();
-  let consecutiveCount = 0;
-  let maxConsecutiveCount = 0;
 
-  let startIndex = 0;
-  // Check for consecutive mnemonic words and count them
-  for (let i = 0; i < words.length; i += 1) {
-    if (wordSet.has(words[i].toLowerCase())) {
+  let sequenceStart = -1;
+  let consecutiveCount = 0;
+
+  // Find and redact all mnemonic sequences
+  for (let i = 0; i <= words.length; i += 1) {
+    const isLastIteration = i === words.length;
+    const isMnemonicWord =
+      !isLastIteration && wordSet.has(words[i].toLowerCase());
+
+    if (isMnemonicWord) {
+      if (sequenceStart === -1) {
+        sequenceStart = i; // Mark start of new sequence
+      }
       consecutiveCount += 1;
-      maxConsecutiveCount = Math.max(maxConsecutiveCount, consecutiveCount);
     } else {
-      startIndex = i;
+      // End of sequence (or end of array) - check if we need to redact
+      if (consecutiveCount >= MIN_MNEMONIC_SEQUENCE_LENGTH) {
+        // Redact the entire sequence
+        for (
+          let j = sequenceStart;
+          j < sequenceStart + consecutiveCount;
+          j += 1
+        ) {
+          result[j] = '****';
+        }
+      }
+      // Reset for next potential sequence
+      sequenceStart = -1;
       consecutiveCount = 0;
     }
   }
 
-  if (maxConsecutiveCount > 10) {
-    for (let i = startIndex; i < maxConsecutiveCount; i += 1) {
-      result[i] = '****';
+  return result;
+};
+
+// Maximum word length before redacting (long strings may contain sensitive data)
+const MAX_WORD_LENGTH = 20;
+
+// Sanitize a single text string (check for private keys, long words, and mnemonics)
+const sanitizeText = (text: string): string => {
+  if (typeof text !== 'string' || !text) {
+    return text;
+  }
+  let words = text.split(' ');
+  // Check for private keys and long words
+  for (let i = 0; i < words.length; i += 1) {
+    if (checkPrivateKey(words[i])) {
+      words[i] = '****';
+    } else if (words[i].length > MAX_WORD_LENGTH) {
+      // Redact words longer than MAX_WORD_LENGTH (may contain sensitive data like tokens, keys, etc.)
+      words[i] = '***';
     }
   }
+  // Check for mnemonic sequences
+  words = checkAndRedactMnemonicWords(words);
+  return words.join(' ');
+};
 
-  return result;
+// Sanitize stacktrace frames (local variables may contain sensitive data)
+const sanitizeStacktrace = (stacktrace?: Stacktrace): void => {
+  if (!stacktrace?.frames) {
+    return;
+  }
+  for (const frame of stacktrace.frames) {
+    // Sanitize local variables captured in stack frames
+    if (frame.vars) {
+      for (const key of Object.keys(frame.vars)) {
+        const value = frame.vars[key];
+        if (typeof value === 'string') {
+          frame.vars[key] = sanitizeText(value);
+        } else if (typeof value === 'object' && value !== null) {
+          // For objects, convert to string and sanitize
+          try {
+            const jsonStr = JSON.stringify(value);
+            const sanitized = sanitizeText(jsonStr);
+            if (sanitized !== jsonStr) {
+              frame.vars[key] = '[REDACTED]';
+            }
+          } catch {
+            // Keep original if can't stringify
+          }
+        }
+      }
+    }
+    // Sanitize context lines if present
+    if (frame.context_line) {
+      frame.context_line = sanitizeText(frame.context_line);
+    }
+    if (Array.isArray(frame.pre_context)) {
+      frame.pre_context = frame.pre_context.map(sanitizeText);
+    }
+    if (Array.isArray(frame.post_context)) {
+      frame.post_context = frame.post_context.map(sanitizeText);
+    }
+  }
 };
 
 export const SENTRY_IPC = 'sentry-ipc://';
@@ -86,14 +174,24 @@ const isFilterErrorAndSkipSentry = (error?: {
     return true;
   }
 
-  if (
-    platformEnv.isDesktop &&
-    error.value &&
-    error.value.includes(
-      `Failed to execute 'define' on 'CustomElementRegistry'`,
-    )
-  ) {
-    return true;
+  // Desktop-specific error filters (grouped to avoid redundant platform checks)
+  if (platformEnv.isDesktop && error.value) {
+    // Filter CustomElementRegistry error
+    if (
+      error.value.includes(
+        `Failed to execute 'define' on 'CustomElementRegistry'`,
+      )
+    ) {
+      return true;
+    }
+    // Filter Electron webview connection closed error (network interruption during webview loading)
+    // Check shorter string first for better performance
+    if (
+      error.value.includes('ERR_CONNECTION_CLOSED') &&
+      error.value.includes('GUEST_VIEW_MANAGER_CALL')
+    ) {
+      return true;
+    }
   }
 
   if (
@@ -120,32 +218,28 @@ export const buildBasicOptions = ({
     beforeSend: (event) => {
       if (Array.isArray(event.exception?.values)) {
         for (let index = 0; index < event.exception.values.length; index += 1) {
-          const errorText = event.exception.values[index].value;
-          if (errorText) {
-            try {
-              let textSlices = errorText?.split(' ');
-              for (let i = 0; i < textSlices.length; i += 1) {
-                const textSlice = textSlices[i];
-                if (checkPrivateKey(textSlice)) {
-                  textSlices[i] = '****';
-                }
-              }
-              textSlices = checkAndRedactMnemonicWords(textSlices);
-              const newErrorText = textSlices.join(' ');
+          const exceptionValue = event.exception.values[index];
+          try {
+            // Sanitize error message
+            if (exceptionValue.value) {
+              const newErrorText = sanitizeText(exceptionValue.value);
               // Save error message locally
-              onError(newErrorText, event.exception?.values[index].stacktrace);
-
-              // In webEmbed environment, network requests cannot be sent, so abort subsequent operations
-              if (platformEnv.isWebEmbed) {
-                return;
-              }
-              if (isFilterErrorAndSkipSentry(event.exception.values[index])) {
-                return null;
-              }
-              event.exception.values[index].value = newErrorText;
-            } catch {
-              // Do nothing
+              onError(newErrorText, exceptionValue.stacktrace);
+              exceptionValue.value = newErrorText;
             }
+
+            // Sanitize stacktrace (local variables, context lines)
+            sanitizeStacktrace(exceptionValue.stacktrace);
+
+            // In webEmbed environment, network requests cannot be sent, so abort subsequent operations
+            if (platformEnv.isWebEmbed) {
+              return;
+            }
+            if (isFilterErrorAndSkipSentry(exceptionValue)) {
+              return null;
+            }
+          } catch {
+            // Do nothing
           }
         }
       }
@@ -176,3 +270,12 @@ export const buildIntegrations = (Sentry: typeof import('@sentry/react')) => [
     xhr: true,
   }),
 ];
+
+// Export for testing purposes (sanitization functions)
+export const testUtils = {
+  checkPrivateKey,
+  checkAndRedactMnemonicWords,
+  sanitizeText,
+  sanitizeStacktrace,
+  isFilterErrorAndSkipSentry,
+};

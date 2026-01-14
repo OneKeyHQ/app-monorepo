@@ -990,6 +990,22 @@ function buildKeylessWalletId({
   return `${WALLET_TYPE_HD}-keyless-${sharePackSetId}`;
 }
 
+async function buildKeylessWalletIdV2({
+  ownerId,
+  xfp,
+}: {
+  ownerId: string;
+  xfp: string;
+}): Promise<string> {
+  const hash = await appCrypto.hash.sha256(
+    Buffer.from(
+      `${ownerId}__E9590EE9-3A3D-43A1-8DE8-886AD1F02786__${xfp}`,
+      'utf-8',
+    ),
+  );
+  return `${WALLET_TYPE_HD}-keyless-${bufferUtils.bytesToHex(hash)}`;
+}
+
 function isKeylessWallet({
   walletId,
 }: {
@@ -1064,6 +1080,44 @@ function isValidDeriveType(deriveType: string): boolean {
   );
 }
 
+function countMatchingPrefix(str1: string, str2: string): number {
+  let count = 0;
+  for (let i = 0; i < str1.length; i += 1) {
+    if (str1[i] !== str2[i]) break;
+    count += 1;
+  }
+  return count;
+}
+
+function countMatchingSuffix(str1: string, str2: string): number {
+  let count = 0;
+  for (let i = 1; i <= str1.length; i += 1) {
+    if (str1[str1.length - i] !== str2[str2.length - i]) break;
+    count += 1;
+  }
+  return count;
+}
+
+// Detects address poisoning attacks where scammers create addresses
+// with matching prefix/suffix to trick users into copying wrong addresses
+function isSimilarAddress(address1: string, address2: string): boolean {
+  // Must be different addresses of same length with valid input
+  if (
+    !address1 ||
+    !address2 ||
+    address1 === address2 ||
+    address1.length !== address2.length
+  ) {
+    return false;
+  }
+
+  const SIMILARITY_THRESHOLD = 8;
+  const prefixMatch = countMatchingPrefix(address1, address2);
+  const suffixMatch = countMatchingSuffix(address1, address2);
+
+  return prefixMatch + suffixMatch >= SIMILARITY_THRESHOLD;
+}
+
 export default {
   URL_ACCOUNT_ID,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
@@ -1074,6 +1128,7 @@ export default {
   buildKeylessRefreshTokenKey,
   buildKeylessTokenKey,
   buildKeylessWalletId,
+  buildKeylessWalletIdV2,
   buildAccountValueKey,
   parseAccountValueKey,
   buildUtxoAddressRelPath,
@@ -1119,6 +1174,7 @@ export default {
   isValidWalletXfp,
   isEnabledBtcFreshAddress,
   isValidDeriveType,
+  isSimilarAddress,
 
   parseAccountId,
   parseIndexedAccountId,
