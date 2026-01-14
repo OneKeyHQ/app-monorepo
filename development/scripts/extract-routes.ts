@@ -153,6 +153,7 @@ function extractEnumMembers(content: string, enumName: string): string[] {
     let memberMatch = memberRegex.exec(enumBody);
     memberMatch !== null;
     memberMatch = memberRegex.exec(enumBody)
+  ) {
     members.push(memberMatch[1]);
   }
 
