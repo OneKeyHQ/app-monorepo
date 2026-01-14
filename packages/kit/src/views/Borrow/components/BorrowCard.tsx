@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { useMedia } from '@onekeyhq/components';
@@ -147,6 +148,12 @@ export const BorrowCard = () => {
         label: labels.available,
         align: 'flex-end' as const,
         key: 'available',
+        sortable: true,
+        comparator: (a: IBorrowAsset, b: IBorrowAsset) => {
+          const aFiatValue = new BigNumber(a.available?.fiatValue || '0');
+          const bFiatValue = new BigNumber(b.available?.fiatValue || '0');
+          return aFiatValue.comparedTo(bFiatValue);
+        },
         render: (item: IBorrowAsset) => (
           <AmountField
             title={item.available.title}
@@ -186,11 +193,13 @@ export const BorrowCard = () => {
   return (
     <Card title={labels.assetsToBorrow}>
       <BorrowTableList<IBorrowAsset>
-        data={reserves?.borrow.assets || []}
+        data={reserves?.borrow?.assets || []}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
         emptyContent={labels.noAssetsToBorrow}
+        defaultSortKey="available"
+        defaultSortDirection="desc"
       />
     </Card>
   );

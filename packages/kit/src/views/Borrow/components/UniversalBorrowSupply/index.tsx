@@ -30,7 +30,6 @@ import {
   useOnBlurAmountValue,
 } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
-import { TradeOrBuy } from '@onekeyhq/kit/src/views/Staking/components/TradeOrBuy';
 import { countDecimalPlaces } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -46,6 +45,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../../Staking/components/ProtocolDetails/EarnTooltip';
 import { BorrowInfoItem } from '../BorrowInfoItem';
+import { BorrowSwapOrBridge } from '../BorrowSwapOrBridge';
 import { ApyTextV2 } from '../BorrowTableList/ApyTextV2';
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
@@ -417,11 +417,14 @@ export function UniversalBorrowSupply({
               variant="highlight"
             >
               <YStack ai="flex-end">
-                <XStack ai="center" gap="$1">
+                <XStack ai="center" gap="$3">
                   <EarnText
                     text={transactionConfirmation.healthFactor.current?.title}
                     color="$textText"
                     size="$bodyLg"
+                    opacity={
+                      transactionConfirmation.healthFactor.latest ? 0.5 : 1
+                    }
                   />
                   {transactionConfirmation.healthFactor.latest ? (
                     <>
@@ -434,7 +437,7 @@ export function UniversalBorrowSupply({
                         text={
                           transactionConfirmation.healthFactor.latest?.title
                         }
-                        size="$headingLg"
+                        size="$headingMd"
                       />
                     </>
                   ) : null}
@@ -463,11 +466,13 @@ export function UniversalBorrowSupply({
               <YStack ai="flex-end">
                 <EarnText
                   text={transactionConfirmation.mySupply.current?.title}
-                  size="$headingLg"
+                  size="$headingMd"
+                  opacity={transactionConfirmation.mySupply.latest ? 0.5 : 1}
                 />
                 <EarnText
                   text={transactionConfirmation.mySupply.current?.description}
                   size="$bodySmMedium"
+                  opacity={transactionConfirmation.mySupply.latest ? 0.5 : 1}
                 />
               </YStack>
               {transactionConfirmation.mySupply.latest ? (
@@ -477,7 +482,7 @@ export function UniversalBorrowSupply({
                 <YStack ai="flex-end">
                   <EarnText
                     text={transactionConfirmation.mySupply.latest?.title}
-                    size="$headingLg"
+                    size="$headingMd"
                   />
                   <EarnText
                     text={transactionConfirmation.mySupply.latest?.description}
@@ -562,7 +567,7 @@ export function UniversalBorrowSupply({
             </BorrowInfoItem>
           ) : null}
           {token ? (
-            <TradeOrBuy
+            <BorrowSwapOrBridge
               token={token}
               accountId={accountId}
               networkId={networkId}

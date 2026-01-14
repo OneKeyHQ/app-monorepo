@@ -31,10 +31,10 @@ function DeviceSectionAdvancePassphrase() {
           onConfirmOpenPassphrase: async () => {
             try {
               await actions.updatePassphraseEnabled(value);
+              resolve();
             } catch (e) {
-              // skip
+              reject(e);
             }
-            resolve();
           },
           onCancelOpenPassphrase: async () => {
             reject(new Error('User canceled'));
