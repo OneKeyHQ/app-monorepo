@@ -1,3 +1,8 @@
+---
+name: page-and-route
+description: Helps create and configure pages and routes in the OneKey app-monorepo. Use when creating new pages, configuring routes, setting up deep links, handling QR codes, or understanding navigation patterns. Page, route, navigation, deep link, universal link, QR code, modal, tab, onboarding.
+---
+
 # Page and Route Skill
 
 This skill helps create and configure pages and routes in the OneKey app-monorepo.
