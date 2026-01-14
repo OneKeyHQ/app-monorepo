@@ -285,14 +285,14 @@ function DeviceSectionGeneral() {
   const [deviceType] = useDeviceTypeAtom();
 
   // Load and format language options
-  const { result: languageOptions } = usePromiseResult(async () => {
-    if (!deviceType) return [];
-    const options = await deviceUtils.getLanguageConfig({ deviceType });
-    return options.map((option) => ({
-      label: option.label,
-      value: option.code,
-    }));
-  }, [deviceType]);
+  // const { result: languageOptions } = usePromiseResult(async () => {
+  //   if (!deviceType) return [];
+  //   const options = await deviceUtils.getLanguageConfig({ deviceType });
+  //   return options.map((option) => ({
+  //     label: option.label,
+  //     value: option.code,
+  //   }));
+  // }, [deviceType]);
 
   // Load and format auto lock options
   const { result: autoLockOptions } = usePromiseResult(async () => {
@@ -355,7 +355,7 @@ function DeviceSectionGeneral() {
     });
   }, [deviceType, intl]);
 
-  const showLanguage = languageOptions && languageOptions.length > 0;
+  // const showLanguage = languageOptions && languageOptions.length > 0;
   const showAutoLock = autoLockOptions && autoLockOptions.length > 0;
   const showAutoShutDown =
     autoShutDownOptions && autoShutDownOptions.length > 0;
@@ -387,9 +387,9 @@ function DeviceSectionGeneral() {
         id: ETranslations.global_general,
       })}
     >
-      {showLanguage ? (
+      {/* {showLanguage ? (
         <LanguageListItem languageOptions={languageOptions} />
-      ) : null}
+      ) : null} */}
       <ListItem
         key="addWallpaper"
         title={intl.formatMessage({
