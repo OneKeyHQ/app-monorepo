@@ -1,5 +1,5 @@
 ---
-name: onekey-cross-platform
+name: 1k-cross-platform
 description: Cross-platform development patterns for OneKey. Use when writing platform-specific code, handling platform differences, or understanding platform extensions. Triggers on platform, native, web, desktop, extension, mobile, ios, android, electron, react native.
 allowed-tools: Read, Grep, Glob, Write, Edit
 ---

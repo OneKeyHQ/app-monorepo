@@ -94,11 +94,11 @@ yarn tsc:only       # Quick type check
 
 For detailed guidance, use these skills (invoke with `/skill-name`):
 
-- **onekey-dev-commands** - Development and build commands
-- **onekey-architecture** - Project structure and import rules
-- **onekey-state-management** - Jotai atom patterns
-- **onekey-coding-patterns** - React and TypeScript best practices
-- **onekey-git-workflow** - Git branching and commit conventions
-- **onekey-i18n** - Internationalization guidelines
-- **onekey-cross-platform** - Platform-specific development
-- **onekey-adding-chains** - Adding new blockchain support
+- **1k-dev-commands** - Development and build commands
+- **1k-architecture** - Project structure and import rules
+- **1k-state-management** - Jotai atom patterns
+- **1k-coding-patterns** - React and TypeScript best practices
+- **1k-git-workflow** - Git branching and commit conventions
+- **1k-i18n** - Internationalization guidelines
+- **1k-cross-platform** - Platform-specific development
+- **1k-adding-chains** - Adding new blockchain support

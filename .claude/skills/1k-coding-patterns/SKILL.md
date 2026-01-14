@@ -1,5 +1,5 @@
 ---
-name: onekey-coding-patterns
+name: 1k-coding-patterns
 description: Coding patterns and best practices for OneKey development. Use when writing React components, handling promises, error handling, or following code conventions. Triggers on react, component, hooks, promise, async, await, error, pattern, convention, typescript.
 allowed-tools: Read, Grep, Glob, Write, Edit
 ---

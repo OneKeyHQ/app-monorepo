@@ -1,5 +1,5 @@
 ---
-name: onekey-i18n
+name: 1k-i18n
 description: Internationalization and translation guidelines for OneKey. Use when adding text strings, using translations, or working with locales. Triggers on i18n, translation, locale, intl, formatMessage, ETranslations, language, text.
 allowed-tools: Read, Grep, Glob, Bash
 ---

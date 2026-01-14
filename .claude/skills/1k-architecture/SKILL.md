@@ -1,5 +1,5 @@
 ---
-name: onekey-architecture
+name: 1k-architecture
 description: OneKey monorepo architecture and code organization. Use when understanding project structure, package relationships, import rules, or component organization. Triggers on architecture, structure, packages, imports, hierarchy, dependencies, monorepo, organization.
 allowed-tools: Read, Grep, Glob
 ---

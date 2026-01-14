@@ -1,5 +1,5 @@
 ---
-name: onekey-dev-commands
+name: 1k-dev-commands
 description: Development commands for OneKey monorepo. Use when running dev servers, building apps, linting, testing, or troubleshooting build issues. Triggers on yarn, dev, build, lint, test, desktop, mobile, web, extension, ios, android, compile, bundle.
 allowed-tools: Bash, Read
 ---

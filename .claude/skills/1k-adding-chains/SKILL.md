@@ -1,5 +1,5 @@
 ---
-name: onekey-adding-chains
+name: 1k-adding-chains
 description: Guide for adding new blockchain chains to OneKey. Use when implementing new chain support, adding blockchain protocols, or understanding chain architecture. Triggers on chain, blockchain, protocol, network, coin, token, add chain, new chain.
 allowed-tools: Read, Grep, Glob, Write, Edit
 ---
