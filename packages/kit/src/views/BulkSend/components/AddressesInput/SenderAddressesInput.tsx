@@ -253,6 +253,7 @@ function SenderAddressesInput() {
           showAddressBadges
           addressBadges={addressBadges}
           showPaste
+          // TODO: init account selector with selected account id or indexed account id
           showAccountSelector
           placeholder="Enter address"
           showLineNumbers={false}
