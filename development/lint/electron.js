@@ -4,6 +4,8 @@ const { execSync } = require('child_process');
 
 const { exit } = require('process');
 
+console.log('Electron build check started...');
+
 const projectPath = path.join(__dirname, '..', '..');
 const desktopPath = path.join(projectPath, 'apps', 'desktop');
 
@@ -42,3 +44,5 @@ try {
       `Expected: ${expectedAppName}`,
   );
 }
+
+console.log('Electron build check completed.');

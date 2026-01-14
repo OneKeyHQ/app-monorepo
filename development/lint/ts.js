@@ -2,6 +2,8 @@ const { execSync } = require('child_process');
 const { exit } = require('process');
 const { parse } = require('@aivenio/tsc-output-parser');
 
+console.log('TypeScript check started...');
+
 function handleProblems(result) {
   let basicErrorCount = 0;
   const basicErrors = [];
@@ -34,4 +36,5 @@ try {
   handleProblems(errorMsg);
 }
 
+console.log('TypeScript check completed.');
 exit(0);

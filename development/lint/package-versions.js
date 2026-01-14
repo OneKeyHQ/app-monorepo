@@ -3,6 +3,8 @@ const { exit } = require('process');
 const fs = require('fs');
 const path = require('path');
 
+console.log('Package versions check started...');
+
 // Find all workspace package.json files (excluding node_modules)
 function findPackageJsonFiles(rootDir) {
   const result = execSync(
@@ -162,3 +164,5 @@ function main() {
 }
 
 main();
+
+console.log('Package versions check completed.');

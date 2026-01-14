@@ -1,6 +1,8 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
+console.log('ESLint check started...');
+
 // Get files changed in the last N commits
 function getRecentCommitFiles(commitCount = 10) {
   try {
@@ -208,4 +210,5 @@ try {
   exit(1);
 }
 
+console.log('ESLint check completed.');
 exit(0);

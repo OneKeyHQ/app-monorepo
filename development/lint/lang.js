@@ -2,6 +2,8 @@ const path = require('path');
 const fs = require('fs-extra');
 const { exit } = require('process');
 
+console.log('Language files check started...');
+
 const langDir = path.join(
   __dirname,
   '../../',
@@ -30,3 +32,5 @@ jsonFileNames.forEach((file) => {
     exit(1);
   }
 });
+
+console.log('Language files check completed.');
