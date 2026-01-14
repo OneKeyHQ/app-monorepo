@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -42,7 +43,6 @@ import SectionHeader from './SectionHeader';
 import { VerifiedBadge } from './VerifiedBadge';
 
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
-import { isEmpty } from 'lodash';
 
 export type IDeviceManagementListItem = IHwQrWalletWithDevice & {
   firmwareTypeBadge?: EFirmwareType;

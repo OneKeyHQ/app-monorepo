@@ -32,7 +32,6 @@ import {
   FirmwareUpdatePageLayout,
 } from '../components/FirmwareUpdatePageLayout';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
-import { get } from 'lodash';
 
 function PageFirmwareUpdateChangeLog() {
   const route = useAppRoute<
@@ -42,11 +41,6 @@ function PageFirmwareUpdateChangeLog() {
   const connectId = route?.params?.connectId;
   const firmwareType = route?.params?.firmwareType;
   const baseReleaseInfo = route?.params?.baseReleaseInfo;
-
-  console.log(
-    '=====>>>>>> baseReleaseInfo',
-    JSON.stringify(route?.params, null, 2),
-  );
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
 
