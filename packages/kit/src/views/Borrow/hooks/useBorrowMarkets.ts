@@ -8,7 +8,9 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 const BORROW_POLLING_INTERVAL = 3 * 60 * 1000;
 const defaultMarkets: IBorrowMarketItem[] = [];
 
-export const useBorrowMarkets = ({ isActive = true }: { isActive?: boolean } = {}) => {
+export const useBorrowMarkets = ({
+  isActive = true,
+}: { isActive?: boolean } = {}) => {
   const isActiveRef = useRef(isActive);
   const marketsRef = useRef<typeof defaultMarkets>(defaultMarkets);
   const lastUpdatedAtRef = useRef<number | null>(null);
