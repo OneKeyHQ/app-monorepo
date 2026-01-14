@@ -28,7 +28,10 @@ import {
   GoogleSignInConfigure,
   GoogleSignInConfigureIOS,
 } from '@onekeyhq/shared/src/consts/googleSignConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OAuthLoginCancelError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OAuthPopupBase } from './OAuthPopupBase';
@@ -332,8 +335,7 @@ export class OAuthPopup extends OAuthPopupBase {
     } catch (error) {
       // Handle specific Apple Sign-In errors
       if (OAuthPopup.isAppleUserCancelledError(error)) {
-        // User cancelled, return unsuccessful result silently without throwing error
-        return { success: false };
+        throw new OAuthLoginCancelError();
       }
 
       throw error;
@@ -526,8 +528,7 @@ export class OAuthPopup extends OAuthPopupBase {
       };
 
       if (resultWithType.type === 'cancelled') {
-        // User cancelled, return unsuccessful result silently without throwing error
-        return { success: false };
+        throw new OAuthLoginCancelError();
       }
 
       if (resultWithType.data?.idToken) {
@@ -585,8 +586,7 @@ export class OAuthPopup extends OAuthPopupBase {
     } catch (error) {
       // Handle specific GoogleSignin errors
       if (OAuthPopup.isUserCancelledError(error)) {
-        // User cancelled, return unsuccessful result silently without throwing error
-        return { success: false };
+        throw new OAuthLoginCancelError();
       }
       throw OAuthPopup.wrapError(error, 'Google Sign-In failed');
     }
@@ -915,8 +915,7 @@ export class OAuthPopup extends OAuthPopupBase {
         }
 
         // If no URL from Linking either, it's a real cancellation
-        // User cancelled, return unsuccessful result silently without throwing error
-        return { success: false };
+        throw new OAuthLoginCancelError();
       }
 
       // Case 3: Non-Android cancel/dismiss - user actually cancelled
@@ -924,8 +923,7 @@ export class OAuthPopup extends OAuthPopupBase {
         browserResult.type === WebBrowser.WebBrowserResultType.CANCEL ||
         browserResult.type === WebBrowser.WebBrowserResultType.DISMISS
       ) {
-        // User cancelled, return unsuccessful result silently without throwing error
-        return { success: false };
+        throw new OAuthLoginCancelError();
       }
 
       throw new OneKeyLocalError('OAuth sign-in failed: 77732');
