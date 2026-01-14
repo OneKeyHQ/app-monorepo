@@ -741,12 +741,10 @@ class ServiceAddressBook extends ServiceBase {
   }): Promise<IAddressItem[]> {
     const { networkId } = params;
     const items = await this.getItems();
-    return items.filter((item) => {
-      if (networkId) {
-        return item.networkId === networkId;
-      }
-      return true;
-    });
+    if (!networkId) {
+      return items;
+    }
+    return items.filter((item) => item.networkId === networkId);
   }
 }
 
