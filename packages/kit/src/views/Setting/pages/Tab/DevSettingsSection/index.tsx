@@ -19,6 +19,7 @@ import {
   View,
   YStack,
   useClipboard,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -278,6 +279,8 @@ const BaseDevSettingsSection = () => {
     copyText,
     navigationToMessageConfirmAsync,
   ]);
+
+  const inPageDialog = useInPageDialog();
 
   if (!devSettings.enabled) {
     return null;
@@ -628,7 +631,7 @@ const BaseDevSettingsSection = () => {
                 title="Notification Payload Test"
                 subtitle="Test parseNotificationPayload navigation"
                 onPress={() => {
-                  Dialog.cancel({
+                  inPageDialog.cancel({
                     title: 'Notification Payload Test',
                     renderContent: <NotificationPayloadTest />,
                   });

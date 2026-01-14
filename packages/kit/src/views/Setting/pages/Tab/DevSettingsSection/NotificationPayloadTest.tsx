@@ -38,11 +38,11 @@ const modeOptions = [
 const payloadExamples: Record<ENotificationPushMessageMode, string> = {
   [ENotificationPushMessageMode.page]: JSON.stringify(
     {
-      screen: 'Modal',
+      screen: 'modal',
       params: {
-        screen: 'SettingsModal',
+        screen: 'SettingModal',
         params: {
-          screen: 'SettingsPage',
+          screen: 'SettingPerpUserConfig',
         },
       },
     },

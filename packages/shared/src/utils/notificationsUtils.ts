@@ -106,6 +106,15 @@ export async function navigateToNotificationDetailByLocalParams({
     }
     await timerUtils.wait(350);
     appGlobals.$navigationRef.current?.navigate(screen, navigationParams);
+  } else if (screen === ERootRoutes.Modal) {
+    let rootNavigator = appGlobals.$navigationRef.current;
+    const rootState = appGlobals.$navigationRef.current?.getRootState();
+    if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Modal) {
+      while (rootNavigator?.getParent()) {
+        rootNavigator = rootNavigator.getParent();
+      }
+    }
+    rootNavigator?.navigate(screen, navigationParams);
   } else {
     appGlobals.$navigationRef.current?.dispatch(
       StackActions.push(screen, navigationParams),
