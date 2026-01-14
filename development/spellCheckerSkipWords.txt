@@ -1310,7 +1310,7 @@ cobranding
 Muxed
 Repr
 repr
-assetinks
+assetlinks
 Recents
 Meteora
 DLMM
