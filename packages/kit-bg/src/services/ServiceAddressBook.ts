@@ -734,6 +734,20 @@ class ServiceAddressBook extends ServiceBase {
       name,
     });
   }
+
+  @backgroundMethod()
+  async dangerouslyGetItemsWithoutSafeCheck(params: {
+    networkId?: string;
+  }): Promise<IAddressItem[]> {
+    const { networkId } = params;
+    const items = await this.getItems();
+    return items.filter((item) => {
+      if (networkId) {
+        return item.networkId === networkId;
+      }
+      return true;
+    });
+  }
 }
 
 export default ServiceAddressBook;
