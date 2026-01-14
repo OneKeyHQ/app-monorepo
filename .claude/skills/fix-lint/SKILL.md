@@ -1,4 +1,9 @@
-# Fix Lint Warnings Skill
+---
+name: fix-lint
+description: Helps fix ESLint errors and warnings in the OneKey codebase. Use when running yarn lint and encountering warnings, cleaning up code before committing, or fixing spellcheck, unused variable, or other ESLint warnings.
+---
+
+# Fix Lint Skill
 
 This skill helps fix ESLint warnings in the OneKey app-monorepo codebase.
 

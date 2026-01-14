@@ -19,6 +19,7 @@ import {
   View,
   YStack,
   useClipboard,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -84,6 +85,7 @@ import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
+import { NotificationPayloadTest } from './NotificationPayloadTest';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
@@ -277,6 +279,8 @@ const BaseDevSettingsSection = () => {
     copyText,
     navigationToMessageConfirmAsync,
   ]);
+
+  const inPageDialog = useInPageDialog();
 
   if (!devSettings.enabled) {
     return null;
@@ -619,6 +623,17 @@ const BaseDevSettingsSection = () => {
                   Dialog.cancel({
                     title: 'NotificationDevSettings',
                     renderContent: <NotificationDevSettings />,
+                  });
+                }}
+              />
+              <SectionPressItem
+                icon="SendOutline"
+                title="Notification Payload Test"
+                subtitle="Test parseNotificationPayload navigation"
+                onPress={() => {
+                  inPageDialog.cancel({
+                    title: 'Notification Payload Test',
+                    renderContent: <NotificationPayloadTest />,
                   });
                 }}
               />
