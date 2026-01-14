@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { intervalToDuration } from 'date-fns';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { JUICEBOX_ALLOWED_GUESSES } from '@onekeyhq/shared/src/consts/authConsts';
@@ -24,6 +26,7 @@ import {
   useVerifyKeylessPinChecking,
 } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import useFormatDate from '../../../hooks/useFormatDate';
 import {
   type IPinInputLayoutRef,
   PinInputLayout,
@@ -33,26 +36,18 @@ import type { RouteProp } from '@react-navigation/core';
 
 const MAX_ATTEMPTS = JUICEBOX_ALLOWED_GUESSES;
 
-// Cooldown times based on attempt number (in seconds)
-// Attempt 1: 0, Attempt 2: 30s, Attempt 3: 60s, Attempt 4: 120s, Attempt 5-6: 300s
-const COOLDOWN_BY_ATTEMPT: Record<number, number> = {
-  1: 0, // First attempt: no cooldown
-  2: 30, // 0.5 min
-  3: 60, // 1 min
-  4: 120, // 2 min
-  5: 300, // 5 min
-  6: 300, // 5 min
-};
-
 function VerifyPinPage() {
   const intl = useIntl();
+  const { formatDuration } = useFormatDate();
   const navigation = useAppNavigation();
   const route =
     useRoute<RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.VerifyPin>>();
   const { mode } = route.params ?? {};
-  const { verifyKeylessOnboardingPin } = useKeylessWallet();
+  const { verifyKeylessOnboardingPin, getKeylessOnboardingToken } =
+    useKeylessWallet();
   const { cancelVerifyPin } = useVerifyKeylessPinChecking();
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingRateLimit, setIsCheckingRateLimit] = useState(true);
   const pinInputRef = useRef<IPinInputLayoutRef | null>(null);
 
   const [pin, setPin] = useState('');
@@ -60,9 +55,12 @@ function VerifyPinPage() {
   const [attemptsRemaining, setAttemptsRemaining] = useState(MAX_ATTEMPTS);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [showAttemptError, setShowAttemptError] = useState(false);
+  const [isManuallyEnabled, setIsManuallyEnabled] = useState(false);
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isInputDisabled = cooldownSeconds > 0;
+  const isInputDisabled =
+    (cooldownSeconds > 0 || isCheckingRateLimit) && !isManuallyEnabled;
   const isVerifyPinOnly =
     mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
 
@@ -89,6 +87,9 @@ function VerifyPinPage() {
       if (cooldownTimerRef.current) {
         clearInterval(cooldownTimerRef.current);
       }
+      if (focusTimerRef.current) {
+        clearTimeout(focusTimerRef.current);
+      }
     };
   }, []);
 
@@ -98,9 +99,16 @@ function VerifyPinPage() {
         return;
       }
       setCooldownSeconds(seconds);
+      setIsManuallyEnabled(false);
       setPin('');
+
+      // Clear previous focus timer if exists
+      if (focusTimerRef.current) {
+        clearTimeout(focusTimerRef.current);
+      }
+
       // Focus the input after clearing PIN
-      setTimeout(
+      focusTimerRef.current = setTimeout(
         () => {
           if (pinInputRef.current) {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -110,6 +118,9 @@ function VerifyPinPage() {
         platformEnv.isNative ? 100 : 50,
       );
 
+      if (cooldownTimerRef.current) {
+        clearInterval(cooldownTimerRef.current);
+      }
       cooldownTimerRef.current = setInterval(() => {
         setCooldownSeconds((prev) => {
           if (prev <= 1) {
@@ -126,11 +137,63 @@ function VerifyPinPage() {
     [pinInputRef],
   );
 
-  const formatCooldownTime = useCallback((seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }, []);
+  // Check rate limit status - reusable function
+  const checkRateLimitStatus = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async ({ isFirstCheck = false }: { isFirstCheck?: boolean } = {}) => {
+      try {
+        setIsCheckingRateLimit(true);
+        const token = await getKeylessOnboardingToken({ skipDelete: true });
+        if (!token) {
+          return;
+        }
+
+        const result =
+          await backgroundApiProxy.serviceKeylessWallet.apiCheckRateLimitStatus(
+            {
+              token,
+            },
+          );
+
+        if (result.isRateLimited && result.retryAfterSeconds > 0) {
+          startCooldown(result.retryAfterSeconds);
+        }
+      } catch (error) {
+        // Silently handle errors to not block user operations
+        console.error('Failed to check rate limit status:', error);
+      } finally {
+        setIsCheckingRateLimit(false);
+
+        // Clear previous focus timer if exists
+        if (focusTimerRef.current) {
+          clearTimeout(focusTimerRef.current);
+        }
+        focusTimerRef.current = setTimeout(
+          () => {
+            if (pinInputRef.current) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+              pinInputRef.current.focus();
+            }
+          },
+          platformEnv.isNative ? 100 : 50,
+        );
+      }
+    },
+    [getKeylessOnboardingToken, startCooldown],
+  );
+
+  // Check rate limit status on page enter
+  useEffect(() => {
+    void checkRateLimitStatus({ isFirstCheck: true });
+  }, [checkRateLimitStatus]);
+
+  const formatCooldownTime = useCallback(
+    (seconds: number) => {
+      const duration = intervalToDuration({ start: 0, end: seconds * 1000 });
+      return formatDuration(duration);
+    },
+    [formatDuration],
+  );
 
   const handlePinChange = useCallback(
     (filteredText: string) => {
@@ -154,6 +217,10 @@ function VerifyPinPage() {
     }
   }, [navigation, isVerifyPinOnly]);
 
+  const handleEnableInput = useCallback(() => {
+    setIsManuallyEnabled(true);
+  }, []);
+
   const isSubmitSuccessRef = useRef(false);
   const handleVerify = useCallback(async () => {
     try {
@@ -162,7 +229,9 @@ function VerifyPinPage() {
       await verifyKeylessOnboardingPin({ pin, mode });
       isSubmitSuccessRef.current = true;
     } catch (e) {
+      // checking limit
       isSubmitSuccessRef.current = false;
+      void checkRateLimitStatus({ isFirstCheck: false });
       if (
         errorUtils.isErrorByClassName({
           error: e,
@@ -171,20 +240,14 @@ function VerifyPinPage() {
       ) {
         const errorInfo = (e as { info?: IIncorrectPinErrorInfo })?.info;
         const newAttemptsRemaining = errorInfo?.guessesRemaining ?? 0;
-        const attemptNumber = MAX_ATTEMPTS - newAttemptsRemaining;
 
         setAttemptsRemaining(newAttemptsRemaining);
         setShowAttemptError(true);
 
-        if (newAttemptsRemaining <= 0) {
+        if (!isNil(errorInfo?.guessesRemaining) && newAttemptsRemaining <= 0) {
           // Max attempts reached - redirect to reset PIN page
           void handleForgotPin();
-        } else {
-          // Get cooldown time for this attempt
-          const cooldownTime = COOLDOWN_BY_ATTEMPT[attemptNumber] || 0;
-          if (cooldownTime > 0) {
-            startCooldown(cooldownTime);
-          }
+          return;
         }
       } else {
         throw e;
@@ -209,7 +272,7 @@ function VerifyPinPage() {
     pinInputRef,
     verifyKeylessOnboardingPin,
     handleForgotPin,
-    startCooldown,
+    checkRateLimitStatus,
   ]);
 
   // Build error message based on state
@@ -239,6 +302,15 @@ function VerifyPinPage() {
         )}`;
       }
       return baseMessage;
+    }
+    // Rate-limited state from API (initial cooldown, not from user input error)
+    if (cooldownSeconds > 0) {
+      return intl.formatMessage(
+        { id: ETranslations.pin_attempts_cooldown },
+        {
+          seconds: formatCooldownTime(cooldownSeconds),
+        },
+      );
     }
     return '';
   })();
@@ -274,6 +346,7 @@ function VerifyPinPage() {
       onSubmit={handleVerify}
       isSubmitDisabled={pin.length !== 4 || isInputDisabled}
       isInputDisabled={isInputDisabled}
+      onEnableInput={handleEnableInput}
       errorMessage={displayErrorMessage}
     />
   );
