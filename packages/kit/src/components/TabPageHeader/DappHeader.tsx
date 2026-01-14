@@ -14,12 +14,17 @@ import {
   SizableText,
   XStack,
   YStack,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalReceiveRoutes,
+  EModalRoutes,
+  EModalSettingRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -240,6 +245,28 @@ function AnnouncementListItem() {
   );
 }
 
+function SettingListItem() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListModal,
+    });
+  }, [closePopover, navigation]);
+  return (
+    <ListItem
+      title={intl.formatMessage({ id: ETranslations.settings_settings })}
+      drillIn
+      titleProps={{
+        size: '$bodyMdMedium',
+      }}
+      onPress={handlePress}
+    />
+  );
+}
+
 function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
   const intl = useIntl();
 
@@ -277,6 +304,7 @@ function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
             <Divider />
           </YStack>
           <AnnouncementListItem />
+          <SettingListItem />
         </YStack>
       }
     />
