@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { TonWalletVersion } from '@onekeyfe/hd-transport';
 import { Cell } from '@ton/core';

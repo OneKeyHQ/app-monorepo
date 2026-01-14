@@ -1,5 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
-
 import type { EMessageType } from './messageType';
 
 export interface IWsTxsTransferInfo {

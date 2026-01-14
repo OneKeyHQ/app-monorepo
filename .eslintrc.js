@@ -265,6 +265,9 @@ module.exports = {
     '@cspell/spellchecker': [
       'warn',
       {
+        ignoreImports: true,
+        ignoreImportProperties: true,
+        checkJSXText: true,
         checkComments: true,
         checkStrings: false,
         checkIdentifiers: true,

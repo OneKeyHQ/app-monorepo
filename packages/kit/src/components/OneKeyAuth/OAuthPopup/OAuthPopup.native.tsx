@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @cspell/spellchecker */
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
@@ -84,7 +83,7 @@ export class OAuthPopup extends OAuthPopupBase {
    *
    * - Android uses Chrome Custom Tabs + Linking API which only catches:
    *   1. Custom URL Schemes (e.g., onekey-wallet://...)
-   *   2. Android App Links (requires assetlinks.json on server)
+   *   2. Android App Links (requires assetinks.json on server)
    *
    * Using an arbitrary HTTPS URL will cause the browser to navigate to that URL
    * instead of returning control to the app. The user would have to manually

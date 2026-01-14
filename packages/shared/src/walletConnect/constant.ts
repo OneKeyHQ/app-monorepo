@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import { uniq } from 'lodash';
 import { Platform } from 'react-native';
 
@@ -95,12 +94,14 @@ export const implToNamespaceMap: {
 export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
   // solana: [
   //   {
+  // eslint-disable-next-line @cspell/spellchecker
   //     caipsChainId: '4sGjMW1sUnHzSxGspuhpqLDx6wiyjNtZ',
   //     networkId: 'sol--101',
   //     impl: IMPL_SOL,
   //     namespace: 'solana',
   //   },
   //   {
+  // eslint-disable-next-line @cspell/spellchecker
   //     caipsChainId: '8E9rvCKLFQia2Y35HXjjpWzj8weVo44K',
   //     networkId: 'sol--103',
   //     impl: IMPL_SOL,

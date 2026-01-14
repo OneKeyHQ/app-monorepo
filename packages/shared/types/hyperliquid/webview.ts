@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 // eslint-disable-next-line @cspell/spellchecker
 
 export type IHyperLiquidEIP712Domain = {

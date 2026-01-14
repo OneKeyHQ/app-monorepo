@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import {
   EXTENSION_OAUTH_USE_PKCE_FLOW,
   GOOGLE_OAUTH_AUTHORIZE_URL,

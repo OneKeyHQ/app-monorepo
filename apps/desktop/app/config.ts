@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import type { Contexts } from '@sentry/core';
 import type { Systeminformation } from 'systeminformation';
 
@@ -50,7 +49,7 @@ export const ipcMessageKeys = {
   SHOW_ABOUT_WINDOW: 'showAboutWindow',
   APP_STATE: 'appState',
   APP_READY: 'app/ready',
-  APP_SHORCUT: 'app/shortcut',
+  APP_SHORTCUT: 'app/shortcut',
   APP_IDLE: 'app/idle',
   APP_SET_IDLE_TIME: 'app/setIdleTime',
   APP_OPEN_SETTINGS: 'app/openSettings',

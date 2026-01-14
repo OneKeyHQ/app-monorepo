@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import { cloneDeep } from 'lodash';
 
 import { decryptAsync, encryptAsync } from '@onekeyhq/core/src/secret';

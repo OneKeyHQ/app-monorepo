@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';

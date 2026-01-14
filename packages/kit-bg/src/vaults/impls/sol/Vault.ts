@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   CMT_PROGRAM,

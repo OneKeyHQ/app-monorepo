@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import { combine, split } from 'shamir-secret-sharing';
 
 // GF(256) arithmetic for Shamir secret recovery
