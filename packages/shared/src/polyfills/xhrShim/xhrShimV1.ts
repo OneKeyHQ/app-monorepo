@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/prefer-global-this */
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 // eslint-disable-next-line max-classes-per-file
 const sErrored = Symbol('errored');
 const sTimeout = Symbol('timeout');

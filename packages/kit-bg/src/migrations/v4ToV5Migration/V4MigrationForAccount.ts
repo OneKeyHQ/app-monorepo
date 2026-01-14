@@ -1096,7 +1096,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             if (networkId) {
               // if (
               //   v4account.address ===
-              // eslint-disable-next-line spellcheck/spell-checker
+              // eslint-disable-next-line @cspell/spellchecker
               //   '====bc1qjclx3t2ykepvcqegx8tmn3nwd5ahsswenrvd90'
               // ) {
               //   debugger;

@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 
 const _IS_DEV = process.env.NODE_ENV !== 'production';
 

@@ -191,7 +191,7 @@ export function useCreateQrWallet() {
             networkId,
             indexedAccountId,
             appQrCodeModalTitle: appLocale.intl.formatMessage({
-              // eslint-disable-next-line spellcheck/spell-checker
+              // eslint-disable-next-line @cspell/spellchecker
               id: ETranslations.scan_to_create_an_address,
             }),
           },

@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 // Supabase project URL
 
 import { SUPABASE_PROJECT_URL } from '../../consts/authConsts';

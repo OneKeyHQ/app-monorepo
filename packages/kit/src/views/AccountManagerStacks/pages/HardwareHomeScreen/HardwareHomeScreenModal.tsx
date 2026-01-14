@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 import { useCallback, useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';

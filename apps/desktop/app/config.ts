@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 import type { Contexts } from '@sentry/core';
 import type { Systeminformation } from 'systeminformation';
 

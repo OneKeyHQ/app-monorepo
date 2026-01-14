@@ -112,7 +112,7 @@ function tryOpenChromeAppWindow(url: string): boolean {
           stdio: 'ignore',
         },
       );
-      // eslint-disable-next-line spellcheck/spell-checker
+      // eslint-disable-next-line @cspell/spellchecker
       child.unref();
       return true;
     }
@@ -132,7 +132,7 @@ function tryOpenChromeAppWindow(url: string): boolean {
           windowsHide: true,
         },
       );
-      // eslint-disable-next-line spellcheck/spell-checker
+      // eslint-disable-next-line @cspell/spellchecker
       child.unref();
       return true;
     }
@@ -145,7 +145,7 @@ function tryOpenChromeAppWindow(url: string): boolean {
           detached: true,
           stdio: 'ignore',
         });
-        // eslint-disable-next-line spellcheck/spell-checker
+        // eslint-disable-next-line @cspell/spellchecker
         child.unref();
         return true;
       } catch (e) {
@@ -230,7 +230,7 @@ export async function startOAuthServer(): Promise<{ port: number }> {
       }
     });
 
-    // eslint-disable-next-line spellcheck/spell-checker
+    // eslint-disable-next-line @cspell/spellchecker
     oauthServer.on('error', (error: NodeJS.ErrnoException) => {
       reject(error);
     });

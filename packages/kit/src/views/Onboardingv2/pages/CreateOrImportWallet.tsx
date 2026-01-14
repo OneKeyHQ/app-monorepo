@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';

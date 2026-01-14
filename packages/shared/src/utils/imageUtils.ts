@@ -814,7 +814,7 @@ async function getBase64FromImageUriWeb(
     const blob = await response.blob();
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
-      // eslint-disable-next-line spellcheck/spell-checker
+      // eslint-disable-next-line @cspell/spellchecker
       reader.onloadend = async () => {
         let readerResult = reader.result as string;
 

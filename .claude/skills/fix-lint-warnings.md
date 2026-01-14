@@ -23,7 +23,7 @@ Warnings typically fall into these categories:
 
 | Category | Rule | Fix Strategy |
 |----------|------|--------------|
-| Spellcheck | `spellcheck/spell-checker` | Add to skip list or fix typo |
+| Spellcheck | `@cspell/spellchecker` | Add to skip list or fix typo |
 | Unused vars | `@typescript-eslint/no-unused-vars` | Remove import or prefix with `_` |
 | Non-null assertion | `@typescript-eslint/no-non-null-assertion` | Add type guard or cast |
 | Nested components | `react/no-unstable-nested-components` | Extract component |
@@ -31,7 +31,7 @@ Warnings typically fall into these categories:
 
 ### Step 3: Fix Each Category
 
-#### Spellcheck Warnings (`spellcheck/spell-checker`)
+#### Spellcheck Warnings (`@cspell/spellchecker`)
 
 1. **Evaluate the word**: Is it a legitimate technical term or a typo?
 
