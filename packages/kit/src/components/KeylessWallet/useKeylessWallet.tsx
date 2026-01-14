@@ -998,6 +998,7 @@ export function useKeylessWallet() {
     keylessOnboardingCache,
     cacheKeylessOnboardingPin,
     getKeylessOnboardingPin,
+    getKeylessOnboardingToken,
     handleKeylessOnboardingTimeout,
     cacheKeylessOnboardingCustomMnemonic,
     getKeylessOnboardingCustomMnemonic,
