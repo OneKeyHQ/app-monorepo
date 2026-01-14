@@ -1673,6 +1673,7 @@
   "global.nonce_faq": "Was ist Nonce?",
   "global.nonce_faq_desc": "Sie haben die Anzeige von Transaktionsseriennummern (Nonce) aktiviert. Sie können die Seriennummern bearbeiten, um die Transaktionsreihenfolge Ihres Girokontos anzupassen. Dies ist eine erweiterte Funktion, verwenden Sie sie mit Vorsicht.",
   "global.not_available": "Nicht verfügbar",
+  "global.not_now": "Nicht jetzt",
   "global.notifications": "Benachrichtigungen",
   "global.number_accounts": "{number} Konten",
   "global.number_items": "{number} Artikel",
