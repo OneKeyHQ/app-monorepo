@@ -46,6 +46,7 @@ public class MainApplication extends Application implements ReactApplication {
         packages.add(new BundleUpdatePackage());
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
+        packages.add(new PerfMemoryPackage());
         packages.add(new WebViewCheckerPackage());
         packages.add(new LaunchOptionPackage());
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {

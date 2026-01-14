@@ -98,3 +98,6 @@ apps/mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy
 /apps/mobile/ios/tmp-oc-test
 
 debug.log
+
+# Perf monitor local sessions
+/development/output/perf-sessions/
