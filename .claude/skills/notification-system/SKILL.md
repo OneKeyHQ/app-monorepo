@@ -64,6 +64,87 @@ This skill documents the OneKey push notification implementation across all plat
 | Event handlers | `packages/kit/src/provider/Container/NotificationHandlerContainer/index.tsx` |
 | In-app toast | `packages/kit/src/provider/Container/InAppNotification/index.tsx` |
 | Toast component | `packages/components/src/actions/Toast/index.tsx` |
+| **Payload test UI** | `packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/NotificationPayloadTest.tsx` |
+
+---
+
+## Dev Settings: Notification Payload Test
+
+Location: `packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/NotificationPayloadTest.tsx`
+
+A developer tool for testing notification payload parsing and navigation without sending actual push notifications.
+
+### Access Path
+
+Settings → Dev Settings → Notification Payload Test
+
+### Features
+
+- **Mode Selection**: Dropdown to select notification mode (1-5)
+- **Payload Editor**: Text area to input/edit JSON or URL payload
+- **Load Example**: Button to load default example payload for selected mode
+- **Test Button**: Calls `parseNotificationPayload` directly to test navigation
+
+### Default Example Payloads
+
+```typescript
+const payloadExamples = {
+  // Mode 1: Page Navigation - Navigate to modal
+  [ENotificationPushMessageMode.page]: {
+    screen: 'modal',
+    params: {
+      screen: 'SettingModal',
+      params: {
+        screen: 'SettingPerpUserConfig',
+      },
+    },
+  },
+  // Alternative: Navigate to main tab
+  // {
+  //   screen: 'main',
+  //   params: {
+  //     screen: 'Discovery',
+  //     params: {
+  //       screen: 'TabDiscovery',
+  //     },
+  //   },
+  // },
+
+  // Mode 2: Dialog
+  [ENotificationPushMessageMode.dialog]: {
+    title: 'Test Dialog',
+    description: 'This is a test dialog from notification payload.',
+    confirmButtonProps: { text: 'Confirm' },
+    cancelButtonProps: { text: 'Cancel' },
+    onConfirm: {
+      actionType: 'openInBrowser',
+      payload: 'https://onekey.so',
+    },
+  },
+
+  // Mode 3: Open in Browser
+  [ENotificationPushMessageMode.openInBrowser]: 'https://onekey.so',
+
+  // Mode 4: Open in App
+  [ENotificationPushMessageMode.openInApp]: 'https://onekey.so/support',
+
+  // Mode 5: Open in DApp
+  [ENotificationPushMessageMode.openInDapp]: 'https://app.uniswap.org',
+};
+```
+
+### Usage
+
+1. Open Dev Settings in the app
+2. Find "Notification Payload Test" section
+3. Select the notification mode you want to test
+4. Edit the payload JSON/URL as needed
+5. Click "Test parseNotificationPayload" to trigger the navigation
+
+This is useful for:
+- Testing new navigation routes before backend integration
+- Debugging notification payload formats
+- Verifying dialog configurations
 
 ---
 
