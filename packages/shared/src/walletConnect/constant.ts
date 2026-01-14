@@ -11,7 +11,6 @@ import {
 } from '../consts/deeplinkConsts';
 import {
   IMPL_ALGO,
-  IMPL_COSMOS,
   // IMPL_DOT,
   IMPL_EVM,
 } from '../engine/engineConsts';

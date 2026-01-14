@@ -7,7 +7,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_NFT,
@@ -268,6 +267,16 @@ function NFTListContainer() {
 
   useEffect(() => {
     const initNFTsState = async (accountId: string, networkId: string) => {
+      updateSearchKey('');
+      void backgroundApiProxy.serviceNFT.updateCurrentAccount({
+        networkId,
+        accountId,
+      });
+
+      if (network?.isAllNetworks) {
+        return;
+      }
+
       const localNFTs = await backgroundApiProxy.serviceNFT.getAccountLocalNFTs(
         {
           accountId,
@@ -287,17 +296,17 @@ function NFTListContainer() {
           isRefreshing: true,
         });
       }
-
-      updateSearchKey('');
-      void backgroundApiProxy.serviceNFT.updateCurrentAccount({
-        networkId,
-        accountId,
-      });
     };
     if (account?.id && network?.id && wallet?.id) {
       void initNFTsState(account.id, network.id);
     }
-  }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
+  }, [
+    account?.id,
+    network?.id,
+    network?.isAllNetworks,
+    updateSearchKey,
+    wallet?.id,
+  ]);
 
   useEffect(() => {
     if (isHeaderRefreshing) {

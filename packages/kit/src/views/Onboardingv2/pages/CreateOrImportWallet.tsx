@@ -23,7 +23,6 @@ import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
@@ -206,7 +205,7 @@ function CreateOrImportWallet() {
     await checkKeylessWalletLocalExistence();
   }, [checkKeylessWalletLocalExistence]);
 
-  const handleKeylessWalletLegacyClick = useCallback(async () => {
+  const _handleKeylessWalletLegacyClick = useCallback(async () => {
     await enableKeylessWallet({
       fromScene: EKeylessWalletEnableScene.Onboarding,
     });

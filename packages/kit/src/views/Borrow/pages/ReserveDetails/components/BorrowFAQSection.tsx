@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, YStack } from '@onekeyhq/components';
+import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { FAQAccordion } from '@onekeyhq/kit/src/views/Staking/components/FAQAccordion';
@@ -10,15 +10,12 @@ import { DetailsSectionContainer } from './DetailsSectionContainer';
 
 function FAQPanelSkeleton() {
   return (
-    <YStack gap="$4">
-      <Skeleton width={80} height={24} borderRadius="$2" />
-      <YStack gap="$2">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <YStack key={index} gap="$2">
-            <Skeleton width="100%" height={32} borderRadius="$2" />
-          </YStack>
-        ))}
-      </YStack>
+    <YStack gap="$2">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <XStack key={index} px="$2" py="$1" mx="$-2">
+          <Skeleton width="100%" height={16} borderRadius="$2" />
+        </XStack>
+      ))}
     </YStack>
   );
 }

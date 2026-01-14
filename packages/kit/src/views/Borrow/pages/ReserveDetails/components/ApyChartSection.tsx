@@ -108,6 +108,7 @@ function ApyChartSectionComponent({
           topColor={topColor}
           bottomColor={bottomColor}
           lineWidth={lineWidth}
+          showHorzGridLines
           showPriceScale
           showDivider={showDivider}
           tooltipLabel={tooltipLabel}

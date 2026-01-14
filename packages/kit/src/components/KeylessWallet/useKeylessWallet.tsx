@@ -2,19 +2,22 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Toast } from '@onekeyhq/components';
-import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
-  devSettingsPersistAtom,
-  useDevSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+  primePersistAtom,
+  useKeylessPinConfirmStatusAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyLocalError,
   PrimeSendEmailOTPCancelError,
 } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EKeylessFinalizeAction,
   EKeylessWalletEnableScene,
@@ -25,7 +28,12 @@ import type {
   IDeviceKeyPack,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
   EOnboardingV2KeylessWalletCreationMode,
@@ -36,16 +44,17 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
+
+import {
+  showAppleIDMismatchDialog,
+  showGoogleDriveMismatchDialog,
+} from './AccountMismatchDialog';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
   return true;
@@ -576,9 +585,69 @@ export function useKeylessWallet() {
       }
       await cacheKeylessOnboardingToken({ token, refreshToken });
 
-      // ResetPin: skip check, go to CreatePin
+      // ResetPin or VerifyPinOnly: validate token matches local keyless wallet
+      const checkLoginMatchedKeylessWallet = async () => {
+        if (
+          mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
+          mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
+        ) {
+          const { isValid } =
+            await backgroundApiProxy.serviceKeylessWallet.validateTokenMatchesKeylessWallet(
+              { token },
+            );
+          if (!isValid) {
+            // Get keyless wallet provider type to determine which dialog to show
+            const keylessWallet =
+              await backgroundApiProxy.serviceAccount.getKeylessWallet();
+            const keylessProvider =
+              keylessWallet?.keylessDetailsInfo?.keylessProvider;
+
+            // Platform-specific account mismatch handling based on provider type
+            const isAndroidWithGoogle =
+              platformEnv.isNativeAndroid &&
+              keylessProvider === EOAuthSocialLoginProvider.Google;
+            const isIOSWithApple =
+              platformEnv.isNativeIOS &&
+              keylessProvider === EOAuthSocialLoginProvider.Apple;
+
+            if (isAndroidWithGoogle) {
+              // Android + Google: Show dialog with Google logout option
+              void showGoogleDriveMismatchDialog({ intl });
+            } else if (isIOSWithApple) {
+              // iOS + Apple: Show dialog with Apple ID switching instructions
+              void showAppleIDMismatchDialog({ intl });
+            } else {
+              // Other cases: Show Toast
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
+                }),
+                message: intl.formatMessage({
+                  id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+                }),
+              });
+            }
+
+            navigation.navigate(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
+              params: {
+                screen: EOnboardingPagesV2.OneKeyIDLogin,
+                params: {
+                  mode,
+                },
+              },
+            });
+            throw new OneKeyLocalError(
+              intl.formatMessage({
+                id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+              }),
+            );
+          }
+        }
+      };
+      await checkLoginMatchedKeylessWallet();
+
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin) {
-        // TODO check if keyless wallet matched with ownerId
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
@@ -591,9 +660,7 @@ export function useKeylessWallet() {
         return;
       }
 
-      // VerifyPinOnly: skip check, go to VerifyPin
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
-        // TODO check if keyless wallet matched with ownerId
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
@@ -632,7 +699,7 @@ export function useKeylessWallet() {
         });
       }
     },
-    [handleKeylessOnboardingTimeout, navigation],
+    [handleKeylessOnboardingTimeout, intl, navigation],
   );
 
   // goToOneKeyIDLoginPageForKeylessWallet
@@ -891,20 +958,13 @@ export function useKeylessWallet() {
         },
       );
 
-      // VerifyPinOnly: just verify, show success dialog and close modal
+      // VerifyPinOnly: just verify, show success toast and close modal
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
         navigation.popStack();
-
-        Dialog.show({
-          title: 'PIN Verified',
-          description: 'PIN verified successfully',
-          showCancelButton: false,
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.global_got_it,
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.keyless_wallet_pin_verified_successfully,
           }),
-          onConfirm: () => {
-            //
-          },
         });
         return;
       }
@@ -938,6 +998,7 @@ export function useKeylessWallet() {
     keylessOnboardingCache,
     cacheKeylessOnboardingPin,
     getKeylessOnboardingPin,
+    getKeylessOnboardingToken,
     handleKeylessOnboardingTimeout,
     cacheKeylessOnboardingCustomMnemonic,
     getKeylessOnboardingCustomMnemonic,
@@ -945,70 +1006,186 @@ export function useKeylessWallet() {
 }
 
 export function useVerifyKeylessPinChecking() {
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const intl = useIntl();
-  const verifyKeylessPinChecking = useCallback(async () => {
-    // 必须是无私钥钱包
-    // 1 分钟只检测一次
-    if (activeAccount.wallet?.isKeyless) {
-      const ownerId = activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId;
-      if (!ownerId) {
-        return;
-      }
-      const checkShouldVerifyPin = async () => {
-        const accessToken =
-          await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
-            { ownerId },
-          );
-        let shouldVerifyPin = false;
-        if (accessToken) {
-          const { shouldRemind } =
-            await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus(
-              {
-                token: accessToken,
-              },
-            );
-          shouldVerifyPin = shouldRemind;
-        } else {
-          shouldVerifyPin = true;
-        }
-        return shouldVerifyPin;
-      };
-      const shouldVerifyPin = await checkShouldVerifyPin();
+  const [keylessPinConfirmStatus] = useKeylessPinConfirmStatusAtom();
 
-      if (shouldVerifyPin) {
-        Dialog.show({
-          disableDrag: true,
-          dismissOnOverlayPress: false,
-          // TODO i18n @franco
-          title: 'PIN Verification Required',
-          description: 'Please verify your PIN to continue',
-          showCancelButton: false,
-          onConfirmText: 'Verify PIN',
-          onConfirm: async () => {
-            const shouldVerifyPin0 = await checkShouldVerifyPin();
-            if (!shouldVerifyPin0) {
-              // TODO i18n @franco
-              Toast.success({
-                title: 'PIN Verified on other device',
-              });
-              return;
-            }
-            await backgroundApiProxy.servicePassword.promptPasswordVerify({
-              reason: EReasonForNeedPassword.Security,
-            });
-            void goToOneKeyIDLoginPageForKeylessWallet({
-              mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
-            });
-          },
-        });
-      }
+  const cancelVerifyPin = useCallback(async (ownerId: string) => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    // Try to refresh session if refreshToken is valid
+    let refreshResult;
+    try {
+      refreshResult =
+        await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
+          { ownerId },
+        );
+    } catch (error) {
+      // Continue to navigation if refresh fails
     }
-  }, [
-    activeAccount.wallet?.isKeyless,
-    activeAccount.wallet?.keylessDetailsInfo?.keylessOwnerId,
-    goToOneKeyIDLoginPageForKeylessWallet,
-  ]);
-  return { verifyKeylessPinChecking };
+
+    if (
+      refreshResult &&
+      refreshResult?.accessToken &&
+      refreshResult?.refreshToken
+    ) {
+      await backgroundApiProxy.serviceKeylessWallet.apiUpdatePinConfirmStatus({
+        token: refreshResult.accessToken,
+        isCancelAction: true,
+      });
+    }
+  }, []);
+
+  const verifyKeylessPinChecking = useCallback(
+    async (options: { forceVerify?: boolean; wallet: IDBWallet }) => {
+      const activeWallet = options.wallet;
+      if (activeWallet?.isKeyless) {
+        const ownerId = activeWallet?.keylessDetailsInfo?.keylessOwnerId;
+        if (!ownerId) {
+          return;
+        }
+        let shouldChecking = true;
+        if (
+          keylessPinConfirmStatus?.socialProvider ===
+            activeWallet?.keylessDetailsInfo?.keylessProvider &&
+          keylessPinConfirmStatus?.socialUserIdHash ===
+            activeWallet?.keylessDetailsInfo?.socialUserIdHash &&
+          keylessPinConfirmStatus?.remindTime &&
+          keylessPinConfirmStatus?.remindTime > Date.now()
+        ) {
+          shouldChecking = false;
+        }
+        if (!shouldChecking && !options.forceVerify) {
+          return;
+        }
+        const checkShouldVerifyPin = async () => {
+          const accessToken =
+            await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
+              { ownerId },
+            );
+          let shouldVerifyPin = false;
+          if (accessToken) {
+            const { shouldRemind } =
+              await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus(
+                {
+                  token: accessToken,
+                },
+              );
+            shouldVerifyPin = shouldRemind;
+          } else {
+            shouldVerifyPin = true;
+          }
+          if (options.forceVerify) {
+            return true;
+          }
+          return shouldVerifyPin;
+        };
+        const shouldVerifyPin = await checkShouldVerifyPin();
+
+        if (shouldVerifyPin) {
+          // Check if the current route is still the Home tab before showing the dialog
+          const isHomeTabFocused = () => {
+            const state = rootNavigationRef.current?.getRootState();
+            if (!state || state.routes.length > 1) {
+              // There are modals or other routes on top
+              return false;
+            }
+            const mainRoute = state.routes[0];
+            const mainState = mainRoute?.state;
+            // Check if the current tab is Home
+            const currentTabRoute = mainState?.routes?.[mainState?.index ?? 0];
+            return currentTabRoute?.name === ETabRoutes.Home;
+          };
+
+          if (!isHomeTabFocused()) {
+            return;
+          }
+
+          const showPinReminderDialog = () => {
+            Dialog.show({
+              showExitButton: false,
+              disableDrag: true,
+              dismissOnOverlayPress: false,
+              icon: 'Shield2CheckOutline',
+              tone: 'success',
+              title: intl.formatMessage({
+                id: ETranslations.pin_verify_reminder_dialog_title,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.pin_verify_reminder_dialog_desc,
+              }),
+              showCancelButton: true,
+              onCancelText: intl.formatMessage({
+                id: ETranslations.global_not_now,
+              }),
+              onCancel: async () => {
+                try {
+                  await cancelVerifyPin(ownerId);
+                } catch (error) {
+                  // Continue to navigation if cancel fails
+                  if (
+                    errorUtils.isErrorByClassName({
+                      error,
+                      className: [
+                        EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+                      ],
+                    })
+                  ) {
+                    showPinReminderDialog();
+                  }
+                }
+              },
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.pin_verify_reminder_dialog_button_label,
+              }),
+              onConfirm: async () => {
+                const shouldVerifyPin0 = await checkShouldVerifyPin();
+                if (!shouldVerifyPin0) {
+                  Toast.success({
+                    title: intl.formatMessage({
+                      id: ETranslations.pin_verify_reminder_dialog_verified_toast,
+                    }),
+                  });
+                  return;
+                }
+
+                // Use void to start async flow without blocking dialog close
+                void (async () => {
+                  try {
+                    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+                    // Password verified, continue to next step
+                    void goToOneKeyIDLoginPageForKeylessWallet({
+                      mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
+                    });
+                  } catch (error) {
+                    // Continue to navigation if cancel fails
+                    if (
+                      errorUtils.isErrorByClassName({
+                        error,
+                        className: [
+                          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+                        ],
+                      })
+                    ) {
+                      showPinReminderDialog();
+                    }
+                  }
+                })();
+              },
+            });
+          };
+
+          showPinReminderDialog();
+        }
+      }
+    },
+    [
+      cancelVerifyPin,
+      goToOneKeyIDLoginPageForKeylessWallet,
+      intl,
+      keylessPinConfirmStatus?.remindTime,
+      keylessPinConfirmStatus?.socialProvider,
+      keylessPinConfirmStatus?.socialUserIdHash,
+    ],
+  );
+  return { verifyKeylessPinChecking, cancelVerifyPin };
 }

@@ -65,8 +65,8 @@ export type IDBBaseObjectWithName = IDBBaseObject & {
 };
 export type IDBContext = {
   id: string; // DB_MAIN_CONTEXT_ID
-  nextHD: number;
-  nextWalletNo: number;
+  nextHD: number; // HD wallet counter: used to generate HD wallet ID (hd-{nextHD}) and default wallet name (Wallet {nextHD})
+  nextWalletNo: number; // Global wallet number counter: used for sorting and displaying all wallet types (HD/HW/QR use auto-increment, Imported/Watching/External/Keyless use fixed numbers)
   verifyString: string;
   networkOrderChanged?: boolean;
   backupUUID: string; // deprecated
@@ -137,6 +137,7 @@ export type IDBWalletNextIds = Partial<Record<IDBWalletNextIdKeys, number>>;
 export type IKeylessWalletDetailsInfo = {
   keylessOwnerId: string;
   keylessProvider: EOAuthSocialLoginProvider;
+  socialUserIdHash: string;
 };
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;

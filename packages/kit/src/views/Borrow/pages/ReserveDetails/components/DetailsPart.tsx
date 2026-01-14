@@ -6,10 +6,10 @@ import {
   isErrorState,
   isLoadingState,
 } from '@onekeyhq/kit/src/views/Staking/components/PageFrame';
-import { OverviewSkeleton } from '@onekeyhq/kit/src/views/Staking/components/StakingSkeleton';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { BorrowFAQSection } from './BorrowFAQSection';
+import { BorrowReserveDetailsSkeleton } from './BorrowReserveDetailsSkeleton';
 import { ChartSection } from './ChartSection';
 import { DailyCapsSection } from './DailyCapsSection';
 import { ReserveDetailsTabs } from './ReserveDetailsTabs';
@@ -67,7 +67,7 @@ const DetailsPartComponent = ({
   if (!gtMd) {
     return (
       <PageFrame
-        LoadingSkeleton={OverviewSkeleton}
+        LoadingSkeleton={BorrowReserveDetailsSkeleton}
         loading={isLoadingState({ result: details, isLoading })}
         error={isErrorState({ result: details, isLoading })}
         onRefresh={onRefresh}
@@ -89,7 +89,7 @@ const DetailsPartComponent = ({
   return (
     <YStack flex={6} gap="$5" px="$5">
       <PageFrame
-        LoadingSkeleton={OverviewSkeleton}
+        LoadingSkeleton={BorrowReserveDetailsSkeleton}
         loading={isLoadingState({ result: details, isLoading })}
         error={isErrorState({ result: details, isLoading })}
         onRefresh={onRefresh}

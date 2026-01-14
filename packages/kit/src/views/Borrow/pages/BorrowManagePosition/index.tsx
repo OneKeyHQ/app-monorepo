@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Button, Page, useMedia } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -17,8 +19,6 @@ import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/Di
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
-
-import type { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
 
 const BorrowManagePosition = () => {
   const route = useAppRoute<
@@ -38,6 +38,8 @@ const BorrowManagePosition = () => {
     borrowReserves,
   } = route.params;
   const intl = useIntl();
+  const appNavigation = useAppNavigation();
+  const { gtMd } = useMedia();
   const { earnAccount } = useEarnAccount({ networkId });
   const accountId = earnAccount?.account?.id || '';
   const indexedAccountId = earnAccount?.account?.indexedAccountId;
@@ -47,6 +49,48 @@ const BorrowManagePosition = () => {
     }
     return 'deposit';
   }, [type]);
+  const handleViewReserveDetails = useCallback(() => {
+    if (!reserveAddress || !marketAddress) {
+      return;
+    }
+    BorrowNavigation.pushToBorrowReserveDetails(appNavigation, {
+      networkId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      symbol,
+      logoURI,
+      isModal: true,
+      accountId: accountId || undefined,
+      indexedAccountId,
+    });
+  }, [
+    appNavigation,
+    networkId,
+    provider,
+    marketAddress,
+    reserveAddress,
+    symbol,
+    logoURI,
+    accountId,
+    indexedAccountId,
+  ]);
+
+  const headerRight = useCallback(() => {
+    if (gtMd || !reserveAddress || !marketAddress) {
+      return null;
+    }
+
+    return (
+      <Button
+        variant="tertiary"
+        // size="small"
+        onPress={handleViewReserveDetails}
+      >
+        {intl.formatMessage({ id: ETranslations.defi_reserve_info })}
+      </Button>
+    );
+  }, [gtMd, reserveAddress, marketAddress, handleViewReserveDetails, intl]);
 
   return (
     <Page scrollEnabled>
@@ -55,6 +99,7 @@ const BorrowManagePosition = () => {
           symbol ||
           intl.formatMessage({ id: ETranslations.defi_manage_position })
         }
+        headerRight={headerRight}
       />
       <Page.Body>
         <ManagePositionContent

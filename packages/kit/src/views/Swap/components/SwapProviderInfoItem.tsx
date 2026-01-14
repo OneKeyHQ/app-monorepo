@@ -65,7 +65,7 @@ const SwapProviderInfoItem = ({
   toToken,
   providerIcon,
   providerName,
-  showLock,
+  showLock: _showLock,
   onPress,
   isLoading,
 }: ISwapProviderInfoItemProps) => {

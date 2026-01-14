@@ -1,40 +1,11 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { buildKeylessLocalEncryptionKey } from './keylessLocalEncryptionKey';
+import keylessStorageUtils from './keylessStorageUtils';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
-
-async function storageSetItem(key: string, encryptedPayloadBase64: string) {
-  const isSecureStorageSupported =
-    await appStorage.secureStorage.supportSecureStorage();
-  if (isSecureStorageSupported) {
-    await appStorage.secureStorage.setSecureItem(key, encryptedPayloadBase64);
-  } else {
-    await appStorage.setItem(key, encryptedPayloadBase64);
-  }
-}
-
-async function storageGetItem(key: string): Promise<string | null> {
-  const isSecureStorageSupported =
-    await appStorage.secureStorage.supportSecureStorage();
-  if (isSecureStorageSupported) {
-    return appStorage.secureStorage.getSecureItem(key);
-  }
-  return appStorage.getItem(key);
-}
-
-async function storageRemoveItem(key: string): Promise<void> {
-  const isSecureStorageSupported =
-    await appStorage.secureStorage.supportSecureStorage();
-  if (isSecureStorageSupported) {
-    await appStorage.secureStorage.removeSecureItem(key);
-  } else {
-    await appStorage.removeItem(key);
-  }
-}
 
 /**
  * Save mnemonicPassword to local storage with encryption.
@@ -68,7 +39,7 @@ async function saveMnemonicPasswordToStorage(params: {
   );
 
   // 3. Store encrypted data, prefer secureStorage if available
-  await storageSetItem(key, encryptedPayloadBase64);
+  await keylessStorageUtils.storageSetItem(key, encryptedPayloadBase64);
 }
 
 /**
@@ -84,7 +55,7 @@ async function getMnemonicPasswordFromStorage(params: {
   const key = accountUtils.buildKeylessMnemonicPasswordKey({ ownerId });
 
   // 2. Read encrypted data from storage
-  const encryptedPayloadBase64 = await storageGetItem(key);
+  const encryptedPayloadBase64 = await keylessStorageUtils.storageGetItem(key);
 
   if (!encryptedPayloadBase64) {
     return null;
@@ -123,7 +94,7 @@ async function removeMnemonicPasswordFromStorage(params: {
   const key = accountUtils.buildKeylessMnemonicPasswordKey({ ownerId });
 
   // 2. Remove encrypted data from storage
-  await storageRemoveItem(key);
+  await keylessStorageUtils.storageRemoveItem(key);
 }
 
 export default {

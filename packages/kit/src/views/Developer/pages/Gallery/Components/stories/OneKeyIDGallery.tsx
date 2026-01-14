@@ -18,7 +18,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { JuiceboxClient } from '@onekeyhq/kit-bg/src/services/ServiceKeylessWallet/utils/JuiceboxClient';
 import {

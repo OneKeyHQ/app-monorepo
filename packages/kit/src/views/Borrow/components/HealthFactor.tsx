@@ -8,6 +8,7 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import type { ColorTokens } from '@onekeyhq/components';
 import type { IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -16,10 +17,13 @@ import type { LayoutChangeEvent } from 'react-native';
 
 type IHealthFactorProps = {
   value: number;
+  displayValue?: string;
+  valueColor?: ColorTokens;
   index?: number;
   min?: number;
   max?: number;
   thresholdValue?: number;
+  thresholdIndex?: number;
   liquidationText?: IEarnText;
   gradientStops?: IHealthFactorGradientStop[];
   levelColors?: Partial<Record<IHealthFactorLevel, string>>;
@@ -136,10 +140,13 @@ const Indicator = ({
 
 export const HealthFactor = ({
   value,
+  displayValue,
+  valueColor,
   index,
   min = 0,
   max = 3,
   thresholdValue = 1,
+  thresholdIndex,
   liquidationText,
   gradientStops,
   levelColors,
@@ -177,7 +184,7 @@ export const HealthFactor = ({
     setContainerWidth(e.nativeEvent.layout.width);
   }, []);
 
-  const { displayValue, pointerPercent, thresholdPercent } = useMemo(() => {
+  const { displayText, pointerPercent, thresholdPercent } = useMemo(() => {
     const safeMin = Number.isFinite(min) ? min : 0;
     const safeMaxInput = Number.isFinite(max) ? max : safeMin;
     const safeMax = Math.max(safeMaxInput, safeMin + 0.0001);
@@ -205,14 +212,21 @@ export const HealthFactor = ({
       computedPointerPercent = ((clampedValue - safeMin) / range) * 100;
     }
 
+    // Use thresholdIndex directly as percentage if provided
+    const thresholdIndexIsFinite = Number.isFinite(thresholdIndex);
+    let computedThresholdPercent = 0;
+    if (thresholdIndexIsFinite) {
+      computedThresholdPercent = clampPercent(thresholdIndex as number);
+    } else if (canComputeThreshold) {
+      computedThresholdPercent = ((clampedThreshold - safeMin) / range) * 100;
+    }
+
     return {
-      displayValue: valueIsFinite ? value.toFixed(2) : '-',
+      displayText: displayValue ?? (valueIsFinite ? value.toFixed(2) : '-'),
       pointerPercent: computedPointerPercent,
-      thresholdPercent: canComputeThreshold
-        ? ((clampedThreshold - safeMin) / range) * 100
-        : 0,
+      thresholdPercent: computedThresholdPercent,
     };
-  }, [index, max, min, thresholdValue, value]);
+  }, [displayValue, index, max, min, thresholdIndex, thresholdValue, value]);
 
   const pointerAlignment = getTextAlignment(pointerPercent);
   const thresholdAlignment = getTextAlignment(thresholdPercent);
@@ -227,13 +241,17 @@ export const HealthFactor = ({
           position="bottom"
         >
           <YStack ai={pointerAlignment}>
-            <SizableText size="$bodySmMedium" whiteSpace="nowrap">
-              {displayValue}
+            <SizableText
+              size="$bodySmMedium"
+              whiteSpace="nowrap"
+              color={valueColor ?? '$text'}
+            >
+              {displayText}
             </SizableText>
             <Icon
               name="ChevronTriangleDownSmallOutline"
               size="$4"
-              color="$text"
+              color={valueColor ?? '$text'}
             />
           </YStack>
         </Indicator>

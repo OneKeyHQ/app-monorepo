@@ -69,6 +69,7 @@ function DeviceSectionSupport({
         title={intl.formatMessage({
           id: ETranslations.global_about_device,
         })}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressAboutDevice}
       />
@@ -77,6 +78,7 @@ function DeviceSectionSupport({
         title={intl.formatMessage({
           id: ETranslations.device_auth_request_title,
         })}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressAuthRequest}
         isLoading={isFirmwareVerifyDialogLoading}
@@ -86,6 +88,7 @@ function DeviceSectionSupport({
         title={intl.formatMessage({
           id: ETranslations.global_check_for_updates,
         })}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={() => onPressCheckForUpdates()}
       />
@@ -94,6 +97,7 @@ function DeviceSectionSupport({
         title={intl.formatMessage({
           id: ETranslations.global_hardware_troubleshooting,
         })}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressTroubleshooting}
       />

@@ -3,7 +3,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type * as MediaLibrary from 'expo-media-library';
 
 const mock = {
-  saveToLibraryAsync: async (_uri: string): Promise<MediaLibrary.Asset> => {
+  saveToLibraryAsync: async (_uri: string): Promise<void> => {
     throw new OneKeyLocalError(
       'Media library is only available on native platforms',
     );

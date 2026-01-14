@@ -78,7 +78,7 @@ const getSearchTypes = () => {
     EUniversalSearchType.V2MarketToken,
     // Hide AccountAssets search in WebDapp mode
     !platformEnv.isWebDappMode && EUniversalSearchType.AccountAssets,
-    EUniversalSearchType.Dapp,
+    !platformEnv.isWebDappMode && EUniversalSearchType.Dapp,
     EUniversalSearchType.Perp,
   ].filter(Boolean);
 };
@@ -557,7 +557,7 @@ export function UniversalSearch({
         case EUniversalSearchType.Dapp:
           return `${item.type}-${item.payload.dappId || index}`;
         case EUniversalSearchType.Perp:
-          return `${item.type}-${item.payload.coin}-${index}`;
+          return `${item.type}-${item.payload.name}-${index}`;
         default:
           return `${index}`;
       }

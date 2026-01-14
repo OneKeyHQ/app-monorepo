@@ -46,6 +46,9 @@ export function ReferralLinkDropdown({
     <Stack onPress={handleStopPropagation}>
       <Popover
         title={intl.formatMessage({ id: ETranslations.global_more_links })}
+        description={intl.formatMessage({
+          id: ETranslations.referral_morelink_description,
+        })}
         renderTrigger={renderTrigger}
         renderContent={renderContent}
         floatingPanelProps={{

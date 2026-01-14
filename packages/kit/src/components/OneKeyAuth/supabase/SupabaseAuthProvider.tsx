@@ -1,12 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { getSupabaseClient } from './getSupabaseClient';
 import { SupabaseAuthContext } from './SupabaseAuthContext';
@@ -62,7 +55,7 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
     }
   */
   useEffect(() => {
-    const fetchProfile = async () => {
+    const _fetchProfile = async () => {
       setIsLoading(true);
       // if (authSession) {
       //   const { data } = await getSupabaseClient()

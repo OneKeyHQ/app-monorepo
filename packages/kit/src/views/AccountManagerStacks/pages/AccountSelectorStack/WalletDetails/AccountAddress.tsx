@@ -19,7 +19,7 @@ export function AccountAddress({
   hideAddress?: boolean;
   showSplitter?: boolean;
 }) {
-  const { activeAccount } = useActiveAccount({ num });
+  const { activeAccount: _activeAccount } = useActiveAccount({ num });
   const intl = useIntl();
   // const noAddressMessage = intl.formatMessage(
   //   { id: ETranslations.global_no_network_address },

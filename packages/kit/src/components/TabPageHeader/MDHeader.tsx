@@ -21,6 +21,7 @@ export function MDHeader({
   customHeaderLeftItems,
   customHeaderRightItems,
   renderCustomHeaderRightItems,
+  headerPx = '$5',
 }: {
   tabRoute: ETabRoutes;
   sceneName: EAccountSelectorSceneName;
@@ -33,6 +34,7 @@ export function MDHeader({
   }: {
     fixedItems: ReactNode;
   }) => ReactNode;
+  headerPx?: string;
 }) {
   const { top } = useSafeAreaInsets();
   const rightActions = useMemo(() => {
@@ -75,8 +77,8 @@ export function MDHeader({
           <XStack
             alignItems="center"
             justifyContent="space-between"
-            px="$5"
-            h="$11"
+            px={headerPx}
+            h={44}
             {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
           >
             <View>

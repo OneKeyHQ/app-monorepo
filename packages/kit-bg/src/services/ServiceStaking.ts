@@ -374,7 +374,7 @@ class ServiceStaking extends ServiceBase {
       .checkAndUpdateReferralCode({
         accountId,
       })
-      .catch((e) => {
+      .catch((_e) => {
         // ignore
       });
     if (walletReferralCode) {

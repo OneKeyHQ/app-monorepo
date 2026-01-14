@@ -738,7 +738,7 @@ function HardwareUiStateContainerCmpControlled() {
     const callback = throttle(
       ({
         errorType,
-        payload,
+        payload: _payload,
         errorCode: _errorCode,
         errorMessage: _errorMessage,
       }: IHardwareErrorDialogPayload) => {

@@ -179,6 +179,12 @@ export const SupplyCard = () => {
         label: labels.balance,
         align: 'flex-end' as const,
         key: 'balance',
+        sortable: true,
+        comparator: (a: ISupplyAsset, b: ISupplyAsset) => {
+          const aFiatValue = new BigNumber(a.walletBalance?.fiatValue || '0');
+          const bFiatValue = new BigNumber(b.walletBalance?.fiatValue || '0');
+          return aFiatValue.comparedTo(bFiatValue);
+        },
         render: (item: ISupplyAsset) => (
           <AmountField
             title={item.walletBalance.title}
@@ -224,6 +230,8 @@ export const SupplyCard = () => {
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
         emptyContent={labels.noAssetsToSupply}
+        defaultSortKey="balance"
+        defaultSortDirection="desc"
       />
     </Card>
   );

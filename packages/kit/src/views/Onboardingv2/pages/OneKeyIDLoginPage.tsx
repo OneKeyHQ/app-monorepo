@@ -7,7 +7,6 @@ import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Anchor,
   AnimatePresence,
-  Dialog,
   Icon,
   Page,
   SizableText,
@@ -30,7 +29,6 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '../../../components/ListItem';
 import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
@@ -114,7 +112,6 @@ function OptionItem({
 }
 
 function OneKeyIDLoginPage() {
-  const navigation = useAppNavigation();
   const [loggingInProvider, setLoggingInProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
   const [isResetMode, setIsResetMode] = useState(false);
@@ -127,7 +124,7 @@ function OneKeyIDLoginPage() {
   const mode: EOnboardingV2OneKeyIDLoginMode | undefined = route?.params?.mode;
   const intl = useIntl();
 
-  const { logout, signInWithSocialLogin } = useOneKeyAuth();
+  const { signInWithSocialLogin } = useOneKeyAuth();
   const { checkKeylessWalletCreatedOnServer } = useKeylessWallet();
 
   const handleSocialLogin = useCallback(
@@ -226,13 +223,16 @@ function OneKeyIDLoginPage() {
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
           <Anchor
-            href="https://help.onekey.so/articles/11461088"
+            href="https://help.onekey.so/articles/13348049"
             target="_blank"
             size="$bodySm"
             color="$textSubdued"
             textAlign="center"
           >
-            TODO — Link to "How to create wallet with Apple or Google account"
+            {intl.formatMessage({
+              id: ETranslations.keyless_wallet_help_center_link_label,
+            })}{' '}
+            ↗
           </Anchor>
         </OnboardingLayout.Footer>
       </OnboardingLayout>

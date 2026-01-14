@@ -27,7 +27,7 @@ function DeviceSectionSecurity() {
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ h: '$12' }}
+      itemProps={{ minHeight: '$12' }}
       title={intl.formatMessage({
         id: ETranslations.global_security,
       })}
@@ -36,6 +36,7 @@ function DeviceSectionSecurity() {
         title={intl.formatMessage({
           id: ETranslations.global_change_pin,
         })}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressChangePin}
       />

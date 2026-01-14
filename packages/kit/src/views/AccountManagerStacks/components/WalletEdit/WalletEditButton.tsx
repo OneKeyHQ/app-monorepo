@@ -5,7 +5,10 @@ import { useIntl } from 'react-intl';
 import { ActionList, Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import {
+  useKeylessWallet,
+  useVerifyKeylessPinChecking,
+} from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -47,9 +50,10 @@ function WalletEditButtonView({
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
+  const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
   const [isResetPinLoading, setIsResetPinLoading] = useState(false);
-  const [isVerifyPinLoading, setIsVerifyPinLoading] = useState(false);
+  const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
 
   const isPrimeUser = useMemo(() => {
     return user?.primeSubscription?.isActive && user?.onekeyUserId;
@@ -113,14 +117,14 @@ function WalletEditButtonView({
 
   const handleKeylessWalletAction = useCallback(
     async ({
-      setLoading,
+      setLoading: _setLoading,
       mode,
     }: {
       setLoading: (loading: boolean) => void;
       mode: EOnboardingV2OneKeyIDLoginMode;
     }) => {
       try {
-        // setLoading(true);
+        // _setLoading(true);
         await timerUtils.wait(100);
         await backgroundApiProxy.servicePassword.promptPasswordVerify({
           reason: EReasonForNeedPassword.Security,
@@ -155,7 +159,6 @@ function WalletEditButtonView({
             onClose={handleActionListClose}
           />
 
-          {/* Keyless wallet: Reset PIN */}
           {isKeyless ? (
             <ActionList.Item
               icon="InputOutline"
@@ -179,10 +182,9 @@ function WalletEditButtonView({
               onClose={handleActionListClose}
               isLoading={isVerifyPinLoading}
               onPress={() => {
-                void handleKeylessWalletAction({
-                  setLoading: setIsVerifyPinLoading,
-                  mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
-                });
+                if (wallet) {
+                  void verifyKeylessPinChecking({ forceVerify: true, wallet });
+                }
               }}
             />
           ) : null}
@@ -259,6 +261,7 @@ function WalletEditButtonView({
       showRemoveWalletButton,
       showRemoveDeviceButton,
       handleKeylessWalletAction,
+      verifyKeylessPinChecking,
     ],
   );
 

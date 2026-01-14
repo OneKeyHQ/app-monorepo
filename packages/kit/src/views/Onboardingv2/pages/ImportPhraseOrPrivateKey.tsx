@@ -259,8 +259,6 @@ export default function ImportPhraseOrPrivateKey() {
     [navigation],
   );
 
-  const { start: startScanQrCode } = useScanQrCode();
-
   return (
     <Page>
       <OnboardingLayout>

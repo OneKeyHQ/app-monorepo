@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,9 +20,9 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -28,7 +30,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
@@ -81,15 +83,17 @@ function DeviceListItem({
           <Badge badgeSize="sm" badgeType="info">
             <XStack ai="center" gap="$1.5">
               <Icon name="DownloadCircleOutline" color="$iconInfo" size="$4" />
-              <SizableText size="$bodySmMedium" color="$textInfo">
-                {item.updateVersionDisplay}
-              </SizableText>
+              {item.updateVersionDisplay ? (
+                <SizableText size="$bodySmMedium" color="$textInfo">
+                  {item.updateVersionDisplay}
+                </SizableText>
+              ) : null}
             </XStack>
           </Badge>
         );
       }
       return (
-        <Stack width="$1" height="$1" bg="$iconInfo" borderRadius="$full" />
+        <Stack width="$2" height="$2" bg="$iconInfo" borderRadius="$full" />
       );
     }
 
@@ -112,29 +116,43 @@ function DeviceListItem({
   return (
     <ListItem
       mx="$0"
-      px="$4"
-      minHeight={88}
+      px="$5"
+      minHeight={80}
       borderRadius="$0"
+      $gtMd={{
+        px: '$4',
+        minHeight: 88,
+      }}
       renderAvatar={() => (
         <Stack
-          w={56}
-          h={56}
+          w={48}
+          h={48}
           justifyContent="center"
           alignItems="center"
           borderRadius="$3"
           bg="$bgStrong"
+          $gtMd={{
+            w: 56,
+            h: 56,
+          }}
         >
-          <WalletAvatar {...walletAvatarProps} size={48} />
+          <WalletAvatar {...walletAvatarProps} size={gtMd ? 44 : 36} />
         </Stack>
       )}
       renderItemText={() => (
-        <YStack gap="$1" flex={1}>
+        <YStack gap="$0" flex={1}>
           <XStack gap="$2">
             <SizableText size="$bodyLgMedium" color="$text" numberOfLines={1}>
               {item.wallet.name}
             </SizableText>
             {bleName ? (
-              <Badge badgeSize="sm" badgeType="default">
+              <Badge
+                badgeSize="sm"
+                badgeType="default"
+                px="$2"
+                py="$0.5"
+                size="$bodySmMedium"
+              >
                 {bleName}
               </Badge>
             ) : null}
@@ -150,7 +168,7 @@ function DeviceListItem({
   );
 }
 
-const ItemSeparatorComponent = () => <Divider borderColor="$borderSubdued" />;
+const ItemSeparatorComponent = () => <Divider borderColor="$neutral4" />;
 
 const ListEmptyComponent = () => (
   <Stack p="$16">
@@ -160,6 +178,9 @@ const ListEmptyComponent = () => (
 
 function DeviceManagementV2ListWeb() {
   const intl = useIntl();
+  const navigation = useNavigation();
+  const appNavigation = useAppNavigation();
+  const { gtMd } = useMedia();
   const { pushToDeviceDetail } = useDeviceManagerNavigation();
 
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
@@ -203,8 +224,12 @@ function DeviceManagementV2ListWeb() {
           deviceVersion.firmwareVersion ?? '-'
         }`;
         item.shouldUpdate = shouldUpdate;
-        item.updateVersionDisplay = `v${updateVersionDisplay ?? '-'}`;
+        item.updateVersionDisplay =
+          updateVersionDisplay && !isEmpty(updateVersionDisplay)
+            ? `v${updateVersionDisplay}`
+            : undefined;
       }
+
       return devices;
     },
     [detectStatus],
@@ -251,36 +276,60 @@ function DeviceManagementV2ListWeb() {
     return hwQrWalletList.length > 0;
   }, [hwQrWalletList]);
 
+  const showHeader = existingDevices || isLoading;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTransparent: !showHeader,
+      headerStyle: {
+        backgroundColor: !showHeader ? 'transparent' : undefined,
+      },
+    });
+  }, [navigation, showHeader]);
+
   return (
-    <Page fullPage>
-      <DeviceCommonHeader
-        title={intl.formatMessage({
-          id: ETranslations.global_device_management,
-        })}
-      />
+    <Page fullPage safeAreaEnabled={showHeader}>
+      {showHeader ? (
+        <DeviceCommonHeader
+          title={intl.formatMessage({
+            id: ETranslations.global_device_management,
+          })}
+        />
+      ) : null}
       <Page.Body alignItems="stretch" h="100%">
-        {existingDevices || isLoading ? (
+        {showHeader ? (
           <YStack
             w="100%"
             h="100%"
             maxWidth="640px"
             mx="auto"
-            px="$5"
-            py="$8"
+            px="$0"
+            py="$0"
             gap="$6"
             bg="$bgApp"
+            $gtMd={{
+              px: '$5',
+              py: '$8',
+            }}
           >
             <SectionHeader />
             <ListView
               flex={1}
-              contentContainerStyle={{
-                paddingTop: 0,
-                borderRadius: '$4',
-                bg: '$bgApp',
-                borderColor: '$borderSubdued',
-                overflow: 'hidden',
-                borderWidth: '$px',
-              }}
+              contentContainerStyle={
+                gtMd
+                  ? {
+                      paddingTop: 0,
+                      borderRadius: '$4',
+                      bg: '$bgApp',
+                      borderColor: '$borderSubdued',
+                      overflow: 'hidden',
+                      borderWidth: '$px',
+                    }
+                  : {
+                      paddingTop: 0,
+                      bg: '$bgApp',
+                    }
+              }
               keyExtractor={(item) => item.wallet.id}
               data={hwQrWalletList}
               renderItem={renderItem}
@@ -292,6 +341,24 @@ function DeviceManagementV2ListWeb() {
         ) : null}
         {!existingDevices && !isLoading ? <DeviceGuideView /> : null}
       </Page.Body>
+      {showHeader && !gtMd ? (
+        <Page.Footer>
+          <Page.FooterActions
+            onConfirm={() => {
+              appNavigation.pushModal(EModalRoutes.OnboardingModal, {
+                screen: EOnboardingPages.ConnectYourDevice,
+              });
+            }}
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.global_add_new_device,
+            })}
+            confirmButtonProps={{
+              icon: 'PlusSmallOutline',
+              variant: 'secondary',
+            }}
+          />
+        </Page.Footer>
+      ) : null}
     </Page>
   );
 }

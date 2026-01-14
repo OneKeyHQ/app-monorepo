@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Tabs, YStack } from '@onekeyhq/components';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -124,7 +125,8 @@ export function MobileInformationTabs({
     return <MobileInformationTabsHeader {...props} />;
   }, []);
 
-  if (!networkId) {
+  // Hide tabs for BTC network
+  if (!networkId || networkUtils.isBTCNetwork(networkId)) {
     return null;
   }
 

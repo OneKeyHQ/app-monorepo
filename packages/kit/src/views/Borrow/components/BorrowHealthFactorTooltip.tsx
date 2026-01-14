@@ -28,20 +28,53 @@ export const BorrowHealthFactorTooltip = ({
   detail,
 }: IBorrowHealthFactorTooltipProps) => {
   const intl = useIntl();
-  const { value, index, lowerLimit, upperLimit } = useMemo(() => {
+  const {
+    value,
+    displayValue,
+    index,
+    liquidationIndex,
+    lowerLimit,
+    upperLimit,
+  } = useMemo(() => {
+    const numericValue = Number(detail?.value);
+    const numericIndex = Number(detail?.index);
+    const numericLiquidationIndex = Number(detail?.liquidationAtIndex);
     return {
-      value: Number(detail?.value) || 0,
-      index: detail?.index ? Number(detail.index) : undefined,
+      value: Number.isFinite(numericValue) ? numericValue : 0,
+      displayValue: detail?.value ?? '-',
+      index: Number.isFinite(numericIndex) ? numericIndex : undefined,
+      liquidationIndex: Number.isFinite(numericLiquidationIndex)
+        ? numericLiquidationIndex
+        : undefined,
       lowerLimit: Number(detail?.lowerLimit) || 0,
       upperLimit: Number(detail?.upperLimit) || 3,
     };
-  }, [detail?.index, detail?.lowerLimit, detail?.upperLimit, detail?.value]);
+  }, [
+    detail?.index,
+    detail?.liquidationAtIndex,
+    detail?.lowerLimit,
+    detail?.upperLimit,
+    detail?.value,
+  ]);
+  const gradientStops = useMemo(() => {
+    if (!detail?.gradientStops?.length) return undefined;
+    const parsedStops = detail.gradientStops
+      .map((stop) => ({
+        percent: stop.percent,
+        level: stop.level,
+      }))
+      .filter((stop) => Number.isFinite(stop.percent));
+    return parsedStops.length ? parsedStops : undefined;
+  }, [detail?.gradientStops]);
   const healthFactorLabel = intl.formatMessage({
     id: ETranslations.defi_health_factor,
   });
   const detailsLabel = intl.formatMessage({ id: ETranslations.global_details });
 
   const valueColor = useMemo(() => {
+    if (detail?.valueColor) {
+      return detail.valueColor;
+    }
     const badgeType = detail?.status?.badge;
     if (badgeType === 'success') {
       return '$textSuccess';
@@ -50,7 +83,7 @@ export const BorrowHealthFactorTooltip = ({
       return '$textCritical';
     }
     return '$textCaution';
-  }, [detail?.status?.badge]);
+  }, [detail?.status?.badge, detail?.valueColor]);
 
   if (!detail) return null;
 
@@ -95,11 +128,15 @@ export const BorrowHealthFactorTooltip = ({
           {/* Health Factor progress bar */}
           <HealthFactor
             value={value}
+            displayValue={displayValue}
+            valueColor={valueColor}
             index={index}
             min={lowerLimit}
             max={upperLimit}
             thresholdValue={1}
+            thresholdIndex={liquidationIndex}
             liquidationText={detail.liquidationAt?.description}
+            gradientStops={gradientStops}
           />
 
           {/* Liquidation description */}

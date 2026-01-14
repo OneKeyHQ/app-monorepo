@@ -7,7 +7,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import {
-  APY_CHART_COLORS,
+  useApyChartColors,
   useApyLabels,
   useBorrowApyHistory,
   useBorrowBadges,
@@ -40,6 +40,7 @@ export function ChartSection({
   const [supplyTimePeriod, setSupplyTimePeriod] = useState<ITimePeriod>('week');
   const [borrowTimePeriod, setBorrowTimePeriod] = useState<ITimePeriod>('week');
 
+  const apyChartColors = useApyChartColors();
   const timePeriodOptions = useTimePeriodOptions();
   const { supplyApyLabel, borrowApyLabel } = useApyLabels();
   const { supplyBadge, borrowBadge } = useBorrowBadges(details);
@@ -77,10 +78,10 @@ export function ChartSection({
           timePeriod={supplyTimePeriod}
           timePeriodOptions={timePeriodOptions}
           onTimePeriodChange={setSupplyTimePeriod}
-          lineColor={APY_CHART_COLORS.supply.line}
-          topColor={APY_CHART_COLORS.supply.top}
-          bottomColor={APY_CHART_COLORS.supply.bottom}
-          lineWidth={APY_CHART_COLORS.lineWidth}
+          lineColor={apyChartColors.supply.line}
+          topColor={apyChartColors.supply.top}
+          bottomColor={apyChartColors.supply.bottom}
+          lineWidth={apyChartColors.lineWidth}
           showDivider={false}
           capUsage={details?.supply.usage}
           capUsageLabel={intl.formatMessage({
@@ -112,10 +113,10 @@ export function ChartSection({
           timePeriod={borrowTimePeriod}
           timePeriodOptions={timePeriodOptions}
           onTimePeriodChange={setBorrowTimePeriod}
-          lineColor={APY_CHART_COLORS.borrow.line}
-          topColor={APY_CHART_COLORS.borrow.top}
-          bottomColor={APY_CHART_COLORS.borrow.bottom}
-          lineWidth={APY_CHART_COLORS.lineWidth}
+          lineColor={apyChartColors.borrow.line}
+          topColor={apyChartColors.borrow.top}
+          bottomColor={apyChartColors.borrow.bottom}
+          lineWidth={apyChartColors.lineWidth}
           showDivider={false}
           capUsage={details?.borrow.usage}
           capUsageLabel={intl.formatMessage({

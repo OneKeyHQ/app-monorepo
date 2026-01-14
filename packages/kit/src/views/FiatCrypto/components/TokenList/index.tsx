@@ -1,4 +1,4 @@
-import { type FC, useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -38,11 +38,9 @@ type ITokenListProps = {
   }) => void;
 };
 
-const keyExtractor = (item: unknown) => {
-  const address = (item as IFiatCryptoToken).address;
-  const networkId = (item as IFiatCryptoToken).networkId;
-  return `${networkId}--${address || 'main'}`;
-};
+function keyExtractor(item: IFiatCryptoToken): string {
+  return `${item.networkId}--${item.address || 'main'}`;
+}
 
 const ListItemFiatToken = ({
   item,
@@ -94,7 +92,6 @@ const ListItemFiatToken = ({
           networkId: item.networkId,
           deriveType,
         });
-      console.log('dbAccount', dbAccount);
       onPress?.({ token: item, realAccountId: dbAccount.id });
     } catch {
       setLoading(true);
@@ -215,7 +212,7 @@ const ListItemFiatToken = ({
   return renderItem({});
 };
 
-export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
+export function TokenList({ items, onPress }: ITokenListProps) {
   const [text, setText] = useState('');
   const onChangeText = useCallback((value: string) => {
     setText(value.trim());
@@ -226,7 +223,7 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
     return items.filter(
       (o) =>
         o.name.toLowerCase().includes(key) ||
-        o.symbol.toLowerCase().includes(text),
+        o.symbol.toLowerCase().includes(key),
     );
   }, [items, text]);
   const intl = useIntl();
@@ -245,7 +242,7 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
       </Stack>
       <Stack flex={1}>
         <ListView
-          estimatedItemSize={60}
+          estimatedItemSize={72}
           data={data}
           renderItem={({ item }) => (
             <ListItemFiatToken item={item} onPress={onPress} />
@@ -264,4 +261,4 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
       </Stack>
     </Stack>
   );
-};
+}

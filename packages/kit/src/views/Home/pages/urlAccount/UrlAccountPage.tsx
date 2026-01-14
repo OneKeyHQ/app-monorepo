@@ -219,7 +219,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
     urlAccountNavigation.replaceHomePage(navigation);
   }, [navigation]);
 
-  const renderHeaderLeft = useCallback(
+  const _renderHeaderLeft = useCallback(
     () => <NavBackButton onPress={backToHomePage} />,
     [backToHomePage],
   );
