@@ -676,11 +676,13 @@ export function useKeylessWallet() {
   // goToOneKeyIDLoginPageForKeylessWallet
   const goToOneKeyIDLoginPageForKeylessWallet = useCallback(
     async ({ mode }: { mode: EOnboardingV2OneKeyIDLoginMode }) => {
+      let keylessProvider: EOAuthSocialLoginProvider | undefined;
+
       if (
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
       ) {
-        // Get keyless wallet to extract ownerId from keylessDetailsInfo
+        // Get keyless wallet to extract ownerId and provider from keylessDetailsInfo
         let keylessWallet;
         try {
           keylessWallet =
@@ -689,6 +691,7 @@ export function useKeylessWallet() {
           // Continue to navigation if getKeylessWallet fails
         }
         const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId || '';
+        keylessProvider = keylessWallet?.keylessDetailsInfo?.keylessProvider;
 
         if (keylessWallet && ownerId) {
           // Try to refresh session if refreshToken is valid
@@ -724,6 +727,7 @@ export function useKeylessWallet() {
           screen: EOnboardingPagesV2.OneKeyIDLogin,
           params: {
             mode,
+            provider: keylessProvider,
           },
         },
       });
