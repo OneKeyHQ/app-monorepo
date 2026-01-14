@@ -93,7 +93,7 @@ describe('checkAndRedactMnemonicWords', () => {
   });
 
   test('should redact mnemonic words at the end of text', () => {
-    // Use non-BIP39 words at the start ("abc123", "def456")
+    // Use non-BIP39 words at the start
     const words = ['abc123', 'def456', 'abandon', 'ability', 'able'];
     const result = checkAndRedactMnemonicWords(words);
     expect(result).toEqual(['abc123', 'def456', '****', '****', '****']);
