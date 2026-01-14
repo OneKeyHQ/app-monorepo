@@ -22,8 +22,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
-import type { LayoutChangeEvent } from 'react-native';
 import { showUploadCSVDialog } from '../UploadCSVDialog';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 export type ILineError = {
   lineNumber: number;
@@ -98,7 +99,6 @@ function LineNumberedTextArea({
   const theme = useTheme();
   const textColor = theme.text?.val;
   const [inputText, setInputText] = useState<string>(value);
-  const inputTextRef = useRef<string>('');
 
   // Calculate height based on singleLine mode
   const height = singleLine && !heightProp ? SINGLE_LINE_HEIGHT : heightProp;
@@ -116,7 +116,6 @@ function LineNumberedTextArea({
         const firstLine = text.split('\n')[0];
         processedText = firstLine ?? '';
       }
-      inputTextRef.current = processedText;
       setInputText(processedText);
       onChangeText?.(processedText);
       onChange?.(processedText);
@@ -189,14 +188,13 @@ function LineNumberedTextArea({
 
   const handleUpload = useCallback(() => {
     showUploadCSVDialog({
-      onUpload: () => {
-        console.log('Upload clicked');
-      },
-      onDownloadTemplate: () => {
-        console.log('Download template clicked');
+      onUploaded: (uploadedLines) => {
+        const content = uploadedLines.join('\n');
+        onInputTypeChange?.(EInputAddressChangeType.Upload);
+        handleChangeText(content);
       },
     });
-  }, []);
+  }, [handleChangeText, onInputTypeChange]);
 
   const handleSelectedAccountChange = useCallback(
     ({
@@ -385,7 +383,7 @@ function LineNumberedTextArea({
                     })}
                   />
                 ) : null}
-                {showUpload ? (
+                {showUpload && (platformEnv.isWeb || platformEnv.isDesktop) ? (
                   <IconButton
                     variant="tertiary"
                     icon="UploadOutline"

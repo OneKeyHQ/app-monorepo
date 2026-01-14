@@ -8382,6 +8382,7 @@ __metadata:
     react-native-collapsible-tab-view: "npm:8.0.1"
     react-native-crypto: "npm:^2.2.0"
     react-native-dns-lookup: "npm:1.0.6"
+    react-native-document-picker: "npm:^9.3.1"
     react-native-fast-pbkdf2: "npm:^0.3.1"
     react-native-file-logger: "npm:0.7.1"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
@@ -35716,6 +35717,22 @@ __metadata:
   peerDependencies:
     react-native: "*"
   checksum: 10/46ce7be986a5da25e65ac99629aa9d928ce0c3493295600b0403c91f955eed0f8f3e4dd725c2fbcba118ee834fabc0446599f6602650c96f4713b2dfe315d3bc
+  languageName: node
+  linkType: hard
+
+"react-native-document-picker@npm:^9.3.1":
+  version: 9.3.1
+  resolution: "react-native-document-picker@npm:9.3.1"
+  dependencies:
+    invariant: "npm:^2.2.4"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-windows: "*"
+  peerDependenciesMeta:
+    react-native-windows:
+      optional: true
+  checksum: 10/26829e8b0e48e789defea3f418ab41a154c05b72be742f2a2de182812c86eb2f35f31dcd5488b5b99e6bbf3b8c920c76acf06bc44d0222889e6cdf32d13cc1df
   languageName: node
   linkType: hard
 
