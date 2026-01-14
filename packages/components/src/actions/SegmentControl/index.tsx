@@ -63,7 +63,7 @@ function SegmentControlItem({
             bg: activeBackgroundColor ?? '$bg',
             elevation: 2,
             '$platform-native': {
-              elevation: 2,
+              elevation: 0,
             },
             '$platform-web': {
               boxShadow:
