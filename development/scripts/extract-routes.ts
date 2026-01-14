@@ -148,9 +148,11 @@ function extractEnumMembers(content: string, enumName: string): string[] {
   const enumBody = match[1];
   const memberRegex = /(\w+)\s*=\s*['"](\w+)['"]/g;
   const members: string[] = [];
-  let memberMatch;
 
-  while ((memberMatch = memberRegex.exec(enumBody)) !== null) {
+  for (
+    let memberMatch = memberRegex.exec(enumBody);
+    memberMatch !== null;
+    memberMatch = memberRegex.exec(enumBody)
     members.push(memberMatch[1]);
   }
 
@@ -177,23 +179,22 @@ function parseTypeParams(typeStr: string): {
   let currentProp = '';
   let inObject = false;
 
-  for (let i = 0; i < typeStr.length; i++) {
+  for (let i = 0; i < typeStr.length; i += 1) {
     const char = typeStr[i];
 
     if (char === '{') {
-      braceCount++;
+      braceCount += 1;
       if (braceCount === 1) {
         inObject = true;
-        continue;
       }
     } else if (char === '}') {
-      braceCount--;
+      braceCount -= 1;
       if (braceCount === 0) {
         inObject = false;
       }
     }
 
-    if (inObject && braceCount === 1) {
+    if (inObject && braceCount === 1 && char !== '{') {
       if (char === ';' || char === '\n') {
         // Process the property
         const propMatch = currentProp.trim().match(/^(\w+)(\?)?:/);
@@ -277,49 +278,50 @@ function extractRoutes(): IRouteInfo[] {
 
     // Find all enum declarations
     const enumRegex = /export\s+enum\s+(E\w+(?:Routes|Pages)?)\s*\{/g;
-    let enumMatch;
 
-    while ((enumMatch = enumRegex.exec(content)) !== null) {
+    for (
+      let enumMatch = enumRegex.exec(content);
+      enumMatch !== null;
+      enumMatch = enumRegex.exec(content)
+    ) {
       const enumName = enumMatch[1];
 
-      // Skip non-route enums
-      if (!enumName.includes('Route') && !enumName.includes('Pages')) {
-        continue;
-      }
-
-      const screenNames = extractEnumMembers(content, enumName);
-      const rootRoute = ROOT_ROUTE_MAPPING[enumName] || 'modal';
-      const modalRouteName =
-        MODAL_ROUTE_MAPPING[enumName] ||
-        enumName
-          .replace('EModal', '')
-          .replace('Routes', 'Modal')
-          .replace('Pages', 'Modal');
-
-      const screens: IScreenInfo[] = screenNames.map((name) => {
-        const paramInfo = extractParamInfo(content, enumName, name);
-        return {
-          name,
-          hasParams: paramInfo.hasParams,
-          requiredParams: paramInfo.required,
-          optionalParams: paramInfo.optional,
-          rawParamsType: paramInfo.raw,
-        };
-      });
-
-      if (screens.length > 0) {
-        routes.push({
-          modalName: enumName
+      // Only process route enums
+      if (enumName.includes('Route') || enumName.includes('Pages')) {
+        const screenNames = extractEnumMembers(content, enumName);
+        const rootRoute = ROOT_ROUTE_MAPPING[enumName] || 'modal';
+        const modalRouteName =
+          MODAL_ROUTE_MAPPING[enumName] ||
+          enumName
             .replace('EModal', '')
-            .replace('Routes', '')
-            .replace('Pages', '')
-            .replace(/^E/, ''),
-          modalRouteName,
-          rootRoute,
-          enumName,
-          fileName: file,
-          screens,
+            .replace('Routes', 'Modal')
+            .replace('Pages', 'Modal');
+
+        const screens: IScreenInfo[] = screenNames.map((name) => {
+          const paramInfo = extractParamInfo(content, enumName, name);
+          return {
+            name,
+            hasParams: paramInfo.hasParams,
+            requiredParams: paramInfo.required,
+            optionalParams: paramInfo.optional,
+            rawParamsType: paramInfo.raw,
+          };
         });
+
+        if (screens.length > 0) {
+          routes.push({
+            modalName: enumName
+              .replace('EModal', '')
+              .replace('Routes', '')
+              .replace('Pages', '')
+              .replace(/^E/, ''),
+            modalRouteName,
+            rootRoute,
+            enumName,
+            fileName: file,
+            screens,
+          });
+        }
       }
     }
   }

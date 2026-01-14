@@ -86,17 +86,19 @@ describe('checkAndRedactMnemonicWords', () => {
   });
 
   test('should redact mnemonic words in the middle of text', () => {
-    // "xyz1" is not a BIP39 word, so it breaks the sequence
-    const words = ['xyz1', 'abandon', 'ability', 'able', 'failed'];
+    // cspell:ignore testword
+    // "testword" is not a BIP39 word, so it breaks the sequence
+    const words = ['testword', 'abandon', 'ability', 'able', 'failed'];
     const result = checkAndRedactMnemonicWords(words);
-    expect(result).toEqual(['xyz1', '****', '****', '****', 'failed']);
+    expect(result).toEqual(['testword', '****', '****', '****', 'failed']);
   });
 
   test('should redact mnemonic words at the end of text', () => {
-    // Use non-BIP39 words at the start ("xyz1", "xyz2")
-    const words = ['xyz1', 'xyz2', 'abandon', 'ability', 'able'];
+    // cspell:ignore foobar1 foobar2
+    // Use non-BIP39 words at the start ("foobar1", "foobar2")
+    const words = ['foobar1', 'foobar2', 'abandon', 'ability', 'able'];
     const result = checkAndRedactMnemonicWords(words);
-    expect(result).toEqual(['xyz1', 'xyz2', '****', '****', '****']);
+    expect(result).toEqual(['foobar1', 'foobar2', '****', '****', '****']);
   });
 
   test('should NOT redact less than 3 consecutive mnemonic words', () => {
