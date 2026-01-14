@@ -3,16 +3,10 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import { Linking } from 'react-native';
 
-import {
-  Button,
-  Icon,
-  SizableText,
-  Toast,
-  XStack,
-  useClipboard,
-} from '@onekeyhq/components';
+import { Button, Toast, useClipboard } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import MediaLibrary from '@onekeyhq/shared/src/modules3rdParty/expo-media-library';
+import Sharing from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -81,13 +75,6 @@ export function useShareActions(referralQrCodeUrl?: string) {
           await MediaLibrary.saveToLibraryAsync(filepath);
           await RNFS.unlink(filepath);
 
-          const titleText = intl.formatMessage({
-            id: ETranslations.perp_share_image_saved,
-          });
-          const viewButtonText = intl.formatMessage({
-            id: ETranslations.global_view,
-          });
-
           const openPhotoLibrary = () => {
             if (platformEnv.isNativeAndroid) {
               void Linking.openURL(
@@ -98,26 +85,18 @@ export function useShareActions(referralQrCodeUrl?: string) {
             }
           };
 
-          Toast.show({
-            children: (
-              <XStack
-                alignItems="center"
-                gap="$2"
-                paddingVertical="$3"
-                paddingHorizontal="$4"
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.perp_share_image_saved,
+            }),
+            actions: (
+              <Button
+                variant="tertiary"
+                size="small"
+                onPress={openPhotoLibrary}
               >
-                <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />
-                <SizableText size="$bodyMd" flex={1}>
-                  {titleText}
-                </SizableText>
-                <Button
-                  variant="tertiary"
-                  size="small"
-                  onPress={openPhotoLibrary}
-                >
-                  {viewButtonText}
-                </Button>
-              </XStack>
+                {intl.formatMessage({ id: ETranslations.global_view })}
+              </Button>
             ),
           });
 
@@ -161,6 +140,72 @@ export function useShareActions(referralQrCodeUrl?: string) {
     [intl],
   );
 
+  const shareImage = useCallback(async (base64Image: string) => {
+    try {
+      if (platformEnv.isNative) {
+        if (!RNFS) {
+          Toast.error({ title: 'File system not available' });
+          return;
+        }
+
+        const filename = `onekey-position-${Date.now()}.png`;
+        const filepath = `${RNFS.CachesDirectoryPath}/${filename}`;
+
+        await RNFS.writeFile(
+          filepath,
+          base64Image.replace(/^data:image\/\w+;base64,/, ''),
+          'base64',
+        );
+
+        await Sharing.shareAsync(`file://${filepath}`, {
+          mimeType: 'image/png',
+          dialogTitle: 'Share Position',
+        });
+
+        await RNFS.unlink(filepath);
+      } else {
+        // Web: Use Web Share API if available
+        const byteString = atob(base64Image.split(',')[1]);
+        const arrayBuffer = new ArrayBuffer(byteString.length);
+        const uint8Array = new Uint8Array(arrayBuffer);
+        for (let i = 0; i < byteString.length; i += 1) {
+          uint8Array[i] = byteString.charCodeAt(i);
+        }
+
+        const blob = new Blob([uint8Array], { type: 'image/png' });
+        const file = new File([blob], `onekey-position-${Date.now()}.png`, {
+          type: 'image/png',
+        });
+
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Share Position',
+          });
+        } else {
+          // Fallback: download
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `onekey-position-${Date.now()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+      }
+    } catch (error) {
+      // User cancelled share - not an error
+      if (error instanceof Error && error.message?.includes('cancel')) {
+        return;
+      }
+      Toast.error({
+        title: 'Failed to share',
+        message: error instanceof Error ? error.message : undefined,
+      });
+    }
+  }, []);
+
   const copyLink = useCallback(() => {
     if (referralQrCodeUrl) {
       try {
@@ -198,6 +243,7 @@ export function useShareActions(referralQrCodeUrl?: string) {
 
   return {
     saveImage,
+    shareImage,
     copyLink,
     shareToX,
   };
