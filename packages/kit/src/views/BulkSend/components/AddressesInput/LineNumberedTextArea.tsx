@@ -23,6 +23,7 @@ import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import type { LayoutChangeEvent } from 'react-native';
+import { showUploadCSVDialog } from '../UploadCSVDialog';
 
 export type ILineError = {
   lineNumber: number;
@@ -187,8 +188,14 @@ function LineNumberedTextArea({
   const showLineNumbers = showLineNumbersProp;
 
   const handleUpload = useCallback(() => {
-    // TODO: Implement file upload
-    console.log('Upload clicked');
+    showUploadCSVDialog({
+      onUpload: () => {
+        console.log('Upload clicked');
+      },
+      onDownloadTemplate: () => {
+        console.log('Download template clicked');
+      },
+    });
   }, []);
 
   const handleSelectedAccountChange = useCallback(
