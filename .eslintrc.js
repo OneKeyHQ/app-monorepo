@@ -262,18 +262,15 @@ module.exports = {
         },
       ],
     ],
-    '@cspell/spellchecker':
-      typeof process.env.CI !== 'undefined'
-        ? 'off'
-        : [
-            'warn',
-            {
-              checkComments: true,
-              checkStrings: false,
-              checkIdentifiers: true,
-              autoFix: false,
-            },
-          ],
+    '@cspell/spellchecker': [
+      'warn',
+      {
+        checkComments: true,
+        checkStrings: false,
+        checkIdentifiers: true,
+        autoFix: false,
+      },
+    ],
     'props-checker/validator': [
       'error',
       {
