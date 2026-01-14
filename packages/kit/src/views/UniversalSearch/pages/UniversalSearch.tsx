@@ -181,9 +181,10 @@ export function UniversalSearch({
         intl.formatMessage({
           id: ETranslations.global_universal_search_tabs_my_assets,
         }),
-      intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_dapps,
-      }),
+      !platformEnv.isWebDappMode &&
+        intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_dapps,
+        }),
     ].filter(Boolean);
   }, [intl]);
 
