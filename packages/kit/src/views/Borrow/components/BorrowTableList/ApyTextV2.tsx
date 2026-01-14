@@ -46,26 +46,24 @@ function ApyDetailSection({
     <>
       {/* Section Title */}
       {section.title ? (
-        <SizableText
+        <EarnText
+          text={section.title}
           size="$bodySmMedium"
           color="$textSubdued"
-          mt="$4"
           mb="$3.5"
-        >
-          <EarnText text={section.title} />
-        </SizableText>
+        />
       ) : null}
 
       {/* Section Items */}
       <YStack gap="$3.5">
         {section.items.map((item: IBorrowApyDetailItem, index: number) => (
           <XStack key={index} jc="space-between" ai="flex-start">
-            <XStack ai="flex-start" gap="$2.5" flex={1}>
+            <XStack ai="center" gap="$2.5" flex={1}>
               {item.icon ? (
-                <Icon name={item.icon.icon} size="$4" color="$iconSubdued" />
+                <EarnIcon icon={item.icon} size="$4" color="$iconSubdued" />
               ) : null}
               {!item.icon && item.logoURI ? (
-                <Token size="sm" tokenImageUri={item.logoURI} />
+                <Token size="xxs" tokenImageUri={item.logoURI} />
               ) : null}
               <YStack flex={1} gap="$0.5">
                 <EarnText
@@ -84,7 +82,11 @@ function ApyDetailSection({
             </XStack>
             <XStack ai="center" gap="$1">
               {item.value.icon ? <EarnIcon icon={item.value.icon} /> : null}
-              <EarnText text={item.value.text} size="$bodyMd" color="$text" />
+              <EarnText
+                text={item.value.text}
+                size="$bodyMdMedium"
+                color="$text"
+              />
             </XStack>
           </XStack>
         ))}
@@ -102,7 +104,7 @@ function ApyDetailSection({
         />
       ))}
 
-      {showDivider ? <Divider my="$3" /> : null}
+      {showDivider ? <Divider my="$4" /> : null}
     </>
   );
 }
