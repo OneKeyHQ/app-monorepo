@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 import { isNaN, isNil, isNumber } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';

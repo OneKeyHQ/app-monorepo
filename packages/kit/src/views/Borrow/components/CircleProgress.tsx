@@ -26,7 +26,7 @@ export function CircleProgress({
   const finalProgressColor = progressColor ?? defaultProgressColor;
   const finalTrackColor = trackColor ?? defaultTrackColor;
 
-  // eslint-disable-next-line spellcheck/spell-checker
+  // eslint-disable-next-line @cspell/spellchecker
   const { radius, circumference, strokeDashoffset } = useMemo(() => {
     const r = (size - strokeWidth) / 2;
     const c = 2 * Math.PI * r;
@@ -35,7 +35,7 @@ export function CircleProgress({
     return {
       radius: r,
       circumference: c,
-      // eslint-disable-next-line spellcheck/spell-checker
+      // eslint-disable-next-line @cspell/spellchecker
       strokeDashoffset: offset,
     };
   }, [size, strokeWidth, percentage]);
@@ -66,7 +66,7 @@ export function CircleProgress({
           strokeWidth={strokeWidth}
           fill="none"
           strokeDasharray={circumference}
-          // eslint-disable-next-line spellcheck/spell-checker
+          // eslint-disable-next-line @cspell/spellchecker
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
           rotation={-90}

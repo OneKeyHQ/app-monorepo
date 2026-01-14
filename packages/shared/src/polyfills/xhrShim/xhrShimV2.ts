@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/prefer-global-this */
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 // @ts-nocheck
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';

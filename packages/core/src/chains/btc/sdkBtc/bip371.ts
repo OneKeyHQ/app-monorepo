@@ -2,7 +2,7 @@ import { payments } from 'bitcoinjs-lib';
 
 import type { PsbtInput } from 'bip174';
 
-// eslint-disable-next-line spellcheck/spell-checker
+// eslint-disable-next-line @cspell/spellchecker
 // The methods in bip371 cannot be exported in the new version of bitcoinjs-lib, so they are written here.
 
 export const toXOnly = (pubKey: Uint8Array) =>

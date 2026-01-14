@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 import { uniq } from 'lodash';
 import { Platform } from 'react-native';
 

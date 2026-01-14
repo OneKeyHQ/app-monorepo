@@ -65,7 +65,7 @@ function ReceiveOptions({
 
 function ReceiveSelectorContent() {
   const intl = useIntl();
-  // eslint-disable-next-line spellcheck/spell-checker
+  // eslint-disable-next-line @cspell/spellchecker
   const binanceHelpLink = useHelpLink({
     path: 'articles/12553421',
   });
@@ -391,7 +391,7 @@ function ReceiveSelectorContent() {
                         variant="tertiary"
                         childrenAsText={false}
                         onPress={() => {
-                          // eslint-disable-next-line spellcheck/spell-checker
+                          // eslint-disable-next-line @cspell/spellchecker
                           openUrlExternal(binanceHelpLink);
                         }}
                       >

@@ -13,7 +13,7 @@ jobs:
     runs-on: macos-14
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [24.x]
         ruby-version: [2.7.x]
         xcode-version: [15.3]
 

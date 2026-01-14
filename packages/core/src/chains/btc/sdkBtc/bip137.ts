@@ -7,7 +7,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 const SIG_LEN = 65;
 const HEADER_BASE = 27;
 
-// eslint-disable-next-line spellcheck/spell-checker
+// eslint-disable-next-line @cspell/spellchecker
 export function isBech32Address(addr: string): boolean {
   try {
     bech32.decode(addr);
@@ -43,7 +43,7 @@ export function electrumToBip137Header(
   }
   const recId = flagByte & 0b11;
 
-  // eslint-disable-next-line spellcheck/spell-checker
+  // eslint-disable-next-line @cspell/spellchecker
   if (isBech32Address(address)) {
     return recId | 0b1100;
   }

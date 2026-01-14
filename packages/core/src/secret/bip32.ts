@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 // eslint-disable-next-line max-classes-per-file
 import BigNumber from 'bignumber.js';
 

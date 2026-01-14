@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { presetNetworksMap } from '../config/presetNetworks';

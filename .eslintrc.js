@@ -208,7 +208,7 @@ const resolveExtensions = (platform) =>
 
 module.exports = {
   plugins: [
-    'spellcheck',
+    '@cspell',
     'import-path',
     'use-effect-no-deps',
     'ban',
@@ -262,42 +262,15 @@ module.exports = {
         },
       ],
     ],
-    'spellcheck/spell-checker':
-      typeof process.env.CI !== 'undefined'
-        ? 'off'
-        : [
-            1,
-            {
-              'comments': true,
-              'strings': false,
-              'identifiers': true,
-              'lang': 'en_US',
-              'skipWords': require('./development/spellCheckerSkipWords.js'),
-              'skipWordIfMatch': [
-                /(\w|\d){50,}/i, // length>50
-                /bip32/i,
-                /pbkdf2/i,
-                /Secp256k1/i,
-                /googleapis/i,
-                /Erc20/i,
-                /Erc721/i,
-                /Erc1155/i,
-                /protobufjs/i,
-                /boc/i,
-                /seqno/i,
-                /jetton/i,
-                /Nano/i,
-                /Bounceable/i,
-                /scdo/i,
-                /faq/i,
-                /atto/i,
-                /alephium/i,
-                /Preauthorized/i,
-              ],
-              'skipIfMatch': ['http://[^s]*'],
-              'minLength': 4,
-            },
-          ],
+    '@cspell/spellchecker': [
+      'warn',
+      {
+        checkComments: true,
+        checkStrings: false,
+        checkIdentifiers: true,
+        autoFix: false,
+      },
+    ],
     'props-checker/validator': [
       'error',
       {

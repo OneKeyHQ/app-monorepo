@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import axios from 'axios';
 

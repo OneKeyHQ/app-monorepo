@@ -1,5 +1,5 @@
-/* eslint-disable spellcheck/spell-checker */
-// eslint-disable-next-line spellcheck/spell-checker
+/* eslint-disable @cspell/spellchecker */
+// eslint-disable-next-line @cspell/spellchecker
 
 export type IHyperLiquidEIP712Domain = {
   name: string;
@@ -23,7 +23,7 @@ export type IHyperLiquidMessageApproveAgent = {
 };
 
 // https://github.com/hyperliquid-dex/hyperliquid-python-sdk/blob/master/hyperliquid/utils/signing.py#L395
-// eslint-disable-next-line spellcheck/spell-checker
+// eslint-disable-next-line @cspell/spellchecker
 /*
   {"name": "hyperliquidChain", "type": "string"},
   {"name": "maxFeeRate", "type": "string"},

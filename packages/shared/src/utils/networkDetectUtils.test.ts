@@ -1,4 +1,4 @@
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
 import { presetNetworksMap } from '../config/presetNetworks';
 
 import networkDetectUtils from './networkDetectUtils';
