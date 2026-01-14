@@ -1673,6 +1673,7 @@
   "global.nonce_faq": "¿Qué es Nonce?",
   "global.nonce_faq_desc": "Habilitó la visualización de números de serie de transacciones (nonce). Puede editar los números de serie para ajustar el orden de las transacciones de su cuenta actual. Esta es una función avanzada, utilícela con precaución.",
   "global.not_available": "No disponible",
+  "global.not_now": "No ahora",
   "global.notifications": "Notificaciones",
   "global.number_accounts": "{number} Cuentas",
   "global.number_items": "{number} Artículos",
