@@ -1,27 +1,12 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
-import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Icon,
-  SizableText,
-  Skeleton,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
-import {
-  createBorrowRefreshScope,
-  requestBorrowRefresh,
-} from '@onekeyhq/kit/src/views/Borrow/refresh/borrowRefreshCoordinator';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
@@ -126,8 +111,6 @@ export function ManagePositionContent({
   isInModalContext = false,
 }: IManagePositionContentProps) {
   const appNavigation = useAppNavigation();
-  const { gtMd } = useMedia();
-  const intl = useIntl();
 
   const {
     tokenInfo,
@@ -197,17 +180,6 @@ export function ManagePositionContent({
   const noAddressOrAccount = useMemo(
     () => (!accountId && !indexedAccountId) || !earnAccount?.accountAddress,
     [accountId, indexedAccountId, earnAccount?.accountAddress],
-  );
-
-  const borrowRefreshScope = useMemo(
-    () =>
-      createBorrowRefreshScope({
-        accountId: earnAccount?.accountId ?? accountId,
-        networkId,
-        provider,
-        marketAddress,
-      }),
-    [accountId, earnAccount?.accountId, marketAddress, networkId, provider],
   );
 
   // Determine if we should show warning instead of normal content
@@ -366,151 +338,50 @@ export function ManagePositionContent({
     void refreshManageData();
     // Immediately refresh pending transactions after operation
     void refreshPendingRef.current?.();
-    if (isBorrowType) {
-      if (borrowRefreshScope) {
-        requestBorrowRefresh({
-          scope: borrowRefreshScope,
-          reason: 'txSuccess',
-        });
-      }
-    }
     onStakeWithdrawSuccess?.();
     if (isInModalContext) {
       appNavigation.popStack();
     }
   }, [
     refreshManageData,
-    isBorrowType,
-    borrowRefreshScope,
     onStakeWithdrawSuccess,
     isInModalContext,
     appNavigation,
-  ]);
-
-  // Create "View Reserve Details" button for borrow type in mobile modal
-  const viewReserveDetailsButton = useMemo(() => {
-    // Only show on mobile (not desktop)
-    if (
-      !isBorrowType ||
-      !isInModalContext ||
-      gtMd ||
-      !reserveAddress ||
-      !marketAddress
-    ) {
-      return null;
-    }
-
-    const handleViewReserveDetails = () => {
-      BorrowNavigation.pushToBorrowReserveDetails(appNavigation, {
-        networkId,
-        provider,
-        marketAddress,
-        reserveAddress,
-        symbol,
-        logoURI: fallbackTokenImageUri,
-        isModal: isInModalContext,
-        accountId: accountId || undefined,
-        indexedAccountId,
-      });
-    };
-
-    return (
-      <Button
-        mt="$4"
-        w="100%"
-        px="$3.5"
-        py="$3.5"
-        borderRadius="$3"
-        childrenAsText={false}
-        onPress={handleViewReserveDetails}
-      >
-        <XStack w="100%" ai="center" jc="space-between">
-          <SizableText size="$bodyMdMedium" color="$text">
-            {intl.formatMessage({
-              id: ETranslations.defi_view_reserve_details,
-            })}
-          </SizableText>
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$5"
-            color="$iconSubdued"
-          />
-        </XStack>
-      </Button>
-    );
-  }, [
-    isBorrowType,
-    isInModalContext,
-    reserveAddress,
-    marketAddress,
-    networkId,
-    provider,
-    symbol,
-    fallbackTokenImageUri,
-    appNavigation,
-    accountId,
-    indexedAccountId,
-    gtMd,
-    intl,
   ]);
 
   // Create beforeFooter content for stake section
   const stakeBeforeFooter = useMemo(() => {
     // If should show warning (no address or BTC-only firmware), return the warning element
     if (shouldShowWarning) {
-      return (
-        <YStack>
-          {warningElement}
-          {viewReserveDetailsButton}
-        </YStack>
-      );
+      return <YStack>{warningElement}</YStack>;
     }
     if (!isEmpty(alertsStake) || !isEmpty(alerts)) {
       return (
         <YStack>
           <EarnAlert alerts={alerts} />
           <EarnAlert alerts={alertsStake} />
-          {viewReserveDetailsButton}
         </YStack>
       );
     }
-    return viewReserveDetailsButton;
-  }, [
-    shouldShowWarning,
-    warningElement,
-    alertsStake,
-    alerts,
-    viewReserveDetailsButton,
-  ]);
+    return null;
+  }, [shouldShowWarning, warningElement, alertsStake, alerts]);
 
   // Create beforeFooter content for withdraw section
   const withdrawBeforeFooter = useMemo(() => {
     // If should show warning (no address or BTC-only firmware), return the warning element
     if (shouldShowWarning) {
-      return (
-        <YStack>
-          {warningElement}
-          {viewReserveDetailsButton}
-        </YStack>
-      );
+      return <YStack>{warningElement}</YStack>;
     }
     if (!isEmpty(alertsWithdraw) || !isEmpty(alerts)) {
       return (
         <YStack>
           <EarnAlert alerts={alerts} />
           <EarnAlert alerts={alertsWithdraw} />
-          {viewReserveDetailsButton}
         </YStack>
       );
     }
-    return viewReserveDetailsButton;
-  }, [
-    shouldShowWarning,
-    warningElement,
-    alertsWithdraw,
-    alerts,
-    viewReserveDetailsButton,
-  ]);
+    return null;
+  }, [shouldShowWarning, warningElement, alertsWithdraw, alerts]);
 
   // Create beforeFooter content for special layout (USDe, ADA)
   const specialBeforeFooter = useMemo(() => {

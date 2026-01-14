@@ -6,6 +6,8 @@ type IBorrowListSkeletonProps<T> = {
   columns: ITableColumn<T>[];
   rowGap?: string;
   itemCount?: number;
+  /** Match empty state height when no data */
+  matchEmptyHeight?: boolean;
 };
 
 function parseFlexShorthand(flex: string): {
@@ -67,38 +69,57 @@ function getColumnFlexStyle<T>(column: ITableColumn<T>) {
   return style;
 }
 
+/** Skeleton that matches Empty component height (p="$5" + title height) */
+export const EmptyStateSkeleton = () => (
+  <YStack p="$5" ai="center" jc="center">
+    <Skeleton w={160} h="$5" borderRadius="$2" />
+  </YStack>
+);
+
 export const BorrowListSkeleton = <T,>({
   columns,
   rowGap,
   itemCount = 3,
-}: IBorrowListSkeletonProps<T>) => (
-  <YStack gap="$2">
-    <ListItem gap={rowGap ?? '$3'}>
-      {columns.map((column, columnIndex) => (
-        <Stack key={column.key} {...getColumnFlexStyle(column)}>
-          <Skeleton w={columnIndex === 0 ? 120 : 80} h="$3" borderRadius="$2" />
-        </Stack>
-      ))}
-    </ListItem>
-    {Array.from({ length: itemCount }).map((_, rowIndex) => (
-      <ListItem key={rowIndex} gap={rowGap ?? '$3'}>
+  matchEmptyHeight = false,
+}: IBorrowListSkeletonProps<T>) => {
+  // When matching empty height, show a single centered skeleton
+  if (matchEmptyHeight) {
+    return <EmptyStateSkeleton />;
+  }
+
+  return (
+    <YStack gap="$2">
+      <ListItem gap={rowGap ?? '$3'}>
         {columns.map((column, columnIndex) => (
           <Stack key={column.key} {...getColumnFlexStyle(column)}>
-            <YStack gap="$1">
-              <Skeleton
-                w={columnIndex === 0 ? 140 : 90}
-                h="$4"
-                borderRadius="$2"
-              />
-              <Skeleton
-                w={columnIndex === 0 ? 100 : 60}
-                h="$3"
-                borderRadius="$2"
-              />
-            </YStack>
+            <Skeleton
+              w={columnIndex === 0 ? 120 : 80}
+              h="$3"
+              borderRadius="$2"
+            />
           </Stack>
         ))}
       </ListItem>
-    ))}
-  </YStack>
-);
+      {Array.from({ length: itemCount }).map((_, rowIndex) => (
+        <ListItem key={rowIndex} gap={rowGap ?? '$3'}>
+          {columns.map((column, columnIndex) => (
+            <Stack key={column.key} {...getColumnFlexStyle(column)}>
+              <YStack gap="$1">
+                <Skeleton
+                  w={columnIndex === 0 ? 140 : 90}
+                  h="$4"
+                  borderRadius="$2"
+                />
+                <Skeleton
+                  w={columnIndex === 0 ? 100 : 60}
+                  h="$3"
+                  borderRadius="$2"
+                />
+              </YStack>
+            </Stack>
+          ))}
+        </ListItem>
+      ))}
+    </YStack>
+  );
+};
