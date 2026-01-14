@@ -229,10 +229,13 @@ export const JUICEBOX_CONFIG: IJuiceBoxConfigJSON = {
     {
       id: '37ce3a59ff08d57b77bac0b8451ff2d8',
       address: 'https://production-juicebox.onekey-safe.com',
+      // address: 'https://career-publisher-interaction-cfr.trycloudflare.com',
     },
     {
       id: '6b47cc201434428be7beee2190f95685',
       address: 'https://juice.rpcbox.com',
+      // address:
+      // 'https://created-portsmouth-smallest-eligibility.trycloudflare.com',
     },
   ],
   register_threshold: 2, // At least 2 realms must succeed to register
