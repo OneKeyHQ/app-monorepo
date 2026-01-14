@@ -6,7 +6,6 @@ import {
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
-  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -22,7 +21,6 @@ export function PerpsAccountNumberValue({
   textSize?: FontSizeTokens;
 }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const userAddress = selectedAccount.accountAddress;
@@ -30,11 +28,7 @@ export function PerpsAccountNumberValue({
     return <Skeleton width={skeletonWidth} height={16} />;
   }
 
-  if (
-    !accountSummary ||
-    perpsAccountStatus?.accountNotSupport ||
-    !userAddress
-  ) {
+  if (!accountSummary || !userAddress) {
     return (
       <SizableText size={textSize} color="$textSubdued">
         N/A

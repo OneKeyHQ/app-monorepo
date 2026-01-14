@@ -267,12 +267,15 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
           }}
         />
       ),
-      showExitButton: false,
+      showExitButton: true,
       disableDrag: true,
       dismissOnOverlayPress: false,
       showFooter: false,
       showCancelButton: false,
       showConfirmButton: false,
+      onClose: () => {
+        resolve(false);
+      },
     });
   });
 }
