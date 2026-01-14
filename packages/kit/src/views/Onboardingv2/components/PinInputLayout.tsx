@@ -203,7 +203,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                 <YStack
                   gap="$2"
                   w="100%"
-                  y={platformEnv.isNative ? '$5' : '$0'}
+                  y={platformEnv.isNativeIOS ? '$5' : '$0'}
                 >
                   <Button
                     size="large"
