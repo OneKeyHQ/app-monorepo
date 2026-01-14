@@ -27,19 +27,28 @@ export const useBorrowPendingTxs = ({
   networkId,
   provider,
   onRefresh,
+  isActive = true,
 }: {
   accountId?: string;
   networkId?: string;
   provider?: string;
   onRefresh?: () => void;
+  isActive?: boolean;
 }) => {
   const onRefreshRef = useRef(onRefresh);
+  const isActiveRef = useRef(isActive);
+  const pendingTxsRef = useRef<IBorrowPendingTx[]>([]);
+  const accountMetaRef = useRef<IAccountMeta | null>(null);
   useEffect(() => {
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
 
   const { result: pollingInterval } = usePromiseResult(
     async () => {
+      if (!isActiveRef.current) return DEFAULT_POLLING_INTERVAL;
       if (!networkId) return DEFAULT_POLLING_INTERVAL;
       try {
         const time =
@@ -51,12 +60,16 @@ export const useBorrowPendingTxs = ({
         return DEFAULT_POLLING_INTERVAL;
       }
     },
-    [networkId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [networkId, isActive],
     { initResult: DEFAULT_POLLING_INTERVAL },
   );
 
   const { result: accountMeta } = usePromiseResult<IAccountMeta | null>(
     async () => {
+      if (!isActiveRef.current) {
+        return accountMetaRef.current;
+      }
       if (!accountId || !networkId) {
         return null;
       }
@@ -76,12 +89,16 @@ export const useBorrowPendingTxs = ({
         return null;
       }
     },
-    [accountId, networkId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountId, networkId, isActive],
     { initResult: null },
   );
 
   const { result: pendingTxs, run: refreshPendingTxs } = usePromiseResult(
     async () => {
+      if (!isActiveRef.current) {
+        return pendingTxsRef.current;
+      }
       if (!accountMeta) {
         return [];
       }
@@ -112,7 +129,8 @@ export const useBorrowPendingTxs = ({
         return [];
       }
     },
-    [accountMeta, provider],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountMeta, provider, isActive],
     {
       initResult: [],
       revalidateOnFocus: true,
@@ -121,9 +139,12 @@ export const useBorrowPendingTxs = ({
 
   const pendingCount = pendingTxs.length;
   const isPending = pendingCount > 0;
-  const prevPendingCount = usePrevious(pendingCount);
+  const prevIsPending = usePrevious(isPending);
 
   const refreshPendingWithHistory = useCallback(async () => {
+    if (!isActiveRef.current) {
+      return;
+    }
     if (!accountMeta) {
       return;
     }
@@ -136,24 +157,37 @@ export const useBorrowPendingTxs = ({
 
   usePromiseResult(
     async () => {
-      if (!isPending) return;
+      if (!isActiveRef.current || !isPending) return;
       await refreshPendingWithHistory();
     },
-    [isPending, refreshPendingWithHistory],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isPending, refreshPendingWithHistory, isActive],
     {
-      pollingInterval,
+      pollingInterval: isActive ? pollingInterval : undefined,
     },
   );
 
+  // Trigger onRefresh callback when all pending transactions complete
+  // Use 3-second delay to allow backend data sync after transaction confirmation
   useEffect(() => {
-    if (prevPendingCount !== undefined && pendingCount < prevPendingCount) {
+    if (!isPending && prevIsPending) {
       const timeoutId = setTimeout(() => {
         onRefreshRef.current?.();
-      }, timerUtils.getTimeDurationMs({ seconds: 1 }));
+      }, timerUtils.getTimeDurationMs({ seconds: 3 }));
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [pendingCount, prevPendingCount]);
+  }, [isPending, prevIsPending]);
+
+  useEffect(() => {
+    if (accountMeta) {
+      accountMetaRef.current = accountMeta;
+    }
+  }, [accountMeta]);
+
+  useEffect(() => {
+    pendingTxsRef.current = pendingTxs;
+  }, [pendingTxs]);
 
   return {
     pendingTxs,

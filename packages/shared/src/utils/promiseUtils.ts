@@ -158,6 +158,7 @@ export class PromiseTarget<T> {
   // would initialize _resolveFn to undefined AFTER the Promise executor
   // had already set it, causing the Promise to never resolve.
   _resolveFn: ((value: T) => void) | undefined;
+
   _rejectFn: ((error: Error | IOneKeyError) => void) | undefined;
 
   ready = new Promise<T>((resolve, reject) => {
