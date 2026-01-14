@@ -6,6 +6,10 @@ const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();
 
 console.log(`[${getTimestamp()}] TypeScript check started...`);
+const failToExit = (message) => {
+  console.log(`[${getTimestamp()}] TypeScript check failed. (${duration}s)`);
+  exit(1);
+};
 
 function handleProblems(result) {
   let basicErrorCount = 0;
@@ -25,7 +29,7 @@ function handleProblems(result) {
         )
         .join('\n'),
     );
-    exit(1);
+    failToExit();
   }
 }
 
