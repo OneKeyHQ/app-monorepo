@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
@@ -14,6 +15,7 @@ import {
   YStack,
   rootNavigationRef,
   useTabContainerWidth,
+  useTheme,
 } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
@@ -78,6 +80,7 @@ const EarnMainTabsComponent = ({
   header,
 }: IEarnMainTabsProps) => {
   const intl = useIntl();
+  const theme = useTheme();
   const tabsRef = useRef<ITabContainerRef>(null);
   const [hideSmallAssets, setHideSmallAssets] = useState(false);
 
@@ -224,10 +227,23 @@ const EarnMainTabsComponent = ({
   const mergedContainerProps = useMemo<
     Partial<CollapsibleProps> | undefined
   >(() => {
-    if (!header) return containerProps;
+    const mergedHeaderContainerStyle = StyleSheet.flatten(
+      containerProps?.headerContainerStyle,
+    );
+    const headerContainerStyle = {
+      backgroundColor: theme.bgApp.val,
+      ...(mergedHeaderContainerStyle ?? {}),
+    };
+    if (!header) {
+      return {
+        ...(containerProps ?? {}),
+        headerContainerStyle,
+      };
+    }
     const renderHeader = containerProps?.renderHeader;
     return {
       ...(containerProps ?? {}),
+      headerContainerStyle,
       renderHeader: (props: TabBarProps<string>) => (
         <YStack>
           {header}
@@ -235,7 +251,7 @@ const EarnMainTabsComponent = ({
         </YStack>
       ),
     };
-  }, [containerProps, header]);
+  }, [containerProps, header, theme.bgApp.val]);
 
   return (
     <Tabs.Container

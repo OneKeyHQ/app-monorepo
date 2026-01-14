@@ -39,9 +39,13 @@ function PageProvider({
   onClose,
   onCancel,
   onConfirm,
+  shouldRedirect,
+  onRedirected,
 }: IPageProps) {
   const footerRef = useRef<IPageFooterRef>({});
   const closeExtraRef = useRef<{ flag?: string }>({});
+
+  const redirect = useMemo(() => !!shouldRedirect?.(), [shouldRedirect]);
   const pagePortalId = useMemo(() => {
     return Math.random().toString();
   }, []);
@@ -57,20 +61,25 @@ function PageProvider({
     [pagePortalId, safeAreaEnabled, scrollEnabled, scrollProps],
   );
 
-  const isEnablePageLifeCycle = onMounted || onUnmounted || onClose || onCancel;
+  const isEnablePageLifeCycle =
+    onMounted || onUnmounted || onClose || onCancel || onRedirected;
 
   return (
     <>
-      <PageContext.Provider value={value}>
-        <>
-          <PageContainer lazyLoad={lazyLoad} fullPage={fullPage}>
-            {children}
-          </PageContainer>
-          <PagePortal pagePortalId={pagePortalId} />
-        </>
-      </PageContext.Provider>
+      {redirect ? null : (
+        <PageContext.Provider value={value}>
+          <>
+            <PageContainer lazyLoad={lazyLoad} fullPage={fullPage}>
+              {children}
+            </PageContainer>
+            <PagePortal pagePortalId={pagePortalId} />
+          </>
+        </PageContext.Provider>
+      )}
       {isEnablePageLifeCycle ? (
         <PageLifeCycle
+          shouldRedirect={shouldRedirect}
+          onRedirected={onRedirected}
           onMounted={onMounted}
           onUnmounted={onUnmounted}
           onCancel={onCancel}
