@@ -23,6 +23,8 @@ type IBorrowTableListProps<T> = {
   listProps?: Omit<ITableListProps<T>, 'columns' | 'data'>;
   emptyContent: string;
   onPressRow?: (item: T, index: number) => void;
+  defaultSortKey?: string;
+  defaultSortDirection?: 'asc' | 'desc';
 };
 
 const BorrowTableList = <T,>({
@@ -32,6 +34,8 @@ const BorrowTableList = <T,>({
   listProps = {},
   emptyContent,
   onPressRow,
+  defaultSortKey,
+  defaultSortDirection,
 }: IBorrowTableListProps<T>) => {
   const hasData = data && data.length > 0;
 
@@ -51,6 +55,8 @@ const BorrowTableList = <T,>({
       tableLayout
       withHeader
       onPressRow={onPressRow}
+      defaultSortKey={defaultSortKey}
+      defaultSortDirection={defaultSortDirection}
       SkeletonComponent={
         <BorrowListSkeleton columns={columns} rowGap={listProps.rowGap} />
       }
