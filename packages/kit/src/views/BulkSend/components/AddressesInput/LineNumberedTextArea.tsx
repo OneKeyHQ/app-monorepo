@@ -260,7 +260,6 @@ function LineNumberedTextArea({
               >
                 {(hasContent ? lines : ['']).map((_, index) => {
                   const lineNumber = index + 1;
-                  const hasError = errorLineNumbers.has(lineNumber);
                   const lineHeight = lineHeights[index] || LINE_HEIGHT;
                   return (
                     <Stack
@@ -272,7 +271,7 @@ function LineNumberedTextArea({
                       <SizableText
                         fontSize={FONT_SIZE}
                         lineHeight={LINE_HEIGHT}
-                        color={hasError ? '$textCritical' : '$textSubdued'}
+                        color="textSubdued"
                       >
                         {lineNumber}
                       </SizableText>
@@ -338,6 +337,9 @@ function LineNumberedTextArea({
                 style={styles.textInput}
                 selectionColor={textColor}
                 cursorColor={textColor}
+                spellCheck={false}
+                autoCorrect={false}
+                autoCapitalize="none"
               />
             </Stack>
           </XStack>

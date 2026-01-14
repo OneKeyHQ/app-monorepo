@@ -23,6 +23,7 @@ import {
 } from '../components/BulkSendContext';
 import BulkSendHeader from '../components/BulkSendHeader';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import ReceiverAddressesInput from '../components/AddressesInput/ReceiverAddressesInput';
 
 function BaseBulkSendAddressesInput() {
   const route = useAppRoute<
@@ -234,6 +235,7 @@ function BaseBulkSendAddressesInput() {
             <AssetSelectorTrigger />
             <Form form={form}>
               <SenderAddressesInput />
+              <ReceiverAddressesInput />
             </Form>
           </YStack>
         </BulkSendContentWrapper>

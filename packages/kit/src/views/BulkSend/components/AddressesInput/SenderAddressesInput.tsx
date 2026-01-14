@@ -45,7 +45,7 @@ function SenderAddressesInput() {
     async (_value: string) => {
       if (!_value) {
         setAddressBadges([]);
-        return 'Sender address is required';
+        return 'Sender address(es) is required';
       }
 
       const result =

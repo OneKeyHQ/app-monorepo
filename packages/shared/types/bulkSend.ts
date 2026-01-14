@@ -3,3 +3,8 @@ export enum EBulkSendType {
   ManyToOne = 'manyToOne',
   ManyToMany = 'manyToMany',
 }
+
+export enum EReceiverMode {
+  AddressOnly = 'addressOnly',
+  AddressAndAmount = 'addressAndAmount',
+}
