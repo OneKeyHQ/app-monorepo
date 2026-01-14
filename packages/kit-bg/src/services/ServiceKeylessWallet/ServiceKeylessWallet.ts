@@ -2154,7 +2154,9 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   private async getAllKeylessWallets(): Promise<IDBWallet[]> {
-    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
+    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets({
+      refillWalletInfo: true,
+    });
     return wallets.filter((w) => w.isKeyless);
   }
 

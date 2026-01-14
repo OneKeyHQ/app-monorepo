@@ -533,6 +533,7 @@ export default class ServicePassword extends ServiceBase {
         newPassword,
       });
       await this.backgroundApi.serviceAddressBook.finishUpdateHash();
+      await timerUtils.wait(2000);
       return newPassword;
     } catch (e) {
       try {
