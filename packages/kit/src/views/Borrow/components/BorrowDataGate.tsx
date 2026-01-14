@@ -60,7 +60,8 @@ export const BorrowDataGate = ({
   const prevFetchKeyRef = useRef<string | null>(null);
   const lastReservesUpdatedAtRef = useRef<number | null>(null);
   const reservesResultRef = useRef<IBorrowReserveItem | undefined>(undefined);
-  const forceReservesRefreshRef = useRef(false);
+  const forceRefreshCounterRef = useRef(0);
+  const lastForceRefreshCounterRef = useRef(0);
   const wasActiveRef = useRef(isViewActive);
   const accountId = earnAccount?.accountId ?? earnAccount?.account?.id;
   const activeAccountId = activeAccount.account?.id;
@@ -99,11 +100,13 @@ export const BorrowDataGate = ({
       const lastUpdatedAt = lastReservesUpdatedAtRef.current;
       const isStale =
         !lastUpdatedAt || Date.now() - lastUpdatedAt > BORROW_STALE_TTL;
-      const shouldFetch = forceReservesRefreshRef.current || isStale;
+      const shouldForceRefresh =
+        forceRefreshCounterRef.current > lastForceRefreshCounterRef.current;
+      const shouldFetch = shouldForceRefresh || isStale;
       if (!shouldFetch) {
         return reservesResultRef.current;
       }
-      forceReservesRefreshRef.current = false;
+      lastForceRefreshCounterRef.current = forceRefreshCounterRef.current;
       const result = await fetchReserves({
         provider: marketProvider,
         networkId: marketNetworkId,
@@ -231,7 +234,7 @@ export const BorrowDataGate = ({
 
   const refreshReservesWithForce = useMemo(() => {
     return async () => {
-      forceReservesRefreshRef.current = true;
+      forceRefreshCounterRef.current += 1;
       await refreshReserves();
     };
   }, [refreshReserves]);
