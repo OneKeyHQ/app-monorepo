@@ -36,16 +36,16 @@ Warnings typically fall into these categories:
 1. **Evaluate the word**: Is it a legitimate technical term or a typo?
 
 2. **For legitimate technical terms**, add to skip list:
-   ```javascript
-   // File: development/spellCheckerSkipWords.js
-   // Add at the end of the array before ];
-   'newTechnicalTerm',
+   ```text
+   # File: development/spellCheckerSkipWords.txt
+   # Add the word on a new line at the end of the file
+   newTechnicalTerm
    ```
 
-3. **For known typos** that can't be fixed (e.g., in translation keys), add with TODO comment:
-   ```javascript
-   // TODO: Known typo - exsited -> existed (ETranslations.some_key)
-   'exsited',
+3. **For known typos** that can't be fixed (e.g., in translation keys), add with a comment above:
+   ```text
+   # Known typo - exsited -> existed (ETranslations.some_key)
+   exsited
    ```
 
 4. **Common legitimate terms to add**:
@@ -124,10 +124,10 @@ NODE_OPTIONS="--max-old-space-size=8192" yarn lint:only 2>&1 | tail -50
 ## Common Patterns in This Codebase
 
 ### Translation Key Typos
-Translation enum keys (e.g., `ETranslations.perp_invaild_tp_sl`) cannot be easily renamed as they're managed externally. Add to skip list with TODO:
-```javascript
-// TODO: Known typo in translation key - invaild -> invalid
-'invaild',
+Translation enum keys (e.g., `ETranslations.perp_invaild_tp_sl`) cannot be easily renamed as they're managed externally. Add to skip list with a comment:
+```text
+# Known typo in translation key - invaild -> invalid
+invaild
 ```
 
 ### Provider API Methods
@@ -156,7 +156,7 @@ const { used, unused: _unused } = usePromiseResult(...);
 
 2. **Check if word is in skip list** before adding:
    ```bash
-   grep -i "wordToCheck" development/spellCheckerSkipWords.js
+   grep -i "wordToCheck" development/spellCheckerSkipWords.txt
    ```
 
 3. **For bulk fixes**, use Task agents to parallelize work across multiple files
@@ -168,5 +168,5 @@ const { used, unused: _unused } = usePromiseResult(...);
 
 ## Files Modified During Lint Fixes
 
-- `development/spellCheckerSkipWords.js` - Add technical terms and known typos
+- `development/spellCheckerSkipWords.txt` - Add technical terms and known typos (one word per line, use `#` for comments)
 - Various `.ts` and `.tsx` files - Fix unused variables and imports
