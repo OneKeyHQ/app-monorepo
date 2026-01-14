@@ -57,13 +57,16 @@ export function TransactionsHistory({
   networkId,
   onScrollEnd,
 }: ITransactionsHistoryProps) {
-  const { websocketConfig } = useTokenDetail();
+  const { websocketConfig, isNative } = useTokenDetail();
   const isVisible = useRouteIsFocused();
   const { gtXl } = useMedia();
   const currencyInfo = useCurrency();
 
+  // Enable polling mode for native tokens (which don't have WebSocket support)
+  // or for web non-xl screens without WebSocket txs enabled
   const normalMode =
-    !platformEnv.isNative && !gtXl && !(websocketConfig?.txs ?? false);
+    isNative ||
+    (!platformEnv.isNative && !gtXl && !(websocketConfig?.txs ?? false));
 
   const intl = useIntl();
   const {
