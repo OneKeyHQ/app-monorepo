@@ -437,7 +437,7 @@ export function UniversalBorrowSupply({
                         text={
                           transactionConfirmation.healthFactor.latest?.title
                         }
-                        size="$headingLg"
+                        size="$headingMd"
                       />
                     </>
                   ) : null}
@@ -466,11 +466,13 @@ export function UniversalBorrowSupply({
               <YStack ai="flex-end">
                 <EarnText
                   text={transactionConfirmation.mySupply.current?.title}
-                  size="$headingLg"
+                  size="$headingMd"
+                  opacity={transactionConfirmation.mySupply.latest ? 0.5 : 1}
                 />
                 <EarnText
                   text={transactionConfirmation.mySupply.current?.description}
                   size="$bodySmMedium"
+                  opacity={transactionConfirmation.mySupply.latest ? 0.5 : 1}
                 />
               </YStack>
               {transactionConfirmation.mySupply.latest ? (
@@ -480,7 +482,7 @@ export function UniversalBorrowSupply({
                 <YStack ai="flex-end">
                   <EarnText
                     text={transactionConfirmation.mySupply.latest?.title}
-                    size="$headingLg"
+                    size="$headingMd"
                   />
                   <EarnText
                     text={transactionConfirmation.mySupply.latest?.description}

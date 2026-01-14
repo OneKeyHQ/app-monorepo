@@ -403,7 +403,7 @@ export function UniversalBorrowBorrow({
                           text={
                             transactionConfirmation.healthFactor.latest?.title
                           }
-                          size="$headingLg"
+                          size="$headingMd"
                         />
                       </>
                     ) : null}
@@ -432,11 +432,13 @@ export function UniversalBorrowBorrow({
                 <YStack ai="flex-end">
                   <EarnText
                     text={transactionConfirmation.myBorrow.current?.title}
-                    size="$headingLg"
+                    size="$headingMd"
+                    opacity={transactionConfirmation.myBorrow.latest ? 0.5 : 1}
                   />
                   <EarnText
                     text={transactionConfirmation.myBorrow.current?.description}
                     size="$bodySmMedium"
+                    opacity={transactionConfirmation.myBorrow.latest ? 0.5 : 1}
                   />
                 </YStack>
                 {transactionConfirmation.myBorrow.latest ? (
@@ -450,7 +452,7 @@ export function UniversalBorrowBorrow({
                   <YStack ai="flex-end">
                     <EarnText
                       text={transactionConfirmation.myBorrow.latest?.title}
-                      size="$headingLg"
+                      size="$headingMd"
                     />
                     <EarnText
                       text={

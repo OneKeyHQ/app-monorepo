@@ -464,7 +464,7 @@ export function UniversalBorrowRepay({
                   <XStack ai="center" gap="$3">
                     <EarnText
                       text={transactionConfirmation.healthFactor.current?.title}
-                      size="$headingLg"
+                      size="$headingMd"
                       opacity={
                         transactionConfirmation.healthFactor.latest ? 0.5 : 1
                       }
@@ -480,7 +480,7 @@ export function UniversalBorrowRepay({
                           text={
                             transactionConfirmation.healthFactor.latest?.title
                           }
-                          size="$headingLg"
+                          size="$headingMd"
                         />
                       </>
                     ) : null}
@@ -509,11 +509,13 @@ export function UniversalBorrowRepay({
                 <YStack ai="flex-end">
                   <EarnText
                     text={transactionConfirmation.myBorrow.current?.title}
-                    size="$headingLg"
+                    size="$headingMd"
+                    opacity={transactionConfirmation.myBorrow.latest ? 0.5 : 1}
                   />
                   <EarnText
                     text={transactionConfirmation.myBorrow.current?.description}
                     size="$bodySmMedium"
+                    opacity={transactionConfirmation.myBorrow.latest ? 0.5 : 1}
                   />
                 </YStack>
                 {transactionConfirmation.myBorrow.latest ? (
@@ -527,7 +529,7 @@ export function UniversalBorrowRepay({
                   <YStack ai="flex-end">
                     <EarnText
                       text={transactionConfirmation.myBorrow.latest?.title}
-                      size="$headingLg"
+                      size="$headingMd"
                     />
                     <EarnText
                       text={
