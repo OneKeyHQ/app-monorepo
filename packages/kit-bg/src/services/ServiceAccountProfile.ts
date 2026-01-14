@@ -551,7 +551,12 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
 
-    if (!result.similarAddress && enableCheckSimilarAddressInAddressBook) {
+    if (
+      !result.similarAddress &&
+      !result.addressBookId &&
+      !result.walletAccountId &&
+      enableCheckSimilarAddressInAddressBook
+    ) {
       const addressBookItems =
         await this.backgroundApi.serviceAddressBook.dangerouslyGetItemsWithoutSafeCheck(
           {
