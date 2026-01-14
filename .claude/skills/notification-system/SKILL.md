@@ -293,6 +293,23 @@ Available local params:
 - `{local_networkId}` - Current network ID
 - `{local_walletId}` - Current wallet ID
 
+#### Generate All Available Routes
+
+Run the following command to generate a complete list of all navigable routes with ready-to-use Mode 1 JSON payloads:
+
+```bash
+npx tsx scripts/extract-routes.ts
+```
+
+This will generate:
+- `build/routes/ROUTES.md` - Markdown documentation with all routes and their parameters
+- `build/routes/routes.json` - JSON format for programmatic access
+
+Each route entry includes:
+- Required and optional parameters
+- Pre-filled `{local_*}` template variables for common params
+- Complete Mode 1 JSON payload ready to copy
+
 #### Mode 2: Dialog
 
 ```json
