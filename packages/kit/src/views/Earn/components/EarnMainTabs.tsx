@@ -14,6 +14,7 @@ import {
   YStack,
   rootNavigationRef,
   useTabContainerWidth,
+  useTheme,
 } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
@@ -78,6 +79,7 @@ const EarnMainTabsComponent = ({
   header,
 }: IEarnMainTabsProps) => {
   const intl = useIntl();
+  const theme = useTheme();
   const tabsRef = useRef<ITabContainerRef>(null);
   const [hideSmallAssets, setHideSmallAssets] = useState(false);
 
@@ -224,10 +226,20 @@ const EarnMainTabsComponent = ({
   const mergedContainerProps = useMemo<
     Partial<CollapsibleProps> | undefined
   >(() => {
-    if (!header) return containerProps;
+    const headerContainerStyle = [
+      { backgroundColor: theme.bgApp.val },
+      containerProps?.headerContainerStyle,
+    ];
+    if (!header) {
+      return {
+        ...(containerProps ?? {}),
+        headerContainerStyle,
+      };
+    }
     const renderHeader = containerProps?.renderHeader;
     return {
       ...(containerProps ?? {}),
+      headerContainerStyle,
       renderHeader: (props: TabBarProps<string>) => (
         <YStack>
           {header}
@@ -235,7 +247,7 @@ const EarnMainTabsComponent = ({
         </YStack>
       ),
     };
-  }, [containerProps, header]);
+  }, [containerProps, header, theme.bgApp.val]);
 
   return (
     <Tabs.Container
