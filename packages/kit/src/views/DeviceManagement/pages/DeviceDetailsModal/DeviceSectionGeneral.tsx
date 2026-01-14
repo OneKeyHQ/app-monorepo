@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Select, Switch, XStack } from '@onekeyhq/components';
@@ -29,10 +30,13 @@ import { ListItemGroup } from '../ListItemGroup';
 const NEVER_LOCK_VALUE = 268_435_456;
 const LOCKED_VALUE = 0;
 
-export function LanguageListItem() {
+export function LanguageListItem({
+  languageOptions,
+}: {
+  languageOptions: Array<{ label: string; value: string }>;
+}) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
-  const [deviceType] = useDeviceTypeAtom();
 
   const [language] = useDeviceLanguageAtom();
 
@@ -41,25 +45,12 @@ export function LanguageListItem() {
     onAction: actions.updateLanguage,
   });
 
-  const { result: languageOptions } = usePromiseResult(async () => {
-    if (!deviceType) return [];
-    const options = await deviceUtils.getLanguageConfig({ deviceType });
-    return options.map((option) => {
-      return {
-        label: option.label,
-        value: option.code,
-      };
-    });
-  }, [deviceType]);
-
   const { displayLabel } = useMemo(() => {
     const label =
       languageOptions?.find((o) => o.value === stateful.value)?.label ||
       intl.formatMessage({ id: ETranslations.global_unknown });
     return { displayLabel: label };
   }, [stateful.value, languageOptions, intl]);
-
-  if (!languageOptions || languageOptions.length === 0) return null;
 
   return (
     <Select
@@ -102,46 +93,19 @@ export function LanguageListItem() {
   );
 }
 
-export function AutoLockListItem() {
+export function AutoLockListItem({
+  autoLockOptions,
+}: {
+  autoLockOptions: Array<{ label: string; value: number }>;
+}) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
-  const [deviceType] = useDeviceTypeAtom();
 
   const [autoLockDelayMs] = useDeviceAutoLockDelayMsAtom();
   const stateful = useStatefulAction<number>({
     value: autoLockDelayMs || 0,
     onAction: actions.updateAutoLockDelayMs,
   });
-
-  const { result: autoLockOptions } = usePromiseResult(async () => {
-    if (!deviceType) return [];
-    const options = await deviceUtils.getAutoLockOptions({ deviceType });
-    return options.map((option) => {
-      const value = timerUtils.getTimeDurationMs(option);
-      if (
-        option.seconds === 0 &&
-        option.minute === 0 &&
-        option.hour === 0 &&
-        option.day === 0
-      ) {
-        return {
-          label: intl.formatMessage({ id: ETranslations.global_never }),
-          value: NEVER_LOCK_VALUE,
-        };
-      }
-
-      const label = option.seconds
-        ? intl.formatMessage(
-            { id: ETranslations.earn_number_seconds },
-            { number: option.seconds },
-          )
-        : intl.formatMessage(
-            { id: ETranslations.earn_number_minutes },
-            { number: option.minute },
-          );
-      return { label, value };
-    });
-  }, [deviceType, intl]);
 
   const { displayLabel } = useMemo(() => {
     const locked = stateful.value === LOCKED_VALUE;
@@ -154,13 +118,12 @@ export function AutoLockListItem() {
       label = intl.formatMessage({ id: ETranslations.global_never });
     } else {
       const option = autoLockOptions?.find((o) => o.value === stateful.value);
-      label = option?.label || `${(stateful.value || 0) / 1000}s`;
+      const seconds = new BigNumber(stateful.value).dividedBy(1000).toFixed();
+      label = option?.label || `${seconds}s`;
     }
 
     return { displayLabel: label, isLocked: locked };
   }, [stateful.value, autoLockOptions, intl]);
-
-  if (!autoLockOptions || autoLockOptions.length === 0) return null;
 
   return (
     <Select
@@ -203,45 +166,19 @@ export function AutoLockListItem() {
   );
 }
 
-export function AutoShutDownListItem() {
+export function AutoShutDownListItem({
+  autoShutDownOptions,
+}: {
+  autoShutDownOptions: Array<{ label: string; value: number }>;
+}) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
-  const [deviceType] = useDeviceTypeAtom();
 
   const [autoShutDownDelayMs] = useDeviceAutoShutDownDelayMsAtom();
   const stateful = useStatefulAction<number>({
     value: autoShutDownDelayMs || 0,
     onAction: actions.updateAutoShutDownDelayMs,
   });
-
-  const { result: autoShutDownOptions } = usePromiseResult(async () => {
-    if (!deviceType) return [];
-    const options = await deviceUtils.getAutoShutDownOptions({ deviceType });
-    return options.map((option) => {
-      const value = timerUtils.getTimeDurationMs(option);
-      if (
-        option.seconds === 0 &&
-        option.minute === 0 &&
-        option.hour === 0 &&
-        option.day === 0
-      ) {
-        return {
-          label: intl.formatMessage({ id: ETranslations.global_never }),
-          value: NEVER_LOCK_VALUE,
-        };
-      }
-      const label = option.seconds
-        ? intl.formatMessage(
-            { id: ETranslations.earn_number_seconds },
-            { number: option.seconds },
-          )
-        : intl.formatMessage(
-            { id: ETranslations.earn_number_minutes },
-            { number: option.minute },
-          );
-      return { label, value };
-    });
-  }, [deviceType, intl]);
 
   const { displayLabel } = useMemo(() => {
     const locked = stateful.value === LOCKED_VALUE;
@@ -256,13 +193,12 @@ export function AutoShutDownListItem() {
       const option = autoShutDownOptions?.find(
         (o) => o.value === stateful.value,
       );
-      label = option?.label || `${(stateful.value || 0) / 1000}s`;
+      const seconds = new BigNumber(stateful.value).dividedBy(1000).toFixed();
+      label = option?.label || `${seconds}s`;
     }
 
     return { displayLabel: label, isLocked: locked };
   }, [stateful.value, autoShutDownOptions, intl]);
-
-  if (!autoShutDownOptions || autoShutDownOptions.length === 0) return null;
 
   return (
     <Select
@@ -346,6 +282,87 @@ function DeviceSectionGeneral() {
   const navigation = useAppNavigation();
 
   const [deviceMeta] = useDeviceMetaStaticAtom();
+  const [deviceType] = useDeviceTypeAtom();
+
+  // Load and format language options
+  const { result: languageOptions } = usePromiseResult(async () => {
+    if (!deviceType) return [];
+    const options = await deviceUtils.getLanguageConfig({ deviceType });
+    return options.map((option) => ({
+      label: option.label,
+      value: option.code,
+    }));
+  }, [deviceType]);
+
+  // Load and format auto lock options
+  const { result: autoLockOptions } = usePromiseResult(async () => {
+    if (!deviceType) return [];
+    const options = await deviceUtils.getAutoLockOptions({ deviceType });
+    return options.map((option) => {
+      const value = timerUtils.getTimeDurationMs(option);
+      if (
+        option.seconds === 0 &&
+        option.minute === 0 &&
+        option.hour === 0 &&
+        option.day === 0
+      ) {
+        return {
+          label: intl.formatMessage({ id: ETranslations.global_never }),
+          value: NEVER_LOCK_VALUE,
+        };
+      }
+
+      const label = option.seconds
+        ? intl.formatMessage(
+            { id: ETranslations.earn_number_seconds },
+            { number: option.seconds },
+          )
+        : intl.formatMessage(
+            { id: ETranslations.earn_number_minutes },
+            { number: option.minute },
+          );
+      return { label, value };
+    });
+  }, [deviceType, intl]);
+
+  // Load and format auto shutdown options
+  const { result: autoShutDownOptions } = usePromiseResult(async () => {
+    if (!deviceType) return [];
+    const options = await deviceUtils.getAutoShutDownOptions({ deviceType });
+    return options.map((option) => {
+      const value = timerUtils.getTimeDurationMs(option);
+      if (
+        option.seconds === 0 &&
+        option.minute === 0 &&
+        option.hour === 0 &&
+        option.day === 0
+      ) {
+        return {
+          label: intl.formatMessage({ id: ETranslations.global_never }),
+          value: NEVER_LOCK_VALUE,
+        };
+      }
+      const label = option.seconds
+        ? intl.formatMessage(
+            { id: ETranslations.earn_number_seconds },
+            { number: option.seconds },
+          )
+        : intl.formatMessage(
+            { id: ETranslations.earn_number_minutes },
+            { number: option.minute },
+          );
+      return { label, value };
+    });
+  }, [deviceType, intl]);
+
+  const showLanguage = languageOptions && languageOptions.length > 0;
+  const showAutoLock = autoLockOptions && autoLockOptions.length > 0;
+  const showAutoShutDown =
+    autoShutDownOptions && autoShutDownOptions.length > 0;
+  const showHapticFeedback =
+    deviceType && deviceUtils.supportHapticFeedbackByDeviceType({ deviceType });
+  const showBrightness =
+    deviceType && deviceUtils.supportBrightnessByDeviceType({ deviceType });
 
   const onPressHomescreen = useCallback(async () => {
     const deviceData = await actions.getWalletWithDevice();
@@ -370,7 +387,9 @@ function DeviceSectionGeneral() {
         id: ETranslations.global_general,
       })}
     >
-      <LanguageListItem />
+      {showLanguage ? (
+        <LanguageListItem languageOptions={languageOptions} />
+      ) : null}
       <ListItem
         key="addWallpaper"
         title={intl.formatMessage({
@@ -380,18 +399,24 @@ function DeviceSectionGeneral() {
         drillIn
         onPress={onPressHomescreen}
       />
-      <ListItem
-        key="changeBrightness"
-        title={intl.formatMessage({
-          id: ETranslations.global_brightness,
-        })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        onPress={onPressBrightness}
-      />
-      <AutoLockListItem />
-      <AutoShutDownListItem />
-      <HapticFeedbackListItem />
+      {showBrightness ? (
+        <ListItem
+          key="changeBrightness"
+          title={intl.formatMessage({
+            id: ETranslations.global_brightness,
+          })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          drillIn
+          onPress={onPressBrightness}
+        />
+      ) : null}
+      {showAutoLock ? (
+        <AutoLockListItem autoLockOptions={autoLockOptions} />
+      ) : null}
+      {showAutoShutDown ? (
+        <AutoShutDownListItem autoShutDownOptions={autoShutDownOptions} />
+      ) : null}
+      {showHapticFeedback ? <HapticFeedbackListItem /> : null}
     </ListItemGroup>
   );
 }
