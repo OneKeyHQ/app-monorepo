@@ -9,19 +9,11 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
+import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowPendingTxs } from '../hooks/useBorrowPendingTxs';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
-
-enum EBorrowDataStatus {
-  Idle = 'Idle',
-  LoadingMarkets = 'LoadingMarkets',
-  WaitingForAccount = 'WaitingForAccount',
-  LoadingReserves = 'LoadingReserves',
-  Refreshing = 'Refreshing',
-  Ready = 'Ready',
-}
 
 const BORROW_POLLING_INTERVAL = 3 * 60 * 1000; // 3 minutes
 const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
@@ -47,6 +39,7 @@ export const BorrowDataGate = ({
     setMarket,
     setReserves,
     setReservesLoading,
+    setBorrowDataStatus,
     setPendingTxs,
     refreshReservesRef,
     refreshPendingRef,
@@ -219,6 +212,10 @@ export const BorrowDataGate = ({
         break;
     }
   }, [dataStatus, fetchKey, reservesResult, setReserves, setReservesLoading]);
+
+  useEffect(() => {
+    setBorrowDataStatus(dataStatus);
+  }, [dataStatus, setBorrowDataStatus]);
 
   const { pendingTxs, refreshPending } = useBorrowPendingTxs({
     accountId,

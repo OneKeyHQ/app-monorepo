@@ -25,6 +25,8 @@ type IBorrowTableListProps<T> = {
   onPressRow?: (item: T, index: number) => void;
   defaultSortKey?: string;
   defaultSortDirection?: 'asc' | 'desc';
+  showSkeletonWhenEmpty?: boolean;
+  skeletonCount?: number;
 };
 
 const BorrowTableList = <T,>({
@@ -36,11 +38,22 @@ const BorrowTableList = <T,>({
   onPressRow,
   defaultSortKey,
   defaultSortDirection,
+  showSkeletonWhenEmpty = false,
+  skeletonCount,
 }: IBorrowTableListProps<T>) => {
   const hasData = data && data.length > 0;
 
   if (!hasData) {
     if (isLoading) {
+      if (showSkeletonWhenEmpty) {
+        return (
+          <BorrowListSkeleton
+            columns={columns}
+            rowGap={listProps.rowGap}
+            itemCount={skeletonCount}
+          />
+        );
+      }
       // Use EmptyStateSkeleton to match empty state height and prevent layout jump
       return <EmptyStateSkeleton />;
     }
@@ -58,7 +71,11 @@ const BorrowTableList = <T,>({
       defaultSortKey={defaultSortKey}
       defaultSortDirection={defaultSortDirection}
       SkeletonComponent={
-        <BorrowListSkeleton columns={columns} rowGap={listProps.rowGap} />
+        <BorrowListSkeleton
+          columns={columns}
+          rowGap={listProps.rowGap}
+          itemCount={skeletonCount}
+        />
       }
       {...listProps}
     />

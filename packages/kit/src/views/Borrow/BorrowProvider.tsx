@@ -16,6 +16,8 @@ import type {
   IBorrowReserveItem,
 } from '@onekeyhq/shared/types/staking';
 
+import { EBorrowDataStatus } from './borrowDataStatus';
+
 import type { ISwapConfig } from './components/BorrowTableList';
 import type { IBorrowPendingTx } from './hooks/useBorrowPendingTxs';
 
@@ -41,6 +43,8 @@ type IBorrowContextValue = {
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
   reservesLoading: boolean;
   setReservesLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  borrowDataStatus: EBorrowDataStatus;
+  setBorrowDataStatus: React.Dispatch<React.SetStateAction<EBorrowDataStatus>>;
   swapConfig: ISwapConfig;
   // Pending transactions state
   pendingTxs: IBorrowPendingTx[];
@@ -65,6 +69,9 @@ export const BorrowProvider = ({
   const [reserves, setReserves] = useState<IBorrowReserveItem | null>(null);
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
   const [reservesLoading, setReservesLoading] = useState(false);
+  const [borrowDataStatus, setBorrowDataStatus] = useState<EBorrowDataStatus>(
+    EBorrowDataStatus.Idle,
+  );
   const [pendingTxs, setPendingTxsState] = useState<IBorrowPendingTx[]>([]);
   const refreshReservesRef = borrowRefreshReservesRef;
   const refreshPendingRef = borrowRefreshPendingRef;
@@ -98,6 +105,8 @@ export const BorrowProvider = ({
       setMarket,
       reservesLoading,
       setReservesLoading,
+      borrowDataStatus,
+      setBorrowDataStatus,
       swapConfig,
       pendingTxs,
       setPendingTxs,
@@ -109,6 +118,7 @@ export const BorrowProvider = ({
     reserves,
     market,
     reservesLoading,
+    borrowDataStatus,
     swapConfig,
     pendingTxs,
     setPendingTxs,
