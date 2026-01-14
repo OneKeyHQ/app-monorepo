@@ -507,6 +507,7 @@ export default class ServicePassword extends ServiceBase {
       passwordMode,
     });
     let masterPasswordUpdateRollback: (() => Promise<void>) | undefined;
+    let keylessDataUpdateRollback: (() => Promise<void>) | undefined;
     try {
       await this.backgroundApi.serviceAddressBook.updateHash(newPassword);
       await this.saveBiologyAuthPassword(newPassword);
@@ -519,9 +520,14 @@ export default class ServicePassword extends ServiceBase {
             newPasscode: newPassword,
           },
         ));
-      // update v5 db password
+      ({ rollback: keylessDataUpdateRollback } =
+        await this.backgroundApi.serviceKeylessWallet.updateKeylessDataPasscode(
+          {
+            oldPassword,
+            newPassword,
+          },
+        ));
       await localDb.updatePassword({ oldPassword, newPassword });
-      // update v4 db password
       await this.backgroundApi.serviceV4Migration.updateV4Password({
         oldPassword,
         newPassword,
@@ -543,6 +549,12 @@ export default class ServicePassword extends ServiceBase {
 
       try {
         await masterPasswordUpdateRollback?.();
+      } catch (rollbackError) {
+        console.error(rollbackError);
+      }
+
+      try {
+        await keylessDataUpdateRollback?.();
       } catch (rollbackError) {
         console.error(rollbackError);
       }

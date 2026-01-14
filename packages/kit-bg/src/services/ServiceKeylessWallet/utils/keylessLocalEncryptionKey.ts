@@ -37,6 +37,35 @@ export async function buildKeylessLocalEncryptionKey(params: {
 }
 
 /**
+ * Build encryption key from sensitiveEncodeKey and a provided password (no prompt).
+ * Used when updating password to re-encrypt keyless data with old/new password.
+ */
+export async function buildKeylessLocalEncryptionKeyWithPassword(params: {
+  password: string; // encoded password
+}): Promise<string> {
+  const { password } = params;
+
+  // 1. Get sensitiveEncodeKey from settings
+  const settings = await settingsPersistAtom.get();
+  const sensitiveEncodeKey = settings.sensitiveEncodeKey;
+
+  // 2. Decode and hash the provided password
+  const decodedPassword = await decodeSensitiveTextAsync({
+    encodedText: password,
+  });
+
+  const hashedPassword = await sha256(
+    Buffer.from(
+      `${decodedPassword}BB662525-CC49-4A52-93A5-AD237AC80A1D`,
+      'utf-8',
+    ),
+  );
+
+  // 3. Combine sensitiveEncodeKey and passcode to form encryption key
+  return `${sensitiveEncodeKey}--${hashedPassword.toString('hex')}`;
+}
+
+/**
  * Build encryption key from sensitiveEncodeKey only (no passcode required).
  * This is used for Token encryption which doesn't require passcode verification.
  */

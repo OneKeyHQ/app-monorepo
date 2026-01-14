@@ -2125,6 +2125,111 @@ class ServiceKeylessWallet extends ServiceBase {
     const client = await this.getJuiceboxClientFromCache(token);
     return client.checkRateLimitStatus();
   }
+
+  private async getAllKeylessWallets(): Promise<IDBWallet[]> {
+    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
+    return wallets.filter((w) => w.isKeyless);
+  }
+
+  @backgroundMethod()
+  async updateKeylessDataPasscode(params: {
+    oldPassword: string;
+    newPassword: string;
+  }): Promise<{
+    rollback: () => Promise<void>;
+  }> {
+    const { oldPassword, newPassword } = params;
+
+    const keylessWallets = await this.getAllKeylessWallets();
+
+    if (keylessWallets.length === 0) {
+      return { rollback: async () => {} };
+    }
+
+    const backupData: Array<{
+      ownerId: string;
+      mnemonicPassword: string | null;
+      refreshToken: string | null;
+    }> = [];
+
+    for (const wallet of keylessWallets) {
+      const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
+      if (!ownerId) continue;
+
+      const mnemonicPassword =
+        await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorageWithPassword(
+          {
+            ownerId,
+            password: oldPassword,
+            backgroundApi: this.backgroundApi,
+          },
+        );
+
+      const refreshToken =
+        await keylessRefreshTokenStorage.getRefreshTokenFromStorageWithPassword(
+          {
+            ownerId,
+            password: oldPassword,
+            backgroundApi: this.backgroundApi,
+          },
+        );
+
+      backupData.push({
+        ownerId,
+        mnemonicPassword,
+        refreshToken,
+      });
+    }
+
+    for (const backup of backupData) {
+      if (backup.mnemonicPassword) {
+        await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorageWithPassword(
+          {
+            ownerId: backup.ownerId,
+            mnemonicPassword: backup.mnemonicPassword,
+            password: newPassword,
+            backgroundApi: this.backgroundApi,
+          },
+        );
+      }
+
+      if (backup.refreshToken) {
+        await keylessRefreshTokenStorage.saveRefreshTokenToStorageWithPassword({
+          ownerId: backup.ownerId,
+          refreshToken: backup.refreshToken,
+          password: newPassword,
+          backgroundApi: this.backgroundApi,
+        });
+      }
+    }
+
+    return {
+      rollback: async () => {
+        for (const backup of backupData) {
+          if (backup.mnemonicPassword) {
+            await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorageWithPassword(
+              {
+                ownerId: backup.ownerId,
+                mnemonicPassword: backup.mnemonicPassword,
+                password: oldPassword,
+                backgroundApi: this.backgroundApi,
+              },
+            );
+          }
+          if (backup.refreshToken) {
+            await keylessRefreshTokenStorage.saveRefreshTokenToStorageWithPassword(
+              {
+                ownerId: backup.ownerId,
+                refreshToken: backup.refreshToken,
+                password: oldPassword,
+                backgroundApi: this.backgroundApi,
+              },
+            );
+          }
+        }
+      },
+    };
+  }
 }
 
 export default ServiceKeylessWallet;

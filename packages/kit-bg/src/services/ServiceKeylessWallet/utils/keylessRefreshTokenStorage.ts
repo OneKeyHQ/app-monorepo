@@ -4,6 +4,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
   buildKeylessLocalEncryptionKey,
+  buildKeylessLocalEncryptionKeyWithPassword,
   buildKeylessLocalEncryptionKeyWithoutPasscode,
 } from './keylessLocalEncryptionKey';
 import keylessStorageUtils from './keylessStorageUtils';
@@ -92,19 +93,81 @@ async function getRefreshTokenFromStorage(params: {
   }
 }
 
-/**
- * Remove refreshToken from local storage.
- */
 async function removeRefreshTokenFromStorage(params: {
   ownerId: string;
 }): Promise<void> {
   const { ownerId } = params;
 
-  // 1. Build unique key for this ownerId
   const key = accountUtils.buildKeylessRefreshTokenKey({ ownerId });
 
-  // 2. Remove encrypted data from storage
   await keylessStorageUtils.storageRemoveItem(key);
+}
+
+async function saveRefreshTokenToStorageWithPassword(params: {
+  ownerId: string;
+  refreshToken: string;
+  password: string;
+  backgroundApi: IBackgroundApi;
+}): Promise<void> {
+  const { ownerId, refreshToken, password, backgroundApi } = params;
+
+  const key = accountUtils.buildKeylessRefreshTokenKey({ ownerId });
+  const encryptionKey = await buildKeylessLocalEncryptionKeyWithPassword({
+    password,
+  });
+
+  const encryptedPayloadHex = await backgroundApi.servicePassword.encryptString(
+    {
+      password: encryptionKey,
+      data: refreshToken,
+      dataEncoding: 'utf8',
+      allowRawPassword: true,
+    },
+  );
+
+  const encryptedPayloadBase64 = bufferUtils.bytesToBase64(
+    bufferUtils.hexToBytes(encryptedPayloadHex),
+  );
+
+  await keylessStorageUtils.storageSetItem(key, encryptedPayloadBase64);
+}
+
+async function getRefreshTokenFromStorageWithPassword(params: {
+  ownerId: string;
+  password: string;
+  backgroundApi: IBackgroundApi;
+}): Promise<string | null> {
+  const { ownerId, password, backgroundApi } = params;
+
+  const key = accountUtils.buildKeylessRefreshTokenKey({ ownerId });
+  const encryptedPayloadBase64 = await keylessStorageUtils.storageGetItem(key);
+
+  if (!encryptedPayloadBase64) {
+    return null;
+  }
+
+  const decryptionKey = await buildKeylessLocalEncryptionKeyWithPassword({
+    password,
+  });
+
+  try {
+    const decryptedRefreshToken =
+      await backgroundApi.servicePassword.decryptString({
+        password: decryptionKey,
+        data: encryptedPayloadBase64,
+        dataEncoding: 'base64',
+        resultEncoding: 'utf8',
+        allowRawPassword: true,
+      });
+
+    return decryptedRefreshToken;
+  } catch (error) {
+    throw new OneKeyLocalError(
+      `Failed to decrypt refreshToken: invalid password or corrupted data: ${
+        (error as Error)?.message
+      }`,
+    );
+  }
 }
 
 /**
@@ -253,15 +316,14 @@ async function removeTokensFromStorage(params: {
 }
 
 export default {
-  // refresh token
   saveRefreshTokenToStorage,
   getRefreshTokenFromStorage,
   removeRefreshTokenFromStorage,
-  // access token
+  saveRefreshTokenToStorageWithPassword,
+  getRefreshTokenFromStorageWithPassword,
   saveAccessTokenToStorage,
   getAccessTokenFromStorage,
   removeAccessTokenFromStorage,
-  // Combined operations (for convenience)
   saveTokensToStorage,
   getTokensFromStorage,
   removeTokensFromStorage,

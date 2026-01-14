@@ -2,7 +2,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { buildKeylessLocalEncryptionKey } from './keylessLocalEncryptionKey';
+import {
+  buildKeylessLocalEncryptionKey,
+  buildKeylessLocalEncryptionKeyWithPassword,
+} from './keylessLocalEncryptionKey';
 import keylessStorageUtils from './keylessStorageUtils';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
@@ -82,18 +85,78 @@ async function getMnemonicPasswordFromStorage(params: {
   }
 }
 
-/**
- * Remove mnemonicPassword from local storage.
- */
+async function saveMnemonicPasswordToStorageWithPassword(params: {
+  ownerId: string;
+  mnemonicPassword: string;
+  password: string;
+  backgroundApi: IBackgroundApi;
+}): Promise<void> {
+  const { ownerId, mnemonicPassword, password, backgroundApi } = params;
+
+  const key = accountUtils.buildKeylessMnemonicPasswordKey({ ownerId });
+  const encryptionKey = await buildKeylessLocalEncryptionKeyWithPassword({
+    password,
+  });
+
+  const encryptedPayloadHex = await backgroundApi.servicePassword.encryptString(
+    {
+      password: encryptionKey,
+      data: mnemonicPassword,
+      dataEncoding: 'utf8',
+      allowRawPassword: true,
+    },
+  );
+
+  const encryptedPayloadBase64 = bufferUtils.bytesToBase64(
+    bufferUtils.hexToBytes(encryptedPayloadHex),
+  );
+
+  await keylessStorageUtils.storageSetItem(key, encryptedPayloadBase64);
+}
+
+async function getMnemonicPasswordFromStorageWithPassword(params: {
+  ownerId: string;
+  password: string;
+  backgroundApi: IBackgroundApi;
+}): Promise<string | null> {
+  const { ownerId, password, backgroundApi } = params;
+
+  const key = accountUtils.buildKeylessMnemonicPasswordKey({ ownerId });
+  const encryptedPayloadBase64 = await keylessStorageUtils.storageGetItem(key);
+
+  if (!encryptedPayloadBase64) {
+    return null;
+  }
+
+  const decryptionKey = await buildKeylessLocalEncryptionKeyWithPassword({
+    password,
+  });
+
+  try {
+    const mnemonicPassword = await backgroundApi.servicePassword.decryptString({
+      password: decryptionKey,
+      data: encryptedPayloadBase64,
+      dataEncoding: 'base64',
+      resultEncoding: 'utf8',
+      allowRawPassword: true,
+    });
+    return mnemonicPassword;
+  } catch (error) {
+    throw new OneKeyLocalError(
+      `Failed to decrypt mnemonicPassword: invalid password or corrupted data: ${
+        (error as Error)?.message
+      }`,
+    );
+  }
+}
+
 async function removeMnemonicPasswordFromStorage(params: {
   ownerId: string;
 }): Promise<void> {
   const { ownerId } = params;
 
-  // 1. Build unique key for this ownerId
   const key = accountUtils.buildKeylessMnemonicPasswordKey({ ownerId });
 
-  // 2. Remove encrypted data from storage
   await keylessStorageUtils.storageRemoveItem(key);
 }
 
@@ -101,4 +164,6 @@ export default {
   saveMnemonicPasswordToStorage,
   getMnemonicPasswordFromStorage,
   removeMnemonicPasswordFromStorage,
+  saveMnemonicPasswordToStorageWithPassword,
+  getMnemonicPasswordFromStorageWithPassword,
 };
