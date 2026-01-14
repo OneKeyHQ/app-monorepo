@@ -4,7 +4,10 @@ const { execSync } = require('child_process');
 
 const { exit } = require('process');
 
-console.log('Electron build check started...');
+const getTimestamp = () => new Date().toLocaleTimeString();
+const startTime = Date.now();
+
+console.log(`[${getTimestamp()}] Electron build check started...`);
 
 const projectPath = path.join(__dirname, '..', '..');
 const desktopPath = path.join(projectPath, 'apps', 'desktop');
@@ -45,4 +48,5 @@ try {
   );
 }
 
-console.log('Electron build check completed.');
+const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+console.log(`[${getTimestamp()}] Electron build check completed. (${duration}s)`);

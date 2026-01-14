@@ -2,7 +2,10 @@ const path = require('path');
 const fs = require('fs-extra');
 const { exit } = require('process');
 
-console.log('Language files check started...');
+const getTimestamp = () => new Date().toLocaleTimeString();
+const startTime = Date.now();
+
+console.log(`[${getTimestamp()}] Language files check started...`);
 
 const langDir = path.join(
   __dirname,
@@ -33,4 +36,5 @@ jsonFileNames.forEach((file) => {
   }
 });
 
-console.log('Language files check completed.');
+const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+console.log(`[${getTimestamp()}] Language files check completed. (${duration}s)`);

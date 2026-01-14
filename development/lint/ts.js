@@ -2,7 +2,10 @@ const { execSync } = require('child_process');
 const { exit } = require('process');
 const { parse } = require('@aivenio/tsc-output-parser');
 
-console.log('TypeScript check started...');
+const getTimestamp = () => new Date().toLocaleTimeString();
+const startTime = Date.now();
+
+console.log(`[${getTimestamp()}] TypeScript check started...`);
 
 function handleProblems(result) {
   let basicErrorCount = 0;
@@ -36,5 +39,6 @@ try {
   handleProblems(errorMsg);
 }
 
-console.log('TypeScript check completed.');
+const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+console.log(`[${getTimestamp()}] TypeScript check completed. (${duration}s)`);
 exit(0);
