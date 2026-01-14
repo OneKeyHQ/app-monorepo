@@ -168,6 +168,7 @@ export type IQueryCheckAddressArgs = {
     accountId: string;
   };
   ignoreSimilarAddressInAddressBook?: boolean;
+  enableCheckSimilarAddressInAddressBook?: boolean;
 };
 
 export type IFetchServerAccountDetailsParams = IFetchAccountDetailsParams & {
