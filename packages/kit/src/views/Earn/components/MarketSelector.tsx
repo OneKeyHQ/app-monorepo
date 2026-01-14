@@ -71,7 +71,7 @@ const MarketSelectorDesktop = ({
   }, [intl, mode]);
 
   return (
-    <Stack px="$3" pt="$4">
+    <Stack px="$5" pt="$5" pb="$1">
       <SegmentControl
         value={mode}
         options={options}
