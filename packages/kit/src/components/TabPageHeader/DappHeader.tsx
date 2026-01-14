@@ -15,7 +15,6 @@ import {
   XStack,
   YStack,
   usePopoverContext,
-  useTheme,
 } from '@onekeyhq/components';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
