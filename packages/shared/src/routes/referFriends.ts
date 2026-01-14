@@ -14,6 +14,7 @@ export enum EModalReferFriendsRoutes {
   EarnReward = 'EarnReward',
   RewardDistributionHistory = 'RewardDistributionHistory',
   ReferralLevel = 'ReferralLevel',
+  RedemptionHistory = 'RedemptionHistory',
 }
 
 export type IModalReferFriendsParamList = {
@@ -51,4 +52,5 @@ export type IModalReferFriendsParamList = {
   };
   [EModalReferFriendsRoutes.RewardDistributionHistory]: undefined;
   [EModalReferFriendsRoutes.ReferralLevel]: undefined;
+  [EModalReferFriendsRoutes.RedemptionHistory]: undefined;
 };
