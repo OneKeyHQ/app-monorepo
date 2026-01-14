@@ -109,16 +109,11 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
         return;
       }
 
-      // Close modal before showing system share sheet to avoid z-index issues
-      if (platformEnv.isNative && onClose) {
-        onClose();
-      }
-
       await shareImage(base64);
     } finally {
       setIsActionLoading(false);
     }
-  }, [shareImage, onClose]);
+  }, [shareImage]);
 
   const handleShareToX = useCallback(async () => {
     setIsActionLoading(true);
@@ -219,8 +214,7 @@ export function showPositionShareDialog(
   data: IShareData,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
-  const DialogInstance =
-    platformEnv.isNativeAndroid || !dialog ? Dialog : dialog;
+  const DialogInstance = dialog ?? Dialog;
 
   const dialogInstance = DialogInstance.show({
     title: appLocale.intl.formatMessage({
