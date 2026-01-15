@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 
 const _ = require('lodash');
 

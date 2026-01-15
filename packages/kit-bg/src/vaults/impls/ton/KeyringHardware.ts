@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { TonWalletVersion } from '@onekeyfe/hd-transport';
 import { Cell } from '@ton/core';
@@ -374,7 +373,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         {
           ...deviceCommonParams,
           path: account.path,
-          // eslint-disable-next-line spellcheck/spell-checker
+          // eslint-disable-next-line @cspell/spellchecker
           appdomain: Buffer.from(msg.payload.appDomain ?? '').toString('hex'),
           expireAt: msg.payload.timestamp,
           comment: Buffer.from(msg.message).toString('hex'),

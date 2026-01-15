@@ -86,6 +86,7 @@ function DeviceSectionDangerZone({
                 : 'Bitcoin-only',
           },
         )}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressFirmwareTypeChange}
       />
@@ -122,6 +123,7 @@ function DeviceSectionDangerZone({
         title={intl.formatMessage({
           id: ETranslations.global_wipe_device,
         })}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressWipeDevice}
       />

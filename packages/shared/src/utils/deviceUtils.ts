@@ -722,6 +722,38 @@ async function getAutoShutDownOptions({
   return sdkGetAutoShutDownOptions(deviceType);
 }
 
+export enum ESupportSettings {
+  HapticFeedback = 'hapticFeedback',
+  Brightness = 'brightness',
+  AutoLock = 'autoLock',
+  AutoShutDown = 'autoShutDown',
+  Language = 'language',
+}
+
+function supportSettings({
+  deviceType,
+  firmwareVersion,
+  setting,
+}: {
+  deviceType: IDeviceType;
+  firmwareVersion: string;
+  setting: ESupportSettings;
+}) {
+  if (setting === ESupportSettings.AutoLock) {
+    if ([EDeviceType.Pro].includes(deviceType)) {
+      return true;
+    }
+    return false;
+  }
+
+  // default
+  const support = firmwareVersion && semver.gte(firmwareVersion, '4.19.0');
+  if (support && [EDeviceType.Pro].includes(deviceType)) {
+    return true;
+  }
+  return false;
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -762,4 +794,6 @@ export default {
   getLanguageConfig,
   getAutoLockOptions,
   getAutoShutDownOptions,
+  ESupportSettings,
+  supportSettings,
 };

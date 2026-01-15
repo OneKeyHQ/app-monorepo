@@ -687,7 +687,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
     (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
 
-  // eslint-disable-next-line spellcheck/spell-checker
+  // eslint-disable-next-line @cspell/spellchecker
   /**
    * Get wallets
    * @param includeAllPassphraseWallet Whether to load the hidden Passphrase wallet
@@ -1167,7 +1167,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       wallet.airGapAccountsInfo = JSON.parse(wallet.airGapAccountsInfoRaw);
     }
 
-    // eslint-disable-next-line spellcheck/spell-checker
+    // eslint-disable-next-line @cspell/spellchecker
     // wallet.xfp = 'aaaaaaaa'; // mock qr wallet xfp
     return wallet;
   }
@@ -2017,9 +2017,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let walletId = accountUtils.buildHdWalletId({
       nextHD: context.nextHD,
     });
-    if (isKeylessWallet && keylessDetailsInfo?.keylessOwnerId) {
-      walletId = accountUtils.buildKeylessWalletId({
-        sharePackSetId: keylessDetailsInfo?.keylessOwnerId,
+    if (isKeylessWallet) {
+      if (!walletXfp) {
+        throw new OneKeyLocalError('walletXfp is required for keyless wallet');
+      }
+      if (!keylessDetailsInfo?.keylessOwnerId) {
+        throw new OneKeyLocalError(
+          'keylessOwnerId is required for keyless wallet',
+        );
+      }
+      walletId = await accountUtils.buildKeylessWalletIdV2({
+        ownerId: keylessDetailsInfo?.keylessOwnerId,
+        xfp: walletXfp || '',
       });
     }
     const defaultWalletName = `Wallet ${context.nextHD}`;

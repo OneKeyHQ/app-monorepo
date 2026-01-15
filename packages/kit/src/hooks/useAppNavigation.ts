@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/core';
 
 import {
   Page,
+  popToMainRoute,
+  popToTabRootScreen,
   rootNavigationRef,
   switchTab,
   useIsTabletMainView,
@@ -75,6 +77,8 @@ let lastPushAbleNavigation:
     >
   | undefined;
 
+const PUSH_MODAL_LOCK_DURATION_MS = 300;
+
 function useAppNavigation<
   P extends
     | IPageNavigationProp<any>
@@ -84,6 +88,7 @@ function useAppNavigation<
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
   const isTabletMainView = useIsTabletMainView();
+  const pushModalLockRef = useRef(false);
 
   if (navigationRef.current !== navigation) {
     navigationRef.current = navigation;
@@ -164,6 +169,12 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
+      if (pushModalLockRef.current) return;
+      pushModalLockRef.current = true;
+      setTimeout(() => {
+        pushModalLockRef.current = false;
+      }, PUSH_MODAL_LOCK_DURATION_MS);
+
       if (isTabletMainView) {
         appEventBus.emit(EAppEventBusNames.PushModalPageInTabletDetailView, {
           route,
@@ -184,6 +195,12 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
+      if (pushModalLockRef.current) return;
+      pushModalLockRef.current = true;
+      setTimeout(() => {
+        pushModalLockRef.current = false;
+      }, PUSH_MODAL_LOCK_DURATION_MS);
+
       pushModalPage(ERootRoutes.iOSFullScreen, route, params as any);
     },
     [pushModalPage],
@@ -261,7 +278,8 @@ function useAppNavigation<
 
   const navigate: typeof navigationRef.current.navigate = useCallback(
     (...args: any) => {
-      navigationRef.current.navigate(...args);
+      const [screen, params, options = { pop: true }] = args;
+      navigationRef.current.navigate(screen, params, options);
     },
     [],
   );
@@ -269,17 +287,6 @@ function useAppNavigation<
   const popToTop: typeof navigationRef.current.popToTop = useCallback(() => {
     navigationRef.current.popToTop();
   }, []);
-
-  const popTo: typeof navigationRef.current.popTo = useCallback(
-    (...args: any) => {
-      const [screen, params, options] = args;
-      navigationRef.current.navigate(screen, params, {
-        pop: true,
-        ...options,
-      });
-    },
-    [],
-  );
 
   return useMemo(
     () => ({
@@ -296,14 +303,14 @@ function useAppNavigation<
       setOptions,
       switchTab,
       popToTop,
-      popTo,
+      popToMainRoute,
+      popToTabRootScreen,
     }),
     [
       dispatch,
       navigate,
       pop,
       popStack,
-      popTo,
       popToTop,
       push,
       pushFullModal,

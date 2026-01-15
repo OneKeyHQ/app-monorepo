@@ -1,7 +1,13 @@
 import { Children, cloneElement, isValidElement, useMemo } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
-import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Divider,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { TabSettingsSection } from '../../Setting/pages/Tab/ListItem';
@@ -21,6 +27,9 @@ function ListItemGroupBase({
   withSeparator = false,
   groupProps,
 }: IListItemGroupProps) {
+  const { gtMd } = useMedia();
+  const py = gtMd ? undefined : '$3';
+
   const normalizedChildren = useMemo(() => {
     const arr = Children.toArray(children);
     const res: ReactNode[] = [];
@@ -35,6 +44,7 @@ function ListItemGroupBase({
       const mergedProps = {
         mx: '$0',
         px: '$5',
+        py,
         borderRadius: '$0',
         ...(itemProps ?? {}),
         ...(child.props as object),
@@ -45,26 +55,32 @@ function ListItemGroupBase({
       if (!isLast && withSeparator) {
         res.push(
           <XStack key={`sep-${idx}`} mx="$5">
-            <Divider borderColor="$neutral3" />
+            <Divider borderColor="$neutral4" />
           </XStack>,
         );
       }
     });
 
     return res;
-  }, [children, itemProps, withSeparator]);
+  }, [children, itemProps, withSeparator, py]);
 
   return (
     <YStack>
       {title ? (
-        <XStack ai="center" h="$10" px="$4">
-          <SizableText size="$headingSm" color="$textSubdued">
+        <XStack ai="center" h="$10" px="$5">
+          <SizableText size="$headingXs" color="$textSubdued">
             {title}
           </SizableText>
         </XStack>
       ) : null}
 
-      <TabSettingsSection borderRadius="$4" bg="$bgApp" {...groupProps}>
+      <TabSettingsSection
+        borderRadius="$4"
+        bg="$bgApp"
+        borderWidth={1}
+        borderColor="$neutral4"
+        {...groupProps}
+      >
         {normalizedChildren}
       </TabSettingsSection>
     </YStack>

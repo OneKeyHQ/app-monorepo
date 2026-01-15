@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';

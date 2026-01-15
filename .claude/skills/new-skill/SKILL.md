@@ -63,7 +63,8 @@ Clear, step-by-step guidance...
 ## 4) Apply best practices checklist
 
 ### Naming
-- [ ] Use gerund form: `processing-pdfs`, `analyzing-code`, `creating-commits`
+- [ ] **REQUIRED**: Use `1k-` prefix for all OneKey project skills: `1k-date-formatting`, `1k-transaction-handling`
+- [ ] Use gerund form after prefix: `1k-processing-pdfs`, `1k-analyzing-code`, `1k-creating-commits`
 - [ ] Max 64 chars, lowercase letters/numbers/hyphens only
 - [ ] No reserved words: "anthropic", "claude"
 
@@ -99,7 +100,7 @@ After gathering requirements and applying best practices:
 
 ```yaml
 ---
-name: generating-commit-messages
+name: 1k-generating-commit-messages
 description: Generates clear commit messages from git diffs. Use when writing commit messages or reviewing staged changes.
 ---
 
@@ -118,6 +119,8 @@ description: Generates clear commit messages from git diffs. Use when writing co
 - Use present tense
 - Explain what and why, not how
 ```
+
+> **Note**: All OneKey project skills MUST use the `1k-` prefix in the skill name.
 
 ## Anti-patterns to avoid
 

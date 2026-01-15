@@ -79,6 +79,7 @@ import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/component
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { useOnPrimeButtonPressed } from '../../views/Prime/components/PrimeHeaderIconButton/PrimeHeaderIconButton';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
+import { showRedemptionCenterDialog } from '../../views/Redemption/components/RedemptionCenterDialog';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { OneKeyIdAvatar } from '../../views/Setting/pages/OneKeyId';
 import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
@@ -133,13 +134,7 @@ function MoreActionContentHeader({
   showBackButton?: boolean;
 }) {
   const intl = useIntl();
-  const media = useMedia();
-  const onLock = useOnLock();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
-
-  const handleLock = useCallback(async () => {
-    await onLock();
-  }, [onLock]);
 
   const handleCustomerSupport = useCallback(() => {
     void showIntercom();
@@ -225,23 +220,15 @@ function MoreActionContentHeader({
     return [];
   }, [intl]);
 
-  // Desktop (>= gtMd): show lock; Mobile (< gtMd): show scan
-  const firstActionItem = useMemo(() => {
-    if (media.gtMd) {
-      return {
-        title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
-        icon: 'LockOutline' as const,
-        onPress: handleLock,
-        trackID: 'wallet-lock-now',
-      };
-    }
-    return {
+  const firstActionItem = useMemo(
+    () => ({
       title: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
       icon: 'ScanOutline' as const,
       onPress: handleScan,
       trackID: 'wallet-scan',
-    };
-  }, [media.gtMd, intl, handleLock, handleScan]);
+    }),
+    [intl, handleScan],
+  );
 
   const items = useMemo(() => {
     return [
@@ -903,11 +890,18 @@ function BaseMoreActionGrid({
 function MoreActionGeneralGrid() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const onLock = useOnLock();
+
   const handleSettings = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [navigation]);
+
+  const handleLock = useCallback(async () => {
+    await onLock();
+  }, [onLock]);
+
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
@@ -938,6 +932,7 @@ function MoreActionGeneralGrid() {
       },
     });
   }, [navigation, network?.id]);
+
   const items = useMemo(() => {
     return [
       {
@@ -960,8 +955,16 @@ function MoreActionGeneralGrid() {
             trackID: 'wallet-prime',
           }
         : undefined,
+      !platformEnv.isWebDappMode
+        ? {
+            title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
+            icon: 'LockOutline' as const,
+            onPress: handleLock,
+            trackID: 'wallet-lock-now',
+          }
+        : undefined,
     ].filter(Boolean);
-  }, [handlePrime, handleScan, handleSettings, intl]);
+  }, [handleLock, handlePrime, handleScan, handleSettings, intl]);
   return (
     <BaseMoreActionGrid
       title={intl.formatMessage({ id: ETranslations.global_general })}
@@ -1134,6 +1137,8 @@ const MoreActionWalletGrid = () => {
 
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
+  const { closePopover } = usePopoverContext();
+  const { loginOneKeyId } = useOneKeyAuth();
   const handleHelpAndSupport = useCallback(() => {
     void showIntercom();
   }, []);
@@ -1142,6 +1147,17 @@ const MoreActionMoreGrid = () => {
   const handleReferFriends = useCallback(() => {
     void toReferFriendsPage();
   }, [toReferFriendsPage]);
+
+  const handleRedeem = useCallback(async () => {
+    await closePopover?.();
+    try {
+      await loginOneKeyId();
+      showRedemptionCenterDialog();
+    } catch {
+      // User cancelled login, do nothing
+    }
+  }, [closePopover, loginOneKeyId]);
+
   const items = useMemo(() => {
     return [
       {
@@ -1158,8 +1174,20 @@ const MoreActionMoreGrid = () => {
         testID: 'referral' as const,
         onPress: handleReferFriends,
       },
+      {
+        title: intl.formatMessage({ id: ETranslations.global_redeem }),
+        icon: 'TicketOutline' as const,
+        onPress: handleRedeem,
+        trackID: 'wallet-redeem',
+      },
     ];
-  }, [handleHelpAndSupport, intl, themeVariant, handleReferFriends]);
+  }, [
+    handleHelpAndSupport,
+    handleRedeem,
+    intl,
+    themeVariant,
+    handleReferFriends,
+  ]);
   return (
     <BaseMoreActionGrid
       title={intl.formatMessage({ id: ETranslations.global_more })}

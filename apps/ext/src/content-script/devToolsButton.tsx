@@ -33,7 +33,7 @@ function injectDevToolsButton() {
   devToolsButton.draggable = true;
   devToolsButton.innerHTML = BTN_TEXT;
   devToolsButton.id = BTN_ID;
-  // eslint-disable-next-line spellcheck/spell-checker
+  // eslint-disable-next-line @cspell/spellchecker
   devToolsButton.style.cssText = `
     position: fixed;
     top: 0;

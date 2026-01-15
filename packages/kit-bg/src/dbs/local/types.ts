@@ -65,8 +65,8 @@ export type IDBBaseObjectWithName = IDBBaseObject & {
 };
 export type IDBContext = {
   id: string; // DB_MAIN_CONTEXT_ID
-  nextHD: number;
-  nextWalletNo: number;
+  nextHD: number; // HD wallet counter: used to generate HD wallet ID (hd-{nextHD}) and default wallet name (Wallet {nextHD})
+  nextWalletNo: number; // Global wallet number counter: used for sorting and displaying all wallet types (HD/HW/QR use auto-increment, Imported/Watching/External/Keyless use fixed numbers)
   verifyString: string;
   networkOrderChanged?: boolean;
   backupUUID: string; // deprecated
@@ -302,7 +302,7 @@ export type IDBUtxoAccount = IDBBaseAccount & {
   xpub: string;
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
-  // eslint-disable-next-line spellcheck/spell-checker
+  // eslint-disable-next-line @cspell/spellchecker
   addresses: Record<string, string>; // { "0/0": "xxxx" }
   customAddresses?: Record<string, string>; // for btc dynamic custom address
 };

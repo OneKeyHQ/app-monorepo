@@ -160,6 +160,7 @@ type IAddressInputProps = Omit<
 
   hideNonBackedUpWallet?: boolean;
   ignoreSimilarAddressInAddressBook?: boolean;
+  enableCheckSimilarAddressInAddressBook?: boolean;
   onScanResult?: IScanPluginProps['onScanResult'];
 };
 
@@ -340,6 +341,7 @@ export function AddressInput(props: IAddressInputProps) {
     disabled: disabledFromProps,
     onScanResult,
     ignoreSimilarAddressInAddressBook,
+    enableCheckSimilarAddressInAddressBook,
     ...rest
   } = props;
   const intl = useIntl();
@@ -405,7 +407,10 @@ export function AddressInput(props: IAddressInputProps) {
 
   useEffect(() => {
     if (rawAddress && textRef.current !== rawAddress) {
-      onChangeText(rawAddress);
+      onChangeText({
+        text: rawAddress,
+        inputType: EInputAddressChangeType.Manual,
+      });
     }
   }, [rawAddress, onChangeText]);
 
@@ -453,6 +458,7 @@ export function AddressInput(props: IAddressInputProps) {
       enableAddressContract,
       enableAllowListValidation,
       ignoreSimilarAddressInAddressBook,
+      enableCheckSimilarAddressInAddressBook,
     });
   }, [
     inputText,
@@ -468,6 +474,7 @@ export function AddressInput(props: IAddressInputProps) {
     refreshNum,
     queryAddress,
     ignoreSimilarAddressInAddressBook,
+    enableCheckSimilarAddressInAddressBook,
   ]);
 
   // When focus state changes, re-query address validation

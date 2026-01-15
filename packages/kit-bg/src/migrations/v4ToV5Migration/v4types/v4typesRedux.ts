@@ -17,7 +17,7 @@ export type IV4SettingsDevModeInfo = {
   enablePerfCheck?: boolean;
   defiBuildService?: string;
   hideDiscoverContent?: boolean;
-  // eslint-disable-next-line spellcheck/spell-checker
+  // eslint-disable-next-line @cspell/spellchecker
   onRamperTestMode?: boolean;
   showWebEmbedWebviewAgent?: boolean;
   showContentScriptReloadButton?: boolean;
@@ -39,7 +39,7 @@ export type IV4ReduxSettingsState = {
   swapSlippagePercent: string;
   disableSwapExactApproveAmount?: boolean;
   enableHaptics: boolean;
-  // eslint-disable-next-line spellcheck/spell-checker
+  // eslint-disable-next-line @cspell/spellchecker
   enableWebAuthn?: boolean;
   disableExt?: boolean;
   disableExtSwitchTips?: boolean;

@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 // Supabase project URL
 
 import { SUPABASE_PROJECT_URL } from '../../consts/authConsts';
@@ -14,6 +13,7 @@ function getSupabaseProjectRef(): string {
 }
 
 // Get Supabase auth session storage key
+// eslint-disable-next-line @cspell/spellchecker
 // Key format: sb-<project-ref>-auth-token (e.g., sb-zvxscjkvkjepbrjncvzt-auth-token)
 export function getSupabaseAuthSessionKey(): string {
   const projectRef = getSupabaseProjectRef();

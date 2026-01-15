@@ -1,10 +1,12 @@
 ---
 name: pr-review
 description: Security-first PR review checklist for this repo. Use when reviewing diffs/PRs, especially changes involving auth, networking, sensitive data, or dependency/lockfile updates. Focus on secret/PII leakage risk, supply-chain risk (npm + node_modules inspection), cross-platform architecture (extension/mobile/desktop/web), and React performance (hooks + re-render hotspots). Avoid UI style nitpicks. PR Review.
-allowed-tools: Read, Grep, Glob, Bash, mcp__figma-remote-mcp__generate_diagram
+allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Secure PR Review
+
+**输出语言**: 使用中文输出所有审查报告内容。
 
 Follow this workflow when reviewing code changes. Prioritize **security > correctness > architecture > performance**.
 
@@ -186,140 +188,114 @@ For new/modified components:
 - React performance: [reference/react-performance.md](reference/react-performance.md)
 - Cross-platform checks: [reference/cross-platform.md](reference/cross-platform.md)
 - File analysis patterns: [reference/file-analysis.md](reference/file-analysis.md)
-- Diagram generation: [reference/diagram-generation.md](reference/diagram-generation.md)
 
 ## 8) Architecture Visualization (REQUIRED)
 
-Generate visual diagrams to illustrate the PR's architectural impact. Use the `mcp__figma-remote-mcp__generate_diagram` tool to create Mermaid diagrams.
+Generate ASCII diagrams to illustrate the PR's architectural impact. ASCII diagrams are terminal-friendly and don't require external tools.
 
 ### 8.1 File Dependency Graph
 
-Create a flowchart showing how changed files relate to each other:
+Show how changed files relate to each other:
 
-```mermaid
-graph LR
-    subgraph "Changed Files"
-        A["file1.ts"]
-        B["file2.ts"]
-    end
-    subgraph "Affected Dependencies"
-        C["dependent1.ts"]
-        D["dependent2.ts"]
-    end
-    A -->|"imports"| B
-    C -->|"imports"| A
-    D -->|"imports"| B
+```text
+┌─────────────────────┐     ┌─────────────────────┐
+│   package.json      │────▶│     yarn.lock       │
+└─────────────────────┘     └─────────────────────┘
+          │
+          ▼
+┌─────────────────────┐     ┌─────────────────────┐
+│   native patch      │────▶│   iOS/Android code  │
+└─────────────────────┘     └─────────────────────┘
 ```
 
 ### 8.2 Data Flow Diagram
 
-For PRs involving data processing, show the data flow:
+For PRs involving data processing:
 
-```mermaid
-graph LR
-    A["User Input"] --> B["Validation"]
-    B --> C["Business Logic"]
-    C --> D["API Call"]
-    D --> E["State Update"]
-    E --> F["UI Render"]
+```text
+User Input ──▶ Validation ──▶ Business Logic ──▶ API Call
+                                                    │
+              UI Render ◀── State Update ◀──────────┘
 ```
 
-### 8.3 Component Hierarchy (for UI changes)
+### 8.3 Component Hierarchy
 
-Show component relationships and prop flow:
+For UI changes, show component relationships:
 
-```mermaid
-graph TD
-    A["ParentComponent"] --> B["ChildA"]
-    A --> C["ChildB"]
-    B --> D["GrandchildA1"]
-    B --> E["GrandchildA2"]
-    C --> F["GrandchildB1"]
-
-    A -.->|"props: data, onSubmit"| B
-    A -.->|"props: config"| C
+```text
+ParentComponent
+├── ChildA (props: data, onSubmit)
+│   ├── GrandchildA1
+│   └── GrandchildA2
+└── ChildB (props: config)
+    └── GrandchildB1
 ```
 
-### 8.4 State Management Flow
+### 8.4 State Flow
 
-For state-related changes, illustrate the state flow:
+For state-related changes:
 
-```mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle --> Loading: fetchData()
-    Loading --> Success: data received
-    Loading --> Error: request failed
-    Success --> Idle: reset()
-    Error --> Loading: retry()
-    Error --> Idle: dismiss()
+```text
+[*] ──▶ Idle ──fetchData()──▶ Loading
+                                 │
+         ┌───────────────────────┼───────────────────────┐
+         │                       │                       │
+         ▼                       ▼                       │
+      Success ──reset()──▶    Error ──retry()────────────┘
+         │                       │
+         └───────dismiss()───────┘
+                    │
+                    ▼
+                  Idle
 ```
 
-### 8.5 Sequence Diagram (for async operations)
+### 8.5 Sequence Diagram
 
-For complex async flows or API interactions:
+For async operations:
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant C as Component
-    participant S as Service
-    participant A as API
-
-    U->>C: Click action
-    C->>S: callService()
-    S->>A: POST /api/endpoint
-    A-->>S: Response
-    S-->>C: Result
-    C-->>U: Update UI
+```text
+User          Component        Service           API
+  │               │               │               │
+  │──click()─────▶│               │               │
+  │               │──callSvc()───▶│               │
+  │               │               │──POST /api───▶│
+  │               │               │◀──response────│
+  │               │◀──result──────│               │
+  │◀──update UI───│               │               │
 ```
 
-### 8.6 Cross-Platform Impact Diagram
+### 8.6 Cross-Platform Impact
 
 Show which platforms are affected:
 
-```mermaid
-graph TD
-    subgraph "Changed Code"
-        A["packages/kit/src/feature"]
-    end
+```text
+Changed Code: packages/shared/src/sentry/basicOptions.ts
 
-    subgraph "Platform Impact"
-        B["Extension"]
-        C["Mobile"]
-        D["Desktop"]
-        E["Web"]
-    end
+Platform Impact:
+┌───────────┬───────────┬───────────┬───────────┐
+│ Extension │  Mobile   │  Desktop  │    Web    │
+├───────────┼───────────┼───────────┼───────────┤
+│     ✓     │     ✓     │     ✓     │     ✓     │
+└───────────┴───────────┴───────────┴───────────┘
 
-    A --> B
-    A --> C
-    A --> D
-    A --> E
-
-    style B fill:#f9f,stroke:#333
-    style C fill:#f9f,stroke:#333
-    style D fill:#bbf,stroke:#333
-    style E fill:#bbf,stroke:#333
+Risk Level:  [HIGH]      [HIGH]      [MEDIUM]    [LOW]
 ```
 
-### Diagram Generation Guidelines
+### Diagram Guidelines
 
 1. **Always generate at least 2 diagrams** for non-trivial PRs:
    - File dependency graph (always)
    - One domain-specific diagram (data flow / component hierarchy / state / sequence)
 
-2. **Use appropriate diagram types**:
-   - `graph LR/TD` for file dependencies and component hierarchies
-   - `sequenceDiagram` for API calls and async operations
-   - `stateDiagram-v2` for state machine changes
-   - `flowchart` for data flow and process flow
+2. **Use box-drawing characters**:
+   - `┌ ┐ └ ┘ │ ─ ├ ┤ ┬ ┴ ┼` for boxes and tables
+   - `▶ ◀ ▲ ▼` for arrows
+   - `✓ ✗` for status indicators
 
-3. **Highlight risk areas** in diagrams:
-   - Use color styling for high-risk nodes
-   - Mark security-critical paths clearly
-   - Indicate cross-platform boundaries
+3. **Highlight risk areas**:
+   - Use `[HIGH]` `[MEDIUM]` `[LOW]` labels
+   - Mark security-critical paths with `🔐` or `⚠️`
 
 4. **Keep diagrams focused**:
-   - Max 15-20 nodes per diagram
+   - Max 10-15 nodes per diagram
    - Split complex flows into multiple diagrams
-   - Group related files into subgraphs

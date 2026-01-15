@@ -47,7 +47,12 @@ export interface IMarksUpdateMessage {
 // Chart Lines Types
 // ============================================
 
-export type ITVLineKind = 'liquidation' | 'position' | 'order';
+export type ITVLineKind =
+  | 'liquidation'
+  | 'position'
+  | 'order'
+  | 'tp' // Take Profit (Market/Limit)
+  | 'sl'; // Stop Loss (Market/Limit)
 
 export type ITVLineSide = 'long' | 'short';
 
