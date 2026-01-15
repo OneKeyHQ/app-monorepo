@@ -58,7 +58,7 @@
     "lint:project": "concurrently --kill-others-on-fail \"yarn _tsc\" \"yarn _lint\" \"yarn _electron\" \"yarn _folder\" \"yarn _lang\" \"yarn _packageVersions\"",
     "lint": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn lint:project",
     "lint:only": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"",
-    "tsc:only": "npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty",
+    "tsc:only": "npx tsc --max-old-space-size=8192 --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty",
     "test": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn jest"
   },
   "dependencies": {
