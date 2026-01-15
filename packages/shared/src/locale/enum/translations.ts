@@ -513,7 +513,6 @@
   defi_nothing_supplied_yet = 'defi.nothing_supplied_yet',
   defi_oracle_price = 'defi.oracle_price',
   defi_platform_bonus = 'defi.platform_bonus',
-  defi_refund_fee = 'defi.refund_fee',
   defi_refundable_fee = 'defi.refundable_fee',
   defi_repay = 'defi.repay',
   defi_reserve_info = 'defi.reserve_info',
