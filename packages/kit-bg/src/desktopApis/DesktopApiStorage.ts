@@ -45,6 +45,10 @@ class DesktopApiStorage {
   async secureDelItemAsync(key: string): Promise<void> {
     store.deleteSecureItem(key);
   }
+
+  async isSecureStorageAvailable(): Promise<boolean> {
+    return store.isSecureStorageAvailable();
+  }
 }
 
 export default DesktopApiStorage;
