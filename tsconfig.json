@@ -25,7 +25,7 @@
     "types": ["node", "chrome", "jest", "web", "w3c-web-usb"],
     "typeRoots": ["node_modules/@types", "./@types"]
   },
-  "include": ["**/*.ts", "**/*.tsx", "apps/web-embed/index.js", "apps/web-embed/src/views/WebEmbedWebviewAgentCardano/index.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", "apps/web-embed/index.js", "apps/web-embed/src/views/WebEmbedWebviewAgentCardano/index.tsx", "@types/@onekeyfe-electron-mac-icloud"],
   "exclude": ["node_modules"],
   "extends": "expo/tsconfig.base"
 }
