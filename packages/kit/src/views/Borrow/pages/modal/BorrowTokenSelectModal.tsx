@@ -284,7 +284,6 @@ export default function BorrowTokenSelectModal() {
           data={filteredAssets}
           isLoading={Boolean(isLoading)}
           columns={columns}
-          showSkeletonWhenEmpty
           skeletonCount={6}
           onPressRow={(item) => {
             if (item.reserveAddress === currentReserveAddress) return;
