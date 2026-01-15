@@ -1,5 +1,4 @@
 /* eslint-disable unicorn/prefer-global-this */
-/* eslint-disable @cspell/spellchecker */
 // @ts-nocheck
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';
@@ -69,7 +68,7 @@ function isHTMLMIMEType(value: string) {
   return getEssence(value) === 'text/html';
 }
 
-function isXMLMIMEType(value: string) {
+function isXMLMimeType(value: string) {
   const essence = getEssence(value);
   return (
     essence.endsWith('+xml') ||
@@ -258,7 +257,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     if (
       this.#responseType === '' &&
       charset == null &&
-      isXMLMIMEType(this.#getFinalMIMEType())
+      isXMLMimeType(this.#getFinalMIMEType())
     ) {
       charset = 'utf-8';
     }
@@ -317,7 +316,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
       return;
     }
     const finalMIME = this.#getFinalMIMEType();
-    if (!(isHTMLMIMEType(finalMIME) || isXMLMIMEType(finalMIME))) {
+    if (!(isHTMLMIMEType(finalMIME) || isXMLMimeType(finalMIME))) {
       return;
     }
     if (this.#responseType === '' && isHTMLMIMEType(finalMIME)) {

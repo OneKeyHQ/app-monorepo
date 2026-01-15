@@ -1,5 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
-
 import { Keypair, StellarSdk } from '.';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';

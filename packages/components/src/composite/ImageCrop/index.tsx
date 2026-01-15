@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 /* eslint-disable camelcase */
 import { type ChangeEvent, useCallback, useRef, useState } from 'react';
 

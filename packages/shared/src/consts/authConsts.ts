@@ -1,5 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
-
 const _IS_DEV = process.env.NODE_ENV !== 'production';
 
 /**
@@ -106,7 +104,7 @@ export const OAUTH_TOKEN_KEY_ID_TOKEN = 'id_token';
 // Google OAuth
 export const GOOGLE_OAUTH_AUTHORIZE_URL =
   'https://accounts.google.com/o/oauth2/auth';
-export const GOOGLE_OAUTH_TOKENINFO_URL =
+export const GOOGLE_OAUTH_TOKEN_INFO_URL =
   'https://oauth2.googleapis.com/tokeninfo';
 export const GOOGLE_OAUTH_USERINFO_URL =
   'https://www.googleapis.com/oauth2/v3/userinfo';
@@ -166,8 +164,10 @@ const GOOGLE_OAUTH_CLIENT_IOS =
 
 // test
 // const GOOGLE_OAUTH_CLIENT_WEB =
+// eslint-disable-next-line @cspell/spellchecker
 //   '244450898872-vmpg9dgocpqtqhm5pk42u4s6hvprogp6.apps.googleusercontent.com';
 // const GOOGLE_OAUTH_CLIENT_IOS =
+// eslint-disable-next-line @cspell/spellchecker
 //   '244450898872-5uo9r8ekdc82huckjcr4br67edvf3vlg.apps.googleusercontent.com';
 
 // ================================================
@@ -191,7 +191,7 @@ export const SUPABASE_PUBLIC_API_KEY =
 // Keyless Supabase
 // -----------------------------------------------
 
-// --- onekeyprod
+// --- onekey prod
 export const KEYLESS_SUPABASE_PROJECT_URL = 'https://auth.onekey.so'; // onekeytest
 export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NzU4MzUwLCJleHAiOjE5MjU0MzgzNTB9.n-g7Amu-dMVpBgQ8i8gSYFjBvbDPC55ZqYIttPh8CYk';
@@ -200,12 +200,14 @@ export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
 // export const KEYLESS_SUPABASE_PROJECT_URL =
 //   'https://supabase.onekey-internal.com'; // onekeytest
 // export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+// eslint-disable-next-line @cspell/spellchecker
 //   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
 
-// --- localtest
+// --- local test
 // export const KEYLESS_SUPABASE_PROJECT_URL =
 //   'https://wtspqckturkzhstyjabx.supabase.co';
 // export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
+// eslint-disable-next-line @cspell/spellchecker
 //   'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN';
 
 // ================================================

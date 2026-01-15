@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import {
   cloudkitSetContainerID,
   keychainGetItem,

@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 export type ICreateInvoiceParams = {
@@ -35,8 +34,10 @@ export type IInvoiceType = {
 type IRoutingInfo = Array<{
   pubkey: string;
   short_channel_id: string;
+  // eslint-disable-next-line @cspell/spellchecker
   fee_base_msat: number;
   fee_proportional_millionths: number;
+  // eslint-disable-next-line @cspell/spellchecker
   cltv_expiry_delta: number;
 }>;
 type IFallbackAddress = {
@@ -50,8 +51,10 @@ type IFeatureBits = {
   initial_routing_sync?: IFeature;
   option_upfront_shutdown_script?: IFeature;
   gossip_queries?: IFeature;
+  // eslint-disable-next-line @cspell/spellchecker
   var_onion_optin?: IFeature;
   gossip_queries_ex?: IFeature;
+  // eslint-disable-next-line @cspell/spellchecker
   option_static_remotekey?: IFeature;
   payment_secret?: IFeature;
   basic_mpp?: IFeature;
@@ -93,6 +96,7 @@ export declare type ITagsObject = {
   payee_node_key?: string;
   purpose_commit_hash?: string;
   expire_time?: number;
+  // eslint-disable-next-line @cspell/spellchecker
   min_final_cltv_expiry?: number;
   fallback_address?: IFallbackAddress;
   routing_info?: IRoutingInfo;
