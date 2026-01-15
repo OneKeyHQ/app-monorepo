@@ -1846,6 +1846,7 @@ export interface IBorrowHealthFactor {
     text: IEarnText;
     button?: IBorrowHealthFactorRiskDetail;
   };
+  alerts?: IBorrowAlert[];
 }
 
 export interface IBorrowRewards {
