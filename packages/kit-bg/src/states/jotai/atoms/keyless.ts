@@ -36,6 +36,7 @@ export const {
   target: keylessLastCancelVerifyPinTimeAtom,
   use: useKeylessLastCancelVerifyPinTimeAtom,
 } = globalAtom<number | undefined>({
+  persist: true,
   name: EAtomNames.keylessLastCancelVerifyPinTimeAtom,
   initialValue: undefined,
 });

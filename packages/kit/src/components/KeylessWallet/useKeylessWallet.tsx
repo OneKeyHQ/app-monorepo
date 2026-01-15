@@ -1093,6 +1093,7 @@ export function useVerifyKeylessPinChecking() {
           } else {
             shouldVerifyPin = true;
           }
+
           if (options.forceVerify) {
             return true;
           }
@@ -1165,6 +1166,20 @@ export function useVerifyKeylessPinChecking() {
                     }),
                   });
                   return;
+                }
+
+                if (shouldVerifyPin0) {
+                  // check auth server status
+                  const isHealthy =
+                    await backgroundApiProxy.serviceKeylessWallet.apiCheckAuthServerStatus();
+                  if (!isHealthy) {
+                    // TODO i18n @franco
+                    Toast.error({
+                      title:
+                        'Auth server is not healthy, please check your network and try again',
+                    });
+                    return;
+                  }
                 }
 
                 // Use void to start async flow without blocking dialog close

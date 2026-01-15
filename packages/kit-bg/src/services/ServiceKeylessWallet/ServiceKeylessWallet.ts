@@ -1927,18 +1927,67 @@ class ServiceKeylessWallet extends ServiceBase {
    * Try to refresh access token using stored refreshToken.
    * Returns new accessToken and refreshToken if refresh is successful, null otherwise.
    * Note: This requires passcode verification as refreshToken is encrypted with passcode.
+   *
+   * @param params.forceRefresh - If true (default), force refresh token regardless of local cache.
+   *                               If false, check if cached accessToken is still valid before refreshing.
    */
   @backgroundMethod()
   @toastIfError()
-  async tryRefreshTokenFromStorage(params: { ownerId: string }): Promise<{
+  async tryRefreshTokenFromStorage(params: {
+    ownerId: string;
+    forceRefresh?: boolean;
+  }): Promise<{
     accessToken: string;
     refreshToken: string;
   } | null> {
-    const { ownerId } = params;
+    const { ownerId, forceRefresh = true } = params;
     if (!ownerId) {
       throw new OneKeyLocalError('ownerId is required');
     }
     try {
+      // If not forcing refresh, check if cached accessToken is still valid
+      if (!forceRefresh) {
+        const cachedAccessToken =
+          await keylessRefreshTokenStorage.getAccessTokenFromStorage({
+            ownerId,
+            backgroundApi: this.backgroundApi,
+          });
+
+        // Check if cached accessToken exists and is still valid
+        if (cachedAccessToken) {
+          const decodedToken = stringUtils.decodeJWT(
+            cachedAccessToken,
+          ) as ISupabaseJWTPayload;
+          if (decodedToken?.exp && typeof decodedToken.exp === 'number') {
+            // Check if token is still valid (with 5 minutes buffer to avoid edge cases)
+            const expirationTime = decodedToken.exp * 1000; // Convert to milliseconds
+            const currentTime = Date.now();
+            const bufferTime = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+            if (currentTime < expirationTime - bufferTime) {
+              // Token is still valid, get refreshToken and return both
+              const { password } =
+                await this.backgroundApi.servicePassword.promptPasswordVerify();
+
+              const storedTokens =
+                await keylessRefreshTokenStorage.getTokensFromStorage({
+                  ownerId,
+                  password,
+                  backgroundApi: this.backgroundApi,
+                });
+
+              if (storedTokens?.refreshToken) {
+                return {
+                  accessToken: cachedAccessToken,
+                  refreshToken: storedTokens.refreshToken,
+                };
+              }
+            }
+          }
+        }
+      }
+
+      // Force refresh or token is expired/doesn't exist, proceed with refresh
       // Get password first to avoid multiple prompts
       const { password } =
         await this.backgroundApi.servicePassword.promptPasswordVerify();
@@ -2043,6 +2092,35 @@ class ServiceKeylessWallet extends ServiceBase {
 
     if (!isSuccess) {
       throw new OneKeyLocalError('Failed to update pin confirm status');
+    }
+  }
+
+  @backgroundMethod()
+  async apiCheckAuthServerStatus(): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        timerUtils.getTimeDurationMs({ seconds: 10 }),
+      );
+
+      const healthUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/health`;
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const result = (await response.json()) as { status?: string };
+      return result?.status === 'ok';
+    } catch (error) {
+      // Handle timeout or any other errors
+      return false;
     }
   }
 
