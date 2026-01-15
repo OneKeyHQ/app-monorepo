@@ -386,7 +386,7 @@ export const Overview = ({
               </SizableText>
             )}
           </YStack>
-          <XStack ai="center" gap="$3">
+          <XStack ai="center" gap="$3" pr="$2.5">
             {pendingCount > 0 ? (
               <PendingIndicator
                 num={pendingCount}
@@ -639,7 +639,7 @@ export const Overview = ({
         }
       />
 
-      <XStack ml="auto" ai="center" gap="$3">
+      <XStack ml="auto" ai="center" gap="$3" pr="$2.5">
         {pendingCount > 0 ? (
           <PendingIndicator num={pendingCount} onPress={handleHistoryPress} />
         ) : null}
