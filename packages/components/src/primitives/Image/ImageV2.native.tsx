@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Skeleton } from '../Skeleton';
 import { Stack } from '../Stack';
@@ -21,7 +22,7 @@ const getRandomRetryTimes = () => {
 
 // Disable GIF autoplay by default on Android to prevent OOM issues
 // when rendering many animated images in lists (e.g., NFT history)
-const DEFAULT_AUTOPLAY = Platform.OS !== 'android';
+const DEFAULT_AUTOPLAY = !platformEnv.isNativeAndroid;
 
 export function ImageV2({
   style: defaultStyle,
