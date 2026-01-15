@@ -19,6 +19,9 @@ const RewardDistributionHistory = LazyLoadPage(
   () => import('../pages/RewardDistributionHistory'),
 );
 const ReferralLevel = LazyLoadPage(() => import('../pages/ReferralLevel'));
+const RedemptionHistory = LazyLoadPage(
+  () => import('../../Redemption/pages/RedemptionHistory'),
+);
 
 export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   EModalReferFriendsRoutes,
@@ -63,5 +66,9 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalReferFriendsRoutes.ReferralLevel,
     component: ReferralLevel,
+  },
+  {
+    name: EModalReferFriendsRoutes.RedemptionHistory,
+    component: RedemptionHistory,
   },
 ];

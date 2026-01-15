@@ -23,6 +23,9 @@ import type {
   IInviteSummary,
   IPerpsInviteeRewardsResponse,
   IPerpsRecordsResponse,
+  IRedemptionCodeRedeemParams,
+  IRedemptionCodeRedeemResponse,
+  IRedemptionRecordsResponse,
   IUpdateInviteCodeNoteResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -613,6 +616,81 @@ class ServiceReferralCode extends ServiceBase {
       signerAddress,
     });
     return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getRedemptionRecords(): Promise<IRedemptionRecordsResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const response = await client.get<{
+      data: IRedemptionRecordsResponse;
+    }>('/rebate/v1/redemption-center/records');
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async redeemCode(
+    params: IRedemptionCodeRedeemParams,
+  ): Promise<IRedemptionCodeRedeemResponse> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    try {
+      const response = await client.post<{
+        code: number;
+        message: string;
+        messageId?: string;
+        data?: {
+          metadata?: {
+            previousLevel?: number;
+            newLevel?: number;
+          };
+        };
+      }>('/rebate/v1/redemption-center/redemption-code/redeem', params, {
+        autoHandleError: false,
+      } as any);
+
+      // Check if API returned an error (non-zero code)
+      if (response.data.code !== 0) {
+        return {
+          success: false,
+          error: {
+            code: response.data.code,
+            message: response.data.message,
+            messageId: response.data.messageId,
+          },
+        };
+      }
+
+      const metadata = response.data.data?.metadata;
+      return {
+        success: true,
+        upgradeInfo:
+          metadata?.previousLevel !== undefined &&
+          metadata?.newLevel !== undefined
+            ? {
+                fromLevel: metadata.previousLevel,
+                toLevel: metadata.newLevel,
+              }
+            : undefined,
+      };
+    } catch (error) {
+      // Handle axios error response
+      const axiosError = error as { response?: { data?: unknown } };
+      if (axiosError?.response?.data) {
+        const errorData = axiosError.response.data as {
+          code: number;
+          message: string;
+          messageId?: string;
+        };
+        return {
+          success: false,
+          error: {
+            code: errorData.code,
+            message: errorData.message,
+            messageId: errorData.messageId,
+          },
+        };
+      }
+      throw error;
+    }
   }
 }
 

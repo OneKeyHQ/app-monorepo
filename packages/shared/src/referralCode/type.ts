@@ -513,3 +513,48 @@ export interface IHardwareRecordsResponse {
   items: IHardwareRecordItem[];
   cursor?: string;
 }
+
+// Redemption code types
+export interface IRedemptionCodeRedeemParams {
+  code: string;
+}
+
+export interface IRedemptionCodeRedeemError {
+  code: number;
+  message: string;
+  messageId?: string;
+}
+
+export interface IRedemptionCodeRedeemResponse {
+  success: boolean;
+  error?: IRedemptionCodeRedeemError;
+  upgradeInfo?: {
+    fromLevel?: number;
+    toLevel?: number;
+    fromLevelLabel?: string;
+    toLevelLabel?: string;
+    toLevelIcon?: string;
+  };
+}
+
+// Redemption center records types
+export interface IRedemptionRecordMetadata {
+  previousLevel?: number;
+  newLevel?: number;
+}
+
+export interface IRedemptionRecordItem {
+  _id: string;
+  type: string;
+  code: string;
+  metadata?: IRedemptionRecordMetadata;
+  redeemedAt: string;
+  title: string;
+  description: string;
+  status: 'success' | 'pending';
+}
+
+export interface IRedemptionRecordsResponse {
+  total: number;
+  items: IRedemptionRecordItem[];
+}
