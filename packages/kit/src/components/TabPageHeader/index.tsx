@@ -175,8 +175,6 @@ export function TabPageHeader({
         customHeaderRightItems={customHeaderRightItems}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         headerPx={headerPx}
-        customHeaderRightItems={customHeaderRightItems}
-        customHeaderLeftItems={customHeaderLeftItems}
       />
     );
   }
