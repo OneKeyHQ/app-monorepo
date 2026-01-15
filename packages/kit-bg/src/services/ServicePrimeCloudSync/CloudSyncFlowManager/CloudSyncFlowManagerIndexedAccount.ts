@@ -39,6 +39,12 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
     target: ICloudSyncTargetIndexedAccount,
   ): Promise<boolean> {
     const { indexedAccount, wallet } = target;
+
+    // Keyless wallet should not be synced
+    if (accountUtils.isKeylessWallet({ walletId: wallet?.id })) {
+      return false;
+    }
+
     if (wallet?.xfp && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })) {
       return true;
     }
