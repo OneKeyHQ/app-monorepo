@@ -6,6 +6,8 @@ import { Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   primePersistAtom,
+  useDevSettingsPersistAtom,
+  useKeylessLastCancelVerifyPinTimeAtom,
   useKeylessPinConfirmStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -1013,20 +1015,31 @@ export function useVerifyKeylessPinChecking() {
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const intl = useIntl();
   const [keylessPinConfirmStatus] = useKeylessPinConfirmStatusAtom();
+  const [keylessLastCancelVerifyPinTime, setKeylessLastCancelVerifyPinTime] =
+    useKeylessLastCancelVerifyPinTimeAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
 
-  const cancelVerifyPin = useCallback(async (ownerId: string) => {
-    const accessToken =
-      await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
-        { ownerId },
-      );
-   
-    if (accessToken)     {
-      await backgroundApiProxy.serviceKeylessWallet.apiUpdatePinConfirmStatus({
-        token: accessToken,
-        isCancelAction: true,
-      });
-    }
-  }, []);
+  const cancelVerifyPin = useCallback(
+    async (ownerId: string) => {
+      const accessToken =
+        await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
+          { ownerId },
+        );
+
+      if (accessToken) {
+        await backgroundApiProxy.serviceKeylessWallet.apiUpdatePinConfirmStatus(
+          {
+            token: accessToken,
+            isCancelAction: true,
+          },
+        );
+      }
+
+      // save last cancel verify pin time
+      setKeylessLastCancelVerifyPinTime(Date.now());
+    },
+    [setKeylessLastCancelVerifyPinTime],
+  );
 
   const verifyKeylessPinChecking = useCallback(
     async (options: { forceVerify?: boolean; wallet: IDBWallet }) => {
@@ -1036,6 +1049,19 @@ export function useVerifyKeylessPinChecking() {
         if (!ownerId) {
           return;
         }
+
+        // skip if last cancel verify pin time is less than 12 hour (skip in dev mode)
+        if (!devSettings.enabled) {
+          const TWELVE_HOURS_IN_MS = timerUtils.getTimeDurationMs({ hour: 12 });
+          if (
+            keylessLastCancelVerifyPinTime &&
+            Date.now() - keylessLastCancelVerifyPinTime < TWELVE_HOURS_IN_MS &&
+            !options.forceVerify
+          ) {
+            return;
+          }
+        }
+
         let shouldChecking = true;
         if (
           keylessPinConfirmStatus?.socialProvider ===
@@ -1173,8 +1199,10 @@ export function useVerifyKeylessPinChecking() {
     },
     [
       cancelVerifyPin,
+      devSettings.enabled,
       goToOneKeyIDLoginPageForKeylessWallet,
       intl,
+      keylessLastCancelVerifyPinTime,
       keylessPinConfirmStatus?.remindTime,
       keylessPinConfirmStatus?.socialProvider,
       keylessPinConfirmStatus?.socialUserIdHash,

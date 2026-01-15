@@ -30,3 +30,12 @@ export const {
   name: EAtomNames.keylessPinConfirmStatusAtom,
   initialValue: null,
 });
+
+// last cancel verify pin time atom
+export const {
+  target: keylessLastCancelVerifyPinTimeAtom,
+  use: useKeylessLastCancelVerifyPinTimeAtom,
+} = globalAtom<number | undefined>({
+  name: EAtomNames.keylessLastCancelVerifyPinTimeAtom,
+  initialValue: undefined,
+});
