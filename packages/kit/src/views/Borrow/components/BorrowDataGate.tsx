@@ -6,17 +6,22 @@ import { isEmpty } from 'lodash';
 
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useStakingPendingTxsByInfo } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
+import { isBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
-import { useBorrowPendingTxs } from '../hooks/useBorrowPendingTxs';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
 
 const BORROW_POLLING_INTERVAL = 3 * 60 * 1000; // 3 minutes
 const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
+const BORROW_PENDING_REFRESH_DELAY = timerUtils.getTimeDurationMs({
+  seconds: 3,
+});
 
 export const BorrowDataGate = ({
   children,
@@ -34,6 +39,14 @@ export const BorrowDataGate = ({
     refetchMarkets,
   } = useBorrowMarkets({ isActive: isViewActive });
   const market = useMemo(() => markets?.[0], [markets]);
+  const borrowNetworkIds = useMemo(() => {
+    const ids = (markets ?? []).map((item) => item.networkId);
+    return [
+      ...new Set(
+        ids.filter((networkId): networkId is string => Boolean(networkId)),
+      ),
+    ];
+  }, [markets]);
   const {
     reserves,
     setMarket,
@@ -42,7 +55,7 @@ export const BorrowDataGate = ({
     setBorrowDataStatus,
     setPendingTxs,
     refreshReservesRef,
-    refreshPendingRef,
+    refreshBorrowDataRef,
   } = useBorrowContext();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { earnAccount } = useEarnAccount({
@@ -217,11 +230,13 @@ export const BorrowDataGate = ({
     setBorrowDataStatus(dataStatus);
   }, [dataStatus, setBorrowDataStatus]);
 
-  const { pendingTxs, refreshPending } = useBorrowPendingTxs({
-    accountId,
-    networkId: marketNetworkId,
-    provider: marketProvider,
-    isActive: isViewActive,
+  const { filteredTxs: pendingTxs = [] } = useStakingPendingTxsByInfo({
+    networkIds: borrowNetworkIds,
+    tagMatcher: isBorrowTag,
+    onRefresh: () => {
+      void refreshBorrowDataRef.current?.();
+    },
+    onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
   });
 
   // Sync pending transactions to context
@@ -239,11 +254,6 @@ export const BorrowDataGate = ({
   useEffect(() => {
     refreshReservesRef.current = refreshReservesWithForce;
   }, [refreshReservesRef, refreshReservesWithForce]);
-
-  // Store refreshPending function in ref for external access
-  useEffect(() => {
-    refreshPendingRef.current = refreshPending;
-  }, [refreshPending, refreshPendingRef]);
 
   useEffect(() => {
     if (reservesResult !== undefined) {
