@@ -22,7 +22,9 @@ import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import deviceUtils, {
+  ESupportSettings,
+} from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { ListItemGroup } from '../ListItemGroup';
@@ -285,84 +287,155 @@ function DeviceSectionGeneral() {
   const [deviceType] = useDeviceTypeAtom();
 
   // Load and format language options
-  // const { result: languageOptions } = usePromiseResult(async () => {
-  //   if (!deviceType) return [];
-  //   const options = await deviceUtils.getLanguageConfig({ deviceType });
-  //   return options.map((option) => ({
-  //     label: option.label,
-  //     value: option.code,
-  //   }));
-  // }, [deviceType]);
+  const { result: languageOptions } = usePromiseResult(
+    async () => {
+      if (!deviceType) return [];
+      const options = await deviceUtils.getLanguageConfig({ deviceType });
+      return options.map((option) => ({
+        label: option.label,
+        value: option.code,
+      }));
+    },
+    [deviceType],
+    {
+      initResult: [],
+    },
+  );
 
   // Load and format auto lock options
-  const { result: autoLockOptions } = usePromiseResult(async () => {
-    if (!deviceType) return [];
-    const options = await deviceUtils.getAutoLockOptions({ deviceType });
-    return options.map((option) => {
-      const value = timerUtils.getTimeDurationMs(option);
-      if (
-        option.seconds === 0 &&
-        option.minute === 0 &&
-        option.hour === 0 &&
-        option.day === 0
-      ) {
-        return {
-          label: intl.formatMessage({ id: ETranslations.global_never }),
-          value: NEVER_LOCK_VALUE,
-        };
-      }
+  const { result: autoLockOptions } = usePromiseResult(
+    async () => {
+      if (!deviceType) return [];
+      const options = await deviceUtils.getAutoLockOptions({ deviceType });
+      return options.map((option) => {
+        const value = timerUtils.getTimeDurationMs(option);
+        if (
+          option.seconds === 0 &&
+          option.minute === 0 &&
+          option.hour === 0 &&
+          option.day === 0
+        ) {
+          return {
+            label: intl.formatMessage({ id: ETranslations.global_never }),
+            value: NEVER_LOCK_VALUE,
+          };
+        }
 
-      const label = option.seconds
-        ? intl.formatMessage(
-            { id: ETranslations.earn_number_seconds },
-            { number: option.seconds },
-          )
-        : intl.formatMessage(
-            { id: ETranslations.earn_number_minutes },
-            { number: option.minute },
-          );
-      return { label, value };
-    });
-  }, [deviceType, intl]);
+        const label = option.seconds
+          ? intl.formatMessage(
+              { id: ETranslations.earn_number_seconds },
+              { number: option.seconds },
+            )
+          : intl.formatMessage(
+              { id: ETranslations.earn_number_minutes },
+              { number: option.minute },
+            );
+        return { label, value };
+      });
+    },
+    [deviceType, intl],
+    {
+      initResult: [],
+    },
+  );
 
   // Load and format auto shutdown options
-  const { result: autoShutDownOptions } = usePromiseResult(async () => {
-    if (!deviceType) return [];
-    const options = await deviceUtils.getAutoShutDownOptions({ deviceType });
-    return options.map((option) => {
-      const value = timerUtils.getTimeDurationMs(option);
-      if (
-        option.seconds === 0 &&
-        option.minute === 0 &&
-        option.hour === 0 &&
-        option.day === 0
-      ) {
-        return {
-          label: intl.formatMessage({ id: ETranslations.global_never }),
-          value: NEVER_LOCK_VALUE,
-        };
-      }
-      const label = option.seconds
-        ? intl.formatMessage(
-            { id: ETranslations.earn_number_seconds },
-            { number: option.seconds },
-          )
-        : intl.formatMessage(
-            { id: ETranslations.earn_number_minutes },
-            { number: option.minute },
-          );
-      return { label, value };
-    });
-  }, [deviceType, intl]);
+  const { result: autoShutDownOptions } = usePromiseResult(
+    async () => {
+      if (!deviceType) return [];
+      const options = await deviceUtils.getAutoShutDownOptions({ deviceType });
+      return options.map((option) => {
+        const value = timerUtils.getTimeDurationMs(option);
+        if (
+          option.seconds === 0 &&
+          option.minute === 0 &&
+          option.hour === 0 &&
+          option.day === 0
+        ) {
+          return {
+            label: intl.formatMessage({ id: ETranslations.global_never }),
+            value: NEVER_LOCK_VALUE,
+          };
+        }
+        const label = option.seconds
+          ? intl.formatMessage(
+              { id: ETranslations.earn_number_seconds },
+              { number: option.seconds },
+            )
+          : intl.formatMessage(
+              { id: ETranslations.earn_number_minutes },
+              { number: option.minute },
+            );
+        return { label, value };
+      });
+    },
+    [deviceType, intl],
+    {
+      initResult: [],
+    },
+  );
 
-  // const showLanguage = languageOptions && languageOptions.length > 0;
-  const showAutoLock = autoLockOptions && autoLockOptions.length > 0;
-  const showAutoShutDown =
-    autoShutDownOptions && autoShutDownOptions.length > 0;
-  const showHapticFeedback =
-    deviceType && deviceUtils.supportHapticFeedbackByDeviceType({ deviceType });
-  const showBrightness =
-    deviceType && deviceUtils.supportBrightnessByDeviceType({ deviceType });
+  const {
+    showLanguage,
+    showAutoLock,
+    showAutoShutDown,
+    showHapticFeedback,
+    showBrightness,
+  } = useMemo(() => {
+    if (!deviceType)
+      return {
+        showLanguage: false,
+        showAutoLock: false,
+        showAutoShutDown: false,
+        showHapticFeedback: false,
+        showBrightness: false,
+      };
+
+    const supportLanguage = deviceUtils.supportSettings({
+      deviceType,
+      firmwareVersion: deviceMeta.firmwareVersion,
+      setting: ESupportSettings.Language,
+    });
+    const supportAutoLock = deviceUtils.supportSettings({
+      deviceType,
+      firmwareVersion: deviceMeta.firmwareVersion,
+      setting: ESupportSettings.AutoLock,
+    });
+    const supportAutoShutDown = deviceUtils.supportSettings({
+      deviceType,
+      firmwareVersion: deviceMeta.firmwareVersion,
+      setting: ESupportSettings.AutoShutDown,
+    });
+    const supportHapticFeedback = deviceUtils.supportSettings({
+      deviceType,
+      firmwareVersion: deviceMeta.firmwareVersion,
+      setting: ESupportSettings.HapticFeedback,
+    });
+    const supportBrightness = deviceUtils.supportSettings({
+      deviceType,
+      firmwareVersion: deviceMeta.firmwareVersion,
+      setting: ESupportSettings.Brightness,
+    });
+
+    return {
+      showLanguage:
+        supportLanguage && languageOptions && languageOptions.length > 0,
+      showAutoLock:
+        supportAutoLock && autoLockOptions && autoLockOptions.length > 0,
+      showAutoShutDown:
+        supportAutoShutDown &&
+        autoShutDownOptions &&
+        autoShutDownOptions.length > 0,
+      showHapticFeedback: supportHapticFeedback,
+      showBrightness: supportBrightness,
+    };
+  }, [
+    deviceMeta.firmwareVersion,
+    deviceType,
+    languageOptions,
+    autoLockOptions,
+    autoShutDownOptions,
+  ]);
 
   const onPressHomescreen = useCallback(async () => {
     const deviceData = await actions.getWalletWithDevice();
@@ -387,9 +460,9 @@ function DeviceSectionGeneral() {
         id: ETranslations.global_general,
       })}
     >
-      {/* {showLanguage ? (
+      {showLanguage ? (
         <LanguageListItem languageOptions={languageOptions} />
-      ) : null} */}
+      ) : null}
       <ListItem
         key="addWallpaper"
         title={intl.formatMessage({
