@@ -2729,6 +2729,7 @@
   pin_attempts_cooldown = 'pin_attempts_cooldown',
   pin_attempts_exhausted = 'pin_attempts_exhausted',
   pin_attempts_remaining = 'pin_attempts_remaining',
+  pin_reminder_email_tip = 'pin_reminder_email_tip',
   pin_verify_reminder_dialog_button_label = 'pin_verify_reminder_dialog_button_label',
   pin_verify_reminder_dialog_desc = 'pin_verify_reminder_dialog_desc',
   pin_verify_reminder_dialog_title = 'pin_verify_reminder_dialog_title',
