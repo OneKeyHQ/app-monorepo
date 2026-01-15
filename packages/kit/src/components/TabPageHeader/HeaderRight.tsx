@@ -1,16 +1,7 @@
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
-
-import {
-  Button,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { useMedia } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
@@ -40,36 +31,6 @@ export function SelectorTrigger() {
       size="small"
       recordNetworkHistoryEnabled
     />
-  );
-}
-
-export function DepositAction() {
-  const { gtMd } = useMedia();
-  const intl = useIntl();
-  return gtMd ? null : (
-    <Button
-      icon="WalletCryptoOutline"
-      size="small"
-      gap="$1.5"
-      onPress={() => {
-        alert('Deposit');
-      }}
-    >
-      <XStack alignItems="center" gap="$1.5">
-        <YStack
-          bg="rgba(0, 0, 0, 0.11)"
-          width={StyleSheet.hairlineWidth}
-          height="$4"
-        />
-        <SizableText
-          textBreakStrategy="simple"
-          size="$bodySmMedium"
-          color="$textSubdued"
-        >
-          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-        </SizableText>
-      </XStack>
-    </Button>
   );
 }
 
@@ -170,12 +131,6 @@ export function HeaderRight({
         );
       case ETabRoutes.Earn:
         return earnItems;
-      case ETabRoutes.Perp:
-        return (
-          <>
-            <DepositAction />
-          </>
-        );
       case ETabRoutes.ReferFriends:
         return fixedItems;
       default:
