@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable max-classes-per-file */
 import { Address, beginCell } from '@ton/core';
 

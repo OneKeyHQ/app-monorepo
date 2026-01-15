@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { isNaN, isNil, isNumber } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
@@ -53,7 +52,7 @@ function getWalletIdFromAccountId({
   external--60--0xf588ff00613814c3f86efc57059121c74eb237f1
   hd-1--m/44'/118'/0'/0/0
   hw-da2fb055-f3c8-4b55-922e-a04a6fea29cf--m/44'/0'/0'
-  hw-f5f9b539-2879-4811-bac2-8d143b08adef-mg2PbFeAMoms9Z7f5by1MscdP3RAhbrLUJ--m/49'/0'/0'
+  hw-f5f9b539-2879-4811-bac2-8d143b08adef-mg2PbFeAMoms9Z7f5by1mscDP3RABHbrLUJ--m/49'/0'/0'
   */
   return accountId.split(SEPERATOR)[0] || '';
 }

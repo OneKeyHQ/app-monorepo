@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 import type { ISimulateTransactionResponse } from './types';

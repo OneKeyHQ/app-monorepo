@@ -26,7 +26,7 @@ const {
       // TODO use accountIdToAddress generate DOT real address
       address: '',
       addresses: {
-        // eslint-disable-next-line spellcheck/spell-checker
+        // eslint-disable-next-line @cspell/spellchecker
         // 12EKdsrFTWA3oZoEzoB4ZNh64VrkuLjFKDnxFpEJZx4JF2Y6
       },
       path: "m/44'/354'/0'/0'/0'",

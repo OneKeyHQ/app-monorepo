@@ -1,5 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
-
 import { GOOGLE_OAUTH_CLIENT_IDS } from './authConsts';
 
 export const GoogleSignInConfigure = {
@@ -14,7 +12,9 @@ export const GoogleSignInConfigure = {
 
   // webClientId: platformEnv.isDev
   //   ? // DEVELOPER_ERROR: On local development this can happen due to incorrect app signing. Please test with a production-signed build.
+  // eslint-disable-next-line @cspell/spellchecker
   //     '117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com' // Dev
+  // eslint-disable-next-line @cspell/spellchecker
   //   : '94391474021-ffaspa4ikjqpqvn5ndplqobvuvhnj8v3.apps.googleusercontent.com', // Pro
   // offlineAccess: true,
 };

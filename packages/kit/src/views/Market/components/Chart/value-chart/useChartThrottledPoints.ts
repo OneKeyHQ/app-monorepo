@@ -22,7 +22,7 @@ const traverseData = (prev: IAnimatedChartData, data: IMarketTokenChart) => {
     return prev;
   }
 
-  // eslint-disable-next-line spellcheck/spell-checker
+  // eslint-disable-next-line @cspell/spellchecker
   // some data only has one point like "frapped usdt"
   if (data.length === 1) {
     const dummyData = new Array(DUMMY_POINTS)

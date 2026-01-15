@@ -18,7 +18,7 @@ import type {
 
 import { FlashList } from '@shopify/flash-list';
 import { noop } from 'lodash';
-// eslint-disable-next-line spellcheck/spell-checker
+// eslint-disable-next-line @cspell/spellchecker
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import {
   OpacityDecorator,

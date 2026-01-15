@@ -3,6 +3,11 @@ const { exit } = require('process');
 const fs = require('fs');
 const path = require('path');
 
+const getTimestamp = () => new Date().toLocaleTimeString();
+const startTime = Date.now();
+
+console.log(`[${getTimestamp()}] Package versions check started...`);
+
 // Find all workspace package.json files (excluding node_modules)
 function findPackageJsonFiles(rootDir) {
   const result = execSync(
@@ -162,3 +167,6 @@ function main() {
 }
 
 main();
+
+const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+console.log(`[${getTimestamp()}] Package versions check completed. (${duration}s)`);

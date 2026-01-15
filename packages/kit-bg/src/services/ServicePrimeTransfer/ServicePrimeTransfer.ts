@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, debounce, isEmpty, isNaN, isNil, uniqBy } from 'lodash';
 import natsort from 'natsort';
@@ -370,7 +369,7 @@ class ServicePrimeTransfer extends ServiceBase {
         this.socket.on('room-full', async (data: { roomId: string }) => {
           if (data.roomId === (await primeTransferAtom.get()).pairedRoomId) {
             const message = appLocale.intl.formatMessage({
-              // eslint-disable-next-line spellcheck/spell-checker
+              // eslint-disable-next-line @cspell/spellchecker
               // id: ETranslations.global_connet_error_try_again,
               id: ETranslations.transfer_security_alert_new_device_re_pair,
             });
