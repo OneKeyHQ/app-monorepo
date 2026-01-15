@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';

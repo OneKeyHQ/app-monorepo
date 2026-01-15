@@ -181,8 +181,11 @@ function WalletEditButtonView({
               label="Verify PIN"
               onClose={handleActionListClose}
               isLoading={isVerifyPinLoading}
-              onPress={() => {
+              onPress={async (close) => {
                 if (wallet) {
+                  close();
+                  navigation.popStack();
+                  await timerUtils.wait(200);
                   void verifyKeylessPinChecking({ forceVerify: true, wallet });
                 }
               }}
@@ -262,6 +265,7 @@ function WalletEditButtonView({
       showRemoveDeviceButton,
       handleKeylessWalletAction,
       verifyKeylessPinChecking,
+      navigation,
     ],
   );
 

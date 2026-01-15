@@ -14,6 +14,10 @@ import { useWatchListV2Action } from '../../../components/watchListHooksV2';
 
 import { RecommendItem } from './RecommendItem';
 
+function getTokenKey(token: { chainId: string; contractAddress: string }) {
+  return `${token.chainId}:${token.contractAddress}`;
+}
+
 interface IMarketRecommendListProps {
   recommendedTokens: IMarketBasicConfigToken[];
   maxSize?: number;
@@ -38,9 +42,20 @@ export function MarketRecommendList({
 
   const actualShowTitle = useMemo(() => windowHeight > 700, [windowHeight]);
 
+  const uniqueTokens = useMemo(() => {
+    if (!recommendedTokens?.length) return [];
+    const seen = new Set<string>();
+    return recommendedTokens.filter((token) => {
+      const key = getTokenKey(token);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [recommendedTokens]);
+
   const defaultTokens = useMemo(
-    () => recommendedTokens?.slice(0, actualMaxSize) || [],
-    [recommendedTokens, actualMaxSize],
+    () => uniqueTokens.slice(0, actualMaxSize),
+    [uniqueTokens, actualMaxSize],
   );
 
   const [selectedTokens, setSelectedTokens] = useState<
@@ -52,29 +67,22 @@ export function MarketRecommendList({
   }, [enableSelection, defaultTokens]);
 
   const handleRecommendItemChange = useCallback(
-    (checked: boolean, address: string) => {
+    (checked: boolean, tokenKey: string) => {
+      const token = uniqueTokens.find((t) => getTokenKey(t) === tokenKey);
+      if (!token) return;
+
       if (!enableSelection) {
-        const token = recommendedTokens.find(
-          (t) => t.contractAddress === address,
-        );
-        if (token && onTokenSelect) {
-          onTokenSelect(token);
-        }
+        onTokenSelect?.(token);
         return;
       }
-
-      const token = recommendedTokens.find(
-        (t) => t.contractAddress === address,
-      );
-      if (!token) return;
 
       setSelectedTokens((prev) =>
         checked
           ? [...prev, token]
-          : prev.filter((i) => i.contractAddress !== address),
+          : prev.filter((t) => getTokenKey(t) !== tokenKey),
       );
     },
-    [enableSelection, onTokenSelect, recommendedTokens],
+    [enableSelection, onTokenSelect, uniqueTokens],
   );
 
   const handleAddTokens = useCallback(async () => {
@@ -124,7 +132,7 @@ export function MarketRecommendList({
     [selectedTokens.length, handleAddTokens, intl, enableSelection],
   );
 
-  if (!recommendedTokens?.length) {
+  if (!uniqueTokens.length) {
     return null;
   }
 
@@ -170,26 +178,24 @@ export function MarketRecommendList({
             }}
           >
             {new Array(2).fill(0).map((__, j) => {
-              const item = recommendedTokens?.[i * 2 + j];
-              console.log('item', item);
-              return item ? (
+              const item = uniqueTokens[i * 2 + j];
+              if (!item) return null;
+              const tokenKey = getTokenKey(item);
+              const isChecked =
+                enableSelection &&
+                selectedTokens.some((t) => getTokenKey(t) === tokenKey);
+              return (
                 <RecommendItem
-                  key={item.contractAddress}
-                  address={item.contractAddress}
-                  checked={
-                    enableSelection
-                      ? selectedTokens.some(
-                          (t) => t.contractAddress === item.contractAddress,
-                        )
-                      : false
-                  }
+                  key={tokenKey}
+                  address={tokenKey}
+                  checked={isChecked}
                   icon={item.logo || ''}
                   symbol={item.symbol}
                   tokenName={item.name}
                   networkId={item.chainId}
                   onChange={handleRecommendItemChange}
                 />
-              ) : null;
+              );
             })}
           </XStack>
         ))}

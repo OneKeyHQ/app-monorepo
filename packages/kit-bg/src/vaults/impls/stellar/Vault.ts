@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty, isNaN, orderBy } from 'lodash';

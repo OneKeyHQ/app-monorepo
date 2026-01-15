@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 /* eslint-disable import/no-dynamic-require */
 const path = require('path');
 const fs = require('fs-extra');

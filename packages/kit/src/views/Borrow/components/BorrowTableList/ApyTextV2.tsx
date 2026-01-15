@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -7,15 +8,19 @@ import {
   Divider,
   Icon,
   Popover,
+  ScrollView,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IBorrowApy,
   IBorrowApyDetailItem,
@@ -41,26 +46,24 @@ function ApyDetailSection({
     <>
       {/* Section Title */}
       {section.title ? (
-        <SizableText
+        <EarnText
+          text={section.title}
           size="$bodySmMedium"
           color="$textSubdued"
-          mt="$4"
           mb="$3.5"
-        >
-          <EarnText text={section.title} />
-        </SizableText>
+        />
       ) : null}
 
       {/* Section Items */}
       <YStack gap="$3.5">
         {section.items.map((item: IBorrowApyDetailItem, index: number) => (
           <XStack key={index} jc="space-between" ai="flex-start">
-            <XStack ai="flex-start" gap="$2.5" flex={1}>
+            <XStack ai="center" gap="$2.5" flex={1}>
               {item.icon ? (
-                <Icon name={item.icon.icon} size="$4" color="$iconSubdued" />
+                <EarnIcon icon={item.icon} size="$4" color="$iconSubdued" />
               ) : null}
               {!item.icon && item.logoURI ? (
-                <Token size="sm" tokenImageUri={item.logoURI} />
+                <Token size="xxs" tokenImageUri={item.logoURI} />
               ) : null}
               <YStack flex={1} gap="$0.5">
                 <EarnText
@@ -79,7 +82,11 @@ function ApyDetailSection({
             </XStack>
             <XStack ai="center" gap="$1">
               {item.value.icon ? <EarnIcon icon={item.value.icon} /> : null}
-              <EarnText text={item.value.text} size="$bodyMd" color="$text" />
+              <EarnText
+                text={item.value.text}
+                size="$bodyMdMedium"
+                color="$text"
+              />
             </XStack>
           </XStack>
         ))}
@@ -97,7 +104,7 @@ function ApyDetailSection({
         />
       ))}
 
-      {showDivider ? <Divider my="$3" /> : null}
+      {showDivider ? <Divider my="$4" /> : null}
     </>
   );
 }
@@ -282,11 +289,59 @@ export const ApyTextV2 = ({
 }: IApyTextV2Props) => {
   const intl = useIntl();
   const [open, setOpen] = useState(false);
+  const { gtMd, hoverNone, pointerCoarse } = useMedia();
 
   const hasDetail = !!apyDetail.button;
   const popupData = apyDetail.button?.data;
   const { highlight, deprecated } = apyDetail;
   const showChevron = triggerMode === 'icon' && hasDetail;
+  const useHoverTooltip =
+    triggerMode === 'underline' &&
+    hasDetail &&
+    platformEnv.isRuntimeBrowser &&
+    gtMd &&
+    !hoverNone &&
+    !pointerCoarse;
+
+  const renderDetailOverlay = useCallback(
+    (trigger: ReactNode) => {
+      if (!hasDetail) {
+        return trigger;
+      }
+
+      if (useHoverTooltip) {
+        return (
+          <Tooltip
+            hovering
+            placement="bottom-end"
+            renderTrigger={<Stack cursor="pointer">{trigger}</Stack>}
+            renderContent={
+              <ScrollView maxHeight={480}>
+                <ApyDetailPopoverContent popupData={popupData} />
+              </ScrollView>
+            }
+            contentProps={{
+              w: '$96',
+              maxWidth: '$96',
+              px: '$0',
+              py: '$0',
+            }}
+          />
+        );
+      }
+
+      return (
+        <Popover
+          open={open}
+          onOpenChange={setOpen}
+          renderTrigger={<Stack cursor="pointer">{trigger}</Stack>}
+          title={intl.formatMessage({ id: ETranslations.global_details })}
+          renderContent={<ApyDetailPopoverContent popupData={popupData} />}
+        />
+      );
+    },
+    [hasDetail, intl, open, popupData, setOpen, useHoverTooltip],
+  );
 
   // Memoize highlight content to avoid recreation
   const highlightElement = useMemo(() => {
@@ -319,21 +374,8 @@ export const ApyTextV2 = ({
   // Render highlight with optional popover
   const renderHighlightWithPopover = useCallback(() => {
     if (!highlightElement) return null;
-
-    const content = hasDetail ? (
-      <Popover
-        open={open}
-        onOpenChange={setOpen}
-        renderTrigger={<Stack cursor="pointer">{highlightElement}</Stack>}
-        title={intl.formatMessage({ id: ETranslations.global_details })}
-        renderContent={<ApyDetailPopoverContent popupData={popupData} />}
-      />
-    ) : (
-      highlightElement
-    );
-
-    return content;
-  }, [hasDetail, highlightElement, intl, open, popupData, setOpen]);
+    return renderDetailOverlay(highlightElement);
+  }, [highlightElement, renderDetailOverlay]);
 
   // Case 1: Both highlight and deprecated exist
   if (highlight && deprecated) {
@@ -359,22 +401,14 @@ export const ApyTextV2 = ({
 
     return (
       <YStack ai="flex-end">
-        <Popover
-          open={open}
-          onOpenChange={setOpen}
-          renderTrigger={
-            <Stack cursor="pointer">
-              <TextWithTrigger
-                text={displayText}
-                color={displayColor}
-                triggerMode={triggerMode}
-                showChevron={showChevron}
-              />
-            </Stack>
-          }
-          title={intl.formatMessage({ id: ETranslations.global_details })}
-          renderContent={<ApyDetailPopoverContent popupData={popupData} />}
-        />
+        {renderDetailOverlay(
+          <TextWithTrigger
+            text={displayText}
+            color={displayColor}
+            triggerMode={triggerMode}
+            showChevron={showChevron}
+          />,
+        )}
       </YStack>
     );
   }

@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, debounce, isEmpty, isNaN, isNil, uniqBy } from 'lodash';
 import natsort from 'natsort';

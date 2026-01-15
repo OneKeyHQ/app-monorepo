@@ -1,5 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
-
 import { useCallback, useMemo } from 'react';
 
 import { colorTokens } from '@tamagui/themes';

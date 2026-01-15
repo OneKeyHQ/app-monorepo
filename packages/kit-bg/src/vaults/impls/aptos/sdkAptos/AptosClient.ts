@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';

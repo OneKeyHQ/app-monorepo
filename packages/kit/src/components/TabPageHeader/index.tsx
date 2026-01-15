@@ -171,6 +171,8 @@ export function TabPageHeader({
         sceneName={sceneName}
         hideSearch={hideSearch}
         selectedHeaderTab={selectedHeaderTab}
+        customHeaderLeftItems={customHeaderLeftItems}
+        customHeaderRightItems={customHeaderRightItems}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         headerPx={headerPx}
       />

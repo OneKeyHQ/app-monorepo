@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 /* eslint-disable no-bitwise */
-/* eslint-disable @cspell/spellchecker */
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 

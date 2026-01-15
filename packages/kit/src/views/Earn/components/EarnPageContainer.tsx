@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -88,9 +89,13 @@ export function EarnPageContainer({
     return EARN_PAGE_MAX_WIDTH;
   }, [disableMaxWidth, maxWidth]);
 
+  // In WebDapp mode, always use TabPageHeader for consistent mobile layout
+  const shouldShowTabPageHeader =
+    platformEnv.isWebDappMode || showTabPageHeader;
+
   return (
     <Page>
-      {showTabPageHeader ? (
+      {shouldShowTabPageHeader ? (
         <TabPageHeader
           sceneName={sceneName}
           tabRoute={tabRoute}

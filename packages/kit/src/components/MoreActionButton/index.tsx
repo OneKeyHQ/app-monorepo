@@ -225,9 +225,13 @@ function MoreActionContentHeader({
     return [];
   }, [intl]);
 
-  // Desktop (>= gtMd): show lock; Mobile (< gtMd): show scan
+  // Desktop (>= gtMd) or Extension: show lock; Mobile (< gtMd): show scan
   const firstActionItem = useMemo(() => {
-    if (media.gtMd) {
+    if (
+      media.gtMd ||
+      platformEnv.isExtensionUiPopup ||
+      platformEnv.isExtensionUiSidePanel
+    ) {
       return {
         title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
         icon: 'LockOutline' as const,

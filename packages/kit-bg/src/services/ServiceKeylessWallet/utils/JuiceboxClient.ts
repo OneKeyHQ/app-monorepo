@@ -12,6 +12,8 @@ import {
   OneKeyLocalError,
   RequestLimitExceededError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -262,7 +264,11 @@ export class JuiceboxClient {
         error?.guesses_remaining ?? error?.guessesRemaining;
 
       defaultLogger.wallet.keyless.juiceboxRecoverError({
-        message: error?.message || 'Juicebox SDK recover unknown error',
+        message:
+          error?.message ||
+          appLocale.intl.formatMessage({
+            id: ETranslations.failed_to_recover_secret_from_storage,
+          }),
         sdkError: error,
       });
 
@@ -279,7 +285,11 @@ export class JuiceboxClient {
       }
 
       throw new OneKeyLocalError({
-        message: error?.message || 'Juicebox SDK recover unknown error',
+        message:
+          error?.message ||
+          appLocale.intl.formatMessage({
+            id: ETranslations.failed_to_recover_secret_from_storage,
+          }),
         data: {
           guessesRemaining,
           reason: error?.reason,

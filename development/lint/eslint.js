@@ -6,6 +6,12 @@ const startTime = Date.now();
 
 console.log(`[${getTimestamp()}] ESLint check started...`);
 
+const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
+const failToExit = (message) => {
+  console.log(`[${getTimestamp()}] ESLint check failed. (${getDuration()}s)`);
+  exit(1);
+};
+
 // Get files changed in the last N commits
 function getRecentCommitFiles(commitCount = 10) {
   try {
@@ -193,7 +199,7 @@ function handleProblems(result) {
     }
 
     if (errorCount > 0 || warningOverflow > 0) {
-      exit(1);
+      failToExit();
     }
   } else if (warningCount > 0) {
     // Warnings exist but within limit
@@ -210,9 +216,8 @@ try {
   handleProblems(result);
 } catch (error) {
   handleProblems(error.stdout.toString('utf-8'));
-  exit(1);
+  failToExit();
 }
 
-const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-console.log(`[${getTimestamp()}] ESLint check completed. (${duration}s)`);
+console.log(`[${getTimestamp()}] ESLint check completed. (${getDuration()}s)`);
 exit(0);

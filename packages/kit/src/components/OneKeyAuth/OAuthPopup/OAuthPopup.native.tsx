@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @cspell/spellchecker */
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
@@ -494,6 +493,15 @@ export class OAuthPopup extends OAuthPopupBase {
         await GoogleSignin.hasPlayServices({
           showPlayServicesUpdateDialog: true,
         });
+      }
+
+      // Clear any stale OAuth state before signing in
+      // This fixes 400 errors when a previous OAuth flow was cancelled
+      // and left stale state (e.g., different nonce configuration) in the SDK
+      try {
+        await GoogleSignin.signOut();
+      } catch {
+        // Ignore signOut errors - user may not have been signed in
       }
 
       // Perform Google Sign-In with hashed nonce
