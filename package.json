@@ -44,7 +44,7 @@
     "app:android": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn workspace @onekeyhq/mobile android",
     "app:android:device": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn workspace @onekeyhq/mobile android:device",
     "icon:build": "yarn workspace @onekeyhq/components icon:build",
-    "fetch:locale": "yarn workspace @onekeyhq/shared fetch:locale",
+    "fetch:locale": "yarn op yarn workspace @onekeyhq/shared fetch:locale",
     "clean": "yarn workspaces foreach -A  -p run clean && node ./development/scripts/clean_workspace.js",
     "clean:cache": "yarn workspaces foreach -A run clean:build",
     "patch:fix": "node development/patch-fix.js",
@@ -59,7 +59,13 @@
     "lint": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn lint:project",
     "lint:only": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"",
     "tsc:only": "npx tsc --max-old-space-size=8192 --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty",
-    "test": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn jest"
+    "test": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn jest",
+    "op": "./development/scripts/op-run.sh",
+    "app:web:op": "yarn op yarn app:web",
+    "app:ext:op": "yarn op yarn app:ext",
+    "app:desktop:op": "yarn op yarn app:desktop",
+    "app:ios:op": "yarn op yarn app:ios",
+    "app:android:op": "yarn op yarn app:android"
   },
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
