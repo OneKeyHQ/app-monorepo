@@ -705,11 +705,13 @@ export function useKeylessWallet() {
   // goToOneKeyIDLoginPageForKeylessWallet
   const goToOneKeyIDLoginPageForKeylessWallet = useCallback(
     async ({ mode }: { mode: EOnboardingV2OneKeyIDLoginMode }) => {
+      let keylessProvider: EOAuthSocialLoginProvider | undefined;
+
       if (
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
       ) {
-        // Get keyless wallet to extract ownerId from keylessDetailsInfo
+        // Get keyless wallet to extract ownerId and provider from keylessDetailsInfo
         let keylessWallet;
         try {
           keylessWallet =
@@ -718,6 +720,7 @@ export function useKeylessWallet() {
           // Continue to navigation if getKeylessWallet fails
         }
         const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId || '';
+        keylessProvider = keylessWallet?.keylessDetailsInfo?.keylessProvider;
 
         if (keylessWallet && ownerId) {
           // Try to refresh session if refreshToken is valid
@@ -753,6 +756,7 @@ export function useKeylessWallet() {
           screen: EOnboardingPagesV2.OneKeyIDLogin,
           params: {
             mode,
+            provider: keylessProvider,
           },
         },
       });
@@ -1011,25 +1015,14 @@ export function useVerifyKeylessPinChecking() {
   const [keylessPinConfirmStatus] = useKeylessPinConfirmStatusAtom();
 
   const cancelVerifyPin = useCallback(async (ownerId: string) => {
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    // Try to refresh session if refreshToken is valid
-    let refreshResult;
-    try {
-      refreshResult =
-        await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
-          { ownerId },
-        );
-    } catch (error) {
-      // Continue to navigation if refresh fails
-    }
-
-    if (
-      refreshResult &&
-      refreshResult?.accessToken &&
-      refreshResult?.refreshToken
-    ) {
+    const accessToken =
+      await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
+        { ownerId },
+      );
+   
+    if (accessToken)     {
       await backgroundApiProxy.serviceKeylessWallet.apiUpdatePinConfirmStatus({
-        token: refreshResult.accessToken,
+        token: accessToken,
         isCancelAction: true,
       });
     }

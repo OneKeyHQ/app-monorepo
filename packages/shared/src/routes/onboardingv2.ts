@@ -2,6 +2,7 @@ import type { IKeylessWalletDetailsInfo } from '@onekeyhq/kit-bg/src/dbs/local/t
 
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IConnectYourDeviceItem } from '../../types/device';
+import type { EOAuthSocialLoginProvider } from '../consts/authConsts';
 import type { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
 import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
@@ -133,6 +134,7 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.OneKeyIDLogin]: {
     mode: EOnboardingV2OneKeyIDLoginMode;
+    provider?: EOAuthSocialLoginProvider;
   };
   [EOnboardingPagesV2.CreatePin]: {
     action?: EKeylessFinalizeAction;

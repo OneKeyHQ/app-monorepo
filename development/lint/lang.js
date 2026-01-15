@@ -37,4 +37,6 @@ jsonFileNames.forEach((file) => {
 });
 
 const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-console.log(`[${getTimestamp()}] Language files check completed. (${duration}s)`);
+console.log(
+  `[${getTimestamp()}] Language files check completed. (${duration}s)`,
+);

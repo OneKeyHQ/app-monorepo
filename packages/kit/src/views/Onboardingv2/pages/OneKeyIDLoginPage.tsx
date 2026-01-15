@@ -17,9 +17,9 @@ import {
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import type {
   EOnboardingPagesV2,
-  EOnboardingV2OneKeyIDLoginMode,
   IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -122,7 +122,12 @@ function OneKeyIDLoginPage() {
   const loggingInProviderRef = useRef<EOAuthSocialLoginProvider | null>(null);
   loggingInProviderRef.current = loggingInProvider;
   const mode: EOnboardingV2OneKeyIDLoginMode | undefined = route?.params?.mode;
+  const requiredProvider = route?.params?.provider;
   const intl = useIntl();
+
+  const isVerifyMode =
+    mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
+    mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
 
   const { signInWithSocialLogin } = useOneKeyAuth();
   const { checkKeylessWalletCreatedOnServer } = useKeylessWallet();
@@ -185,35 +190,55 @@ function OneKeyIDLoginPage() {
           <OnboardingLayout.ConstrainedContent gap="$10">
             <YStack gap="$2">
               <SizableText size="$heading3xl">
-                {intl.formatMessage({ id: ETranslations.select_your_email })}
+                {isVerifyMode
+                  ? intl.formatMessage({
+                      id: ETranslations.keyless_verify_identity_title,
+                    })
+                  : intl.formatMessage({ id: ETranslations.select_your_email })}
               </SizableText>
               <SizableText size="$bodyLg" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.select_your_email_desc,
-                })}
+                {isVerifyMode
+                  ? intl.formatMessage(
+                      { id: ETranslations.keyless_verify_identity_desc },
+                      {
+                        provider:
+                          requiredProvider === EOAuthSocialLoginProvider.Apple
+                            ? 'Apple'
+                            : 'Google',
+                      },
+                    )
+                  : intl.formatMessage({
+                      id: ETranslations.select_your_email_desc,
+                    })}
               </SizableText>
             </YStack>
             <YStack gap="$3">
-              <OptionItem
-                icon="GoogleIllus"
-                title="Google"
-                onPress={handleGoogleLogin}
-                isLoading={
-                  loggingInProvider === EOAuthSocialLoginProvider.Google
-                }
-              />
-              <OptionItem
-                icon="AppleBrand"
-                title="Apple"
-                iconProps={{
-                  color: '$iconActive',
-                  y: -1,
-                }}
-                onPress={handleAppleLogin}
-                isLoading={
-                  loggingInProvider === EOAuthSocialLoginProvider.Apple
-                }
-              />
+              {!requiredProvider ||
+              requiredProvider === EOAuthSocialLoginProvider.Google ? (
+                <OptionItem
+                  icon="GoogleIllus"
+                  title="Google"
+                  onPress={handleGoogleLogin}
+                  isLoading={
+                    loggingInProvider === EOAuthSocialLoginProvider.Google
+                  }
+                />
+              ) : null}
+              {!requiredProvider ||
+              requiredProvider === EOAuthSocialLoginProvider.Apple ? (
+                <OptionItem
+                  icon="AppleBrand"
+                  title="Apple"
+                  iconProps={{
+                    color: '$iconActive',
+                    y: -1,
+                  }}
+                  onPress={handleAppleLogin}
+                  isLoading={
+                    loggingInProvider === EOAuthSocialLoginProvider.Apple
+                  }
+                />
+              ) : null}
             </YStack>
             <KeylessOnboardingDebugPanel
               isResetMode={isResetMode}
@@ -221,20 +246,22 @@ function OneKeyIDLoginPage() {
             />
           </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
-        <OnboardingLayout.Footer>
-          <Anchor
-            href="https://help.onekey.so/articles/13348049"
-            target="_blank"
-            size="$bodySm"
-            color="$textSubdued"
-            textAlign="center"
-          >
-            {intl.formatMessage({
-              id: ETranslations.keyless_wallet_help_center_link_label,
-            })}{' '}
-            ↗
-          </Anchor>
-        </OnboardingLayout.Footer>
+        {isVerifyMode ? null : (
+          <OnboardingLayout.Footer>
+            <Anchor
+              href="https://help.onekey.so/articles/13348049"
+              target="_blank"
+              size="$bodySm"
+              color="$textSubdued"
+              textAlign="center"
+            >
+              {intl.formatMessage({
+                id: ETranslations.keyless_wallet_help_center_link_label,
+              })}{' '}
+              ↗
+            </Anchor>
+          </OnboardingLayout.Footer>
+        )}
       </OnboardingLayout>
     </Page>
   );

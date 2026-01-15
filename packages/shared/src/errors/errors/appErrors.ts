@@ -1167,7 +1167,7 @@ export class IncorrectPinError extends OneKeyAppError<IIncorrectPinErrorInfo> {
         defaultKey:
           props?.info?.guessesRemaining && props?.info?.guessesRemaining > 0
             ? ETranslations.incorrect_pin
-            : ('超过最大尝试次数，需要重置 PIN 码' as any), // TODO: i18n @franco
+            : ETranslations.pin_attempts_exhausted,
         defaultAutoToast: false,
       }),
     );

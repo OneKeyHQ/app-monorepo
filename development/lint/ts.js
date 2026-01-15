@@ -7,6 +7,14 @@ const startTime = Date.now();
 
 console.log(`[${getTimestamp()}] TypeScript check started...`);
 
+const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
+const failToExit = (message) => {
+  console.log(
+    `[${getTimestamp()}] TypeScript check failed. (${getDuration()}s)`,
+  );
+  exit(1);
+};
+
 function handleProblems(result) {
   let basicErrorCount = 0;
   const basicErrors = [];
@@ -25,7 +33,7 @@ function handleProblems(result) {
         )
         .join('\n'),
     );
-    exit(1);
+    failToExit();
   }
 }
 
@@ -39,6 +47,7 @@ try {
   handleProblems(errorMsg);
 }
 
-const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-console.log(`[${getTimestamp()}] TypeScript check completed. (${duration}s)`);
+console.log(
+  `[${getTimestamp()}] TypeScript check completed. (${getDuration()}s)`,
+);
 exit(0);

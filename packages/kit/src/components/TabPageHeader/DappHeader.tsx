@@ -14,6 +14,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
@@ -45,6 +46,7 @@ import {
   LanguageButton,
   ThemeButton,
   WalletConnectionForWeb,
+  WalletConnectionGroup,
   WebHeaderNavigation,
 } from './components';
 import { HeaderTitle } from './HeaderTitle';
@@ -388,11 +390,52 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   );
 }
 
-export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
-  const renderHeaderLeft = useCallback(() => <WebHeaderNavigation />, []);
+function MobileRightActions() {
+  return (
+    <XStack
+      ai="center"
+      gap="$2.5"
+      px="$1.5"
+      py="$1.5"
+      borderRadius="$2"
+      bg="$bgStrong"
+    >
+      <HeaderNotificationIconButton
+        testID="header-right-notification"
+        size="medium"
+      />
+      <MoreDappAction size="medium" />
+    </XStack>
+  );
+}
+
+function MobileLeftActions({ tabRoute }: { tabRoute: ETabRoutes }) {
+  return (
+    <XStack ai="center">
+      <WalletConnectionGroup
+        tabRoute={tabRoute}
+        showNetworkSelector={false}
+        showAccountInfo={false}
+      />
+    </XStack>
+  );
+}
+
+export function DappHeader({
+  sceneName,
+  tabRoute,
+  hideSearch,
+}: ITabPageHeaderProp) {
+  const { gtMd } = useMedia();
   const { config } = useAccountSelectorContextData();
 
-  const renderHeaderRight = useCallback(
+  // Desktop layout
+  const renderDesktopHeaderLeft = useCallback(
+    () => <WebHeaderNavigation />,
+    [],
+  );
+
+  const renderDesktopHeaderRight = useCallback(
     () =>
       config ? (
         <HomeTokenListProviderMirror>
@@ -404,7 +447,7 @@ export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
     [config, tabRoute],
   );
 
-  const renderHeaderTitle = useCallback(
+  const renderDesktopHeaderTitle = useCallback(
     () => (
       <HeaderTitle sceneName={sceneName}>
         <XStack maxWidth={288} width="100%">
@@ -414,16 +457,53 @@ export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
     ),
     [sceneName],
   );
+
+  // Mobile layout
+  const renderMobileHeaderLeft = useCallback(
+    () =>
+      config ? (
+        <HomeTokenListProviderMirror>
+          <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
+            <MobileLeftActions tabRoute={tabRoute} />
+          </AccountSelectorProviderMirror>
+        </HomeTokenListProviderMirror>
+      ) : null,
+    [config, tabRoute],
+  );
+
+  const renderMobileHeaderRight = useCallback(() => <MobileRightActions />, []);
+
+  if (gtMd) {
+    return (
+      <Page.Header
+        headerTitleAlign="center"
+        headerShadowVisible={false}
+        headerStyle={{
+          backgroundColor: 'transparent',
+        }}
+        headerTitle={renderDesktopHeaderTitle}
+        headerRight={renderDesktopHeaderRight}
+        headerLeft={renderDesktopHeaderLeft}
+      />
+    );
+  }
+
+  // Mobile layout
   return (
-    <Page.Header
-      headerTitleAlign="center"
-      headerShadowVisible={false}
-      headerStyle={{
-        backgroundColor: 'transparent',
-      }}
-      headerTitle={renderHeaderTitle}
-      headerRight={renderHeaderRight}
-      headerLeft={renderHeaderLeft}
-    />
+    <>
+      <Page.Header
+        headerShadowVisible={false}
+        headerStyle={{
+          backgroundColor: 'transparent',
+        }}
+        headerLeft={renderMobileHeaderLeft}
+        headerRight={renderMobileHeaderRight}
+      />
+      {!hideSearch ? (
+        <XStack px="$5" pt="$2" pb="$2">
+          <UniversalSearchInput />
+        </XStack>
+      ) : null}
+    </>
   );
 }

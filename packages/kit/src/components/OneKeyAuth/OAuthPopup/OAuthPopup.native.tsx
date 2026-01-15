@@ -495,6 +495,15 @@ export class OAuthPopup extends OAuthPopupBase {
         });
       }
 
+      // Clear any stale OAuth state before signing in
+      // This fixes 400 errors when a previous OAuth flow was cancelled
+      // and left stale state (e.g., different nonce configuration) in the SDK
+      try {
+        await GoogleSignin.signOut();
+      } catch {
+        // Ignore signOut errors - user may not have been signed in
+      }
+
       // Perform Google Sign-In with hashed nonce
       // The signIn() method returns different types based on library version:
       // - v9+: SignInResponse with { type: 'success' | 'cancelled', data?: User }

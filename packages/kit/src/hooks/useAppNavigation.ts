@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/core';
 
 import {
   Page,
+  popToMainRoute,
+  popToTabRootScreen,
   rootNavigationRef,
   switchTab,
   useIsTabletMainView,
@@ -276,7 +278,8 @@ function useAppNavigation<
 
   const navigate: typeof navigationRef.current.navigate = useCallback(
     (...args: any) => {
-      navigationRef.current.navigate(...args);
+      const [screen, params, options = { pop: true }] = args;
+      navigationRef.current.navigate(screen, params, options);
     },
     [],
   );
@@ -284,17 +287,6 @@ function useAppNavigation<
   const popToTop: typeof navigationRef.current.popToTop = useCallback(() => {
     navigationRef.current.popToTop();
   }, []);
-
-  const popTo: typeof navigationRef.current.popTo = useCallback(
-    (...args: any) => {
-      const [screen, params, options] = args;
-      navigationRef.current.navigate(screen, params, {
-        pop: true,
-        ...options,
-      });
-    },
-    [],
-  );
 
   return useMemo(
     () => ({
@@ -311,14 +303,14 @@ function useAppNavigation<
       setOptions,
       switchTab,
       popToTop,
-      popTo,
+      popToMainRoute,
+      popToTabRootScreen,
     }),
     [
       dispatch,
       navigate,
       pop,
       popStack,
-      popTo,
       popToTop,
       push,
       pushFullModal,

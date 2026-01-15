@@ -5,22 +5,19 @@ import { settingsPersistAtom } from '../../../states/jotai/atoms';
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 
 /**
- * Build encryption key from sensitiveEncodeKey and session passcode.
- * This requires passcode verification and is used for RefreshToken encryption.
+ * Build encryption key from sensitiveEncodeKey and a provided password (no prompt).
+ * Used when updating password to re-encrypt keyless data with old/new password.
  */
-export async function buildKeylessLocalEncryptionKey(params: {
-  backgroundApi: IBackgroundApi;
+export async function buildKeylessLocalEncryptionKeyWithPassword(params: {
+  password: string; // encoded password
 }): Promise<string> {
-  const { backgroundApi } = params;
+  const { password } = params;
 
   // 1. Get sensitiveEncodeKey from settings
   const settings = await settingsPersistAtom.get();
   const sensitiveEncodeKey = settings.sensitiveEncodeKey;
 
-  // 2. Get current session passcode
-  const { password } =
-    await backgroundApi.servicePassword.promptPasswordVerify();
-
+  // 2. Decode and hash the provided password
   const decodedPassword = await decodeSensitiveTextAsync({
     encodedText: password,
   });
@@ -34,6 +31,23 @@ export async function buildKeylessLocalEncryptionKey(params: {
 
   // 3. Combine sensitiveEncodeKey and passcode to form encryption key
   return `${sensitiveEncodeKey}--${hashedPassword.toString('hex')}`;
+}
+
+/**
+ * Build encryption key from sensitiveEncodeKey and session passcode.
+ * This requires passcode verification and is used for RefreshToken encryption.
+ */
+export async function buildKeylessLocalEncryptionKey(params: {
+  backgroundApi: IBackgroundApi;
+}): Promise<string> {
+  const { backgroundApi } = params;
+
+  // Get current session passcode
+  const { password } =
+    await backgroundApi.servicePassword.promptPasswordVerify();
+
+  // Delegate to buildKeylessLocalEncryptionKeyWithPassword
+  return buildKeylessLocalEncryptionKeyWithPassword({ password });
 }
 
 /**
