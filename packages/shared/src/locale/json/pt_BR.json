@@ -509,6 +509,7 @@
   "defi.oracle_price": "Preço do oráculo",
   "defi.platform_bonus": "Bônus da Plataforma",
   "defi.refundable_fee": "Taxa Reembolsável",
+  "defi.refund_fee": "Taxa Reembolsável",
   "defi.repay": "Pagar",
   "defi.reserve_info": "Info Reserva",
   "defi.reserve_size": "Tamanho da reserva",

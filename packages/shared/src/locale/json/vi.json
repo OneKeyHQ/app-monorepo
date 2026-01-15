@@ -230,7 +230,9 @@
   "balance_detail.disable_protection_warning_description": "Vô hiệu hóa bảo vệ khắc chữ có thể dẫn đến việc chuyển nhầm token khắc chữ hoặc NFT. Để di chuyển tài sản khắc chữ của bạn một cách an toàn, vui lòng sử dụng ví tương thích với khắc chữ như Unisat hoặc OKX.",
   "balance_detail.disable_protection_warning_title": "Vô hiệu hóa bảo vệ đăng ký có thể dẫn đến mất tài sản đăng ký",
   "balance_detail.enable_protection_title": "Kích hoạt Bảo vệ Khắc chữ",
-  "balance_detail.enable_protection_warning": "Tài sản đăng ký (NFT và token BRC-20) hiện tại không được hỗ trợ. Để xem chi tiết về bảo vệ, kiểm tra \"Chi tiết Số dư\". \nĐể di chuyển tài sản đăng ký của bạn một cách an toàn, vui lòng sử dụng ví tương thích với đăng ký như Unisat hoặc OKX.",
+  "balance_detail.enable_protection_warning": "Tài sản đăng ký (NFT và token BRC-20) hiện tại không được hỗ trợ.
+Để xem chi tiết về bảo vệ, kiểm tra \"Chi tiết Số dư\".
+\nĐể di chuyển tài sản đăng ký của bạn một cách an toàn, vui lòng sử dụng ví tương thích với đăng ký như Unisat hoặc OKX.",
   "balance_detail.frozen": "Đông lạnh",
   "balance_detail.frozen_by_inscription": "Bảo vệ Đăng ký",
   "balance_detail.how_to_migrate": "Làm thế nào để Di chuyển NFT / BRC-20 Tokens?",
@@ -509,6 +511,7 @@
   "defi.oracle_price": "Giá Oracle",
   "defi.platform_bonus": "Thưởng nền tảng",
   "defi.refundable_fee": "Phí hoàn lại",
+  "defi.refund_fee": "Phí hoàn lại",
   "defi.repay": "Hoàn trả",
   "defi.reserve_info": "TT Dự trữ",
   "defi.reserve_size": "Kích thước dự trữ",

@@ -230,7 +230,9 @@
   "balance_detail.disable_protection_warning_description": "인스크립션 보호를 비활성화하면 인스크립션 토큰이나 NFT가 실수로 전송될 수 있습니다. 인스크립션 자산을 안전하게 이전하려면 Unisat이나 OKX와 같은 인스크립션 호환 지갑을 사용해 주세요.",
   "balance_detail.disable_protection_warning_title": "인스크립션 보호를 비활성화하면 인스크립션 자산의 손실이 발생할 수 있어요",
   "balance_detail.enable_protection_title": "인스크립션 보호 활성화",
-  "balance_detail.enable_protection_warning": "현재 인스크립션 자산(오디널스 NFT 및 BRC-20 토큰)은 지원되지 않아요. 보호의 세부사항을 보려면 \"잔액 세부정보\"를 확인하세요. \n인스크립션 자산을 안전하게 이전하려면 Unisat이나 OKX와 같은 인스크립션 지원 지갑을 사용하세요.",
+  "balance_detail.enable_protection_warning": "현재 인스크립션 자산(오디널스 NFT 및 BRC-20 토큰)은 지원되지 않아요.
+보호의 세부사항을 보려면 \"잔액 세부정보\"를 확인하세요.
+\n인스크립션 자산을 안전하게 이전하려면 Unisat이나 OKX와 같은 인스크립션 지원 지갑을 사용하세요.",
   "balance_detail.frozen": "동결",
   "balance_detail.frozen_by_inscription": "등록 보호",
   "balance_detail.how_to_migrate": "NFT / BRC-20 토큰을 어떻게 이전하나요?",
@@ -509,6 +511,7 @@
   "defi.oracle_price": "오라클 가격",
   "defi.platform_bonus": "플랫폼 보너스",
   "defi.refundable_fee": "환불 가능한 수수료",
+  "defi.refund_fee": "환불 가능한 수수료",
   "defi.repay": "갚다",
   "defi.reserve_info": "재고 정보",
   "defi.reserve_size": "준비금 규모",

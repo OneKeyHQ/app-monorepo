@@ -509,6 +509,7 @@
   "defi.oracle_price": "ราคาออราเคิล",
   "defi.platform_bonus": "โบนัสแพลตฟอร์ม",
   "defi.refundable_fee": "ค่าธรรมเนียมที่ขอคืนได้",
+  "defi.refund_fee": "ค่าธรรมเนียมที่ขอคืนได้",
   "defi.repay": "ชำระคืน",
   "defi.reserve_info": "สต๊อกข้อมูล",
   "defi.reserve_size": "ขนาดสำรอง",

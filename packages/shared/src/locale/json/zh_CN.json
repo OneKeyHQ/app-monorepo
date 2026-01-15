@@ -509,6 +509,7 @@
   "defi.oracle_price": "预言机价格",
   "defi.platform_bonus": "平台奖励",
   "defi.refundable_fee": "可退还费用",
+  "defi.refund_fee": "退款费用",
   "defi.repay": "偿还",
   "defi.reserve_info": "资金池详情",
   "defi.reserve_size": "储备规模",

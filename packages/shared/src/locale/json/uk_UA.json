@@ -509,6 +509,7 @@
   "defi.oracle_price": "Ціна оракула",
   "defi.platform_bonus": "Бонус платформи",
   "defi.refundable_fee": "Поворотна плата",
+  "defi.refund_fee": "Поворотна плата",
   "defi.repay": "Погасити",
   "defi.reserve_info": "Інфо резерву",
   "defi.reserve_size": "Розмір резерву",

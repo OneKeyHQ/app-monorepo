@@ -230,7 +230,9 @@
   "balance_detail.disable_protection_warning_description": "Disabilitare la protezione dell'iscrizione può comportare il trasferimento accidentale di token di iscrizione o NFT. Per migrare in sicurezza i tuoi asset di iscrizione, utilizza un portafoglio compatibile con l'iscrizione, come Unisat o OKX.",
   "balance_detail.disable_protection_warning_title": "La disattivazione della protezione dell'iscrizione può portare alla perdita di risorse dell'iscrizione",
   "balance_detail.enable_protection_title": "Abilitazione Protezione Iscrizione",
-  "balance_detail.enable_protection_warning": "Gli asset di iscrizione (Ordinals NFT e token BRC-20) attualmente non sono supportati. Per visualizzare i dettagli della protezione, controlla \"Dettagli Saldo\". \nPer migrare i tuoi asset di iscrizione in modo sicuro, utilizza un portafoglio compatibile con l'iscrizione come Unisat o OKX.",
+  "balance_detail.enable_protection_warning": "Gli asset di iscrizione (Ordinals NFT e token BRC-20) attualmente non sono supportati.
+Per visualizzare i dettagli della protezione, controlla \"Dettagli Saldo\".
+\nPer migrare i tuoi asset di iscrizione in modo sicuro, utilizza un portafoglio compatibile con l'iscrizione come Unisat o OKX.",
   "balance_detail.frozen": "Congelato",
   "balance_detail.frozen_by_inscription": "Protezione dell'Iscrizione",
   "balance_detail.how_to_migrate": "Come migrare i token NFT / BRC-20 Ordinals?",
@@ -509,6 +511,7 @@
   "defi.oracle_price": "Prezzo oracolo",
   "defi.platform_bonus": "Bonus Piattaforma",
   "defi.refundable_fee": "Commissione Rimborsabile",
+  "defi.refund_fee": "Commissione Rimborsabile",
   "defi.repay": "Rimborsare",
   "defi.reserve_info": "Info Riserva",
   "defi.reserve_size": "Dimensione riserva",

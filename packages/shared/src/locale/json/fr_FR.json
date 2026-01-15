@@ -509,6 +509,7 @@
   "defi.oracle_price": "Prix de l'oracle",
   "defi.platform_bonus": "Bonus de plateforme",
   "defi.refundable_fee": "Frais remboursables",
+  "defi.refund_fee": "Frais remboursables",
   "defi.repay": "Rembourser",
   "defi.reserve_info": "Reserve Info",
   "defi.reserve_size": "Taille de la réserve",

@@ -509,6 +509,7 @@
   "defi.oracle_price": "Orakelpreis",
   "defi.platform_bonus": "Plattformbonus",
   "defi.refundable_fee": "Rückzahlbare Gebühr",
+  "defi.refund_fee": "Rückzahlbare Gebühr",
   "defi.repay": "Zurückzahlen",
   "defi.reserve_info": "Reserve Info",
   "defi.reserve_size": "Reservegröße",
