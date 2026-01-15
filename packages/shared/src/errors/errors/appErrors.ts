@@ -1164,7 +1164,10 @@ export class IncorrectPinError extends OneKeyAppError<IIncorrectPinErrorInfo> {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'IncorrectPinError',
-        defaultKey: ETranslations.incorrect_pin,
+        defaultKey:
+          props?.info?.guessesRemaining && props?.info?.guessesRemaining > 0
+            ? ETranslations.incorrect_pin
+            : ETranslations.pin_attempts_exhausted,
         defaultAutoToast: false,
       }),
     );

@@ -10,7 +10,10 @@ import {
 import {
   IncorrectPinError,
   OneKeyLocalError,
+  RequestLimitExceededError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -23,6 +26,16 @@ import { Client, Configuration } from './juicebox-sdk';
 interface IJuiceboxTokenCacheItem {
   token: string;
   pinHash: string;
+}
+// https://github.com/juicebox-systems/juicebox-sdk/blob/main/rust/sdk/src/recover.rs
+enum EJuiceboxRecoverErrorReason {
+  InvalidPin = 0,
+  NotRegistered = 1,
+  InvalidAuth = 2,
+  UpgradeRequired = 3,
+  RateLimitExceeded = 4,
+  Assertion = 5,
+  Transient = 6,
 }
 
 /**
@@ -251,7 +264,11 @@ export class JuiceboxClient {
         error?.guesses_remaining ?? error?.guessesRemaining;
 
       defaultLogger.wallet.keyless.juiceboxRecoverError({
-        message: error?.message || 'Juicebox SDK recover unknown error',
+        message:
+          error?.message ||
+          appLocale.intl.formatMessage({
+            id: ETranslations.failed_to_recover_secret_from_storage,
+          }),
         sdkError: error,
       });
 
@@ -263,8 +280,16 @@ export class JuiceboxClient {
         });
       }
 
+      if (error?.reason === EJuiceboxRecoverErrorReason.RateLimitExceeded) {
+        throw new RequestLimitExceededError();
+      }
+
       throw new OneKeyLocalError({
-        message: error?.message || 'Juicebox SDK recover unknown error',
+        message:
+          error?.message ||
+          appLocale.intl.formatMessage({
+            id: ETranslations.failed_to_recover_secret_from_storage,
+          }),
         data: {
           guessesRemaining,
           reason: error?.reason,
@@ -294,6 +319,51 @@ export class JuiceboxClient {
     }
 
     return cacheItem.token;
+  }
+
+  /**
+   * Check rate limit status from the first Juicebox realm
+   *
+   * This method calls the /limit endpoint on the first configured realm
+   * to check if the user is currently rate limited.
+   *
+   * @returns Promise<{ isRateLimited: boolean; retryAfterSeconds: number }>
+   *   - isRateLimited: true if the user is currently rate limited
+   *   - retryAfterSeconds: number of seconds until the rate limit expires
+   * @throws {OneKeyLocalError} - If token cache is empty or request fails
+   */
+  async checkRateLimitStatus(): Promise<{
+    isRateLimited: boolean;
+    retryAfterSeconds: number;
+  }> {
+    if (this.juiceboxTokenCache.size === 0) {
+      throw new OneKeyLocalError(
+        'Juicebox token cache is empty, please call exchangeToken first',
+      );
+    }
+
+    const firstRealm = JUICEBOX_CONFIG.realms[0];
+    const cacheItem = this.juiceboxTokenCache.get(firstRealm.id);
+
+    if (!cacheItem) {
+      throw new OneKeyLocalError(`Token not found for realm: ${firstRealm.id}`);
+    }
+
+    const response = await axios.get<{
+      // {"num_guess":10,"guess_count":3,"retry_after":0}
+      retry_after: number;
+    }>(`${firstRealm.address}/limit`, {
+      headers: {
+        Authorization: `Bearer ${cacheItem.token}`,
+      },
+    });
+
+    const retryAfter = response.data.retry_after ?? 0;
+
+    return {
+      isRateLimited: retryAfter > 0,
+      retryAfterSeconds: retryAfter,
+    };
   }
 
   /**

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,6 +16,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -82,9 +84,11 @@ function DeviceListItem({
           <Badge badgeSize="sm" badgeType="info">
             <XStack ai="center" gap="$1.5">
               <Icon name="DownloadCircleOutline" color="$iconInfo" size="$4" />
-              <SizableText size="$bodySmMedium" color="$textInfo">
-                {item.updateVersionDisplay}
-              </SizableText>
+              {item.updateVersionDisplay ? (
+                <SizableText size="$bodySmMedium" color="$textInfo">
+                  {item.updateVersionDisplay}
+                </SizableText>
+              ) : null}
             </XStack>
           </Badge>
         );
@@ -138,23 +142,22 @@ function DeviceListItem({
       )}
       renderItemText={() => (
         <YStack gap="$0" flex={1}>
-          <XStack gap="$2">
-            <SizableText size="$bodyLgMedium" color="$text" numberOfLines={1}>
+          <XStack gap="$1" ai="center">
+            <SizableText
+              size="$bodyLgMedium"
+              color="$text"
+              numberOfLines={1}
+              flexShrink={1}
+            >
               {item.wallet.name}
             </SizableText>
-            {bleName ? (
-              <Badge
-                badgeSize="sm"
-                badgeType="default"
-                px="$2"
-                py="$0.5"
-                size="$bodySmMedium"
-              >
-                {bleName}
-              </Badge>
-            ) : null}
+            <VerifiedBadge isVerified={isVerified} />
           </XStack>
-          <VerifiedBadge isVerified={isVerified} />
+          {bleName ? (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {bleName}
+            </SizableText>
+          ) : null}
         </YStack>
       )}
       onPress={() => onPress(item.wallet)}
@@ -178,6 +181,7 @@ function DeviceManagementV2ListWeb() {
   const navigation = useNavigation();
   const appNavigation = useAppNavigation();
   const { gtMd } = useMedia();
+  const theme = useTheme();
   const { pushToDeviceDetail } = useDeviceManagerNavigation();
 
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
@@ -215,13 +219,15 @@ function DeviceManagementV2ListWeb() {
         const deviceDetectStatus = detectStatus?.[item.device?.connectId ?? ''];
         const shouldUpdate = deviceDetectStatus?.hasUpgrade;
         const updateVersionDisplay = deviceDetectStatus?.toVersion;
-
         item.firmwareTypeBadge = firmwareTypeBadge;
         item.firmwareVersionDisplay = `v${
           deviceVersion.firmwareVersion ?? '-'
         }`;
         item.shouldUpdate = shouldUpdate;
-        item.updateVersionDisplay = `v${updateVersionDisplay ?? '-'}`;
+        item.updateVersionDisplay =
+          updateVersionDisplay && !isEmpty(updateVersionDisplay)
+            ? `v${updateVersionDisplay}`
+            : undefined;
       }
 
       return devices;
@@ -272,25 +278,45 @@ function DeviceManagementV2ListWeb() {
 
   const showHeader = existingDevices || isLoading;
 
+  // Only apply transparent header on mobile when showing DeviceGuideView
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTransparent: !showHeader,
-      headerStyle: {
-        backgroundColor: !showHeader ? 'transparent' : undefined,
-      },
-    });
-  }, [navigation, showHeader]);
+    if (!gtMd) {
+      navigation.setOptions({
+        headerTransparent: !showHeader,
+        headerStyle: {
+          backgroundColor: !showHeader ? 'transparent' : theme.bgApp.val,
+        },
+      });
+    }
+  }, [navigation, showHeader, gtMd, theme.bgApp.val]);
 
-  return (
-    <Page fullPage safeAreaEnabled={showHeader}>
-      {showHeader ? (
+  const renderHeader = () => {
+    // Desktop: always show header
+    // Mobile: only show header when has devices or loading
+    if (gtMd || showHeader) {
+      return (
         <DeviceCommonHeader
           title={intl.formatMessage({
             id: ETranslations.global_device_management,
           })}
         />
-      ) : null}
-      <Page.Body alignItems="stretch" h="100%">
+      );
+    }
+    return null;
+  };
+
+  return (
+    <Page fullPage safeAreaEnabled={gtMd || showHeader}>
+      {renderHeader()}
+      <Page.Body
+        alignItems="stretch"
+        h="100%"
+        $gtMd={{
+          overflow: 'hidden',
+          borderTopLeftRadius: '$4',
+          borderTopRightRadius: '$4',
+        }}
+      >
         {showHeader ? (
           <YStack
             w="100%"

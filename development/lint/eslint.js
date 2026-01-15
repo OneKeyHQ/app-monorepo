@@ -1,6 +1,17 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
+const getTimestamp = () => new Date().toLocaleTimeString();
+const startTime = Date.now();
+
+console.log(`[${getTimestamp()}] ESLint check started...`);
+
+const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
+const failToExit = (message) => {
+  console.log(`[${getTimestamp()}] ESLint check failed. (${getDuration()}s)`);
+  exit(1);
+};
+
 // Get files changed in the last N commits
 function getRecentCommitFiles(commitCount = 10) {
   try {
@@ -32,7 +43,7 @@ function getMaxWarnings() {
 // lint results example:
 // app-monorepo/apps/desktop/app/libs/react-native-mmkv-mock.ts
 //    9:15  warning  'options' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
-//   43:3   warning  You have a misspelled word: recrypt on Identifier                          spellcheck/spell-checker
+//   43:3   warning  You have a misspelled word: recrypt on Identifier                          @cspell/spellchecker
 
 // app-monorepo/apps/desktop/web-build/static/js-sdk/data/config.ts
 //    6:36  error  Unsafe member access .version on an `any` value                                                         @typescript-eslint/no-unsafe-member-access
@@ -188,7 +199,7 @@ function handleProblems(result) {
     }
 
     if (errorCount > 0 || warningOverflow > 0) {
-      exit(1);
+      failToExit();
     }
   } else if (warningCount > 0) {
     // Warnings exist but within limit
@@ -205,7 +216,8 @@ try {
   handleProblems(result);
 } catch (error) {
   handleProblems(error.stdout.toString('utf-8'));
-  exit(1);
+  failToExit();
 }
 
+console.log(`[${getTimestamp()}] ESLint check completed. (${getDuration()}s)`);
 exit(0);

@@ -110,6 +110,8 @@ function BasicEarnHome({
 
   const defaultTab = overrideDefaultTab || route.params?.tab;
   const defaultMode = route.params?.mode || 'earn';
+  const isEarnMode = defaultMode === 'earn';
+  const isBorrowMode = defaultMode === 'borrow';
 
   const handleModeChange = useCallback(
     (mode: 'earn' | 'borrow') => {
@@ -264,36 +266,47 @@ function BasicEarnHome({
       <MarketSelector mode={defaultMode} onModeChange={handleModeChange} />
     );
 
-    return defaultMode === 'earn' ? (
+    return (
       <YStack flex={1}>
-        <EarnMainTabs
-          faqList={faqList || []}
-          isFaqLoading={isFaqLoading}
-          defaultTab={defaultTab}
-          portfolioData={portfolioData}
-          containerProps={mobileContainerProps}
-          header={marketSelectorHeader}
-        />
+        <YStack
+          flex={1}
+          display={isEarnMode ? 'flex' : 'none'}
+          pointerEvents={isEarnMode ? 'auto' : 'none'}
+        >
+          <EarnMainTabs
+            faqList={faqList || []}
+            isFaqLoading={isFaqLoading}
+            defaultTab={defaultTab}
+            portfolioData={portfolioData}
+            containerProps={mobileContainerProps}
+            header={marketSelectorHeader}
+          />
 
-        {showHeader && showContent && media.md ? (
-          <YStack
-            position="absolute"
-            top={-20}
-            left={0}
-            bg="$bgApp"
-            pt="$5"
-            width="100%"
-            // onLayout={handleTabPageLayout}
-          >
-            <TabPageHeader
-              sceneName={EAccountSelectorSceneName.home}
-              tabRoute={ETabRoutes.Earn}
-            />
-          </YStack>
-        ) : null}
+          {showHeader && showContent && media.md ? (
+            <YStack
+              position="absolute"
+              top={-20}
+              left={0}
+              bg="$bgApp"
+              pt="$5"
+              width="100%"
+              // onLayout={handleTabPageLayout}
+            >
+              <TabPageHeader
+                sceneName={EAccountSelectorSceneName.home}
+                tabRoute={ETabRoutes.Earn}
+              />
+            </YStack>
+          ) : null}
+        </YStack>
+        <YStack
+          flex={1}
+          display={isBorrowMode ? 'flex' : 'none'}
+          pointerEvents={isBorrowMode ? 'auto' : 'none'}
+        >
+          <BorrowHome header={marketSelectorHeader} isActive={isBorrowMode} />
+        </YStack>
       </YStack>
-    ) : (
-      <BorrowHome header={marketSelectorHeader} />
     );
   }
 
@@ -338,7 +351,7 @@ function BasicEarnHome({
               />
             </YStack>
           }
-          borrow={<BorrowHome />}
+          borrow={<BorrowHome isActive={isBorrowMode} />}
         />
       </EarnPageContainer>
     </LazyPageContainer>

@@ -9,7 +9,7 @@ import {
   useKeylessPinConfirmStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyLocalError,
@@ -28,6 +28,7 @@ import type {
   IDeviceKeyPack,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   ERootRoutes,
@@ -49,6 +50,11 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
+
+import {
+  showAppleIDMismatchDialog,
+  showGoogleDriveMismatchDialog,
+} from './AccountMismatchDialog';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
   return true;
@@ -590,14 +596,38 @@ export function useKeylessWallet() {
               { token },
             );
           if (!isValid) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
-              }),
-              message: intl.formatMessage({
-                id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
-              }),
-            });
+            // Get keyless wallet provider type to determine which dialog to show
+            const keylessWallet =
+              await backgroundApiProxy.serviceAccount.getKeylessWallet();
+            const keylessProvider =
+              keylessWallet?.keylessDetailsInfo?.keylessProvider;
+
+            // Platform-specific account mismatch handling based on provider type
+            const isAndroidWithGoogle =
+              platformEnv.isNativeAndroid &&
+              keylessProvider === EOAuthSocialLoginProvider.Google;
+            const isIOSWithApple =
+              platformEnv.isNativeIOS &&
+              keylessProvider === EOAuthSocialLoginProvider.Apple;
+
+            if (isAndroidWithGoogle) {
+              // Android + Google: Show dialog with Google logout option
+              void showGoogleDriveMismatchDialog({ intl });
+            } else if (isIOSWithApple) {
+              // iOS + Apple: Show dialog with Apple ID switching instructions
+              void showAppleIDMismatchDialog({ intl });
+            } else {
+              // Other cases: Show Toast
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
+                }),
+                message: intl.formatMessage({
+                  id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
+                }),
+              });
+            }
+
             navigation.navigate(ERootRoutes.Onboarding, {
               screen: EOnboardingV2Routes.OnboardingV2,
               params: {
@@ -607,7 +637,6 @@ export function useKeylessWallet() {
                 },
               },
             });
-            // TODO logout google account
             throw new OneKeyLocalError(
               intl.formatMessage({
                 id: ETranslations.keyless_wallet_verify_pin_account_mismatch_desc,
@@ -676,11 +705,13 @@ export function useKeylessWallet() {
   // goToOneKeyIDLoginPageForKeylessWallet
   const goToOneKeyIDLoginPageForKeylessWallet = useCallback(
     async ({ mode }: { mode: EOnboardingV2OneKeyIDLoginMode }) => {
+      let keylessProvider: EOAuthSocialLoginProvider | undefined;
+
       if (
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
       ) {
-        // Get keyless wallet to extract ownerId from keylessDetailsInfo
+        // Get keyless wallet to extract ownerId and provider from keylessDetailsInfo
         let keylessWallet;
         try {
           keylessWallet =
@@ -689,6 +720,7 @@ export function useKeylessWallet() {
           // Continue to navigation if getKeylessWallet fails
         }
         const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId || '';
+        keylessProvider = keylessWallet?.keylessDetailsInfo?.keylessProvider;
 
         if (keylessWallet && ownerId) {
           // Try to refresh session if refreshToken is valid
@@ -724,6 +756,7 @@ export function useKeylessWallet() {
           screen: EOnboardingPagesV2.OneKeyIDLogin,
           params: {
             mode,
+            provider: keylessProvider,
           },
         },
       });
@@ -969,6 +1002,7 @@ export function useKeylessWallet() {
     keylessOnboardingCache,
     cacheKeylessOnboardingPin,
     getKeylessOnboardingPin,
+    getKeylessOnboardingToken,
     handleKeylessOnboardingTimeout,
     cacheKeylessOnboardingCustomMnemonic,
     getKeylessOnboardingCustomMnemonic,

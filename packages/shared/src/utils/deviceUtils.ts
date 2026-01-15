@@ -722,6 +722,28 @@ async function getAutoShutDownOptions({
   return sdkGetAutoShutDownOptions(deviceType);
 }
 
+function supportHapticFeedbackByDeviceType({
+  deviceType,
+}: {
+  deviceType: IDeviceType;
+}) {
+  if ([EDeviceType.Pro, EDeviceType.Touch].includes(deviceType)) {
+    return true;
+  }
+  return false;
+}
+
+function supportBrightnessByDeviceType({
+  deviceType,
+}: {
+  deviceType: IDeviceType;
+}) {
+  if ([EDeviceType.Pro, EDeviceType.Touch].includes(deviceType)) {
+    return true;
+  }
+  return false;
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -762,4 +784,6 @@ export default {
   getLanguageConfig,
   getAutoLockOptions,
   getAutoShutDownOptions,
+  supportHapticFeedbackByDeviceType,
+  supportBrightnessByDeviceType,
 };

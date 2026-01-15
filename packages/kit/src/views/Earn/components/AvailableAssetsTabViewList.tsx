@@ -49,7 +49,7 @@ export function AvailableAssetsTabViewList() {
         type: EAvailableAssetsTypeEnum.All,
       },
       {
-        // eslint-disable-next-line spellcheck/spell-checker
+        // eslint-disable-next-line @cspell/spellchecker
         title: intl.formatMessage({ id: ETranslations.earn_stablecoins }),
         type: EAvailableAssetsTypeEnum.StableCoins,
       },

@@ -448,10 +448,13 @@ export function UniversalBorrowWithdraw({
                 variant="highlight"
               >
                 <YStack ai="flex-end">
-                  <XStack ai="center" gap="$1">
+                  <XStack ai="center" gap="$3">
                     <EarnText
                       text={transactionConfirmation.healthFactor.current?.title}
-                      size="$headingLg"
+                      size="$headingMd"
+                      opacity={
+                        transactionConfirmation.healthFactor.latest ? 0.5 : 1
+                      }
                     />
                     {transactionConfirmation.healthFactor.latest ? (
                       <>
@@ -464,7 +467,7 @@ export function UniversalBorrowWithdraw({
                           text={
                             transactionConfirmation.healthFactor.latest?.title
                           }
-                          size="$headingLg"
+                          size="$headingMd"
                         />
                       </>
                     ) : null}
@@ -493,11 +496,13 @@ export function UniversalBorrowWithdraw({
                 <YStack ai="flex-end">
                   <EarnText
                     text={transactionConfirmation.mySupply.current?.title}
-                    size="$headingLg"
+                    size="$headingMd"
+                    opacity={transactionConfirmation.mySupply.latest ? 0.5 : 1}
                   />
                   <EarnText
                     text={transactionConfirmation.mySupply.current?.description}
                     size="$bodySmMedium"
+                    opacity={transactionConfirmation.mySupply.latest ? 0.5 : 1}
                   />
                 </YStack>
                 {transactionConfirmation.mySupply.latest ? (
@@ -511,7 +516,7 @@ export function UniversalBorrowWithdraw({
                   <YStack ai="flex-end">
                     <EarnText
                       text={transactionConfirmation.mySupply.latest?.title}
-                      size="$headingLg"
+                      size="$headingMd"
                     />
                     <EarnText
                       text={

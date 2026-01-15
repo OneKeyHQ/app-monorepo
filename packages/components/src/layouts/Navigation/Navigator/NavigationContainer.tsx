@@ -30,6 +30,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 
@@ -158,4 +159,34 @@ export const switchTab = <T extends ETabRoutes>(
       pop: true,
     },
   );
+};
+
+export const popToMainRoute = async (maxRetryTimes = 99) => {
+  if (maxRetryTimes <= 0) {
+    return;
+  }
+  const rootState = rootNavigationRef.current?.getRootState();
+  if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Main) {
+    return;
+  }
+  if (rootNavigationRef.current?.canGoBack()) {
+    rootNavigationRef.current?.goBack?.();
+  }
+  await timerUtils.wait(150);
+  await popToMainRoute(maxRetryTimes - 1);
+};
+
+export const popToTabRootScreen = async () => {
+  const rootState = rootNavigationRef.current?.getRootState();
+  const tabRoute = rootState?.routes?.[rootState.index];
+  if (!tabRoute?.state) {
+    return;
+  }
+  if ((tabRoute?.state?.index || 0) > 0) {
+    if (rootNavigationRef.current?.canGoBack()) {
+      rootNavigationRef.current?.goBack();
+      await timerUtils.wait(150);
+      await popToTabRootScreen();
+    }
+  }
 };

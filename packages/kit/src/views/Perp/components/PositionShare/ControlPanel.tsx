@@ -17,6 +17,7 @@ interface IControlPanelProps {
   config: IShareConfig;
   onChange: (config: IShareConfig) => void;
   onSaveImage: () => void;
+  onShareImage: () => void;
   onCopyLink: () => void;
   onShareToX: () => void;
   isLoading?: boolean;
@@ -27,6 +28,7 @@ export function ControlPanel({
   config,
   onChange,
   onSaveImage,
+  onShareImage,
   onCopyLink,
   onShareToX,
   isLoading,
@@ -108,6 +110,29 @@ export function ControlPanel({
           <SizableText size="$bodySm" color="$text">
             {intl.formatMessage({
               id: ETranslations.action_save,
+            })}
+          </SizableText>
+        </YStack>
+        <YStack gap="$1" alignItems="center">
+          <IconButton
+            title={intl.formatMessage({
+              id: ETranslations.explore_share,
+            })}
+            cursor="pointer"
+            icon="ShareOutline"
+            size="large"
+            onPress={onShareImage}
+            disabled={isLoading}
+            iconSize="$6"
+            borderRadius="$4"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            hoverStyle={{ borderColor: '$borderHover' }}
+            bg="$bgApp"
+          />
+          <SizableText size="$bodySm" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.explore_share,
             })}
           </SizableText>
         </YStack>
