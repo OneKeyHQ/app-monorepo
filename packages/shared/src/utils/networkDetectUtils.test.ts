@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { presetNetworksMap } from '../config/presetNetworks';
 
 import networkDetectUtils from './networkDetectUtils';

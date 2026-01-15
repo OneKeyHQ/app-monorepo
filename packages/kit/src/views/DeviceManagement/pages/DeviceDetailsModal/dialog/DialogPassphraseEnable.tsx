@@ -39,7 +39,14 @@ export function useDialogPassphraseEnable() {
         cancelButtonProps: { variant: 'secondary' },
         onConfirm: async ({ close }) => {
           await onConfirmOpenPassphrase?.();
-          void close();
+          void close({ flag: 'confirm' });
+        },
+        onClose: (extra?: { flag?: string }) => {
+          const flag = extra?.flag;
+          if (flag === 'confirm' || flag === 'cancel') {
+            return;
+          }
+          void onCancelOpenPassphrase?.();
         },
         onCancel: async (close) => {
           await onCancelOpenPassphrase?.();

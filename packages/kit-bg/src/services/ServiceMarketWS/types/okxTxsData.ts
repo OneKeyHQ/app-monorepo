@@ -1,5 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
-
 import {
   OKX_DATA_SOURCE,
   normalizeTimestamp,

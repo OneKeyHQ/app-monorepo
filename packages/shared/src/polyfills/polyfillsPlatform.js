@@ -1,5 +1,4 @@
 /* eslint-disable no-inner-declarations */
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable prefer-template */
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */

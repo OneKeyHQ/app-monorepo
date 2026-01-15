@@ -428,7 +428,7 @@ function MobileTokenSelectorModal({
             contentContainerStyle={{
               paddingBottom: 10,
             }}
-            data={mockedListData} // eslint-disable-line spellcheck/spell-checker
+            data={mockedListData} // eslint-disable-line @cspell/spellchecker
             renderItem={({ item: mockedToken }) => (
               <PerpTokenSelectorRow
                 isOnModal

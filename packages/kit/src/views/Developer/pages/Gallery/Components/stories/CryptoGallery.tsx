@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable prefer-const */
 import { useState } from 'react';
 

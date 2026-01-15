@@ -9,7 +9,7 @@ import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type { IBaseSliderProps } from './type';
 // spell mistake in tamagui components.
-// eslint-disable-next-line spellcheck/spell-checker
+// eslint-disable-next-line @cspell/spellchecker
 import type { LayoutChangeEvent } from 'react-native';
 
 function SliderSegment({
@@ -60,7 +60,7 @@ export const Slider = ({
 
   const handleSlideMove = useCallback(
     // spell mistake in tamagui components.
-    // eslint-disable-next-line spellcheck/spell-checker
+    // eslint-disable-next-line @cspell/spellchecker
     (_: unknown, v: number) => {
       if (!isSlidingRef.current) {
         onSlideStart?.();

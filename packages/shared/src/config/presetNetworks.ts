@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @cspell/spellchecker */
+
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
