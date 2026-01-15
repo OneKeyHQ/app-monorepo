@@ -34,7 +34,7 @@ import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
 import type { ImageURISource } from 'react-native';
 
-type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs';
+type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
 export type ITokenProps = {
   isNFT?: boolean;
   fallbackIcon?: IKeyOfIcons;
@@ -59,6 +59,7 @@ const sizeMap: Record<
   md: { tokenImageSize: '$8', chainImageSize: '$4', fallbackIconSize: '$6' },
   sm: { tokenImageSize: '$6', chainImageSize: '$3', fallbackIconSize: '$6' },
   xs: { tokenImageSize: '$5', chainImageSize: '$2.5', fallbackIconSize: '$5' },
+  xxs: { tokenImageSize: '$4', chainImageSize: '$2', fallbackIconSize: '$4' },
 };
 
 export function Token({

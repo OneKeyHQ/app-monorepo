@@ -361,9 +361,7 @@ export type IEarnTokenItem = {
 };
 
 export interface IBorrowApyDetailItem {
-  icon?: {
-    icon: IKeyOfIcons;
-  };
+  icon?: IEarnIcon;
   logoURI?: string;
   title: IEarnText;
   description?: IEarnText;

@@ -1,7 +1,7 @@
 import type { IXStackProps, SizeTokens } from '@onekeyhq/components';
 import { Skeleton, Stack, XStack } from '@onekeyhq/components';
 
-type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs';
+type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
 
 export type ITokenGroupSkeletonProps = {
   /** Token size */
@@ -30,6 +30,7 @@ const tokenSizeMap: Record<ITokenSize, SizeTokens> = {
   md: '$8',
   sm: '$6',
   xs: '$5',
+  xxs: '$4',
 };
 
 // Default overlap offsets based on token size (from TokenGroup.tsx)
@@ -39,6 +40,7 @@ const defaultOverlapOffsets: Record<ITokenSize, string> = {
   md: '$-3.5',
   sm: '$-3',
   xs: '$-2.5',
+  xxs: '$-2',
 };
 
 function getWrapperProps(
