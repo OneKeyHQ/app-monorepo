@@ -1178,9 +1178,4 @@ module.exports = [
   '0xa4b1',
   // udev - Linux device manager
   'udev',
-  // redemptions - plural of redemption (used in translation keys)
-  'redemptions',
-  // xyz1, xyz2 - test placeholders for non-BIP39 words in sentry tests
-  'xyz1',
-  'xyz2',
 ];
