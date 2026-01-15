@@ -104,13 +104,13 @@ export function HyperliquidTermsContent({
         justifyContent="center"
       >
         <DelayedRender delay={renderDelay}>
-          <Stack p="$4" position="relative">
+          <Stack px="$2" py="$4" position="relative">
             <YStack {...confirmationSlideStyle}>
               <Stack
                 testID="hyperliquid-intro-confirmation-slide"
                 alignItems="center"
                 justifyContent="center"
-                px={gtMd ? '$4' : '$2'}
+                px="$2"
               >
                 <YStack gap="$2">
                   <YStack
