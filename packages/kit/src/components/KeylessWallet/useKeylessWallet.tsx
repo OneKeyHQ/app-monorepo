@@ -2,7 +2,13 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
+import {
+  Dialog,
+  SizableText,
+  Toast,
+  YStack,
+  rootNavigationRef,
+} from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   primePersistAtom,
@@ -1114,12 +1120,32 @@ export function useVerifyKeylessPinChecking() {
               title: intl.formatMessage({
                 id: ETranslations.pin_verify_reminder_dialog_title,
               }),
-              description: intl.formatMessage({
-                id: ETranslations.pin_verify_reminder_dialog_desc,
-              }),
+              renderContent: (
+                <YStack gap="$3">
+                  <SizableText size="$bodyLg">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.pin_verify_reminder_dialog_desc,
+                      },
+                      {
+                        em: (chunks: React.ReactNode) => (
+                          <SizableText size="$bodyLgMedium">
+                            {chunks}
+                          </SizableText>
+                        ),
+                      },
+                    )}
+                  </SizableText>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.pin_reminder_email_tip,
+                    })}
+                  </SizableText>
+                </YStack>
+              ),
               showCancelButton: true,
               onCancelText: intl.formatMessage({
-                id: ETranslations.global_not_now,
+                id: ETranslations.global_later,
               }),
               onCancel: async () => {
                 try {
@@ -1139,7 +1165,7 @@ export function useVerifyKeylessPinChecking() {
                 }
               },
               onConfirmText: intl.formatMessage({
-                id: ETranslations.pin_verify_reminder_dialog_button_label,
+                id: ETranslations.global_continue,
               }),
               onConfirm: async () => {
                 const shouldVerifyPin0 = await checkShouldVerifyPin();
