@@ -66,9 +66,11 @@ function PasscodeFormView() {
                 id: ETranslations.auth_confirm_passcode_form_label,
               })}
         </SizableText>
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.create_passcode_desc })}
-        </SizableText>
+        {!isPasswordSet ? (
+          <SizableText size="$bodyLg" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.create_passcode_desc })}
+          </SizableText>
+        ) : null}
       </YStack>
       {formView}
     </>
