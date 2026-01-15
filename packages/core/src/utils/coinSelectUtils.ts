@@ -21,11 +21,10 @@ import type {
   ICoinSelectOutput,
   ICoinSelectResult,
 } from '@onekeyfe/coinselect';
-import type {
-  ICoinSelectResult as ICoinSelectResultWitness,
-  IUtxo,
-} from '@onekeyfe/coinselect/witness';
 import type { Network } from 'bitcoinjs-lib';
+
+type ICoinSelectResultWitness = ReturnType<typeof coinSelectWitness>;
+type IUtxo = Parameters<typeof coinSelectWitness>[0]['utxos'][number];
 
 export type ICoinSelectAlgorithm =
   | 'auto'
