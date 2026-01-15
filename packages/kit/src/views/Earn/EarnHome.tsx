@@ -13,6 +13,7 @@ import {
   openUrlExternal,
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
@@ -30,6 +31,7 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions } from '../../states/jotai/contexts/earn';
 import { BorrowHome } from '../Borrow/pages/BorrowHome';
+import { isBorrowTag } from '../Staking/utils/utils';
 
 import { BannerV2 } from './components/BannerV2';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
@@ -47,6 +49,10 @@ import { useFAQListInfo } from './hooks/useFAQListInfo';
 import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
 
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
+
+const BORROW_PENDING_REFRESH_DELAY = timerUtils.getTimeDurationMs({
+  seconds: 3,
+});
 
 function BasicEarnHome({
   showHeader,
@@ -99,6 +105,47 @@ function BasicEarnHome({
     }
     previousIsPendingRef.current = isPending;
   }, [isPending, refreshEarnDataRaw]);
+
+  const [borrowNetworkIds, setBorrowNetworkIds] = useState<string[]>([]);
+  const borrowRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
+
+  const handleRegisterBorrowRefresh = useCallback(
+    (handler: (() => Promise<void>) | null) => {
+      borrowRefreshHandlerRef.current = handler;
+    },
+    [],
+  );
+
+  const handleBorrowNetworksChange = useCallback((nextNetworkIds: string[]) => {
+    setBorrowNetworkIds((prev) => {
+      if (
+        prev.length === nextNetworkIds.length &&
+        prev.every((id, index) => id === nextNetworkIds[index])
+      ) {
+        return prev;
+      }
+      return nextNetworkIds;
+    });
+  }, []);
+
+  const handleBorrowPendingRefresh = useCallback(() => {
+    void borrowRefreshHandlerRef.current?.();
+  }, []);
+
+  const { filteredTxs: borrowPendingTxs = [] } = useStakingPendingTxsByInfo({
+    networkIds: borrowNetworkIds,
+    tagMatcher: isBorrowTag,
+    onRefresh: handleBorrowPendingRefresh,
+    onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
+  });
+  const prevBorrowPendingIdsRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const nextIds = borrowPendingTxs.map((tx) => tx.id).join(',');
+    if (prevBorrowPendingIdsRef.current !== nextIds) {
+      prevBorrowPendingIdsRef.current = nextIds;
+    }
+  }, [borrowPendingTxs]);
 
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
@@ -304,7 +351,13 @@ function BasicEarnHome({
           display={isBorrowMode ? 'flex' : 'none'}
           pointerEvents={isBorrowMode ? 'auto' : 'none'}
         >
-          <BorrowHome header={marketSelectorHeader} isActive={isBorrowMode} />
+          <BorrowHome
+            header={marketSelectorHeader}
+            isActive={isBorrowMode}
+            pendingTxs={borrowPendingTxs}
+            onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
+            onBorrowNetworksChange={handleBorrowNetworksChange}
+          />
         </YStack>
       </YStack>
     );
@@ -351,7 +404,14 @@ function BasicEarnHome({
               />
             </YStack>
           }
-          borrow={<BorrowHome isActive={isBorrowMode} />}
+          borrow={
+            <BorrowHome
+              isActive={isBorrowMode}
+              pendingTxs={borrowPendingTxs}
+              onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
+              onBorrowNetworksChange={handleBorrowNetworksChange}
+            />
+          }
         />
       </EarnPageContainer>
     </LazyPageContainer>
