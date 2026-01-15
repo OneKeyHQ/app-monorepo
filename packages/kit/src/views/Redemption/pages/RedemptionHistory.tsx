@@ -6,26 +6,22 @@ import {
   Page,
   ScrollView,
   SizableText,
+  Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IRedemptionRecordItem } from '@onekeyhq/shared/src/referralCode/type';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
-// TODO: Move this interface to shared types when API is ready
-interface IRedemptionHistoryItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  date: string;
-  status: 'success' | 'pending';
+interface IRedemptionHistoryItemProps {
+  item: IRedemptionRecordItem;
 }
 
-// TODO: Remove mock data when API is ready
-// Replace with actual API data from ServiceReferralCode
-const MOCK_HISTORY_DATA: IRedemptionHistoryItem[] = [];
-
-function RedemptionHistoryItem({ item }: { item: IRedemptionHistoryItem }) {
+function RedemptionHistoryItem({ item }: IRedemptionHistoryItemProps) {
   const intl = useIntl();
 
   const isSuccess = item.status === 'success';
@@ -46,10 +42,10 @@ function RedemptionHistoryItem({ item }: { item: IRedemptionHistoryItem }) {
       <YStack flex={1} gap="$1">
         <SizableText size="$bodyLgMedium">{item.title}</SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
-          {item.subtitle}
+          {item.description}
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
-          {item.date}
+          {formatDate(item.redeemedAt, { hideSeconds: true })}
         </SizableText>
       </YStack>
       <Badge badgeType={isSuccess ? 'success' : 'default'}>{statusText}</Badge>
@@ -76,16 +72,45 @@ function EmptyState() {
 export default function RedemptionHistory() {
   const intl = useIntl();
 
-  // TODO: Replace with actual API call using usePromiseResult
-  // Example:
-  // const { result: historyData, isLoading } = usePromiseResult(
-  //   () => backgroundApiProxy.serviceReferralCode.getRedemptionHistory(),
-  //   [],
-  // );
-  defaultLogger.referral.redemption.loadHistory();
-  const historyData = MOCK_HISTORY_DATA;
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      defaultLogger.referral.redemption.loadHistory();
+      return backgroundApiProxy.serviceReferralCode.getRedemptionRecords();
+    },
+    [],
+    { watchLoading: true },
+  );
 
+  const historyData = result?.items ?? [];
   const hasData = historyData.length > 0;
+
+  function renderContent() {
+    if (isLoading) {
+      return (
+        <YStack flex={1} justifyContent="center" alignItems="center">
+          <Spinner size="large" />
+        </YStack>
+      );
+    }
+
+    if (!hasData) {
+      return (
+        <YStack flex={1} justifyContent="center" alignItems="center">
+          <EmptyState />
+        </YStack>
+      );
+    }
+
+    return (
+      <ScrollView>
+        <YStack>
+          {historyData.map((item) => (
+            <RedemptionHistoryItem key={item._id} item={item} />
+          ))}
+        </YStack>
+      </ScrollView>
+    );
+  }
 
   return (
     <Page>
@@ -94,21 +119,7 @@ export default function RedemptionHistory() {
           id: ETranslations.redemption_history_title,
         })}
       />
-      <Page.Body>
-        {hasData ? (
-          <ScrollView>
-            <YStack>
-              {historyData.map((item) => (
-                <RedemptionHistoryItem key={item.id} item={item} />
-              ))}
-            </YStack>
-          </ScrollView>
-        ) : (
-          <YStack flex={1} justifyContent="center" alignItems="center">
-            <EmptyState />
-          </YStack>
-        )}
-      </Page.Body>
+      <Page.Body>{renderContent()}</Page.Body>
     </Page>
   );
 }

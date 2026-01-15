@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,10 +10,12 @@ import {
   Icon,
   Input,
   SizableText,
+  Spinner,
   Stack,
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
@@ -35,13 +37,12 @@ export interface IRedemptionCenterDialogProps {
   onSuccess?: () => void;
 }
 
-export function RedemptionCenterDialog({
+function RedemptionCenterDialogContent({
   onClose,
   onSuccess,
 }: IRedemptionCenterDialogProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { loginOneKeyId, isLoggedIn } = useOneKeyAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<IRedemptionFormValues>({
@@ -68,30 +69,21 @@ export function RedemptionCenterDialog({
       form.clearErrors('code');
 
       try {
-        // TODO: Replace with actual API call to ServiceReferralCode
-        // Example:
-        // const result = await backgroundApiProxy.serviceReferralCode.redeemCode({ code });
-        // if (!result.success) {
-        //   form.setError('code', { message: result.error });
-        //   preventClose?.();
-        //   return;
-        // }
-        // const { upgradeInfo } = result;
+        const result = await backgroundApiProxy.serviceReferralCode.redeemCode({
+          code,
+        });
 
-        // TODO: Remove mock validation - simulate API delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // TODO: Remove mock validation logic when API is ready
-        // Mock validation logic - for now, reject codes that don't start with "ONEKEY"
-        if (!code.toUpperCase().startsWith('ONEKEY')) {
+        if (!result.success) {
           defaultLogger.referral.redemption.redeemFailed(
             code,
-            'Invalid code format',
+            result.error?.message ?? 'Redemption failed',
           );
           form.setError('code', {
-            message: intl.formatMessage({
-              id: ETranslations.redemption_invalid_code_error,
-            }),
+            message:
+              result.error?.message ??
+              intl.formatMessage({
+                id: ETranslations.redemption_invalid_code_error,
+              }),
           });
           preventClose?.();
           return;
@@ -100,21 +92,25 @@ export function RedemptionCenterDialog({
         defaultLogger.referral.redemption.redeemSuccess(code);
 
         onClose?.();
-
-        // TODO: Replace mock upgrade info with actual API response
-        // Success - show success dialog
-        showRedemptionSuccessDialog({});
+        showRedemptionSuccessDialog({
+          upgradeInfo: result.upgradeInfo,
+        });
 
         onSuccess?.();
       } catch (error) {
-        defaultLogger.referral.redemption.redeemError(
-          code,
-          error instanceof Error ? error.message : String(error),
-        );
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
+        const errorMessage =
+          axiosError?.response?.data?.message ??
+          (error instanceof Error ? error.message : String(error));
+        defaultLogger.referral.redemption.redeemError(code, errorMessage);
         form.setError('code', {
-          message: intl.formatMessage({
-            id: ETranslations.redemption_invalid_code_error,
-          }),
+          message:
+            errorMessage ??
+            intl.formatMessage({
+              id: ETranslations.redemption_invalid_code_error,
+            }),
         });
         preventClose?.();
       } finally {
@@ -134,35 +130,15 @@ export function RedemptionCenterDialog({
         return;
       }
 
-      // Check login status, if not logged in, trigger login flow
-      if (!isLoggedIn) {
-        try {
-          // Wait for login to complete, then continue with redeem
-          await loginOneKeyId();
-          // Login succeeded, continue with redeem
-          await performRedeem(code, preventClose);
-        } catch (error) {
-          // User cancelled login, do nothing but keep dialog open
-          if (error instanceof PrimeLoginDialogCancelError) {
-            preventClose();
-            return;
-          }
-          throw error;
-        }
-        return;
-      }
-
-      // Already logged in, proceed with redeem directly
       await performRedeem(code, preventClose);
     },
-    [form, isLoggedIn, loginOneKeyId, performRedeem],
+    [form, performRedeem],
   );
 
   const isButtonDisabled = !codeValue?.trim() || isSubmitting;
 
   return (
     <YStack mx="$-5">
-      {/* History button - absolute positioned at top left */}
       <Button
         variant="tertiary"
         size="medium"
@@ -177,14 +153,11 @@ export function RedemptionCenterDialog({
         })}
       </Button>
 
-      {/* Content */}
       <YStack px="$5" py="$5" alignItems="center">
-        {/* Icon */}
         <Stack bg="$bgStrong" borderRadius="$full" p="$3" mb="$5">
           <Icon name="TicketOutline" size="$10" color="$icon" />
         </Stack>
 
-        {/* Title and Description */}
         <SizableText size="$headingXl" textAlign="center" mb="$1">
           {intl.formatMessage({
             id: ETranslations.redemption_center_title,
@@ -201,7 +174,6 @@ export function RedemptionCenterDialog({
           })}
         </SizableText>
 
-        {/* Form */}
         <YStack width="100%">
           <Form form={form}>
             <Form.Field name="code">
@@ -218,7 +190,6 @@ export function RedemptionCenterDialog({
         </YStack>
       </YStack>
 
-      {/* Footer with Redeem Button */}
       <Dialog.Footer
         showCancelButton={false}
         onConfirm={handleRedeem}
@@ -231,6 +202,40 @@ export function RedemptionCenterDialog({
         }}
       />
     </YStack>
+  );
+}
+
+export function RedemptionCenterDialog({
+  onClose,
+  onSuccess,
+}: IRedemptionCenterDialogProps) {
+  const { loginOneKeyId, isLoggedIn } = useOneKeyAuth();
+  const [isLoginComplete, setIsLoginComplete] = useState(isLoggedIn);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      void loginOneKeyId()
+        .then(() => {
+          setIsLoginComplete(true);
+        })
+        .catch((error) => {
+          if (error instanceof PrimeLoginDialogCancelError) {
+            onClose?.();
+          }
+        });
+    }
+  }, [isLoggedIn, loginOneKeyId, onClose]);
+
+  if (!isLoginComplete) {
+    return (
+      <YStack p="$10" alignItems="center" justifyContent="center">
+        <Spinner size="large" />
+      </YStack>
+    );
+  }
+
+  return (
+    <RedemptionCenterDialogContent onClose={onClose} onSuccess={onSuccess} />
   );
 }
 
