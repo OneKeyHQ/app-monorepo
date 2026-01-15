@@ -449,6 +449,7 @@ function BaseTxHistoryListView(props: IProps) {
     <ListComponent
       ref={(ref ?? ListComponentRef) as any}
       nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
+      removeClippedSubviews={platformEnv.isNativeAndroid}
       refreshControl={
         !platformEnv.isNativeAndroid && onRefresh ? (
           <PullToRefresh onRefresh={onRefresh} />

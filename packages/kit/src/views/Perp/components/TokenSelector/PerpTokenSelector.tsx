@@ -601,7 +601,19 @@ function BasePerpTokenSelector() {
         onOpenChange={setIsOpen}
         placement="bottom-start"
         renderTrigger={
-          <Badge gap="$3" bg="$bgApp" cursor="pointer" p="$2">
+          <Badge
+            gap="$3"
+            bg="$bgApp"
+            cursor="pointer"
+            p="$2"
+            borderRadius="$full"
+            hoverStyle={{
+              bg: '$bgHover',
+            }}
+            pressStyle={{
+              bg: '$bgActive',
+            }}
+          >
             <Token
               size="md"
               borderRadius="$full"
