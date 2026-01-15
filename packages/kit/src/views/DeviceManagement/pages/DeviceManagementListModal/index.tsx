@@ -314,9 +314,14 @@ function DeviceManagementV2ListWeb() {
         headerStyle: {
           backgroundColor: !showHeader ? 'transparent' : theme.bgApp.val,
         },
+        title: showHeader
+          ? intl.formatMessage({
+              id: ETranslations.global_device_management,
+            })
+          : '',
       });
     }
-  }, [navigation, showHeader, gtMd, theme.bgApp.val]);
+  }, [navigation, showHeader, gtMd, theme.bgApp.val, intl]);
 
   const renderHeader = () => {
     // Desktop: always show header
