@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,15 +10,12 @@ import {
   Icon,
   Input,
   SizableText,
-  Spinner,
   Stack,
   YStack,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -209,31 +206,6 @@ export function RedemptionCenterDialog({
   onClose,
   onSuccess,
 }: IRedemptionCenterDialogProps) {
-  const { loginOneKeyId, isLoggedIn } = useOneKeyAuth();
-  const [isLoginComplete, setIsLoginComplete] = useState(isLoggedIn);
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      void loginOneKeyId()
-        .then(() => {
-          setIsLoginComplete(true);
-        })
-        .catch((error) => {
-          if (error instanceof PrimeLoginDialogCancelError) {
-            onClose?.();
-          }
-        });
-    }
-  }, [isLoggedIn, loginOneKeyId, onClose]);
-
-  if (!isLoginComplete) {
-    return (
-      <YStack p="$10" alignItems="center" justifyContent="center">
-        <Spinner size="large" />
-      </YStack>
-    );
-  }
-
   return (
     <RedemptionCenterDialogContent onClose={onClose} onSuccess={onSuccess} />
   );

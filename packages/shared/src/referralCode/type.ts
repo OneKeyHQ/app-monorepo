@@ -529,8 +529,10 @@ export interface IRedemptionCodeRedeemResponse {
   success: boolean;
   error?: IRedemptionCodeRedeemError;
   upgradeInfo?: {
-    fromLevelLabel: string;
-    toLevelLabel: string;
+    fromLevel?: number;
+    toLevel?: number;
+    fromLevelLabel?: string;
+    toLevelLabel?: string;
     toLevelIcon?: string;
   };
 }

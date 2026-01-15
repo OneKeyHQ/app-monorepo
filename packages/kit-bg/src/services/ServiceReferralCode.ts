@@ -637,7 +637,12 @@ class ServiceReferralCode extends ServiceBase {
         code: number;
         message: string;
         messageId?: string;
-        data?: IRedemptionCodeRedeemResponse;
+        data?: {
+          metadata?: {
+            previousLevel?: number;
+            newLevel?: number;
+          };
+        };
       }>('/rebate/v1/redemption-center/redemption-code/redeem', params, {
         autoHandleError: false,
       } as any);
@@ -654,9 +659,17 @@ class ServiceReferralCode extends ServiceBase {
         };
       }
 
+      const metadata = response.data.data?.metadata;
       return {
         success: true,
-        upgradeInfo: response.data.data?.upgradeInfo,
+        upgradeInfo:
+          metadata?.previousLevel !== undefined &&
+          metadata?.newLevel !== undefined
+            ? {
+                fromLevel: metadata.previousLevel,
+                toLevel: metadata.newLevel,
+              }
+            : undefined,
       };
     } catch (error) {
       // Handle axios error response

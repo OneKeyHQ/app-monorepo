@@ -1136,6 +1136,7 @@ const MoreActionWalletGrid = () => {
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
   const { closePopover } = usePopoverContext();
+  const { loginOneKeyId } = useOneKeyAuth();
   const handleHelpAndSupport = useCallback(() => {
     void showIntercom();
   }, []);
@@ -1147,9 +1148,13 @@ const MoreActionMoreGrid = () => {
 
   const handleRedeem = useCallback(async () => {
     await closePopover?.();
-    // Login check is handled inside RedemptionCenterDialog
-    showRedemptionCenterDialog();
-  }, [closePopover]);
+    try {
+      await loginOneKeyId();
+      showRedemptionCenterDialog();
+    } catch {
+      // User cancelled login, do nothing
+    }
+  }, [closePopover, loginOneKeyId]);
 
   const items = useMemo(() => {
     return [

@@ -1,6 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { useIntl } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -12,13 +12,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export interface ILevelUpgradeInfo {
-  fromLevelLabel: string;
-  toLevelLabel: string;
+  fromLevel?: number;
+  toLevel?: number;
+  fromLevelLabel?: string;
+  toLevelLabel?: string;
   toLevelIcon?: string;
 }
 
@@ -38,10 +41,53 @@ function RedemptionSuccessDialogContent({
   const intl = useIntl();
   const navigateToReferralLevel = useNavigateToReferralLevel();
 
-  // Use provided upgrade info or fallback to mock data
-  const fromLevelLabel = upgradeInfo?.fromLevelLabel ?? 'Bronze';
-  const toLevelLabel = upgradeInfo?.toLevelLabel ?? 'Silver';
-  const toLevelIcon = upgradeInfo?.toLevelIcon;
+  const [fromLevelLabel, setFromLevelLabel] = useState<string>(
+    upgradeInfo?.fromLevelLabel ?? '',
+  );
+  const [toLevelLabel, setToLevelLabel] = useState<string>(
+    upgradeInfo?.toLevelLabel ?? '',
+  );
+  const [toLevelIcon, setToLevelIcon] = useState<string | undefined>(
+    upgradeInfo?.toLevelIcon,
+  );
+
+  // Fetch level details using level numbers
+  useEffect(() => {
+    const { fromLevel, toLevel } = upgradeInfo ?? {};
+    if (fromLevel !== undefined || toLevel !== undefined) {
+      void (async () => {
+        try {
+          const levelDetail =
+            await backgroundApiProxy.serviceReferralCode.getLevelDetail();
+
+          if (fromLevel !== undefined && !fromLevelLabel) {
+            const fromLevelData = levelDetail.levels.find(
+              (level) => level.level === fromLevel,
+            );
+            if (fromLevelData?.label) {
+              setFromLevelLabel(fromLevelData.label);
+            }
+          }
+
+          if (toLevel !== undefined) {
+            const toLevelData = levelDetail.levels.find(
+              (level) => level.level === toLevel,
+            );
+            if (toLevelData) {
+              if (!toLevelLabel && toLevelData.label) {
+                setToLevelLabel(toLevelData.label);
+              }
+              if (!toLevelIcon && toLevelData.icon) {
+                setToLevelIcon(toLevelData.icon);
+              }
+            }
+          }
+        } catch {
+          // Ignore error, level info is optional
+        }
+      })();
+    }
+  }, [upgradeInfo, fromLevelLabel, toLevelLabel, toLevelIcon]);
 
   const handleDone = useCallback(() => {
     defaultLogger.referral.redemption.successDialogDoneClick();
@@ -106,10 +152,17 @@ function RedemptionSuccessDialogContent({
             textAlign="center"
             w="100%"
           >
-            {intl.formatMessage(
-              { id: ETranslations.redemption_commission_upgrade_details },
-              { Level1: fromLevelLabel, Level2: toLevelLabel },
-            )}
+            <FormattedMessage
+              id={ETranslations.redemption_commission_upgrade_details}
+              values={{
+                Level1: fromLevelLabel,
+                Level2: (
+                  <SizableText size="$bodyMdMedium" color="$text">
+                    {toLevelLabel}
+                  </SizableText>
+                ),
+              }}
+            />
           </SizableText>
         </YStack>
       </YStack>
