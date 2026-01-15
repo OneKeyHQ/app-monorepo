@@ -83,7 +83,7 @@ const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
   dispose: (client) => {
     // Best-effort cleanup: clear any cached realm tokens when the client is evicted.
     try {
-      client.clearTokenCache();
+      client.dispose();
     } catch {
       // ignore
     }
@@ -1745,6 +1745,20 @@ class ServiceKeylessWallet extends ServiceBase {
         }),
       },
     };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async clearKeylessOnboardingCache() {
+    // Best-effort cleanup: clear per-client token caches first, then clear the LRU itself.
+    for (const client of juiceboxClientCache.values()) {
+      try {
+        client.dispose();
+      } catch {
+        // ignore
+      }
+    }
+    juiceboxClientCache.clear();
   }
 
   @backgroundMethod()

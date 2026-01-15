@@ -305,20 +305,12 @@ export function useKeylessWalletMethods() {
 
 export const keylessOnboardingCache = new cacheUtils.LRUCache<string, string>({
   max: 1000,
-  ttl: timerUtils.getTimeDurationMs({ minute: 3 }),
+  ttl: timerUtils.getTimeDurationMs({ minute: 5 }),
   ttlAutopurge: true,
 });
 
-async function keylessOnboardingCacheGetAndDelete(
-  key: string,
-  options: {
-    skipDelete?: boolean;
-  } = {},
-) {
+async function keylessOnboardingCacheGet(key: string) {
   const token = keylessOnboardingCache.get(key);
-  if (!options?.skipDelete) {
-    keylessOnboardingCache.delete(key);
-  }
   if (!token) {
     return '';
   }
@@ -349,18 +341,13 @@ async function cacheKeylessOnboardingToken({
   }
 }
 
-async function getKeylessOnboardingToken(options?: { skipDelete?: boolean }) {
-  const token = keylessOnboardingCacheGetAndDelete('socialLoginToken', options);
+async function getKeylessOnboardingToken() {
+  const token = keylessOnboardingCacheGet('socialLoginToken');
   return token;
 }
 
-async function getKeylessOnboardingRefreshToken(options?: {
-  skipDelete?: boolean;
-}) {
-  const refreshToken = keylessOnboardingCacheGetAndDelete(
-    'socialLoginRefreshToken',
-    options,
-  );
+async function getKeylessOnboardingRefreshToken() {
+  const refreshToken = keylessOnboardingCacheGet('socialLoginRefreshToken');
   return refreshToken;
 }
 
@@ -368,8 +355,8 @@ async function cacheKeylessOnboardingPin({ pin }: { pin: string }) {
   await keylessOnboardingCacheSet('onboardingPin', pin);
 }
 
-async function getKeylessOnboardingPin(options?: { skipDelete?: boolean }) {
-  const pin = keylessOnboardingCacheGetAndDelete('onboardingPin', options);
+async function getKeylessOnboardingPin() {
+  const pin = keylessOnboardingCacheGet('onboardingPin');
   return pin;
 }
 
@@ -384,15 +371,10 @@ async function cacheKeylessOnboardingCustomMnemonic({
   }
 }
 
-async function getKeylessOnboardingCustomMnemonic(options?: {
-  skipDelete?: boolean;
-}) {
+async function getKeylessOnboardingCustomMnemonic() {
   const devSettings = await devSettingsPersistAtom.get();
   if (devSettings.enabled) {
-    const customMnemonic = keylessOnboardingCacheGetAndDelete(
-      'customMnemonic',
-      options,
-    );
+    const customMnemonic = keylessOnboardingCacheGet('customMnemonic');
     return customMnemonic;
   }
 }
@@ -947,14 +929,12 @@ export function useKeylessWallet() {
       pin: string;
       mode?: EOnboardingV2OneKeyIDLoginMode;
     }) => {
-      const token = await getKeylessOnboardingToken({ skipDelete: true });
+      const token = await getKeylessOnboardingToken();
       if (!token) {
         handleKeylessOnboardingTimeout();
         return;
       }
-      const refreshToken = await getKeylessOnboardingRefreshToken({
-        skipDelete: true,
-      });
+      const refreshToken = await getKeylessOnboardingRefreshToken();
       await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
         {
           token,

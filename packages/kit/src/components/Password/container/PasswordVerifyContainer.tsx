@@ -182,6 +182,51 @@ const PasswordVerifyContainer = ({
     setPasswordErrorProtectionTimeMinutesSurplus,
   ]);
 
+  // Helper function to handle callback errors in pageMode
+  const throwCallbackError = useCallback(
+    (callbackError: unknown): never => {
+      const errorMessage =
+        (callbackError as Error)?.message ||
+        intl.formatMessage({
+          id: ETranslations.global_unknown_error,
+        });
+      const callbackErr = new Error(errorMessage) as Error & {
+        isCallbackError: boolean;
+      };
+      callbackErr.isCallbackError = true;
+      throw callbackErr;
+    },
+    [intl],
+  );
+
+  // Helper function to call onVerifyRes with proper error handling
+  const callOnVerifyRes = useCallback(
+    async (verifiedPassword: string) => {
+      if (pageMode) {
+        try {
+          await onVerifyRes(verifiedPassword);
+        } catch (callbackError) {
+          // In pageMode, if callback throws error, rethrow with original error message
+          throwCallbackError(callbackError);
+        }
+      } else {
+        setTimeout(() => {
+          void onVerifyRes(verifiedPassword);
+        });
+      }
+    },
+    [pageMode, onVerifyRes, throwCallbackError],
+  );
+
+  // Helper function to set verified status and reset error attempts
+  const setVerifiedStatus = useCallback(() => {
+    setPasswordAtom((v) => ({
+      ...v,
+      passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
+    }));
+    resetPasswordErrorAttempts();
+  }, [setPasswordAtom, resetPasswordErrorAttempts]);
+
   const onBiologyAuthenticate = useCallback(
     async (isExtLockNoCachePassword: boolean) => {
       if (
@@ -199,18 +244,8 @@ const PasswordVerifyContainer = ({
         if (isExtLockNoCachePassword) {
           const result = await checkWebAuth();
           if (result) {
-            if (pageMode) {
-              await onVerifyRes('');
-            } else {
-              setTimeout(() => {
-                void onVerifyRes('');
-              });
-            }
-            setPasswordAtom((v) => ({
-              ...v,
-              passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
-            }));
-            resetPasswordErrorAttempts();
+            await callOnVerifyRes('');
+            setVerifiedStatus();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
           }
@@ -228,26 +263,24 @@ const PasswordVerifyContainer = ({
               });
           }
           if (biologyAuthRes) {
-            if (pageMode) {
-              await onVerifyRes(biologyAuthRes);
-            } else {
-              setTimeout(() => {
-                void onVerifyRes(biologyAuthRes);
-              });
-            }
-            setPasswordAtom((v) => ({
-              ...v,
-              passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
-            }));
-            resetPasswordErrorAttempts();
+            await callOnVerifyRes(biologyAuthRes);
+            setVerifiedStatus();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
           }
         }
       } catch (e: any) {
-        const error = e as { message?: string; cause?: string; name?: string };
+        const error = e as {
+          message?: string;
+          cause?: string;
+          name?: string;
+        } & { isCallbackError?: boolean };
+        const isCallbackError = error?.isCallbackError === true;
         let message = error?.message;
-        if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
+        // For callback errors in pageMode, use the original error message directly
+        if (isCallbackError && message) {
+          // Use the callback error message as-is
+        } else if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           message = intl.formatMessage(
             {
               id: ETranslations.auth_biometric_failed,
@@ -269,10 +302,14 @@ const PasswordVerifyContainer = ({
             { biometric: title },
           );
         }
-        if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
-          setVerifyPeriodBiologyEnable(false);
-        } else {
-          setVerifyPeriodBiologyAuthAttempts((v) => v + 1);
+        // Skip biology auth protection logic for callback errors in pageMode
+        // because biology auth verification was successful, only the callback failed
+        if (!isCallbackError) {
+          if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
+            setVerifyPeriodBiologyEnable(false);
+          } else {
+            setVerifyPeriodBiologyAuthAttempts((v) => v + 1);
+          }
         }
         setPasswordAtom((v) => ({
           ...v,
@@ -289,17 +326,17 @@ const PasswordVerifyContainer = ({
       intl,
       isBiologyAuthEnable,
       isEnable,
-      onVerifyRes,
       passwordMode,
       passwordVerifyStatus.value,
-      resetPasswordErrorAttempts,
+      pageMode,
       setPasswordAtom,
       setVerifyPeriodBiologyAuthAttempts,
       setVerifyPeriodBiologyEnable,
       title,
       verifiedPasswordWebAuth,
       verifyPeriodBiologyAuthAttempts,
-      pageMode,
+      callOnVerifyRes,
+      setVerifiedStatus,
     ],
   );
 
@@ -334,24 +371,23 @@ const PasswordVerifyContainer = ({
           dismissKeyboard();
           await timerUtils.wait(0);
         }
-        if (pageMode) {
-          await onVerifyRes(verifiedPassword);
-        } else {
-          setTimeout(() => {
-            void onVerifyRes(verifiedPassword);
-          });
-        }
-        setPasswordAtom((v) => ({
-          ...v,
-          passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
-        }));
-        resetPasswordErrorAttempts();
+        await callOnVerifyRes(verifiedPassword);
+        setVerifiedStatus();
       } catch (e) {
-        let message = intl.formatMessage({
-          id: ETranslations.auth_error_password_incorrect,
-        });
+        const errorWithFlag = e as Error & { isCallbackError?: boolean };
+        const isCallbackError = errorWithFlag?.isCallbackError === true;
+        let message = isCallbackError
+          ? errorWithFlag?.message ||
+            intl.formatMessage({
+              id: ETranslations.global_unknown_error,
+            })
+          : intl.formatMessage({
+              id: ETranslations.auth_error_password_incorrect,
+            });
         let skipProtection = false;
-        if (isLock && enablePasswordErrorProtection) {
+        // Skip password protection logic for callback errors in pageMode
+        // because password verification was successful, only the callback failed
+        if (!isCallbackError && isLock && enablePasswordErrorProtection) {
           let nextAttempts = passwordErrorAttempts + 1;
           if (!unlockPeriodPasswordArray.includes(finalPassword)) {
             setPasswordPersist((v) => ({
@@ -405,18 +441,18 @@ const PasswordVerifyContainer = ({
       enablePasswordErrorProtection,
       intl,
       isLock,
-      onVerifyRes,
       passwordErrorAttempts,
       passwordMode,
       passwordVerifyStatus.value,
+      pageMode,
       resetApp,
-      resetPasswordErrorAttempts,
       setPasswordAtom,
       setPasswordErrorProtectionTimeMinutesSurplus,
       setPasswordPersist,
       setUnlockPeriodPasswordArray,
       unlockPeriodPasswordArray,
-      pageMode,
+      callOnVerifyRes,
+      setVerifiedStatus,
     ],
   );
 
