@@ -12,7 +12,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
-  ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -240,12 +239,12 @@ export const EarnNavigation = {
     },
   ) {
     if (platformEnv.isNative) {
-      navigation.popTo(ETabDiscoveryRoutes.TabDiscovery, params);
-    } else {
-      switchTab(ETabRoutes.Earn);
+      await navigation.popToMainRoute();
       await timerUtils.wait(50);
-      navigation.popToTop();
     }
+    switchTab(ETabRoutes.Earn);
+    await timerUtils.wait(50);
+    navigation.popToTop();
     await timerUtils.wait(80);
     appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
       tab: params?.tab ?? 'assets',

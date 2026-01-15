@@ -142,23 +142,22 @@ function DeviceListItem({
       )}
       renderItemText={() => (
         <YStack gap="$0" flex={1}>
-          <XStack gap="$2">
-            <SizableText size="$bodyLgMedium" color="$text" numberOfLines={1}>
+          <XStack gap="$1" ai="center">
+            <SizableText
+              size="$bodyLgMedium"
+              color="$text"
+              numberOfLines={1}
+              flexShrink={1}
+            >
               {item.wallet.name}
             </SizableText>
-            {bleName ? (
-              <Badge
-                badgeSize="sm"
-                badgeType="default"
-                px="$2"
-                py="$0.5"
-                size="$bodySmMedium"
-              >
-                {bleName}
-              </Badge>
-            ) : null}
+            <VerifiedBadge isVerified={isVerified} />
           </XStack>
-          <VerifiedBadge isVerified={isVerified} />
+          {bleName ? (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {bleName}
+            </SizableText>
+          ) : null}
         </YStack>
       )}
       onPress={() => onPress(item.wallet)}
@@ -220,7 +219,6 @@ function DeviceManagementV2ListWeb() {
         const deviceDetectStatus = detectStatus?.[item.device?.connectId ?? ''];
         const shouldUpdate = deviceDetectStatus?.hasUpgrade;
         const updateVersionDisplay = deviceDetectStatus?.toVersion;
-
         item.firmwareTypeBadge = firmwareTypeBadge;
         item.firmwareVersionDisplay = `v${
           deviceVersion.firmwareVersion ?? '-'

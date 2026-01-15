@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 

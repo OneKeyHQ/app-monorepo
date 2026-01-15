@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 const isDev = process.env.NODE_ENV !== 'production';
 // https://developer.chrome.com/docs/extensions/mv3/manifest/key/
 // The `key` field is used by Chromium to generate a stable extension ID for

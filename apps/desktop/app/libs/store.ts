@@ -116,6 +116,25 @@ export const deleteSecureItem = (key: string) => {
   store.set(EDesktopStoreKeys.EncryptedData, items);
 };
 
+export const isSecureStorageAvailable = (): boolean => {
+  const available = safeStorage.isEncryptionAvailable();
+  if (!available) {
+    return false;
+  }
+  // On Linux, check if we have a real secure backend (not basic_text)
+  // basic_text means data is encrypted with a hardcoded password, which is not secure
+  if (process.platform === 'linux') {
+    const backend = safeStorage.getSelectedStorageBackend();
+    if (backend === 'basic_text') {
+      logger.warn(
+        'safeStorage backend is basic_text, secure storage is not truly secure',
+      );
+      return false;
+    }
+  }
+  return true;
+};
+
 export const setASCFile = (ascFile: string) => {
   store.set(EDesktopStoreKeys.ASCFile, ascFile);
 };

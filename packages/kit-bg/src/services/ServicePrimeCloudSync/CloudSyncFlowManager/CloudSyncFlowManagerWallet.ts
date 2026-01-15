@@ -24,6 +24,11 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   ): Promise<boolean> {
     const { wallet } = target;
 
+    // Keyless wallet should not be synced
+    if (accountUtils.isKeylessWallet({ walletId: wallet.id })) {
+      return false;
+    }
+
     console.log('isSupportSync', wallet.id);
 
     return (
