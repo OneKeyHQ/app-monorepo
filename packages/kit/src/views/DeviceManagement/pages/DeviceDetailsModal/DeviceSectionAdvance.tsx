@@ -125,7 +125,9 @@ function DeviceSectionAdvance() {
       })}
     >
       <DeviceSectionAdvancePassphrase />
-      {inputPinOnSoftwareSupport && <DeviceSectionAdvanceInputPinOnSoftware />}
+      {inputPinOnSoftwareSupport ? (
+        <DeviceSectionAdvanceInputPinOnSoftware />
+      ) : null}
     </ListItemGroup>
   );
 }
