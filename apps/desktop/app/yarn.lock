@@ -52,14 +52,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/electron-mac-icloud@npm:1.2.4":
-  version: 1.2.4
-  resolution: "@onekeyfe/electron-mac-icloud@npm:1.2.4"
+"@onekeyfe/electron-mac-icloud@npm:1.2.5":
+  version: 1.2.5
+  resolution: "@onekeyfe/electron-mac-icloud@npm:1.2.5"
   dependencies:
     bindings: "npm:1.5.0"
     node-addon-api: "npm:5.0.0"
     node-gyp: "npm:latest"
-  checksum: 10/1687e0bc1e7bdbd3f9d1b06a96c0283b1cd632372e0a4b17bb2a79726fca61309850a9e3ac37eb3c2075d84c0a5e4712a0651acc81f4303d1c64f606834a15a7
+  checksum: 10/682180043503ea3e4f6fc91e648d0aacc1e7a775411a8901191d14d9937189f8b726841d39f4c10a215ef5e7ce6d5fcbe8fd9b0f0a3a269032c1b9c56fc287cf
+  conditions: os=darwin
   languageName: node
   linkType: hard
 
@@ -67,9 +68,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/desktop@workspace:."
   dependencies:
-    "@onekeyfe/electron-mac-icloud": "npm:1.2.4"
+    "@onekeyfe/electron-mac-icloud": "npm:1.2.5"
     "@stoprocent/noble": "npm:2.3.4"
-    electron-check-biometric-auth-changed: "npm:0.0.6"
+    electron-check-biometric-auth-changed: "npm:0.0.8"
     passport-desktop: "npm:0.1.2"
     passport-desktop-win32-x64-msvc: "npm:0.1.2"
   languageName: unknown
@@ -463,14 +464,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-check-biometric-auth-changed@npm:0.0.6":
-  version: 0.0.6
-  resolution: "electron-check-biometric-auth-changed@npm:0.0.6"
+"electron-check-biometric-auth-changed@npm:0.0.8":
+  version: 0.0.8
+  resolution: "electron-check-biometric-auth-changed@npm:0.0.8"
   dependencies:
     bindings: "npm:^1.5.0"
     node-addon-api: "npm:^7.1.0"
     node-gyp: "npm:latest"
-  checksum: 10/daf0bc6d4cddf7c411d4c315910854c974fbc62c9ea7a12bf23bc368c452f0e0bcff5f4b127de9f4145b62c020e2a02d592b781de730926355ef9e1138af6142
+  checksum: 10/5fdb2b19ce1630ae5fc66b0a4998939bd17c4cce08db03c95c4f416e324aa0072038cb34f74a2fd64653da42e1e57fa9546c867504b6c38f34e6848af0d3865e
+  conditions: os=darwin
   languageName: node
   linkType: hard
 
