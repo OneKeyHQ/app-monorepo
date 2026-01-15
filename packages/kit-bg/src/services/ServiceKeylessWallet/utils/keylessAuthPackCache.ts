@@ -6,6 +6,13 @@ import { buildKeylessLocalEncryptionKey } from './keylessLocalEncryptionKey';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 
+/**
+ * @deprecated This file will be deprecated in a future release.
+ * AuthPack is only stored in memory (not persisted to disk) and is cleared on app restart.
+ * Therefore, it does not require password update support (no need for *WithPassword variants).
+ * The updateKeylessDataPasscode flow intentionally does not handle AuthPack re-encryption.
+ */
+
 // In-memory cache for authPack, keyed by packSetId
 // Module-level cache shared across all instances
 // Note: Only stores the current user's authPack, cleared when caching new one
