@@ -4,7 +4,7 @@
   },
   "build": {
     "base": {
-      "node": "20.0.0",
+      "node": "24.13.0",
       "android": {
         "image": "ubuntu-24.04-jdk-17-ndk-r27b",
         "ndk": "27.1.12297006",
