@@ -69,7 +69,7 @@ __metadata:
   dependencies:
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
     "@stoprocent/noble": "npm:2.3.4"
-    electron-check-biometric-auth-changed: "npm:0.0.8"
+    electron-check-biometric-auth-changed: "npm:1.0.0"
     passport-desktop: "npm:0.1.2"
     passport-desktop-win32-x64-msvc: "npm:0.1.2"
   languageName: unknown
@@ -463,15 +463,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-check-biometric-auth-changed@npm:0.0.8":
-  version: 0.0.8
-  resolution: "electron-check-biometric-auth-changed@npm:0.0.8"
+"electron-check-biometric-auth-changed@npm:1.0.0":
+  version: 1.0.0
+  resolution: "electron-check-biometric-auth-changed@npm:1.0.0"
   dependencies:
     bindings: "npm:^1.5.0"
     node-addon-api: "npm:^7.1.0"
     node-gyp: "npm:latest"
-  checksum: 10/5fdb2b19ce1630ae5fc66b0a4998939bd17c4cce08db03c95c4f416e324aa0072038cb34f74a2fd64653da42e1e57fa9546c867504b6c38f34e6848af0d3865e
-  conditions: os=darwin
+  checksum: 10/f354e80c6b996c152d61484ef9e9be23ecb2fa23cd1f69dd2d1da745c8647efaf733262004af03d7345981848752a3620ddc94a7a69a4254c7098f22e43bde90
   languageName: node
   linkType: hard
 
