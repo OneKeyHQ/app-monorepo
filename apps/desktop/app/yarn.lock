@@ -52,15 +52,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/electron-mac-icloud@npm:1.2.5":
-  version: 1.2.5
-  resolution: "@onekeyfe/electron-mac-icloud@npm:1.2.5"
+"@onekeyfe/electron-mac-icloud@npm:1.2.6":
+  version: 1.2.6
+  resolution: "@onekeyfe/electron-mac-icloud@npm:1.2.6"
   dependencies:
     bindings: "npm:1.5.0"
     node-addon-api: "npm:5.0.0"
     node-gyp: "npm:latest"
-  checksum: 10/682180043503ea3e4f6fc91e648d0aacc1e7a775411a8901191d14d9937189f8b726841d39f4c10a215ef5e7ce6d5fcbe8fd9b0f0a3a269032c1b9c56fc287cf
-  conditions: os=darwin
+  checksum: 10/e136cddc0aac866ae3edca87e84e5c4b48ccbb776d1da60fb66286297a25303521a1c8fcfce548b783b2d4cf82de428b2c69cc7d850e7926417824af8b0cf370
   languageName: node
   linkType: hard
 
@@ -68,7 +67,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/desktop@workspace:."
   dependencies:
-    "@onekeyfe/electron-mac-icloud": "npm:1.2.5"
+    "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
     "@stoprocent/noble": "npm:2.3.4"
     electron-check-biometric-auth-changed: "npm:0.0.8"
     passport-desktop: "npm:0.1.2"
