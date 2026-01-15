@@ -441,6 +441,14 @@ export const useStakingPendingTxsByInfo = ({
 
   const isPending = filteredTxs.length > 0;
   const prevIsPending = usePrevious(isPending);
+  const prevPendingCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const nextCount = filteredTxs.length;
+    if (prevPendingCountRef.current !== nextCount) {
+      prevPendingCountRef.current = nextCount;
+    }
+  }, [filteredTxs.length]);
 
   useEffect(() => {
     if (!isPending || !refreshTimeoutRef.current) {

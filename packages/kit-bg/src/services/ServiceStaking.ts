@@ -1757,7 +1757,11 @@ class ServiceStaking extends ServiceBase {
       try {
         const order =
           await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
-        if (order && tx.status !== EDecodedTxStatus.Pending) {
+        const shouldUpdate =
+          Boolean(order) &&
+          tx.status !== EDecodedTxStatus.Pending &&
+          order?.status !== tx.status;
+        if (order && shouldUpdate) {
           order.status = tx.status;
           await this.updateEarnOrderStatusToServer({ order });
           await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
