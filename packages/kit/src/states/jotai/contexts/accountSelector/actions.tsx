@@ -1308,9 +1308,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       console.log('updateHwWalletsDeprecatedStatus >>>> ', {
         willUpdateDeprecateMap,
       });
-      await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
-        willUpdateDeprecateMap,
-      });
+      const result =
+        await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
+          willUpdateDeprecateMap,
+        });
+      if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+        appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      }
     },
   );
 
