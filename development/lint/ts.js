@@ -1,6 +1,7 @@
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const { exit } = require('process');
 const { parse } = require('@aivenio/tsc-output-parser');
+const path = require('path');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();
@@ -37,10 +38,22 @@ function handleProblems(result) {
   }
 }
 
+const tsConfigPath = path.join(__dirname, '../../tsconfig.json');
 try {
-  const result = execSync(
-    `sh -c 'npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache'`,
-  ).toString('utf-8');
+  const cacheFolder = execSync('yarn config get cacheFolder')
+    .toString('utf-8')
+    .trim();
+  console.log(`[${getTimestamp()}] Using tsconfig: ${tsConfigPath}`);
+  console.log(`[${getTimestamp()}] Using cache folder: ${cacheFolder}`);
+  const tsBuildInfoPath = path.join(cacheFolder, '.app-mono-ts-cache');
+  const result = execFileSync('npx', [
+    'tsgo',
+    '-p',
+    tsConfigPath,
+    '--noEmit',
+    '--tsBuildInfoFile',
+    tsBuildInfoPath,
+  ]).toString('utf-8');
   console.log(result);
 } catch (error) {
   const errorMsg = error.stdout.toString('utf-8');
