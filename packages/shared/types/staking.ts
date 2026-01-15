@@ -2216,6 +2216,11 @@ export interface IBorrowTransactionConfirmation {
     description: IEarnText;
   };
   liquidationRisk?: boolean;
+  refundFee?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip: IEarnTooltip;
+  };
   blockRepay?: boolean;
   healthFactor?: {
     current?: {
