@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,11 +24,49 @@ import { Overview } from '../components/Overview';
 import { SuppliedCard } from '../components/SuppliedCard';
 import { SupplyCard } from '../components/SupplyCard';
 
+import type { IStakePendingTx } from '../../Earn/hooks/useStakingPendingTxs';
+
 type IBorrowTab = 'supply' | 'borrow';
 
 type IBorrowHomeProps = {
   header?: React.ReactNode;
   isActive?: boolean;
+  pendingTxs?: IStakePendingTx[];
+  onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
+  onBorrowNetworksChange?: (networkIds: string[]) => void;
+};
+
+const BorrowPendingBridge = ({
+  pendingTxs,
+  onRegisterBorrowRefresh,
+}: {
+  pendingTxs?: IStakePendingTx[];
+  onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
+}) => {
+  const { setPendingTxs, refreshBorrowDataRef } = useBorrowContext();
+  const pendingIdsRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const nextIds = (pendingTxs ?? []).map((tx) => tx.id).join(',');
+    if (pendingIdsRef.current !== nextIds) {
+      pendingIdsRef.current = nextIds;
+    }
+    setPendingTxs(pendingTxs ?? []);
+  }, [pendingTxs, setPendingTxs]);
+
+  const handleRefresh = useCallback(async () => {
+    await refreshBorrowDataRef.current?.();
+  }, [refreshBorrowDataRef]);
+
+  useEffect(() => {
+    if (!onRegisterBorrowRefresh) return undefined;
+    onRegisterBorrowRefresh(handleRefresh);
+    return () => {
+      onRegisterBorrowRefresh(null);
+    };
+  }, [handleRefresh, onRegisterBorrowRefresh]);
+
+  return null;
 };
 
 const BorrowHomeContent = memo(
@@ -146,15 +184,30 @@ const BorrowHomeContent = memo(
 
 BorrowHomeContent.displayName = 'BorrowHomeContent';
 
-const BorrowHomeCmp = memo(({ header, isActive = true }: IBorrowHomeProps) => {
-  return (
-    <BorrowProvider>
-      <BorrowDataGate isActive={isActive}>
-        <BorrowHomeContent header={header} isActive={isActive} />
-      </BorrowDataGate>
-    </BorrowProvider>
-  );
-});
+const BorrowHomeCmp = memo(
+  ({
+    header,
+    isActive = true,
+    pendingTxs,
+    onRegisterBorrowRefresh,
+    onBorrowNetworksChange,
+  }: IBorrowHomeProps) => {
+    return (
+      <BorrowProvider>
+        <BorrowPendingBridge
+          pendingTxs={pendingTxs}
+          onRegisterBorrowRefresh={onRegisterBorrowRefresh}
+        />
+        <BorrowDataGate
+          isActive={isActive}
+          onBorrowNetworksChange={onBorrowNetworksChange}
+        >
+          <BorrowHomeContent header={header} isActive={isActive} />
+        </BorrowDataGate>
+      </BorrowProvider>
+    );
+  },
+);
 
 BorrowHomeCmp.displayName = 'BorrowHomeCmp';
 

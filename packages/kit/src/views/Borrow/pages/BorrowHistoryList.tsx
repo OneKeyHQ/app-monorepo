@@ -12,6 +12,7 @@ import {
   Select,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -44,12 +45,6 @@ type IHistoryItemProps = {
   provider?: string;
 };
 
-const HistorySectionHeaderSkeleton = () => (
-  <XStack h="$9" px="$5" alignItems="center" bg="$bgApp">
-    <Skeleton h="$4" w={120} borderRadius="$2" />
-  </XStack>
-);
-
 const HistoryItemSkeleton = () => (
   <ListItem>
     <Skeleton h="$10" w="$10" radius="round" />
@@ -64,25 +59,65 @@ const HistoryItemSkeleton = () => (
   </ListItem>
 );
 
-const BorrowHistorySkeleton = ({ hideFilter }: { hideFilter: boolean }) => (
-  <YStack>
-    {!hideFilter ? (
-      <XStack px="$5" pb="$2">
-        <XStack h="$12" alignItems="center">
-          <Skeleton h="$4" w={140} borderRadius="$2" />
-        </XStack>
-      </XStack>
-    ) : null}
-    {[0, 1].map((section) => (
-      <YStack key={section}>
-        <HistorySectionHeaderSkeleton />
-        {[0, 1, 2].map((row) => (
-          <HistoryItemSkeleton key={row} />
-        ))}
-      </YStack>
-    ))}
-  </YStack>
+const HistoryEmptyStateSkeleton = ({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) => (
+  <Stack position="relative" overflow="hidden">
+    <Empty
+      pt={40}
+      icon="ClockTimeHistoryOutline"
+      iconProps={{ color: '$transparent' }}
+      title={title}
+      titleProps={{ color: '$transparent' }}
+      description={description}
+      descriptionProps={{ color: '$transparent' }}
+    />
+    <Stack
+      position="absolute"
+      top={0}
+      right={0}
+      bottom={0}
+      left={0}
+      ai="center"
+      jc="center"
+      pointerEvents="none"
+    >
+      <Stack w="100%">
+        <HistoryItemSkeleton />
+      </Stack>
+    </Stack>
+  </Stack>
 );
+
+const BorrowHistorySkeleton = ({ hideFilter }: { hideFilter: boolean }) => {
+  const intl = useIntl();
+  const emptyTitle = intl.formatMessage({
+    id: ETranslations.global_no_transactions_yet,
+  });
+  const emptyDescription = intl.formatMessage({
+    id: ETranslations.global_no_transactions_yet_desc,
+  });
+
+  return (
+    <YStack>
+      {!hideFilter ? (
+        <XStack px="$5" pb="$2">
+          <XStack h="$12" alignItems="center">
+            <Skeleton h="$4" w={140} borderRadius="$2" />
+          </XStack>
+        </XStack>
+      ) : null}
+      <HistoryEmptyStateSkeleton
+        title={emptyTitle}
+        description={emptyDescription}
+      />
+    </YStack>
+  );
+};
 
 const HistoryItem = ({ item, provider }: IHistoryItemProps) => {
   const navigation = useAppNavigation();

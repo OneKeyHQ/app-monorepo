@@ -278,7 +278,7 @@ export const {
   name: EAtomNames.perpTokenFavoritesPersistAtom,
   persist: true,
   initialValue: {
-    favorites: ['BTC', 'ETH', 'BNB', 'SOL', 'HYPE', 'XRP'],
+    favorites: [],
     displayMode: 'price',
   },
 });

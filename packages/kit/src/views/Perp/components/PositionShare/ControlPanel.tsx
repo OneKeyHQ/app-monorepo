@@ -145,6 +145,7 @@ export function ControlPanel({
             icon="LinkOutline"
             size="large"
             onPress={onCopyLink}
+            onPressDebounce={500}
             disabled={isLoading}
             iconSize="$6"
             borderRadius="$4"

@@ -24,6 +24,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -32,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
@@ -56,9 +58,11 @@ export type IDeviceManagementListItem = IHwQrWalletWithDevice & {
 function DeviceListItem({
   item,
   onPress,
+  isConnected,
 }: {
   item: IDeviceManagementListItem;
   onPress: (wallet: IHwQrWalletWithDevice['wallet']) => void;
+  isConnected: boolean;
 }) {
   const { gtMd } = useMedia();
   const walletAvatarProps: IWalletAvatarProps = {
@@ -137,7 +141,11 @@ function DeviceListItem({
             h: 56,
           }}
         >
-          <WalletAvatar {...walletAvatarProps} size={gtMd ? 44 : 36} />
+          <WalletAvatar
+            {...walletAvatarProps}
+            size={gtMd ? 44 : 36}
+            status={isConnected ? 'connected' : 'default'}
+          />
         </Stack>
       )}
       renderItemText={() => (
@@ -185,6 +193,7 @@ function DeviceManagementV2ListWeb() {
   const { pushToDeviceDetail } = useDeviceManagerNavigation();
 
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
+  const { connectedDevices } = useHardwareWalletConnectStatus();
 
   const {
     result: hwQrWalletList = [],
@@ -240,6 +249,24 @@ function DeviceManagementV2ListWeb() {
     },
   );
 
+  const walletConnectionMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    hwQrWalletList.forEach((wallet) => {
+      const isQrWallet = accountUtils.isQrWallet({
+        walletId: wallet.wallet.id,
+      });
+      if (isQrWallet) {
+        map.set(wallet.wallet.id, false);
+        return false;
+      }
+
+      const deviceId = wallet.wallet.associatedDeviceInfo?.deviceId;
+      const isConnected = deviceId ? connectedDevices.has(deviceId) : false;
+      map.set(wallet.wallet.id, isConnected);
+    });
+    return map;
+  }, [hwQrWalletList, connectedDevices]);
+
   useEffect(() => {
     const fn = () => {
       void refreshHwQrWalletList();
@@ -267,9 +294,10 @@ function DeviceManagementV2ListWeb() {
         key={item.wallet.id}
         item={item}
         onPress={onWalletPressed}
+        isConnected={walletConnectionMap.get(item.wallet.id) ?? false}
       />
     ),
-    [onWalletPressed],
+    [onWalletPressed, walletConnectionMap],
   );
 
   const existingDevices = useMemo(() => {

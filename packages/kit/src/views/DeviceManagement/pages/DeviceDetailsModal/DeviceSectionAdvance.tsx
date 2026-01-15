@@ -112,6 +112,10 @@ function DeviceSectionAdvanceInputPinOnSoftware() {
 
 function DeviceSectionAdvance() {
   const intl = useIntl();
+  const [deviceType] = useDeviceTypeAtom();
+  const inputPinOnSoftwareSupport =
+    deviceType && deviceUtils.checkInputPinOnSoftwareSupport(deviceType);
+
   return (
     <ListItemGroup
       withSeparator
@@ -121,7 +125,7 @@ function DeviceSectionAdvance() {
       })}
     >
       <DeviceSectionAdvancePassphrase />
-      <DeviceSectionAdvanceInputPinOnSoftware />
+      {inputPinOnSoftwareSupport && <DeviceSectionAdvanceInputPinOnSoftware />}
     </ListItemGroup>
   );
 }
