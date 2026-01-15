@@ -980,6 +980,10 @@ app.on('window-all-closed', () => {
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
 
+// Fix UI elements disappearing after extended use due to GPU compositing issues
+// https://github.com/electron/electron/issues/32760
+app.commandLine.appendSwitch('disable-gpu-compositing');
+
 if (isDev) {
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
