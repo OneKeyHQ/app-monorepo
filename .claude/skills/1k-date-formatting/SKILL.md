@@ -1,5 +1,5 @@
 ---
-name: onekey-date-formatting
+name: 1k-date-formatting
 description: Guides proper date and time formatting in OneKey app. Use when displaying dates/times in UI, formatting timestamps, or when dates need to follow app locale settings. Date, time, locale, formatDate, dateUtils.
 ---
 
