@@ -51,42 +51,43 @@ function RedemptionSuccessDialogContent({
     upgradeInfo?.toLevelIcon,
   );
 
-  // Fetch level details using level numbers
   useEffect(() => {
     const { fromLevel, toLevel } = upgradeInfo ?? {};
-    if (fromLevel !== undefined || toLevel !== undefined) {
-      void (async () => {
-        try {
-          const levelDetail =
-            await backgroundApiProxy.serviceReferralCode.getLevelDetail();
-
-          if (fromLevel !== undefined && !fromLevelLabel) {
-            const fromLevelData = levelDetail.levels.find(
-              (level) => level.level === fromLevel,
-            );
-            if (fromLevelData?.label) {
-              setFromLevelLabel(fromLevelData.label);
-            }
-          }
-
-          if (toLevel !== undefined) {
-            const toLevelData = levelDetail.levels.find(
-              (level) => level.level === toLevel,
-            );
-            if (toLevelData) {
-              if (!toLevelLabel && toLevelData.label) {
-                setToLevelLabel(toLevelData.label);
-              }
-              if (!toLevelIcon && toLevelData.icon) {
-                setToLevelIcon(toLevelData.icon);
-              }
-            }
-          }
-        } catch {
-          // Ignore error, level info is optional
-        }
-      })();
+    if (fromLevel === undefined && toLevel === undefined) {
+      return;
     }
+
+    void (async () => {
+      try {
+        const levelDetail =
+          await backgroundApiProxy.serviceReferralCode.getLevelDetail();
+
+        if (fromLevel !== undefined && !fromLevelLabel) {
+          const fromLevelData = levelDetail.levels.find(
+            (level) => level.level === fromLevel,
+          );
+          if (fromLevelData?.label) {
+            setFromLevelLabel(fromLevelData.label);
+          }
+        }
+
+        if (toLevel !== undefined) {
+          const toLevelData = levelDetail.levels.find(
+            (level) => level.level === toLevel,
+          );
+          if (toLevelData) {
+            if (!toLevelLabel && toLevelData.label) {
+              setToLevelLabel(toLevelData.label);
+            }
+            if (!toLevelIcon && toLevelData.icon) {
+              setToLevelIcon(toLevelData.icon);
+            }
+          }
+        }
+      } catch {
+        // Level info is optional
+      }
+    })();
   }, [upgradeInfo, fromLevelLabel, toLevelLabel, toLevelIcon]);
 
   const handleDone = useCallback(() => {
@@ -102,7 +103,6 @@ function RedemptionSuccessDialogContent({
 
   return (
     <YStack mx="$-5">
-      {/* Icon */}
       <YStack alignItems="center">
         <Stack
           bg="$bgSuccessStrong"
@@ -115,7 +115,6 @@ function RedemptionSuccessDialogContent({
         </Stack>
       </YStack>
 
-      {/* Header */}
       <YStack gap="$1" pt="$5" pb="$2" px="$5" alignItems="center">
         <SizableText size="$headingXl" textAlign="center">
           {intl.formatMessage({
@@ -129,7 +128,6 @@ function RedemptionSuccessDialogContent({
         </SizableText>
       </YStack>
 
-      {/* Content */}
       <YStack px="$5" pb="$5">
         <YStack
           bg="$bgSubdued"
@@ -167,7 +165,6 @@ function RedemptionSuccessDialogContent({
         </YStack>
       </YStack>
 
-      {/* Footer */}
       <Dialog.Footer
         onCancelText={intl.formatMessage({
           id: ETranslations.redemption_done_button,

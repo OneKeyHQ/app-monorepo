@@ -202,25 +202,15 @@ function RedemptionCenterDialogContent({
   );
 }
 
-export function RedemptionCenterDialog({
-  onClose,
-  onSuccess,
-}: IRedemptionCenterDialogProps) {
-  return (
-    <RedemptionCenterDialogContent onClose={onClose} onSuccess={onSuccess} />
-  );
-}
-
 export function showRedemptionCenterDialog(
   props: Omit<IRedemptionCenterDialogProps, 'onClose'> = {},
 ): IDialogInstance {
-  const { onSuccess, ...restProps } = props;
+  const { onSuccess } = props;
 
   const dialog = Dialog.show({
     showFooter: false,
     renderContent: (
-      <RedemptionCenterDialog
-        {...restProps}
+      <RedemptionCenterDialogContent
         onSuccess={onSuccess}
         onClose={async () => {
           await dialog.close();

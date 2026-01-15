@@ -82,7 +82,6 @@ export default function RedemptionHistory() {
   );
 
   const historyData = result?.items ?? [];
-  const hasData = historyData.length > 0;
 
   function renderContent() {
     if (isLoading) {
@@ -93,7 +92,7 @@ export default function RedemptionHistory() {
       );
     }
 
-    if (!hasData) {
+    if (historyData.length === 0) {
       return (
         <YStack flex={1} justifyContent="center" alignItems="center">
           <EmptyState />
