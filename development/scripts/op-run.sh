@@ -35,15 +35,27 @@ fi
 
 echo "Loading environment variables from 1Password vault: $VAULT_NAME (account: $ACCOUNT)"
 
-# Get all item titles from the vault
-items=$(op item list --vault="$VAULT_NAME" --account="$ACCOUNT" --format=json | jq -r '.[].title')
+# Get all item titles from the vault (null-delimited for safe parsing)
+while IFS= read -r -d '' item; do
+    # Sanitize title: replace spaces/hyphens with underscores, remove invalid chars
+    sanitized=$(echo "$item" | tr ' -' '__' | tr -cd 'A-Za-z0-9_')
 
-# Export each item's password as an environment variable
-for item in $items; do
+    # Skip if sanitized name is empty
+    [ -z "$sanitized" ] && continue
+
+    # Get the password field value
     value=$(op item get "$item" --vault="$VAULT_NAME" --account="$ACCOUNT" --fields=password --reveal 2>/dev/null) || continue
-    export "$item=$value"
-    echo "  Loaded: $item"
-done
+
+    # Skip if value is empty
+    [ -z "$value" ] && continue
+
+    export "$sanitized=$value"
+    if [ "$sanitized" != "$item" ]; then
+        echo "  Loaded: $item -> $sanitized"
+    else
+        echo "  Loaded: $sanitized"
+    fi
+done < <(op item list --vault="$VAULT_NAME" --account="$ACCOUNT" --format=json | jq -j '.[].title + "\u0000"')
 
 echo "Environment variables loaded. Starting command..."
 echo ""
