@@ -4,7 +4,11 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
-import { remoteLogger } from '@onekeyhq/shared/src/logger/remoteLogger';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  isLocalNetworkAddress,
+  remoteLogger,
+} from '@onekeyhq/shared/src/logger/remoteLogger';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -102,6 +106,14 @@ class ServiceDevSetting extends ServiceBase {
 
   @backgroundMethod()
   public async updateRemoteLogConfig(enabled: boolean, server?: string) {
+    // Validate server address - only allow localhost and local network IPs
+    if (server && !isLocalNetworkAddress(server)) {
+      throw new OneKeyLocalError({
+        message:
+          'Invalid server address. Only localhost and local network IPs are allowed.',
+      });
+    }
+
     await devSettingsPersistAtom.set((prev) => ({
       enabled: true,
       settings: {

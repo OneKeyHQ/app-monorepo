@@ -41,7 +41,10 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { DEFAULT_LOG_SERVER } from '@onekeyhq/shared/src/logger/remoteLogger';
+import {
+  DEFAULT_LOG_SERVER,
+  isLocalNetworkAddress,
+} from '@onekeyhq/shared/src/logger/remoteLogger';
 import {
   isDualScreenDevice,
   isRawSpanning,
@@ -558,6 +561,8 @@ const BaseDevSettingsSection = () => {
                 onPress={() => {
                   Dialog.show({
                     title: 'Remote Log Server Address',
+                    description:
+                      'Only localhost and local network IPs (10.x.x.x, 172.16-31.x.x, 192.168.x.x) are allowed.',
                     renderContent: (
                       <Dialog.Form
                         formProps={{
@@ -568,17 +573,32 @@ const BaseDevSettingsSection = () => {
                           },
                         }}
                       >
-                        <Dialog.FormField name="server">
+                        <Dialog.FormField
+                          name="server"
+                          rules={{
+                            required: {
+                              value: true,
+                              message: 'Server address is required.',
+                            },
+                            validate: (value: string) =>
+                              isLocalNetworkAddress(value) ||
+                              'Only localhost and local network IPs are allowed.',
+                          }}
+                        >
                           <Input placeholder={DEFAULT_LOG_SERVER} />
                         </Dialog.FormField>
                       </Dialog.Form>
                     ),
                     onConfirm: async ({ getForm }) => {
                       const form = getForm();
+                      if (form) {
+                        const isValid = await form.trigger();
+                        if (!isValid) return;
+                      }
                       const server = form?.getValues()?.server as
                         | string
                         | undefined;
-                      if (server) {
+                      if (server && isLocalNetworkAddress(server)) {
                         await backgroundApiProxy.serviceDevSetting.updateRemoteLogConfig(
                           devSettings.settings?.remoteLogEnabled ?? false,
                           server,

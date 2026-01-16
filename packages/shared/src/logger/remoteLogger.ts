@@ -21,6 +21,58 @@ interface IRemoteLoggerConfig {
 
 const DEFAULT_LOG_SERVER = 'http://localhost:3300';
 
+/**
+ * Check if a URL points to a local network address (localhost or private IP)
+ * Allowed: localhost, 127.x.x.x, 10.x.x.x, 172.16-31.x.x, 192.168.x.x, ::1, fe80::
+ */
+function isLocalNetworkAddress(urlString: string): boolean {
+  try {
+    const normalizedUrl = urlString.includes('://')
+      ? urlString
+      : `http://${urlString}`;
+    const host = new URL(normalizedUrl).hostname;
+
+    if (host === 'localhost') {
+      return true;
+    }
+
+    if (host === '::1' || host === '[::1]') {
+      return true;
+    }
+
+    const hostLower = host.toLowerCase();
+    if (hostLower.startsWith('fe80:') || hostLower.startsWith('[fe80:')) {
+      return true;
+    }
+
+    const ipv4Match = host.match(
+      /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/,
+    );
+    if (ipv4Match) {
+      const octets = ipv4Match.slice(1).map(Number);
+      const [a, b] = octets;
+
+      if (octets.some((octet) => octet > 255)) {
+        return false;
+      }
+
+      // Loopback (127.x.x.x) or Class A private (10.x.x.x)
+      if (a === 127 || a === 10) {
+        return true;
+      }
+
+      // Class B private (172.16-31.x.x) or Class C private (192.168.x.x)
+      if ((a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 class RemoteLogger {
   private config: IRemoteLoggerConfig = {
     enabled: false,
@@ -31,17 +83,7 @@ class RemoteLogger {
 
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
 
-  private originalLog: typeof console.log | null = null;
-
-  private originalWarn: typeof console.warn | null = null;
-
-  private originalError: typeof console.error | null = null;
-
-  private originalDebug: typeof console.debug | null = null;
-
   private platform: IPlatform | undefined;
-
-  private isIntercepting = false;
 
   constructor() {
     this.platform = this.detectPlatform();
@@ -50,19 +92,33 @@ class RemoteLogger {
   private detectPlatform(): IPlatform | undefined {
     if (typeof navigator !== 'undefined') {
       const ua = navigator.userAgent || '';
-      if (/iPhone|iPad|iPod/.test(ua)) return 'ios';
-      if (/Android/.test(ua)) return 'android';
+      if (/iPhone|iPad|iPod/.test(ua)) {
+        return 'ios';
+      }
+      if (/Android/.test(ua)) {
+        return 'android';
+      }
     }
-    if (typeof chrome !== 'undefined' && chrome.runtime?.id) return 'ext';
-    if (typeof process !== 'undefined' && process.versions?.electron)
+
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+      return 'ext';
+    }
+
+    if (typeof process !== 'undefined' && process.versions?.electron) {
       return 'desktop';
-    if (typeof globalThis !== 'undefined' && 'document' in globalThis)
+    }
+
+    if (typeof globalThis !== 'undefined' && 'document' in globalThis) {
       return 'web';
+    }
+
     return undefined;
   }
 
-  private flush = () => {
-    if (this.logQueue.length === 0) return;
+  private flush = (): void => {
+    if (this.logQueue.length === 0) {
+      return;
+    }
 
     const logs = this.logQueue;
     this.logQueue = [];
@@ -72,28 +128,30 @@ class RemoteLogger {
     const endpoint = isSingle ? '/api/logs' : '/api/logs/batch';
     const body = isSingle ? logs[0] : { logs };
 
-    fetch(`${this.config.server}${endpoint}`, {
+    void fetch(`${this.config.server}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }).catch(() => {});
   };
 
-  private enqueue = (entry: ILogEntry) => {
+  private enqueue = (entry: ILogEntry): void => {
     this.logQueue.push(entry);
 
-    // Flush immediately if queue is large
     if (this.logQueue.length >= 50) {
-      if (this.flushTimer) clearTimeout(this.flushTimer);
+      if (this.flushTimer) {
+        clearTimeout(this.flushTimer);
+      }
       this.flush();
     } else if (!this.flushTimer) {
-      // Debounce flush for 100ms
       this.flushTimer = setTimeout(this.flush, 100);
     }
   };
 
-  private send = (level: ILogLevel, args: unknown[]) => {
-    if (!this.config.enabled) return;
+  private send = (level: ILogLevel, args: unknown[]): void => {
+    if (!this.config.enabled) {
+      return;
+    }
 
     const messages: string[] = [];
     let meta: Record<string, unknown> | undefined;
@@ -108,94 +166,65 @@ class RemoteLogger {
       }
     }
 
-    const hasNonEmptyMeta = meta && Object.keys(meta).length > 0;
     const entry: ILogEntry = {
       level,
       message: messages.join(' ') || '[object]',
       ts: new Date().toISOString(),
-      meta: hasNonEmptyMeta ? meta : undefined,
+      meta: meta && Object.keys(meta).length > 0 ? meta : undefined,
       platform: this.platform,
     };
 
     this.enqueue(entry);
   };
 
-  private startIntercepting() {
-    if (this.isIntercepting) return;
-
-    this.originalLog = console.log;
-    this.originalWarn = console.warn;
-    this.originalError = console.error;
-    this.originalDebug = console.debug;
-
-    console.debug = (...args: unknown[]) => {
-      this.originalDebug?.(...args);
-      this.send('DEBUG', args);
-    };
-    console.log = (...args: unknown[]) => {
-      this.originalLog?.(...args);
-      this.send('INFO', args);
-    };
-    console.warn = (...args: unknown[]) => {
-      this.originalWarn?.(...args);
-      this.send('WARN', args);
-    };
-    console.error = (...args: unknown[]) => {
-      this.originalError?.(...args);
-      this.send('ERROR', args);
-    };
-
-    this.isIntercepting = true;
+  enable(server?: string): void {
+    this.config.enabled = true;
+    if (server) {
+      this.config.server = server;
+    }
   }
 
-  private stopIntercepting() {
-    if (!this.isIntercepting) return;
-
-    if (this.originalLog) console.log = this.originalLog;
-    if (this.originalWarn) console.warn = this.originalWarn;
-    if (this.originalError) console.error = this.originalError;
-    if (this.originalDebug) console.debug = this.originalDebug;
-
-    this.originalLog = null;
-    this.originalWarn = null;
-    this.originalError = null;
-    this.originalDebug = null;
-
-    this.isIntercepting = false;
-
-    // Flush remaining logs
+  disable(): void {
+    this.config.enabled = false;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flush();
     }
   }
 
-  enable(server?: string) {
-    this.config.enabled = true;
-    if (server) {
-      this.config.server = server;
-    }
-    this.startIntercepting();
-  }
-
-  disable() {
-    this.config.enabled = false;
-    this.stopIntercepting();
-  }
-
-  isEnabled() {
+  isEnabled(): boolean {
     return this.config.enabled;
   }
 
-  getServer() {
+  getServer(): string {
     return this.config.server;
   }
 
-  setServer(server: string) {
+  setServer(server: string): void {
     this.config.server = server;
+  }
+
+  debug(...args: unknown[]): void {
+    this.send('DEBUG', args);
+  }
+
+  info(...args: unknown[]): void {
+    this.send('INFO', args);
+  }
+
+  log(...args: unknown[]): void {
+    this.send('INFO', args);
+  }
+
+  warn(...args: unknown[]): void {
+    this.send('WARN', args);
+  }
+
+  error(...args: unknown[]): void {
+    this.send('ERROR', args);
   }
 }
 
 const remoteLogger = new RemoteLogger();
 
-export { remoteLogger, DEFAULT_LOG_SERVER };
+export { remoteLogger, DEFAULT_LOG_SERVER, isLocalNetworkAddress };
