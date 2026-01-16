@@ -91,6 +91,7 @@ export class ProtoSignDoc {
   toJSON(): any {
     return {
       txBody: {
+        ...(TxBody.toJSON(this.txBody) as any),
         // oxlint-disable-next-line unicorn/no-useless-spread
         ...{
           messages: this.txMsgs.map((msg) => {
