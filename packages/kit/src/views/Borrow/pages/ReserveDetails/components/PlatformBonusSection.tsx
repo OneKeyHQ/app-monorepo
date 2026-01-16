@@ -45,14 +45,14 @@ export function PlatformBonusSection({
           <EarnText
             text={platformBonus.title}
             size="$bodySmMedium"
-            color="$text"
+            color="$textSubdued"
           />
         </XStack>
         {endsInDays !== null ? (
           <>
             <Divider vertical h="$3" />
             <XStack ai="center" gap="$1">
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.earn_event_ends_in,
                 })}
@@ -71,11 +71,11 @@ export function PlatformBonusSection({
         {platformBonus.rewards.map((reward, index) => (
           <XStack key={index} ai="center" gap="$1.5">
             <Token size="xs" tokenImageUri={reward.logoURI} />
-            <EarnText text={reward.type} size="$bodySm" color="$textSubdued" />
-            <EarnText text={reward.title} size="$bodySmMedium" color="$text" />
+            <EarnText text={reward.type} size="$bodyMd" color="$text" />
+            <EarnText text={reward.title} size="$bodyMdMedium" color="$text" />
             <EarnText
               text={reward.description}
-              size="$bodySm"
+              size="$bodyMdMedium"
               color="$textSubdued"
             />
           </XStack>
@@ -91,7 +91,7 @@ export function PlatformBonusSection({
           >
             <EarnText
               text={platformBonus.button.text}
-              size="$bodySmMedium"
+              size="$bodyMdMedium"
               color="$textSubdued"
             />
           </XStack>

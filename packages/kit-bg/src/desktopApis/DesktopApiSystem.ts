@@ -76,6 +76,40 @@ class DesktopApiSystem {
     return this._getSystemInfoInternal();
   }
 
+  async getPerfMemoryUsage(): Promise<{ rss?: number } | null> {
+    try {
+      if (typeof app.getAppMetrics === 'function') {
+        const metrics = app.getAppMetrics();
+        let workingSetKbTotal = 0;
+        for (const m of metrics) {
+          const ws = m?.memory?.workingSetSize;
+          if (typeof ws === 'number' && Number.isFinite(ws) && ws > 0) {
+            workingSetKbTotal += ws;
+          }
+        }
+        if (workingSetKbTotal > 0) {
+          return { rss: workingSetKbTotal * 1024 };
+        }
+      }
+
+      if (typeof process.getProcessMemoryInfo === 'function') {
+        const info = await process.getProcessMemoryInfo();
+        const residentSetKb = info?.residentSet;
+        if (
+          typeof residentSetKb === 'number' &&
+          Number.isFinite(residentSetKb) &&
+          residentSetKb > 0
+        ) {
+          return { rss: residentSetKb * 1024 };
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return null;
+  }
+
   async reload(): Promise<void> {
     const safelyBrowserWindow =
       globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();

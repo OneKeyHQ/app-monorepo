@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -80,6 +81,13 @@ function HomeOverviewContainer() {
     }
     return false;
   }, [wallet]);
+
+  useEffect(() => {
+    perfMark('Home:overview:mount');
+    return () => {
+      perfMark('Home:overview:unmount');
+    };
+  }, []);
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
@@ -156,6 +164,18 @@ function HomeOverviewContainer() {
         setIsRefreshingApprovalList(isRefreshing);
       }
       setIsRefreshingWorth(isRefreshing);
+      if (isRefreshing) {
+        perfMark(`Home:refresh:start:${type}`, {
+          refreshType: type,
+        });
+      } else {
+        perfMark(`Home:done:${type}`, {
+          refreshType: type,
+        });
+        perfMark(`Home:refresh:done:${type}`, {
+          refreshType: type,
+        });
+      }
     };
     appEventBus.on(EAppEventBusNames.TabListStateUpdate, fn);
     return () => {

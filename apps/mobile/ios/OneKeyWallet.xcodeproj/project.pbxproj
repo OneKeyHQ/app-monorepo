@@ -20,6 +20,7 @@
 		35EE15B12B9A2ACD004C86AC /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 35EE15B32B9A2ACD004C86AC /* InfoPlist.strings */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */; };
+		99A17DED573C4A61AD1AE2F7 /* PerfMemoryModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 038173ED5DD8456B91CD658E /* PerfMemoryModule.m */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -66,6 +67,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		038173ED5DD8456B91CD658E /* PerfMemoryModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PerfMemoryModule.m; path = OneKeyWallet/PerfMemoryModule.m; sourceTree = "<group>"; };
 		076068BE2E7EF3BA00E007B2 /* gopenpgp-3.3.0.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = "gopenpgp-3.3.0.xcframework"; path = "XCFrameworks/gopenpgp-3.3.0.xcframework"; sourceTree = "<group>"; };
 		0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07A0D9DB2E7997C6005A1AA2 /* BundleUpdateModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BundleUpdateModule.h; path = OneKeyWallet/BundleUpdateModule.h; sourceTree = "<group>"; };
@@ -93,6 +95,7 @@
 		C274DAC02AE2644400755275 /* NotificationService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NotificationService.m; sourceTree = "<group>"; };
 		C274DAC22AE2644400755275 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = OneKeyWallet.entitlements; path = OneKeyWallet/OneKeyWallet.entitlements; sourceTree = "<group>"; };
+		DFA91D163DA04633A9CAA667 /* PerfMemoryModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = PerfMemoryModule.h; path = OneKeyWallet/PerfMemoryModule.h; sourceTree = "<group>"; };
 		E386ED442C7889E000B1E360 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E386ED452C788A1300B1E360 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E386ED472C788A2700B1E360 /* hi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = hi; path = hi.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -159,6 +162,8 @@
 				07A0D9DC2E7997C6005A1AA2 /* BundleUpdateModule.m */,
 				LAUNCH0012E85D3A700D9A658 /* LaunchOptionsManager.h */,
 				LAUNCH0012E85D3A600D9A657 /* LaunchOptionsManager.m */,
+				DFA91D163DA04633A9CAA667 /* PerfMemoryModule.h */,
+				038173ED5DD8456B91CD658E /* PerfMemoryModule.m */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */,
@@ -578,6 +583,7 @@
 				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
 				07BBD7EC2E7C85FA00A3654D /* Verification.m in Sources */,
 				07A0D9DD2E7997C6005A1AA2 /* BundleUpdateModule.m in Sources */,
+				99A17DED573C4A61AD1AE2F7 /* PerfMemoryModule.m in Sources */,
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

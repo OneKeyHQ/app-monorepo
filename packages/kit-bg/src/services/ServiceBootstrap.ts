@@ -1,5 +1,6 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import '@onekeyhq/shared/src/storage/appStorage';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import localDb from '../dbs/local/localDb';
