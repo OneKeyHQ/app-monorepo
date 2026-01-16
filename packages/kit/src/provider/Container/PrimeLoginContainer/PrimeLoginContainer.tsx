@@ -141,13 +141,13 @@ export function PrimeLoginContainer() {
             renderContent: (
               <PrimeLoginPasswordDialog
                 data={data}
-                promiseId={promptPrimeLoginPasswordDialog?.promiseId}
+                promiseId={promptPrimeLoginEmailCodeDialogPromiseId}
                 richTextDescription={description}
               />
             ),
             onClose: async () => {
               await backgroundApiProxy.servicePrime.cancelPrimeLogin({
-                promiseId: promptPrimeLoginPasswordDialog?.promiseId,
+                promiseId: promptPrimeLoginEmailCodeDialogPromiseId,
                 dialogType: 'promptPrimeLoginPasswordDialog',
               });
             },
@@ -176,7 +176,7 @@ export function PrimeLoginContainer() {
                 return;
               }
               await backgroundApiProxy.servicePrime.cancelPrimeLogin({
-                promiseId: promptPrimeLoginPasswordDialog?.promiseId,
+                promiseId: promptPrimeLoginEmailCodeDialogPromiseId,
                 dialogType: 'promptPrimeLoginPasswordDialog',
               });
             },
