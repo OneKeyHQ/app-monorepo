@@ -393,4 +393,4 @@ describe('Kaspa transaction Tests', () => {
   });
 });
 
-export {};
+

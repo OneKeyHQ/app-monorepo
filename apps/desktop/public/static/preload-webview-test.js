@@ -293,7 +293,7 @@ try {
       console.groupCollapsed(
         `📋 All Environment Variables (${allKeys.length} total)`,
       );
-      allKeys.sort().forEach((key) => {
+      allKeys.toSorted().forEach((key) => {
         const value = envVars[key];
         const isSensitive = sensitiveKeys.includes(key);
         const displayValue =

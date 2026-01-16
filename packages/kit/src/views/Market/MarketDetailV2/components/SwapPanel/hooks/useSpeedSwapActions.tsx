@@ -407,7 +407,7 @@ export function useSpeedSwapActions(props: {
         swapBuildResData: {
           ...buildRes,
           result: {
-            ...(buildRes?.result ?? {}),
+            ...buildRes?.result,
             slippage: buildRes?.result?.slippage ?? slippage,
           },
         },
@@ -873,7 +873,7 @@ export function useSpeedSwapActions(props: {
 
   const fetchTokenPrice = useCallback(async () => {
     setPriceRate((prev) => ({
-      ...(prev ?? {}),
+      ...prev,
       loading: true,
     }));
     if (fromToken.price && toToken.price) {
@@ -912,7 +912,7 @@ export function useSpeedSwapActions(props: {
         });
       } else {
         setPriceRate((prev) => ({
-          ...(prev ?? {}),
+          ...prev,
           loading: false,
         }));
       }

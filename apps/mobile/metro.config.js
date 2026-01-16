@@ -37,7 +37,7 @@ config.resolver.sourceExts = [
 
 // Provide extra shims/polyfills for node modules
 config.resolver.extraNodeModules = {
-  ...(config.resolver.extraNodeModules || {}),
+  ...config.resolver.extraNodeModules,
   crypto: require.resolve(
     '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.native.js',
   ),

@@ -1098,7 +1098,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
 
     // Sort by networkId to ensure consistent order
-    const sortedNetworks = [...filteredNetworks].sort((a, b) =>
+    const sortedNetworks = [...filteredNetworks].toSorted((a, b) =>
       a.networkId.localeCompare(b.networkId),
     );
 

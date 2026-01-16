@@ -226,7 +226,7 @@ function TradingViewChart({
   );
 }
 
-const identifiers = [
+const identifiers = new Set([
   'binance',
   'bybit',
   'mexc',
@@ -237,7 +237,7 @@ const identifiers = [
   'okx',
   'gate',
   'kucoin',
-];
+]);
 
 const targets = ['USD', 'USDT', 'USDC'];
 const resolveIdentifierName = (name: string) => {
@@ -297,7 +297,7 @@ function BasicTokenPriceChart({
     for (let i = 0; i < tickers.length; i += 1) {
       const t = tickers[i];
       if (targets.includes(t.target)) {
-        if (identifiers.includes(t.market.identifier)) {
+        if (identifiers.has(t.market.identifier)) {
           return {
             identifier: resolveIdentifierName(t.market.identifier),
             baseToken: t.base,
@@ -305,7 +305,7 @@ function BasicTokenPriceChart({
           };
         }
 
-        if (identifiers.includes(t.market.name.toLowerCase())) {
+        if (identifiers.has(t.market.name.toLowerCase())) {
           return {
             identifier: t.market.name.toLowerCase(),
             baseToken: t.base,

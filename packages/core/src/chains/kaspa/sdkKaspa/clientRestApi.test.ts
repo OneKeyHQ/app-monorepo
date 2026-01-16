@@ -25,4 +25,4 @@ describe('Kaspa Rest API Client Tests', () => {
   });
 });
 
-export {};
+

@@ -8,4 +8,5 @@ declare module 'react-native' {
   }
 }
 
+// oxlint-disable-next-line unicorn/require-module-specifiers
 export {};

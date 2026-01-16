@@ -125,13 +125,13 @@ export type IDeviceGetFeaturesOptions = {
 };
 
 // skip events
-const SKIPPED_EVENTS = [
+const SKIPPED_EVENTS = new Set([
   EHardwareUiStateAction.CLOSE_UI_WINDOW,
   EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
   EHardwareUiStateAction.PREVIOUS_ADDRESS,
   EHardwareUiStateAction.BLUETOOTH_UNSUPPORTED,
   EHardwareUiStateAction.BLUETOOTH_POWERED_OFF,
-];
+]);
 
 const NEW_DIALOG_EVENTS = [
   EHardwareUiStateAction.BLUETOOTH_PERMISSION,
@@ -475,7 +475,7 @@ class ServiceHardware extends ServiceBase {
 
         // skip ui-close_window event, which cause infinite loop
         //  ( emit ui-close_window -> Dialog close -> sdk cancel -> emit ui-close_window )
-        if (!SKIPPED_EVENTS.includes(newUiRequestType)) {
+        if (!SKIPPED_EVENTS.has(newUiRequestType)) {
           defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
             action: newUiRequestType,
             connectId,

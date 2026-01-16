@@ -139,7 +139,7 @@ export function useSwapTokenList(
         const priceBN = new BigNumber(token.price ?? '0');
         return !priceBN.isNaN() && !priceBN.isZero();
       })
-      ?.sort((a, b) => {
+      ?.toSorted((a, b) => {
         const aBalanceBN = new BigNumber(a.fiatValue ?? '0');
         const bBalanceBN = new BigNumber(b.fiatValue ?? '0');
         return bBalanceBN.comparedTo(aBalanceBN);
@@ -149,7 +149,7 @@ export function useSwapTokenList(
         const priceBN = new BigNumber(token.price ?? '0');
         return priceBN.isNaN() || priceBN.isZero();
       })
-      ?.sort((a, b) => {
+      ?.toSorted((a, b) => {
         const aBalanceBN = new BigNumber(a.fiatValue ?? '0');
         const bBalanceBN = new BigNumber(b.fiatValue ?? '0');
         return bBalanceBN.comparedTo(aBalanceBN);

@@ -169,7 +169,7 @@ class JsonRPCRequest {
     return Promise.all(
       jsonResponses
         // @ts-ignore
-        .sort(({ id: idA }, { id: idB }) => idA - idB)
+        .toSorted(({ id: idA }, { id: idB }) => idA - idB)
         // @ts-ignore
         .map((resp) =>
           // @ts-ignore

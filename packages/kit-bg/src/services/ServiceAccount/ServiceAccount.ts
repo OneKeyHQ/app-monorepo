@@ -4451,7 +4451,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: true,
             },
           }));
@@ -4466,7 +4466,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: false,
             },
           }));
@@ -4568,7 +4568,7 @@ class ServiceAccount extends ServiceBase {
         await hardwareWalletXfpStatusAtom.set((v) => ({
           ...v,
           [walletId]: {
-            ...(v?.[walletId] || {}),
+            ...v?.[walletId],
             xfpMissing: false,
           },
         }));

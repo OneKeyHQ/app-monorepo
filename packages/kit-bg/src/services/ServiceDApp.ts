@@ -767,7 +767,7 @@ class ServiceDApp extends ServiceBase {
       }
       item.availableNetworksMap = networksMap;
     }
-    const sortedList = allConnectedList.sort((a, b) => {
+    const sortedList = allConnectedList.toSorted((a, b) => {
       const aTime = a.updatedAt ?? 0;
       const bTime = b.updatedAt ?? 0;
       return bTime - aTime;

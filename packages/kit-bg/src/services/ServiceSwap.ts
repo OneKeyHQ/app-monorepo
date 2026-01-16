@@ -364,7 +364,7 @@ export default class ServiceSwap extends ServiceBase {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap fetch token cancel', {
-          cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
+          cause: e,
         });
       } else {
         const error = e as { code: number; message: string; requestId: string };
@@ -647,7 +647,7 @@ export default class ServiceSwap extends ServiceBase {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap fetch quote cancel', {
-          cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
+          cause: e,
         });
       }
     }
@@ -1075,7 +1075,7 @@ export default class ServiceSwap extends ServiceBase {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap check token approve allowance cancel', {
-          cause: ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL,
+          cause: e,
         });
       }
       throw e;
@@ -1359,7 +1359,7 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSwapHistoryListFromSimple() {
     const histories =
       await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
-    return histories.sort((a, b) => b.date.created - a.date.created);
+    return histories.toSorted((a, b) => b.date.created - a.date.created);
   }
 
   @backgroundMethod()
@@ -2313,7 +2313,7 @@ export default class ServiceSwap extends ServiceBase {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap speed fetch quote cancel', {
-          cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
+          cause: e,
         });
       }
     }

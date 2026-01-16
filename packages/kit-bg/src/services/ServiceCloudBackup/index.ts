@@ -415,7 +415,7 @@ class ServiceCloudBackup extends ServiceBase {
         }
         return backupDeviceList;
       }, {} as Record<string, IMetaDataObject>),
-    ).sort((a, b) => b.backupTime - a.backupTime);
+    ).toSorted((a, b) => b.backupTime - a.backupTime);
   }
 
   @backgroundMethod()
@@ -430,7 +430,7 @@ class ServiceCloudBackup extends ServiceBase {
           item.deviceInfo.deviceName === deviceInfo.deviceName &&
           item.deviceInfo.osName === deviceInfo.osName,
       )
-      .sort((a, b) => b.backupTime - a.backupTime);
+      .toSorted((a, b) => b.backupTime - a.backupTime);
   }
 
   // migrate the v4 data modal
@@ -556,17 +556,17 @@ class ServiceCloudBackup extends ServiceBase {
         }
       }
 
-      const allLocalHDAccountUUIDs = ([] as Array<string>).concat(
+      const allLocalHDAccountUUIDs = new Set(([] as Array<string>).concat(
         ...Object.values(localData.HDWallets).map(
           ({ accountUUIDs }) => accountUUIDs,
         ),
-      );
+      ));
       for (const [HDWalletId, HDWallet] of Object.entries(
         remoteData.HDWallets,
       )) {
         if (
           HDWallet.accountUUIDs.every((accountUUID) =>
-            allLocalHDAccountUUIDs.includes(accountUUID),
+            allLocalHDAccountUUIDs.has(accountUUID),
           )
         ) {
           alreadyOnDevice.HDWallets[HDWalletId] = HDWallet;

@@ -262,7 +262,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           (accountUtils.isImportedWallet({ walletId: w.wallet.id }) &&
             w.wallet.accounts.length > 0),
       )
-      .sort((a, b) => {
+      .toSorted((a, b) => {
         if (a.wallet.type === b.wallet.type) {
           return natsort({ insensitive: true })(a.wallet.id, b.wallet.id);
         }

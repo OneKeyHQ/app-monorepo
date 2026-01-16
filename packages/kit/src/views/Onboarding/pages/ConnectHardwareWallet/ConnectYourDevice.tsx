@@ -519,7 +519,7 @@ function useDeviceConnection({
           return;
         }
 
-        const sortedDevices = response.payload.sort((a, b) =>
+        const sortedDevices = response.payload.toSorted((a, b) =>
           natsort({ insensitive: true })(
             a.name || a.connectId || a.deviceId || a.uuid,
             b.name || b.connectId || b.deviceId || b.uuid,
@@ -579,8 +579,7 @@ function useDeviceConnection({
   }, [deviceScanner]);
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
-    () => [
-      ...searchedDevices.map((item) => ({
+    () => searchedDevices.map((item) => ({
         title: item.name,
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
@@ -591,7 +590,6 @@ function useDeviceConnection({
         },
         opacity: 1,
       })),
-    ],
     [searchedDevices, onDeviceConnect, ensureStopScan],
   );
 

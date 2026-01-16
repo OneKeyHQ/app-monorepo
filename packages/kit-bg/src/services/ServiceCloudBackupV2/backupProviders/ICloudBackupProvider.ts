@@ -423,7 +423,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
       )
     )
       .filter(Boolean)
-      .sort((a, b) => (b.dataTime ?? 0) - (a.dataTime ?? 0));
+      .toSorted((a, b) => (b.dataTime ?? 0) - (a.dataTime ?? 0));
     return {
       total: items.length,
       items,

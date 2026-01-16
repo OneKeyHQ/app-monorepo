@@ -1179,7 +1179,7 @@ export default class VaultBtc extends VaultBase {
           negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
         }
 
-        return fees.sort((a, b) =>
+        return fees.toSorted((a, b) =>
           new BigNumber(a).comparedTo(new BigNumber(b)),
         );
       } catch (e) {

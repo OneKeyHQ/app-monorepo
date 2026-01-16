@@ -179,10 +179,10 @@ function handleProblems(result) {
     }
 
     // First add recent files, then randomly select from others if needed
-    const shuffledRecent = [...recentWarningGroups].sort(
+    const shuffledRecent = [...recentWarningGroups].toSorted(
       () => Math.random() - 0.5,
     );
-    const shuffledOther = [...otherWarningGroups].sort(
+    const shuffledOther = [...otherWarningGroups].toSorted(
       () => Math.random() - 0.5,
     );
     const prioritized = [...shuffledRecent, ...shuffledOther];

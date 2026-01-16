@@ -75,7 +75,7 @@ function V4AccountNameSelector({
         };
         return item;
       })
-      .sort((a, b) =>
+      .toSorted((a, b) =>
         natsort({ insensitive: true })(a.networkId || '', b.networkId || ''),
       );
   }, [indexedAccount.id]);

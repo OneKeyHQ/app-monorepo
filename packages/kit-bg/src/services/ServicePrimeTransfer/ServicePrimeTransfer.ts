@@ -932,7 +932,7 @@ class ServicePrimeTransfer extends ServiceBase {
           });
           return account;
         })
-        .sort((a, b) => this.accountSortFn(a, b));
+        .toSorted((a, b) => this.accountSortFn(a, b));
       return sortedAccounts;
     };
 
@@ -1104,7 +1104,7 @@ class ServicePrimeTransfer extends ServiceBase {
     // fill publicData summary by aggregating from privateBackupData
     try {
       const hdWallets = Object.values(privateBackupData.wallets);
-      const sortedHdWallets = hdWallets.sort((a, b) => this.walletSortFn(a, b));
+      const sortedHdWallets = hdWallets.toSorted((a, b) => this.walletSortFn(a, b));
       const totalHdAccounts = hdWallets.reduce(
         (sum, w) => sum + (w.indexedAccountUUIDs?.length || 0),
         0,
@@ -1118,8 +1118,7 @@ class ServicePrimeTransfer extends ServiceBase {
       publicData.totalWalletsCount = hdWallets.length;
       publicData.totalAccountsCount =
         totalHdAccounts + importedAccountsCount + watchingAccountsCount;
-      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> = [
-        ...sortedHdWallets.map((w) => {
+      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> = sortedHdWallets.map((w) => {
           let avatarInfo: IAvatarInfo | undefined;
           try {
             const parsedAvatar = JSON.parse(
@@ -1140,8 +1139,7 @@ class ServicePrimeTransfer extends ServiceBase {
             accountsCount: w.indexedAccountUUIDs?.length || 0,
             walletXfp: w.xfp,
           };
-        }),
-      ].filter(Boolean);
+        }).filter(Boolean);
       if (importedAccountsCount > 0) {
         const data: IPrimeTransferPublicDataWalletDetail = {
           name: appLocale.intl.formatMessage({
@@ -1640,7 +1638,7 @@ class ServicePrimeTransfer extends ServiceBase {
       dataSource: data.privateData.wallets,
       credentials: data.privateData.credentials,
       decryptedCredentials: data.privateData.decryptedCredentials,
-    }).sort((a, b) => this.walletSortFn(a.item, b.item));
+    }).toSorted((a, b) => this.walletSortFn(a.item, b.item));
 
     // // Extract selected imported accounts
     const importedAccounts = this.extractSelectedItems({
@@ -1649,14 +1647,14 @@ class ServicePrimeTransfer extends ServiceBase {
       dataSource: data.privateData.importedAccounts,
       credentials: data.privateData.credentials,
       decryptedCredentials: data.privateData.decryptedCredentials,
-    }).sort((a, b) => this.accountSortFn(a.item, b.item));
+    }).toSorted((a, b) => this.accountSortFn(a.item, b.item));
 
     // // Extract selected watching accounts
     const watchingAccounts = this.extractSelectedItems({
       selectedItemMapInfo:
         selectedItemMap === 'ALL' ? 'ALL' : selectedItemMap.watchingAccount,
       dataSource: data.privateData.watchingAccounts,
-    }).sort((a, b) => this.accountSortFn(a.item, b.item));
+    }).toSorted((a, b) => this.accountSortFn(a.item, b.item));
 
     // return {
     //   wallets: [],
@@ -2203,12 +2201,12 @@ class ServicePrimeTransfer extends ServiceBase {
         }
         try {
           if (newWallet) {
-            const skipNetworks = [
+            const skipNetworks = new Set([
               // lightning network requires network verification
               presetNetworksMap.lightning.id,
               // Skip Cardano network because address generation is very slow
               presetNetworksMap.cardano.id,
-            ];
+            ]);
             // if (isFromCloudBackupRestore) {
             //   skipNetworks = [
             //     presetNetworksMap.lightning.id,
@@ -2216,7 +2214,7 @@ class ServicePrimeTransfer extends ServiceBase {
             //   ];
             // }
             const customNetworksUsed = customNetworks?.filter(
-              (n) => !skipNetworks.includes(n.networkId),
+              (n) => !skipNetworks.has(n.networkId),
             );
             const params: IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
               walletId: newWallet.id,

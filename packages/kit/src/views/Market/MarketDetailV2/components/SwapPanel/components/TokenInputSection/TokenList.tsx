@@ -126,9 +126,9 @@ export function TokenList({
             detailToken.networkId === token.networkId &&
             detailToken.contractAddress === token.contractAddress,
         );
-        return { ...token, ...(tokenWithDetail ?? {}) };
+        return { ...token, ...tokenWithDetail };
       })
-      .sort((a, b) => {
+      .toSorted((a, b) => {
         const valueA = parseFloat(a.valueProps?.value || '0');
         const valueB = parseFloat(b.valueProps?.value || '0');
         return valueB - valueA;
