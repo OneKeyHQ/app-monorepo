@@ -28,18 +28,18 @@ export function PrimeTransferExitPrevent({
   const onConfirmCallback = useCallback(async () => {
     try {
       await backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
-    } catch (error) {
+    } catch (_error) {
       console.error('onConfirmCallback clearSensitiveData error', error);
     }
     try {
       await backgroundApiProxy.servicePrimeTransfer.handleLeaveRoom();
-    } catch (error) {
+    } catch (_error) {
       console.error('onConfirmCallback handleLeaveRoom error', error);
     }
     try {
       await timerUtils.wait(600);
       await backgroundApiProxy.servicePrimeTransfer.refreshQrcodeHook();
-    } catch (error) {
+    } catch (_error) {
       console.error('onConfirmCallback refreshQrcodeHook error', error);
     }
   }, []);

@@ -335,7 +335,7 @@ export function InterestRateModelChart({
       } else if (message.type === 'hoverEnd') {
         setHoverData(null);
       }
-    } catch (error) {
+    } catch (_error) {
       console.error(
         'InterestRateModelChart: Error parsing WebView message:',
         error,

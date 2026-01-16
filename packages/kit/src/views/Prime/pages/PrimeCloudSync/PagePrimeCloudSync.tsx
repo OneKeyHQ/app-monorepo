@@ -83,7 +83,7 @@ function AutoLockUpdateDialogContent({
               );
             });
             onContinue();
-          } catch (error) {
+          } catch (_error) {
             onError(error as Error);
             throw error;
           }
@@ -252,7 +252,7 @@ function EnableOneKeyCloudSwitchListItem() {
                 status: 'off',
               });
             }
-          } catch (error) {
+          } catch (_error) {
             // disable cloud sync
             await backgroundApiProxy.servicePrimeCloudSync.setCloudSyncEnabled(
               false,

@@ -649,7 +649,7 @@ function SelectPrivateKeyNetworkView() {
           walletId,
         });
         form.clearErrors('accountName');
-      } catch (error) {
+      } catch (_error) {
         form.setError('accountName', {
           message: (error as Error)?.message,
         });
@@ -680,7 +680,7 @@ function SelectPrivateKeyNetworkView() {
           setValidateResult(result);
           console.log('validateGeneralInputOfImporting result', result);
           // TODO: need to replaced by https://github.com/mattermost/react-native-paste-input
-        } catch (error) {
+        } catch (_error) {
           setValidateResult({
             isValid: false,
           });

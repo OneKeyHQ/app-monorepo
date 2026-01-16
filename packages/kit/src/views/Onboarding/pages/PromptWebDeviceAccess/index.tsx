@@ -17,7 +17,7 @@ function PromptWebDeviceAccessPage() {
         await backgroundApiProxy.serviceApp.restartApp();
         window.close();
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('USB device connection failed:', error);
     } finally {
       setIsConnecting(false);

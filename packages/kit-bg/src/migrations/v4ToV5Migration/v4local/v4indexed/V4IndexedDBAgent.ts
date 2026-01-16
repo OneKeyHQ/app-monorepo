@@ -199,7 +199,7 @@ export class V4IndexedDBAgent
       const result = await task(tx);
       // await dbTx.done;
       return result;
-    } catch (error) {
+    } catch (_error) {
       // console.error(error);
       dbTx.abort();
       throw error;

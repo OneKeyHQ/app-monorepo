@@ -59,7 +59,7 @@ function isCurrentlyOnWalletTab(): boolean {
       currentHomeRoute?.name === ETabHomeRoutes.TabHome;
 
     return isOnMainWalletPage;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

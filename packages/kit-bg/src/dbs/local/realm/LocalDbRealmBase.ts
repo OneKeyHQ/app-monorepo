@@ -114,7 +114,7 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
       const db = await this.readyDb;
       db.realm.close();
       Realm.deleteFile({ path: REALM_DB_NAME });
-    } catch (error: any) {
+    } catch (_error: any) {
       console.error(error);
       return Promise.reject(error);
     }

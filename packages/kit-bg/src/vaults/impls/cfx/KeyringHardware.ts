@@ -229,7 +229,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           hexUtils.stripHexPrefix(message.message),
           'hex',
         );
-      } catch (error) {
+      } catch (_error) {
         messageBuffer = Buffer.from('');
       }
 

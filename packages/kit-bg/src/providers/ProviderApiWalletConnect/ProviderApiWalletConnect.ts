@@ -319,7 +319,7 @@ class ProviderApiWalletConnect {
           result: ret,
         },
       });
-    } catch (error: any) {
+    } catch (_error: any) {
       await this.web3Wallet?.respondSessionRequest({
         topic,
         response: {
@@ -405,7 +405,7 @@ class ProviderApiWalletConnect {
       option.sessionRequest?.verifyContext.verified.origin ?? '';
     try {
       return new URL(originUrl).origin;
-    } catch (error) {
+    } catch (_error) {
       return originUrl;
     }
   }

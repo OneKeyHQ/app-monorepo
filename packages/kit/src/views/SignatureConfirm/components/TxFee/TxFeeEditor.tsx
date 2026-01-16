@@ -1016,7 +1016,7 @@ function TxFeeEditor(props: IProps) {
         }
       }
     },
-    [feeDecimals, form, vaultSettings?.skipFixFeeInfoDecimal],
+    [feeDecimals, form, vaultSettings?.skipFixFeeInfoDecimal, watchAllFields],
   );
 
   const handleValidateDotExtraTip = useCallback(

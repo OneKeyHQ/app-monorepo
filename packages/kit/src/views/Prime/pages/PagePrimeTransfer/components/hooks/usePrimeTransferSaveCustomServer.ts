@@ -91,7 +91,7 @@ export function usePrimeTransferSaveCustomServer() {
           ...v,
           websocketEndpointUpdatedAt: Date.now(),
         }));
-      } catch (error) {
+      } catch (_error) {
         const e = error as OneKeyError | undefined;
         console.error('Failed to save server config to simpleDB:', error);
         Toast.error({

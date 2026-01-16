@@ -126,7 +126,7 @@ export function useImportAddressForm({
           walletId: WALLET_TYPE_WATCHING,
         });
         form.clearErrors('accountName');
-      } catch (error) {
+      } catch (_error) {
         form.setError('accountName', {
           message: (error as Error)?.message,
         });
@@ -153,7 +153,7 @@ export function useImportAddressForm({
             },
           );
         setValidateResult(result);
-      } catch (error) {
+      } catch (_error) {
         setValidateResult({
           isValid: false,
         });

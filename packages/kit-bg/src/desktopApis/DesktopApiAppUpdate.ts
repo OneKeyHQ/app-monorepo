@@ -58,7 +58,7 @@ async function clearUpdateCache() {
       }
       logger.info('auto-updater', `removed: ${cachePath}`);
     }
-  } catch (error) {
+  } catch (_error) {
     logger.info('auto-updater', 'Error clearing cache: ', error);
   }
 }
@@ -305,7 +305,7 @@ class DesktopApiAppUpdate {
         }
         logger.info('auto-updater', `removed: ${cachePath}`);
       }
-    } catch (error) {
+    } catch (_error) {
       logger.info('auto-updater', 'Error clearing cache: ', error);
     }
   }
@@ -351,7 +351,7 @@ class DesktopApiAppUpdate {
         return result.updateInfo;
       }
       return null;
-    } catch (error) {
+    } catch (_error) {
       if (isNetworkError(error as Error)) {
         logger.info('auto-updater', `Check for update network error`);
       } else {
@@ -438,7 +438,7 @@ class DesktopApiAppUpdate {
           throw new OneKeyLocalError('FAILED_TO_FETCH_ASC_FILE');
         }
         store.setASCFile(ascFileMessage);
-      } catch (error) {
+      } catch (_error) {
         logger.error('auto-updater', 'Failed to fetch ASC file', error);
         throw error;
       }
@@ -484,7 +484,7 @@ class DesktopApiAppUpdate {
       throw new OneKeyLocalError(
         ElectronTranslations.update_signature_verification_failed_alert_text,
       );
-    } catch (error) {
+    } catch (_error) {
       logger.error(
         'auto-updater',
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
@@ -541,7 +541,7 @@ class DesktopApiAppUpdate {
         // sendValidError();
         return false;
       }
-    } catch (error) {
+    } catch (_error) {
       logger.info('auto-updater', 'verifyFile error', error);
       throw new OneKeyLocalError(
         ElectronTranslations.update_installation_package_possibly_compromised,
@@ -639,7 +639,7 @@ class DesktopApiAppUpdate {
       try {
         const { shell } = require('electron');
         await shell.openPath(path.dirname(verifyParams.downloadedFile));
-      } catch (error) {
+      } catch (_error) {
         logger.error('auto-updater', 'Failed to open downloaded file', error);
       }
     } else {

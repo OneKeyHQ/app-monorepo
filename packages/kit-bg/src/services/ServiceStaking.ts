@@ -811,7 +811,7 @@ class ServiceStaking extends ServiceBase {
       allItems = await this._getProtocolList({
         symbol: params.symbol,
       });
-    } catch (error) {
+    } catch (_error) {
       console.warn(
         `Failed to fetch protocol list for symbol ${params.symbol}:`,
         error,
@@ -1797,7 +1797,7 @@ class ServiceStaking extends ServiceBase {
           txId: order.txId,
         });
         return; // Return early on success
-      } catch (error) {
+      } catch (_error) {
         lastError = error;
         if (i === maxRetries - 1) break; // Exit loop on final retry
         await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1))); // 1s, 2s, 3s
@@ -1930,7 +1930,7 @@ class ServiceStaking extends ServiceBase {
         : null;
 
       return blockData;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }

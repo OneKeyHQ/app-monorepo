@@ -102,7 +102,7 @@ class ServicePrime extends ServiceBase {
         await this.updatePrimeAtomByServerUserInfo({
           serverUserInfo: response.data.data,
         });
-      } catch (error) {
+      } catch (_error) {
         await this.backgroundApi.simpleDb.prime.saveAuthToken('');
         throw error;
       }
@@ -398,7 +398,7 @@ class ServicePrime extends ServiceBase {
     //     },
     //   });
     //   return result?.data?.data;
-    // } catch (error) {
+    // } catch (_error) {
     //   console.error(error);
     // }
 
@@ -442,7 +442,7 @@ class ServicePrime extends ServiceBase {
         },
       );
       return result?.data?.data;
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
 
@@ -472,7 +472,7 @@ class ServicePrime extends ServiceBase {
         data: { email, password, emailCode, verifyUUID, isRegister },
       });
       return result?.data?.data;
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
     return { success: false };

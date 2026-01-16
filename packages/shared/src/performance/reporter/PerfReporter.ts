@@ -124,7 +124,7 @@ class PerfReporter implements IPerfReporterInstance {
         this.ws.onclose = () => {
           this.connected = false;
         };
-      } catch (err) {
+      } catch (_err) {
         clearTimeout(timer);
         // eslint-disable-next-line no-console
         console.warn('[PerfReporter] WebSocket error:', err);
@@ -150,7 +150,7 @@ class PerfReporter implements IPerfReporterInstance {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
         this.ws.send(JSON.stringify(event));
-      } catch (err) {
+      } catch (_err) {
         // eslint-disable-next-line no-console
         console.warn('[PerfReporter] Send error:', err);
       }

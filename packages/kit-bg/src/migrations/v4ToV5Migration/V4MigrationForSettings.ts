@@ -11,7 +11,7 @@ import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 import type { IV4ReduxSettingsState } from './v4types/v4typesRedux';
 import type { ICloudBackupPersistAtom } from '../../states/jotai/atoms';
 
-const validThemeValue = ['light', 'dark', 'system'];
+const validThemeValue = new Set(['light', 'dark', 'system']);
 
 export class V4MigrationForSettings extends V4MigrationManagerBase {
   private async getV4Settings(): Promise<IV4ReduxSettingsState | undefined> {
@@ -56,7 +56,7 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
     // set valid theme value
     await this.v4dbHubs.logger.runAsyncWithCatch(
       async () => {
-        if (v4Settings.theme && validThemeValue.includes(v4Settings.theme)) {
+        if (v4Settings.theme && validThemeValue.has(v4Settings.theme)) {
           await this.backgroundApi.serviceSetting.setTheme(v4Settings.theme);
         }
       },

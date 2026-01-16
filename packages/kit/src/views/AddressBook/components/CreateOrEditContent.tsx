@@ -200,7 +200,7 @@ export function CreateOrEditContent({
           return validationResult.errorMessage;
         }
         return undefined;
-      } catch (error) {
+      } catch (_error) {
         // Fallback to client-side validation if Vault validation fails
         console.warn('Vault validateMemo failed, using fallback:', error);
       }

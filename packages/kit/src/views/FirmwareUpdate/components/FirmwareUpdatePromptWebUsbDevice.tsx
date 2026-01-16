@@ -44,7 +44,7 @@ export function FirmwareUpdatePromptWebUsbDevice({
           ...previousStepInfo,
         } as IFirmwareUpdateStepInfo);
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('USB device connection failed:', error);
     } finally {
       setIsConnecting(false);

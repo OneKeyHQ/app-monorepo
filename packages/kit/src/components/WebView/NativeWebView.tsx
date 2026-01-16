@@ -83,7 +83,7 @@ const NativeWebView = forwardRef(
           if (origin) {
             jsBridge.receive(data, { origin });
           }
-        } catch (error) {
+        } catch (_error) {
           // noop
         }
         onMessage?.(event);
@@ -119,7 +119,7 @@ const NativeWebView = forwardRef(
             webviewRef.current?.stopLoading();
           }
           onLoadStart?.(syntheticEvent);
-        } catch (error) {
+        } catch (_error) {
           // debugLogger.webview.error('onLoadStart', error);
           console.log('onLoadStart: ', error);
         }

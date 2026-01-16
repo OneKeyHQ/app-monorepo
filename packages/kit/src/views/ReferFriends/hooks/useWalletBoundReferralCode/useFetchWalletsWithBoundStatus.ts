@@ -91,7 +91,7 @@ export function useFetchWalletsWithBoundStatus() {
         '===>>> batchCheckWalletsBoundReferralCode result:',
         batchResult,
       );
-    } catch (error) {
+    } catch (_error) {
       console.log(
         '===>>> batchCheckWalletsBoundReferralCode error, treating all as not bound:',
         error,

@@ -56,7 +56,7 @@ class ClientBtc {
       }
 
       return res?.result ?? '';
-    } catch (e: unknown) {
+    } catch (_e: unknown) {
       const err = e as ISendTxRequestError;
       if (err.response?.data?.error?.includes('-26: dust')) {
         throw new InvalidTransferValue();

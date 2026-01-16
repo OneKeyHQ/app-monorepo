@@ -237,7 +237,7 @@ class ServiceWebviewPerp extends ServiceBase {
         throw new OneKeyError(errorMessage);
       }
       return response.data;
-    } catch (error) {
+    } catch (_error) {
       if (error && axios.isAxiosError(error)) {
         const errorMessage = `Hyperliquid API error 8712: ${[
           error?.name,
@@ -619,7 +619,7 @@ class ServiceWebviewPerp extends ServiceBase {
     //   await pTimeout(p, {
     //     milliseconds: 1000,
     //   });
-    // } catch (error) {
+    // } catch (_error) {
     //   console.error(error);
     // }
     const shouldModifyPlaceOrderPayload = true;
@@ -704,7 +704,7 @@ class ServiceWebviewPerp extends ServiceBase {
           canSetBuilderFee = true;
           accountValue = null;
         }
-      } catch (error) {
+      } catch (_error) {
         console.error('getUserApprovedMaxBuilderFeeWithCache ERROR: ', error);
       }
     }
@@ -721,7 +721,7 @@ class ServiceWebviewPerp extends ServiceBase {
 
         // TODO new address value check
         canSetBuilderFee = Number(accountValue) >= 0;
-      } catch (error) {
+      } catch (_error) {
         console.error('getAccountBalance ERROR: ', error);
       }
     }

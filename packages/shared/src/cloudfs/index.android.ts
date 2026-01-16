@@ -26,7 +26,7 @@ export async function loginIfNeeded(
       if (response.type === 'success') {
         return await RNCloudFs.loginIfNeeded();
       }
-    } catch (error) {
+    } catch (_error) {
       // debugLogger.cloudBackup.error(error);
       return Promise.resolve(false);
     }

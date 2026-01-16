@@ -121,7 +121,7 @@ class ServiceApp extends ServiceBase {
           await timerUtils.wait(600);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       //
     }
     defaultLogger.setting.page.clearDataStep('v4localDb-reset');
@@ -136,7 +136,7 @@ class ServiceApp extends ServiceBase {
             for (const name of names) {
               try {
                 await storageBuckets?.delete(name);
-              } catch (error) {
+              } catch (_error) {
                 console.error('storageBuckets.delete() error', error);
               }
             }
@@ -174,7 +174,7 @@ class ServiceApp extends ServiceBase {
                         reject(new Error(`deleteIndexedDB error: ${name}`));
                       };
                     });
-                  } catch (error) {
+                  } catch (_error) {
                     console.error('deleteIndexedDB error', error);
                   }
                 }
@@ -182,7 +182,7 @@ class ServiceApp extends ServiceBase {
             };
             await deleteAllIndexedDBs();
           }
-        } catch (error) {
+        } catch (_error) {
           console.error('deleteAllIndexedDBs error', error);
         }
         await timerUtils.wait(100);
@@ -234,7 +234,7 @@ class ServiceApp extends ServiceBase {
       if (platformEnv.isDesktop) {
         try {
           await globalThis.desktopApiProxy?.storage.storeClear();
-        } catch (error) {
+        } catch (_error) {
           console.error('desktopApi.storeClear() error', error);
         }
       }

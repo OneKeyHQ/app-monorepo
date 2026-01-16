@@ -88,7 +88,7 @@ export default function PrimeDeleteAccount() {
             reason: 'PrimeDeleteAccount: handleDeleteAccount',
           });
           await logout();
-        } catch (error) {
+        } catch (_error) {
           console.error('logout error', error);
         }
 
@@ -163,7 +163,7 @@ export default function PrimeDeleteAccount() {
 
     //         // Navigate back to login or dashboard
     //         navigation.popStack();
-    //       } catch (error) {
+    //       } catch (_error) {
     //         console.error('Delete account error:', error);
     //         Toast.error({
     //           title: intl.formatMessage({
@@ -173,7 +173,7 @@ export default function PrimeDeleteAccount() {
     //       }
     //     },
     //   });
-    // } catch (error) {
+    // } catch (_error) {
     //   console.error('Delete account preparation error:', error);
     //   Toast.error({
     //     title: intl.formatMessage({

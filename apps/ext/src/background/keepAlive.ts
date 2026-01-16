@@ -65,7 +65,7 @@ export function startKeepAlivePolling() {
       } else {
         reconnectToBg();
       }
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
       reconnectToBg();
     }

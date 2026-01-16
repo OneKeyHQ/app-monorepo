@@ -29,7 +29,7 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
       if (result?.details?.agentOk && result?.canTrade) {
         onClose?.();
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('[EnableTradingModal] Failed to enable trading:', error);
     } finally {
       setLoading(false);

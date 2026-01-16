@@ -110,7 +110,7 @@ const useAndroidHardwareBack = platformEnv.isNativeAndroid
             if (webviewRef?.innerRef) {
               try {
                 (webviewRef.innerRef as WebView)?.goBack();
-              } catch (error) {
+              } catch (_error) {
                 console.error('Error while navigating back:', error);
               }
             }
@@ -307,7 +307,7 @@ function MobileBrowser() {
               console.error('Error blurring elements:', e);
             }
           `);
-        } catch (error) {
+        } catch (_error) {
           console.error('Error injecting blur script:', error);
         }
       }

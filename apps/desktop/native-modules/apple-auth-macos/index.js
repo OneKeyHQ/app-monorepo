@@ -21,7 +21,7 @@ if (isMacOS) {
     // In development: from build/Release/
     // In production: from the app bundle
     nativeModule = require('./build/Release/apple_auth.node');
-  } catch (error) {
+  } catch (_error) {
     console.warn(
       'Failed to load apple-auth-macos native module:',
       error.message,

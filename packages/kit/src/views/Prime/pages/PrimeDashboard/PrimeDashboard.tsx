@@ -206,7 +206,7 @@ export default function PrimeDashboard({
               : getPackagesWeb?.());
             console.log('pkgList1111111', pkgList);
             return pkgList;
-          } catch (error) {
+          } catch (_error) {
             const e = error as IOneKeyError | undefined;
 
             defaultLogger.prime.subscription.fetchPackagesFailed({

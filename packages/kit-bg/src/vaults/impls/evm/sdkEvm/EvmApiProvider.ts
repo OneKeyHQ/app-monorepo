@@ -261,7 +261,7 @@ class EvmApiProvider extends BaseApiProvider {
         try {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return defaultAbiCoder.decode([type], bytesData)[0];
-        } catch (error) {
+        } catch (_error) {
           console.error(
             // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             `[ProviderEVMFork.getChainTokensFromRpc] decode error: ${
@@ -428,7 +428,7 @@ class EvmApiProvider extends BaseApiProvider {
             'eth_maxPriorityFeePerGas',
             [],
           );
-        } catch (error) {
+        } catch (_error) {
           // if native method is not available, use fallback estimate method
           maxPriorityFeePerGas =
             await this.fallbackEstimateMaxPriorityFeePerGas();
@@ -437,7 +437,7 @@ class EvmApiProvider extends BaseApiProvider {
           );
         }
       }
-    } catch (error) {
+    } catch (_error) {
       console.error(
         `[ProviderEVMFork.getGasPriceEIP1559] get maxPriorityFeePerGas error: ${
           (error as Error).message
@@ -515,7 +515,7 @@ class EvmApiProvider extends BaseApiProvider {
 
       // calculate suggested priority fee
       return maxBaseFee.multipliedBy(PRIORITY_FEE_RATIO).toFixed(0);
-    } catch (error) {
+    } catch (_error) {
       console.error(
         `[ProviderEVMFork.estimateMaxPriorityFeePerGas] error: ${
           (error as Error).message

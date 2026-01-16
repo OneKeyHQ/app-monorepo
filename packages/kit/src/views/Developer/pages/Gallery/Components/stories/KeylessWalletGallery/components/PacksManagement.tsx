@@ -184,7 +184,7 @@ export const PacksManagement = ({
             'All keys and password slices match! Recovery verified successfully. Click "View Decrypted Data" to see the decrypted pack data.',
         });
       }
-    } catch (e: any) {
+    } catch (_e: any) {
       Dialog.confirm({
         icon: 'ErrorOutline',
         tone: 'destructive',
@@ -225,7 +225,7 @@ export const PacksManagement = ({
         title: 'Wallet Created Successfully',
         description: `Wallet "${result.wallet.name}" has been created successfully!`,
       });
-    } catch (e: any) {
+    } catch (_e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
       setCreateWalletError(errorMessage);
       setCreatedWallet(null);

@@ -598,7 +598,7 @@ function BasicMarketHomeList({
       const item = selectOptions.find((v) => v.value === value);
       setSortByType(item?.options as typeof sortByType);
     },
-    [selectOptions, setSortByType],
+    [selectOptions, setSortByType, sortByType],
   );
 
   const containerRef = useRef<IElement>(null);

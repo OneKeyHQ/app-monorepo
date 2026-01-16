@@ -265,7 +265,7 @@ class ServiceMarketV2 extends ServiceBase {
       });
       const { data } = response.data;
       return data;
-    } catch (error) {
+    } catch (_error) {
       console.error(
         '[ServiceMarketV2] fetchMarketAccountTokenTransactions error:',
         error,
@@ -555,7 +555,7 @@ class ServiceMarketV2 extends ServiceBase {
       tokenDetails = await this.fetchMarketTokenListBatch({
         tokenAddressList,
       });
-    } catch (error) {
+    } catch (_error) {
       console.error(
         '[ServiceMarketV2] buildWatchlistTokensForNotification fetchMarketTokenListBatch error:',
         error,
@@ -646,7 +646,7 @@ class ServiceMarketV2 extends ServiceBase {
 
       const { data } = response.data;
       return data;
-    } catch (error) {
+    } catch (_error) {
       console.error(
         '[ServiceMarketV2] fetchMarketAccountPortfolio error:',
         error,

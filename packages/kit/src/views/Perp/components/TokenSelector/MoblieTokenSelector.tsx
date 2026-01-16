@@ -90,7 +90,7 @@ function MobileTokenSelectorModal({
       onLoadingChange(true);
       navigation.popStack();
       await actions.current.changeActiveAsset({ coin: symbol });
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to switch token:', error);
     } finally {
       onLoadingChange(false);
@@ -229,7 +229,7 @@ function MobileTokenSelectorModal({
         assetId: entry.assetId,
       }));
     } else {
-      const sorted = [...combinedEntries].sort((a, b) =>
+      const sorted = [...combinedEntries].toSorted((a, b) =>
         sortCompare(
           { asset: a.asset, sortValues: a.sortValues },
           { asset: b.asset, sortValues: b.sortValues },

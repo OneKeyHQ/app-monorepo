@@ -243,7 +243,7 @@ export default class VaultAptos extends VaultBase {
     try {
       const simpleTxn = SimpleTransaction.deserialize(deserializer);
       rawTx = simpleTxn.rawTransaction;
-    } catch (error) {
+    } catch (_error) {
       // non-SimpleTransaction
     }
 
@@ -858,7 +858,7 @@ export default class VaultAptos extends VaultBase {
         rawTx = await generateUnsignedTransaction(this.client, {
           encodedTx,
         });
-      } catch (error) {
+      } catch (_error) {
         if (error instanceof InvalidAccount) {
           throw new InvalidAccount({
             message: error.message,

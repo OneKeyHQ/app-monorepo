@@ -325,7 +325,7 @@ function RewardCenterDetails() {
       });
       setIsClaiming(false);
       return resp;
-    } catch (error) {
+    } catch (_error) {
       setIsClaiming(false);
     }
   }, [account, claimSource, intl, network]);
@@ -380,7 +380,7 @@ function RewardCenterDetails() {
       setIsRedeeming(false);
       setIsResourceRedeemed(true);
       return resp;
-    } catch (error) {
+    } catch (_error) {
       setIsRedeeming(false);
     }
   }, [account, claimSource, form, intl, network]);

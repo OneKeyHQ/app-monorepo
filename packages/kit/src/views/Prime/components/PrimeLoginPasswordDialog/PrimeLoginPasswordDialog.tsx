@@ -199,7 +199,7 @@ export function PrimeLoginPasswordDialog({
           promiseId,
           password: encodedPassword,
         });
-      } catch (error) {
+      } catch (_error) {
         options?.preventClose?.();
         throw error;
       }

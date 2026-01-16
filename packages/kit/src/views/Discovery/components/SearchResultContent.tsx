@@ -281,7 +281,7 @@ export function SearchResultContent({
         handleSearchItemClick(searchList[0]);
         return { type: 'exactUrl' };
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('SearchResultContent.openSelectedItem failed:', error);
     }
 

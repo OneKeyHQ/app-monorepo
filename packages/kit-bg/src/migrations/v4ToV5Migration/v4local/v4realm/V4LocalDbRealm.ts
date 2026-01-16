@@ -106,7 +106,7 @@ export class V4LocalDbRealm extends V4LocalDbBase {
     try {
       Realm.deleteFile({ path: V4_REALM_DB_NAME });
       return Promise.resolve();
-    } catch (error: any) {
+    } catch (_error: any) {
       console.error(error);
       return Promise.reject(error);
     }

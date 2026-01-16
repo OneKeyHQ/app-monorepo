@@ -102,7 +102,7 @@ function ReferralLandingPage() {
             ...prev,
             referralCode: code,
           }));
-        } catch (error) {
+        } catch (_error) {
           console.error('Failed to save referral code to perp DB:', error);
         }
       }

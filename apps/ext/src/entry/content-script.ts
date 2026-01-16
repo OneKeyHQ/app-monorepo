@@ -4,4 +4,4 @@ if (shouldInject()) {
   require('./content-script-init');
 }
 
-export {};
+

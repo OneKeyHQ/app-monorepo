@@ -64,7 +64,7 @@ export function KeylessWalletRecoveryFlow() {
         throw new OneKeyLocalError('Device pack not found');
       }
       setGetDevicePackStep({ status: 'success', result });
-    } catch (e: any) {
+    } catch (_e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
       setGetDevicePackStep({ status: 'error', error: errorMessage });
     }
@@ -78,7 +78,7 @@ export function KeylessWalletRecoveryFlow() {
         throw new OneKeyLocalError('Auth pack not found');
       }
       setGetAuthPackFromCacheStep({ status: 'success', result });
-    } catch (e: any) {
+    } catch (_e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
       setGetAuthPackFromCacheStep({ status: 'error', error: errorMessage });
     }
@@ -92,7 +92,7 @@ export function KeylessWalletRecoveryFlow() {
         throw new OneKeyLocalError('Auth pack not found');
       }
       setGetAuthPackFromServerStep({ status: 'success', result });
-    } catch (e: any) {
+    } catch (_e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
       setGetAuthPackFromServerStep({ status: 'error', error: errorMessage });
     }
@@ -106,7 +106,7 @@ export function KeylessWalletRecoveryFlow() {
         throw new OneKeyLocalError('Cloud pack not found');
       }
       setGetCloudPackStep({ status: 'success', result });
-    } catch (e: any) {
+    } catch (_e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
       setGetCloudPackStep({ status: 'error', error: errorMessage });
     }
@@ -199,7 +199,7 @@ export function KeylessWalletRecoveryFlow() {
                 title: 'Delete Success',
                 message: 'Auth pack has been deleted from server.',
               });
-            } catch (e: any) {
+            } catch (_e: any) {
               const errorMessage = (e as Error)?.message ?? 'Unknown error';
               setDeleteAuthPackResult(`❌ Error: ${errorMessage}`);
               Toast.error({
@@ -237,7 +237,7 @@ export function KeylessWalletRecoveryFlow() {
                 title: 'Delete Success',
                 message: 'Device pack has been deleted from storage.',
               });
-            } catch (e: any) {
+            } catch (_e: any) {
               const errorMessage = (e as Error)?.message ?? 'Unknown error';
               setDeleteDevicePackResult(`❌ Error: ${errorMessage}`);
               Toast.error({
@@ -279,7 +279,7 @@ export function KeylessWalletRecoveryFlow() {
                 title: 'Delete Success',
                 message: 'Auth pack has been deleted from cache.',
               });
-            } catch (e: any) {
+            } catch (_e: any) {
               const errorMessage = (e as Error)?.message ?? 'Unknown error';
               setDeleteAuthPackFromCacheResult(`❌ Error: ${errorMessage}`);
               Toast.error({
@@ -317,7 +317,7 @@ export function KeylessWalletRecoveryFlow() {
                 title: 'Delete Success',
                 message: 'Wallet has been deleted.',
               });
-            } catch (e: any) {
+            } catch (_e: any) {
               const errorMessage = (e as Error)?.message ?? 'Unknown error';
               setDeleteWalletResult(`❌ Error: ${errorMessage}`);
               Toast.error({
@@ -378,7 +378,7 @@ export function KeylessWalletRecoveryFlow() {
               await enableKeylessWallet({
                 fromScene: EKeylessWalletEnableScene.Onboarding,
               });
-            } catch (e: any) {
+            } catch (_e: any) {
               const errorMessage = (e as Error)?.message ?? 'Unknown error';
               Toast.error({
                 title: 'Enable Wallet Error',
@@ -399,7 +399,7 @@ export function KeylessWalletRecoveryFlow() {
                 fromScene: EKeylessWalletEnableScene.Onboarding,
                 restoreAuthPackFromServer: true,
               });
-            } catch (e: any) {
+            } catch (_e: any) {
               const errorMessage = (e as Error)?.message ?? 'Unknown error';
               Toast.error({
                 title: 'Enable Wallet Error',

@@ -44,7 +44,7 @@ export async function handleLayoutUpdate({
       //   keys: Object.keys(parsedLayoutData),
       //   timestamp: Date.now(),
       // });
-    } catch (error) {
+    } catch (_error) {
       console.error('❌ Failed to parse layout data:', error);
     }
   }

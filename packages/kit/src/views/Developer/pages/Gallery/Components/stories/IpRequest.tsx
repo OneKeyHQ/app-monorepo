@@ -110,7 +110,7 @@ const IpRequestGallery = () => {
     try {
       const result = await sniRequest(HARD_CODED_REQUEST);
       setResponse(result);
-    } catch (err) {
+    } catch (_err) {
       setError((err as Error).message ?? 'Unknown error');
     } finally {
       setLoading(false);
@@ -174,7 +174,7 @@ const IpRequestGallery = () => {
       }
 
       setSpeedTestResult(latency);
-    } catch (err) {
+    } catch (_err) {
       setSpeedTestError((err as Error).message ?? 'Speed test failed');
     } finally {
       setSpeedTestLoading(false);

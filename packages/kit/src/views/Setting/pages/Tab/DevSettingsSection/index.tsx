@@ -318,7 +318,7 @@ const BaseDevSettingsSection = () => {
                 onBeforeValueChange={async () => {
                   try {
                     await backgroundApiProxy.serviceNotification.unregisterClient();
-                  } catch (error) {
+                  } catch (_error) {
                     console.error(error);
                   }
                 }}
@@ -838,7 +838,7 @@ const BaseDevSettingsSection = () => {
                         setTimeout(() => {
                           void backgroundApiProxy.serviceApp.restartApp();
                         }, 1000);
-                      } catch (error) {
+                      } catch (_error) {
                         Toast.error({
                           title: '清空失败',
                           message: String(error),

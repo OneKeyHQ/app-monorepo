@@ -39,7 +39,7 @@ export function WebView({
             }
 
             return true;
-          } catch (error) {
+          } catch (_error) {
             console.error('OneKey injection error:', error);
           }
         })();

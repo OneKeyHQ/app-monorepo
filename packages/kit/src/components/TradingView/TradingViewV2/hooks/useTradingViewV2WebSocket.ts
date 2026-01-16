@@ -50,7 +50,7 @@ export function useTradingViewV2WebSocket({
           chartType,
           currency,
         });
-      } catch (error) {
+      } catch (_error) {
         console.error('Failed to initialize market WebSocket:', error);
       }
     };
@@ -69,7 +69,7 @@ export function useTradingViewV2WebSocket({
             chartType,
             currency,
           });
-        } catch (error) {
+        } catch (_error) {
           console.error('Failed to unsubscribe from market data:', error);
         }
       };

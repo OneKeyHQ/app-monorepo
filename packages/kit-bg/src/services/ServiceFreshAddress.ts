@@ -198,7 +198,7 @@ class ServiceFreshAddress extends ServiceBase {
         lastUsedWalletName = walletName;
         lastUsedAccountName = account.name;
       }
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
     const lastUsedAccountMetaPatch =
@@ -226,7 +226,7 @@ class ServiceFreshAddress extends ServiceBase {
           xpubSegwit: xpubForMeta,
           patch: {
             lastUpdateTime: Date.now(),
-            ...(lastUsedAccountMetaPatch ?? {}),
+            ...lastUsedAccountMetaPatch,
           },
         });
         return;
@@ -249,7 +249,7 @@ class ServiceFreshAddress extends ServiceBase {
         xpubSegwit: xpubForMeta,
         patch: {
           lastUpdateTime: Date.now(),
-          ...(lastUsedAccountMetaPatch ?? {}),
+          ...lastUsedAccountMetaPatch,
         },
       });
       return;
@@ -287,7 +287,7 @@ class ServiceFreshAddress extends ServiceBase {
       networkId,
       xpubSegwit: xpubForMeta,
       patch: {
-        ...(lastUsedAccountMetaPatch ?? {}),
+        ...lastUsedAccountMetaPatch,
         txCount: accountDetailsWithXpubDerivedTokens.transactionCount || 0,
         lastUpdateTime: Date.now(),
         localUsedAddressesHash,

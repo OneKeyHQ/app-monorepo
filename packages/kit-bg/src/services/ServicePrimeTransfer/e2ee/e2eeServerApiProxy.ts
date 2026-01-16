@@ -90,7 +90,7 @@ export class E2EEServerApiProxy
         // remoteId,
       });
       return result;
-    } catch (error) {
+    } catch (_error) {
       const e = transferErrors.convertToLocalError(error);
       // throw error;
       throw e;

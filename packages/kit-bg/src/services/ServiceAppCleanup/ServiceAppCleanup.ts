@@ -145,7 +145,7 @@ class ServiceAppCleanup extends ServiceBase {
     await timerUtils.setTimeoutPromised(async () => {
       try {
         await fn();
-      } catch (error) {
+      } catch (_error) {
         console.error(error);
       }
     });

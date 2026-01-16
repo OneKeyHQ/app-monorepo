@@ -100,7 +100,7 @@ function BtcAddresses() {
               pageSize: PAGE_SIZE,
             },
           );
-        } catch (error) {
+        } catch (_error) {
           console.error(error);
           return { total: 0, items: [] };
         }

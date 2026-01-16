@@ -543,7 +543,7 @@ export default class VaultDot extends VaultBase {
     try {
       const [result] = checkAddress(address, +networkInfo.addressPrefix);
       isValid = result;
-    } catch (error) {
+    } catch (_error) {
       isValid = false;
     }
     return {
@@ -807,7 +807,7 @@ export default class VaultDot extends VaultBase {
         responseTime,
         bestBlockNumber: hexToNumber(header.number.toHex()),
       };
-    } catch (error) {
+    } catch (_error) {
       console.error('getCustomRpcEndpointStatus ERROR:', error);
       throw error;
     }
@@ -1088,7 +1088,7 @@ export default class VaultDot extends VaultBase {
       const queryInfoJson = queryInfo.toJSON() as { partialFee: number };
       const weight = queryInfoJson.partialFee.toString();
       gasLimit = new BigNumber(weight).toFixed(0).toString();
-    } catch (err) {
+    } catch (_err) {
       const queryInfo =
         await apiPromise.call.transactionPaymentCallApi.queryCallFeeDetails(
           signedTxU8a,

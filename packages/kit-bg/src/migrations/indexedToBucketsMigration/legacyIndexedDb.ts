@@ -49,7 +49,7 @@ class LegacyIndexedDb {
     try {
       const legacyDb = await this.open();
       return await legacyDb.count(name);
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
       return 0;
     }
@@ -59,7 +59,7 @@ class LegacyIndexedDb {
     try {
       const legacyDb = await this.open();
       return await legacyDb.getAll(name);
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
       return [];
     }
@@ -69,7 +69,7 @@ class LegacyIndexedDb {
     try {
       const legacyDb = await this.open();
       await legacyDb.delete(name, id);
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
   }
@@ -100,7 +100,7 @@ class LegacyIndexedDb {
       const store = this._getObjectStoreAtVersionChange(tx, storeName);
       // const dd = await store.get('');
       return store;
-    } catch (error) {
+    } catch (_error) {
       errorUtils.autoPrintErrorIgnore(error);
       db.createObjectStore(storeName, {
         keyPath: 'id',

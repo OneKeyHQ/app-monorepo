@@ -43,7 +43,7 @@ function ServerConfigContent() {
           await backgroundApiProxy.simpleDb.primeTransfer.getServerConfig();
         setServerType(config.serverType);
         setCustomServer(config.customServerUrl || '');
-      } catch (error) {
+      } catch (_error) {
         console.warn('Failed to load server config from simpleDB:', error);
       } finally {
         setIsLoading(false);

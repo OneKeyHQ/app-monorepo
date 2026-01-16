@@ -355,7 +355,7 @@ class ProviderApiNeoN3 extends ProviderApiBase {
         params.args || [],
         params.signers,
       );
-    } catch (error) {
+    } catch (_error) {
       console.error('invokeRead error:', error);
       throw web3Errors.provider.custom({
         code: 4003,
@@ -406,7 +406,7 @@ class ProviderApiNeoN3 extends ProviderApiBase {
           ),
         ),
       );
-    } catch (error) {
+    } catch (_error) {
       console.error('invokeReadMulti error:', error);
       throw web3Errors.provider.custom({
         code: 4003,
@@ -815,10 +815,10 @@ class ProviderApiNeoN3 extends ProviderApiBase {
       finalTransaction = tx.Transaction.fromJson(
         transaction as unknown as TransactionJson,
       );
-    } catch (error) {
+    } catch (_error) {
       try {
         finalTransaction = new tx.Transaction(transaction);
-      } catch (err) {
+      } catch (_err) {
         throw web3Errors.provider.custom({
           code: 40_003,
           message: `Invalid transaction`,

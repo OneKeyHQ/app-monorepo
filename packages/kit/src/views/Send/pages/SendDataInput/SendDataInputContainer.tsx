@@ -1403,7 +1403,7 @@ function SendDataInputContainer() {
             return result.errorMessage;
           }
           return undefined;
-        } catch (error) {
+        } catch (_error) {
           console.error('Vault memo validation failed:', error);
         }
       }

@@ -35,7 +35,7 @@ function getPerformanceTimerLogConfigMap() {
         EAppSyncStorageKeys.onekey_perf_timer_log_config,
       ) ?? {}
     );
-  } catch (error) {
+  } catch (_error) {
     errorUtils.autoPrintErrorIgnore(error);
     return {};
   }
@@ -55,7 +55,7 @@ function updatePerformanceTimerLogConfig(
         [logName]: value,
       },
     );
-  } catch (error) {
+  } catch (_error) {
     errorUtils.autoPrintErrorIgnore(error);
   }
 }

@@ -801,13 +801,7 @@ export default class VaultBtc extends VaultBase {
           own: boolean;
           confirmations: number;
           required?: boolean;
-        }) => ({
-          address: account.address,
-          path: '',
-          ...keep,
-          txid,
-          value: amount,
-        }),
+        }) => (Object.assign({address:account.address,path:``}, keep, {txid,value:amount})),
       ),
       outputs: outputs.map(
         ({
@@ -1179,7 +1173,7 @@ export default class VaultBtc extends VaultBase {
           negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
         }
 
-        return fees.sort((a, b) =>
+        return fees.toSorted((a, b) =>
           new BigNumber(a).comparedTo(new BigNumber(b)),
         );
       } catch (e) {
@@ -1665,7 +1659,7 @@ export default class VaultBtc extends VaultBase {
       }
 
       return updatedTxs;
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
       return [];
     }

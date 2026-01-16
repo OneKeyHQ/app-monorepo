@@ -76,7 +76,7 @@ export function showCustomRpcFallbackDialog(
           enabled: false,
         });
         onSwitchPermanently?.();
-      } catch (error) {
+      } catch (_error) {
         Toast.error({
           title: (error as Error).message || 'Operation failed',
         });

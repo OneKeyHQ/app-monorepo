@@ -69,7 +69,7 @@ export function PerpApiTests() {
       setStoredMaxBuilderFee(config.hyperliquidMaxBuilderFee?.toString() || '');
       setNewBuilderAddress(config.hyperliquidBuilderAddress || '');
       setNewMaxBuilderFee(config.hyperliquidMaxBuilderFee?.toString() || '');
-    } catch (error) {
+    } catch (_error) {
       console.error('Error loading perp config:', error);
     }
   };
@@ -96,7 +96,7 @@ export function PerpApiTests() {
         title: 'Configuration Updated',
         message: 'Perp configuration has been updated successfully',
       });
-    } catch (error) {
+    } catch (_error) {
       const e = error as Error;
       Toast.error({
         title: 'Update Failed',
@@ -117,7 +117,7 @@ export function PerpApiTests() {
     try {
       const result = await apiCall();
       demoLog({ api: apiName, result }, apiName);
-    } catch (error) {
+    } catch (_error) {
       demoError(error, apiName);
     }
   };

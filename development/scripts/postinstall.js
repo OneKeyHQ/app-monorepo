@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const _fs = require('fs');
+const _path = require('path');
 
 console.log('Running postinstall script...');
 

@@ -27,7 +27,7 @@ export async function handleAnalyticsLine({
         lineSelect,
         timestamp: new Date().toISOString(),
       });
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to handle analytics line:', error);
     }
   } else {

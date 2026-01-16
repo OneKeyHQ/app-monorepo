@@ -56,7 +56,7 @@ export const cleanupHardwareSDKInstance = async (): Promise<void> => {
       HardwareLowLevelSDK = undefined as any;
 
       console.log('HardwareSDK instance cleaned up');
-    } catch (error) {
+    } catch (_error) {
       console.error('Error cleaning up HardwareSDK instance:', error);
     }
   }

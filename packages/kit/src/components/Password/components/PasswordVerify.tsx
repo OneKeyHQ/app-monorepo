@@ -216,7 +216,7 @@ function PasswordVerify({
         }, 50);
       }
       return changed;
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
     return false;

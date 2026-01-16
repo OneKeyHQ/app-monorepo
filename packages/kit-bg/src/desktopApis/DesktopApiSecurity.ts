@@ -25,7 +25,7 @@ class DesktopApiSecurity {
       try {
         const result = await checkAvailabilityAsync();
         return !!result;
-      } catch (error) {
+      } catch (_error) {
         logger.info(
           '[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync',
           error,
@@ -44,7 +44,7 @@ class DesktopApiSecurity {
     try {
       const result = await checkBiometricAuthChanged();
       return result;
-    } catch (error) {
+    } catch (_error) {
       logger.error('[CHECK_BIOMETRIC_AUTH_CHANGED] Error:', error);
       return false;
     }
@@ -64,7 +64,7 @@ class DesktopApiSecurity {
           );
         }
         return { success, isSupport: true };
-      } catch (e: unknown) {
+      } catch (_e: unknown) {
         logger.info(
           '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
           e,
@@ -81,7 +81,7 @@ class DesktopApiSecurity {
       try {
         await systemPreferences.promptTouchID(msg);
         return { success: true, isSupport: true };
-      } catch (e: unknown) {
+      } catch (_e: unknown) {
         return {
           success: false,
           error: e instanceof Error ? e.message : 'Unknown error',

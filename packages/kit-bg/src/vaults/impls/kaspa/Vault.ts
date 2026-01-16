@@ -180,7 +180,7 @@ export default class Vault extends VaultBase {
       txn = toTransaction(encodedTx);
       if (encodedTx.inputs.length > MAX_UTXO_SIZE) {
         const totalAmount = encodedTx.inputs
-          .sort((a, b) =>
+          .toSorted((a, b) =>
             new BigNumber(b.satoshis).minus(a.satoshis).toNumber(),
           )
           .slice(0, MAX_UTXO_SIZE)
@@ -391,7 +391,7 @@ export default class Vault extends VaultBase {
       if (bigNumberGasLimit.isNaN() || bigNumberGasPrice.isNaN()) {
         throw new OneKeyLocalError('Fee is not a valid number.');
       }
-    } catch (error) {
+    } catch (_error) {
       throw new OneKeyLocalError(
         `Invalid fee value: ${(error as Error).message}`,
       );

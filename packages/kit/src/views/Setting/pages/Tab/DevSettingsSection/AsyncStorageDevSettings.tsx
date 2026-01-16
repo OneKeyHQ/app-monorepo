@@ -68,7 +68,7 @@ export function AsyncStorageDevSettings() {
               title: 'Saved data size',
               message: `size: ${sizeInMB} MB`,
             });
-          } catch (e: any) {
+          } catch (_e: any) {
             const { message } = e;
             Toast.error({
               title: 'Read data size failed',

@@ -28,7 +28,7 @@ export async function sniRequest(
     );
 
     return response;
-  } catch (error) {
+  } catch (_error) {
     // Log error and return null to trigger fallback to default adapter
     console.error('[SNI Desktop] Request failed:', {
       hostname: config.hostname,

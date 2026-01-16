@@ -8,4 +8,4 @@ declare module 'react-native' {
   }
 }
 
-export {};
+

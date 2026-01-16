@@ -239,7 +239,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           } catch (e) {
             try {
               bytes = Buffer.from(extMsg.payload, 'hex');
-            } catch (ee) {
+            } catch (_ee) {
               useBlindSignature = true;
             }
           }

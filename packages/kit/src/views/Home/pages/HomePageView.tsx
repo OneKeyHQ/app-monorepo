@@ -216,7 +216,7 @@ export function HomePageView({
             (i) => i.isRiskContract,
           ),
         });
-      } catch (error) {
+      } catch (_error) {
         if (error instanceof CanceledError) {
           return;
         }

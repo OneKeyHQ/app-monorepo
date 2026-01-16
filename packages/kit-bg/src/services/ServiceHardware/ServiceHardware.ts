@@ -125,19 +125,19 @@ export type IDeviceGetFeaturesOptions = {
 };
 
 // skip events
-const SKIPPED_EVENTS = [
+const SKIPPED_EVENTS = new Set([
   EHardwareUiStateAction.CLOSE_UI_WINDOW,
   EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
   EHardwareUiStateAction.PREVIOUS_ADDRESS,
   EHardwareUiStateAction.BLUETOOTH_UNSUPPORTED,
   EHardwareUiStateAction.BLUETOOTH_POWERED_OFF,
-];
+]);
 
-const NEW_DIALOG_EVENTS = [
+const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.BLUETOOTH_PERMISSION,
   EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
-];
+]);
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -185,7 +185,7 @@ class ServiceHardware extends ServiceBase {
                   [walletId]: walletName,
                 };
               });
-            } catch (error) {
+            } catch (_error) {
               //
             }
           }
@@ -339,7 +339,7 @@ class ServiceHardware extends ServiceBase {
       await this.registerSdkEvents(instance);
 
       return instance;
-    } catch (error) {
+    } catch (_error) {
       // always show error toast when sdk init, so user can report to us
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
@@ -475,14 +475,14 @@ class ServiceHardware extends ServiceBase {
 
         // skip ui-close_window event, which cause infinite loop
         //  ( emit ui-close_window -> Dialog close -> sdk cancel -> emit ui-close_window )
-        if (!SKIPPED_EVENTS.includes(newUiRequestType)) {
+        if (!SKIPPED_EVENTS.has(newUiRequestType)) {
           defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
             action: newUiRequestType,
             connectId,
             payload: newPayload,
           });
 
-          if (NEW_DIALOG_EVENTS.includes(newUiRequestType)) {
+          if (NEW_DIALOG_EVENTS.has(newUiRequestType)) {
             appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
               uiRequestType: newUiRequestType,
             });
@@ -681,7 +681,7 @@ class ServiceHardware extends ServiceBase {
         return await this.connectDevice({
           connectId: compatibleConnectId,
         });
-      } catch (e: any) {
+      } catch (_e: any) {
         this.handlerConnectError(e);
       }
     } else {
@@ -696,7 +696,7 @@ class ServiceHardware extends ServiceBase {
               hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE,
           },
         });
-      } catch (e: any) {
+      } catch (_e: any) {
         return (device as KnownDevice).features;
       }
     }
@@ -772,7 +772,7 @@ class ServiceHardware extends ServiceBase {
           connectId = device.connectId;
         }
       }
-    } catch (error) {
+    } catch (_error) {
       //
     }
 
@@ -796,7 +796,7 @@ class ServiceHardware extends ServiceBase {
             })
           : undefined;
         sdk.cancel(compatibleConnectId);
-      } catch (e: any) {
+      } catch (_e: any) {
         const { message } = e || {};
         console.log('sdk.cancel error: ', message);
       }
@@ -1246,7 +1246,7 @@ class ServiceHardware extends ServiceBase {
       });
       const messages = await convertDeviceResponse(() => hardwareSDK.getLogs());
       logs.push(...messages);
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
     return logs;
@@ -1331,7 +1331,7 @@ class ServiceHardware extends ServiceBase {
           $app_firmware_type: EFirmwareType.Universal,
         };
       }
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
     return bitcoinOnlyFlag;
@@ -1449,7 +1449,7 @@ class ServiceHardware extends ServiceBase {
         return evmAddressResponse.address;
       }
       return null;
-    } catch (error) {
+    } catch (_error) {
       console.error('getEvmAddress error', error);
       return null;
     } finally {
@@ -1508,7 +1508,7 @@ class ServiceHardware extends ServiceBase {
         });
         return fullXfp;
       }
-    } catch (error) {
+    } catch (_error) {
       if (throwError) {
         throw error;
       }
@@ -1567,7 +1567,7 @@ class ServiceHardware extends ServiceBase {
         await hardwareSDKInstance.switchTransport('webusb');
         await this.fallbackToWebUSBTransport();
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('checkBridgeAndFallbackToWebUSB error', error);
     }
   }
@@ -1627,7 +1627,7 @@ class ServiceHardware extends ServiceBase {
       );
 
       return newInstance;
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to switch hardware transport type:', error);
       throw error;
     }
@@ -1764,7 +1764,7 @@ class ServiceHardware extends ServiceBase {
           inBluetoothCommunication: true,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       console.error('Repair BLE connectId with progress failed:', error);
       // Re-throw if it's already a hardware error
       if (error instanceof deviceErrors.OneKeyHardwareError) {
@@ -1991,7 +1991,7 @@ class ServiceHardware extends ServiceBase {
       }
 
       console.log('Successfully cleared all bleConnectId fields for testing');
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to clear bleConnectId fields:', error);
       throw error;
     }

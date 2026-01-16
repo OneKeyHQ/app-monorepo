@@ -247,7 +247,7 @@ const modal: IWalletConnectModalShared = {
 
       // try {
       //   await nativeProviderRef.current?.disconnect();
-      // } catch (error) {
+      // } catch (_error) {
       //   console.error(error);
       // }
 

@@ -116,7 +116,7 @@ ipcRenderer.on(ipcMessageKeys.OPEN_DEEP_LINK_URL, (event, data) => {
     globalThis.ONEKEY_DESKTOP_DEEP_LINKS.slice(-5);
 });
 
-const validChannels = [
+const validChannels = new Set([
   ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
   ipcMessageKeys.UPDATE_ERROR,
   ipcMessageKeys.UPDATE_DOWNLOADING,
@@ -128,7 +128,7 @@ const validChannels = [
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
-];
+]);
 
 const getChannel = () => {
   let channel;
@@ -183,7 +183,7 @@ const updateGlobalTitleBarBackgroundColor = () => {
 
 const desktopApi: IDesktopAPILegacy = Object.freeze({
   on: (channel: string, func: (...args: any[]) => any) => {
-    if (validChannels.includes(channel)) {
+    if (validChannels.has(channel)) {
       const callback = (_: any, ...args: any[]) => func(...args);
       ipcRenderer.on(channel, callback);
       return () => {

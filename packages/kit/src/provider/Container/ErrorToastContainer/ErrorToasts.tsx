@@ -77,7 +77,7 @@ function ContactSupportButton({ requestId }: { requestId: string }) {
         console.log(
           '[ContactSupport] Logs uploaded successfully in background',
         );
-      } catch (error) {
+      } catch (_error) {
         // Silent failure - don't show error to user
         console.warn('[ContactSupport] Failed to upload logs:', error);
       } finally {

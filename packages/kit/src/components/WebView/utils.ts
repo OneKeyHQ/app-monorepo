@@ -8,7 +8,7 @@ export const createMessageInjectedScript = (message: unknown): string => {
     (function() {
       try {
         window.postMessage(${JSON.stringify(message)});
-      } catch (error) {
+      } catch (_error) {
         console.error('Failed to send message via injected script:', error);
       }
     })();

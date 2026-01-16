@@ -72,7 +72,7 @@ function HyperLiquidAgentCredentialDemo() {
               });
             console.log('Retrieved HyperLiquid agent credential:', credential);
             setRetrievedCredential(JSON.stringify(credential, null, 2));
-          } catch (error) {
+          } catch (_error) {
             console.error('Failed to get HyperLiquid agent credential:', error);
             setGetCredentialError((error as Error)?.message || String(error));
             setRetrievedCredential('');
@@ -136,7 +136,7 @@ function HyperLiquidAgentCredentialDemo() {
                 2,
               ),
             );
-          } catch (error) {
+          } catch (_error) {
             console.error('Failed to add HyperLiquid agent credential:', error);
             setAddCredentialError((error as Error)?.message || String(error));
             setAddedCredential('');
@@ -195,7 +195,7 @@ function HyperLiquidAgentCredentialDemo() {
             });
             console.log('Updated HyperLiquid agent credential:', result);
             setUpdatedCredential(JSON.stringify(result, null, 2));
-          } catch (error) {
+          } catch (_error) {
             console.error(
               'Failed to update HyperLiquid agent credential:',
               error,

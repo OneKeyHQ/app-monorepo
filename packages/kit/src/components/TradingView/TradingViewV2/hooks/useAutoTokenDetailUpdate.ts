@@ -46,7 +46,7 @@ export function useAutoTokenDetailUpdate({
       });
 
       lastUpdateTime.current = now;
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to push auto token detail data:', error);
     }
   }, [enabled, tokenAddress, networkId, webRef, tokenDetail]);

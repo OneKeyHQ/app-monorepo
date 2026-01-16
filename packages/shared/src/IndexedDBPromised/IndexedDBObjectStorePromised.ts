@@ -55,7 +55,7 @@ export class IndexedDBObjectStorePromised<
     try {
       const request = this.store.get(query);
       return await indexedDBPromisedUtils.toPromiseResult({ request });
-    } catch (error) {
+    } catch (_error) {
       const e = error as Error | undefined;
       if (
         e?.message?.includes(

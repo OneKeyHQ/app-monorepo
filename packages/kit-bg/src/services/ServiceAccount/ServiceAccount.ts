@@ -841,7 +841,7 @@ class ServiceAccount extends ServiceBase {
 
       defaultLogger.account.accountCreatePerf.prepareHdOrHwAccountsEnd(params);
       return r;
-    } catch (error) {
+    } catch (_error) {
       // TODO merge with EmptyAccount\canCreateAddress\isNetworkNotMatched\EmptyAccount
       if (
         networkId &&
@@ -1369,7 +1369,7 @@ class ServiceAccount extends ServiceBase {
   }> {
     try {
       return await this.addHyperLiquidAgentCredential(params);
-    } catch (error) {
+    } catch (_error) {
       return this.updateHyperLiquidAgentCredential(params);
     }
   }
@@ -1529,7 +1529,7 @@ class ServiceAccount extends ServiceBase {
           ) {
             credentialsToDelete.push(credential);
           }
-        } catch (error) {
+        } catch (_error) {
           // Log error but continue processing other credentials
           console.warn(
             `Failed to process HyperLiquid agent credential ${credential.id}:`,
@@ -1541,7 +1541,7 @@ class ServiceAccount extends ServiceBase {
       if (credentialsToDelete.length) {
         await localDb.removeCredentials({ credentials: credentialsToDelete });
       }
-    } catch (error) {
+    } catch (_error) {
       // Log error but don't throw to avoid breaking main deletion flow
       console.error('Failed to cleanup HyperLiquid agent credentials:', error);
     }
@@ -2791,7 +2791,7 @@ class ServiceAccount extends ServiceBase {
             features: dbDevice.featuresInfo,
             hardwareCallContext,
           });
-      } catch (error) {
+      } catch (_error) {
         // If getCompatibleConnectId fails, use the original connectId
         console.warn('Failed to get compatible connectId:', error);
         throw error;
@@ -3427,7 +3427,7 @@ class ServiceAccount extends ServiceBase {
     let accountXpub: string | undefined;
     try {
       accountXpub = await getAccountXpubFn();
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
     if (accountXpub) {
@@ -3436,7 +3436,7 @@ class ServiceAccount extends ServiceBase {
       let accountAddress: string | undefined;
       try {
         accountAddress = await getAccountAddressFn();
-      } catch (error) {
+      } catch (_error) {
         console.error(error);
       }
       if (accountAddress) {
@@ -4076,7 +4076,7 @@ class ServiceAccount extends ServiceBase {
           deriveType,
         });
         return result;
-      } catch (error) {
+      } catch (_error) {
         const isCreated = await new Promise<boolean>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
             resolve,
@@ -4112,7 +4112,7 @@ class ServiceAccount extends ServiceBase {
           deriveType,
         });
         return result;
-      } catch (error) {
+      } catch (_error) {
         showSwitchAccountSelector();
       }
     }
@@ -4247,7 +4247,7 @@ class ServiceAccount extends ServiceBase {
           });
           walletsHashXfpMap[wallet.id] = walletHashXfp;
         }
-      } catch (error) {
+      } catch (_error) {
         console.error(error);
       }
     }
@@ -4451,7 +4451,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: true,
             },
           }));
@@ -4466,7 +4466,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: false,
             },
           }));
@@ -4477,7 +4477,7 @@ class ServiceAccount extends ServiceBase {
     if (canCallSilently) {
       try {
         await this.generateWalletsMissingMetaWithUserInteraction({ walletId });
-      } catch (error) {
+      } catch (_error) {
         console.error(error);
       }
     }
@@ -4568,7 +4568,7 @@ class ServiceAccount extends ServiceBase {
         await hardwareWalletXfpStatusAtom.set((v) => ({
           ...v,
           [walletId]: {
-            ...(v?.[walletId] || {}),
+            ...v?.[walletId],
             xfpMissing: false,
           },
         }));
@@ -4597,7 +4597,7 @@ class ServiceAccount extends ServiceBase {
         syncCredential: undefined,
         forceSync: true,
       });
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
   }
@@ -4625,7 +4625,7 @@ class ServiceAccount extends ServiceBase {
         });
       }
       return true;
-    } catch (error) {
+    } catch (_error) {
       console.error(
         `updateWalletsDeprecatedState failed: `,
         error instanceof Error ? error.message : String(error),
@@ -5229,7 +5229,7 @@ class ServiceAccount extends ServiceBase {
               deriveType,
               skipAddIfNotEqualToAddress,
             });
-          addedAccounts = [...addedAccounts, ...(accounts || [])];
+          addedAccounts.push(...(accounts || []));
         } catch (e) {
           console.error('addImportedAccountByInput error', e);
         }
@@ -5308,7 +5308,7 @@ class ServiceAccount extends ServiceBase {
             isUrlAccount: false,
             skipAddIfNotEqualToAddress,
           });
-          addedAccounts = [...addedAccounts, ...(accounts || [])];
+          addedAccounts.push(...(accounts || []));
         } catch (e) {
           console.error('addWatchingAccountByInput error', e);
         }

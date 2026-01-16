@@ -116,7 +116,7 @@ class ServiceDappSide extends ServiceBase {
       if (shouldDestroyConnector) {
         try {
           await this.destroyConnector({ connectionInfo });
-        } catch (error) {
+        } catch (_error) {
           //
         }
       }
@@ -308,7 +308,7 @@ class ServiceDappSide extends ServiceBase {
   async normalizeError<T>(fn: () => Promise<T>) {
     try {
       return await fn();
-    } catch (error) {
+    } catch (_error) {
       const errorInfo = error as
         | {
             code: number;

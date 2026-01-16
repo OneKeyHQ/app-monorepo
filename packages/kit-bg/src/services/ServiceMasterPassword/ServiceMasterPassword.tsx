@@ -202,7 +202,7 @@ class ServiceMasterPassword extends ServiceBase {
         resultEncoding: 'utf-8',
         allowRawPassword: true,
       });
-    } catch (error) {
+    } catch (_error) {
       if (
         errorUtils.isErrorByClassName({
           error,
@@ -787,7 +787,7 @@ class ServiceMasterPassword extends ServiceBase {
       throw new OneKeyLocalError(
         'verifyMasterPassword ERROR: Invalid password',
       );
-    } catch (error) {
+    } catch (_error) {
       if (clearLocalMasterPasswordIfIncorrect) {
         // password incorrect with server
         await this.clearLocalMasterPassword();
@@ -807,7 +807,7 @@ class ServiceMasterPassword extends ServiceBase {
   async getLocalMasterPasswordUUIDSafe() {
     try {
       return await this.getLocalMasterPasswordUUID();
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -1148,7 +1148,7 @@ class ServiceMasterPassword extends ServiceBase {
           primeUserId,
           masterPasswordUUID,
         };
-      } catch (error) {
+      } catch (_error) {
         console.error('getSecurityPasswordR1InfoSafe ERROR ', error);
         await this.clearLocalMasterPassword();
       }

@@ -556,7 +556,7 @@ export function ApproveBaseStake({
           permitSignature: permitSignatureRef.current,
           unsignedMessage: permit2DataRef.current,
         });
-      } catch (error) {
+      } catch (_error) {
         console.error('Transaction error:', error);
       }
     };
@@ -632,7 +632,7 @@ export function ApproveBaseStake({
 
             // Start the recursive polling
             setTimeout(checkAllowance, pollInterval);
-          } catch (error) {
+          } catch (_error) {
             console.error('Error polling for allowance:', error);
             setApproving(false);
           }
@@ -750,7 +750,7 @@ export function ApproveBaseStake({
 
           void onSubmit();
           setApproving(false);
-        } catch (error: unknown) {
+        } catch (_error: unknown) {
           console.error('Permit sign error:', error);
           defaultLogger.staking.page.permitSignError({
             error: error instanceof Error ? error.message : String(error),

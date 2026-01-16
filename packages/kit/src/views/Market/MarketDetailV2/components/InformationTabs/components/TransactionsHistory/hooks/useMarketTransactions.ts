@@ -87,7 +87,7 @@ export function useMarketTransactions({
 
     const prev = accumulatedTransactionsRef.current;
     // Merge new data at the front with existing data
-    const mergedTransactions = [...newTransactions, ...prev].sort(
+    const mergedTransactions = [...newTransactions, ...prev].toSorted(
       (a, b) => b.timestamp - a.timestamp,
     );
 
@@ -157,7 +157,7 @@ export function useMarketTransactions({
       throttleSetAccumulatedTransactions(uniqueTransactions);
 
       setHasMore(Boolean(response.cursor));
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load more transactions:', error);
     } finally {
       setIsLoadingMore(false);
@@ -188,7 +188,7 @@ export function useMarketTransactions({
       }
 
       // Add new transaction at the beginning and sort by timestamp
-      const updatedTransactions = [newTransaction, ...prev].sort(
+      const updatedTransactions = [newTransaction, ...prev].toSorted(
         (a, b) => b.timestamp - a.timestamp,
       );
 

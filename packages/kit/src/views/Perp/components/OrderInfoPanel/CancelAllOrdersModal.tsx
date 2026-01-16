@@ -57,7 +57,7 @@ function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
 
       await actions.current.cancelOrder({ orders: ordersToCancel });
       onClose?.();
-    } catch (error) {
+    } catch (_error) {
       console.error('Cancel all orders failed:', error);
     } finally {
       setIsSubmitting(false);

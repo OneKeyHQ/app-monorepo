@@ -132,7 +132,7 @@ export default function PageWebEmbedPrimePurchase() {
       await showNativeDebugMessageDialog(debugMessage);
 
       await closeNativeWebViewModal();
-    } catch (error) {
+    } catch (_error) {
       const trace = (error instanceof Error ? error.stack : '') || '';
       const debugMessage =
         error instanceof Error

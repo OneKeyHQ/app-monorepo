@@ -337,7 +337,7 @@ export default class ServiceNotification extends ServiceBase {
           (n) => n.notificationId === notificationId && notificationId,
         ),
       );
-    } catch (error) {
+    } catch (_error) {
       console.log('getNativeNotifications error', error);
       return false;
     }
@@ -560,7 +560,7 @@ export default class ServiceNotification extends ServiceBase {
                 dbAccount: account,
               },
             );
-          } catch (error) {
+          } catch (_error) {
             //
           }
           if (networkAccount?.addressDetail?.displayAddress) {
@@ -1096,7 +1096,7 @@ export default class ServiceNotification extends ServiceBase {
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result.data;
-    } catch (error) {
+    } catch (_error) {
       await notificationsAtom.set((v) =>
         perfUtils.buildNewValueIfChanged(v, {
           ...v,

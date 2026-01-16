@@ -160,7 +160,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
     const networks = depositConfig.map((item) => item.network);
-    const tokens = depositConfig.map((item) => item.tokens).flat();
+    const tokens = depositConfig.flatMap((item) => item.tokens);
     await perpsDepositNetworksAtom.set((prev): IPerpsDepositNetworksAtom => {
       return {
         ...prev,
@@ -213,7 +213,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
       try {
         await this.removeAllAgentCredentialsAndResetStatus();
-      } catch (error) {
+      } catch (_error) {
         // Do not block trading if cleanup fails
         console.error(
           '[ServiceHyperliquid] Failed to remove agent credentials:',
@@ -414,7 +414,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       aggregateByTime: true,
     });
 
-    const sorted = [...fills].sort((a, b) => b.time - a.time);
+    const sorted = [...fills].toSorted((a, b) => b.time - a.time);
 
     await perpsTradesHistoryDataAtom.set({
       fills: sorted,
@@ -446,7 +446,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     const filtered = this._filterFills(newFills)
       .filter((f) => f.time > current.latestTime)
-      .sort((a, b) => b.time - a.time);
+      .toSorted((a, b) => b.time - a.time);
 
     if (filtered.length === 0) {
       return;
@@ -798,7 +798,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           });
         }
       }
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     } finally {
       clearTimeout(this.hideSelectAccountLoadingTimer);
@@ -1069,7 +1069,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         this.fetchExtraAgentsWithCache.clear();
         this.checkInternalRebateBindingStatusWithCache.clear();
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('[clearLocalAgentCredentials] Error:', error);
     }
   }
@@ -1117,7 +1117,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         )
       )
         .filter(Boolean)
-        .sort((a, b) => b.validUntil - a.validUntil);
+        .toSorted((a, b) => b.validUntil - a.validUntil);
       agentCredential = validAgents?.[0];
     }
     if (!agentCredential && isEnableTradingTrigger) {
@@ -1139,7 +1139,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         );
         const agentToRemove = (
           nonOneKeyAgents.length ? nonOneKeyAgents : extraAgents
-        ).sort((a, b) => a.validUntil - b.validUntil)?.[0];
+        ).toSorted((a, b) => a.validUntil - b.validUntil)?.[0];
         const agentNameToRemove = agentToRemove?.name as
           | EHyperLiquidAgentName
           | undefined;
@@ -1182,7 +1182,7 @@ export default class ServiceHyperliquid extends ServiceBase {
                   console.log('Agent removal confirmed:', agentNameToRemove);
                   break;
                 }
-              } catch (error) {
+              } catch (_error) {
                 console.log('Polling request failed:', error);
               }
 
@@ -1237,7 +1237,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           if (approveOk && approveDefaultResponse) {
             break;
           }
-        } catch (error) {
+        } catch (_error) {
           const requestError = error as IApiRequestError | undefined;
           console.log('approveAgentError::', requestError);
           const errorResponse = (
@@ -1412,7 +1412,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       // First account is not bound, skip binding for current account
       return true;
-    } catch (error) {
+    } catch (_error) {
       console.error(
         '[checkInternalRebateBindingStatus] Failed to check binding status',
         error,
@@ -1528,7 +1528,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       // Clear cache after successful binding
       this.checkInternalRebateBindingStatusWithCache.clear();
-    } catch (error) {
+    } catch (_error) {
       console.error('[reportAgentApprovalToBackend] Error:', error);
     }
   }
@@ -1589,7 +1589,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           accountName,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       console.error(
         '[ServiceHyperliquid] Failed to notify hyperliquid account bind:',
         error,

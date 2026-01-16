@@ -77,7 +77,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
         const fileObj =
           await this.backgroundApi.serviceCloudBackup.getGoogleDriveMetadataFileObject();
         manifest.googleDriveLegacyMetaDataFileId = fileObj?.id;
-      } catch (error) {
+      } catch (_error) {
         console.error(
           'Failed to get GoogleDriveBackup Legacy MetaData file:',
           error,
@@ -150,7 +150,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
             userInfo = GoogleSignin.getCurrentUser();
             email = userInfo?.user?.email || '';
           }
-        } catch (error) {
+        } catch (_error) {
           // signInSilently failed, return empty account info
           console.log('GoogleSignin.signInSilently failed:', error);
         }
@@ -374,7 +374,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
         payload: JSON.parse(file.content) as IBackupDataEncryptedPayload,
         content: file.content,
       };
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to download backup data:', error);
       return null;
     }
@@ -396,7 +396,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
         payload: JSON.parse(file.content) as ICloudBackupKeylessWalletPayload,
         content: file.content,
       };
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to download keyless wallet data:', error);
       return null;
     }

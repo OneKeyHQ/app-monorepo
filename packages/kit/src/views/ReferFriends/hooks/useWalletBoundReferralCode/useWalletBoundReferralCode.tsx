@@ -100,7 +100,7 @@ export function useWalletBoundReferralCode({
               },
             );
         }
-      } catch (error) {
+      } catch (_error) {
         console.log(
           '===>>> getReferralCodeBondStatus error, treating as not bound:',
           error,
@@ -120,7 +120,7 @@ export function useWalletBoundReferralCode({
             isBound: alreadyBound,
           },
         });
-      } catch (error) {
+      } catch (_error) {
         console.log('===>>> setWalletReferralCode error:', error);
       }
 

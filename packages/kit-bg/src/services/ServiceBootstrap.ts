@@ -17,7 +17,7 @@ class ServiceBootstrap extends ServiceBase {
     await localDb.readyDb;
     try {
       await this.backgroundApi.serviceSetting.initSystemLocale();
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
     try {
@@ -31,7 +31,7 @@ class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceNotification.init(),
         this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
       ]);
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
 
@@ -40,7 +40,7 @@ class ServiceBootstrap extends ServiceBase {
     if (platformEnv.isExtension) {
       try {
         await this.backgroundApi.serviceDevSetting.initAnalytics();
-      } catch (error) {
+      } catch (_error) {
         console.error(error);
       }
     }

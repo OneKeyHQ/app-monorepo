@@ -379,7 +379,7 @@ function AddCustomTokenModal() {
             });
           }
         }
-      } catch (error) {
+      } catch (_error) {
         Toast.error({ title: (error as Error)?.message });
         throw error;
       } finally {

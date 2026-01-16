@@ -212,7 +212,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           throw new OneKeyLocalError('not hex string');
 
         messageBuffer = Buffer.from(message.message.replace('0x', ''), 'hex');
-      } catch (error) {
+      } catch (_error) {
         messageBuffer = Buffer.from('');
       }
 

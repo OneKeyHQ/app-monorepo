@@ -211,7 +211,7 @@ function DeviceManagementV2ListWeb() {
           (item): item is IHwQrWalletWithDevice =>
             Boolean(item.device) && !item.wallet.deprecated,
         )
-        .sort((a, b) => {
+        .toSorted((a, b) => {
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;
           const orderB = b.wallet.walletOrder || b.wallet.walletNo;
           return orderA - orderB;

@@ -265,7 +265,7 @@ export async function registerPrfCredential(): Promise<
       salt: saltBase64,
       prfKey: new Uint8Array(prfOutput),
     };
-  } catch (error) {
+  } catch (_error) {
     console.error('Failed to register PRF credential:', error);
     return undefined;
   }
@@ -363,7 +363,7 @@ export async function authenticateWithPrf(options: {
       prfKey: new Uint8Array(prfOutput),
       credentialId: assertion.id,
     };
-  } catch (error) {
+  } catch (_error) {
     console.error('Failed to authenticate with PRF:', error);
     return undefined;
   }

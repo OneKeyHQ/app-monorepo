@@ -45,7 +45,7 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
           },
         }),
       );
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to get market watch list item:', error);
       return undefined;
     }

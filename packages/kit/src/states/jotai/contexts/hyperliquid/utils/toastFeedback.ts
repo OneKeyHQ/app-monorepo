@@ -43,7 +43,7 @@ export const withToastFeedback = async <T>(
     });
 
     return result;
-  } catch (error) {
+  } catch (_error) {
     // Clean up loading toast
     if (loadingTimer) clearTimeout(loadingTimer);
     loadingToast?.close();

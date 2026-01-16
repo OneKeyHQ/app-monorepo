@@ -25,7 +25,7 @@ const SwapTipsContainer = () => {
       await backgroundApiProxy.simpleDb.swapConfigs.setSwapUserCloseTips(
         swapTips.tipsId,
       );
-    } catch (error) {
+    } catch (_error) {
       setSwapTips(swapTips);
     }
   };

@@ -13,7 +13,7 @@ const autoLogger = {
           how to mute auto error log:
               try {
                 ...
-              } catch (error) {
+              } catch (_error) {
                 error.$$autoPrintErrorIgnore = true;
                 ...
                 throw error;

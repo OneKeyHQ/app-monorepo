@@ -94,7 +94,7 @@ function RedemptionCenterDialogContent({
         });
 
         onSuccess?.();
-      } catch (error) {
+      } catch (_error) {
         const axiosError = error as {
           response?: { data?: { message?: string } };
         };

@@ -27,7 +27,7 @@ export function ResetInstanceId() {
               setTimeout(() => {
                 void backgroundApiProxy.serviceApp.restartApp();
               }, 300);
-            } catch (error) {
+            } catch (_error) {
               Toast.error({
                 title: 'Failed to reset Instance Id',
                 message: String(error),

@@ -181,7 +181,7 @@ class DesktopApiSniRequest {
 
         // Send request
         request.end();
-      } catch (error) {
+      } catch (_error) {
         logger.error('[DesktopApiSniRequest] Failed to create request', {
           hostname: config.hostname,
           ip: config.ip,

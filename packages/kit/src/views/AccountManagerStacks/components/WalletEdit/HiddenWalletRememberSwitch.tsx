@@ -77,7 +77,7 @@ export function HiddenWalletRememberSwitch({
               isTemp: !newVal,
             });
             setVal(newVal);
-          } catch (error) {
+          } catch (_error) {
             setVal(val);
             throw error;
           }

@@ -49,7 +49,7 @@ export function usePerpsRecords(filterState: IFilterState) {
             title: intl.formatMessage({ id: ETranslations.global_success }),
           });
         }
-      } catch (error) {
+      } catch (_error) {
         if (!options?.silent) {
           Toast.error({
             title:

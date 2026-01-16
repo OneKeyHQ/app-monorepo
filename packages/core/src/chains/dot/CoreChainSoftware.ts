@@ -44,7 +44,7 @@ const curve: ICurveName = 'ed25519';
 const derivationHdLedger = (mnemonic: string, path: string) => {
   try {
     return hdLedger(mnemonic, path);
-  } catch (e: any) {
+  } catch (_e: any) {
     const { message }: { message: string } = e;
     if (
       message ===
@@ -113,10 +113,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
       const keys = await Promise.all(keysPromised);
 
-      privateKeys = keys.reduce(
-        (ret, key) => ({ ...ret, [key.path]: bufferUtils.bytesToHex(key.key) }),
-        {},
-      );
+      const privateKeysMap: Record<string, string> = {};
+      for (const key of keys) {
+        privateKeysMap[key.path] = bufferUtils.bytesToHex(key.key);
+      }
+      privateKeys = privateKeysMap;
     }
     if (credentials.imported) {
       const { privateKey: p } = await decryptImportedCredential({

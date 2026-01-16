@@ -124,7 +124,7 @@ export default function PageDevUnitTests() {
           : 'normal';
       const expected = HASH_TEST_SNAPSHOTS.hmacSHA256[testCase];
       setHmac256Valid(resultHex === expected);
-    } catch (error) {
+    } catch (_error) {
       setHmac256Output(`Error: ${(error as Error).message}`);
       setHmac256Valid(false);
     }
@@ -146,7 +146,7 @@ export default function PageDevUnitTests() {
           : 'normal';
       const expected = HASH_TEST_SNAPSHOTS.hmacSHA512[testCase];
       setHmac512Valid(resultHex === expected);
-    } catch (error) {
+    } catch (_error) {
       setHmac512Output(`Error: ${(error as Error).message}`);
       setHmac512Valid(false);
     }
@@ -162,7 +162,7 @@ export default function PageDevUnitTests() {
       const testCase = data.length === 0 ? 'emptyData' : 'normal';
       const expected = HASH_TEST_SNAPSHOTS.sha256[testCase];
       setSha256Valid(resultHex === expected);
-    } catch (error) {
+    } catch (_error) {
       setSha256Output(`Error: ${(error as Error).message}`);
       setSha256Valid(false);
     }
@@ -178,7 +178,7 @@ export default function PageDevUnitTests() {
       const testCase = data.length === 0 ? 'emptyData' : 'normal';
       const expected = HASH_TEST_SNAPSHOTS.hash160[testCase];
       setHash160Valid(resultHex === expected);
-    } catch (error) {
+    } catch (_error) {
       setHash160Output(`Error: ${(error as Error).message}`);
       setHash160Valid(false);
     }
@@ -197,7 +197,7 @@ export default function PageDevUnitTests() {
 
       const expected = CRYPTO_TEST_SNAPSHOTS.keyFromPasswordAndSalt;
       setDerivedKeyValid(resultHex === expected);
-    } catch (error) {
+    } catch (_error) {
       setDerivedKeyOutput(`Error: ${(error as Error).message}`);
       setDerivedKeyValid(false);
     }
@@ -214,7 +214,7 @@ export default function PageDevUnitTests() {
 
       const expected = CRYPTO_TEST_SNAPSHOTS.aesCbcEncrypt;
       setEncryptedValid(resultHex === expected);
-    } catch (error) {
+    } catch (_error) {
       setEncryptedOutput(`Error: ${(error as Error).message}`);
       setEncryptedValid(false);
     }
@@ -234,7 +234,7 @@ export default function PageDevUnitTests() {
       const expected = result.toString('hex');
       setDecryptedOutput(expected);
       setDecryptedValid(expected === CRYPTO_TEST_SNAPSHOTS.aesCbcDecrypt);
-    } catch (error) {
+    } catch (_error) {
       setDecryptedOutput(`Error: ${(error as Error).message}`);
       setDecryptedValid(false);
     }

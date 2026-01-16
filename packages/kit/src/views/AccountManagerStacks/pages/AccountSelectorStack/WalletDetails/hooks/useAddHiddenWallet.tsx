@@ -246,7 +246,7 @@ export function useAddHiddenWallet() {
           },
           isSoftwareWalletOnlyUser: false,
         });
-      } catch (error) {
+      } catch (_error) {
         errorToastUtils.toastIfError(error);
         defaultLogger.account.wallet.walletAdded({
           status: 'failure',
@@ -290,7 +290,7 @@ export function useAddHiddenWallet() {
               void close();
               await createHiddenWallet({ wallet });
               resolve();
-            } catch (error) {
+            } catch (_error) {
               reject(error);
             }
           },

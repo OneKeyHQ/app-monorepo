@@ -66,7 +66,7 @@ abstract class SimpleDbEntityBase<T> {
           ) as ISimpleDbEntitySavedData<T>;
           data = savedData?.data;
           updatedAt = savedData?.updatedAt;
-        } catch (err) {
+        } catch (_err) {
           console.error(err);
           data = null;
         }

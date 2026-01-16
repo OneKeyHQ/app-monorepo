@@ -124,7 +124,7 @@ class SystemTimeUtils {
             timestamp: Date.now(),
           },
         });
-      } catch (error) {
+      } catch (_error) {
         this.systemTimeStatus = ELocalSystemTimeStatus.UNKNOWN;
       }
     }, intervalTimeout);
@@ -236,7 +236,7 @@ class SystemTimeUtils {
         headerDate,
         url,
       });
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
   }

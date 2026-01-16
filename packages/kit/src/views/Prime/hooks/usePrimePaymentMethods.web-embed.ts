@@ -236,7 +236,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         // Mastercard: 5555555555554444
         // visa: 4242424242424242
         return purchase;
-      } catch (error) {
+      } catch (_error) {
         console.error('purchasePaywallPackage ERROR', error);
         // TODO alert error
         // errorToastUtils.toastIfError(error);

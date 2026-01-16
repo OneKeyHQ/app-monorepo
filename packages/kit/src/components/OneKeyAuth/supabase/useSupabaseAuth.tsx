@@ -233,7 +233,7 @@ export function useSupabaseAuth() {
               otp,
             },
           );
-        } catch (error) {
+        } catch (_error) {
           console.error('Error fetching phone OTP:', error);
         }
 

@@ -104,7 +104,7 @@ function FirmwareChangeDialogContentBase({
                 silentMode: true,
               },
             );
-        } catch (error) {
+        } catch (_error) {
           checkAllFirmwareError = error as Error;
         }
 
@@ -201,7 +201,7 @@ function FirmwareChangeDialogContentBase({
         const newState: IFirmwareChangeDialogState = { type: 'success' };
         setState(newState);
         onStateChange(newState, checkAllResultInfo);
-      } catch (error) {
+      } catch (_error) {
         if (!isMountedRef.current) return;
         console.error('Failed to check firmware type change:', error);
         const newState: IFirmwareChangeDialogState = {

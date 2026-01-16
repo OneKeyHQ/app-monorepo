@@ -183,7 +183,7 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
           );
       }
       setSyncItems(items || []);
-    } catch (err) {
+    } catch (_err) {
       console.error('获取数据失败', err);
       setError(err instanceof Error ? err.message : '未知错误');
       setSyncItems([]);
@@ -359,21 +359,21 @@ function StatusPanel() {
       try {
         randomIdInfo =
           await backgroundApiProxy.servicePrime.apiFetchServerRandomIdInfo();
-      } catch (error) {
+      } catch (_error) {
         console.error('获取随机ID失败', error);
       }
 
       try {
         serverUserInfo =
           await backgroundApiProxy.servicePrime.callApiFetchPrimeUserInfo();
-      } catch (error) {
+      } catch (_error) {
         console.error('获取用户信息失败', error);
       }
 
       try {
         ({ lock } =
           await backgroundApiProxy.servicePrimeCloudSync.apiFetchSyncLock());
-      } catch (error) {
+      } catch (_error) {
         console.error('获取云端密码失败', error);
       }
 
@@ -386,7 +386,7 @@ function StatusPanel() {
                 serverUserInfo,
               },
             );
-        } catch (error) {
+        } catch (_error) {
           console.error('解码云端密码失败', error);
         }
       }
@@ -394,7 +394,7 @@ function StatusPanel() {
       try {
         cachePassword =
           await backgroundApiProxy.servicePassword.getCachedPassword();
-      } catch (error) {
+      } catch (_error) {
         console.error('获取锁屏密码失败', error);
       }
     } finally {

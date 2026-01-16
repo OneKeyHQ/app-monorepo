@@ -154,7 +154,7 @@ export function getSACAddress(
     // Use Asset.contractId to get the SAC address
     const contractAddress = asset.contractId(network || Networks.PUBLIC);
     return contractAddress;
-  } catch (error) {
+  } catch (_error) {
     throw new OneKeyInternalError(
       `Failed to get SAC address for ${assetCode}:${assetIssuer}: ${
         error instanceof Error ? error.message : String(error)

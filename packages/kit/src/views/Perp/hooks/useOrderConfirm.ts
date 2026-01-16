@@ -163,7 +163,7 @@ export function useOrderConfirm(
         }
 
         options?.onSuccess?.();
-      } catch (error) {
+      } catch (_error) {
         options?.onError?.(error);
       }
     },

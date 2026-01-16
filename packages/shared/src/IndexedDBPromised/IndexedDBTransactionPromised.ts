@@ -98,7 +98,7 @@ export class IndexedDBTransactionPromised<
         store,
         mode: this.mode,
       });
-    } catch (error) {
+    } catch (_error) {
       // console.error((error as Error)?.message, {
       //   storeName: name,
       //   dbName: this?.nativeTx?.db?.name,

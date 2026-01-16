@@ -235,7 +235,7 @@ export abstract class CloudSyncFlowManagerBase<
       item.serverUploaded = false;
       item.isDeleted = !!isDeleted;
       return item;
-    } catch (error) {
+    } catch (_error) {
       console.error('buildSyncItem error', error);
       return undefined;
     }
@@ -304,7 +304,7 @@ export abstract class CloudSyncFlowManagerBase<
         return dbItem;
       }
       return syncItem;
-    } catch (error) {
+    } catch (_error) {
       errorUtils.autoPrintErrorIgnore(error);
       return undefined;
     }
@@ -313,12 +313,12 @@ export abstract class CloudSyncFlowManagerBase<
   async buildExistingSyncItemsInfo({
     tx,
     targets,
-    useCreateGenesisTime,
+    shouldCreateGenesisTime,
     onExistingSyncItemsInfo,
   }: {
     tx?: ILocalDBTransaction;
     targets: Array<ICloudSyncTargetMap[T]>;
-    useCreateGenesisTime?: (params: {
+    shouldCreateGenesisTime?: (params: {
       target: ICloudSyncTargetMap[T];
     }) => Promise<boolean>;
     onExistingSyncItemsInfo: (
@@ -392,7 +392,7 @@ export abstract class CloudSyncFlowManagerBase<
             }
             existingSyncItems.push(existingSyncItem);
           }
-        } catch (error) {
+        } catch (_error) {
           console.error('parse rawData error', error);
         }
       } else {
@@ -400,10 +400,10 @@ export abstract class CloudSyncFlowManagerBase<
           syncCredential,
           target,
           dataTime: await (async () => {
-            if (useCreateGenesisTime) {
-              if (await useCreateGenesisTime({ target })) {
+            if (shouldCreateGenesisTime) {
+              if (await shouldCreateGenesisTime({ target })) {
                 console.log(
-                  'useCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
+                  'shouldCreateGenesisTime PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME',
                   PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
                 );
                 return PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME;
@@ -569,7 +569,7 @@ export abstract class CloudSyncFlowManagerBase<
             }
           }
         }
-      } catch (error) {
+      } catch (_error) {
         console.error('syncToScene error', error);
       }
     }

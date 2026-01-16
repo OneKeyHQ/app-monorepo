@@ -163,7 +163,7 @@ class ProviderApiCosmos extends ProviderApiBase {
 
     try {
       await this.getAccountsInfo(request);
-    } catch (error) {
+    } catch (_error) {
       try {
         await this.backgroundApi.serviceDApp.openConnectionModal(request);
         await timerUtils.wait(100);
@@ -214,7 +214,7 @@ class ProviderApiCosmos extends ProviderApiBase {
           this._enableFailureCache[origin] = now;
         }
         return result;
-      } catch (error) {
+      } catch (_error) {
         if ((error as Error).message !== 'Invalid chainId') {
           this._enableFailureCache[origin] = now;
         } else {
@@ -279,7 +279,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
       try {
         account = await this._getAccount(request, networkId);
-      } catch (error) {
+      } catch (_error) {
         const now = Date.now();
         const origin = request.origin ?? '';
         // Some dApps may send a large number of concurrent requests, so we need to cache the results to avoid popping up multiple connection Modals
@@ -444,7 +444,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         signerInfo?.publicKey?.value ?? new Uint8Array(),
       );
       pubKey = encodeSecp256k1Pubkey(decodedPubKey.key);
-    } catch (error) {
+    } catch (_error) {
       pubKey = {
         type: '',
         value: '',

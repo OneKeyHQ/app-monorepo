@@ -183,7 +183,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
           setTimeout(() => {
             void updateSelectedAccount();
           }, 600);
-        } catch (error) {
+        } catch (_error) {
           console.error('UrlAccountAutoCreate error: ', error);
           errorToastUtils.toastIfErrorDisable(error);
           hasError = true;

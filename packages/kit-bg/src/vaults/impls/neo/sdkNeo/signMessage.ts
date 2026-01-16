@@ -109,7 +109,7 @@ export async function verify(
     const messageHash = await sha256(hex);
     const publicKeyPair = curveInstance.keyFromPublic(publicKey, 'hex');
     return publicKeyPair.verify(messageHash, sigObj);
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

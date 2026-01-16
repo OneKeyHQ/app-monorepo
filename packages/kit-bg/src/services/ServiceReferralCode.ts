@@ -671,7 +671,7 @@ class ServiceReferralCode extends ServiceBase {
               }
             : undefined,
       };
-    } catch (error) {
+    } catch (_error) {
       // Handle axios error response
       const axiosError = error as { response?: { data?: unknown } };
       if (axiosError?.response?.data) {

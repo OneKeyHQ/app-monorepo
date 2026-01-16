@@ -156,7 +156,7 @@ export default function NFTDetails() {
           config.size?.width,
           config.size?.height,
         );
-      } catch (error: any) {
+      } catch (_error: any) {
         if (error instanceof OneKeyAppError) {
           Toast.error({
             title: error.message,

@@ -233,7 +233,7 @@ class CloudSyncItemBuilder {
           dataEncoding: 'hex',
           resultEncoding: 'utf8',
         });
-      } catch (error) {
+      } catch (_error) {
         console.error('decryptSyncItem decrypt error', error, item);
         throw new IncorrectMasterPassword();
       }
@@ -244,7 +244,7 @@ class CloudSyncItemBuilder {
           rawDataJson = JSON.parse(decryptedData) as ICloudSyncRawDataJson;
           item.pwdHash = syncCredential?.masterPasswordUUID || '';
         }
-      } catch (error) {
+      } catch (_error) {
         console.error('decryptSyncItem jsonParse error', error, item);
       }
       item.rawDataJson = rawDataJson;
@@ -260,7 +260,7 @@ class CloudSyncItemBuilder {
         rawDataJson = JSON.parse(item.rawData) as ICloudSyncRawDataJson;
         item.rawDataJson = rawDataJson;
         item.rawKey = rawDataJson?.rawKey || item.rawKey || '';
-      } catch (error) {
+      } catch (_error) {
         console.error('decryptSyncItem jsonParse error', error, item);
       }
     }

@@ -136,7 +136,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   private _composeOrderLogExtra(options: IOrderLogOptions) {
     const extra: Record<string, unknown> = {
-      ...(options.extra ?? {}),
+      ...options.extra,
     };
     if (typeof options.originalParams !== 'undefined') {
       extra.originalParams = options.originalParams;
@@ -197,7 +197,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
       this._account = account;
       this._wallet = wallet;
-    } catch (error) {
+    } catch (_error) {
       throw new OneKeyLocalError(
         `Failed to setup exchange client: ${String(error)}`,
       );
@@ -270,7 +270,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         response,
       });
       return response;
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.perp.hyperliquid.setReferrer({
         ...context,
         request: params,
@@ -305,7 +305,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         request: params,
         response: { success: true },
       });
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.perp.hyperliquid.updateLeverage({
         ...context,
         request: params,
@@ -333,7 +333,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         request: params,
         response,
       });
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.perp.hyperliquid.updateIsolatedMargin({
         ...context,
         request: params,
@@ -356,7 +356,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         response,
       });
       return response;
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.perp.hyperliquid.approveBuilderFee({
         ...context,
         request: params,
@@ -464,13 +464,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
               },
             );
           }
-        } catch (error) {
+        } catch (_error) {
           console.error('Failed to extract agent signature:', error);
         }
       }
 
       return response;
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.perp.hyperliquid.approveAgent({
         ...context,
         request: params,
@@ -514,7 +514,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
       });
       return response;
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.perp.hyperliquid.removeAgent({
         ...context,
         request,
@@ -576,7 +576,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
       });
       return response;
-    } catch (error) {
+    } catch (_error) {
       dispatchHyperLiquidOrderLog({
         scene: defaultLogger.perp.hyperliquid,
         action: options.action,
@@ -664,7 +664,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
       );
       return response;
-    } catch (error) {
+    } catch (_error) {
       throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
     }
   }
@@ -769,7 +769,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
       );
       return response;
-    } catch (error) {
+    } catch (_error) {
       throw new OneKeyLocalError(
         `Failed to place market order open: ${String(error)}`,
       );
@@ -821,7 +821,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
       );
       return response;
-    } catch (error) {
+    } catch (_error) {
       throw new OneKeyLocalError(
         `Failed to place close order: ${String(error)}`,
       );
@@ -855,7 +855,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         extra,
       });
       return response;
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.perp.hyperliquid.cancelOrder({
         ...context,
         request: requestPayload,
@@ -956,7 +956,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
       );
       return response;
-    } catch (error) {
+    } catch (_error) {
       throw new OneKeyLocalError(
         `Failed to set position TP/SL: ${String(error)}`,
       );
@@ -983,7 +983,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         request: params,
         response: { success: true },
       });
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.perp.hyperliquid.withdraw({
         ...context,
         request: params,

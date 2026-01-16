@@ -23,7 +23,7 @@ async function getConfigFetcherAxios(): Promise<AxiosInstance> {
         );
         ipTableAdapter = createIpTableAdapter(baseConfig);
       }
-    } catch (error) {
+    } catch (_error) {
       console.warn('[HardwareSDK] Failed to load IP Table adapter:', error);
     }
 
@@ -58,7 +58,7 @@ export async function createConfigFetcher(): Promise<
       });
       console.log('[HardwareSDK] configFetcher success');
       return response.data;
-    } catch (error) {
+    } catch (_error) {
       console.warn('[HardwareSDK] configFetcher error:', error);
       return null;
     }

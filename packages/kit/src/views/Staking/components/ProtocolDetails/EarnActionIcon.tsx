@@ -474,7 +474,7 @@ function BasicClaimWithKycActionIcon({
           actionData: actionIcon,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       // If API call fails, show dialog with current data
       console.error('Failed to fetch latest claimWithKyc data:', error);
       showClaimWithKycDialog({

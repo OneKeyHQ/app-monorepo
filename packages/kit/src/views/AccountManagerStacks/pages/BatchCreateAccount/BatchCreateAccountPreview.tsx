@@ -294,7 +294,7 @@ function BatchCreateAccountPreviewPage({
             },
           );
         return accountsForCreate;
-      } catch (error) {
+      } catch (_error) {
         // may be second time error
         if (previewTimes.current === 1) {
           // If an error occurs and exits, the user cannot switch to other networks for addition, such as an error under DNX, and cannot switch to ETH
@@ -356,7 +356,7 @@ function BatchCreateAccountPreviewPage({
             // Process the balances here
             balancesToUpdate[buildBalanceMapKey({ account })] =
               balances.balanceParsed;
-          } catch (error) {
+          } catch (_error) {
             //
           }
         }),
@@ -875,7 +875,7 @@ function BatchCreateAccountPreviewPage({
               if (result?.accountsForCreate) {
                 setEditMode(false);
               }
-            } catch (error) {
+            } catch (_error) {
               console.log(error);
               throw error;
             }

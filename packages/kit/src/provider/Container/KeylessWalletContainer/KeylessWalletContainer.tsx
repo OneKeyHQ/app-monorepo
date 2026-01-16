@@ -27,7 +27,7 @@ export function KeylessWalletContainer() {
               authPack,
             },
           );
-        } catch (error) {
+        } catch (_error) {
           // User cancelled or error occurred
           await backgroundApiProxy.serviceKeylessWallet.rejectKeylessAuthPackDialog(
             {

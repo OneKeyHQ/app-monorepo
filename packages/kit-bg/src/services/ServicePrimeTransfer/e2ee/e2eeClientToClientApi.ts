@@ -225,7 +225,7 @@ export class E2EEClientToClientApi {
         success: true,
         serverPublicKey: serverKeyPair.publicKey,
       };
-    } catch (error) {
+    } catch (_error) {
       console.error('InvalidPairingCodeError:', error);
       const message = appLocale.intl.formatMessage({
         id: ETranslations.transfer_invalid_code,

@@ -262,7 +262,7 @@ export function validateBtcXpub({
   try {
     bs58check.decode(xpub);
     isValid = true;
-  } catch (error) {
+  } catch (_error) {
     //
   }
   return {
@@ -287,7 +287,7 @@ export function validateBtcXprvt({
   try {
     bs58check.decode(xprvt);
     isValid = true;
-  } catch (error) {
+  } catch (_error) {
     //
   }
   return {

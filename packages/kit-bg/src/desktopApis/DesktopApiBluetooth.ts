@@ -23,7 +23,7 @@ class DesktopApiBluetooth {
           'Opening Bluetooth settings not supported on this platform',
         );
       }
-    } catch (error) {
+    } catch (_error) {
       logger.error('Failed to open Bluetooth settings:', error);
     }
   }
@@ -39,7 +39,7 @@ class DesktopApiBluetooth {
       } else {
         logger.warn('Opening privacy settings not supported on this platform');
       }
-    } catch (error) {
+    } catch (_error) {
       logger.error('Failed to open privacy settings:', error);
     }
   }

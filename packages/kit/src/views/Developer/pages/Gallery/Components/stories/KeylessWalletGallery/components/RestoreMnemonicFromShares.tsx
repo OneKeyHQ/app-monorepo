@@ -50,7 +50,7 @@ export const RestoreMnemonicFromShares = ({
       setRestoredMnemonic(result.mnemonic);
       setRestoredShares(result.shares);
       onRestore?.(restoreDeviceKey, restoreCloudKey, restoreAuthKey);
-    } catch (e: any) {
+    } catch (_e: any) {
       setRestoredMnemonic(`Error: ${(e as Error)?.message}`);
       setRestoredShares([]);
     }
@@ -170,7 +170,7 @@ export const RestoreMnemonicFromShares = ({
                   },
                 );
               setRecoverDeviceKeyResult(JSON.stringify(result, null, 2));
-            } catch (e: any) {
+            } catch (_e: any) {
               setRecoverDeviceKeyResult(`Error: ${(e as Error)?.message}`);
             }
           }}
@@ -201,7 +201,7 @@ export const RestoreMnemonicFromShares = ({
                   },
                 );
               setRecoverCloudKeyResult(JSON.stringify(result, null, 2));
-            } catch (e: any) {
+            } catch (_e: any) {
               setRecoverCloudKeyResult(`Error: ${(e as Error)?.message}`);
             }
           }}
@@ -232,7 +232,7 @@ export const RestoreMnemonicFromShares = ({
                   },
                 );
               setRecoverAuthKeyResult(JSON.stringify(result, null, 2));
-            } catch (e: any) {
+            } catch (_e: any) {
               setRecoverAuthKeyResult(`Error: ${(e as Error)?.message}`);
             }
           }}

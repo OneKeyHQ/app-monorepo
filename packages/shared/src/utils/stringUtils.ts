@@ -280,7 +280,7 @@ function decodeJWT(token: string): Record<string, unknown> | null {
 
     // Parse JSON
     return JSON.parse(decoded) as Record<string, unknown>;
-  } catch (error) {
+  } catch (_error) {
     console.error('Failed to decode JWT:', error);
     return null;
   }

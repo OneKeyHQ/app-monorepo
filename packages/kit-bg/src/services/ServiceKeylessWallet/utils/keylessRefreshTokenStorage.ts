@@ -68,7 +68,7 @@ async function getRefreshTokenFromStorageWithPassword(params: {
       });
 
     return decryptedRefreshToken;
-  } catch (error) {
+  } catch (_error) {
     throw new OneKeyLocalError(
       `Failed to decrypt refreshToken: invalid password or corrupted data: ${
         (error as Error)?.message
@@ -201,7 +201,7 @@ async function getAccessTokenFromStorage(params: {
     });
 
     return decryptedToken;
-  } catch (error) {
+  } catch (_error) {
     throw new OneKeyLocalError(
       `Failed to decrypt token: corrupted data: ${(error as Error)?.message}`,
     );

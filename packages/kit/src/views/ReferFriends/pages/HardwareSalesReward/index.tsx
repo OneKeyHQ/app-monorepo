@@ -98,7 +98,7 @@ function HardwareSalesRewardPageWrapper() {
         const hasMore = items.length >= 10;
         setCursor(hasMore ? items[items.length - 1]?._id : undefined);
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to fetch data:', error);
     } finally {
       setIsLoading(false);
@@ -122,7 +122,7 @@ function HardwareSalesRewardPageWrapper() {
       // Use last item's _id as cursor, undefined if no more data (items < limit)
       const hasMore = items.length >= 10;
       setCursor(hasMore ? items[items.length - 1]?._id : undefined);
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load more:', error);
     } finally {
       setIsLoadingMore(false);

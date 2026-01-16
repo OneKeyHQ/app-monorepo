@@ -817,7 +817,7 @@ function HardwareUiStateContainerCmpControlled() {
                   // Close dialog after successful connection
                   await instance?.close();
                   return result;
-                } catch (error) {
+                } catch (_error) {
                   console.log('promptWebUsbDeviceAccess error', error);
                 }
               })();

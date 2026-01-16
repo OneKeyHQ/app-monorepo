@@ -137,7 +137,7 @@ export function isBgApiSerializableCheckingDisabled() {
       return false;
     }
     return Boolean(data.disabled);
-  } catch (error) {
+  } catch (_error) {
     errorUtils.autoPrintErrorIgnore(error);
     return false;
   }

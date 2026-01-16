@@ -27,7 +27,7 @@ function getAppleAuthModule() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       appleAuthModule = require('../../native-modules/apple-auth-macos');
-    } catch (error) {
+    } catch (_error) {
       console.warn(
         'Failed to load apple-auth-macos:',
         error instanceof Error ? error.message : error,

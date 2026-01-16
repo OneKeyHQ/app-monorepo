@@ -212,7 +212,7 @@ export function useHyperliquidReferralPromotion({
           },
         );
       }
-    } catch (error) {
+    } catch (_error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       void backgroundApiProxy.serviceHyperliquidReferral.logReferralBindingStep(

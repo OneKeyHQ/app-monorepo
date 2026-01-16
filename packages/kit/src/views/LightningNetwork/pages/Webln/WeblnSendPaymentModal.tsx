@@ -143,7 +143,7 @@ function WeblnSendPaymentModal() {
             void dappApprove.reject();
           },
         });
-      } catch (e: any) {
+      } catch (_e: any) {
         console.log('lnurl withdraw error: ', e);
         dappApprove.reject();
         const message = (e as Error)?.message ?? e;

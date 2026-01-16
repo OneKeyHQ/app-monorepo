@@ -304,7 +304,7 @@ export function KeylessShareCardsView({ mode }: IKeylessShareCardsViewProps) {
         if (shouldMoveToNextStep) {
           moveToNextStep({ completedStepId: stepId });
         }
-      } catch (error) {
+      } catch (_error) {
         updateStepState({
           stepId,
           newState: ECreationStepState.Error,
@@ -372,7 +372,7 @@ export function KeylessShareCardsView({ mode }: IKeylessShareCardsViewProps) {
         }
 
         updateStepState({ stepId, newState: ECreationStepState.Success });
-      } catch (error) {
+      } catch (_error) {
         updateStepState({
           stepId,
           newState: ECreationStepState.Error,
@@ -422,11 +422,11 @@ export function KeylessShareCardsView({ mode }: IKeylessShareCardsViewProps) {
             await saveDevicePack({
               devicePack: refs.current.restorePacks.device,
             });
-          } catch (error) {
+          } catch (_error) {
             console.error('Failed to save device pack:', error);
           }
         }
-      } catch (error) {
+      } catch (_error) {
         console.error('Failed to save/upload restored packs:', error);
       }
     }
@@ -481,7 +481,7 @@ export function KeylessShareCardsView({ mode }: IKeylessShareCardsViewProps) {
           Toast.success({
             title: 'Custom mnemonic imported successfully',
           });
-        } catch (error) {
+        } catch (_error) {
           console.error(
             'Failed to generate packs with custom mnemonic:',
             error,

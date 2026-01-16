@@ -682,7 +682,7 @@ class ServiceToken extends ServiceBase {
       });
 
       return tokenInfo;
-    } catch (error) {
+    } catch (_error) {
       console.log('fetchTokensDetails ERROR:', error);
     }
 

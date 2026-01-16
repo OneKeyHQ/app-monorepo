@@ -1314,3 +1314,5 @@ assetlinks
 Recents
 Meteora
 DLMM
+oxlint
+oxfmt

@@ -185,7 +185,7 @@ export function FirmwareUpdateCheckList({
                       needOnboarding,
                     },
                   });
-                } catch (error) {
+                } catch (_error) {
                   const err = toPlainErrorObject(error as any);
                   setStepInfo({
                     step: EFirmwareUpdateSteps.error,

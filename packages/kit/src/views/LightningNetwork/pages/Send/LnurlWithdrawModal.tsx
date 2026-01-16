@@ -130,7 +130,7 @@ function LnurlWithdrawModal() {
           title: 'Withdrawer success',
         });
         close?.({ flag: EDAppModalPageStatus.Confirmed });
-      } catch (e: any) {
+      } catch (_e: any) {
         const message = (e as Error)?.message;
         if (!isSendFlow) {
           // show error message for 1.5s

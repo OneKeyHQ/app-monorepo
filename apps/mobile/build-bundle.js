@@ -92,7 +92,7 @@ const generateMetadataJson = async (dirPath) => {
           // Use relative path from the base directory as the key
           const relativePath = path.relative(dirPath, itemPath);
           metadata[relativePath] = hash;
-        } catch (error) {
+        } catch (_error) {
           console.warn(`Failed to hash file ${itemPath}:`, error.message);
         }
       } else if (stat.isDirectory()) {

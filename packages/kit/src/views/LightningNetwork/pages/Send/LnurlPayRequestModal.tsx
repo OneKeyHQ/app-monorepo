@@ -139,7 +139,7 @@ function LnurlPayRequestModal() {
           callback: lnurlDetails.callback,
           params,
         });
-      } catch (e: any) {
+      } catch (_e: any) {
         console.log('fetchLnurlPayRequestResult error: ', e);
         setIsLoading(false);
         dappApprove.reject();
@@ -201,7 +201,7 @@ function LnurlPayRequestModal() {
             }
           },
         });
-      } catch (e: any) {
+      } catch (_e: any) {
         console.log('lnurl withdraw error: ', e);
         dappApprove.reject();
         const message = (e as Error)?.message ?? e;

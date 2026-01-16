@@ -12,7 +12,7 @@ async function backupInstanceMeta(instanceMeta: IInstanceMetaBackup) {
         [INSTANCE_META_BACKUP_KEY]: instanceMeta,
       });
     }
-  } catch (error) {
+  } catch (_error) {
     console.error('isExtension backupInstanceMeta error', error);
   }
   try {
@@ -22,7 +22,7 @@ async function backupInstanceMeta(instanceMeta: IInstanceMetaBackup) {
         instanceMeta,
       );
     }
-  } catch (error) {
+  } catch (_error) {
     console.error('isDesktop backupInstanceMeta error', error);
   }
   try {
@@ -32,7 +32,7 @@ async function backupInstanceMeta(instanceMeta: IInstanceMetaBackup) {
         JSON.stringify(instanceMeta),
       );
     }
-  } catch (error) {
+  } catch (_error) {
     console.error('isRuntimeBrowser backupInstanceMeta error', error);
   }
 }
@@ -51,7 +51,7 @@ async function getBackupedInstanceMeta(): Promise<
         result = data[INSTANCE_META_BACKUP_KEY] as IInstanceMetaBackup;
       }
     }
-  } catch (error) {
+  } catch (_error) {
     console.error('isExtension getBackupedInstanceMeta error', error);
   }
 
@@ -61,7 +61,7 @@ async function getBackupedInstanceMeta(): Promise<
         EDesktopStoreKeys.AppInstanceMetaBackup,
       );
     }
-  } catch (error) {
+  } catch (_error) {
     console.error('isDesktop getBackupedInstanceMeta error', error);
   }
 
@@ -74,7 +74,7 @@ async function getBackupedInstanceMeta(): Promise<
         result = JSON.parse(resultStr);
       }
     }
-  } catch (error) {
+  } catch (_error) {
     console.error('isRuntimeBrowser getBackupedInstanceMeta error', error);
   }
 

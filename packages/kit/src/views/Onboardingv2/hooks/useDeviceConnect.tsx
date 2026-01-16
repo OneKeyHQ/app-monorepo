@@ -114,7 +114,7 @@ export function useDeviceConnect({
       console.log(
         'ensureStopScan: Device scan stopped and all ongoing searches completed',
       );
-    } catch (error) {
+    } catch (_error) {
       console.error('ensureStopScan: Error while stopping scan:', error);
       // Fallback: just stop scan without waiting
       deviceScanner.stopScan();
@@ -136,7 +136,7 @@ export function useDeviceConnect({
         activeDeviceRef.current = { ...device };
         activeFeaturesRef.current = features ?? null;
         return features;
-      } catch (error: any) {
+      } catch (_error: any) {
         if (error instanceof OneKeyHardwareError) {
           const { code, message } = error;
           if (
@@ -600,7 +600,7 @@ export function useDeviceConnect({
             message: '',
           },
         };
-      } catch (error) {
+      } catch (_error) {
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         console.error('handleDeviceConnect error:', error);
@@ -740,7 +740,7 @@ export function useDeviceConnect({
           connectId: device.connectId ?? '',
           deviceId: features.device_id || device.deviceId || '',
         });
-      } catch (error) {
+      } catch (_error) {
         errorToastUtils.toastIfError(error);
         navigation.pop();
         await trackHardwareWalletConnection({
@@ -785,7 +785,7 @@ export function useDeviceConnect({
           await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
             connectId: currentDevice.connectId ?? '',
           });
-      } catch (error) {
+      } catch (_error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
         throw error;
       }
@@ -909,7 +909,7 @@ export const useDesktopBluetoothStatusPolling = platformEnv.isSupportDesktopBle
                 'onboarding checkBluetoothStatus: noble pre-initialization',
               );
               await globalThis?.desktopApi?.nobleBle?.checkAvailability();
-            } catch (error) {
+            } catch (_error) {
               console.log(
                 'Noble pre-initialization completed with expected error:',
                 error,
@@ -949,7 +949,7 @@ export const useDesktopBluetoothStatusPolling = platformEnv.isSupportDesktopBle
           });
           // All checks passed
           onChangeBluetoothStatus(EBluetoothStatus.enabled);
-        } catch (error) {
+        } catch (_error) {
           console.error('Desktop bluetooth check failed:', error);
           onChangeBluetoothStatus(EBluetoothStatus.disabledInSystem);
         }

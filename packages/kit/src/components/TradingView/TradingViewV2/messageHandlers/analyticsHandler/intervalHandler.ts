@@ -22,7 +22,7 @@ export async function handleAnalyticsInterval({
       defaultLogger.dex.tradingView.dexTVInterval({
         tvIntervalSelect: interval,
       });
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to handle analytics interval:', error);
     }
   }

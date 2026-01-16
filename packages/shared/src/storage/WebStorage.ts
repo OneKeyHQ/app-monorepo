@@ -69,7 +69,7 @@ async function migrateFromLegacyStorage({
       if (value) {
         try {
           await indexed.put(tableName, value, key);
-        } catch (error) {
+        } catch (_error) {
           console.error(
             'migrateFromLegacyStorage put ERROR: ',
             (error as Error | undefined)?.message,
@@ -171,7 +171,7 @@ class WebStorage implements AsyncStorageStatic {
       // return result;
       const result = (await indexed.get(this.tableName, key)) ?? null;
       return result as unknown as string | null;
-    } catch (error) {
+    } catch (_error) {
       console.error(
         'WebStorageError getItem ERROR: ',
         (error as Error | undefined)?.message,
@@ -192,7 +192,7 @@ class WebStorage implements AsyncStorageStatic {
       await indexed.put(this.tableName, value, key);
       // await localforage.setItem(key, value, callback);
       return await Promise.resolve(undefined);
-    } catch (error) {
+    } catch (_error) {
       try {
         await indexed.add(this.tableName, value, key);
       } catch (error2) {

@@ -73,7 +73,7 @@ try {
           userAgent: navigator.userAgent,
         });
         console.log('  ✅ Successfully sent test message to host');
-      } catch (error) {
+      } catch (_error) {
         console.log('  ❌ Failed to send message to host:', error.message);
       }
     }
@@ -121,7 +121,7 @@ try {
           console.log(`    - platform: ${typeof module.platform}`);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       accessResults[moduleName] = false;
       console.log(`  ❌ ${moduleName}: Blocked - ${error.message}`);
     }
@@ -140,7 +140,7 @@ try {
       `  🚨 SECURITY RISK: Can read files (${testContent.length} chars)`,
     );
     securityScore++;
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ File reading blocked: ${error.message}`);
   }
 
@@ -156,17 +156,17 @@ try {
     };
     console.log(`  🚨 SECURITY RISK: Can access system info:`, info);
     securityScore++;
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ System info access blocked: ${error.message}`);
   }
 
   // Test 3: Process execution
   totalTests++;
   try {
-    const { exec } = require('child_process');
+    const { exec: _exec } = require('child_process');
     console.log(`  🚨 CRITICAL RISK: Can execute processes!`);
     securityScore++;
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ Process execution blocked: ${error.message}`);
   }
 
@@ -179,7 +179,7 @@ try {
       `  🚨 SECURITY RISK: Can access network modules (net: ${typeof net.createServer}, http: ${typeof http.createServer})`,
     );
     securityScore++;
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ Network modules blocked: ${error.message}`);
   }
 
@@ -195,7 +195,7 @@ try {
     } else {
       console.log(`  ✅ Main process APIs not accessible`);
     }
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ Main process APIs blocked: ${error.message}`);
   }
 
@@ -214,7 +214,7 @@ try {
     } else {
       console.log(`  ✅ Direct main process communication blocked`);
     }
-  } catch (error) {
+  } catch (_error) {
     console.log(
       `  ✅ IPC main process communication blocked: ${error.message}`,
     );
@@ -232,7 +232,7 @@ try {
     } else {
       console.log(`  ✅ Shell APIs not accessible`);
     }
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ Shell APIs blocked: ${error.message}`);
   }
 
@@ -248,7 +248,7 @@ try {
     } else {
       console.log(`  ✅ Clipboard access blocked`);
     }
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ Clipboard access blocked: ${error.message}`);
   }
 
@@ -264,7 +264,7 @@ try {
     } else {
       console.log(`  ✅ Screen APIs not accessible`);
     }
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ Screen APIs blocked: ${error.message}`);
   }
 
@@ -293,7 +293,7 @@ try {
       console.groupCollapsed(
         `📋 All Environment Variables (${allKeys.length} total)`,
       );
-      allKeys.sort().forEach((key) => {
+      allKeys.toSorted().forEach((key) => {
         const value = envVars[key];
         const isSensitive = sensitiveKeys.includes(key);
         const displayValue =
@@ -342,7 +342,7 @@ try {
     } else {
       console.log(`  ✅ Environment variables not accessible`);
     }
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ Environment variables blocked: ${error.message}`);
   }
 
@@ -358,7 +358,7 @@ try {
     fs.unlinkSync(tempPath);
     console.log(`  🚨 CRITICAL RISK: Can write to file system!`);
     securityScore++;
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ File system write blocked: ${error.message}`);
   }
 
@@ -374,7 +374,7 @@ try {
     } else {
       console.log(`  ✅ Remote module not accessible (good, it's deprecated)`);
     }
-  } catch (error) {
+  } catch (_error) {
     console.log(`  ✅ Remote module blocked: ${error.message}`);
   }
 
@@ -400,7 +400,7 @@ try {
     securityRisks: securityScore,
     environment: 'webview',
   };
-} catch (error) {
+} catch (_error) {
   console.error('[WEBVIEW] Failed to access electron:', error);
   globalThis.ELECTRON_ACCESS_RESULTS = {
     error: error.message,
@@ -419,7 +419,7 @@ if (typeof require !== 'undefined') {
         console.log('[WEBVIEW] Received message from host:', data);
       });
     }
-  } catch (error) {
+  } catch (_error) {
     console.log('❌ [WEBVIEW] Cannot set up IPC listener:', error.message);
   }
 }

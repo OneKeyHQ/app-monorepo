@@ -303,7 +303,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           });
         }
         return makePurchaseResult;
-      } catch (error) {
+      } catch (_error) {
         const e = error as Error | undefined;
         if (e?.message && !['Purchase was cancelled.'].includes(e?.message)) {
           errorToastUtils.toastIfError(error);

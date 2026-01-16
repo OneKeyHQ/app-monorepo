@@ -107,7 +107,7 @@ export class OAuthPopup extends OAuthPopupBase {
         // 5. Supabase Apple provider must include the app's bundle ID in "Client IDs"
 
         return await OAuthPopup.openWithNativeAppleSignIn(options);
-      } catch (error) {
+      } catch (_error) {
         // If native Apple Sign-In fails due to module not available, fall back to browser
         if (OAuthPopup.shouldFallbackToBrowser(error)) {
           console.warn(
@@ -318,7 +318,7 @@ export class OAuthPopup extends OAuthPopupBase {
               success: true,
               session: { accessToken, refreshToken },
             });
-          } catch (error) {
+          } catch (_error) {
             await cleanupFn.cleanup();
             reject(OAuthPopup.wrapError(error, 'OAuth failed'));
           }
@@ -412,7 +412,7 @@ export class OAuthPopup extends OAuthPopupBase {
               reject(new OneKeyLocalError('OAuth sign-in timed out'));
             });
           }, OAUTH_FLOW_TIMEOUT_MS);
-        } catch (error) {
+        } catch (_error) {
           Dialog.debugMessage({
             title: 'OAuth',
             debugMessage:

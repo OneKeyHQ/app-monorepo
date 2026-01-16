@@ -233,17 +233,17 @@ const EarnMainTabsComponent = ({
     );
     const headerContainerStyle = {
       backgroundColor: theme.bgApp.val,
-      ...(mergedHeaderContainerStyle ?? {}),
+      ...mergedHeaderContainerStyle,
     };
     if (!header) {
       return {
-        ...(containerProps ?? {}),
+        ...containerProps,
         headerContainerStyle,
       };
     }
     const renderHeader = containerProps?.renderHeader;
     return {
-      ...(containerProps ?? {}),
+      ...containerProps,
       headerContainerStyle,
       renderHeader: (props: TabBarProps<string>) => (
         <YStack>

@@ -27,7 +27,7 @@ export async function handleAnalyticsStudyRemoved({
         studyName,
         timestamp: new Date().toISOString(),
       });
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to handle analytics study removed:', error);
     }
   } else {

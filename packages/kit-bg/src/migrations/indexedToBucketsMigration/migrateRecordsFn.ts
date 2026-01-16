@@ -35,7 +35,7 @@ export async function migrateRecords<T extends { id: string }>({
           if (store && store.add) {
             await store?.add(record as unknown as any);
           }
-        } catch (error) {
+        } catch (_error) {
           console.error('migrateRecords add error', error);
         }
       };

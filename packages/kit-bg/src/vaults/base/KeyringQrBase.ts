@@ -119,7 +119,7 @@ export abstract class KeyringQrBase extends KeyringBase {
     // let sig: IAirGapSignature | undefined;
     // try {
     //   sig = await this.parseSignature(checkIsDefined(signatureUr));
-    // } catch (error) {
+    // } catch (_error) {
     //   console.error(error);
     //   throw new OneKeyErrorAirGapInvalidQrCode();
     // }

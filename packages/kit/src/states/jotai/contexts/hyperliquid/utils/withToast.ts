@@ -93,7 +93,7 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     Toast.success({ title: successTitle, message: successMessage });
 
     return result;
-  } catch (error) {
+  } catch (_error) {
     if (loadingTimer) clearTimeout(loadingTimer);
     if (loadingToast) loadingToast.close();
 

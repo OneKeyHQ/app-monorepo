@@ -2647,13 +2647,10 @@ export function useSwapBuildTx() {
               const unsignedTxItem = unsignedTxArr[i];
               const gasRes = gasResArr.txFees[i];
               const gasInfo = buildGasInfo(gasRes, gasResArr.common);
-              gasFeeInfos = [
-                ...gasFeeInfos,
-                {
-                  encodeTx: unsignedTxItem.encodedTx ?? {},
-                  gasInfo,
-                },
-              ];
+              gasFeeInfos.push({
+                encodeTx: unsignedTxItem.encodedTx ?? {},
+                gasInfo,
+              });
             }
           } catch (e: any) {
             void swapEstimateFeeEvent(
@@ -2729,13 +2726,10 @@ export function useSwapBuildTx() {
                     }
                   : undefined,
               };
-              gasFeeInfos = [
-                ...gasFeeInfos,
-                {
-                  encodeTx: unsignedTxItem.encodedTx,
-                  gasInfo: lastTxGasInfo,
-                },
-              ];
+              gasFeeInfos.push({
+                encodeTx: unsignedTxItem.encodedTx,
+                gasInfo: lastTxGasInfo,
+              });
             } else {
               const estimateFeeParams =
                 await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -2757,13 +2751,10 @@ export function useSwapBuildTx() {
                 };
               }
               const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
-              gasFeeInfos = [
-                ...gasFeeInfos,
-                {
-                  encodeTx: unsignedTxItem.encodedTx,
-                  gasInfo: gasParseInfo,
-                },
-              ];
+              gasFeeInfos.push({
+                encodeTx: unsignedTxItem.encodedTx,
+                gasInfo: gasParseInfo,
+              });
             }
           }
         } else {
@@ -3122,7 +3113,7 @@ export function useSwapBuildTx() {
                   },
                 );
               }
-            } catch (error: any) {
+            } catch (_error: any) {
               const shouldFallback =
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.name !== EOneKeyErrorClassNames.OneKeyAppError &&

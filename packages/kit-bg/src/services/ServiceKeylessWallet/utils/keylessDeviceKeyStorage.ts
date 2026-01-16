@@ -86,7 +86,7 @@ async function getDevicePackFromStorage(params: {
       resultEncoding: 'utf8',
       allowRawPassword: true,
     });
-  } catch (error) {
+  } catch (_error) {
     throw new OneKeyLocalError(
       `Failed to decrypt device pack: invalid password or corrupted data: ${
         (error as Error)?.message
@@ -97,7 +97,7 @@ async function getDevicePackFromStorage(params: {
   // 4. Parse JSON string to devicePack object
   try {
     return JSON.parse(jsonString) as IDeviceKeyPack;
-  } catch (error) {
+  } catch (_error) {
     throw new OneKeyLocalError(
       'Failed to parse device pack: invalid JSON format',
     );

@@ -191,7 +191,7 @@ export function useMarketTokenList({
         // Empty response - stop loading immediately
         setHasReachedEnd(true);
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load more market tokens:', error);
     } finally {
       setIsLoadingMore(false);

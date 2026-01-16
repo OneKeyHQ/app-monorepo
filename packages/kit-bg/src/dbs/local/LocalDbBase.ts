@@ -644,7 +644,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   ): Promise<IDBCredentialBase | undefined> {
     try {
       return await this.getCredential(credentialId);
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -820,7 +820,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         return newWallet;
       }),
     );
-    wallets = wallets.sort(this.walletSortFn);
+    wallets = wallets.toSorted(this.walletSortFn);
 
     return {
       wallets,
@@ -865,7 +865,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         refilledWalletsCache,
         withoutRefill,
       });
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -890,7 +890,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         return w.xfp === xfp;
       });
       return walletsByXfp;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -939,7 +939,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       }
       return undefined;
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -959,7 +959,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return await this.getWalletSafe({
         walletId,
       });
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -1021,7 +1021,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (parsedAvatar && Object.keys(parsedAvatar).length > 0) {
         avatarInfo = parsedAvatar;
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('refillWalletInfo', error);
     }
 
@@ -1039,7 +1039,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ) {
           keylessDetailsInfo = parsedKeylessDetails;
         }
-      } catch (error) {
+      } catch (_error) {
         console.error('refillWalletInfo keylessDetails', error);
       }
     }
@@ -1069,7 +1069,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }),
         ),
       );
-      wallet.hiddenWallets = wallet.hiddenWallets.sort(this.walletSortFn);
+      wallet.hiddenWallets = wallet.hiddenWallets.toSorted(this.walletSortFn);
     }
 
     // others wallet name i18n
@@ -1248,7 +1248,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }): Promise<IDBIndexedAccount | undefined> {
     try {
       return await this.getIndexedAccount({ id });
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -1369,7 +1369,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     accounts = accounts
       .map((a) => this.refillIndexedAccount({ indexedAccount: a }))
-      .sort((a, b) =>
+      .toSorted((a, b) =>
         // indexedAccount sort by index
         natsort({ insensitive: true })(a.order ?? a.index, b.order ?? b.index),
       );
@@ -1561,7 +1561,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
         });
       },
-      useCreateGenesisTime: async ({ target }) => {
+      shouldCreateGenesisTime: async ({ target }) => {
         const accountDefaultName =
           accountDefaultNameMap[target.indexedAccount.id];
         return Boolean(
@@ -1663,7 +1663,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         if (!indexedAccount || !result) {
           break;
         }
-      } catch (error) {
+      } catch (_error) {
         errorUtils.autoPrintErrorIgnore(error);
         break;
       }
@@ -1861,7 +1861,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (item) {
         return item;
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('getSyncItemSafe error', error);
       return undefined;
     }
@@ -1981,7 +1981,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ignoreNotFound: true,
         ids: keys.filter(Boolean),
       });
-    } catch (error) {
+    } catch (_error) {
       console.error('txRemoveCloudSyncPoolItems error', error);
     }
   }
@@ -2115,7 +2115,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             avatar: syncPayload.avatar || currentAvatarInfo,
           });
         },
-        useCreateGenesisTime: async ({ target }) => {
+        shouldCreateGenesisTime: async ({ target }) => {
           // Avoid syncing the default name of the mnemonic wallet when creating a wallet on other devices that are not prime members
           const b: boolean = isUsingDefaultName();
           return b;
@@ -2697,7 +2697,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
           walletToAdd.name = syncPayload.name || walletToAdd.name;
         },
-        useCreateGenesisTime: async ({ target }) => {
+        shouldCreateGenesisTime: async ({ target }) => {
           // Avoid syncing the default name of the mnemonic wallet when creating a wallet on other devices that are not prime members
           const b: boolean = isUsingDefaultName();
           return b;
@@ -2771,7 +2771,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   currentAirGapAccountsInfo = JSON.parse(
                     item.airGapAccountsInfoRaw,
                   );
-                } catch (error) {
+                } catch (_error) {
                   //
                 }
               }
@@ -3111,7 +3111,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
           walletToAdd.name = syncPayload.name || walletToAdd.name;
         },
-        useCreateGenesisTime: async ({ target }) => {
+        shouldCreateGenesisTime: async ({ target }) => {
           // Avoid syncing the default name of the mnemonic wallet when creating a wallet on other devices that are not prime members
           const b: boolean = isUsingDefaultName();
           return b;
@@ -3707,7 +3707,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Address,
         id,
       });
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -3726,7 +3726,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Address,
         id,
       });
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -3770,7 +3770,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             let account: IDBIndexedAccount | IDBAccount | undefined;
             try {
               account = await this.getIndexedAccount({ id: accountId });
-            } catch (error) {
+            } catch (_error) {
               account = await this.getAccount({ accountId });
             }
             if (wallet && account) {
@@ -3788,16 +3788,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 });
               }
             }
-          } catch (error) {
+          } catch (_error) {
             errorUtils.autoPrintErrorIgnore(error);
           }
         }
-        const resultSorted = [...result].sort((a, b) => a.order - b.order);
+        const resultSorted = [...result].toSorted((a, b) => a.order - b.order);
         console.log('getAccountNameFromAddress', { resultSorted, result });
         return resultSorted;
       }
       return [];
-    } catch (error) {
+    } catch (_error) {
       errorUtils.autoPrintErrorIgnore(error);
       return [];
     }
@@ -3912,7 +3912,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               }
             });
           },
-          useCreateGenesisTime: async ({ target }) => {
+          shouldCreateGenesisTime: async ({ target }) => {
             const accountDefaultName = accountDefaultNameMap[target.account.id];
             return Boolean(
               accountDefaultName && target.account.name === accountDefaultName,
@@ -4082,7 +4082,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             networkId: allAccountsBelongToNetworkId,
             account: account as INetworkAccount,
           });
-        } catch (error) {
+        } catch (_error) {
           //
         }
       }
@@ -4188,7 +4188,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         indexedAccount: undefined,
       }),
     );
-    accounts = accounts.sort((a, b) =>
+    accounts = accounts.toSorted((a, b) =>
       natsort({ insensitive: true })(a.accountOrder ?? 0, b.accountOrder ?? 0),
     );
 
@@ -4253,7 +4253,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }): Promise<IDBAccount | undefined> {
     try {
       return await this.getAccount({ accountId });
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -4686,7 +4686,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ({ accounts: currentAccounts } = await this.getIndexedAccountsOfWallet({
           walletId,
         }));
-      } catch (error) {
+      } catch (_error) {
         //
       }
     }
@@ -4696,7 +4696,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           await this.getSingletonAccountsOfWallet({
             walletId: walletId as IDBWalletIdSingleton,
           }));
-      } catch (error) {
+      } catch (_error) {
         //
       }
     }
@@ -4913,7 +4913,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }): Promise<IDBDevice | undefined> {
     try {
       return await this.getWalletDevice({ allDevices, walletId, dbWallet });
-    } catch (error) {
+    } catch (_error) {
       if (
         !accountUtils.isHwWallet({
           walletId,
@@ -5013,7 +5013,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async getDeviceSafe(dbDeviceId: string): Promise<IDBDevice | undefined> {
     try {
       return await this.getDevice(dbDeviceId);
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -5056,7 +5056,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return records
         .filter((item) => item !== null && item !== undefined)
         .filter((item) => item.deviceId === deviceId)
-        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+        .toSorted((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
     });
   }
 
@@ -5193,7 +5193,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 },
               };
             }
-          } catch (error) {
+          } catch (_error) {
             // If record doesn't exist, add to inserts
             recordsToInsert[id] = {
               id,
@@ -5230,7 +5230,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 return r;
               },
             });
-          } catch (error) {
+          } catch (_error) {
             console.error('Error updating records', error);
           }
         }
@@ -5243,7 +5243,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               name: ELocalDBStoreNames.Address,
               records: Object.values(recordsToInsert),
             });
-          } catch (error) {
+          } catch (_error) {
             console.error('Error adding records', error);
           }
         }

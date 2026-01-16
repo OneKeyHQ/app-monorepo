@@ -198,7 +198,7 @@ function ExportPrivateKeysPage({
         if (key) {
           form.setValue('rawKeyContent', key);
         }
-      } catch (error) {
+      } catch (_error) {
         const ignoreErrorClasses: Array<EOneKeyErrorClassNames | undefined> = [
           EOneKeyErrorClassNames.PasswordPromptDialogCancel,
         ];

@@ -100,7 +100,7 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
       // visa: 4242424242424242
       console.log('purchase >>>>>> ', purchase);
       return purchase;
-    } catch (error) {
+    } catch (_error) {
       console.error('purchasePackageBase ERROR >>>>>> ', error);
       throw error;
     }

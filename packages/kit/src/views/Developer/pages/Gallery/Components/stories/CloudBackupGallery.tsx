@@ -63,7 +63,7 @@ export function CloudBackupApiTests() {
       const result = await apiCall();
       demoLog({ api: apiName, result }, apiName);
       return result;
-    } catch (error) {
+    } catch (_error) {
       demoError(error, apiName);
       throw error;
     }
@@ -267,7 +267,7 @@ export function CloudBackupApiTests() {
                   'getAllBackups',
                 );
                 setBackupsList(result as any[]);
-              } catch (error) {
+              } catch (_error) {
                 // Error already handled by handleApiCall
               }
             }}
@@ -307,7 +307,7 @@ export function CloudBackupApiTests() {
 
                   const dataJson = decryptedData.toString('utf8');
                   return JSON.parse(dataJson) as IPrimeTransferData;
-                } catch (error) {
+                } catch (_error) {
                   throw new OneKeyLocalError(
                     `Failed to decrypt backup data. The backup may be corrupted: ${
                       (error as Error)?.message

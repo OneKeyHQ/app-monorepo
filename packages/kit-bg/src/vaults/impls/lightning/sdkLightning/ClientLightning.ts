@@ -63,7 +63,7 @@ class ClientLightning {
   }): Promise<T> => {
     try {
       return await fn();
-    } catch (error) {
+    } catch (_error) {
       if (!shouldRetry(error) || retryCount >= maxRetryCount) {
         throw error;
       }

@@ -125,7 +125,7 @@ describe('Kaspa transaction Tests', () => {
         new BigNumber(sendAmount),
       );
       utxos = selectUTXOsRes.utxos;
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
 
@@ -338,7 +338,7 @@ describe('Kaspa transaction Tests', () => {
 
       // 不通过测试
       expect(true).toBe(false);
-    } catch (error: any) {
+    } catch (_error: any) {
       expect(error.message).toContain(
         'Invalid state: Output satoshis is not a natural number',
       );
@@ -387,10 +387,10 @@ describe('Kaspa transaction Tests', () => {
 
       // 不通过测试
       expect(true).toBe(false);
-    } catch (error: any) {
+    } catch (_error: any) {
       expect(error.message).toContain('utxo amount is too large');
     }
   });
 });
 
-export {};
+

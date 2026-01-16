@@ -108,7 +108,7 @@ class ServiceIpTable extends ServiceBase {
       }
 
       return true;
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.ipTable.request.warn({
         info: `[IpTable] Failed to check devSettings, defaulting to enabled: ${
           error instanceof Error ? error.message : 'Unknown error'
@@ -320,7 +320,7 @@ class ServiceIpTable extends ServiceBase {
         info: `[IpTable] Remote config fetched successfully, version: ${remoteConfig.version}`,
       });
       return remoteConfig;
-    } catch (error: any) {
+    } catch (_error: any) {
       if (axios.isAxiosError(error)) {
         if (error.code === 'ECONNABORTED') {
           defaultLogger.ipTable.request.error({
@@ -386,7 +386,7 @@ class ServiceIpTable extends ServiceBase {
         info: '[IpTable] CDN config updated successfully',
       });
       return true;
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.ipTable.request.error({
         info: `[IpTable] Error in fetchAndMergeRemoteConfig: ${
           error instanceof Error ? error.message : 'Unknown error'
@@ -639,7 +639,7 @@ class ServiceIpTable extends ServiceBase {
 
       // Clean up health stats for unused endpoints after speed test
       await this.cleanupHealthStatsAfterSpeedTest(domain);
-    } catch (error) {
+    } catch (_error) {
       defaultLogger.ipTable.request.error({
         info: `[IpTable] Speed test failed for domain ${domain}: ${
           error instanceof Error ? error.message : 'Unknown error'

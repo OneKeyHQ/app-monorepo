@@ -222,7 +222,7 @@ export default class Vault extends VaultBase {
           transfers = transactionUtils.parseTransferDetails({
             balanceChanges: dryRunResult.balanceChanges,
           });
-        } catch (error) {
+        } catch (_error) {
           transfers = [];
         }
 
@@ -420,7 +420,7 @@ export default class Vault extends VaultBase {
         ...params.signedTx,
         txid,
       };
-    } catch (error: any) {
+    } catch (_error: any) {
       const { errorCode, message }: { errorCode: any; message: string } =
         error || {};
 
@@ -540,7 +540,7 @@ export default class Vault extends VaultBase {
         ...params.signedTx,
         txid,
       };
-    } catch (error: any) {
+    } catch (_error: any) {
       const { errorCode, message }: { errorCode: any; message: string } =
         error || {};
 

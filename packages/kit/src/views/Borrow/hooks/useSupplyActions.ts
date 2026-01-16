@@ -126,7 +126,7 @@ export const useSupplyActions = ({
         });
         networkCacheRef.current = { networkId: targetNetworkId, network };
         return network;
-      } catch (error) {
+      } catch (_error) {
         console.error('Failed to get network:', error);
         return null;
       }
@@ -181,7 +181,7 @@ export const useSupplyActions = ({
             swapSource: ESwapSource.MARKET,
           },
         });
-      } catch (error) {
+      } catch (_error) {
         console.error('Error handling swap:', error);
       }
     },
@@ -232,7 +232,7 @@ export const useSupplyActions = ({
             swapSource: ESwapSource.MARKET,
           },
         });
-      } catch (error) {
+      } catch (_error) {
         console.error('Error handling bridge:', error);
       }
     },
@@ -286,7 +286,7 @@ export const useSupplyActions = ({
             token: receiveToken,
           },
         });
-      } catch (error) {
+      } catch (_error) {
         console.error('Error handling receive:', error);
       }
     },

@@ -400,7 +400,7 @@ const SetTpslForm = memo(
           tpTriggerPx: !tpOrder ? formData.tpPrice || undefined : undefined,
           slTriggerPx: !slOrder ? formData.slPrice || undefined : undefined,
         });
-      } catch (error) {
+      } catch (_error) {
         // Error toast is handled in the action
         console.error('SetTpslModal handleSubmit error:', error);
         throw error;

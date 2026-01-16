@@ -268,7 +268,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
 
   return (
     <YStack gap="$2.5">
-      {(haveErrorAlert ? alertsSorted.reverse() : alertsSorted).map(
+      {(haveErrorAlert ? alertsSorted.toReversed() : alertsSorted).map(
         (item, index) => createAlert(item, index),
       )}
     </YStack>

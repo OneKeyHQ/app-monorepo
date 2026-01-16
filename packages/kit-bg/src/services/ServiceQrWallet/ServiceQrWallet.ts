@@ -84,7 +84,7 @@ class ServiceQrWallet extends ServiceBase {
     try {
       raw = appScanDeviceResult.data.fullData || appScanDeviceResult.raw || '';
       responseUr = await airGapUrUtils.qrcodeToUr(raw);
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
 

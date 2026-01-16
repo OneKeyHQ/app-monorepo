@@ -97,7 +97,7 @@ export class WalletConnectDappSide {
       await this.removeAccount({
         wcSessionTopic: p.topic,
       });
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
     await this.disconnectProvider({ topic: p.topic });
@@ -210,19 +210,19 @@ export class WalletConnectDappSide {
     const destroy = async (p: WalletConnectDappSideProvider | undefined) => {
       try {
         await p?.disconnect();
-      } catch (error) {
+      } catch (_error) {
         console.error(error);
       }
       try {
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         await p?.cleanup();
-      } catch (error) {
+      } catch (_error) {
         console.error(error);
       }
       try {
         await p?.cleanupPendingPairings({ deletePairings: true });
-      } catch (error) {
+      } catch (_error) {
         console.error(error);
       }
       // TODO save all event on listener, and remove it on destroy
@@ -230,13 +230,13 @@ export class WalletConnectDappSide {
 
     try {
       await destroy(provider);
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
 
     try {
       await destroy(this.providers[topic]);
-    } catch (error) {
+    } catch (_error) {
       console.error(error);
     }
 
@@ -298,7 +298,7 @@ export class WalletConnectDappSide {
           wcSessionTopic: provider.session?.topic,
           wcNamespaces: provider.session?.namespaces,
         });
-      } catch (error) {
+      } catch (_error) {
         console.error(error);
       }
     }
@@ -423,7 +423,7 @@ export class WalletConnectDappSide {
         for (const account of accounts) {
           await this.backgroundApi.serviceAccount.removeAccount({ account });
         }
-      } catch (error) {
+      } catch (_error) {
         console.error(error);
       } finally {
         provider = await createNewProvider();
@@ -497,7 +497,7 @@ export class WalletConnectDappSide {
         session: provider.session,
       });
       return provider.session;
-    } catch (error) {
+    } catch (_error) {
       console.error('connectToWallet error: ', error);
       appEventBus.emit(EAppEventBusNames.WalletConnectConnectError, {
         error: errorUtils.toPlainErrorObject(error),

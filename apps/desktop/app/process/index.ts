@@ -22,7 +22,7 @@ export const launchBridge = async () => {
     bridgeInstance = bridge;
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     BridgeHeart.start(() => restartBridge());
-  } catch (err) {
+  } catch (_err) {
     logger.error(`bridge: Start failed: ${(err as Error).message}`);
     logger.error(err);
   }

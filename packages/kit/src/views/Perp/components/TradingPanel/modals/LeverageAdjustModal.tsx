@@ -90,7 +90,7 @@ const LeverageContent = memo(
           isCross: activeAssetData?.leverage?.type === 'cross',
           leverage: value,
         });
-      } catch (error) {
+      } catch (_error) {
         console.error(
           '[LeverageAdjustModal] Failed to update leverage:',
           error,

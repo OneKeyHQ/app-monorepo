@@ -67,7 +67,7 @@ class ServiceDBBackup extends ServiceBase {
       try {
         const backupTx = createBackupTx();
         await backupTx.objectStore(ELocalDBStoreNames.Wallet)?.delete(walletId);
-      } catch (error) {
+      } catch (_error) {
         console.error('ServiceDBBackup removeBackupHDWallet error', error);
       }
 
@@ -76,22 +76,22 @@ class ServiceDBBackup extends ServiceBase {
         await backupTx
           .objectStore(ELocalDBStoreNames.Credential)
           ?.delete(walletId);
-      } catch (error) {
+      } catch (_error) {
         console.error('ServiceDBBackup removeBackupHDWallet error', error);
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('ServiceDBBackup removeBackupHDWallet error', error);
     }
 
     try {
       await legacyIndexedDb.delete(ELocalDBStoreNames.Wallet, walletId);
-    } catch (error) {
+    } catch (_error) {
       console.error('ServiceDBBackup removeBackupHDWallet error', error);
     }
 
     try {
       await legacyIndexedDb.delete(ELocalDBStoreNames.Credential, walletId);
-    } catch (error) {
+    } catch (_error) {
       console.error('ServiceDBBackup removeBackupHDWallet error', error);
     }
   }
@@ -124,7 +124,7 @@ class ServiceDBBackup extends ServiceBase {
         await backupTx
           .objectStore(ELocalDBStoreNames.Account)
           ?.delete(accountId);
-      } catch (error) {
+      } catch (_error) {
         console.error(
           'ServiceDBBackup removeBackupImportedAccount error',
           error,
@@ -136,25 +136,25 @@ class ServiceDBBackup extends ServiceBase {
         await backupTx
           .objectStore(ELocalDBStoreNames.Credential)
           ?.delete(accountId);
-      } catch (error) {
+      } catch (_error) {
         console.error(
           'ServiceDBBackup removeBackupImportedAccount error',
           error,
         );
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('ServiceDBBackup removeBackupImportedAccount error', error);
     }
 
     try {
       await legacyIndexedDb.delete(ELocalDBStoreNames.Account, accountId);
-    } catch (error) {
+    } catch (_error) {
       console.error('ServiceDBBackup removeBackupImportedAccount error', error);
     }
 
     try {
       await legacyIndexedDb.delete(ELocalDBStoreNames.Credential, accountId);
-    } catch (error) {
+    } catch (_error) {
       console.error('ServiceDBBackup removeBackupImportedAccount error', error);
     }
   }
@@ -186,7 +186,7 @@ class ServiceDBBackup extends ServiceBase {
       };
 
       await dbBackupTools.backupInstanceMeta(instanceMeta);
-    } catch (error) {
+    } catch (_error) {
       console.error('ServiceDBBackup backup instance meta error', error);
     }
 
@@ -242,7 +242,7 @@ class ServiceDBBackup extends ServiceBase {
           account: accounts,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       // TODO log error
       console.error('ServiceDBBackup backupDatabase error', error);
     } finally {

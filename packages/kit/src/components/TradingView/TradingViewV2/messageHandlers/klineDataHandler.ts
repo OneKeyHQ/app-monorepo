@@ -27,7 +27,7 @@ function buildTransactionMarks({
   const limitedList = transactions
     .slice()
     .filter((tx) => tx.to?.amount && tx.to?.symbol)
-    .sort((a, b) => a.timestamp - b.timestamp)
+    .toSorted((a, b) => a.timestamp - b.timestamp)
     .slice(-MAX_MARKS_COUNT);
 
   return limitedList.map((tx, index) => {
@@ -103,7 +103,7 @@ export async function fetchAndSendAccountMarks({
         },
       });
     }
-  } catch (error) {
+  } catch (_error) {
     console.error('Failed to fetch account token transactions:', error);
   }
 }
@@ -163,7 +163,7 @@ export async function handleKLineDataRequest({
           webRef,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to fetch and send kline data:', error);
     }
   }

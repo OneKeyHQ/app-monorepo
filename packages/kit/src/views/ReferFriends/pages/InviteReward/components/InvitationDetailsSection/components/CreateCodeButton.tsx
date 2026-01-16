@@ -74,7 +74,7 @@ export function CreateCodeButton({
       // Trigger callback to refresh list if provided
       onCodeCreated?.();
       scrollToLatestCode();
-    } catch (error) {
+    } catch (_error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       Toast.error({

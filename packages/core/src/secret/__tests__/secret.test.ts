@@ -477,7 +477,7 @@ describe('Secret Module Tests', () => {
           mnemonic: 'invalid mnemonic',
         });
         throw new OneKeyLocalError('Should have thrown');
-      } catch (error) {
+      } catch (_error) {
         expect(error).toBeDefined();
       }
 

@@ -6,12 +6,12 @@ export function autoFixPersonalSignMessage({ message }: { message: string }) {
   let messageFixed = message;
   try {
     ethUtils.toBuffer(message);
-  } catch (error) {
+  } catch (_error) {
     const tmpMsg = `0x${message}`;
     try {
       ethUtils.toBuffer(tmpMsg);
       messageFixed = tmpMsg;
-    } catch (err) {
+    } catch (_err) {
       // message not including valid hex character
     }
   }
@@ -36,7 +36,7 @@ export function verifyPersonalSignMessage({
       v: sig.v,
     });
     return recoveredAddress.toLowerCase() === address.toLowerCase();
-  } catch (error) {
+  } catch (_error) {
     console.log('verifyPersonalSignMessage error', error);
     return false;
   }

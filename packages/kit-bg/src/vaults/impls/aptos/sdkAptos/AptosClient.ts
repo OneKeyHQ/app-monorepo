@@ -49,7 +49,7 @@ export class AptosClient {
   ): Promise<{ sequence_number: string; authentication_key: string }> {
     try {
       return await this.proxyRequest('getAccount', [accountAddress]);
-    } catch (error: any) {
+    } catch (_error: any) {
       const { message } = error;
 
       if (

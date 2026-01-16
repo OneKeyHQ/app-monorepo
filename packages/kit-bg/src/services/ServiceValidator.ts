@@ -84,7 +84,7 @@ class ServiceValidator extends ServiceBase {
           params: { networkId, accountAddress: address },
         });
         return resp;
-      } catch (error) {
+      } catch (_error) {
         // Clear cache on network errors to allow retry when network recovers
         this.serverValidateAddress.clear();
         throw error;
@@ -121,7 +121,7 @@ class ServiceValidator extends ServiceBase {
           isValid: validItems.length > 0,
           networkIds: validItems.map(({ networkId }) => networkId),
         };
-      } catch (error) {
+      } catch (_error) {
         // Clear cache on network errors to allow retry when network recovers
         this.serverBatchValidateAddress.clear();
         throw error;

@@ -175,7 +175,7 @@ export function KeylessOnboardingDebugPanelView({
             Toast.success({
               title: '已清空 Refresh Token Storage',
             });
-          } catch (error: unknown) {
+          } catch (_error: unknown) {
             Toast.error({
               title: '清空失败',
               message: (error as Error)?.message || 'Unknown error',

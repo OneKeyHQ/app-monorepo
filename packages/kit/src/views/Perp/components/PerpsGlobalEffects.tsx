@@ -210,7 +210,7 @@ function useHyperliquidEventBusListener() {
 
           default:
         }
-      } catch (error) {
+      } catch (_error) {
         console.error('Failed to process data update:', error);
       }
     };
@@ -232,7 +232,7 @@ function useHyperliquidEventBusListener() {
         void actions.current.updateConnectionState({
           isConnected: data.status === 'connected',
         });
-      } catch (error) {
+      } catch (_error) {
         console.error('Failed to process connection change:', error);
       }
     };

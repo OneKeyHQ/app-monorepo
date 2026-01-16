@@ -37,7 +37,7 @@ export function useShareActions(referralQrCodeUrl?: string) {
 
           try {
             currentPermission = await MediaLibrary.getPermissionsAsync(true);
-          } catch (error) {
+          } catch (_error) {
             console.error('Get permissions failed:', error);
           }
 
@@ -130,7 +130,7 @@ export function useShareActions(referralQrCodeUrl?: string) {
         });
 
         return { success: true };
-      } catch (error) {
+      } catch (_error) {
         Toast.error({
           title: 'Failed to save image',
           message: error instanceof Error ? error.message : undefined,
@@ -195,7 +195,7 @@ export function useShareActions(referralQrCodeUrl?: string) {
           URL.revokeObjectURL(url);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // User cancelled share - not an error
       if (error instanceof Error && error.message?.includes('cancel')) {
         return;
@@ -232,7 +232,7 @@ export function useShareActions(referralQrCodeUrl?: string) {
         } else {
           globalThis.open(twitterUrl, '_blank');
         }
-      } catch (error) {
+      } catch (_error) {
         Toast.error({
           title: 'Failed to share',
           message: error instanceof Error ? error.message : undefined,

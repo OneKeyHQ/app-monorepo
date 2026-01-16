@@ -84,7 +84,7 @@ function injectDevToolsButton() {
         channel: 'EXTENSION_INTERNAL_CHANNEL',
         method: 'reload',
       });
-    } catch (err) {
+    } catch (_err) {
       console.error(err);
     }
   });

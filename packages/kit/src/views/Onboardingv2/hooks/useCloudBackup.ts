@@ -323,7 +323,7 @@ export function useCloudBackup() {
               pop: true,
             });
           }
-        } catch (error) {
+        } catch (_error) {
           handleBackupError(error);
         } finally {
           void loadingDialog?.close?.();
@@ -362,7 +362,7 @@ export function useCloudBackup() {
                     title: 'Failed to set backup password',
                   });
                 }
-              } catch (error) {
+              } catch (_error) {
                 handleBackupError(error);
               }
             },
@@ -470,7 +470,7 @@ export function useCloudBackup() {
               });
             }
             // eslint-disable-next-line no-useless-catch
-          } catch (error) {
+          } catch (_error) {
             // password error
             void importProcessingDialog?.close?.();
             throw error;

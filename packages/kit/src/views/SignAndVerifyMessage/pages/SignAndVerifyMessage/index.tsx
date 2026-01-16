@@ -170,7 +170,7 @@ function SignAndVerifyMessage() {
           }),
         });
         signForm.setValue('signature', signedMessage);
-      } catch (error) {
+      } catch (_error) {
         console.error('Sign error:', error);
       } finally {
         setIsSigning(false);
@@ -235,7 +235,7 @@ function SignAndVerifyMessage() {
             }),
           });
         }
-      } catch (error) {
+      } catch (_error) {
         console.error('Verify error:', error);
         Toast.error({
           title: intl.formatMessage({

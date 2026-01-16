@@ -15,7 +15,7 @@ export async function checkAndCreateFolder() {
       await RNFS.mkdir(SCREENSHOT_FOLDER);
       console.log('Folder created:', SCREENSHOT_FOLDER);
     }
-  } catch (error) {
+  } catch (_error) {
     console.log('Error checking and creating folder:', error);
   }
 }

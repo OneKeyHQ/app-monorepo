@@ -30,7 +30,7 @@ export async function handleAnalyticsPriceMC({
         defaultLogger.dex.tradingView.dexTVPriceMC({
           tvPriceMCSelect: priceMCSelect,
         });
-      } catch (error) {
+      } catch (_error) {
         console.error('Failed to handle analytics price MC:', error);
       }
     } else {

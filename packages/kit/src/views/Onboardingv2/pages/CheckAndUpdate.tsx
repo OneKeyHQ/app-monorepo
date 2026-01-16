@@ -271,7 +271,7 @@ function CheckAndUpdatePage({
         setWarningStep();
         return;
       }
-    } catch (error) {
+    } catch (_error) {
       setWarningStep();
       throw error;
     }
@@ -343,7 +343,7 @@ function CheckAndUpdatePage({
             },
           },
         );
-      } catch (error) {
+      } catch (_error) {
         // If all retries failed, set error state and throw
         console.error(
           'Failed to connect to device after firmware update, all retries exhausted',
@@ -612,7 +612,7 @@ function CheckAndUpdatePage({
         }, 150);
       }
       isFirmwareVerifiedRef.current = !!result.verified;
-    } catch (error) {
+    } catch (_error) {
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[0] = {

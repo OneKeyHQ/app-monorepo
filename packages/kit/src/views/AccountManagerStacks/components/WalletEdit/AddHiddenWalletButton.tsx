@@ -26,7 +26,7 @@ export function AddHiddenWalletButton({
         try {
           onClose();
           await createHiddenWalletWithDialogConfirm({ wallet });
-        } catch (error) {
+        } catch (_error) {
           if (error instanceof Error && error.message !== 'User cancelled') {
             errorToastUtils.toastIfError(error);
           }

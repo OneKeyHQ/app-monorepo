@@ -135,7 +135,7 @@ class DesktopApiDev {
             },
           );
         }
-      } catch (error) {
+      } catch (_error) {
         logger.warn('[client-log-upload] failed to send progress', error);
       }
     };
@@ -197,7 +197,7 @@ class DesktopApiDev {
           });
         }
         return parsed;
-      } catch (error) {
+      } catch (_error) {
         sendProgress({
           stage: ELogUploadStage.Error,
           message: text,
@@ -207,7 +207,7 @@ class DesktopApiDev {
           message: text,
         };
       }
-    } catch (error) {
+    } catch (_error) {
       sendProgress({
         stage: ELogUploadStage.Error,
         message: error instanceof Error ? error.message : String(error),

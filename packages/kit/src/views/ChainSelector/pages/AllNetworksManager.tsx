@@ -247,7 +247,7 @@ function AllNetworksManager() {
           },
           customNetworks: enabledNetworksWithoutAccountTemp,
         });
-      } catch (error) {
+      } catch (_error) {
         setIsCreatingEnabledAddresses(false);
         throw error;
       }
