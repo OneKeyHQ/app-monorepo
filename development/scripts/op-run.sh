@@ -2,7 +2,6 @@
 set -e
 
 VAULT_NAME="ENV-BIG-FE-APP-MONOREPO-DEV"
-ACCOUNT="onekey-safe.1password.com"  # 1Password account URL (run `op account list` to verify)
 
 # Check if 1Password CLI is installed
 if ! command -v op &> /dev/null; then
@@ -26,14 +25,32 @@ if ! op account list &> /dev/null; then
     exit 1
 fi
 
+# Find a valid OneKey account by checking email domain (@onekey.so)
+# Using email is more reliable than account URL which can be modified locally
+ACCOUNT_JSON=$(op account list --format=json | jq -r '.[] | select(.email | test("@onekey\\.so$"))')
+
+if [ -z "$ACCOUNT_JSON" ]; then
+    echo "Error: No 1Password account found with @onekey.so email."
+    echo "Please sign in with your OneKey 1Password account first:"
+    echo "  op signin"
+    exit 1
+fi
+
+# Extract account details (use account_uuid as stable identifier)
+ACCOUNT=$(echo "$ACCOUNT_JSON" | jq -r '.account_uuid')
+ACCOUNT_EMAIL=$(echo "$ACCOUNT_JSON" | jq -r '.email')
+ACCOUNT_URL=$(echo "$ACCOUNT_JSON" | jq -r '.url')
+
+echo "Using 1Password account: $ACCOUNT_EMAIL ($ACCOUNT_URL)"
+
 # Check if vault exists in the specified account
 if ! op vault get "$VAULT_NAME" --account="$ACCOUNT" &> /dev/null; then
-    echo "Error: Vault '$VAULT_NAME' not found in account '$ACCOUNT'."
+    echo "Error: Vault '$VAULT_NAME' not found in account '$ACCOUNT_EMAIL'."
     echo "Please create the vault in 1Password first."
     exit 1
 fi
 
-echo "Loading environment variables from 1Password vault: $VAULT_NAME (account: $ACCOUNT)"
+echo "Loading environment variables from 1Password vault: $VAULT_NAME"
 
 # Get all item titles from the vault (null-delimited for safe parsing)
 while IFS= read -r -d '' item; do
