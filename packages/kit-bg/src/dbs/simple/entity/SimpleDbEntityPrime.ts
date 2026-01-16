@@ -1,5 +1,6 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
 import { getSupabaseAuthSessionKey } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 

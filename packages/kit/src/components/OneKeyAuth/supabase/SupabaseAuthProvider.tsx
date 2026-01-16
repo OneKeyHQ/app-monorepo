@@ -2,10 +2,9 @@ import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
+import type { Session } from '@supabase/supabase-js';
 
 import { SupabaseAuthContext } from './SupabaseAuthContext';
-
-import type { Session } from '@supabase/supabase-js';
 
 export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   const [authSession, setSession] = useState<Session | undefined | null>();
