@@ -106,7 +106,10 @@ function ApprovalListHeader({
     }
 
     return (
-      <ListItem testID="Wallet-Approval-List-Header" opacity={isVisible ? 1 : 0}>
+      <ListItem
+        testID="Wallet-Approval-List-Header"
+        opacity={isVisible ? 1 : 0}
+      >
         <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
           <HeaderItem
             label={intl.formatMessage({ id: ETranslations.global_contract })}
