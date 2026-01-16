@@ -1,10 +1,10 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { getSupabaseClient } from './getSupabaseClient';
-import { SupabaseAuthContext } from './SupabaseAuthContext';
-
+import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import type { Session } from '@supabase/supabase-js';
+
+import { SupabaseAuthContext } from './SupabaseAuthContext';
 
 export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   const [authSession, setSession] = useState<Session | undefined | null>();
@@ -54,23 +54,6 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
       "message": "Could not find the table 'public.profiles' in the schema cache"
     }
   */
-  useEffect(() => {
-    const _fetchProfile = async () => {
-      setIsLoading(true);
-      // if (authSession) {
-      //   const { data } = await getSupabaseClient()
-      //     .client.from('profiles')
-      //     .select('*')
-      //     .eq('id', authSession.user.id)
-      //     .single();
-      //   setProfile(data);
-      // } else {
-      //   setProfile(null);
-      // }
-      setIsLoading(false);
-    };
-    // void fetchProfile();
-  }, [authSession]);
 
   return (
     <SupabaseAuthContext.Provider
