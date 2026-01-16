@@ -211,7 +211,7 @@ function handleProblems(result) {
 
 try {
   const result = execSync(
-    `sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location "$(yarn config get cacheFolder)"'`,
+    `sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location "$(yarn config get cacheFolder)/.eslintcache"'`,
   ).toString('utf-8');
   handleProblems(result);
 } catch (error) {
