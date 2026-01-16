@@ -2703,6 +2703,7 @@
   "perp_trading_adjust_margin_updated": "Marge mise à jour",
   "perps.account_not_support": "Votre compte actuel n'est pas pris en charge. Veuillez vous connecter à un compte EVM et réessayer.",
   "perps.buy_tip": "J'en ai besoin de plus {token}?",
+  "perps.connection_error": "Erreur de connexion matérielle. Veuillez vérifier la connexion et réessayer.",
   "perps.get_reward": "Obtenez des récompenses",
   "perps.offline_moblie": "Connexion perdue. Veuillez vérifier votre réseau et essayer de tirer pour actualiser.",
   "perps.pre_launch": "Pré-lancement",

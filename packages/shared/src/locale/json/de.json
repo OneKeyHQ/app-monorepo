@@ -2703,6 +2703,7 @@
   "perp_trading_adjust_margin_updated": "Marge aktualisiert",
   "perps.account_not_support": "Girokonten werden nicht unterstützt. Bitte verbinden Sie ein EVM-Konto und versuchen Sie es erneut.",
   "perps.buy_tip": "Wir brauchen mehr {token}?",
+  "perps.connection_error": "Hardware-Verbindungsfehler. Bitte überprüfen Sie die Verbindung und versuchen Sie es erneut.",
   "perps.get_reward": "Prämien sichern",
   "perps.offline_moblie": "Verbindung verloren. Bitte überprüfe dein Netzwerk und ziehe zum Aktualisieren nach unten.",
   "perps.pre_launch": "Pre-launch",

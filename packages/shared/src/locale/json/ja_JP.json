@@ -2703,6 +2703,7 @@
   "perp_trading_adjust_margin_updated": "マージンを更新しました",
   "perps.account_not_support": "現在のアカウントはサポートされていません。EVMアカウントを接続して再試行してください。",
   "perps.buy_tip": "もっと必要 {token}?",
+  "perps.connection_error": "ハードウェア接続エラーです。接続を確認して、もう一度お試しください。",
   "perps.get_reward": "報酬を獲得",
   "perps.offline_moblie": "接続が切断されました。ネットワークを確認して、プルして更新してください。",
   "perps.pre_launch": "プレローンチ",

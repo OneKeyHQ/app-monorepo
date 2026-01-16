@@ -2708,6 +2708,7 @@
   perp_trading_adjust_margin_updated = 'perp_trading_adjust_margin_updated',
   perps_account_not_support = 'perps.account_not_support',
   perps_buy_tip = 'perps.buy_tip',
+  perps_connection_error = 'perps.connection_error',
   perps_get_reward = 'perps.get_reward',
   perps_offline_moblie = 'perps.offline_moblie',
   perps_pre_launch = 'perps.pre_launch',

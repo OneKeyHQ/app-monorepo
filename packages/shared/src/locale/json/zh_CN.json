@@ -2703,6 +2703,7 @@
   "perp_trading_adjust_margin_updated": "保证金已更新",
   "perps.account_not_support": "当前账户不支持。请连接一个 EVM 账户后重试",
   "perps.buy_tip": "需要更多 {token} ？",
+  "perps.connection_error": "硬件连接错误。请检查连接并重试。",
   "perps.get_reward": "获得奖励",
   "perps.offline_moblie": "连接中断，请检查您的网络并尝试下拉刷新",
   "perps.pre_launch": "预发布",
