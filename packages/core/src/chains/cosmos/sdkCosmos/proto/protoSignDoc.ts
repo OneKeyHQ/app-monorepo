@@ -91,18 +91,20 @@ export class ProtoSignDoc {
   toJSON(): any {
     return {
       txBody: {
-        ...(TxBody.toJSON(this.txBody) as any),
-        messages: this.txMsgs.map((msg) => {
-          if (msg) {
-            if (msg instanceof UnknownMessage) {
-              return msg.toJSON();
+        // oxlint-disable-next-line unicorn/no-useless-spread
+        ...{
+          messages: this.txMsgs.map((msg) => {
+            if (msg) {
+              if (msg instanceof UnknownMessage) {
+                return msg.toJSON();
+              }
+              if ('factory' in msg) {
+                return msg.factory?.toJSON(msg.unpacked);
+              }
             }
-            if ('factory' in msg) {
-              return msg.factory?.toJSON(msg.unpacked);
-            }
-          }
-          return msg;
-        }),
+            return msg;
+          }),
+        },
       },
       authInfo: AuthInfo.toJSON(this.authInfo),
       chainId: this.chainId,
