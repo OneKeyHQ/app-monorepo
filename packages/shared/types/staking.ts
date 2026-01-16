@@ -368,10 +368,17 @@ export interface IBorrowApyDetailItem {
   value: IBorrowApy;
 }
 
+interface IBorrowApyComponent {
+  color: string;
+  value: string; // numeric string
+  title: IEarnText;
+}
+
 export interface IBorrowApyDetailSection {
   title?: IEarnText;
   descriptions?: IEarnText[];
   items: IBorrowApyDetailItem[];
+  apyComponents?: IBorrowApyComponent[];
 }
 
 export interface IBorrowApyDetailPopupData {
@@ -383,6 +390,8 @@ export interface IBorrowApyDetailPopupData {
     supplyBonus?: IBorrowApyDetailSection;
     collateralBonus?: IBorrowApyDetailSection;
     platformBonus?: IBorrowApyDetailSection;
+    myCollateralShare?: IBorrowApyDetailSection;
+    myPlatformBonusShare?: IBorrowApyDetailSection;
     totalApy?: {
       icon?: {
         icon: IKeyOfIcons;

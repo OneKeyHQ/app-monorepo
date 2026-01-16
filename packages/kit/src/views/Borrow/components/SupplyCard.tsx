@@ -145,7 +145,7 @@ export const SupplyCard = () => {
         render: (item: ISupplyAsset) => (
           <AssetWithAmountField
             token={item.token}
-            canBeCollateral={item.canBeCollateral}
+            canBeCollateral={false}
             amount={item.walletBalance.title}
             amountDescription={item.walletBalance.description}
             showWalletIcon
