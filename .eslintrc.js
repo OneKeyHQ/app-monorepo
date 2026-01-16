@@ -24,7 +24,7 @@ const jsRules = {
   'arrow-body-style': 'off',
   'prefer-destructuring': 'off',
   'react/no-unstable-nested-components': 'warn',
-  'react/jsx-key': 'error',
+  'react/jsx-key': 'off', // handled by oxlint
   'react/jsx-no-useless-fragment': 'off',
   'use-effect-no-deps/use-effect-no-deps': 'error',
   'react-hooks/rules-of-hooks': 'error',
@@ -39,7 +39,7 @@ const jsRules = {
   'import/no-unresolved': 'off', // tsc can check this
   'no-promise-executor-return': 'off',
   'default-param-last': 'off',
-  'import/no-cycle': 'error',
+  'import/no-cycle': 'off', // handled by oxlint (much faster)
   'require-await': 'off',
   'no-void': 'off',
   'ban/ban': [
@@ -59,9 +59,10 @@ const jsRules = {
     },
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
-  'radix': 'error',
-  'unicorn/numeric-separators-style': 'error',
-  'unicorn/prefer-global-this': 'error',
+  // Rules handled by oxlint (faster):
+  'radix': 'off',
+  'unicorn/numeric-separators-style': 'off',
+  'unicorn/prefer-global-this': 'off',
 };
 const restrictedImportsPatterns = [
   {
