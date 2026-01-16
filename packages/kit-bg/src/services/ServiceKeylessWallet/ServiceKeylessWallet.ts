@@ -1,3 +1,4 @@
+import { Semaphore } from 'async-mutex';
 import { isEqual } from 'lodash';
 
 import {
@@ -94,6 +95,8 @@ class ServiceKeylessWallet extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
+
+  updatePinConfirmStatusMutex = new Semaphore(1);
 
   private async getJuiceboxClientFromCache(
     token: string,
@@ -2091,22 +2094,25 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string;
     isCancelAction?: boolean;
   }): Promise<void> {
-    const { token, isCancelAction } = params;
+    return this.updatePinConfirmStatusMutex.runExclusive(async () => {
+      const { token, isCancelAction } = params;
 
-    const client = await this.getClient(EServiceEndpointEnum.Prime);
-    const res = await client.post<IApiClientResponse<{ ok: boolean }>>(
-      '/prime/v1/keyless-wallet/updatePinConfirmStatus',
-      {
-        token,
-        isCancelAction,
-      },
-    );
+      const client = await this.getClient(EServiceEndpointEnum.Prime);
+      const res = await client.post<IApiClientResponse<{ ok: boolean }>>(
+        '/prime/v1/keyless-wallet/updatePinConfirmStatus',
+        {
+          token,
+          isCancelAction,
+        },
+      );
 
-    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
+      const isSuccess =
+        res?.data?.code === 0 && res?.data?.message === 'success';
 
-    if (!isSuccess) {
-      throw new OneKeyLocalError('Failed to update pin confirm status');
-    }
+      if (!isSuccess) {
+        throw new OneKeyLocalError('Failed to update pin confirm status');
+      }
+    });
   }
 
   @backgroundMethod()
@@ -2143,6 +2149,8 @@ class ServiceKeylessWallet extends ServiceBase {
   async apiGetPinConfirmStatus(params: { token: string }): Promise<{
     shouldRemind: boolean;
   }> {
+    // Wait for updatePinConfirmStatus mutex to complete
+    await this.updatePinConfirmStatusMutex.waitForUnlock();
     const { token } = params;
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
