@@ -8,7 +8,6 @@ const results = [
       // priority: high -> low
       path.resolve(__dirname, '../.env.version'),
       path.resolve(__dirname, '../.env.expo'),
-      path.resolve(__dirname, '../.env'),
     ],
   }),
 ];
