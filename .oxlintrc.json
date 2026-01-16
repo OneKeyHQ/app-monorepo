@@ -206,7 +206,9 @@
     // Constant conditions may be intentional for development
     "no-constant-condition": "off",
     // namespace import issues - too many false positives
-    "import/namespace": "off"
+    "import/namespace": "off",
+    // Allow using Object.assign instead of spread syntax
+    "prefer-object-spread": "off"
   },
   // Package-specific rules (migrated from ESLint overrides)
   "overrides": [
