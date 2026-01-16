@@ -134,6 +134,9 @@ const buildBasePlugins: (
     'process.env.ONEKEY_PLATFORM': JSON.stringify(platform),
     'process.env.NODE_ENV': JSON.stringify(nodeEnv),
     'process.env.TAMAGUI_TARGET': JSON.stringify('web'),
+    'process.env.PERF_MONITOR_ENABLED': JSON.stringify(
+      process.env.PERF_MONITOR_ENABLED || '',
+    ),
   }),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
