@@ -105,6 +105,14 @@ export class OAuthPopup extends OAuthPopupBase {
       ? OAuthPopup.buildPkceFlowParams(redirectUrl, client, authUrl)
       : OAuthPopup.buildOidcFlowParams(redirectUrl, client);
 
+    let originalWindowId: number | undefined;
+    try {
+      const currentWindow = await chrome.windows.getCurrent();
+      originalWindowId = currentWindow.id;
+    } catch {
+      // Window may not exist in some contexts (e.g., service worker)
+    }
+
     // Setup window focus listener
     const cleanupFocus = OAuthPopup.setupWindowFocusListener();
 
@@ -131,6 +139,8 @@ export class OAuthPopup extends OAuthPopupBase {
         });
       }
 
+      await OAuthPopup.restoreFocusToOriginalWindow(originalWindowId);
+
       return result;
     } catch (error) {
       if (OAuthPopup.isUserCancelledError(error)) {
@@ -143,6 +153,28 @@ export class OAuthPopup extends OAuthPopupBase {
       } catch {
         // Ignore cleanup errors
       }
+    }
+  }
+
+  /**
+   * Restore focus to the original window after OAuth flow completes.
+   * Fixes OK-49186: Mac Chrome fullscreen mode doesn't auto-focus back to extension.
+   */
+  private static async restoreFocusToOriginalWindow(
+    originalWindowId: number | undefined,
+  ): Promise<void> {
+    try {
+      if (originalWindowId !== undefined) {
+        await chrome.windows.update(originalWindowId, { focused: true });
+      }
+    } catch {
+      // Window may no longer exist
+    }
+
+    try {
+      globalThis.window?.focus?.();
+    } catch {
+      // window.focus may not be available in service worker context
     }
   }
 
