@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,16 +6,14 @@ import { Alert, SizableText, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import {
-  useApprovalListAtom,
-  useContractMapAtom,
-  useTokenMapAtom,
-} from '../../states/jotai/contexts/approvalList';
+import { useApprovalListAtom } from '../../states/jotai/contexts/approvalList';
 import { ListItem } from '../ListItem';
 
 import { useApprovalListViewContext } from './ApprovalListViewContext';
@@ -31,9 +29,20 @@ function HeaderItem({ label }: { label: string }) {
 function ApprovalListHeader({
   recomputeLayout,
   hideRiskOverview,
+  tokenMap,
+  contractMap,
 }: {
   recomputeLayout: () => void;
   hideRiskOverview?: boolean;
+  tokenMap: Record<
+    string,
+    {
+      price: string;
+      price24h: string;
+      info: IToken;
+    }
+  >;
+  contractMap: Record<string, IAddressInfo>;
 }) {
   const intl = useIntl();
 
@@ -42,13 +51,14 @@ function ApprovalListHeader({
   const { tableLayout, accountId, networkId, indexedAccountId } =
     useApprovalListViewContext();
 
+  // isReady: async result has returned
+  // isVisible: layout has been computed, safe to show
+  const [isReady, setIsReady] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const [showApprovalsAlert, setShowApprovalsAlert] = useState(false);
-  const [approvalsAlertOpacity, setApprovalsAlertOpacity] = useState(0);
-  const [tableHeaderOpacity, setTableHeaderOpacity] = useState(0);
+  const hasInitialized = useRef(false);
 
   const [{ approvals }] = useApprovalListAtom();
-  const [{ tokenMap }] = useTokenMapAtom();
-  const [{ contractMap }] = useContractMapAtom();
 
   const { riskApprovals, warningApprovals } = useMemo(() => {
     return approvals.reduce<{
@@ -91,14 +101,14 @@ function ApprovalListHeader({
     result ?? {};
 
   const renderTableHeader = useCallback(() => {
-    if (!tableLayout || approvals?.length <= 0) {
+    if (!tableLayout || approvals?.length <= 0 || !isReady) {
       return null;
     }
 
     return (
       <ListItem
         testID="Wallet-Approval-List-Header"
-        opacity={tableHeaderOpacity}
+        opacity={isVisible ? 1 : 0}
       >
         <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
           <HeaderItem
@@ -128,7 +138,7 @@ function ApprovalListHeader({
         </Stack>
       </ListItem>
     );
-  }, [intl, tableLayout, tableHeaderOpacity, approvals?.length]);
+  }, [intl, tableLayout, approvals?.length, isReady, isVisible]);
 
   const handleViewRiskApprovals = useCallback(
     ({ approvals: _approvals }: { approvals: IContractApproval[] }) => {
@@ -183,7 +193,7 @@ function ApprovalListHeader({
   ]);
 
   const renderRiskOverview = useCallback(() => {
-    if (hideRiskOverview) {
+    if (hideRiskOverview || !isReady) {
       return null;
     }
 
@@ -195,9 +205,8 @@ function ApprovalListHeader({
     }
 
     return (
-      <YStack px="$5" py="$3" gap="$5">
+      <YStack px="$5" py="$3" gap="$5" opacity={isVisible ? 1 : 0}>
         <Alert
-          opacity={approvalsAlertOpacity}
           onClose={handleCloseApprovalsAlert}
           icon="ShieldExclamationOutline"
           title={intl.formatMessage({
@@ -267,26 +276,43 @@ function ApprovalListHeader({
     handleCloseApprovalsAlert,
     handleViewRiskApprovals,
     hideRiskOverview,
-    approvalsAlertOpacity,
     intl,
     riskApprovals,
     showApprovalsAlert,
     warningApprovals,
+    isReady,
+    isVisible,
   ]);
 
+  // Step 1: When async result returns, set isReady and showApprovalsAlert
   useEffect(() => {
+    if (
+      shouldShowInactiveApprovalsAlert === undefined &&
+      shouldShowRiskApprovalsAlert === undefined
+    ) {
+      return;
+    }
+
+    if (hasInitialized.current) {
+      return;
+    }
+    hasInitialized.current = true;
+
     const targetShow = !!(
       shouldShowInactiveApprovalsAlert || shouldShowRiskApprovalsAlert
     );
-    setShowApprovalsAlert(targetShow);
 
-    setTimeout(() => {
-      recomputeLayout();
-      if (targetShow) {
-        setApprovalsAlertOpacity(1);
-      }
-      setTableHeaderOpacity(1);
-    }, 350);
+    setShowApprovalsAlert(targetShow);
+    setIsReady(true);
+
+    // Use requestAnimationFrame to wait for the next paint,
+    // then recompute layout and show content
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        recomputeLayout();
+        setIsVisible(true);
+      });
+    });
   }, [
     shouldShowInactiveApprovalsAlert,
     shouldShowRiskApprovalsAlert,
