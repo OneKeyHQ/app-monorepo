@@ -37,21 +37,23 @@ export function DesktopDragZoneBox({
   const Component = renderAs === 'Pressable' ? Pressable : Stack;
 
   return (
+    // @ts-expect-error - Component type varies based on renderAs prop
     <Component
       {...rest}
       onPress={toggleMaxWindow}
       disabled={disabled}
-      style={[
-        !disabled && {
-          // @ts-expect-error
-          WebkitAppRegion: 'drag',
-        },
-        {
-          WebkitUserSelect: 'none',
-          cursor: 'default',
-        },
-        style,
-      ]}
+      style={
+        [
+          !disabled && {
+            WebkitAppRegion: 'drag',
+          },
+          {
+            userSelect: 'none',
+            cursor: 'default',
+          },
+          style,
+        ] as any
+      }
     >
       {children}
     </Component>

@@ -10,7 +10,7 @@ on:
 
 jobs:
   
-  release-desktop:
+  release-desktop-snap:
     runs-on: ubuntu-latest
     strategy:
       matrix:

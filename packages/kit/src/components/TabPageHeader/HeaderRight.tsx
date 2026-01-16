@@ -121,6 +121,10 @@ export function HeaderRight({
             </>
           );
         }
+        if (selectedHeaderTab === ETranslations.global_market) {
+          return null;
+        }
+        // Browser tab
         return (
           <>
             <HistoryIconButton />

@@ -1019,8 +1019,8 @@ export function useVerifyKeylessPinChecking() {
       await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
         { ownerId },
       );
-   
-    if (accessToken)     {
+
+    if (accessToken) {
       await backgroundApiProxy.serviceKeylessWallet.apiUpdatePinConfirmStatus({
         token: accessToken,
         isCancelAction: true,
