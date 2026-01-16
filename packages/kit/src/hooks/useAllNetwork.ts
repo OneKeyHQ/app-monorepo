@@ -15,6 +15,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -413,6 +414,12 @@ function useAllNetworkRequests<T>(params: {
 
         abortAllNetworkRequests?.();
 
+        perfMark('AllNet:useAllNetworkRequests:start', {
+          isNFTRequests: !!isNFTRequests,
+          isDeFiRequests: !!isDeFiRequests,
+          allNetworkDataInit: !!allNetworkDataInit.current,
+        });
+
         let onStartedError: unknown;
         let onStartedTask: Promise<void> | undefined;
         if (onStarted) {
@@ -426,6 +433,12 @@ function useAllNetworkRequests<T>(params: {
         }
 
         perf.markStart('getAllNetworkAccountsWithEnabledNetworks');
+        const allNetAccountsStart = Date.now();
+        perfMark('AllNet:getAllNetworkAccounts:start', {
+          isNFTRequests: !!isNFTRequests,
+          isDeFiRequests: !!isDeFiRequests,
+        });
+
         const networksEnabledOnly = !accountUtils.isOthersAccount({
           accountId: currentAccountId,
         });
@@ -467,6 +480,16 @@ function useAllNetworkRequests<T>(params: {
           allAccountsInfo,
         } = accountsInfoResult;
         perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
+        perfMark('AllNet:getAllNetworkAccounts:done', {
+          duration: Date.now() - allNetAccountsStart,
+          counts: {
+            accountsInfo: accountsInfo?.length ?? 0,
+            accountsInfoBackendIndexed: accountsInfoBackendIndexed?.length ?? 0,
+            accountsInfoBackendNotIndexed:
+              accountsInfoBackendNotIndexed?.length ?? 0,
+            allAccountsInfo: allAccountsInfo?.length ?? 0,
+          },
+        });
 
         setIsEmptyAccount(false);
 
