@@ -38,6 +38,29 @@ const jsRules = {
   'import/no-cycle': 'off',
   'require-await': 'off',
   'no-void': 'off',
+  // Handled by oxlint: suspicious category
+  'block-scoped-var': 'off',
+  'no-unneeded-ternary': 'off',
+  'no-new': 'off',
+  'no-unexpected-multiline': 'off',
+  'no-useless-concat': 'off',
+  'no-useless-constructor': 'off',
+  'no-restricted-imports': 'off',
+  // Handled by oxlint: import rules
+  'import/no-empty-named-blocks': 'off',
+  'import/no-absolute-path': 'off',
+  'import/no-duplicates': 'off',
+  'import/no-self-import': 'off',
+  // Handled by oxlint: jest rules
+  'jest/no-commented-out-tests': 'off',
+  // Handled by oxlint: react rules
+  'react/jsx-no-comment-textnodes': 'off',
+  'react/jsx-no-script-url': 'off',
+  'react/no-namespace': 'off',
+  'react/style-prop-object': 'off',
+  // Handled by oxlint: unicorn rules
+  'unicorn/no-accessor-recursion': 'off',
+  'unicorn/prefer-set-has': 'off',
   // NOTE: This rule stays in ESLint because oxlint jsPlugins is experimental
   'ban/ban': [
     'error',
@@ -123,6 +146,11 @@ const tsRules = {
   '@typescript-eslint/require-await': 'off',
   // Handled by oxlint: typescript/no-floating-promises
   '@typescript-eslint/no-floating-promises': 'off',
+  // Handled by oxlint: suspicious category
+  '@typescript-eslint/no-confusing-non-null-assertion': 'off',
+  '@typescript-eslint/no-extraneous-class': 'off',
+  '@typescript-eslint/no-unnecessary-type-constraint': 'off',
+  '@typescript-eslint/no-useless-constructor': 'off',
   '@typescript-eslint/naming-convention': [
     'error',
     {
