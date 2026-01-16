@@ -477,7 +477,7 @@ function logIndexedDBCreateTx() {
         );
       };
     }
-  } catch (e) {
+  } catch (_e) {
     //
   }
 }

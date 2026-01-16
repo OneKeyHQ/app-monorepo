@@ -1236,7 +1236,7 @@ export default class VaultBtc extends VaultBase {
           );
         }
         return { utxoList, frozenUtxoList, allUtxoList };
-      } catch (e) {
+      } catch (_e) {
         throw new OneKeyInternalError(
           appLocale.intl.formatMessage({
             id: ETranslations.feedback_failed_to_get_utxos,

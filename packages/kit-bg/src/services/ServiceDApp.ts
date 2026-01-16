@@ -1404,7 +1404,7 @@ class ServiceDApp extends ServiceBase {
             ? homeAccountSelectorInfo?.othersWalletAccountId
             : undefined,
         });
-    } catch (e) {
+    } catch (_e) {
       // void this.disconnectWebsite({
       //   origin,
       //   storageType,

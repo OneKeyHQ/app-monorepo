@@ -271,7 +271,7 @@ class ServiceNetwork extends ServiceBase {
   }): Promise<IServerNetwork | undefined> {
     try {
       return await this.getNetwork({ networkId, code });
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -1035,7 +1035,7 @@ class ServiceNetwork extends ServiceBase {
       };
     }
 
-    const availableNetworkIds: string[] = new Set((
+    const availableNetworkIds = new Set((
       await this.getImportedAccountEnabledNetworks()
     ).map((network) => network.id));
 

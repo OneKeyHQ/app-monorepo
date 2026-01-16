@@ -79,7 +79,7 @@ class ServiceHistory extends ServiceBase {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
         accountId,
       });
-    } catch (error) {
+    } catch (_error) {
       dbAccount = undefined;
     }
     const [accountAddress, xpub] = await Promise.all([
@@ -887,7 +887,7 @@ class ServiceHistory extends ServiceBase {
         ]);
         accountAddress = a;
         xpub = x;
-      } catch (e) {
+      } catch (_e) {
         // pass
       }
 
@@ -971,7 +971,7 @@ class ServiceHistory extends ServiceBase {
       ]);
       accountAddress = a;
       xpub = x;
-    } catch (e) {
+    } catch (_e) {
       // pass
     }
 

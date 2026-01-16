@@ -2104,7 +2104,7 @@ export default class ServiceSwap extends ServiceBase {
             }, ESwapLimitOrderUpdateInterval);
           }
         }
-      } catch (error) {
+      } catch (_error) {
         this.limitOrderStateInterval = setTimeout(() => {
           void this.swapLimitOrdersFetchLoop(
             indexedAccountId,

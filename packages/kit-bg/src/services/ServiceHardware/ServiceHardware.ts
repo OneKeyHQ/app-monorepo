@@ -133,11 +133,11 @@ const SKIPPED_EVENTS = new Set([
   EHardwareUiStateAction.BLUETOOTH_POWERED_OFF,
 ]);
 
-const NEW_DIALOG_EVENTS = [
+const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.BLUETOOTH_PERMISSION,
   EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
-];
+]);
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -185,7 +185,7 @@ class ServiceHardware extends ServiceBase {
                   [walletId]: walletName,
                 };
               });
-            } catch (error) {
+            } catch (_error) {
               //
             }
           }
@@ -482,7 +482,7 @@ class ServiceHardware extends ServiceBase {
             payload: newPayload,
           });
 
-          if (NEW_DIALOG_EVENTS.includes(newUiRequestType)) {
+          if (NEW_DIALOG_EVENTS.has(newUiRequestType)) {
             appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
               uiRequestType: newUiRequestType,
             });
@@ -696,7 +696,7 @@ class ServiceHardware extends ServiceBase {
               hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE,
           },
         });
-      } catch (e: any) {
+      } catch (_e: any) {
         return (device as KnownDevice).features;
       }
     }
@@ -772,7 +772,7 @@ class ServiceHardware extends ServiceBase {
           connectId = device.connectId;
         }
       }
-    } catch (error) {
+    } catch (_error) {
       //
     }
 
@@ -1246,7 +1246,7 @@ class ServiceHardware extends ServiceBase {
       });
       const messages = await convertDeviceResponse(() => hardwareSDK.getLogs());
       logs.push(...messages);
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
     return logs;
@@ -1331,7 +1331,7 @@ class ServiceHardware extends ServiceBase {
           $app_firmware_type: EFirmwareType.Universal,
         };
       }
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
     return bitcoinOnlyFlag;

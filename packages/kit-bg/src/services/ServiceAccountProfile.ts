@@ -360,7 +360,7 @@ class ServiceAccountProfile extends ServiceBase {
         address = displayAddress;
         result.validAddress = address;
       }
-    } catch (e) {
+    } catch (_e) {
       // noop
     }
 

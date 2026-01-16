@@ -891,7 +891,7 @@ class ServiceCloudBackup extends ServiceBase {
           return this.metaDataCache;
         }
         return content;
-      } catch (e) {
+      } catch (_e) {
         if (
           filename === CLOUD_METADATA_FILE_NAME &&
           this.metaDataCache.length > 0

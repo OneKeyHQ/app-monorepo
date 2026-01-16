@@ -161,7 +161,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
           clearTimeout(timeoutId);
           return response.status === 200;
-        } catch (error) {
+        } catch (_error) {
           return false;
         }
       };

@@ -431,7 +431,7 @@ export function createIpTableAdapter(
         const baseUrlObj = new URL(config.baseURL);
         hostname = baseUrlObj.hostname;
       }
-    } catch (error) {
+    } catch (_error) {
       // If URL parsing fails, use original adapter (direct request, not fallback)
       debugLog('[IpTableAdapter] URL parsing failed, using fallback');
       return callOriginalAdapter({ config, isFallback: false });

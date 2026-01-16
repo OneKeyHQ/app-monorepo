@@ -198,7 +198,7 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
           try {
             const securePassword = await biologyAuthUtils.getPassword();
             currentV5BioAuthEnable = !!securePassword;
-          } catch (e) {
+          } catch (_e) {
             currentV5BioAuthEnable = false;
           }
         }

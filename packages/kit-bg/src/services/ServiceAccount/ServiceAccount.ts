@@ -291,7 +291,7 @@ class ServiceAccount extends ServiceBase {
         });
       });
       return !resp;
-    } catch (e) {
+    } catch (_e) {
       return true;
     }
   }
@@ -1369,7 +1369,7 @@ class ServiceAccount extends ServiceBase {
   }> {
     try {
       return await this.addHyperLiquidAgentCredential(params);
-    } catch (error) {
+    } catch (_error) {
       return this.updateHyperLiquidAgentCredential(params);
     }
   }

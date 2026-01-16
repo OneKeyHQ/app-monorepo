@@ -100,7 +100,7 @@ export async function decodeMnemonic(payload: string) {
 
     // 兼容 V0 旧版本
     return Buffer.from(payload, 'hex').toString().trim();
-  } catch (error) {
+  } catch (_error) {
     // 数据解析报错
     return '';
   }
