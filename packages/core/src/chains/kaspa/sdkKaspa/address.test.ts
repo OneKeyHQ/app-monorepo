@@ -39,5 +39,3 @@ describe('Kaspa Address Tests', () => {
     expect(isValid).toBe(false);
   });
 });
-
-

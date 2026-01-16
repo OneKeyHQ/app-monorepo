@@ -1104,7 +1104,9 @@ class ServicePrimeTransfer extends ServiceBase {
     // fill publicData summary by aggregating from privateBackupData
     try {
       const hdWallets = Object.values(privateBackupData.wallets);
-      const sortedHdWallets = hdWallets.toSorted((a, b) => this.walletSortFn(a, b));
+      const sortedHdWallets = hdWallets.toSorted((a, b) =>
+        this.walletSortFn(a, b),
+      );
       const totalHdAccounts = hdWallets.reduce(
         (sum, w) => sum + (w.indexedAccountUUIDs?.length || 0),
         0,
@@ -1118,28 +1120,31 @@ class ServicePrimeTransfer extends ServiceBase {
       publicData.totalWalletsCount = hdWallets.length;
       publicData.totalAccountsCount =
         totalHdAccounts + importedAccountsCount + watchingAccountsCount;
-      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> = sortedHdWallets.map((w) => {
-          let avatarInfo: IAvatarInfo | undefined;
-          try {
-            const parsedAvatar = JSON.parse(
-              walletAccountMap[w.id]?.avatar || '' || '{}',
-            );
-            if (parsedAvatar && Object.keys(parsedAvatar).length > 0) {
-              avatarInfo = parsedAvatar;
+      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> =
+        sortedHdWallets
+          .map((w) => {
+            let avatarInfo: IAvatarInfo | undefined;
+            try {
+              const parsedAvatar = JSON.parse(
+                walletAccountMap[w.id]?.avatar || '' || '{}',
+              );
+              if (parsedAvatar && Object.keys(parsedAvatar).length > 0) {
+                avatarInfo = parsedAvatar;
+              }
+            } catch (error) {
+              console.error('refillWalletInfo', error);
             }
-          } catch (error) {
-            console.error('refillWalletInfo', error);
-          }
 
-          const avatar: IAllWalletAvatarImageNamesWithoutDividers =
-            avatarInfo?.img || 'bear';
-          return {
-            name: w.name,
-            avatar,
-            accountsCount: w.indexedAccountUUIDs?.length || 0,
-            walletXfp: w.xfp,
-          };
-        }).filter(Boolean);
+            const avatar: IAllWalletAvatarImageNamesWithoutDividers =
+              avatarInfo?.img || 'bear';
+            return {
+              name: w.name,
+              avatar,
+              accountsCount: w.indexedAccountUUIDs?.length || 0,
+              walletXfp: w.xfp,
+            };
+          })
+          .filter(Boolean);
       if (importedAccountsCount > 0) {
         const data: IPrimeTransferPublicDataWalletDetail = {
           name: appLocale.intl.formatMessage({

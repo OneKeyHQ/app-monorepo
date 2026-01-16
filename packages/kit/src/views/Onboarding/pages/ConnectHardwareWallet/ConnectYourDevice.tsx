@@ -579,7 +579,8 @@ function useDeviceConnection({
   }, [deviceScanner]);
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
-    () => searchedDevices.map((item) => ({
+    () =>
+      searchedDevices.map((item) => ({
         title: item.name,
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,

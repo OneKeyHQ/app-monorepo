@@ -1370,10 +1370,12 @@ function TokenListBlock({
           r.smallBalanceTokens.fiatValue ?? '0',
         );
 
-        accountsWorth[accountUtils.buildAccountValueKey({
-          accountId: r.accountId ?? '',
-          networkId: r.networkId ?? '',
-        })] = accountWorth.toFixed();
+        accountsWorth[
+          accountUtils.buildAccountValueKey({
+            accountId: r.accountId ?? '',
+            networkId: r.networkId ?? '',
+          })
+        ] = accountWorth.toFixed();
 
         if (
           account?.id &&

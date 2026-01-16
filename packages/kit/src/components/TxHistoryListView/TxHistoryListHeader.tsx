@@ -28,8 +28,9 @@ type IProps = {
 
 const filterScamHistorySupportedNetworks =
   getNetworksSupportFilterScamHistory();
-const filterScamHistorySupportedNetworkIds =
-  new Set(filterScamHistorySupportedNetworks.map((n) => n.id));
+const filterScamHistorySupportedNetworkIds = new Set(
+  filterScamHistorySupportedNetworks.map((n) => n.id),
+);
 
 function TxHistoryListHeader({ filteredHistory: _filteredHistory }: IProps) {
   const intl = useIntl();

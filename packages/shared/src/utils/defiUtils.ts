@@ -125,7 +125,9 @@ function transferPositionMap(
       ),
       value: position.value.toFixed(),
     }))
-    .toSorted((a, b) => new BigNumber(b.value).comparedTo(new BigNumber(a.value)));
+    .toSorted((a, b) =>
+      new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
+    );
   return positions;
 }
 

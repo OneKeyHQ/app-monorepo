@@ -176,7 +176,15 @@ enum EXhrState {
   DONE = 4,
 }
 
-const METHODS = new Set(['GET', 'HEAD', 'POST', 'DELETE', 'OPTIONS', 'PUT', 'PATCH']);
+const METHODS = new Set([
+  'GET',
+  'HEAD',
+  'POST',
+  'DELETE',
+  'OPTIONS',
+  'PUT',
+  'PATCH',
+]);
 
 export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   #abortedFlag = false;

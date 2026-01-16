@@ -310,13 +310,13 @@ function toastWarningAndReset(key: string) {
       indexedDBResult[key] >= generalDebuggerRule[key]
     ) {
       if (settings?.debuggerEnabled) {
-        
+        // debugger;
       }
     }
 
     if (shouldDbTxCreatedDebuggerRule[key]) {
       if (settings?.debuggerEnabled) {
-        
+        // debugger;
       }
     }
     resetData();
@@ -364,7 +364,7 @@ function logLocalDbCall(method: string, table: string, params: any[]) {
     ) {
       logResult();
       if (settings?.debuggerEnabled) {
-        
+        // debugger;
       }
     }
   }
@@ -415,7 +415,7 @@ function logAppStorageCall(method: string, key: string) {
     ) {
       logResult();
       if (settings?.debuggerEnabled) {
-        
+        // debugger;
       }
     }
   }

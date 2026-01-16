@@ -351,7 +351,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
       tokenStatusMap === 'hiddenMap' &&
       accountXpubOrAddress === '0x2304e629180657B407F83F9BC7bE26A4BdF00b03'
     ) {
-      
+      // debug for specific account
     }
 
     const tokenStatus =

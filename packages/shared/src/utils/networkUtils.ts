@@ -27,7 +27,9 @@ import numberUtils from './numberUtils';
 import type { IServerNetwork } from '../../types';
 
 const defaultEnabledNetworks = getDefaultEnabledNetworksInAllNetworks();
-const defaultEnabledNetworkIds = new Set(defaultEnabledNetworks.map((n) => n.id));
+const defaultEnabledNetworkIds = new Set(
+  defaultEnabledNetworks.map((n) => n.id),
+);
 
 function parseNetworkId({ networkId }: { networkId: string }) {
   const [impl, chainId] = networkId.split(SEPERATOR);

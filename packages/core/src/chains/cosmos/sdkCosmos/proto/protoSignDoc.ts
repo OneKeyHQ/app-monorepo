@@ -90,20 +90,20 @@ export class ProtoSignDoc {
 
   toJSON(): any {
     return {
-      txBody: ({
-	...TxBody.toJSON(this.txBody) as any,
-	messages: this.txMsgs.map((msg) => {
-		if (msg) {
-			if (msg instanceof UnknownMessage) {
-				return msg.toJSON();
-			}
-			if ('factory' in msg) {
-				return msg.factory?.toJSON(msg.unpacked);
-			}
-		}
-		return msg;
-	})
-}),
+      txBody: {
+        ...(TxBody.toJSON(this.txBody) as any),
+        messages: this.txMsgs.map((msg) => {
+          if (msg) {
+            if (msg instanceof UnknownMessage) {
+              return msg.toJSON();
+            }
+            if ('factory' in msg) {
+              return msg.factory?.toJSON(msg.unpacked);
+            }
+          }
+          return msg;
+        }),
+      },
       authInfo: AuthInfo.toJSON(this.authInfo),
       chainId: this.chainId,
       accountNumber: this.accountNumber,

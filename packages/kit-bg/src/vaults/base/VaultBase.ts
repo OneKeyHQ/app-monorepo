@@ -147,7 +147,6 @@ export type IVaultInitConfig = {
 export type IKeyringMapKey = IDBWalletType;
 
 if (platformEnv.isExtensionUi) {
-  
   throw new OneKeyLocalError(
     'engine/VaultBase is not allowed imported from ui',
   );

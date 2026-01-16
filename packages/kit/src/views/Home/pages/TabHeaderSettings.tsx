@@ -71,8 +71,9 @@ function TokenListSettings() {
 }
 const filterScamHistorySupportedNetworks =
   getNetworksSupportFilterScamHistory();
-const filterScamHistorySupportedNetworkIds =
-  new Set(filterScamHistorySupportedNetworks.map((n) => n.id));
+const filterScamHistorySupportedNetworkIds = new Set(
+  filterScamHistorySupportedNetworks.map((n) => n.id),
+);
 
 function TxHistorySettings() {
   const intl = useIntl();

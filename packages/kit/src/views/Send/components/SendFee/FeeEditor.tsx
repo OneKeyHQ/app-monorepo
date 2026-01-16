@@ -863,7 +863,7 @@ function FeeEditor(props: IProps) {
     vaultSettings?.editFeeEnabled,
   ]);
 
-  type IWatchAllFieldsKeys = keyof typeof watchAllFields
+  type IWatchAllFieldsKeys = keyof typeof watchAllFields;
   const handleFormValueOnChange = useCallback(
     ({
       name,

@@ -161,7 +161,10 @@ const FILTERED_ERROR_TYPES = new Set([
   EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
 ]);
 
-const FILTER_ERROR_VALUES = new Set(['AbortError: AbortError', 'cancel timeout']);
+const FILTER_ERROR_VALUES = new Set([
+  'AbortError: AbortError',
+  'cancel timeout',
+]);
 
 const isFilterErrorAndSkipSentry = (error?: {
   type?: string | undefined;

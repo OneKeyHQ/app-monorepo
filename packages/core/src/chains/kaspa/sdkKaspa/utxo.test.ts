@@ -27,5 +27,3 @@ describe('Kaspa UTXO Tests', () => {
     process.stdout.write(`pubkeyInfos: ${JSON.stringify(selectedUTXOs)}\n`);
   });
 });
-
-

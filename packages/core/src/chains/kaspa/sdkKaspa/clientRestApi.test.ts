@@ -24,5 +24,3 @@ describe('Kaspa Rest API Client Tests', () => {
     process.stdout.write(`query utxo length: ${utxo.length}\n`);
   });
 });
-
-

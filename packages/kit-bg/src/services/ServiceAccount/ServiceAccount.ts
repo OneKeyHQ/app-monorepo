@@ -5172,7 +5172,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     skipEventEmit?: boolean;
   }) {
-    let addedAccounts: IDBAccount[] = [];
+    const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
@@ -5253,7 +5253,7 @@ class ServiceAccount extends ServiceBase {
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
-    let addedAccounts: IDBAccount[] = [];
+    const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;

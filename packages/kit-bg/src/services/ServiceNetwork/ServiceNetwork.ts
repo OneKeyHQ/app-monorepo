@@ -1035,9 +1035,11 @@ class ServiceNetwork extends ServiceBase {
       };
     }
 
-    const availableNetworkIds = new Set((
-      await this.getImportedAccountEnabledNetworks()
-    ).map((network) => network.id));
+    const availableNetworkIds = new Set(
+      (await this.getImportedAccountEnabledNetworks()).map(
+        (network) => network.id,
+      ),
+    );
 
     const { groupedByImpl } =
       await networkDetectUtils.detectNetworkByPrivateKey({

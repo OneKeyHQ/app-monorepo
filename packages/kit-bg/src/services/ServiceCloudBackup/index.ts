@@ -556,11 +556,13 @@ class ServiceCloudBackup extends ServiceBase {
         }
       }
 
-      const allLocalHDAccountUUIDs = new Set(([] as Array<string>).concat(
-        ...Object.values(localData.HDWallets).map(
-          ({ accountUUIDs }) => accountUUIDs,
+      const allLocalHDAccountUUIDs = new Set(
+        ([] as Array<string>).concat(
+          ...Object.values(localData.HDWallets).map(
+            ({ accountUUIDs }) => accountUUIDs,
+          ),
         ),
-      ));
+      );
       for (const [HDWalletId, HDWallet] of Object.entries(
         remoteData.HDWallets,
       )) {
