@@ -1,0 +1,14 @@
+diff --git a/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js b/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
+index 39d48b8..27e4d49 100644
+--- a/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
++++ b/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
+@@ -216,7 +216,8 @@ export function BottomTabView(props) {
+         }) : STATE_INACTIVE;
+         return /*#__PURE__*/_jsx(MaybeScreen, {
+           style: [StyleSheet.absoluteFill, {
+-            zIndex: isFocused ? 0 : -1
++            zIndex: isFocused ? 0 : -1,
++            ...(Platform.OS === 'web' && !isFocused ? { contentVisibility: 'hidden' } : {})
+           }],
+           active: activityState,
+           enabled: detachInactiveScreens,
