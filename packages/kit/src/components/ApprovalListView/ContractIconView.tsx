@@ -1,8 +1,7 @@
 import { memo } from 'react';
 
-import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
+import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 
-import { useContractMapAtom } from '../../states/jotai/contexts/approvalList';
 import { Token } from '../Token';
 
 import { useApprovalListViewContext } from './ApprovalListViewContext';
@@ -10,23 +9,13 @@ import { useApprovalListViewContext } from './ApprovalListViewContext';
 type IProps = {
   address: string;
   networkId: string;
+  contract?: IAddressInfo;
 };
 
 function ContractIconView(props: IProps) {
-  const { address, networkId } = props;
+  const { networkId, contract } = props;
 
   const { isAllNetworks } = useApprovalListViewContext();
-
-  const [{ contractMap }] = useContractMapAtom();
-
-  const contract = contractMap[
-    approvalUtils.buildContractMapKey({
-      networkId,
-      contractAddress: address,
-    })
-  ] ?? {
-    icon: 'Document2Outline',
-  };
 
   if (isAllNetworks) {
     return (
@@ -35,7 +24,7 @@ function ContractIconView(props: IProps) {
         size="lg"
         networkId={networkId}
         tokenImageUri={contract?.logoURI}
-        fallbackIcon={contract?.icon}
+        fallbackIcon={contract?.icon ?? 'Document2Outline'}
         showNetworkIcon
       />
     );
@@ -45,7 +34,7 @@ function ContractIconView(props: IProps) {
       isNFT
       size="lg"
       tokenImageUri={contract?.logoURI}
-      fallbackIcon={contract?.icon}
+      fallbackIcon={contract?.icon ?? 'Document2Outline'}
     />
   );
 }
