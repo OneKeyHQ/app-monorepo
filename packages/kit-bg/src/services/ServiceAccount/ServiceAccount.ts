@@ -3370,6 +3370,10 @@ class ServiceAccount extends ServiceBase {
         'Remove non-hd and non-hw wallet is not allowed',
       );
     }
+
+    const wallet = await this.getWalletSafe({ walletId });
+    const keylessOwnerId = wallet?.keylessDetailsInfo?.keylessOwnerId;
+
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
@@ -3394,6 +3398,12 @@ class ServiceAccount extends ServiceBase {
     void this.cleanupOrphanedHyperLiquidAgentCredentials({
       walletId,
     });
+
+    if (keylessOwnerId) {
+      void this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage({
+        ownerId: keylessOwnerId,
+      });
+    }
 
     if (!skipBackupWalletRemove) {
       void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({

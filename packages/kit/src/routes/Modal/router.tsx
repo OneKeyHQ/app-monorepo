@@ -263,7 +263,12 @@ export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Ro
         console.log('OnboardingModal onMounted');
       },
       onUnmounted: async () => {
-        void keylessOnboardingCache.clear();
+        keylessOnboardingCache.clear();
+        try {
+          await backgroundApiProxy.serviceKeylessWallet.clearKeylessOnboardingCache();
+        } catch {
+          // ignore
+        }
         await v4migrationAtom.set((v) => ({
           ...v,
           isProcessing: false,

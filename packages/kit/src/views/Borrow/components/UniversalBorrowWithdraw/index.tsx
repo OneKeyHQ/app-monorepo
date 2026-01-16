@@ -7,6 +7,7 @@ import { Keyboard, StyleSheet } from 'react-native';
 
 import {
   Alert,
+  Divider,
   Icon,
   Page,
   Stack,
@@ -37,6 +38,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '../../../Staking/components/ProtocolDetails/EarnTooltip';
 import { createBorrowAssetSelectPopoverContent } from '../BorrowAssetSelectPopover';
 import { BorrowInfoItem } from '../BorrowInfoItem';
 import { ApyTextV2 } from '../BorrowTableList/ApyTextV2';
@@ -528,6 +530,14 @@ export function UniversalBorrowWithdraw({
                 ) : null}
               </BorrowInfoItem>
             ) : null}
+          </YStack>
+          {(transactionConfirmation?.healthFactor ||
+            transactionConfirmation?.mySupply) &&
+          ((showApyDetail && transactionConfirmation?.apyDetail) ||
+            transactionConfirmation?.refundFee) ? (
+            <Divider my="$5" />
+          ) : null}
+          <YStack gap="$6">
             {showApyDetail && transactionConfirmation?.apyDetail ? (
               <BorrowInfoItem
                 title={intl.formatMessage({
@@ -537,6 +547,24 @@ export function UniversalBorrowWithdraw({
                 <ApyTextV2
                   apyDetail={transactionConfirmation.apyDetail}
                   triggerMode="icon"
+                />
+              </BorrowInfoItem>
+            ) : null}
+            {transactionConfirmation?.refundFee ? (
+              <BorrowInfoItem
+                title={
+                  <XStack ai="center" gap="$1.5">
+                    <EarnText
+                      text={transactionConfirmation?.refundFee?.title}
+                    />
+                    <EarnTooltip
+                      tooltip={transactionConfirmation?.refundFee?.tooltip}
+                    />
+                  </XStack>
+                }
+              >
+                <EarnText
+                  text={transactionConfirmation?.refundFee?.description}
                 />
               </BorrowInfoItem>
             ) : null}

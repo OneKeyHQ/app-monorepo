@@ -107,9 +107,9 @@ export const ManagePositionPart = ({
 
   return (
     <YStack flex={4}>
-      <YStack gap="$1.5" flex={1} p="$5">
+      <YStack gap="$1.5" flex={1} px="$5">
         {/* My info header */}
-        <SizableText size="$headingMd" mb="$5">
+        <SizableText size="$headingMd" mb="$3.5">
           {labels.myInfo}
         </SizableText>
 
