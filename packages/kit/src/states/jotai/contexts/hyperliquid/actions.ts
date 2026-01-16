@@ -408,10 +408,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           });
 
           // Check for deposit/send updates and match with pending orders
-          // Hyperliquid may use 'send' type for deposit confirmations
+          // Hyperliquid use 'send' type for deposit confirmations
           const depositUpdates = newUpdates.filter(
             (update) =>
-              update.delta.type === 'deposit' || update.delta.type === 'send',
+              update.delta.type === 'deposit' ||
+              (update.delta.type as string) === 'send',
           );
           if (depositUpdates.length > 0) {
             const perpDepositOrder = await perpsDepositOrderAtom.get();
