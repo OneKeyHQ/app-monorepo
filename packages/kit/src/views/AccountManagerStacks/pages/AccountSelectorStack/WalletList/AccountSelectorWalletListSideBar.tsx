@@ -331,6 +331,17 @@ export function AccountSelectorWalletListSideBar({
   const walletConnectionMap = useMemo(() => {
     const map = new Map<string, boolean>();
     wallets.forEach((wallet) => {
+      // Deprecated wallets should not show connection status
+      if (wallet.deprecated) {
+        map.set(wallet.id, false);
+        return;
+      }
+      // Hidden wallets (passphrase wallets) should never show connection status
+      if (accountUtils.isHwHiddenWallet({ wallet })) {
+        map.set(wallet.id, false);
+        return;
+      }
+
       const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
       const deviceId = wallet.associatedDeviceInfo?.deviceId;
       const isConnected =
