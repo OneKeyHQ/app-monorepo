@@ -1884,6 +1884,10 @@ export interface IBorrowAsset {
     description: IEarnText;
   };
   apyDetail: IBorrowApy;
+  platformBonusApy?: {
+    title: IEarnText;
+    logoURI: string;
+  };
 }
 
 export interface IBorrowAssetsList {
