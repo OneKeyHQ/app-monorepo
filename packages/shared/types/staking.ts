@@ -1620,6 +1620,8 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
   metadata: {
     protocol: IEarnInvestmentItemV2['protocol'];
     network: IEarnInvestmentItemV2['network'];
+    fiatValue?: string;
+    fiatValueUsd?: string;
   };
 };
 
