@@ -42,7 +42,7 @@ function ConfirmPinPage() {
 
       // Auto-validate when 4 digits entered
       if (filteredText.length === 4) {
-        const originalPin = await getKeylessOnboardingPin({ skipDelete: true });
+        const originalPin = await getKeylessOnboardingPin();
         if (!originalPin) {
           handleKeylessOnboardingTimeout();
           return;

@@ -244,7 +244,7 @@ export const JUICEBOX_CONFIG: IJuiceBoxConfigJSON = {
   recover_threshold: 2, // At least 2 realms must succeed to recover
   pin_hashing_mode: 'Standard2019',
 };
-export const JUICEBOX_ALLOWED_GUESSES = 10; // Number of allowed PIN guess attempts
+export const JUICEBOX_ALLOWED_GUESSES = 7; // Number of allowed PIN guess attempts
 
 // Keyless Backend Share Payload Encryption
 // Fixed encryption key for keyless backend share payload encryption
