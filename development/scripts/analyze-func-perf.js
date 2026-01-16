@@ -348,7 +348,6 @@ function buildSpeedscope(entries, profileName = 'RN Function Perf') {
     Infinity,
   );
   const maxEnd = usable.reduce((m, e) => Math.max(m, e.ts), 0);
-  const base = Number.isFinite(minTs) ? minTs : 0;
   const span = Math.max(maxEnd - (Number.isFinite(minTs) ? minTs : 0), 1);
 
   const samples = [];

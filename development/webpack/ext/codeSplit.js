@@ -4,7 +4,6 @@ const devUtils = require('./devUtils');
 let chunkIndex = 800;
 
 function enableCodeSplitChunks({ config }) {
-  const { name } = config;
   let maxSizeMb = 4;
   const isFirefox = devUtils.isBuildTargetBrowserFirefox();
   const isChrome = devUtils.isBuildTargetBrowserChromeLike();

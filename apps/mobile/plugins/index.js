@@ -101,7 +101,7 @@ module.exports = (config, projectRoot) => {
       entryPoint,
       prepend,
       graph,
-      bundleOptions,
+      _bundleOptions,
     ) => {
       for (const [entryKey, value] of graph.dependencies) {
         // to entry file injection of global variables __APP__

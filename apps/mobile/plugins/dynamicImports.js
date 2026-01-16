@@ -99,7 +99,7 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
   );
 
   const allocation = () => {
-    for (const [key, val] of map) val.modules.length = 0;
+    for (const [_key, val] of map) val.modules.length = 0;
     for (const [moduleId, moduleCode] of modules) {
       for (const [, val] of map) {
         if (val.moduleIds.has(moduleId)) {

@@ -155,6 +155,8 @@
     "no-await-in-loop": "off",
     // Performance suggestions, not errors
     "oxc/no-map-spread": "off",
+    // Accumulating spread in loops - disabled due to many existing usages
+    "oxc/no-accumulating-spread": "off",
     // Event handler patterns vary
     "unicorn/prefer-add-event-listener": "off",
     // Function scoping is sometimes intentional

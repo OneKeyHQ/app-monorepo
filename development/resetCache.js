@@ -3,7 +3,7 @@ const childProcess = require('child_process');
 
 function exec(fullCmd) {
   const [cmd, ...args] = fullCmd.split(/\s+/);
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     const child = childProcess.spawn(cmd, args, {
       stdio: [
         process.stdin, // 0 use parents stdin for child
