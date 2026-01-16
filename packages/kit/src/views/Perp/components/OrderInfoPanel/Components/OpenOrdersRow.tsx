@@ -103,7 +103,7 @@ const OpenOrdersRow = memo(
             id: ETranslations.perp_long, // Long
           });
         }
-        if (order.reduceOnly) {
+        if (reduceOnly) {
           return `${intl.formatMessage({
             id: ETranslations.perp_order_close_long, // Close Long
           })}`;
