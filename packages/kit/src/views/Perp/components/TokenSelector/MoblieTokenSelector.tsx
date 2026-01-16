@@ -414,7 +414,7 @@ function MobileTokenSelectorModal({
               platformEnv.isNative
                 ? `${activeTab}-${selectorConfig?.field ?? ''}-${
                     selectorConfig?.direction ?? ''
-                  }`
+                  }-${mockedListData.length}`
                 : undefined
             }
             useFlashList
