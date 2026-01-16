@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -27,6 +27,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ListItem } from '../../../components/ListItem';
 import { useIsFirstFocused } from '../../../hooks/useIsFirstFocused';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
+import { useEarnHideSmallAssets } from '../hooks/useEarnHideSmallAssets';
 
 import { FAQContent } from './FAQContent';
 import { PortfolioTabContent } from './PortfolioTabContent';
@@ -82,7 +83,7 @@ const EarnMainTabsComponent = ({
   const intl = useIntl();
   const theme = useTheme();
   const tabsRef = useRef<ITabContainerRef>(null);
-  const [hideSmallAssets, setHideSmallAssets] = useState(false);
+  const { hideSmallAssets, setHideSmallAssets } = useEarnHideSmallAssets();
 
   const tabNames = useMemo(
     () => ({
@@ -221,7 +222,7 @@ const EarnMainTabsComponent = ({
         />
       );
     },
-    [hideSmallAssets, intl, tabNames.portfolio],
+    [hideSmallAssets, intl, setHideSmallAssets, tabNames.portfolio],
   );
 
   const mergedContainerProps = useMemo<

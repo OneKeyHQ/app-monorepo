@@ -20,12 +20,15 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
-import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowAlert,
+  IEarnText,
+  IEarnTooltip,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -94,9 +97,11 @@ const OverviewItem = ({
 export const Overview = ({
   showBottomSpacing = true,
   isActive = true,
+  onHealthFactorAlertsChange,
 }: {
   showBottomSpacing?: boolean;
   isActive?: boolean;
+  onHealthFactorAlertsChange?: (alerts?: IBorrowAlert[]) => void;
 }) => {
   const {
     reserves,
@@ -105,6 +110,7 @@ export const Overview = ({
     pendingTxs,
     refreshRewardsRef,
     refreshReservesRef,
+    refreshBorrowDataRef,
   } = useBorrowContext();
   const { earnAccount } = useEarnAccount({
     networkId: market?.networkId,
@@ -142,7 +148,6 @@ export const Overview = ({
 
   // Calculate pending count and claim IDs from pending transactions
   const pendingCount = pendingTxs.length;
-  const prevPendingCount = usePrevious(pendingCount);
   const pendingClaimIds = useMemo(
     () =>
       pendingTxs
@@ -173,6 +178,11 @@ export const Overview = ({
     enabled:
       isActive && !!(networkId && provider && marketAddress && earnAccountId),
   });
+  const healthFactorAlerts = healthFactorData?.alerts;
+
+  useEffect(() => {
+    onHealthFactorAlertsChange?.(healthFactorAlerts);
+  }, [healthFactorAlerts, onHealthFactorAlertsChange]);
 
   const {
     borrowRewards,
@@ -202,22 +212,6 @@ export const Overview = ({
   }, [refreshBorrowRewards, refreshHealthFactor, refreshReservesRef]);
 
   useEffect(() => {
-    if (prevPendingCount === undefined || pendingCount >= prevPendingCount) {
-      return undefined;
-    }
-    let _isActive = true;
-    setIsManualRefreshing(true);
-    void refreshBorrowData().finally(() => {
-      if (_isActive) {
-        setIsManualRefreshing(false);
-      }
-    });
-    return () => {
-      _isActive = false;
-    };
-  }, [pendingCount, prevPendingCount, refreshBorrowData]);
-
-  useEffect(() => {
     refreshRewardsRef.current = refreshBorrowRewards;
   }, [refreshBorrowRewards, refreshRewardsRef]);
 
@@ -232,6 +226,20 @@ export const Overview = ({
     },
     [refreshBorrowData],
   );
+
+  const refreshBorrowDataForPending = useCallback(
+    () => requestRefresh('txSuccess'),
+    [requestRefresh],
+  );
+
+  useEffect(() => {
+    refreshBorrowDataRef.current = refreshBorrowDataForPending;
+    return () => {
+      if (refreshBorrowDataRef.current === refreshBorrowDataForPending) {
+        refreshBorrowDataRef.current = null;
+      }
+    };
+  }, [refreshBorrowDataForPending, refreshBorrowDataRef]);
 
   const handleHistoryPress = useCallback(() => {
     if (!provider || !networkId || !marketAddress || !earnAccountId) return;
@@ -323,7 +331,6 @@ export const Overview = ({
           onSuccess: () => requestRefresh('txSuccess'),
         });
       },
-      onClose: () => requestRefresh('manual'),
     });
   }, [
     borrowRewards?.button,
@@ -386,7 +393,7 @@ export const Overview = ({
               </SizableText>
             )}
           </YStack>
-          <XStack ai="center" gap="$3">
+          <XStack ai="center" gap="$3" pr="$2.5">
             {pendingCount > 0 ? (
               <PendingIndicator
                 num={pendingCount}
@@ -639,7 +646,7 @@ export const Overview = ({
         }
       />
 
-      <XStack ml="auto" ai="center" gap="$3">
+      <XStack ml="auto" ai="center" gap="$3" pr="$2.5">
         {pendingCount > 0 ? (
           <PendingIndicator num={pendingCount} onPress={handleHistoryPress} />
         ) : null}

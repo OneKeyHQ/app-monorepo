@@ -1475,7 +1475,7 @@
   "global.follow_the_system": "跟随系统",
   "global.for": "授权给",
   "global.forever": "永远",
-  "global.forget_device": "忘记此设备",
+  "global.forget_device": "移除设备",
   "global.forget_device_success": "钱包已成功移除",
   "global.from": "从",
   "global.from_provider": "来自 {provider}",

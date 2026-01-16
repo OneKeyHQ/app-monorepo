@@ -49,7 +49,7 @@ export class JuiceboxClient {
 
   private juiceboxTokenCache: Map<string, IJuiceboxTokenCacheItem>; // realmId (hex) -> { token, pinHash }
 
-  private client: Client; // Client from juicebox-sdk
+  private client: Client | null = null; // Client from juicebox-sdk
 
   private bindGlobalAuthTokenProvider(): void {
     // Set global callback for juicebox-sdk
@@ -162,6 +162,10 @@ export class JuiceboxClient {
   }): Promise<void> {
     const { pin, secret, userInfo } = params;
 
+    if (!this.client) {
+      throw new OneKeyLocalError('Juicebox client is not initialized');
+    }
+
     // Validate token cache is not empty
     if (this.juiceboxTokenCache.size === 0) {
       throw new OneKeyLocalError(
@@ -208,6 +212,10 @@ export class JuiceboxClient {
     const enableKeylessDebugInfo =
       !!devSettingsPersist.enabled &&
       !!devSettingsPersist.settings?.enableKeylessDebugInfo;
+
+    if (!this.client) {
+      throw new OneKeyLocalError('Juicebox client is not initialized');
+    }
 
     try {
       const { pin, userInfo, skipTokenCacheClear } = params;
@@ -372,5 +380,16 @@ export class JuiceboxClient {
    */
   clearTokenCache(): void {
     this.juiceboxTokenCache.clear();
+  }
+
+  /**
+   * Dispose this instance and release best-effort resources.
+   *
+   * Note: this does NOT unbind the global auth token callback because the
+   * juicebox-sdk uses a single global callback shared across all instances.
+   */
+  dispose(): void {
+    this.juiceboxTokenCache.clear();
+    this.client = null;
   }
 }

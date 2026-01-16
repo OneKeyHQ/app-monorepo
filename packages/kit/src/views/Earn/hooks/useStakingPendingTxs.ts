@@ -122,15 +122,24 @@ export const useStakingPendingTxs = ({
 export const useStakingPendingTxsByInfo = ({
   filter,
   onRefresh,
+  networkIds,
+  tagMatcher,
+  onRefreshDelayMs = 0,
 }: {
   filter?: (tx: IStakePendingTx) => boolean;
   onRefresh?: () => void;
+  networkIds?: string[];
+  tagMatcher?: (tag: string) => boolean;
+  onRefreshDelayMs?: number;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const accountId = account?.id;
   const currentNetworkId = activeAccount.network?.id;
   const [{ availableAssetsByType = {} }] = useEarnAtom();
+  const shouldUseEarnAssets = !tagMatcher;
+  const lastFilteredTxsRef = useRef<IStakePendingTx[]>([]);
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Stabilize onRefresh callback reference
   const onRefreshRef = useRef(onRefresh);
@@ -140,6 +149,9 @@ export const useStakingPendingTxsByInfo = ({
 
   // Prefer the "All" tab data, otherwise merge everything we have locally
   const availableAssets = useMemo(() => {
+    if (!shouldUseEarnAssets) {
+      return [];
+    }
     const assetsFromAll = availableAssetsByType?.[EAvailableAssetsTypeEnum.All];
     const mergedAssets =
       assetsFromAll ?? Object.values(availableAssetsByType).flat();
@@ -178,7 +190,7 @@ export const useStakingPendingTxsByInfo = ({
       existing.protocols = existingProtocols;
     });
     return Array.from(mergedByKey.values());
-  }, [availableAssetsByType]);
+  }, [availableAssetsByType, shouldUseEarnAssets]);
 
   // Build unique staking targets (network + stakeTag) from available assets
   const stakingTargets = useMemo(() => {
@@ -218,17 +230,24 @@ export const useStakingPendingTxsByInfo = ({
     [stakingTargets],
   );
 
-  const networkIds = useMemo<string[]>(
+  const derivedNetworkIds = useMemo<string[]>(
     () => [...new Set(stakingTargets.map((target) => target.networkId))],
     [stakingTargets],
   );
 
+  const effectiveNetworkIds = useMemo(() => {
+    if (networkIds?.length) {
+      return [...new Set(networkIds.filter(Boolean))];
+    }
+    return derivedNetworkIds;
+  }, [derivedNetworkIds, networkIds]);
+
   // Get the minimum polling interval across all networks
   const { result: pollingInterval } = usePromiseResult(
     async () => {
-      if (networkIds.length === 0) return DEFAULT_POLLING_INTERVAL;
+      if (effectiveNetworkIds.length === 0) return DEFAULT_POLLING_INTERVAL;
       const intervals = await Promise.all(
-        networkIds.map((networkId: string) =>
+        effectiveNetworkIds.map((networkId: string) =>
           backgroundApiProxy.serviceStaking
             .getFetchHistoryPollingInterval({
               networkId,
@@ -239,7 +258,7 @@ export const useStakingPendingTxsByInfo = ({
       const minInterval = Math.min(...intervals);
       return timerUtils.getTimeDurationMs({ seconds: minInterval });
     },
-    [networkIds],
+    [effectiveNetworkIds],
     { initResult: DEFAULT_POLLING_INTERVAL },
   );
 
@@ -253,12 +272,12 @@ export const useStakingPendingTxsByInfo = ({
       if (
         accountId &&
         currentNetworkId &&
-        networkIds.includes(currentNetworkId)
+        effectiveNetworkIds.includes(currentNetworkId)
       ) {
         map[currentNetworkId] = accountId;
       }
 
-      if (!indexedAccount?.id || networkIds.length === 0) {
+      if (!indexedAccount?.id || effectiveNetworkIds.length === 0) {
         return map;
       }
 
@@ -267,7 +286,7 @@ export const useStakingPendingTxsByInfo = ({
           await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
             {
               indexedAccountId: indexedAccount.id,
-              networkIds,
+              networkIds: effectiveNetworkIds,
             },
           );
 
@@ -282,7 +301,7 @@ export const useStakingPendingTxsByInfo = ({
 
       return map;
     },
-    [accountId, currentNetworkId, indexedAccount?.id, networkIds],
+    [accountId, currentNetworkId, indexedAccount?.id, effectiveNetworkIds],
     { initResult: {} },
   );
 
@@ -327,16 +346,28 @@ export const useStakingPendingTxsByInfo = ({
     { initResult: {} as Record<string, INetworkAccountMeta> },
   );
 
-  // Fetch pending transactions based on available assets
+  // Fetch pending transactions based on stake tags or tag matcher
   const fetchFilteredPendingTxs = useCallback(async (): Promise<
     IStakePendingTx[]
   > => {
-    if (Object.keys(stakeTagsByNetwork).length === 0) {
+    if (effectiveNetworkIds.length === 0) {
+      return [];
+    }
+
+    if (!tagMatcher && Object.keys(stakeTagsByNetwork).length === 0) {
       return [];
     }
 
     const targetsWithAccount = Object.entries(accountMetaByNetwork).filter(
-      ([networkId]) => stakeTagsByNetwork[networkId]?.size,
+      ([networkId]) => {
+        if (!effectiveNetworkIds.includes(networkId)) {
+          return false;
+        }
+        if (tagMatcher) {
+          return true;
+        }
+        return stakeTagsByNetwork[networkId]?.size;
+      },
     );
     if (targetsWithAccount.length === 0) {
       return [];
@@ -344,10 +375,6 @@ export const useStakingPendingTxsByInfo = ({
 
     const txsForTargets = await Promise.all(
       targetsWithAccount.map(async ([networkId, meta]) => {
-        const stakeTags = stakeTagsByNetwork[networkId];
-        if (!stakeTags?.size) {
-          return [];
-        }
         try {
           const pendingTxs =
             await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
@@ -358,27 +385,50 @@ export const useStakingPendingTxsByInfo = ({
               },
             );
 
-          return pendingTxs.filter((tx): tx is IStakePendingTx =>
-            Boolean(
-              tx.stakingInfo &&
-                tx.stakingInfo.tags.some((tag) => stakeTags.has(tag)),
-            ),
-          );
+          const matchedTxs = pendingTxs.filter((tx): tx is IStakePendingTx => {
+            if (!tx.stakingInfo) return false;
+            const tags = tx.stakingInfo.tags ?? [];
+            if (tags.length === 0) return false;
+            if (tagMatcher) {
+              return tags.some((tag) => tagMatcher(tag));
+            }
+            const stakeTags = stakeTagsByNetwork[networkId];
+            if (!stakeTags?.size) return false;
+            return tags.some((tag) => stakeTags.has(tag));
+          });
+
+          return {
+            ok: true,
+            txs: matchedTxs,
+          };
         } catch {
-          return [];
+          return {
+            ok: false,
+            txs: [] as IStakePendingTx[],
+          };
         }
       }),
     );
 
-    const allTxs: IStakePendingTx[] = txsForTargets.flat();
-
-    // Apply custom filter if provided
-    if (filter) {
-      return allTxs.filter(filter);
+    const okResults = txsForTargets.filter((result) => result.ok);
+    if (okResults.length === 0) {
+      return lastFilteredTxsRef.current;
     }
 
-    return allTxs;
-  }, [accountMetaByNetwork, filter, stakeTagsByNetwork]);
+    const allTxs: IStakePendingTx[] = okResults.flatMap((result) => result.txs);
+
+    // Apply custom filter if provided
+    const nextTxs = filter ? allTxs.filter(filter) : allTxs;
+    lastFilteredTxsRef.current = nextTxs;
+
+    return nextTxs;
+  }, [
+    accountMetaByNetwork,
+    effectiveNetworkIds,
+    filter,
+    stakeTagsByNetwork,
+    tagMatcher,
+  ]);
 
   const { result: filteredTxs, run: refreshPendingTxs } = usePromiseResult(
     fetchFilteredPendingTxs,
@@ -391,6 +441,44 @@ export const useStakingPendingTxsByInfo = ({
 
   const isPending = filteredTxs.length > 0;
   const prevIsPending = usePrevious(isPending);
+  const prevPendingCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const nextCount = filteredTxs.length;
+    if (prevPendingCountRef.current !== nextCount) {
+      prevPendingCountRef.current = nextCount;
+    }
+  }, [filteredTxs.length]);
+
+  useEffect(() => {
+    if (!isPending || !refreshTimeoutRef.current) {
+      return;
+    }
+    clearTimeout(refreshTimeoutRef.current);
+    refreshTimeoutRef.current = null;
+  }, [isPending]);
+
+  useEffect(() => {
+    if (!isPending && prevIsPending) {
+      if (onRefreshDelayMs > 0) {
+        refreshTimeoutRef.current = setTimeout(() => {
+          onRefreshRef.current?.();
+          refreshTimeoutRef.current = null;
+        }, onRefreshDelayMs);
+      } else {
+        onRefreshRef.current?.();
+      }
+    }
+  }, [isPending, prevIsPending, onRefreshDelayMs]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Refresh both account history and pending transactions
   const refreshPendingWithHistory = useCallback(async () => {
@@ -399,7 +487,7 @@ export const useStakingPendingTxsByInfo = ({
       return;
     }
 
-    // Refresh history for all networks that have available assets
+    // Refresh history for all monitored networks
     await Promise.all(
       accounts.map(([networkId, pendingAccountId]) =>
         backgroundApiProxy.serviceHistory
@@ -427,13 +515,6 @@ export const useStakingPendingTxsByInfo = ({
       pollingInterval,
     },
   );
-
-  // Trigger onRefresh callback when all pending transactions complete
-  useEffect(() => {
-    if (!isPending && prevIsPending) {
-      onRefreshRef.current?.();
-    }
-  }, [isPending, prevIsPending]);
 
   return {
     filteredTxs,

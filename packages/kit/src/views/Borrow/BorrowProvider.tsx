@@ -10,14 +10,16 @@ import {
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IStakePendingTx } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IBorrowMarketItem,
   IBorrowReserveItem,
 } from '@onekeyhq/shared/types/staking';
 
+import { EBorrowDataStatus } from './borrowDataStatus';
+
 import type { ISwapConfig } from './components/BorrowTableList';
-import type { IBorrowPendingTx } from './hooks/useBorrowPendingTxs';
 
 export type IBorrowRefreshReservesFn = (options?: {
   alwaysSetState?: boolean;
@@ -30,9 +32,6 @@ type IBorrowRef<T> = {
 export const borrowRefreshReservesRef: IBorrowRef<IBorrowRefreshReservesFn> = {
   current: null,
 };
-export const borrowRefreshPendingRef: IBorrowRef<() => Promise<void>> = {
-  current: null,
-};
 
 type IBorrowContextValue = {
   reserves: IBorrowReserveItem | null;
@@ -41,13 +40,15 @@ type IBorrowContextValue = {
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
   reservesLoading: boolean;
   setReservesLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  borrowDataStatus: EBorrowDataStatus;
+  setBorrowDataStatus: React.Dispatch<React.SetStateAction<EBorrowDataStatus>>;
   swapConfig: ISwapConfig;
   // Pending transactions state
-  pendingTxs: IBorrowPendingTx[];
-  setPendingTxs: (txs: IBorrowPendingTx[]) => void;
+  pendingTxs: IStakePendingTx[];
+  setPendingTxs: (txs: IStakePendingTx[]) => void;
   refreshReservesRef: IBorrowRef<IBorrowRefreshReservesFn>;
-  refreshPendingRef: IBorrowRef<() => Promise<void>>;
   refreshRewardsRef: IBorrowRef<() => Promise<void>>;
+  refreshBorrowDataRef: IBorrowRef<() => Promise<void>>;
 };
 
 const defaultSwapConfig: ISwapConfig = {
@@ -65,13 +66,16 @@ export const BorrowProvider = ({
   const [reserves, setReserves] = useState<IBorrowReserveItem | null>(null);
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
   const [reservesLoading, setReservesLoading] = useState(false);
-  const [pendingTxs, setPendingTxsState] = useState<IBorrowPendingTx[]>([]);
+  const [borrowDataStatus, setBorrowDataStatus] = useState<EBorrowDataStatus>(
+    EBorrowDataStatus.Idle,
+  );
+  const [pendingTxs, setPendingTxsState] = useState<IStakePendingTx[]>([]);
   const refreshReservesRef = borrowRefreshReservesRef;
-  const refreshPendingRef = borrowRefreshPendingRef;
   const refreshRewardsRef = useRef<(() => Promise<void>) | null>(null);
+  const refreshBorrowDataRef = useRef<(() => Promise<void>) | null>(null);
 
   // Stable setter that won't cause unnecessary re-renders
-  const setPendingTxs = useCallback((txs: IBorrowPendingTx[]) => {
+  const setPendingTxs = useCallback((txs: IStakePendingTx[]) => {
     setPendingTxsState(txs);
   }, []);
 
@@ -98,22 +102,26 @@ export const BorrowProvider = ({
       setMarket,
       reservesLoading,
       setReservesLoading,
+      borrowDataStatus,
+      setBorrowDataStatus,
       swapConfig,
       pendingTxs,
       setPendingTxs,
       refreshReservesRef,
-      refreshPendingRef,
       refreshRewardsRef,
+      refreshBorrowDataRef,
     };
   }, [
     reserves,
     market,
     reservesLoading,
+    borrowDataStatus,
     swapConfig,
     pendingTxs,
     setPendingTxs,
     refreshReservesRef,
-    refreshPendingRef,
+    refreshRewardsRef,
+    refreshBorrowDataRef,
   ]);
 
   return (

@@ -290,7 +290,8 @@ export function WalletListItem({
             focusedWallet={focusedWallet}
             onWalletPress={onWalletPress}
             onWalletLongPress={onWalletLongPress}
-            isConnected={isConnected}
+            // Hidden wallets should never show connection status
+            isConnected={false}
             {...(media.md && {
               badge: Number(index) + 1,
             })}

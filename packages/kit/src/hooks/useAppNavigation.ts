@@ -77,6 +77,8 @@ let lastPushAbleNavigation:
     >
   | undefined;
 
+const PUSH_MODAL_LOCK_DURATION_MS = 300;
+
 function useAppNavigation<
   P extends
     | IPageNavigationProp<any>
@@ -86,6 +88,7 @@ function useAppNavigation<
   const navigation = useNavigation<P>();
   const navigationRef = useRef(navigation);
   const isTabletMainView = useIsTabletMainView();
+  const pushModalLockRef = useRef(false);
 
   if (navigationRef.current !== navigation) {
     navigationRef.current = navigation;
@@ -166,6 +169,12 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
+      if (pushModalLockRef.current) return;
+      pushModalLockRef.current = true;
+      setTimeout(() => {
+        pushModalLockRef.current = false;
+      }, PUSH_MODAL_LOCK_DURATION_MS);
+
       if (isTabletMainView) {
         appEventBus.emit(EAppEventBusNames.PushModalPageInTabletDetailView, {
           route,
@@ -186,6 +195,12 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
+      if (pushModalLockRef.current) return;
+      pushModalLockRef.current = true;
+      setTimeout(() => {
+        pushModalLockRef.current = false;
+      }, PUSH_MODAL_LOCK_DURATION_MS);
+
       pushModalPage(ERootRoutes.iOSFullScreen, route, params as any);
     },
     [pushModalPage],

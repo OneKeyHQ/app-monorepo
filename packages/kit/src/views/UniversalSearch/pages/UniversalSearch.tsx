@@ -73,7 +73,7 @@ interface IUniversalSection {
 
 const getSearchTypes = () => {
   return [
-    EUniversalSearchType.Address,
+    !platformEnv.isWebDappMode && EUniversalSearchType.Address,
     EUniversalSearchType.MarketToken,
     EUniversalSearchType.V2MarketToken,
     // Hide AccountAssets search in WebDapp mode
