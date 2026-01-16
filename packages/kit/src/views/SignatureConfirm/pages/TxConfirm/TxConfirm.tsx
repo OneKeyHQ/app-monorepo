@@ -34,6 +34,7 @@ import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
+import { getBorrowTxTitle } from '../../../Borrow/borrowUtils';
 import { DAppSiteMark } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
 import { TxConfirmActions } from '../../components/SignatureConfirmActions';
@@ -50,7 +51,6 @@ import TaskQueueController from '../../components/TaskQueueController/TaskQueueC
 import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
 
 import type { RouteProp } from '@react-navigation/core';
-import { getBorrowTxTitle, isBorrowTx } from '../../../Borrow/borrowUtils';
 
 function TxConfirm() {
   const route =
