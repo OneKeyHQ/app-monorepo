@@ -218,7 +218,7 @@ function TextWithDottedUnderline({
         color={textColor}
         textAlign="right"
         dashColor={textColor}
-        dashThickness={0.5}
+        dashThickness={1}
       >
         {text}
       </DashText>
