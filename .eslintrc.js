@@ -283,14 +283,14 @@ module.exports = {
   overrides: [
     {
       files: ['*.js', '*.jsx', '*.text-js'],
-      extends: ['wesbos'],
+      extends: ['wesbos', 'plugin:oxlint/recommended'],
       rules: {
         ...jsRules,
       },
     },
     {
       files: ['*.ts', '*.tsx'],
-      extends: ['wesbos/typescript'],
+      extends: ['wesbos/typescript', 'plugin:oxlint/recommended'],
       rules: {
         ...jsRules,
         ...tsRules,
