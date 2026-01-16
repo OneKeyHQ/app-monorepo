@@ -1190,10 +1190,10 @@ export function useVerifyKeylessPinChecking() {
                   const isHealthy =
                     await backgroundApiProxy.serviceKeylessWallet.apiCheckAuthServerStatus();
                   if (!isHealthy) {
-                    // TODO i18n @franco
                     Toast.error({
-                      title:
-                        'Auth server is not healthy, please check your network and try again',
+                      title: intl.formatMessage({
+                        id: ETranslations.auth_server_error_text,
+                      }),
                     });
                     return;
                   }
