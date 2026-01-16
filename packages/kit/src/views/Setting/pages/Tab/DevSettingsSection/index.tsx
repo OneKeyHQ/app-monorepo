@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { DEFAULT_LOG_SERVER } from '@onekeyhq/shared/src/logger/remoteLogger';
 import {
   isDualScreenDevice,
   isRawSpanning,
@@ -522,6 +523,71 @@ const BaseDevSettingsSection = () => {
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>
+
+              <SectionPressItem
+                icon="SendOutline"
+                title="Remote Log"
+                subtitle={
+                  devSettings.settings?.remoteLogEnabled
+                    ? `Send to: ${
+                        devSettings.settings?.remoteLogServer ||
+                        DEFAULT_LOG_SERVER
+                      }`
+                    : 'Disabled'
+                }
+                drillIn={false}
+              >
+                <Switch
+                  size={ESwitchSize.small}
+                  value={devSettings.settings?.remoteLogEnabled}
+                  onChange={async (enabled) => {
+                    await backgroundApiProxy.serviceDevSetting.updateRemoteLogConfig(
+                      enabled,
+                      devSettings.settings?.remoteLogServer,
+                    );
+                  }}
+                />
+              </SectionPressItem>
+
+              <SectionPressItem
+                icon="ServerOutline"
+                title="Remote Log Server"
+                subtitle={
+                  devSettings.settings?.remoteLogServer || DEFAULT_LOG_SERVER
+                }
+                onPress={() => {
+                  Dialog.show({
+                    title: 'Remote Log Server Address',
+                    renderContent: (
+                      <Dialog.Form
+                        formProps={{
+                          values: {
+                            server:
+                              devSettings.settings?.remoteLogServer ||
+                              DEFAULT_LOG_SERVER,
+                          },
+                        }}
+                      >
+                        <Dialog.FormField name="server">
+                          <Input placeholder={DEFAULT_LOG_SERVER} />
+                        </Dialog.FormField>
+                      </Dialog.Form>
+                    ),
+                    onConfirm: async ({ getForm }) => {
+                      const form = getForm();
+                      const server = form?.getValues()?.server as
+                        | string
+                        | undefined;
+                      if (server) {
+                        await backgroundApiProxy.serviceDevSetting.updateRemoteLogConfig(
+                          devSettings.settings?.remoteLogEnabled ?? false,
+                          server,
+                        );
+                      }
+                    },
+                  });
+                }}
+              />
 
               <SectionPressItem
                 icon="SwapHorOutline"

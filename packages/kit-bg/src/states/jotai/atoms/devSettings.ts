@@ -78,6 +78,9 @@ export interface IDevSettings {
   enableMockMarketBanner?: boolean;
   // Test accounts for OneKey ID login testing
   testAccounts?: ITestAccount[];
+  // Remote log configuration
+  remoteLogEnabled?: boolean;
+  remoteLogServer?: string;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -116,6 +119,8 @@ export const {
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
+      remoteLogEnabled: false,
+      remoteLogServer: 'http://localhost:3300',
     },
   },
 });

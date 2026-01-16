@@ -4,6 +4,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { remoteLogger } from '@onekeyhq/shared/src/logger/remoteLogger';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -97,6 +98,36 @@ class ServiceDevSetting extends ServiceBase {
       enableAnalyticsInDev:
         devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
     });
+  }
+
+  @backgroundMethod()
+  public async updateRemoteLogConfig(enabled: boolean, server?: string) {
+    await devSettingsPersistAtom.set((prev) => ({
+      enabled: true,
+      settings: {
+        ...prev.settings,
+        remoteLogEnabled: enabled,
+        ...(server !== undefined ? { remoteLogServer: server } : {}),
+      },
+    }));
+    void this.saveDevModeToSyncStorage();
+
+    // Update runtime remote logger
+    if (enabled) {
+      remoteLogger.enable(server);
+    } else {
+      remoteLogger.disable();
+    }
+  }
+
+  @backgroundMethod()
+  public async initRemoteLogger() {
+    const { enabled, settings } = await this.getDevSetting();
+    const shouldEnable =
+      enabled && settings?.remoteLogEnabled && settings?.remoteLogServer;
+    if (shouldEnable) {
+      remoteLogger.enable(settings.remoteLogServer);
+    }
   }
 }
 

@@ -53,6 +53,7 @@ class ServiceBootstrap extends ServiceBase {
     void systemTimeUtils.startServerTimeInterval();
     void this.backgroundApi.serviceIpTable.init();
     void this.backgroundApi.serviceCloudBackupV2.init();
+    void this.backgroundApi.serviceDevSetting.initRemoteLogger();
   }
 }
 
