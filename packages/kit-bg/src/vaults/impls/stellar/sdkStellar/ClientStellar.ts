@@ -640,7 +640,7 @@ export default class ClientStellar {
         return str || null;
       }
       return null;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get contract symbol:', error);
       return null;
     }
