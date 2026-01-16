@@ -58,12 +58,12 @@ const OpenOrdersRow = memo(
   }: IOpenOrdersRowProps) => {
     const actions = useHyperliquidActions();
     const intl = useIntl();
-    const { coin, side, orderType, reduceOnly } = order;
+    const { coin, side, orderType: originalOrderType, reduceOnly } = order;
     const assetInfo = useMemo(() => {
       const parsedCoin = parseDexCoin(coin);
       const assetSymbol = parsedCoin.displayName;
       const orderType = (() => {
-        switch (orderType) {
+        switch (originalOrderType) {
           case 'Market':
             return intl.formatMessage({
               id: ETranslations.perp_position_market,
@@ -89,12 +89,12 @@ const OpenOrdersRow = memo(
               id: ETranslations.perp_order_tp_limit,
             });
           default:
-            return orderType;
+            return originalOrderType;
         }
       })();
       const type = (() => {
-        if (order.side === 'B') {
-          if (order.reduceOnly) {
+        if (side === 'B') {
+          if (reduceOnly) {
             return `${intl.formatMessage({
               id: ETranslations.perp_order_close_short, // Close Short
             })}`;
@@ -120,7 +120,7 @@ const OpenOrdersRow = memo(
         orderType,
         typeColor,
       };
-    }, [coin, side, orderType, reduceOnly]);
+    }, [coin, side, originalOrderType, reduceOnly, intl]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
       const date = formatTime(timeDate, {
