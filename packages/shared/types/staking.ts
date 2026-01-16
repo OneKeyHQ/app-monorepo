@@ -365,10 +365,7 @@ export interface IBorrowApyDetailItem {
   logoURI?: string;
   title: IEarnText;
   description?: IEarnText;
-  value: {
-    text: IEarnText;
-    icon?: IEarnIcon;
-  };
+  value: IBorrowApy;
 }
 
 interface IBorrowApyComponent {
