@@ -11,6 +11,7 @@ import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
+import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
@@ -67,7 +68,7 @@ const BorrowedHeader = ({
 };
 
 export const BorrowedCard = () => {
-  const { reserves, market, reservesLoading } = useBorrowContext();
+  const { reserves, market, borrowDataStatus } = useBorrowContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
@@ -119,7 +120,10 @@ export const BorrowedCard = () => {
     [navigation, market, gtMd, handleManageRepay, accountId, indexedAccountId],
   );
 
-  const showLoading = !reserves && reservesLoading;
+  const showLoading =
+    borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
+    borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
+    borrowDataStatus === EBorrowDataStatus.LoadingReserves;
 
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });

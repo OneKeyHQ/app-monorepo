@@ -89,6 +89,7 @@ export function useShareActions(referralQrCodeUrl?: string) {
             title: intl.formatMessage({
               id: ETranslations.perp_share_image_saved,
             }),
+            actionsAlign: 'left',
             actions: (
               <Button
                 variant="tertiary"

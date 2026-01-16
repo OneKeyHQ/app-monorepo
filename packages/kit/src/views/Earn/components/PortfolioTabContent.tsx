@@ -995,13 +995,26 @@ const BasePortfolioTabContent = ({
       return withAssets;
     }
 
-    return withAssets.filter((item) => {
-      const totalValueUsd = Number(item.totalFiatValueUsd);
-      const normalizedValue = Number.isFinite(totalValueUsd)
-        ? totalValueUsd
-        : 0;
-      return normalizedValue >= 0.01;
-    });
+    return withAssets.reduce((acc, item) => {
+      const filteredAssets = item.assets.filter((asset) => {
+        const assetValueUsd = Number(asset.metadata?.fiatValueUsd ?? 0);
+        return assetValueUsd >= 0.01;
+      });
+
+      // If we filtered out all assets and there are no airdrop assets, drop the protocol
+      // (Or if the original protocol only had assets that are now all hidden)
+      if (
+        filteredAssets.length > 0 ||
+        item.airdropAssets.some((airdrop) => !isEmpty(airdrop.airdropAssets))
+      ) {
+        acc.push({
+          ...item,
+          assets: filteredAssets,
+        });
+      }
+
+      return acc;
+    }, [] as typeof withAssets);
   }, [hideSmallAssets, investments]);
   const noAssets = useMemo(
     () => isEmpty(filteredInvestments),

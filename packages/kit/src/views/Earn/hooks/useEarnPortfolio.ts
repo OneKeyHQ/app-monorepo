@@ -193,6 +193,8 @@ const enrichAssetWithMetadata = (
   metadata: {
     protocol: investment.protocol,
     network: investment.network,
+    fiatValue: investment.totalFiatValue,
+    fiatValueUsd: investment.totalFiatValueUsd,
   },
 });
 
@@ -203,12 +205,15 @@ const mergeInvestments = (
   const existingTotal = new BigNumber(existing.totalFiatValue || '0');
   const incomingTotal = new BigNumber(incoming.totalFiatValue || '0');
 
+  const existingTotalUsd = new BigNumber(existing.totalFiatValueUsd || '0');
+  const incomingTotalUsd = new BigNumber(incoming.totalFiatValueUsd || '0');
+
   return {
     ...existing,
     assets: [...existing.assets, ...incoming.assets],
     airdropAssets: [...existing.airdropAssets, ...incoming.airdropAssets],
     totalFiatValue: existingTotal.plus(incomingTotal).toFixed(),
-    totalFiatValueUsd: existingTotal.plus(incomingTotal).toFixed(),
+    totalFiatValueUsd: existingTotalUsd.plus(incomingTotalUsd).toFixed(),
   };
 };
 

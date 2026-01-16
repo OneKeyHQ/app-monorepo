@@ -19,8 +19,8 @@ export type IEarnHomeMode = 'earn' | 'borrow';
 const MarketSelectorDesktop = ({
   mode,
   onModeChange,
-  backgroundColor = '$bgStrong',
-  activeBackgroundColor = '$bg',
+  backgroundColor,
+  activeBackgroundColor,
 }: {
   mode: IEarnHomeMode;
   onModeChange?: (mode: IEarnHomeMode) => void;
@@ -70,8 +70,36 @@ const MarketSelectorDesktop = ({
     ];
   }, [intl, mode]);
 
+  const itemStyleProps = useMemo(() => {
+    const baseProps = {
+      elevation: 0,
+      flexGrow: 1,
+      flexBasis: 0,
+      '$platform-native': {
+        elevation: 0,
+      },
+      '$platform-web': {
+        boxShadow: 'none',
+      },
+    };
+
+    if (!backgroundColor) {
+      return baseProps;
+    }
+
+    return {
+      ...baseProps,
+      hoverStyle: {
+        bg: backgroundColor,
+      },
+      pressStyle: {
+        bg: backgroundColor,
+      },
+    };
+  }, [backgroundColor]);
+
   return (
-    <Stack px="$3" pt="$4">
+    <Stack px="$5" pt="$5" pb="$1">
       <SegmentControl
         value={mode}
         options={options}
@@ -79,23 +107,7 @@ const MarketSelectorDesktop = ({
         onChange={(value) => onModeChange?.(value as IEarnHomeMode)}
         slotBackgroundColor={backgroundColor}
         activeBackgroundColor={activeBackgroundColor}
-        segmentControlItemStyleProps={{
-          elevation: 0,
-          flexGrow: 1,
-          flexBasis: 0,
-          hoverStyle: {
-            bg: backgroundColor,
-          },
-          pressStyle: {
-            bg: backgroundColor,
-          },
-          '$platform-native': {
-            elevation: 0,
-          },
-          '$platform-web': {
-            boxShadow: 'none',
-          },
-        }}
+        segmentControlItemStyleProps={itemStyleProps}
       />
     </Stack>
   );
