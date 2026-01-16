@@ -78,7 +78,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
             }),
           });
           setCreateAddressError(false);
-        } catch (e) {
+        } catch (_e) {
           Toast.error({
             title: intl.formatMessage({
               id: ETranslations.swap_page_toast_address_generated_fail,

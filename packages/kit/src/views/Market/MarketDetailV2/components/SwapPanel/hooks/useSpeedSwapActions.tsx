@@ -125,7 +125,7 @@ export function useSpeedSwapActions(props: {
         deriveType: defaultDeriveType ?? 'default',
       });
       return res;
-    } catch (e) {
+    } catch (_e) {
       return undefined;
     }
   }, [account, marketToken?.networkId]);
@@ -445,7 +445,7 @@ export function useSpeedSwapActions(props: {
       });
 
       return buildRes;
-    } catch (e) {
+    } catch (_e) {
       setSpeedSwapBuildTxLoading(false);
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
         fromTokenAmount,
@@ -735,7 +735,7 @@ export function useSpeedSwapActions(props: {
           },
         }));
         setSpeedSwapApproveActionLoading(false);
-      } catch (e) {
+      } catch (_e) {
         setInAppNotificationAtom((pre) => ({
           ...pre,
           speedSwapApprovingLoading: false,
@@ -855,7 +855,7 @@ export function useSpeedSwapActions(props: {
             setBalance(new BigNumber(tokenDetail[0].balanceParsed ?? 0));
           }
           setFetchBalanceLoading(false);
-        } catch (e) {
+        } catch (_e) {
           setFetchBalanceLoading(false);
         }
       } else {

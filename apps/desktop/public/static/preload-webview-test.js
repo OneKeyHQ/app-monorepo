@@ -163,7 +163,7 @@ try {
   // Test 3: Process execution
   totalTests++;
   try {
-    const { exec } = require('child_process');
+    require('child_process');
     console.log(`  🚨 CRITICAL RISK: Can execute processes!`);
     securityScore++;
   } catch (error) {

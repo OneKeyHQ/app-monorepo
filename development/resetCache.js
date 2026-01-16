@@ -11,7 +11,7 @@ function exec(fullCmd) {
         'pipe', // 2 fs.openSync('err.out', 'w') // direct child's stderr to a file
       ],
     });
-    child.on('close', (code, signal, p1, p2, p3) => {
+    child.on('close', (code, signal) => {
       resolve({
         code,
         signal,

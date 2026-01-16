@@ -147,8 +147,7 @@ const applyFixImageAssetsMiddleware = (middleware) => {
   };
 };
 
-const outputChunkDir = path.resolve(projectRoot, 'dist/chunks');
-config.server.enhanceMiddleware = (metroMiddleware, metroServer) =>
+config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
   connect().use(applyFixImageAssetsMiddleware(metroMiddleware));
 
 module.exports = withRozenite(splitCodePlugin(config, projectRoot), {

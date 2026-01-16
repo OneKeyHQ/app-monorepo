@@ -356,7 +356,6 @@ function buildSpeedscope(entries, profileName = 'RN Function Perf') {
   let totalDuration = 0;
 
   for (const entry of usable) {
-    const start = Math.max(0, (entry.ts || 0) - entry.duration - base);
     const stackFrames = Array.isArray(entry.stack)
       ? entry.stack
           .filter((s) => s != null && s !== 'null' && s !== '')

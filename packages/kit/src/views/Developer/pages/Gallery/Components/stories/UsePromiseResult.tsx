@@ -5,7 +5,7 @@ import { Layout } from './utils/Layout';
 
 let i = 1;
 const fetchResult = () =>
-  new Promise((resolve) => {
+  new Promise<number>((resolve) => {
     i += 1;
     resolve(i);
   });

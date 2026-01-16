@@ -30,7 +30,7 @@ function toBigNumberField(
       return ethers.BigNumber.from(defaultValue);
     }
     return ethers.BigNumber.from(value);
-  } catch (error) {
+  } catch (_error) {
     return ethers.BigNumber.from('0');
   }
 }

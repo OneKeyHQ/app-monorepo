@@ -385,7 +385,7 @@ function ReceiveToken() {
           setCurrentDeriveType(deriveResp.deriveType);
           setCurrentAccount(accounts[0]);
         }
-      } catch (e) {
+      } catch (_e) {
         // get default derive type account error, try to find the non-empty account
         const { networkAccounts } =
           await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(

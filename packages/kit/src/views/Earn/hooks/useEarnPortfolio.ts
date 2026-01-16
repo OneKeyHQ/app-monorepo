@@ -532,7 +532,7 @@ export const useEarnPortfolio = ({
             airdropAssets: [],
           },
         };
-      } catch (error) {
+      } catch (_error) {
         return null;
       }
     },

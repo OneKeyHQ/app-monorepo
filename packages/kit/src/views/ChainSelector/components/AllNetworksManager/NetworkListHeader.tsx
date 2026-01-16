@@ -88,7 +88,7 @@ function NetworkListHeader() {
         },
         customNetworks: enabledNetworksWithoutAccountTemp,
       });
-    } catch (error) {
+    } catch (_error) {
       setIsCreatingMissingAddresses(false);
       return;
     }

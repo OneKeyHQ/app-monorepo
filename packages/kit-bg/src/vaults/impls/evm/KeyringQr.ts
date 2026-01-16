@@ -134,7 +134,7 @@ export class KeyringQr extends KeyringQrBase {
     try {
       const sig = sdk.eth.parseSignature(ur);
       return Promise.resolve(sig);
-    } catch (error) {
+    } catch (_error) {
       // eslint-disable-next-line @cspell/spellchecker
       // ERROR throw from node_modules/@keystonehq/keystone-sdk/dist/chains/ethereum.js
       //        throw new OneKeyLocalError('type not match');

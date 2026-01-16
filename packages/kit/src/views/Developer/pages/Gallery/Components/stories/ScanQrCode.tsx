@@ -60,7 +60,7 @@ const ScanQRCodeGallery = () => {
           },
         });
         console.log(result);
-      } catch (e) {
+      } catch (_e) {
         console.log('用户取消扫描');
       }
     },

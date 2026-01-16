@@ -1503,7 +1503,7 @@ export function ConnectYourDevicePage() {
           await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
             connectId: device.connectId ?? '',
           });
-      } catch (error) {
+      } catch (_error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
         return;
       }

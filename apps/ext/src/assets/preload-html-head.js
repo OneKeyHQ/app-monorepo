@@ -103,7 +103,7 @@ window.removeEventListener('resize',handler);
 
   try {
     optimizeResize();
-  } catch (error) {
+  } catch (_error) {
     // const e = error as Error | undefined;
   } finally {
     // noop

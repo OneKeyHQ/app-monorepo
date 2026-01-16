@@ -54,7 +54,7 @@ try {
 console.log(`[${getTimestamp()}] ESLint check started...`);
 
 const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
-const failToExit = (message) => {
+const failToExit = (_message) => {
   console.log(`[${getTimestamp()}] ESLint check failed. (${getDuration()}s)`);
   exit(1);
 };

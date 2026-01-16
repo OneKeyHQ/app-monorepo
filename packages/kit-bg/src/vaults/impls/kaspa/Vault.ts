@@ -566,7 +566,7 @@ export default class Vault extends VaultBase {
           satoshis: utxo.value,
           blockDaaScore: new BigNumber(utxo.confirmations).toNumber(),
         }));
-      } catch (e) {
+      } catch (_e) {
         throw new OneKeyInternalError(
           appLocale.intl.formatMessage({
             id: ETranslations.feedback_failed_to_get_utxos,
