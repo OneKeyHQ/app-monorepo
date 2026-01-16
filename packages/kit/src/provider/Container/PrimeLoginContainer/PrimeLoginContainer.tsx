@@ -61,7 +61,6 @@ export function PrimeLoginContainer() {
       promptPrimeLoginEmailDialog,
       promptPrimeLoginPasswordDialog,
       promptPrimeLoginEmailCodeDialog,
-      promptForgetMasterPasswordDialog,
     },
   ] = usePrimeLoginDialogAtom();
   const navigation = useAppNavigation();

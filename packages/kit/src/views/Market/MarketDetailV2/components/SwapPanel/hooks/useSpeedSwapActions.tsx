@@ -158,14 +158,7 @@ export function useSpeedSwapActions(props: {
         });
       }
     })();
-  }, [
-    tradeType,
-    defaultTradeTokens,
-    tradeToken?.contractAddress,
-    tradeToken?.logoURI,
-    tradeToken?.networkId,
-    tradeToken?.symbol,
-  ]);
+  }, [tradeType, defaultTradeTokens, tradeToken]);
 
   const { fromToken, toToken, balanceToken } = useMemo(() => {
     if (tradeType === ESwapDirection.BUY) {
