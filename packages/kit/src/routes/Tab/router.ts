@@ -190,7 +190,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           focused ? 'CoinsSolid' : 'CoinsOutline',
         translationId: ETranslations.global_earn,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
-        inMoreAction: true,
         rewrite: '/defi',
         exact: true,
         children: earnRouters,
@@ -200,11 +199,9 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       !platformEnv.isNative && isWebDappMode
         ? referFriendsTabConfig
         : undefined,
-      // In non-DAPP mode, show ReferFriends in more actions
       !platformEnv.isNative &&
         !isWebDappMode && {
           ...referFriendsTabConfig,
-          inMoreAction: true,
           hideOnTabBar: !isGtMdNonNative,
         },
       platformEnv.isNative
