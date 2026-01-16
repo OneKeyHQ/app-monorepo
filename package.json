@@ -57,7 +57,7 @@
     "_packageVersions": "node ./development/lint/package-versions.js",
     "lint:project": "yarn _tsc && yarn _lint && concurrently --kill-others-on-fail \"yarn _electron\" \"yarn _folder\" \"yarn _lang\" \"yarn _packageVersions\"",
     "lint": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn lint:project",
-    "lint:only": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"",
+    "lint:only": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)/.eslintcache\"",
     "tsc:only": "npx tsgo -p ./tsconfig.json --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty --max-old-space-size=8192",
     "test": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn jest",
     "op": "./development/scripts/op-run.sh",
