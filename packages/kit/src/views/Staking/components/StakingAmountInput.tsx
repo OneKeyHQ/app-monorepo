@@ -125,6 +125,10 @@ export function StakingAmountInput({
         }}
         value={value}
         {...props}
+        onChange={(val: string) => {
+          if (disabled) return;
+          props.onChange?.(val);
+        }}
       />
       {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={stakingInputAccessoryViewID}>
