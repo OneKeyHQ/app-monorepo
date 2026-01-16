@@ -1423,6 +1423,7 @@ export type IEarnAccountTokenResponse = {
   earnings24h?: string;
   accounts: IEarnAccount[];
   isOverviewLoaded?: boolean;
+  hideSmallAssets?: boolean;
 };
 
 export type IEarnRewardUnit = 'APY' | 'APR';
@@ -1619,6 +1620,8 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
   metadata: {
     protocol: IEarnInvestmentItemV2['protocol'];
     network: IEarnInvestmentItemV2['network'];
+    fiatValue?: string;
+    fiatValueUsd?: string;
   };
 };
 
@@ -1846,6 +1849,7 @@ export interface IBorrowHealthFactor {
     text: IEarnText;
     button?: IBorrowHealthFactorRiskDetail;
   };
+  alerts?: IBorrowAlert[];
 }
 
 export interface IBorrowRewards {
@@ -2216,6 +2220,11 @@ export interface IBorrowTransactionConfirmation {
     description: IEarnText;
   };
   liquidationRisk?: boolean;
+  refundFee?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip: IEarnTooltip;
+  };
   blockRepay?: boolean;
   healthFactor?: {
     current?: {

@@ -105,7 +105,9 @@ export const BorrowDataGate = ({
         !lastUpdatedAt || Date.now() - lastUpdatedAt > BORROW_STALE_TTL;
       const shouldForceRefresh =
         forceRefreshCounterRef.current > lastForceRefreshCounterRef.current;
-      const shouldFetch = shouldForceRefresh || isStale;
+      // Also fetch if we have no cached result (e.g., after fetchKey changed and cache was cleared)
+      const hasNoCache = reservesResultRef.current === undefined;
+      const shouldFetch = shouldForceRefresh || isStale || hasNoCache;
       if (!shouldFetch) {
         return reservesResultRef.current;
       }

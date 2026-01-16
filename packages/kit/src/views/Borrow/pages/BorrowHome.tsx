@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IBorrowAlert } from '@onekeyhq/shared/types/staking';
 
 import { NoAddressWarning } from '../../Staking/components/ProtocolDetails/NoAddressWarning';
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
@@ -74,12 +75,18 @@ const BorrowHomeContent = memo(
     const { gtMd, gtLg } = useMedia();
     const intl = useIntl();
     const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
+    const [healthFactorAlerts, setHealthFactorAlerts] = useState<
+      IBorrowAlert[] | undefined
+    >(undefined);
     const { reserves, market } = useBorrowContext();
     const { activeAccount } = useActiveAccount({ num: 0 });
     const { earnAccount, refreshAccount } = useEarnAccount({
       networkId: market?.networkId,
     });
-    const alerts = reserves?.alerts;
+    const alerts = useMemo(
+      () => [...(reserves?.alerts ?? []), ...(healthFactorAlerts ?? [])],
+      [reserves?.alerts, healthFactorAlerts],
+    );
     const accountId = activeAccount.account?.id ?? '';
     const walletId = activeAccount.wallet?.id;
     const indexedAccountId = activeAccount.indexedAccount?.id;
@@ -122,9 +129,16 @@ const BorrowHomeContent = memo(
         {header ? <YStack pb="$4">{header}</YStack> : null}
         <YStack flex={1} px="$5" pb="$10">
           <Markets />
-          <Overview showBottomSpacing={!hasAlerts} isActive={isActive} />
+          <Overview
+            showBottomSpacing={!hasAlerts}
+            isActive={isActive}
+            onHealthFactorAlertsChange={setHealthFactorAlerts}
+          />
           {hasAlerts ? (
-            <YStack my="$7" gap="$3">
+            <YStack
+              {...(gtMd ? { my: '$7' } : { mt: '$2', mb: '$7' })}
+              gap="$3"
+            >
               {showNoAddressWarning ? (
                 <NoAddressWarning
                   accountId={accountId}
