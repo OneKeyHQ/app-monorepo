@@ -1,3 +1,5 @@
+/* eslint-disable no-restricted-syntax */
+// oxlint-disable preserve-caught-error
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
@@ -14,7 +16,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -362,9 +364,8 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap fetch token cancel', {
-          cause: e,
+          cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
         });
       } else {
         const error = e as { code: number; message: string; requestId: string };
@@ -647,7 +648,7 @@ export default class ServiceSwap extends ServiceBase {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap fetch quote cancel', {
-          cause: e,
+          cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
       }
     }
@@ -1075,7 +1076,7 @@ export default class ServiceSwap extends ServiceBase {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap check token approve allowance cancel', {
-          cause: e,
+          cause: ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL,
         });
       }
       throw e;
@@ -2313,7 +2314,7 @@ export default class ServiceSwap extends ServiceBase {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap speed fetch quote cancel', {
-          cause: e,
+          cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
         });
       }
     }
