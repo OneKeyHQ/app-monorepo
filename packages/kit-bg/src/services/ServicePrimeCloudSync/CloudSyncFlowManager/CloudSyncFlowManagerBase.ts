@@ -399,6 +399,7 @@ export abstract class CloudSyncFlowManagerBase<
         const newSyncItem = await this.buildSyncItem({
           syncCredential,
           target,
+          // oxlint-disable-next-line eslint-plugin-react-hooks/rules-of-hooks
           dataTime: await (async () => {
             if (useCreateGenesisTime) {
               if (await useCreateGenesisTime({ target })) {
