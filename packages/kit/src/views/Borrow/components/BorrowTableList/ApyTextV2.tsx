@@ -81,12 +81,8 @@ function ApyDetailSection({
               </YStack>
             </XStack>
             <XStack ai="center" gap="$1">
-              {item.value.icon ? <EarnIcon icon={item.value.icon} /> : null}
-              <EarnText
-                text={item.value.text}
-                size="$bodyMdMedium"
-                color="$text"
-              />
+              {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
+              <ApyTextV2 apyDetail={item.value} triggerMode="icon" />
             </XStack>
           </XStack>
         ))}
@@ -131,7 +127,8 @@ function ApyDetailTotalItem({
           ) : null}
         </YStack>
       </XStack>
-      <EarnText text={value.text} size="$bodyMd" color="$text" />
+      {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
+      <ApyTextV2 apyDetail={value} triggerMode="icon" />
     </XStack>
   );
 }

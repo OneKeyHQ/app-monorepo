@@ -365,10 +365,7 @@ export interface IBorrowApyDetailItem {
   logoURI?: string;
   title: IEarnText;
   description?: IEarnText;
-  value: {
-    text: IEarnText;
-    icon?: IEarnIcon;
-  };
+  value: IBorrowApy;
 }
 
 export interface IBorrowApyDetailSection {
@@ -392,9 +389,7 @@ export interface IBorrowApyDetailPopupData {
       };
       title: IEarnText;
       description?: IEarnText;
-      value: {
-        text: IEarnText;
-      };
+      value: IBorrowApy;
     };
   };
 }
