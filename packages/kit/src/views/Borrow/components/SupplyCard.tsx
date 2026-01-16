@@ -105,7 +105,7 @@ export const SupplyCard = () => {
       balance: intl.formatMessage({ id: ETranslations.global_balance }),
       supply: intl.formatMessage({ id: ETranslations.defi_supply }),
       assetCanBeCollateral: intl.formatMessage({
-        id: ETranslations.defi_asset_can_be_collateral,
+        id: ETranslations.global_asset,
       }),
       assetsToSupply: intl.formatMessage({
         id: ETranslations.defi_assets_to_supply,
