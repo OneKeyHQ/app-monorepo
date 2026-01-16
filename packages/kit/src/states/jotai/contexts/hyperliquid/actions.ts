@@ -16,6 +16,7 @@ import {
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
+  perpsDepositOrderAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
@@ -31,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
+import { USDC_TOKEN_INFO } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -404,6 +406,58 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             updates: sortedUpdates,
             isSubscribed: true,
           });
+
+          // Check for deposit/send updates and match with pending orders
+          // Hyperliquid use 'send' type for deposit confirmations
+          const depositUpdates = newUpdates.filter(
+            (update) =>
+              update.delta.type === 'deposit' ||
+              (update.delta.type as string) === 'send',
+          );
+          if (depositUpdates.length > 0) {
+            const perpDepositOrder = await perpsDepositOrderAtom.get();
+            const pendingOrders = perpDepositOrder.orders.filter(
+              (order) => order.toTxId,
+            );
+
+            if (pendingOrders.length > 0) {
+              const matchedOrderIds = new Set<string>();
+
+              for (const depositUpdate of depositUpdates) {
+                const matchedOrder = pendingOrders.find(
+                  (order) => order.toTxId === depositUpdate.hash,
+                );
+
+                if (matchedOrder) {
+                  matchedOrderIds.add(matchedOrder.fromTxId);
+                  Toast.success({
+                    title: appLocale.intl.formatMessage({
+                      id: ETranslations.perp_deposit_success_title,
+                    }),
+                    message: appLocale.intl.formatMessage(
+                      {
+                        id: ETranslations.perp_deposit_success_msg,
+                      },
+                      {
+                        num: matchedOrder.amount,
+                        token: USDC_TOKEN_INFO.symbol,
+                      },
+                    ),
+                  });
+                }
+              }
+
+              // Remove matched orders from the atom
+              if (matchedOrderIds.size > 0) {
+                await perpsDepositOrderAtom.set((prev) => ({
+                  ...prev,
+                  orders: prev.orders.filter(
+                    (order) => !matchedOrderIds.has(order.fromTxId),
+                  ),
+                }));
+              }
+            }
+          }
         }
       } else {
         set(perpsLedgerUpdatesAtom(), {

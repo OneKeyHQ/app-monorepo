@@ -137,7 +137,7 @@ export function PerpMobileLayout() {
       style={{ flex: 1, backgroundColor: '$bgApp' }}
       contentContainerStyle={{ flexGrow: 1 }}
       showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[1, 3]}
+      stickyHeaderIndices={[1]}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
