@@ -2204,6 +2204,24 @@ class ServiceKeylessWallet extends ServiceBase {
     return { success: true };
   }
 
+  @backgroundMethod()
+  async cleanupKeylessWalletStorage(params: {
+    ownerId: string;
+  }): Promise<void> {
+    const { ownerId } = params;
+    if (!ownerId) {
+      return;
+    }
+
+    await keylessMnemonicPasswordStorage.removeMnemonicPasswordFromStorage({
+      ownerId,
+    });
+
+    await keylessRefreshTokenStorage.removeTokensFromStorage({
+      ownerId,
+    });
+  }
+
   /**
    * Validate that the social user ID from the token matches the keyless wallet's social user ID.
    * Used during KeylessResetPin and KeylessVerifyPinOnly flows to ensure the logged-in user
