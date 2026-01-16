@@ -13,7 +13,7 @@ if (typeof global?.Application === 'undefined') {
     } else {
       global.Application = module;
     }
-  } catch (e) {
+  } catch (_e) {
     // eslint-disable-next-line no-console
     console.error('react-native-compat: Application module is not available');
   }

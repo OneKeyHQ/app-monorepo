@@ -692,7 +692,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               await simpleDb.v4MigrationResult.saveMigratedIndexedAccountId({
                 v5indexedAccountId: indexedAccountAdded.id,
               });
-            } catch (error) {
+            } catch (_error) {
               //
             }
           }
@@ -1282,7 +1282,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             if (isString(v4device?.payloadJson)) {
               try {
                 v4devicePayloadJson = JSON.parse(v4device.payloadJson || '{}');
-              } catch (error) {
+              } catch (_error) {
                 //
               }
             }

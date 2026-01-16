@@ -37,7 +37,7 @@ export function formatPsbtHex(psbtHex: string) {
       BitcoinJS.Psbt.fromHex(psbtHex);
       formatData = psbtHex;
     }
-  } catch (e) {
+  } catch (_e) {
     throw new OneKeyLocalError('invalid psbt');
   }
   return formatData;
@@ -90,7 +90,7 @@ export function decodedPsbt({
     let address = '';
     try {
       address = scriptPkToAddress(Buffer.from(output.script), psbtNetwork);
-    } catch (err) {
+    } catch (_err) {
       //
     }
 
@@ -330,7 +330,7 @@ export async function buildPsbt({
             value: outputValue,
             txid: undefined,
           });
-        } catch (error) {
+        } catch (_error) {
           //
         }
       }

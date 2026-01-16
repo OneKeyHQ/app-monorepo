@@ -113,10 +113,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
       const keys = await Promise.all(keysPromised);
 
-      privateKeys = keys.reduce(
-        (ret, key) => ({ ...ret, [key.path]: bufferUtils.bytesToHex(key.key) }),
-        {},
-      );
+      privateKeys = keys.reduce((ret, key) => {
+        ret[key.path] = bufferUtils.bytesToHex(key.key);
+        return ret;
+      }, {} as Record<string, string>);
     }
     if (credentials.imported) {
       const { privateKey: p } = await decryptImportedCredential({

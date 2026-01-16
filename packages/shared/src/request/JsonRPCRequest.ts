@@ -158,7 +158,7 @@ class JsonRPCRequest {
             return {
               result: res,
             };
-          } catch (error) {
+          } catch (_error) {
             // pass
           }
         }),

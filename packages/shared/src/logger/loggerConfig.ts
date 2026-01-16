@@ -51,7 +51,7 @@ function buildLoggerConfig(): ILoggerConfig {
               if (isSceneLike) {
                 config.enabled[scope][scene] = false;
               }
-            } catch (error) {
+            } catch (_error) {
               //
             }
           }

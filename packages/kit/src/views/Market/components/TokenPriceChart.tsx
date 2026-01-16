@@ -239,7 +239,7 @@ const identifiers = new Set([
   'kucoin',
 ]);
 
-const targets = ['USD', 'USDT', 'USDC'];
+const targets = new Set(['USD', 'USDT', 'USDC']);
 const resolveIdentifierName = (name: string) => {
   if (name === 'gate') {
     return 'GATEIO';
@@ -296,7 +296,7 @@ function BasicTokenPriceChart({
 
     for (let i = 0; i < tickers.length; i += 1) {
       const t = tickers[i];
-      if (targets.includes(t.target)) {
+      if (targets.has(t.target)) {
         if (identifiers.has(t.market.identifier)) {
           return {
             identifier: resolveIdentifierName(t.market.identifier),
