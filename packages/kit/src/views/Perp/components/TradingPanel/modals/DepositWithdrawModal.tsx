@@ -506,11 +506,13 @@ function DepositWithdrawContent({
         );
         const tokenDetails =
           tokenDetailsAndNativeTokenConfigs
-            ?.flatMap((t) => t.tokenDetails)
+            ?.map((t) => t.tokenDetails)
+            .flat()
             .filter(Boolean) ?? [];
         const nativeTokenConfigsRes =
           tokenDetailsAndNativeTokenConfigs
-            ?.flatMap((t) => t.nativeTokenConfig)
+            ?.map((t) => t.nativeTokenConfig)
+            .flat()
             .filter(Boolean) ?? [];
         setNativeTokenConfigs(nativeTokenConfigsRes);
         if (tokenDetails) {
@@ -532,7 +534,7 @@ function DepositWithdrawContent({
                 equalTokenNoCaseSensitive({ token1: t, token2: token }),
               )?.fiatValue,
             }))
-            .toSorted((a, b) =>
+            .sort((a, b) =>
               new BigNumber(b.fiatValue ?? 0).comparedTo(
                 new BigNumber(a.fiatValue ?? 0),
               ),
@@ -540,7 +542,7 @@ function DepositWithdrawContent({
           setDepositTokensWithPrice(depositTokensWithPriceRes);
           return depositTokensWithPriceRes;
         }
-      } catch (_error) {
+      } catch (error) {
         console.error(
           '[DepositWithdrawModal] Failed to fetch tokens balance:',
           error,
@@ -1017,7 +1019,7 @@ function DepositWithdrawContent({
         void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
         onClose?.();
       }
-    } catch (_error) {
+    } catch (error) {
       console.error(`[DepositWithdrawModal.${selectedAction}] Failed:`, error);
       throw error;
     } finally {

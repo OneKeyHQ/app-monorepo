@@ -104,7 +104,7 @@ export const buildAllowList = (
         if (!screen) {
           try {
             throw new OneKeyLocalError(`screen ${screenName} not found`);
-          } catch (_error) {
+          } catch (error) {
             console.error(error);
           }
         }
@@ -236,14 +236,16 @@ export const buildAllowList = (
             showParams: true,
           },
         }
-      : (!perpDisabled
+      : {
+          ...(!perpDisabled
             ? {
                 [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
                   showUrl: true,
                   showParams: true,
                 },
               }
-            : {})),
+            : {}),
+        }),
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isExtension) {

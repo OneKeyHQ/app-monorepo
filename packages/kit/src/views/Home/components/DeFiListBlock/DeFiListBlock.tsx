@@ -704,8 +704,11 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         );
         tempOverview.protocolCount += r.overview.protocolCount;
         tempOverview.positionCount += r.overview.positionCount;
-        tempProtocols.push(...r.protocols);
-        Object.assign(tempProtocolMap, r.protocolMap);
+        tempProtocols = [...tempProtocols, ...r.protocols];
+        tempProtocolMap = {
+          ...tempProtocolMap,
+          ...r.protocolMap,
+        };
       }
       updateAccountDeFiOverview({
         currency: settings.currencyInfo.id,

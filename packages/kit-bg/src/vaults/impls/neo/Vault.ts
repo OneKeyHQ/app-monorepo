@@ -445,7 +445,7 @@ export default class Vault extends VaultBase {
         );
       }
       return blockCountBN.toNumber();
-    } catch (_error) {
+    } catch (error) {
       throw new OneKeyInternalError(
         `Failed to get block count: ${
           error instanceof Error ? error.message : 'Unknown error'
@@ -484,7 +484,7 @@ export default class Vault extends VaultBase {
     let script = '';
     try {
       script = sc.createScript(...params.invokeArgs);
-    } catch (_error) {
+    } catch (error) {
       throw new OneKeyInternalError('Failed to create script');
     }
 

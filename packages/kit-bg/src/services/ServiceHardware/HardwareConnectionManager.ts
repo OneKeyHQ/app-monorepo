@@ -97,7 +97,7 @@ export class HardwareConnectionManager {
       );
 
       return permissionResult;
-    } catch (_error) {
+    } catch (error) {
       console.error(
         'HardwareConnectionManager requestBluetoothPermission error -> :',
         error,
@@ -142,7 +142,7 @@ export class HardwareConnectionManager {
       const devices = response.data as unknown[];
       const isAvailable = Array.isArray(devices) && devices.length > 0;
       return isAvailable;
-    } catch (_error) {
+    } catch (error) {
       return false;
     }
   }
@@ -254,7 +254,7 @@ export class HardwareConnectionManager {
       }
 
       return Boolean(bleAvailableState?.available);
-    } catch (_error) {
+    } catch (error) {
       console.log('❌ detectBluetoothAvailability error: ', error);
       return false;
     }

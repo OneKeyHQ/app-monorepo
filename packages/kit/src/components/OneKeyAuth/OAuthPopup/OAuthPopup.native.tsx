@@ -43,7 +43,7 @@ async function getGoogleSignin(): Promise<typeof GoogleSigninType> {
   try {
     const module = await import('@react-native-google-signin/google-signin');
     return module.GoogleSignin;
-  } catch (_error) {
+  } catch (error) {
     throw new OneKeyLocalError(
       'Google Sign-In is not available. Please use web browser authentication.',
     );
@@ -129,7 +129,7 @@ export class OAuthPopup extends OAuthPopupBase {
       if (platformEnv.isNativeIOS) {
         try {
           return await OAuthPopup.openWithAppleSignin(options);
-        } catch (_error) {
+        } catch (error) {
           // If Apple Sign-In fails due to setup issues, fall back to WebBrowser
           if (OAuthPopup.shouldFallbackToWebBrowserForApple(error)) {
             console.warn(
@@ -149,7 +149,7 @@ export class OAuthPopup extends OAuthPopupBase {
     if (provider === 'google') {
       try {
         return await OAuthPopup.openWithGoogleSignin(options);
-      } catch (_error) {
+      } catch (error) {
         // If GoogleSignin fails due to setup issues, fall back to WebBrowser
         if (OAuthPopup.shouldFallbackToWebBrowserForGoogle(error)) {
           console.warn(
@@ -331,7 +331,7 @@ export class OAuthPopup extends OAuthPopupBase {
         success: true,
         session: { accessToken, refreshToken },
       };
-    } catch (_error) {
+    } catch (error) {
       // Handle specific Apple Sign-In errors
       if (OAuthPopup.isAppleUserCancelledError(error)) {
         throw new OAuthLoginCancelError();
@@ -582,7 +582,7 @@ export class OAuthPopup extends OAuthPopupBase {
         success: true,
         session: { accessToken, refreshToken },
       };
-    } catch (_error) {
+    } catch (error) {
       // Handle specific GoogleSignin errors
       if (OAuthPopup.isUserCancelledError(error)) {
         throw new OAuthLoginCancelError();

@@ -116,7 +116,7 @@ export async function healthCheckRequest(
       status: sniResponse.statusCode,
       ok: sniResponse.statusCode >= 200 && sniResponse.statusCode < 300,
     };
-  } catch (_error) {
+  } catch (error) {
     console.warn(
       '[HealthCheck] SNI request failed, falling back to fetch:',
       error,

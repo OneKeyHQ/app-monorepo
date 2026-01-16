@@ -107,7 +107,7 @@ const DesktopWebView = forwardRef(
         }
         try {
           webviewRef.current.executeJavaScript(script);
-        } catch (_error) {
+        } catch (error) {
           console.error('DesktopWebView: failed to flush queued script', error);
         }
       }
@@ -218,7 +218,7 @@ const DesktopWebView = forwardRef(
           webview.removeEventListener('new-window', onNewWindow);
           webview.removeEventListener('dom-ready', handleDomReady);
         };
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
       }
     }, [
@@ -289,7 +289,7 @@ const DesktopWebView = forwardRef(
             if (webviewRef.current) {
               try {
                 webviewRef.current.executeJavaScript(script);
-              } catch (_error) {
+              } catch (error) {
                 console.error(
                   'DesktopWebView: failed to execute script',
                   error,
@@ -363,7 +363,7 @@ const DesktopWebView = forwardRef(
                 return false;
               },
             });
-          } catch (_error) {
+          } catch (error) {
             // noop
           } finally {
             // noop

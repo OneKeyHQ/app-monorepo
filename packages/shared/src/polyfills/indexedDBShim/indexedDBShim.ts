@@ -41,7 +41,7 @@ if (!global.IDBDatabase.prototype.transactionOriginal_a7c9d6a9) {
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return tx;
-    } catch (_error) {
+    } catch (error) {
       storageChecker.handleDiskFullError(error);
       throw error;
     }

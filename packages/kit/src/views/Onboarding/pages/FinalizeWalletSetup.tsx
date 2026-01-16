@@ -136,7 +136,7 @@ function FinalizeWalletSetupPage({
           // createHWWallet() is called before this page loaded
         }
         setShowStep(true);
-      } catch (_error) {
+      } catch (error) {
         void popPage({ delay: 300 });
         throw error;
       }

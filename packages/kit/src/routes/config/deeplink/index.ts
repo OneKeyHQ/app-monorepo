@@ -130,7 +130,7 @@ async function processDeepLinkUrlAccount(
           break;
       }
     }
-  } catch (_error) {
+  } catch (error) {
     //
   }
 }
@@ -223,7 +223,7 @@ async function processDeepLinkWalletConnect({
         urlExtracted: wcUri,
       };
     }
-  } catch (_error) {
+  } catch (error) {
     console.error('connectToWalletConnectByDeepLink ERROR: ', error);
   }
 }

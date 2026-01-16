@@ -25,7 +25,18 @@ function RichTable<T>(props: ITableProps<T>) {
   const { columns, rowProps, ...rest } = props;
 
   const columnsWithDefaultProps = columns.map((column, index) => {
-    return Object.assign({align:index===0?`left` as const:`right` as const}, column, {titleProps:{...titleDefaultProps,...column.titleProps},columnProps:{...columnDefaultProps,...column.columnProps}});
+    return {
+      align: index === 0 ? ('left' as const) : ('right' as const),
+      ...column,
+      titleProps: {
+        ...titleDefaultProps,
+        ...column.titleProps,
+      },
+      columnProps: {
+        ...columnDefaultProps,
+        ...column.columnProps,
+      },
+    };
   });
 
   return (

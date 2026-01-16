@@ -34,7 +34,7 @@ export function PrimeForgetMasterPasswordDialog({
             promiseId,
           },
         );
-      } catch (_error) {
+      } catch (error) {
         options?.preventClose?.();
         throw error;
       }

@@ -135,7 +135,7 @@ export function validateNpub(npub: string) {
     }
 
     return true;
-  } catch (_error) {
+  } catch (error) {
     return false;
   }
 }

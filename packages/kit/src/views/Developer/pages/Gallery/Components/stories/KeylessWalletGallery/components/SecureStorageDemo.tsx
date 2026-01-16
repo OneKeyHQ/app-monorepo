@@ -54,7 +54,7 @@ export const SecureStorageDemo = () => {
               setSecureStorageResult(
                 `✅ Set with biometrics success: ${secureStorageKey}`,
               );
-            } catch (_e: any) {
+            } catch (e: any) {
               setSecureStorageResult(`❌ Error: ${(e as Error)?.message}`);
             }
           }}
@@ -72,7 +72,7 @@ export const SecureStorageDemo = () => {
               setSecureStorageResult(
                 `✅ Set with biometrics success: ${secureStorageKey}`,
               );
-            } catch (_e: any) {
+            } catch (e: any) {
               setSecureStorageResult(`❌ Error: ${(e as Error)?.message}`);
             }
           }}
@@ -89,7 +89,7 @@ export const SecureStorageDemo = () => {
                 secureStorageValue,
               );
               setSecureStorageResult(`✅ Set success: ${secureStorageKey}`);
-            } catch (_e: any) {
+            } catch (e: any) {
               setSecureStorageResult(`❌ Error: ${(e as Error)?.message}`);
             }
           }}
@@ -109,7 +109,7 @@ export const SecureStorageDemo = () => {
                   ? `✅ Get success: ${result}`
                   : `⚠️ Key not found: ${secureStorageKey}`,
               );
-            } catch (_e: any) {
+            } catch (e: any) {
               setSecureStorageResult(`❌ Error: ${(e as Error)?.message}`);
             }
           }}
@@ -124,7 +124,7 @@ export const SecureStorageDemo = () => {
             try {
               await secureStorage.removeSecureItem(secureStorageKey);
               setSecureStorageResult(`✅ Removed: ${secureStorageKey}`);
-            } catch (_e: any) {
+            } catch (e: any) {
               setSecureStorageResult(`❌ Error: ${(e as Error)?.message}`);
             }
           }}

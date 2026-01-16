@@ -47,7 +47,7 @@ export function TestAccountList() {
         await backgroundApiProxy.serviceDevSetting.getDevSetting();
       const newAccounts = devSettings.settings?.testAccounts || [];
       setAccounts(newAccounts);
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to refresh accounts:', error);
     } finally {
       void reloadAccounts();
@@ -134,7 +134,7 @@ export function TestAccountList() {
             });
             void refreshData();
             await close();
-          } catch (_error) {
+          } catch (error) {
             console.error('Failed to delete test account:', error);
             Toast.error({
               title: intl.formatMessage({ id: ETranslations.global_failed }),

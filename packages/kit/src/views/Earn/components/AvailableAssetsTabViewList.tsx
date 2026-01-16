@@ -98,7 +98,7 @@ export function AvailableAssetsTabViewList() {
           actions.current.updateAvailableAssetsByType(tabType, tabAssets);
         }
         return tabAssets;
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to fetch available assets:', error);
         // Return empty array on error to prevent infinite loading
         return [];

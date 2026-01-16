@@ -778,7 +778,7 @@ function SendReplaceTxContainer() {
         }),
       });
       navigation.popStack();
-    } catch (_e: any) {
+    } catch (e: any) {
       setIsSubmitting(false);
       throw e;
     }

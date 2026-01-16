@@ -78,7 +78,7 @@ function RecentNetworks({
             networkId,
           });
           networks.push(network);
-        } catch (_error) {
+        } catch (error) {
           // ignore
         }
       }

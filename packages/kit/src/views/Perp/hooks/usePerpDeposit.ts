@@ -269,7 +269,7 @@ const usePerpDeposit = (
         setPerpDepositQuoteLoading(false);
         setPerpDepositQuote(undefined);
       }
-    } catch (_e: any) {
+    } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const cause = e?.cause || e?.data?.cause;
       if (cause !== ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL) {
@@ -533,10 +533,13 @@ const usePerpDeposit = (
           const unsignedTxItem = unsignedTxArr[i];
           const gasRes = gasResArr.txFees[i];
           const gasInfo = buildGasInfo(gasRes, gasResArr.common);
-          gasFeeInfos.push({
-            encodeTx: unsignedTxItem.encodedTx ?? {},
-            gasInfo,
-          });
+          gasFeeInfos = [
+            ...gasFeeInfos,
+            {
+              encodeTx: unsignedTxItem.encodedTx ?? {},
+              gasInfo,
+            },
+          ];
         }
       } else if (
         approveUnsignedTxArr?.length &&
@@ -595,10 +598,13 @@ const usePerpDeposit = (
                   }
                 : undefined,
             };
-            gasFeeInfos.push({
-              encodeTx: unsignedTxItem.encodedTx,
-              gasInfo: lastTxGasInfo,
-            });
+            gasFeeInfos = [
+              ...gasFeeInfos,
+              {
+                encodeTx: unsignedTxItem.encodedTx,
+                gasInfo: lastTxGasInfo,
+              },
+            ];
           } else {
             const estimateFeeParams =
               await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -620,10 +626,13 @@ const usePerpDeposit = (
               };
             }
             const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
-            gasFeeInfos.push({
-              encodeTx: unsignedTxItem.encodedTx,
-              gasInfo: gasParseInfo,
-            });
+            gasFeeInfos = [
+              ...gasFeeInfos,
+              {
+                encodeTx: unsignedTxItem.encodedTx,
+                gasInfo: gasParseInfo,
+              },
+            ];
           }
         }
       } else {
@@ -1083,7 +1092,7 @@ const usePerpDeposit = (
           errorMessage: 'txid not found',
         });
       }
-    } catch (_e: any) {
+    } catch (e: any) {
       defaultLogger.perp.deposit.perpDepositInitiate({
         userAddress: result?.fromUserAddress ?? '',
         receiverAddress: result?.perpReceiverAddress ?? '',

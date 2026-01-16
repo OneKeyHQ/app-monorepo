@@ -27,7 +27,7 @@ export async function handleAnalyticsStudyCreated({
         studyName,
         timestamp: new Date().toISOString(),
       });
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to handle analytics study created:', error);
     }
   } else {

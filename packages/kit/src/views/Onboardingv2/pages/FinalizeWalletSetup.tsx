@@ -326,7 +326,7 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('createWallet error:', error);
       const hardwareError = error as {
         messageId: ETranslations;

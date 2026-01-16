@@ -52,7 +52,7 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
         await backgroundApiProxy.serviceDevSetting.getDevSetting();
       const newConfigs = devSettings.settings?.customApiEndpoints || [];
       setConfigs(newConfigs);
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to refresh configs:', error);
     } finally {
       void reloadConfigs();
@@ -141,7 +141,7 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
             });
             void refreshData();
             await close();
-          } catch (_error) {
+          } catch (error) {
             console.error('Failed to delete API endpoint config:', error);
             Toast.error({
               title: intl.formatMessage({ id: ETranslations.global_failed }),
@@ -182,7 +182,7 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
               : ETranslations.global_disabled,
           }),
         });
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to toggle API endpoint config:', error);
         Toast.error({
           title: intl.formatMessage({ id: ETranslations.global_failed }),

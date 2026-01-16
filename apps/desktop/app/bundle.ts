@@ -42,7 +42,7 @@ const readMetadataFileSha256 = async (signature: string) => {
     throw new OneKeyLocalError(
       ElectronTranslations.update_signature_verification_failed_alert_text,
     );
-  } catch (_error) {
+  } catch (error) {
     logger.error(
       'auto-updater',
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call

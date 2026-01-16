@@ -318,7 +318,7 @@ export default class Vault extends VaultBase {
       // await tx confirmed
       await client.waitForTransaction(signedTx.signedTx.txid);
       return { token, isActivated: !!signedTx.signedTx.txid };
-    } catch (_error) {
+    } catch (error) {
       // Handle insufficient balance error
       if (
         error instanceof Error &&
@@ -997,7 +997,7 @@ export default class Vault extends VaultBase {
         to: toAddress,
         amount,
       };
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to decode contract call:', error);
       return null;
     }
@@ -1184,7 +1184,7 @@ export default class Vault extends VaultBase {
         responseTime,
         bestBlockNumber: ledger.sequence,
       };
-    } catch (_error) {
+    } catch (error) {
       console.error('getCustomRpcEndpointStatus ERROR:', error);
       throw error;
     }
@@ -1776,7 +1776,7 @@ export default class Vault extends VaultBase {
         if (minResourceFeeValue) {
           minResourceFee = new BigNumber(minResourceFeeValue).multipliedBy(1.1);
         }
-      } catch (_error) {
+      } catch (error) {
         // Fall back to fee stats only if simulation is unavailable or fails
         console.warn(
           'simulateTransaction failed, fallback to fee stats',
@@ -1843,7 +1843,7 @@ export default class Vault extends VaultBase {
         operations = stellarTx.operations;
       }
       return operations?.length ?? 1;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to parse Stellar operations count', error);
       return 1;
     }

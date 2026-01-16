@@ -142,7 +142,7 @@ export class OAuthPopup extends OAuthPopupBase {
       await OAuthPopup.restoreFocusToOriginalWindow(originalWindowId);
 
       return result;
-    } catch (_error) {
+    } catch (error) {
       if (OAuthPopup.isUserCancelledError(error)) {
         throw new OAuthLoginCancelError();
       }

@@ -128,7 +128,7 @@ export function AdaManageContent({
           amount: holdingsAmount,
         });
       return resp;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to fetch transaction confirmation:', error);
       return undefined;
     }

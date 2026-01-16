@@ -86,7 +86,7 @@ function ApprovalListContainer() {
         approvalListActions.current.updateContractMap({
           data: resp.contractMap,
         });
-      } catch (_error) {
+      } catch (error) {
         if (error instanceof CanceledError) {
           console.log('fetchAccountApprovals canceled');
         } else {

@@ -50,7 +50,7 @@ const PreSwapConfirmResult = ({
           param: lastStep.txHash,
         });
         setExplorerUrl(url || '');
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to build explorer URL:', error);
         setExplorerUrl('');
       }

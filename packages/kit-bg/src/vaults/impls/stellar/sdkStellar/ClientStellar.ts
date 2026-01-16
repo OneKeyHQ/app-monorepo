@@ -72,7 +72,7 @@ export default class ClientStellar {
         return false;
       }
       return true;
-    } catch (_error) {
+    } catch (error) {
       return false;
     }
   }
@@ -148,7 +148,7 @@ export default class ClientStellar {
         subentry_count: data.subentry_count ?? 0,
         balances,
       };
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get account info:', error);
       return null;
     }
@@ -211,7 +211,7 @@ export default class ClientStellar {
         asset_issuer: assetIssuer,
         ...trustline,
       };
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get trustline:', error);
       return null;
     }
@@ -283,7 +283,7 @@ export default class ClientStellar {
       });
 
       return trustlines;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get trustlines:', error);
       return [];
     }
@@ -298,7 +298,7 @@ export default class ClientStellar {
       // Return mode of inclusion fee for standard transactions
       const modeFee = result.inclusionFee?.mode || BASE_FEE;
       return modeFee;
-    } catch (_error) {
+    } catch (error) {
       // Default to base fee if network call fails
       return BASE_FEE; // 100 stroops
     }
@@ -375,7 +375,7 @@ export default class ClientStellar {
       let transaction;
       try {
         transaction = await this.transport.getTransaction(txid);
-      } catch (_error) {
+      } catch (error) {
         // If transaction query itself fails and we haven't exceeded retries, continue polling
         if (retryCount <= maxRetries) {
           return new Promise((resolve) => {
@@ -491,7 +491,7 @@ export default class ClientStellar {
           asset_issuer: b.asset_issuer || '',
           balance: b.balance,
         }));
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get token balances:', error);
       return [];
     }
@@ -548,7 +548,7 @@ export default class ClientStellar {
       } catch {
         return '0';
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get contract balance:', error);
       return '0';
     }
@@ -581,7 +581,7 @@ export default class ClientStellar {
         if (adminAddress === contractId) {
           type = EStellarAssetType.StellarAssetContract;
         }
-      } catch (_error) {
+      } catch (error) {
         // ignore error
       }
 
@@ -592,7 +592,7 @@ export default class ClientStellar {
         admin: adminVal ?? undefined,
         type,
       };
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get contract token info:', error);
       throw new OneKeyInternalError('Failed to get contract token info');
     }
@@ -616,7 +616,7 @@ export default class ClientStellar {
         return str || null;
       }
       return null;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get contract name:', error);
       return null;
     }
@@ -640,7 +640,7 @@ export default class ClientStellar {
         return str || null;
       }
       return null;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get contract symbol:', error);
       return null;
     }
@@ -664,7 +664,7 @@ export default class ClientStellar {
         return str || null;
       }
       return null;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get contract admin:', error);
       return null;
     }
@@ -690,7 +690,7 @@ export default class ClientStellar {
         return Number.isFinite(num) ? num : null;
       }
       return null;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get contract decimals:', error);
       return null;
     }

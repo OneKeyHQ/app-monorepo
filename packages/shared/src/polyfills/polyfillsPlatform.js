@@ -66,7 +66,7 @@ if (platformEnv.isNative) {
 
     AssetSourceResolver.prototype.defaultAsset = wrap(
       AssetSourceResolver.prototype.defaultAsset,
-      function (_func, ..._args) {
+      function (func, ...args) {
         const isLoadedFromServer = this.isLoadedFromServer();
         if (isLoadedFromServer) {
           const serverUrl = this.assetServerURL();
@@ -147,7 +147,7 @@ if (typeof crypto === 'undefined') {
     shimsInjectedLog('crypto');
     // eslint-disable-next-line no-const-assign
     global.crypto = require('crypto'); // cross-crypto/index.native.js
-  } catch (_error) {
+  } catch (error) {
     console.error(error);
   }
 }
@@ -191,7 +191,7 @@ try {
   const fr = new FileReader();
   try {
     fr.readAsArrayBuffer(new Blob(['hello'], { type: 'text/plain' }));
-  } catch (_error) {
+  } catch (error) {
     shimsInjectedLog('FileReader.prototype.readAsArrayBuffer');
     FileReader.prototype.readAsArrayBuffer = function (blob) {
       if (this.readyState === this.LOADING) {
@@ -212,7 +212,7 @@ try {
       fr.readAsDataURL(blob);
     };
   }
-} catch (_error) {
+} catch (error) {
   console.log('Missing FileReader; unsupported platform');
 }
 
@@ -251,7 +251,7 @@ if (platformEnv.isNative) {
   shimsInjectedLog('event-target-polyfill');
   try {
     require('event-target-polyfill');
-  } catch (_error) {
+  } catch (error) {
     console.warn('event-target-polyfill load failed', error);
   }
 

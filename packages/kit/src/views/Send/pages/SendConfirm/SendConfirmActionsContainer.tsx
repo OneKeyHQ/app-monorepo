@@ -123,7 +123,7 @@ function SendConfirmActionsContainer(props: IProps) {
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
         feeInfos: sendSelectedFeeInfo?.feeInfos,
       });
-    } catch (_e: any) {
+    } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
@@ -148,7 +148,7 @@ function SendConfirmActionsContainer(props: IProps) {
           : undefined,
         feeInfoEditable,
       });
-    } catch (_e: any) {
+    } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
@@ -238,7 +238,7 @@ function SendConfirmActionsContainer(props: IProps) {
       }
       updateSendTxStatus({ isSubmitting: false });
       onSuccess?.(result);
-    } catch (_e: any) {
+    } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
       // show toast by @toastIfError() in background method
       // Toast.error({

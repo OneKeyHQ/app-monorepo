@@ -996,7 +996,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         if (platformEnv.isNative) {
           try {
             (ref.innerRef as WebView)?.injectJavaScript(injectCode);
-          } catch (_error) {
+          } catch (error) {
             // ipad mini orientation changed cause injectJavaScript ERROR, which crash app
             console.error(
               `${

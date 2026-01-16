@@ -64,7 +64,7 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
     const asyncTypes = [...value.inverseDependencies].map((absolutePath) => {
       const moduleId = fileToIdMap.get(absolutePath);
       const val = graph.dependencies.get(absolutePath);
-      for (const [_k, v] of val.dependencies) {
+      for (const [k, v] of val.dependencies) {
         if (v.absolutePath === key) {
           const chunkModuleId = findAllocationById(moduleId);
           if (chunkModuleId && v.data.data.asyncType === null) {
@@ -99,9 +99,9 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
   );
 
   const allocation = () => {
-    for (const [_key, val] of map) val.modules.length = 0;
+    for (const [key, val] of map) val.modules.length = 0;
     for (const [moduleId, moduleCode] of modules) {
-      for (const [_key2, val] of map) {
+      for (const [key, val] of map) {
         if (val.moduleIds.has(moduleId)) {
           val.modules.push([moduleId, moduleCode]);
           break;
@@ -115,7 +115,7 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
   for (const [key, val] of map) {
     if (key !== mainModuleId) {
       const totalByteLength = val.modules.reduce(
-        (b, [_moduleId, moduleCode]) => b + Buffer.byteLength(moduleCode),
+        (b, [moduleId, moduleCode]) => b + Buffer.byteLength(moduleCode),
         0,
       );
       if (totalByteLength < minSize) {

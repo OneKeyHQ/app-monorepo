@@ -146,7 +146,7 @@ export const showLabelSetDialog = async (
     });
 
     return dialog;
-  } catch (_error) {
+  } catch (error) {
     Toast.error({
       title: appLocale.intl.formatMessage({
         id: ETranslations.global_connet_error_try_again,

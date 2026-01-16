@@ -241,7 +241,7 @@ function TxConfirm() {
           unsignedTxs,
           precheckTiming: ESendPreCheckTimingEnum.BeforeTransaction,
         });
-      } catch (_e: any) {
+      } catch (e: any) {
         updatePreCheckTxStatus((e as Error).message);
       }
       await fetchNativeTokenInfo();

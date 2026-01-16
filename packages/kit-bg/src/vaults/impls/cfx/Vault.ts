@@ -425,7 +425,7 @@ export default class Vault extends VaultBase {
           });
         }
       }
-    } catch (_error) {
+    } catch (error) {
       // pass
     }
     return action;

@@ -19,10 +19,10 @@ function enableCodeSplitChunks({ config }) {
     maxSize: maxSizeMb * 1024 * 1024, // limit to max 2MB to ignore firefox lint error
 
     // auto-gen chunk file name by module name or just increasing number
-    name: (_module, _chunks, _cacheGroupKey, _p1, _p2, _p3) => {
+    name: (module, chunks, cacheGroupKey, p1, p2, p3) => {
       chunkIndex += 1;
-      const _returnName = name ? `vendors-${name}-${chunkIndex}` : false;
-      // return _returnName;
+      const returnName = name ? `vendors-${name}-${chunkIndex}` : false;
+      // return returnName;
 
       // **** reduce module duplication across chunks
       return false;
@@ -53,7 +53,7 @@ function enableCodeSplitChunks({ config }) {
 }
 
 function disableCodeSplitChunks({ config }) {
-  const { name: _name } = config;
+  const { name } = config;
   config.optimization = config.optimization || {};
   delete config.optimization.splitChunks;
   config.output.asyncChunks = false;

@@ -93,7 +93,7 @@ function PrimeLoginEmailDialogV2(props: {
             />
           ),
         });
-      } catch (_error) {
+      } catch (error) {
         preventClose?.();
         throw error;
       }

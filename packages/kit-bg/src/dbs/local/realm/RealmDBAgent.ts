@@ -131,7 +131,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
           this.realm.commitTransaction();
         }
         return result;
-      } catch (_error) {
+      } catch (error) {
         if (shouldUseTransaction) {
           // transaction.abort()
           this.realm.cancelTransaction();

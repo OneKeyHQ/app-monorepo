@@ -45,7 +45,7 @@ function getHostNameFromUrl({ url }: { url: string }): string {
     const urlInfo = new URL(url);
     const { hostname } = urlInfo;
     return hostname || '';
-  } catch (_error) {
+  } catch (error) {
     console.error(error);
   }
   return '';
@@ -59,7 +59,7 @@ function getOriginFromUrl({ url }: { url: string }): string {
     const urlInfo = new URL(url);
     const { origin } = urlInfo;
     return origin || '';
-  } catch (_error) {
+  } catch (error) {
     console.error(error);
   }
   return '';
@@ -293,7 +293,7 @@ function safeGetWalletConnectOrigin(proposal: WalletKitTypes.SessionProposal) {
   try {
     const { origin } = new URL(proposal.params.proposer.metadata.url);
     return origin;
-  } catch (_err) {
+  } catch (err) {
     try {
       const key = `${proposal.params.proposer.metadata.name}--${proposal.params.proposer.metadata.description}`;
       const nameToUrl = NameToUrlMapForInvalidDapp[key];

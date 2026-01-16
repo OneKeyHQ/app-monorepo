@@ -39,7 +39,7 @@ export const exportLogs = async (filename: string) => {
         connectionInfo.sniSupported,
       )}`,
     });
-  } catch (_error) {
+  } catch (error) {
     defaultLogger.ipTable.request.warn({
       info: `[IpTable] Failed to get connection info: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -79,7 +79,7 @@ export const collectLogDigest = async (
         connectionInfo.sniSupported,
       )}`,
     });
-  } catch (_error) {
+  } catch (error) {
     defaultLogger.ipTable.request.warn({
       info: `[IpTable] Failed to get connection info: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -161,7 +161,7 @@ export const uploadLogBundle = async ({
   let fileSystemModule: typeof import('expo-file-system/legacy') | undefined;
   try {
     fileSystemModule = await import('expo-file-system/legacy');
-  } catch (_error) {
+  } catch (error) {
     fileSystemModule = undefined;
   }
 
@@ -204,7 +204,7 @@ export const uploadLogBundle = async ({
       }
       httpStatus = result.status ?? 0;
       text = result.body ?? '';
-    } catch (_error) {
+    } catch (error) {
       uploadTaskError =
         error instanceof Error
           ? error
@@ -236,7 +236,7 @@ export const uploadLogBundle = async ({
       });
       httpStatus = response.status;
       text = await response.text();
-    } catch (_error) {
+    } catch (error) {
       const message =
         error instanceof Error
           ? error.message
@@ -259,7 +259,7 @@ export const uploadLogBundle = async ({
   let payload: IServerPayload | undefined;
   try {
     payload = JSON.parse(text) as typeof payload;
-  } catch (_error) {
+  } catch (error) {
     payload = {
       code: httpStatus,
       message: text,

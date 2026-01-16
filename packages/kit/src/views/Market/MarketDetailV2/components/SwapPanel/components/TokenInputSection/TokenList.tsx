@@ -107,7 +107,7 @@ export function TokenList({
             networkImageSrc: networkConfig?.logoURI,
             valueProps,
           };
-        } catch (_error) {
+        } catch (error) {
           console.error(`Failed to fetch details for ${token.symbol}:`, error);
           return { ...token, error: 'Failed to fetch details' };
         }
@@ -126,9 +126,9 @@ export function TokenList({
             detailToken.networkId === token.networkId &&
             detailToken.contractAddress === token.contractAddress,
         );
-        return { ...token, ...tokenWithDetail };
+        return { ...token, ...(tokenWithDetail ?? {}) };
       })
-      .toSorted((a, b) => {
+      .sort((a, b) => {
         const valueA = parseFloat(a.valueProps?.value || '0');
         const valueB = parseFloat(b.valueProps?.value || '0');
         return valueB - valueA;

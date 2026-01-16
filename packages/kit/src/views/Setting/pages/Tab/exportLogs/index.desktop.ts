@@ -36,7 +36,7 @@ export const collectLogDigest = async (
         connectionInfo.sniSupported,
       )}`,
     });
-  } catch (_error) {
+  } catch (error) {
     defaultLogger.ipTable.request.warn({
       info: `[IpTable] Failed to get connection info: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -74,7 +74,7 @@ export const exportLogs = async () => {
         connectionInfo.sniSupported,
       )}`,
     });
-  } catch (_error) {
+  } catch (error) {
     defaultLogger.ipTable.request.warn({
       info: `[IpTable] Failed to get connection info: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -190,7 +190,7 @@ export const uploadLogBundle = async ({
       });
     }
     return result;
-  } catch (_error) {
+  } catch (error) {
     if (!removeProgressListener) {
       appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
         stage: ELogUploadStage.Error,

@@ -73,7 +73,7 @@ export function usePureChainSelectorSections({
 
     const mainnetSections = Object.entries(data)
       .map(([key, value]) => ({ title: key, data: value }))
-      .toSorted((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
+      .sort((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
 
     const _sections: IPureChainSelectorSectionListItem[] = [...mainnetSections];
 

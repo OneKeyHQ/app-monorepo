@@ -99,7 +99,7 @@ export function decodeTransferPayload(payload: string):
         .replace(/^0x/, `${addressBytes[0]}S`),
       amount: new BigNumber((amount as BigNumber).toFixed()).toFixed(),
     };
-  } catch (_error) {
+  } catch (error) {
     return undefined;
   }
 }

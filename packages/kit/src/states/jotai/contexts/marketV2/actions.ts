@@ -156,7 +156,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         set(tokenDetailWebsocketAtom(), websocketConfig);
 
         return finalTokenData;
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to fetch token detail:', error);
         set(tokenDetailAtom(), undefined);
         set(tokenDetailWebsocketAtom(), undefined);

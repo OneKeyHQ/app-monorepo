@@ -235,12 +235,12 @@ export default class Vault extends VaultBase {
     let groupId = '';
 
     const txGroup = isArray(encodedTx) ? encodedTx : [encodedTx];
-    let _txFee = new BigNumber(0);
+    let txFee = new BigNumber(0);
 
     for (let i = 0, len = txGroup.length; i < len; i += 1) {
       const { action, nativeTx } = await this._decodeAlgoTx(txGroup[i]);
       actions.push(action);
-      _txFee = _txFee.plus(nativeTx.fee ?? 0);
+      txFee = txFee.plus(nativeTx.fee ?? 0);
       sender = nativeTx.snd ? sdkAlgo.encodeAddress(nativeTx.snd) : '';
       if (nativeTx.grp) {
         groupId = Buffer.from(nativeTx.grp).toString('base64');
@@ -622,7 +622,7 @@ export default class Vault extends VaultBase {
         });
       return { isActivated: !!signedTx.signedTx.txid };
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    } catch (_e: any) {
+    } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       if (e.message.includes(`overspend (account ${dbAccount.address}`)) {
         throw new ManageTokenInsufficientBalanceError({

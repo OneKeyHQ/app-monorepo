@@ -28,6 +28,6 @@ try {
   } else {
     console.log(`File ${keytarNodePath} does not exist`);
   }
-} catch (_error) {
+} catch (error) {
   console.error('An error occurred:', error);
 }

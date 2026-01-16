@@ -203,7 +203,7 @@ class ServiceAccountSelector extends ServiceBase {
               deriveType,
             },
           );
-      } catch (_error) {
+      } catch (error) {
         //
       }
     }
@@ -219,7 +219,7 @@ class ServiceAccountSelector extends ServiceBase {
               networkId: network?.id,
             });
           }
-        } catch (_error) {
+        } catch (error) {
           //
         }
       } catch (e) {
@@ -250,7 +250,7 @@ class ServiceAccountSelector extends ServiceBase {
               networkId,
               deriveType,
             });
-        } catch (_error) {
+        } catch (error) {
           //
         }
       }
@@ -329,7 +329,7 @@ class ServiceAccountSelector extends ServiceBase {
               indexedAccountId,
             });
           canCreateAddress = true;
-        } catch (_error) {
+        } catch (error) {
           account = undefined;
           canCreateAddress = true;
         }
@@ -360,7 +360,7 @@ class ServiceAccountSelector extends ServiceBase {
       deriveInfoItems = await serviceNetwork.getDeriveInfoItemsOfNetwork({
         networkId,
       });
-    } catch (_error) {
+    } catch (error) {
       //
     }
     const activeAccount: IAccountSelectorActiveAccountInfo = {
@@ -676,7 +676,7 @@ class ServiceAccountSelector extends ServiceBase {
     // make sure wallet exists
     try {
       await serviceAccount.getWallet({ walletId });
-    } catch (_error) {
+    } catch (error) {
       // wallet may be removed
       console.error(error);
       return [];
@@ -696,7 +696,7 @@ class ServiceAccountSelector extends ServiceBase {
                 account,
                 networkId: linkedNetworkId,
               });
-            } catch (_error) {
+            } catch (error) {
               return false;
             }
           })
@@ -780,7 +780,7 @@ class ServiceAccountSelector extends ServiceBase {
         wallet,
         device,
       };
-    } catch (_error) {
+    } catch (error) {
       // wallet may be removed
       console.error(error);
       return undefined;
@@ -837,7 +837,7 @@ class ServiceAccountSelector extends ServiceBase {
       focusedWalletInfo = await this.getFocusedWalletInfo({
         focusedWallet,
       });
-    } catch (_error) {
+    } catch (error) {
       //
     }
 
@@ -922,7 +922,7 @@ class ServiceAccountSelector extends ServiceBase {
             },
           );
       }
-    } catch (_error) {
+    } catch (error) {
       //
     }
 

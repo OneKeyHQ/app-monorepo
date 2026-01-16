@@ -83,7 +83,7 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
           if (!isNil(usbConnectId)) {
             connectIdToUse = usbConnectId;
           }
-        } catch (_error) {
+        } catch (error) {
           console.error('Failed to build USB connectId:', error);
         }
       }

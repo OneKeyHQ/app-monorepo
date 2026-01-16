@@ -149,10 +149,10 @@ class ServiceApproval extends ServiceBase {
     return {
       ...resp.data.data,
       contractApprovals: [
-        ...riskApprovals.toSorted(
+        ...riskApprovals.sort(
           (a, b) => b.latestApprovalTime - a.latestApprovalTime,
         ),
-        ...normalApprovals.toSorted(
+        ...normalApprovals.sort(
           (a, b) => b.latestApprovalTime - a.latestApprovalTime,
         ),
       ],

@@ -134,7 +134,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         // @ts-expect-error
         event,
       });
-    } catch (_error: any) {
+    } catch (error: any) {
       throw new OneKeyHardwareError(error);
     }
 
@@ -202,7 +202,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         plaintext,
         showOnOneKey: false,
       });
-    } catch (_error: any) {
+    } catch (error: any) {
       throw new OneKeyHardwareError(error);
     }
 
@@ -236,7 +236,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         ciphertext,
         showOnOneKey: false,
       });
-    } catch (_error: any) {
+    } catch (error: any) {
       throw new OneKeyHardwareError(error);
     }
 

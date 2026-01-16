@@ -252,7 +252,7 @@ function ApprovalDetails() {
         if (isMountedRef.current) {
           setIsBuildingRevokeTxs(false);
         }
-      } catch (_error) {
+      } catch (error) {
         if (isMountedRef.current) {
           setIsBuildingRevokeTxs(false);
         }

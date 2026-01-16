@@ -93,7 +93,7 @@ class JsonRPCRequest {
         signal,
       });
       return await JsonRPCRequest.parseRPCResponse(response.data);
-    } catch (_error) {
+    } catch (error) {
       if (axios.isAxiosError(error)) {
         throw new AxiosResponseError(
           `Wrong response<${error.response?.status ?? ''}>`,
@@ -141,7 +141,7 @@ class JsonRPCRequest {
             response,
           );
         }
-      } catch (_error) {
+      } catch (error) {
         if (axios.isAxiosError(error)) {
           throw new AxiosResponseError(
             `Wrong response<${error.response?.status ?? ''}>`,
@@ -158,7 +158,7 @@ class JsonRPCRequest {
             return {
               result: res,
             };
-          } catch (_error) {
+          } catch (error) {
             // pass
           }
         }),
@@ -169,7 +169,7 @@ class JsonRPCRequest {
     return Promise.all(
       jsonResponses
         // @ts-ignore
-        .toSorted(({ id: idA }, { id: idB }) => idA - idB)
+        .sort(({ id: idA }, { id: idB }) => idA - idB)
         // @ts-ignore
         .map((resp) =>
           // @ts-ignore

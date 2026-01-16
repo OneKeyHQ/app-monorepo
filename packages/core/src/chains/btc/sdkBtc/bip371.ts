@@ -14,7 +14,7 @@ function isPaymentFactory(payment: any): (script: Uint8Array) => boolean {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       payment({ output: script });
       return true;
-    } catch (_err) {
+    } catch (err) {
       return false;
     }
   };

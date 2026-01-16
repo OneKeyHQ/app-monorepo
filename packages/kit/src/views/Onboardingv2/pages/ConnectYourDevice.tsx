@@ -274,7 +274,7 @@ function useDeviceConnection({
           return;
         }
 
-        const sortedDevices = response.payload.toSorted((a, b) =>
+        const sortedDevices = response.payload.sort((a, b) =>
           natsort({ insensitive: true })(
             a.name || a.connectId || a.deviceId || a.uuid,
             b.name || b.connectId || b.deviceId || b.uuid,
@@ -326,7 +326,7 @@ function useDeviceConnection({
       console.log(
         'ensureStopScan: Device scan stopped and all ongoing searches completed',
       );
-    } catch (_error) {
+    } catch (error) {
       console.error('ensureStopScan: Error while stopping scan:', error);
       // Fallback: just stop scan without waiting
       deviceScanner.stopScan();
@@ -830,7 +830,7 @@ function USBOrBLEConnectionIndicator({
           });
         }
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
     }
@@ -988,7 +988,7 @@ function BluetoothConnectionIndicator({
       await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);
       // Re-check bluetooth status after enabling
       void checkBluetoothStatus();
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to enable desktop bluetooth:', error);
     }
   }, [checkBluetoothStatus]);
@@ -1253,7 +1253,7 @@ function ConnectYourDevicePage({
           deviceData: item,
           tabValue: innerTabValue,
         });
-      } catch (_error) {
+      } catch (error) {
         if (error instanceof OneKeyHardwareError) {
           const { code, message } = error;
           if (

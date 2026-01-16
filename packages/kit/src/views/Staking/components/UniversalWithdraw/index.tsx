@@ -248,7 +248,7 @@ export function UniversalWithdraw({
           });
           withdrawSignatureRef.current = signature;
           withdrawMessageRef.current = message;
-        } catch (_error) {
+        } catch (error) {
           console.error('Stakefish withdraw sign error:', error);
           setLoading(false);
           return;

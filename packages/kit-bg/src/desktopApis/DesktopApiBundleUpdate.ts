@@ -377,7 +377,7 @@ class DesktopApiAppBundleUpdate {
     try {
       const zip = new AdmZip(downloadedFile);
       zip.extractAllTo(extractDir, true);
-    } catch (_error) {
+    } catch (error) {
       logger.error('Failed to extract bundle zip file:', error);
       throw error;
     }
@@ -477,7 +477,7 @@ class DesktopApiAppBundleUpdate {
     const bundleDir = getBundleDirName();
     try {
       fs.rmSync(bundleDir, { recursive: true, force: true });
-    } catch (_error) {
+    } catch (error) {
       logger.error('Failed to clear bundle extract:', error);
     }
   }
@@ -538,7 +538,7 @@ class DesktopApiAppBundleUpdate {
         success: false,
         message: `jsBundle not found: ${mainIndexHtmlPath}`,
       };
-    } catch (_error) {
+    } catch (error) {
       logger.error(
         'testDeleteJsBundle',
         `Error deleting jsBundle: ${(error as Error).message}`,
@@ -577,7 +577,7 @@ class DesktopApiAppBundleUpdate {
         success: false,
         message: `js runtime directory not found: ${bundleDir}`,
       };
-    } catch (_error) {
+    } catch (error) {
       logger.error(
         'testDeleteJsRuntimeDir',
         `Error deleting js runtime directory: ${(error as Error).message}`,
@@ -619,7 +619,7 @@ class DesktopApiAppBundleUpdate {
         success: false,
         message: `metadata.json not found: ${metadataFilePath}`,
       };
-    } catch (_error) {
+    } catch (error) {
       logger.error(
         'testDeleteMetadataJson',
         `Error deleting metadata.json: ${(error as Error).message}`,
@@ -660,7 +660,7 @@ class DesktopApiAppBundleUpdate {
         success: true,
         message: `Created empty metadata.json: ${metadataFilePath}`,
       };
-    } catch (_error) {
+    } catch (error) {
       logger.error(
         'testWriteEmptyMetadataJson',
         `Error writing empty metadata.json: ${(error as Error).message}`,

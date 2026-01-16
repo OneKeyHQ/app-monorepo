@@ -163,7 +163,7 @@ export function WebViewWebEmbed({
         | undefined;
       try {
         data = JSON.parse(event.nativeEvent.data);
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
       }
       if (!data) {
@@ -257,7 +257,7 @@ export function WebViewWebEmbed({
                     cloneFunctions: true
                   }
                 );
-              } catch (_error) {
+              } catch (error) {
                 console.error('cloneInto error', error);
               }
             }

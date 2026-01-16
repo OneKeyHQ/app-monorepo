@@ -37,7 +37,7 @@ export function useCheckWalletReferralCodeBound({
         wallet = await backgroundApiProxy.serviceAccount.getWallet({
           walletId,
         });
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to get wallet:', error);
         return { shouldBound: false, isSupported: false };
       }

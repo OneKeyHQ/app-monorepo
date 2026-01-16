@@ -64,7 +64,7 @@ function sortUtxo({
   utxos: ICoinSelectInput[];
   feeRate: number;
 }) {
-  return utxos.concat().toSorted((a, b) => {
+  return utxos.concat().sort((a, b) => {
     if (a.forceSelect) {
       return -1;
     }
@@ -203,7 +203,7 @@ export function coinSelectWithWitness(
   };
   try {
     return coinSelectWitness(coinselectParams);
-  } catch (_error) {
+  } catch (error) {
     defaultLogger.transaction.coinSelect.coinSelectFailed(
       coinselectParams,
       error as Error,

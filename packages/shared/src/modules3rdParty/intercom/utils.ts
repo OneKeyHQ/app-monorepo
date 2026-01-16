@@ -20,7 +20,7 @@ export const getCustomerJWT = async (): Promise<string | undefined> => {
 
       return response?.token;
     }
-  } catch (_error) {
+  } catch (error) {
     console.warn('Failed to get customer JWT for Intercom:', error);
   }
 
@@ -37,7 +37,7 @@ export const getInstanceId = async (): Promise<string | undefined> => {
     }
 
     return await backgroundApiProxy.serviceSetting.getInstanceId();
-  } catch (_error) {
+  } catch (error) {
     console.warn('Failed to get instance ID for Intercom:', error);
   }
 

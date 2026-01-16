@@ -218,7 +218,7 @@ function BulkRevoke() {
             };
           }
         }
-      } catch (_error) {
+      } catch (error) {
         console.error('=====>>>>>> fetchAccountNativeBalance error', error);
       }
 
@@ -438,7 +438,7 @@ function BulkRevoke() {
             feeFiat: feeResult.totalFiatForDisplay,
           },
         }));
-      } catch (_error: unknown) {
+      } catch (error: unknown) {
         let passphraseEnabled;
         let deviceCommunicationError;
         if (

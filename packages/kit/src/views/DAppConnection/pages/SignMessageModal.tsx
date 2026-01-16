@@ -207,7 +207,7 @@ function SignMessageModal() {
             currentNetwork?.impl,
           );
         }
-      } catch (_e: any) {
+      } catch (e: any) {
         setIsLoading(false);
         dappApprove?.reject({ error: e });
         close?.();

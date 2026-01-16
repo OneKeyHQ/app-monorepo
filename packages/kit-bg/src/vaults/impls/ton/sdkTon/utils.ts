@@ -55,7 +55,7 @@ export function decodePayload(payload?: string | Uint8Array): {
     } catch (e) {
       try {
         bytes = Buffer.from(payload, 'hex');
-      } catch (_ee) {
+      } catch (ee) {
         // ignore
       }
     }

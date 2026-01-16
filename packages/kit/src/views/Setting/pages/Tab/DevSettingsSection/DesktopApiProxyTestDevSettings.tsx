@@ -16,7 +16,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: result,
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -29,7 +29,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'reload() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -43,7 +43,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'restore() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -56,7 +56,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'quitApp() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -70,7 +70,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'focus() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -84,7 +84,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { isFocused: result },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -97,7 +97,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'toggleMaximizeWindow() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -114,7 +114,7 @@ export default function DesktopApiProxyTestDevSettings() {
           result: `changeDevTools(${newState.toString()}) called successfully`,
         },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -131,7 +131,7 @@ export default function DesktopApiProxyTestDevSettings() {
           result: `changeLanguage(${newLanguage}) called successfully`,
         },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -146,7 +146,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { version: result },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -159,7 +159,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: result,
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -172,7 +172,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: result,
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -185,7 +185,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'openLoggerFile() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -202,7 +202,7 @@ export default function DesktopApiProxyTestDevSettings() {
           returnValue: result,
         },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -215,7 +215,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { appName: result },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -230,7 +230,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { canPromptTouchID: result },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -245,7 +245,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: result,
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -262,7 +262,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'storeSetItemAsync() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -277,7 +277,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { getValue: value },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -292,7 +292,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'storeDelItemAsync() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -305,7 +305,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'storeClear() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -321,7 +321,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'secureSetItemAsync() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -336,7 +336,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { secureValue: value },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -351,7 +351,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'secureDelItemAsync() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -369,7 +369,7 @@ export default function DesktopApiProxyTestDevSettings() {
           result: 'setAllowedPhishingUrls() called successfully',
         },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -386,7 +386,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'showNotification() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -402,7 +402,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: `setBadge(${count}) called successfully` },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -416,7 +416,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: result,
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -430,7 +430,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'openLoggerFile() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -445,7 +445,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { result: 'testCrash() called successfully' },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -471,7 +471,7 @@ export default function DesktopApiProxyTestDevSettings() {
           returnValue: result,
         },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -489,7 +489,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: result,
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -503,7 +503,7 @@ export default function DesktopApiProxyTestDevSettings() {
       Dialog.debugMessage({
         debugMessage: { canMakePayments: result },
       });
-    } catch (_error) {
+    } catch (error) {
       Dialog.debugMessage({
         debugMessage: { error: (error as Error)?.message },
       });
@@ -603,7 +603,7 @@ export default function DesktopApiProxyTestDevSettings() {
                   result: 'openPreferences() called successfully',
                 },
               });
-            } catch (_error) {
+            } catch (error) {
               Dialog.debugMessage({
                 debugMessage: { error: (error as Error)?.message },
               });
@@ -626,7 +626,7 @@ export default function DesktopApiProxyTestDevSettings() {
                   result: 'openPreferences() called successfully',
                 },
               });
-            } catch (_error) {
+            } catch (error) {
               Dialog.debugMessage({
                 debugMessage: { error: (error as Error)?.message },
               });
@@ -641,7 +641,7 @@ export default function DesktopApiProxyTestDevSettings() {
           onPress={async () => {
             try {
               await globalThis.desktopApiProxy.system.openPrivacyPanel();
-            } catch (_error) {
+            } catch (error) {
               Dialog.debugMessage({
                 debugMessage: { error: (error as Error)?.message },
               });
@@ -662,7 +662,7 @@ export default function DesktopApiProxyTestDevSettings() {
               Dialog.debugMessage({
                 debugMessage: { result },
               });
-            } catch (_error) {
+            } catch (error) {
               Dialog.debugMessage({
                 debugMessage: { error: (error as Error)?.message },
               });
@@ -726,7 +726,7 @@ export default function DesktopApiProxyTestDevSettings() {
                   result: 'disableShortcuts() called successfully',
                 },
               });
-            } catch (_error) {
+            } catch (error) {
               Dialog.debugMessage({
                 debugMessage: { error: (error as Error)?.message },
               });
@@ -765,7 +765,7 @@ export default function DesktopApiProxyTestDevSettings() {
               Dialog.debugMessage({
                 debugMessage: { biometricAuthChanged: result },
               });
-            } catch (_error) {
+            } catch (error) {
               Dialog.debugMessage({
                 debugMessage: { error: (error as Error)?.message },
               });
@@ -853,7 +853,7 @@ export default function DesktopApiProxyTestDevSettings() {
                   result: 'clearWebViewCache() called successfully',
                 },
               });
-            } catch (_error) {
+            } catch (error) {
               Dialog.debugMessage({
                 debugMessage: { error: (error as Error)?.message },
               });
@@ -900,7 +900,7 @@ export default function DesktopApiProxyTestDevSettings() {
                   result: 'openPermissionSettings() called successfully',
                 },
               });
-            } catch (_error) {
+            } catch (error) {
               Dialog.debugMessage({
                 debugMessage: { error: (error as Error)?.message },
               });
@@ -973,7 +973,7 @@ export default function DesktopApiProxyTestDevSettings() {
               Dialog.debugMessage({
                 debugMessage: { canMakePayments: result },
               });
-            } catch (_error) {
+            } catch (error) {
               Dialog.debugMessage({
                 debugMessage: { error: (error as Error)?.message },
               });
@@ -991,7 +991,7 @@ export default function DesktopApiProxyTestDevSettings() {
               Dialog.debugMessage({
                 debugMessage: { result: 'testError() called successfully' },
               });
-            } catch (_error) {
+            } catch (error) {
               Dialog.debugMessage({
                 debugMessage: { error: (error as Error)?.message },
               });

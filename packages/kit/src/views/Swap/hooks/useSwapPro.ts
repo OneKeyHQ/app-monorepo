@@ -265,12 +265,15 @@ export function useSwapTokenPairBalanceSyncForPosition() {
                 };
               } else {
                 // Token doesn't exist, add it to the list
-                updatedList.push({
-                  ...tokenDetail,
-                  balanceParsed: tokenDetail.balanceParsed ?? '',
-                  fiatValue: tokenDetail.fiatValue ?? '',
-                  price: tokenDetail.price ?? '',
-                } as ISwapToken);
+                updatedList = [
+                  ...updatedList,
+                  {
+                    ...tokenDetail,
+                    balanceParsed: tokenDetail.balanceParsed ?? '',
+                    fiatValue: tokenDetail.fiatValue ?? '',
+                    price: tokenDetail.price ?? '',
+                  } as ISwapToken,
+                ];
               }
             }
           }
@@ -970,7 +973,7 @@ export function useSwapProTokenTransactionList(
       }
 
       // Add new transaction at the beginning and sort by timestamp
-      const updatedTransactions = [newTransaction, ...prev].toSorted(
+      const updatedTransactions = [newTransaction, ...prev].sort(
         (a, b) => b.timestamp - a.timestamp,
       );
       setSwapProTokenTransactionList(updatedTransactions);
@@ -1121,12 +1124,15 @@ export function useSwapProSupportNetworksTokenList(
                     };
                   } else {
                     // Token doesn't exist, add it to the list
-                    updatedList.push({
-                      ...tokenDetail,
-                      balanceParsed: tokenDetail.balanceParsed ?? '',
-                      fiatValue: tokenDetail.fiatValue ?? '',
-                      price: tokenDetail.price ?? '',
-                    } as ISwapToken);
+                    updatedList = [
+                      ...updatedList,
+                      {
+                        ...tokenDetail,
+                        balanceParsed: tokenDetail.balanceParsed ?? '',
+                        fiatValue: tokenDetail.fiatValue ?? '',
+                        price: tokenDetail.price ?? '',
+                      } as ISwapToken,
+                    ];
                   }
                 }
               }

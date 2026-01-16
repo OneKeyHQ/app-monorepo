@@ -363,7 +363,7 @@ class ServiceKeylessWallet extends ServiceBase {
   }): Promise<IKeylessWalletRestoredData | undefined> {
     try {
       return await this.restoreKeylessWallet(params);
-    } catch (_error) {
+    } catch (error) {
       return undefined;
     }
   }
@@ -641,7 +641,7 @@ class ServiceKeylessWallet extends ServiceBase {
         return null;
       }
       return await this.getAuthPackFromCache({ packSetId });
-    } catch (_error) {
+    } catch (error) {
       return null;
     }
   }
@@ -675,7 +675,7 @@ class ServiceKeylessWallet extends ServiceBase {
         return null;
       }
       return await this.getKeylessDevicePack({ packSetId });
-    } catch (_error) {
+    } catch (error) {
       return null;
     }
   }
@@ -822,7 +822,7 @@ class ServiceKeylessWallet extends ServiceBase {
         if (cachedAuthPack) {
           return cachedAuthPack;
         }
-      } catch (_error) {
+      } catch (error) {
         console.error('getKeylessAuthPackSafe ERROR', error);
       }
 
@@ -835,13 +835,13 @@ class ServiceKeylessWallet extends ServiceBase {
             await this.cacheAuthPackInMemory({ authPack });
             return authPack;
           }
-        } catch (_error) {
+        } catch (error) {
           // User cancelled or error occurred, return null
           return null;
         }
       }
       return null;
-    } catch (_error) {
+    } catch (error) {
       return null;
     }
   }
@@ -898,7 +898,7 @@ class ServiceKeylessWallet extends ServiceBase {
     let authPack: IAuthKeyPack;
     try {
       authPack = JSON.parse(authPackString) as IAuthKeyPack;
-    } catch (_error) {
+    } catch (error) {
       throw new OneKeyLocalError('Failed to parse authPack from server');
     }
 
@@ -1037,7 +1037,7 @@ class ServiceKeylessWallet extends ServiceBase {
         );
       }
       return cloudPayload?.cloudKeyPack;
-    } catch (_error) {
+    } catch (error) {
       throw new OneKeyLocalError(
         `Failed to get keyless cloud pack from cloud backup: ${
           (error as Error)?.message
@@ -1074,7 +1074,7 @@ class ServiceKeylessWallet extends ServiceBase {
         return cloudPack;
       }
       return undefined;
-    } catch (_error) {
+    } catch (error) {
       return undefined;
     }
   }
@@ -2059,7 +2059,7 @@ class ServiceKeylessWallet extends ServiceBase {
       }
 
       return null;
-    } catch (_error) {
+    } catch (error) {
       // Silently fail - return null if any error occurs
       console.error('Failed to refresh token from storage:', error);
       return null;
@@ -2138,7 +2138,7 @@ class ServiceKeylessWallet extends ServiceBase {
 
       const result = (await response.json()) as { status?: string };
       return result?.status === 'ok';
-    } catch (_error) {
+    } catch (error) {
       // Handle timeout or any other errors
       return false;
     }

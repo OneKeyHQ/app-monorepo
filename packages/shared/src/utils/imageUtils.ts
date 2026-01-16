@@ -218,7 +218,7 @@ async function convertSvgToJpegBase64(uri: string): Promise<string> {
 
     const jpegBase64Uri = canvas.toDataURL('image/jpeg');
     return jpegBase64Uri;
-  } catch (_error) {
+  } catch (error) {
     throw new OneKeyLocalError(
       `Failed to convert SVG: ${(error as Error).message}`,
     );
@@ -361,7 +361,7 @@ async function resizeImage(params: {
       });
       actualOriginW = detectResult.width;
       actualOriginH = detectResult.height;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to detect image dimensions:', error);
       return { hex: '', uri: '', width: 0, height: 0 };
     }
@@ -574,7 +574,7 @@ async function getRNLocalImageBase64({
     base64a = await ExpoFSReadAsStringAsync(uri, {
       encoding: 'base64',
     });
-  } catch (_error) {
+  } catch (error) {
     errors.push(
       'ExpoFSReadAsStringAsync error',
       (error as Error)?.message || '',
@@ -599,7 +599,7 @@ async function getRNLocalImageBase64({
   //         encoding: 'base64',
   //       });
   //     }
-  //   } catch (_error) {
+  //   } catch (error) {
   //     errors.push(
   //       'ExpoFSReadAsStringAsync downloadedUri error',
   //       (error as Error)?.message || '',
@@ -612,7 +612,7 @@ async function getRNLocalImageBase64({
   //
   // try {
   //   base64b = await RNImgToBase64.getBase64String(uri);
-  // } catch (_error) {
+  // } catch (error) {
   //   errors.push(
   //     'RNImgToBase64.getBase64String error',
   //     (error as Error)?.message || '',
@@ -622,7 +622,7 @@ async function getRNLocalImageBase64({
   // **** use react-native-fs
   // try {
   //   base64c = await RNFS.readFile(uri, 'base64');
-  // } catch (_error) {
+  // } catch (error) {
   //   errors.push('RNFS.readFile error', (error as Error)?.message || '');
   // }
   //
@@ -630,7 +630,7 @@ async function getRNLocalImageBase64({
   // try {
   //   uri2 = RNFS.MainBundlePath + uri;
   //   base64d = await RNFS.readFile(uri2, 'base64');
-  // } catch (_error) {
+  // } catch (error) {
   //   errors.push('RNFS.readFile uri2 error', (error as Error)?.message || '');
   // }
 
@@ -793,7 +793,7 @@ async function getBase64FromImageUriNative({
       base64Uri,
       nativeUri: platformEnv.isNative ? uri : undefined,
     };
-  } catch (_error) {
+  } catch (error) {
     logFn?.(
       '(native) local uri to base64 ERROR',
       uri,
@@ -828,7 +828,7 @@ async function getBase64FromImageUriWeb(
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-  } catch (_error) {
+  } catch (error) {
     return undefined;
   }
 }
@@ -873,7 +873,7 @@ async function getUriFromRequiredImageSource(
       `isNil=${isNil(source).toString()}`,
       `isObject=${isObject(source) ? Object.keys(source).join(',') : 'false'}`,
     );
-  } catch (_error) {
+  } catch (error) {
     // ignore
   }
 
@@ -881,7 +881,7 @@ async function getUriFromRequiredImageSource(
     if (isNumber(source)) {
       try {
         logFn?.('(native) ImageSource number', source.toString());
-      } catch (_error) {
+      } catch (error) {
         // ignore
       }
     }
@@ -1116,7 +1116,7 @@ async function processImageBlur({
       width: canvas.width,
       height: canvas.height,
     };
-  } catch (_error) {
+  } catch (error) {
     throw new OneKeyLocalError(
       `Canvas processing failed: ${(error as Error).message}`,
     );

@@ -51,7 +51,7 @@ export function useResetApp(
         });
         void logoutOnekeyID();
         await timerUtils.wait(1000);
-      } catch (_error) {
+      } catch (error) {
         console.error('failed to logoutSupabase', error);
       }
       await backgroundApiProxy.serviceApp.resetApp();

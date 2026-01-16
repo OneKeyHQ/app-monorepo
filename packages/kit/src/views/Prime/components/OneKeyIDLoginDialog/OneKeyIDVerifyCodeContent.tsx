@@ -126,7 +126,7 @@ export function OneKeyIDVerifyCodeContent({
       setState({ status: 'done' });
       await onLoginSuccess?.();
       defaultLogger.referral.page.signupOneKeyIDResult(true);
-    } catch (_error) {
+    } catch (error) {
       console.error('prime login error', error);
       const e = error as Error | undefined;
       if (

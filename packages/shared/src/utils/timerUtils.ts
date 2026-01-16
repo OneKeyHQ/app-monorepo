@@ -24,12 +24,12 @@ function interceptTimeout(
 function interceptTimerWithDisable() {
   try {
     interceptTimeout('setTimeout', '$$onekeyDisabledSetTimeout');
-  } catch (_error) {
+  } catch (error) {
     console.error(error);
   }
   try {
     interceptTimeout('setInterval', '$$onekeyDisabledSetInterval');
-  } catch (_error) {
+  } catch (error) {
     console.error(error);
   }
 }

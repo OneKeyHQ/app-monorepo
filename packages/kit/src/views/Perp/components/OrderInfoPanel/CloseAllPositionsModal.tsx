@@ -36,7 +36,7 @@ function CloseAllPositionsContent({ onClose }: ICloseAllPositionsContentProps) {
     try {
       await actions.current.closeAllPositions(closeType);
       onClose?.();
-    } catch (_error) {
+    } catch (error) {
       console.error('Close all positions failed:', error);
     } finally {
       setIsSubmitting(false);

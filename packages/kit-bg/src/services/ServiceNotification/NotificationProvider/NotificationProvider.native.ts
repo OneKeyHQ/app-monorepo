@@ -172,7 +172,7 @@ export default class NotificationProvider extends NotificationProviderBase {
   override async openPermissionSettings() {
     try {
       openUrlUtils.openSettings('notification');
-    } catch (_error) {
+    } catch (error) {
       console.error('无法打开设置:', error);
     }
   }
@@ -229,12 +229,12 @@ export default class NotificationProvider extends NotificationProviderBase {
     if (notificationId) {
       try {
         await cancelScheduledNotificationAsync(notificationId);
-      } catch (_error) {
+      } catch (error) {
         // ignore
       }
       try {
         await dismissNotificationAsync(notificationId);
-      } catch (_error) {
+      } catch (error) {
         // ignore
       }
       defaultLogger.notification.common.removeNotification({

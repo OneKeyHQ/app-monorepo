@@ -105,7 +105,7 @@ export function useTokenSearch({
             .filter(Boolean);
 
           setSearchResult(formattedResult);
-        } catch (_error) {
+        } catch (error) {
           console.error('Error fetching search response:', error);
         } finally {
           setIsLoadingRemoteData(false);

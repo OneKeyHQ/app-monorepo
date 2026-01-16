@@ -413,7 +413,7 @@ export function PrimeTransferDirection({
           disableDrag: true,
           dismissOnOverlayPress: false,
         });
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
         void backgroundApiProxy.servicePrimeTransfer.cancelTransfer();
         throw error;

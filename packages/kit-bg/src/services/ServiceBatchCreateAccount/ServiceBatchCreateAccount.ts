@@ -303,7 +303,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             result.accountsForCreate = result.accountsForCreate.concat(
               resp.accountsForCreate,
             );
-          } catch (_error: any) {
+          } catch (error: any) {
             this.forceExitFlowWhenErrorMatched({
               error,
               walletId: payload.params.walletId,
@@ -815,7 +815,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                   return sdkAllNetworkGetAddressResponse;
                 },
               )) as IHwAllNetworkPrepareAccountsItem[];
-            } catch (_error) {
+            } catch (error) {
               console.log('sdk.allNetworkGetAddress error', error);
               appEventBus.emit(
                 EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
@@ -963,7 +963,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               networkId: networkParams.networkId,
               deriveType: networkParams.deriveType,
             });
-          } catch (_error: any) {
+          } catch (error: any) {
             this.forceExitFlowWhenErrorMatched({
               error,
               walletId: params.walletId,
@@ -1356,7 +1356,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         } else {
           indexesForRebuild.push(index);
         }
-      } catch (_error) {
+      } catch (error) {
         this.forceExitFlowWhenErrorMatched({
           error,
           walletId,
@@ -1459,7 +1459,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 accountForCreate,
               });
               defaultLogger.account.batchCreatePerf.processAccountForCreateDone();
-            } catch (_error) {
+            } catch (error) {
               this.forceExitFlowWhenErrorMatched({
                 error,
                 walletId,
@@ -1468,7 +1468,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               });
             }
           }
-        } catch (_error) {
+        } catch (error) {
           this.forceExitFlowWhenErrorMatched({
             error,
             walletId,

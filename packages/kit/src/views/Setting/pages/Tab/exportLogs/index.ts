@@ -41,7 +41,7 @@ export const collectLogDigest = async (
         connectionInfo.sniSupported,
       )}`,
     });
-  } catch (_error) {
+  } catch (error) {
     defaultLogger.ipTable.request.warn({
       info: `[IpTable] Failed to get connection info: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -142,7 +142,7 @@ export const uploadLogBundle = async ({
       digest,
       result: response.data.data,
     };
-  } catch (_error) {
+  } catch (error) {
     appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
       stage: ELogUploadStage.Error,
       message: error instanceof Error ? error.message : String(error),

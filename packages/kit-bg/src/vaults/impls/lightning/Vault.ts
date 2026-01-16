@@ -303,7 +303,7 @@ export default class Vault extends VaultBase {
         signedTx,
       });
       await this.pollBolt11Status({ nonce: signedTx.nonce });
-    } catch (_err) {
+    } catch (err) {
       console.log('broadcastTransaction ERROR:', err);
       throw err;
     }

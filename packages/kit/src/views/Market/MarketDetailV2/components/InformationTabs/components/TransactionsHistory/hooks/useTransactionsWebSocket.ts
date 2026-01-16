@@ -42,7 +42,7 @@ export function useTransactionsWebSocket({
           tokenAddress,
           currency,
         });
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to subscribe to token transactions:', error);
       }
     };
@@ -58,7 +58,7 @@ export function useTransactionsWebSocket({
             tokenAddress,
             currency,
           });
-        } catch (_error) {
+        } catch (error) {
           console.error(
             'Failed to unsubscribe from token transactions:',
             error,

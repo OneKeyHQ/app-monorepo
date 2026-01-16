@@ -289,7 +289,7 @@ const TabDeveloper = () => {
                   try {
                     await backgroundApiProxy.serviceHardware.clearAllBleConnectIdsForTesting();
                     console.log('Successfully cleared all bleConnectId fields');
-                  } catch (_error) {
+                  } catch (error) {
                     console.error(
                       'Failed to clear bleConnectId fields:',
                       error,

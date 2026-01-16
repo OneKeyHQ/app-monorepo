@@ -99,7 +99,7 @@ export const handleOpenDevMode = async (callback: () => void) => {
     isPasswordVerifying = true;
     try {
       await showDevModePasswordDialog();
-    } catch (_error) {
+    } catch (error) {
       console.error(error);
       resetClickCount();
       return;
@@ -118,7 +118,7 @@ export const handleOpenDevMode = async (callback: () => void) => {
           },
         });
         await backgroundApiProxy.serviceDevSetting.switchDevMode(true);
-      } catch (_error) {
+      } catch (error) {
         showDevOnlyPasswordDialog({
           title: 'Danger Zone',
           description: 'Fallback to devOnlyPassword verification',
@@ -127,7 +127,7 @@ export const handleOpenDevMode = async (callback: () => void) => {
           },
         });
       }
-    } catch (_error) {
+    } catch (error) {
       /* empty */
     } finally {
       resetClickCount();

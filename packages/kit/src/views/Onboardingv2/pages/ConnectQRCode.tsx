@@ -69,7 +69,7 @@ function ConnectQRCodePage() {
         isSoftwareWalletOnlyUser,
         hardwareTransportType: 'QRCode',
       });
-    } catch (_error) {
+    } catch (error) {
       // Clear force transport type on QR wallet creation error
       void backgroundApiProxy.serviceHardware.clearForceTransportType();
       errorToastUtils.toastIfError(error);

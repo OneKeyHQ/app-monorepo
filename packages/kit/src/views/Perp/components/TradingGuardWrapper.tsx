@@ -56,7 +56,7 @@ function TradingGuardWrapperInternal({
       ) {
         await showDepositWithdrawModal('deposit');
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('[TradingGuardWrapper] Enable trading failed:', error);
     }
   }, [

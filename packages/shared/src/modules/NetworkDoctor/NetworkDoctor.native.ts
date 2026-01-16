@@ -111,7 +111,7 @@ export class NetworkDoctor {
       defaultLogger.networkDoctor.log.info({
         info: `🩺 [NetworkDoctor] Initialized endpoint and client - endpoint: ${this.endpoint}, healthCheckUrl: ${this.healthCheckUrl}, targetDomain: ${this.targetDomain}`,
       });
-    } catch (_error: any) {
+    } catch (error: any) {
       defaultLogger.networkDoctor.log.error({
         info: `[NetworkDoctor] Failed to initialize endpoint and client - ${error?.message}`,
       });
@@ -173,7 +173,7 @@ export class NetworkDoctor {
         info: `[CDN-TRACE] ✓ Trace successful - status: ${result.status}, time: ${result.durationMs}ms, preview: ${result.dataPreview}`,
       });
       return result;
-    } catch (_error: any) {
+    } catch (error: any) {
       const result = {
         url: cdnTraceUrl,
         label: 'cdn_trace',
@@ -377,7 +377,7 @@ export class NetworkDoctor {
         info: `[NetworkEnv] ipAddress: ${ipAddress}, gateway: ${gateway}, subnet: ${subnet}, broadcast: ${broadcast}`,
       });
       return env;
-    } catch (_error: any) {
+    } catch (error: any) {
       defaultLogger.networkDoctor.log.error({
         info: `[NetworkEnv] Failed to get network environment - ${error?.message}`,
       });
@@ -410,7 +410,7 @@ export class NetworkDoctor {
         }, ips: ${result.ips.join(', ')}, durationMs: ${result.durationMs}ms`,
       });
       return result;
-    } catch (_error: any) {
+    } catch (error: any) {
       const result = {
         hostname,
         ips: [],
@@ -595,7 +595,7 @@ export class NetworkDoctor {
         info: `[TLS] ✓ Handshake successful - time: ${result.tlsHandshakeTime}ms, status: ${result.statusCode}`,
       });
       return result;
-    } catch (_error: any) {
+    } catch (error: any) {
       let errorType = 'UNKNOWN';
       let isCertificateError = false;
 
@@ -651,7 +651,7 @@ export class NetworkDoctor {
         info: `[PING] ✓ ${target} - time: ${timeMs}ms`,
       });
       return result;
-    } catch (_error: any) {
+    } catch (error: any) {
       const result = {
         target,
         success: false,
@@ -704,7 +704,7 @@ export class NetworkDoctor {
         info: `[HTTP] ✓ Health check passed - status: ${result.status}, time: ${result.durationMs}ms`,
       });
       return result;
-    } catch (_error: any) {
+    } catch (error: any) {
       const result = {
         url,
         success: false,
@@ -744,7 +744,7 @@ export class NetworkDoctor {
           info: `[HTTP] ✓ ${probe.label} - status: ${result.status}, time: ${result.durationMs}ms`,
         });
         results.push(result);
-      } catch (_error: any) {
+      } catch (error: any) {
         const result = {
           url: probe.url,
           label: probe.label,
@@ -824,7 +824,7 @@ export class NetworkDoctor {
       });
 
       return logs;
-    } catch (_error) {
+    } catch (error) {
       defaultLogger.networkDoctor.log.error({
         info: `[NetworkLogger] Failed to collect network logs - ${String(
           error,

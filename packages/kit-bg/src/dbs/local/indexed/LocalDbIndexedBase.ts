@@ -209,7 +209,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     const db = new IndexedDBAgent(buckets);
     try {
       await this._initDBRecords(db);
-    } catch (_error) {
+    } catch (error) {
       throw new OneKeyLocalError(
         `Failed to init db records: ${(error as Error)?.message}`,
       );
@@ -225,7 +225,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
           await indexedToBucketsMigration.migrateOneKeyV5LegacyDBToBucket(
             checkMigratedResult,
           );
-        } catch (_error) {
+        } catch (error) {
           console.error(
             'migrateOneKeyV5LegacyDBToBucket ERROR: ',
             error,
@@ -236,7 +236,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
           await indexedToBucketsMigration.migrateBackupedDataToBucket(
             checkMigratedResult,
           );
-        } catch (_error) {
+        } catch (error) {
           console.error(
             'migrateBackupedDataToBucket ERROR: ',
             error,
@@ -246,7 +246,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
 
         globalThis.$indexedDBIsMigratedToBucket = checkMigratedResult;
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('checkCurrentDBIsMigrated ERROR: ', error);
     }
 
@@ -369,7 +369,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
         const store = this._getObjectStoreAtVersionChange(tx, storeName);
         // const dd = await store.get('');
         return store;
-      } catch (_error) {
+      } catch (error) {
         errorUtils.autoPrintErrorIgnore(error);
 
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -447,7 +447,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
           await storageBuckets?.delete(bucketName);
 
           await timerUtils.wait(100);
-        } catch (_error) {
+        } catch (error) {
           console.error(error);
         }
       }),

@@ -713,7 +713,7 @@ export default class ServicePassword extends ServiceBase {
             walletId,
             hardwareCallContext,
           });
-      } catch (_error) {
+      } catch (error) {
         // Check if this is a hardware error that should be thrown
         if (
           deviceErrorUtils.isHardwareError({ error: error as IOneKeyError })

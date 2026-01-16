@@ -63,7 +63,7 @@ const init = () => {
         data: `${ipAddress as string}:${port}`,
         success: true,
       });
-    } catch (_e: any) {
+    } catch (e: any) {
       event.reply(ipcMessageKeys.SERVER_START_RES, { success: false });
     }
   });

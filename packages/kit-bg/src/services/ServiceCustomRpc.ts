@@ -237,7 +237,7 @@ class ServiceCustomRpc extends ServiceBase {
         }),
       )
     ).filter(Boolean);
-    return itemsWithNetwork.toSorted((a, b) =>
+    return itemsWithNetwork.sort((a, b) =>
       (a.network?.name ?? '').localeCompare(b.network?.name ?? ''),
     );
   }
@@ -474,7 +474,7 @@ class ServiceCustomRpc extends ServiceBase {
         }
         defaultLogger.account.wallet.getServerNetworks(networks);
         return networks || [];
-      } catch (_error) {
+      } catch (error) {
         defaultLogger.account.wallet.getServerNetworksError(error);
         return [];
       }

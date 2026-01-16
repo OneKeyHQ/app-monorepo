@@ -685,7 +685,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         dispose: async () => {
           try {
             removeAllSocketEventListeners();
-          } catch (_error) {
+          } catch (error) {
             console.error(
               'dispose__removeAllSocketEventListeners__error',
               error,
@@ -693,7 +693,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           }
           try {
             removeAllSubscriptionHandlers();
-          } catch (_error) {
+          } catch (error) {
             console.error(
               'dispose__removeAllSubscriptionHandlers__error',
               error,
@@ -701,7 +701,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           }
           try {
             transport.socket.close();
-          } catch (_error) {
+          } catch (error) {
             console.error('dispose__transport.socket.close__error', error);
           }
           const disposer = (
@@ -724,7 +724,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       try {
         // TODO remove all eventListeners
         await this._client.dispose();
-      } catch (_error) {
+      } catch (error) {
         console.error(
           '[ServiceHyperliquidSubscription.closeClient] Failed to close client:',
           error,
@@ -831,7 +831,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           this._activeSubscriptions,
         );
       }
-    } catch (_error) {
+    } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.createSubscription] Failed to create subscription ${spec.type}:`,
         error,
@@ -860,7 +860,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           // await sdkSub.unsubscribe();
           await client.unsubscribe(spec.type, spec.params);
           removeSubCache();
-        } catch (_error) {
+        } catch (error) {
           const e = error as OneKeyError | undefined;
           console.error(
             `[HyperLiquid WebSocket] unsubscribe() failed for ${spec.key}:`,
@@ -871,7 +871,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           }
         }
       }
-    } catch (_error) {
+    } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.destroySubscription] Failed to destroy subscription ${spec.key}:`,
         error,
@@ -1055,7 +1055,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       );
 
       this._scheduleNetworkTimeout(messageTimestamp);
-    } catch (_error) {
+    } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.handleSubscriptionData] Failed to handle data for ${subscriptionType}:`,
         error,

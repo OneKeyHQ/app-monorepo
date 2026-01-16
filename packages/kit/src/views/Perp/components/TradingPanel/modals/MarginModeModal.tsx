@@ -55,7 +55,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         leverage: currentLeverage,
         isCross,
       });
-    } catch (_error) {
+    } catch (error) {
       console.error('[MarginModeModal] Failed to update margin mode:', error);
     } finally {
       setLoading(false);

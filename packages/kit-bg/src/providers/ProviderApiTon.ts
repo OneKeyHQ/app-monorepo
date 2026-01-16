@@ -413,7 +413,7 @@ class ProviderApiTon extends ProviderApiBase {
         },
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
       });
-    } catch (_e: any) {
+    } catch (e: any) {
       throw new Web3RpcError(TonResponseError.BadRequest, 'Not enough funds');
     }
 
@@ -431,7 +431,7 @@ class ProviderApiTon extends ProviderApiBase {
             'Wrong from address',
           );
         }
-      } catch (_error) {
+      } catch (error) {
         throw new Web3RpcError(
           TonResponseError.BadRequest,
           'Wrong from address format',

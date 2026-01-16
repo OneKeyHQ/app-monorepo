@@ -164,7 +164,7 @@ function DefaultWalletSettingsModal() {
       setTimeout(() => {
         void run({ alwaysSetState: true });
       }, 200);
-    } catch (_error) {
+    } catch (error) {
       // Still try to refresh the data even if context menu update fails
       setTimeout(() => {
         void run({ alwaysSetState: true });

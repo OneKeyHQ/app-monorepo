@@ -205,7 +205,7 @@ export function TradingViewPerpsV2(
             },
           ],
         });
-      } catch (_error) {
+      } catch (error) {
         console.error('[TradingViewPerpsV2] Failed to cancel order:', error);
       }
     },

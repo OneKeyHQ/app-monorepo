@@ -369,7 +369,7 @@ function BorrowHistoryList() {
           title: sectionTitle,
           data,
         }))
-        .toSorted((a, b) => b.data[0].timestamp - a.data[0].timestamp);
+        .sort((a, b) => b.data[0].timestamp - a.data[0].timestamp);
 
       return {
         sections,

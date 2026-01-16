@@ -110,7 +110,7 @@ export function useWalletConnection({
       await connectToWallet(connectionInfo);
       // Connection successful - close the dialog
       await dialogRef.current?.close();
-    } catch (_error) {
+    } catch (error) {
       // Connection failed - dialog stays open to show retry button
       console.error('Wallet connection failed:', error);
       throw error;

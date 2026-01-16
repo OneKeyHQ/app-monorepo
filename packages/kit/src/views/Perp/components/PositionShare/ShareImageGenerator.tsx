@@ -314,7 +314,7 @@ export const ShareImageGenerator = forwardRef<
                 qrCodeInnerSize,
               );
             }
-          } catch (_error) {
+          } catch (error) {
             if (platformEnv.isDev) {
               console.error('Failed to generate QR code:', error);
             }
@@ -343,7 +343,7 @@ export const ShareImageGenerator = forwardRef<
         }
 
         return canvas.toDataURL('image/png', 1.0);
-      } catch (_error) {
+      } catch (error) {
         if (platformEnv.isDev) {
           console.error('Failed to generate image:', error);
         }

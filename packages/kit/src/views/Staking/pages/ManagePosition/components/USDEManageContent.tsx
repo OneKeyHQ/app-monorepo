@@ -105,7 +105,7 @@ export function USDEManageContent({
           amount: holdingsAmount,
         });
       return resp;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to fetch transaction confirmation:', error);
       return undefined;
     }
@@ -150,7 +150,7 @@ export function USDEManageContent({
         token,
         networkId,
       });
-    } catch (_error) {
+    } catch (error) {
       console.error('handleTrade error:', error);
     }
   }, [handleSwap, networkId, token]);

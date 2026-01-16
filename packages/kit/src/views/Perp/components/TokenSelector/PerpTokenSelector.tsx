@@ -191,7 +191,7 @@ function BasePerpTokenSelectorContent({
         await actions.current.changeActiveAsset({
           coin: symbol,
         });
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to switch token:', error);
       } finally {
         onLoadingChange(false);
@@ -396,7 +396,7 @@ function BasePerpTokenSelectorContent({
           assetId: entry.assetId,
         }));
       }
-      const sorted = [...combinedEntries].toSorted((a, b) =>
+      const sorted = [...combinedEntries].sort((a, b) =>
         sortCompare(
           { asset: a.asset, sortValues: a.sortValues },
           { asset: b.asset, sortValues: b.sortValues },

@@ -58,7 +58,7 @@ export function KeylessShareCardAuthKey({
         let authPack: IAuthKeyPack | null = null;
         try {
           authPack = await getAuthPackFromCache();
-        } catch (_error) {
+        } catch (error) {
           console.error('Failed to get auth pack from cache:', error);
         }
         if (!authPack) {

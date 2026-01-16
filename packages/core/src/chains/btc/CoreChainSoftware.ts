@@ -750,7 +750,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         rawTx = finalizedPsbt.extractTransaction().toHex();
       }
       finalizedPsbtHex = finalizedPsbt.toHex();
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to finalize PSBT:', error);
       // if can't finalize, use original psbt
       finalizedPsbtHex = psbt.toHex();
@@ -1024,7 +1024,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         pubkeyStr1 = r1?.pubkey
           ? Buffer.from(r1.pubkey).toString('hex')
           : undefined;
-      } catch (_error) {
+      } catch (error) {
         // Handle the error here
       }
 
@@ -1033,7 +1033,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         pubkeyStr2 = r2?.pubkey
           ? Buffer.from(r2.pubkey).toString('hex')
           : undefined;
-      } catch (_error) {
+      } catch (error) {
         // Handle the error here
       }
 
@@ -1042,7 +1042,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         pubkeyStr3 = r3?.pubkey
           ? Buffer.from(r3.pubkey).toString('hex')
           : undefined;
-      } catch (_error) {
+      } catch (error) {
         // Handle the error here
       }
 
@@ -1051,7 +1051,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         pubkeyStr4 = r4?.pubkey
           ? Buffer.from(r4.pubkey).toString('hex')
           : undefined;
-      } catch (_error) {
+      } catch (error) {
         // Handle the error here
       }
 
@@ -1060,7 +1060,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         pubkeyStr5 = r5?.pubkey
           ? Buffer.from(r5.pubkey).toString('hex')
           : undefined;
-      } catch (_error) {
+      } catch (error) {
         // Handle the error here
       }
 
@@ -1115,7 +1115,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     let tx;
     try {
       tx = psbt.finalizeAllInputs().extractTransaction();
-    } catch (_error) {
+    } catch (error) {
       console.error('extractPsbtToSignedTx ERROR: ', error);
       // tx = psbt.extractTransaction();
       throw error;

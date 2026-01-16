@@ -65,7 +65,7 @@ export class PushProviderJPush extends PushProviderBase {
           payload,
         );
       });
-    } catch (_error) {
+    } catch (error) {
       defaultLogger.notification.jpush.consoleError(
         'JPush AddListeners Error >>>>> ',
         error,
@@ -115,7 +115,7 @@ export class PushProviderJPush extends PushProviderBase {
           if (notification.extras) {
             notification.extras.params = extraParams as any;
           }
-        } catch (_error) {
+        } catch (error) {
           //
         }
       }

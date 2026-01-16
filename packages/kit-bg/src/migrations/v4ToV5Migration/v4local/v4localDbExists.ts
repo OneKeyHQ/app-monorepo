@@ -4,7 +4,7 @@ export default async function v4localDbExists(): Promise<boolean> {
   try {
     const databases = await globalThis.indexedDB.databases();
     return databases.some((db) => db.name === V4_INDEXED_DB_NAME);
-  } catch (_error) {
+  } catch (error) {
     return false;
   }
 }

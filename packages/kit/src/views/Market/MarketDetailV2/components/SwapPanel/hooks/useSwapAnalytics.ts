@@ -114,7 +114,7 @@ export function useSwapAnalytics() {
           };
           defaultLogger.dex.swap.dexSwap(dexSwapParams);
         }
-      } catch (_error) {
+      } catch (error) {
         // Silently handle analytics errors to not affect main functionality
         console.warn('Analytics logging failed:', error);
       }

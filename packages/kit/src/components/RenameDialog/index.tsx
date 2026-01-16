@@ -75,7 +75,7 @@ function V4AccountNameSelector({
         };
         return item;
       })
-      .toSorted((a, b) =>
+      .sort((a, b) =>
         natsort({ insensitive: true })(a.networkId || '', b.networkId || ''),
       );
   }, [indexedAccount.id]);
@@ -285,7 +285,7 @@ function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
               }),
             });
             await dialogInstance.close();
-          } catch (_error) {
+          } catch (error) {
             console.error(error);
             Toast.error({
               title: appLocale.intl.formatMessage({

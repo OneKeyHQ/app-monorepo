@@ -57,7 +57,7 @@ async function exportCSVExpo(
     } else {
       console.log(`file saved to: ${fileUri}`);
     }
-  } catch (_error) {
+  } catch (error) {
     console.error('export CSV failed:', error);
   }
 }
@@ -88,7 +88,7 @@ function exportCSVWeb(
     link.click();
 
     URL.revokeObjectURL(url);
-  } catch (_error) {
+  } catch (error) {
     console.error('export CSV failed:', error);
   }
 }

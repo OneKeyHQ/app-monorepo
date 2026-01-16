@@ -58,7 +58,7 @@ export function decodedPsbt({
   psbtNetwork: BitcoinJS.networks.Network;
 }) {
   const inputs = psbt.txInputs.map((input, index) => {
-    const txid = Buffer.from(input.hash).toReversed().toString('hex');
+    const txid = Buffer.from(input.hash).reverse().toString('hex');
     let value: bigint | undefined;
     let script: Buffer | undefined;
     const v = psbt.data.inputs[index];
@@ -89,7 +89,7 @@ export function decodedPsbt({
     let address = '';
     try {
       address = scriptPkToAddress(Buffer.from(output.script), psbtNetwork);
-    } catch (_err) {
+    } catch (err) {
       //
     }
 
@@ -329,7 +329,7 @@ export async function buildPsbt({
             value: outputValue,
             txid: undefined,
           });
-        } catch (_error) {
+        } catch (error) {
           //
         }
       }

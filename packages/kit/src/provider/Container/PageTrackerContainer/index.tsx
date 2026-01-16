@@ -31,7 +31,7 @@ export default function PageTrackerContainer() {
           defaultLogger.app.page.pageView(page.name);
         }
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('useOnRouterChange error', error);
     }
   });

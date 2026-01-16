@@ -213,6 +213,23 @@ function DownloadOneKeyWalletListItem() {
   );
 }
 
+function _Web3GuideListItem() {
+  const intl = useIntl();
+  const handlePress = useCallback(() => {
+    // TODO: implement Web3 guide link
+  }, []);
+  return (
+    <ListItem
+      title={intl.formatMessage({ id: ETranslations.global_web3_guide })}
+      titleProps={{
+        size: '$bodyMdMedium',
+      }}
+      drillIn
+      onPress={handlePress}
+    />
+  );
+}
+
 function AnnouncementListItem() {
   const intl = useIntl();
   const handlePress = useCallback(() => {

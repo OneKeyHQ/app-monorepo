@@ -384,7 +384,7 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
       return {
         referredBy: result?.referredBy ?? undefined,
       };
-    } catch (_error) {
+    } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       defaultLogger.perp.hyperliquid.referralConditionCheck({

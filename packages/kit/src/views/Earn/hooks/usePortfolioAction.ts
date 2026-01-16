@@ -230,7 +230,7 @@ export const usePortfolioAction = ({
             actionData: actionIcon,
           });
         }
-      } catch (_error) {
+      } catch (error) {
         showClaimWithKycDialog({
           actionData: actionIcon,
         });

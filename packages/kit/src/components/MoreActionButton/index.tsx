@@ -1213,7 +1213,7 @@ function MoreActionDevice() {
           (item): item is IHwQrWalletWithDevice =>
             Boolean(item.device) && !item.wallet.deprecated,
         )
-        .toSorted((a, b) => {
+        .sort((a, b) => {
           // Sort by walletOrder or fallback to walletNo
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;
           const orderB = b.wallet.walletOrder || b.wallet.walletNo;

@@ -34,7 +34,7 @@ export function useExportInviteData() {
         await csvExporterUtils.exportCSV(result.data, filename, true);
 
         return true;
-      } catch (_error) {
+      } catch (error) {
         console.error('Export failed:', error);
         throw error;
       } finally {

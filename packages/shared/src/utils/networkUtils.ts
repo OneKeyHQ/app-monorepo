@@ -27,7 +27,7 @@ import numberUtils from './numberUtils';
 import type { IServerNetwork } from '../../types';
 
 const defaultEnabledNetworks = getDefaultEnabledNetworksInAllNetworks();
-const defaultEnabledNetworkIds = new Set(defaultEnabledNetworks.map((n) => n.id));
+const defaultEnabledNetworkIds = defaultEnabledNetworks.map((n) => n.id);
 
 function parseNetworkId({ networkId }: { networkId: string }) {
   const [impl, chainId] = networkId.split(SEPERATOR);
@@ -157,7 +157,7 @@ export function isEnabledNetworksInAllNetworks({
     return !!enabledNetworks[networkId];
   }
 
-  if (defaultEnabledNetworkIds.has(networkId)) {
+  if (defaultEnabledNetworkIds.includes(networkId)) {
     return !disabledNetworks[networkId];
   }
 

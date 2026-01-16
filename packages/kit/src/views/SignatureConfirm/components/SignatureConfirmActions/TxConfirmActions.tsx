@@ -187,7 +187,7 @@ function TxConfirmActions(props: IProps) {
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
         feeInfos: sendSelectedFeeInfo?.feeInfos,
       });
-    } catch (_e: any) {
+    } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
@@ -209,7 +209,7 @@ function TxConfirmActions(props: IProps) {
       if (resp?.preSendTx && accountUtils.isQrAccount({ accountId })) {
         navigation.popStack();
       }
-    } catch (_e: any) {
+    } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
@@ -247,7 +247,7 @@ function TxConfirmActions(props: IProps) {
         feeInfoEditable,
         tronResourceRentalInfo,
       });
-    } catch (_e: any) {
+    } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
@@ -422,7 +422,7 @@ function TxConfirmActions(props: IProps) {
       } else {
         navigation.pop();
       }
-    } catch (_e: any) {
+    } catch (e: any) {
       if (accountUtils.isQrAccount({ accountId })) {
         navigation.popStack();
       }

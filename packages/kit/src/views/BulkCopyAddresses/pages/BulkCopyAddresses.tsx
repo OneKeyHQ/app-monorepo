@@ -333,7 +333,7 @@ function BulkCopyAddresses({
             });
           }
           return result;
-        } catch (_error) {
+        } catch (error) {
           appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
             totalCount: 0,
             createdCount: 0,
@@ -505,7 +505,7 @@ function BulkCopyAddresses({
         formRange.setValue(filedName, valueBN.toFixed());
       }
     },
-    [formRange, formRangeWatchFields],
+    [formRange],
   );
 
   const renderBulkCopyByAccounts = useCallback(() => {

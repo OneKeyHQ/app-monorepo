@@ -96,7 +96,7 @@ function WeblnMakeInvoiceModal() {
             paymentHash: invoice.payment_hash,
           },
         });
-      } catch (_e: any) {
+      } catch (e: any) {
         dappApprove.reject();
         const message = (e as Error)?.message ?? e;
         throw new OneKeyError({

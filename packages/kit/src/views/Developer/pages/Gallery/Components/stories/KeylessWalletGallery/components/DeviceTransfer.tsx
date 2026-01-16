@@ -51,7 +51,7 @@ export const DeviceTransfer = ({ packs }: IDeviceTransferProps) => {
                   transferType: EPrimeTransferDataType.keylessWallet,
                 },
               });
-            } catch (_e: unknown) {
+            } catch (e: unknown) {
               setDeviceTransferResult(`❌ Error: ${(e as Error)?.message}`);
             }
           }}
@@ -72,7 +72,7 @@ export const DeviceTransfer = ({ packs }: IDeviceTransferProps) => {
                   transferType: EPrimeTransferDataType.keylessWallet,
                 },
               });
-            } catch (_e: unknown) {
+            } catch (e: unknown) {
               setDeviceTransferResult(`❌ Error: ${(e as Error)?.message}`);
             }
           }}

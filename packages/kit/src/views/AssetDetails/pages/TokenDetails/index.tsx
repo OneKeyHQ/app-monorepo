@@ -853,13 +853,16 @@ export default function TokenDetailsModal() {
         data: IFetchTokenDetailItem;
       }[],
     ) => {
-      const dataToUpdate: Record<string, { init: boolean; data?: IFetchTokenDetailItem }> = {};
-      for (const detail of details) {
-        dataToUpdate[`${detail.accountId}_${detail.networkId}`] = {
-          init: detail.isInit,
-          data: detail.data,
-        };
-      }
+      const dataToUpdate = details.reduce(
+        (acc, detail) => ({
+          ...acc,
+          [`${detail.accountId}_${detail.networkId}`]: {
+            init: detail.isInit,
+            data: detail.data,
+          },
+        }),
+        {} as Record<string, { init: boolean; data?: IFetchTokenDetailItem }>,
+      );
 
       setTokenDetails((prev) => ({
         ...prev,

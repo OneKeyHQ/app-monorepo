@@ -289,7 +289,7 @@ function AccountsSectionList() {
                 item?.hdWallet?.avatar,
               );
               emoji = avatarInfo?.emoji;
-            } catch (_error) {
+            } catch (error) {
               //
             }
           }

@@ -147,7 +147,7 @@ export type IVaultInitConfig = {
 export type IKeyringMapKey = IDBWalletType;
 
 if (platformEnv.isExtensionUi) {
-  
+  debugger;
   throw new OneKeyLocalError(
     'engine/VaultBase is not allowed imported from ui',
   );
@@ -222,7 +222,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
           isValid: true,
         };
       }
-    } catch (_error) {
+    } catch (error) {
       console.error(error);
     }
     return {
@@ -253,7 +253,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
         addressResult = await this.validateAddress(input);
         result.addressResult = addressResult;
         isValid = isValid || addressResult?.isValid;
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
       }
     }
@@ -263,7 +263,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
         xpubResult = await this.validateXpub(input);
         result.xpubResult = xpubResult;
         isValid = isValid || xpubResult?.isValid;
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
       }
     }
@@ -273,7 +273,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
         xprvtResult = await this.validateXprvt(input);
         result.xprvtResult = xprvtResult;
         isValid = isValid || xprvtResult?.isValid;
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
       }
     }
@@ -283,7 +283,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
         privateKeyResult = await this.validatePrivateKey(input);
         result.privateKeyResult = privateKeyResult;
         isValid = isValid || privateKeyResult?.isValid;
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
       }
     }

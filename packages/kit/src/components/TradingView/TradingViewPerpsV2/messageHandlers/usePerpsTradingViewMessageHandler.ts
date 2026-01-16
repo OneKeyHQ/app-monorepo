@@ -121,7 +121,7 @@ export function usePerpsTradingViewMessageHandler({
 
       const marks: ITradingMark[] = filteredTrades
         .map((trade) => convertFillToMark(trade))
-        .toSorted((a, b) => b.time - a.time);
+        .sort((a, b) => b.time - a.time);
 
       return marks;
     },
@@ -194,7 +194,7 @@ export function usePerpsTradingViewMessageHandler({
           type: 'MARKS_RESPONSE',
           payload: response,
         });
-      } catch (_error) {
+      } catch (error) {
         console.error('Error fetching marks:', error);
         webRef.current?.sendMessageViaInjectedScript({
           type: 'MARKS_RESPONSE',
@@ -235,7 +235,7 @@ export function usePerpsTradingViewMessageHandler({
             await backgroundApiProxy.serviceHyperliquid.getTradingviewDisplayPriceScale(
               requestSymbol,
             );
-        } catch (_error) {
+        } catch (error) {
           console.error(
             '[MessageHandler] Failed to load stored price scale:',
             error,
@@ -264,7 +264,7 @@ export function usePerpsTradingViewMessageHandler({
               priceScale: calculatedPriceScale,
             },
           );
-        } catch (_error) {
+        } catch (error) {
           console.error(
             '[MessageHandler] Failed to persist price scale:',
             error,

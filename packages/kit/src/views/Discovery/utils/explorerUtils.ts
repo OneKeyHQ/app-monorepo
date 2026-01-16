@@ -75,7 +75,7 @@ export function dismissWebviewKeyboard(id?: string) {
         (ref.innerRef as WebView)?.injectJavaScript(
           injectToDismissWebviewKeyboard,
         );
-      } catch (_error) {
+      } catch (error) {
         // ipad mini orientation changed cause injectJavaScript ERROR, which crash app
         console.error(
           'blurActiveElement webview.injectJavaScript() ERROR >>>>> ',
@@ -132,7 +132,7 @@ export function processWebSiteUrl(url?: string): string | undefined {
     }
 
     return url;
-  } catch (_error) {
+  } catch (error) {
     // ignore url parse error
     return url;
   }

@@ -487,7 +487,7 @@ export default class Vault extends VaultBase {
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    const isValid = xprvt.startsWith('xprv') && xprvt.length >= 165;
+    const isValid = /^xprv/.test(xprvt) && xprvt.length >= 165;
     return Promise.resolve({ isValid });
   }
 
@@ -788,7 +788,7 @@ export default class Vault extends VaultBase {
     const client = new ClientAda({ url: rpcUrl });
     try {
       await client.submitTx({ data: signedTx.rawTx });
-    } catch (_err) {
+    } catch (err) {
       console.error('broadcastTransaction ERROR:', err);
       throw err;
     }

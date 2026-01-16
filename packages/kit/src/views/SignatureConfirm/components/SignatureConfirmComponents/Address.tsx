@@ -24,7 +24,7 @@ function formatTagValue(value: string | string[]) {
   }
   try {
     return JSON.stringify(value);
-  } catch (_error) {
+  } catch (error) {
     return '';
   }
 }

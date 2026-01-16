@@ -70,7 +70,7 @@ export async function checkRequestIsOneKeyDomain({
       if (url) {
         isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url ?? '');
       }
-    } catch (_error) {
+    } catch (error) {
       isOneKeyDomain = false;
     }
   };

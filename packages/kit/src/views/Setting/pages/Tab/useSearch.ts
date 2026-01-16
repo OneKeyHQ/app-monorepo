@@ -27,7 +27,7 @@ export const useSearch = () => {
   const flattenSettingsConfig = useMemo(() => {
     return settingsConfig
       .filter(Boolean)
-      .flatMap((config) =>
+      .map((config) =>
         config
           ? config?.configs
               .filter(Boolean)
@@ -38,7 +38,8 @@ export const useSearch = () => {
                 sectionIcon: config.icon,
               }))
           : [],
-      );
+      )
+      .flat();
   }, [settingsConfig]);
   const [searchResult, setSearchResult] = useState<ISettingsSearchResult[]>([]);
   const searchFuse = useFuse(flattenSettingsConfig, {

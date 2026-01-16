@@ -49,7 +49,7 @@ export const ShareImageGenerator = forwardRef<
         if (!fileUri) return '';
         const base64 = await fileUriToBase64(fileUri);
         return base64;
-      } catch (_error) {
+      } catch (error) {
         if (platformEnv.isDev) {
           console.error('Failed to generate image:', error);
         }

@@ -14,10 +14,10 @@ export const getJsBundlePathAsync = async () => {
  * @platform native
  * @description not working on desktop
  */
-export const hasJsBundle = () => {
+export const useJsBundle = () => {
   return false;
 };
 
-export const hasJsBundleAsync = async () => {
+export const useJsBundleAsync = async () => {
   return false;
 };

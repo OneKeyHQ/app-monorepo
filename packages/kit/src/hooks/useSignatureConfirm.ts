@@ -168,7 +168,7 @@ function useSignatureConfirm(params: IParams) {
             ...transferPayload,
             ...preActionsBeforeConfirmResult,
           } as ITransferPayload;
-        } catch (_error) {
+        } catch (error) {
           noop();
         }
 
@@ -202,7 +202,7 @@ function useSignatureConfirm(params: IParams) {
             },
           });
         }
-      } catch (_e: any) {
+      } catch (e: any) {
         if (onFail) {
           onFail(e);
         } else {
@@ -271,7 +271,7 @@ function useSignatureConfirm(params: IParams) {
           }
           return;
         }
-      } catch (_e: any) {
+      } catch (e: any) {
         console.log('lightningSendConfirm error: ', e);
         if (onFail) {
           onFail(e);

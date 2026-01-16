@@ -190,7 +190,7 @@ function RewardCenterContent({
       });
       setIsClaiming(false);
       return resp;
-    } catch (_error) {
+    } catch (error) {
       setIsClaiming(false);
     }
   }, [account, claimSource, intl, network, networkId]);
@@ -245,7 +245,7 @@ function RewardCenterContent({
       setIsRedeeming(false);
       setIsResourceRedeemed(true);
       return resp;
-    } catch (_error) {
+    } catch (error) {
       setIsRedeeming(false);
     }
   }, [account, claimSource, form, intl, network, networkId]);

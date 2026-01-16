@@ -22,7 +22,7 @@ export async function handleAnalyticsTimeFrame({
       defaultLogger.dex.tradingView.dexTVTimeFrame({
         tvTimeframeSelect: timeFrame,
       });
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to handle analytics time frame:', error);
     }
   }

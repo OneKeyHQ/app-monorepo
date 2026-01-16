@@ -38,7 +38,7 @@ async function getEndpointsWithCustomConfig() {
       });
 
     return enhancedEndpoints;
-  } catch (_error) {
+  } catch (error) {
     // Fallback to base endpoints if custom config fails
     errorUtils.autoPrintErrorIgnore(error);
     return baseEndpoints;

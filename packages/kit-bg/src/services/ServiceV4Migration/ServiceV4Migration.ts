@@ -233,7 +233,7 @@ class ServiceV4Migration extends ServiceBase {
   async checkIfV4DbExist() {
     try {
       return await v4localDbExists();
-    } catch (_error) {
+    } catch (error) {
       return false;
     }
   }
@@ -251,7 +251,7 @@ class ServiceV4Migration extends ServiceBase {
         return;
       }
       await v4dbHubs.v4localDb.updateV4Password({ oldPassword, newPassword });
-    } catch (_error) {
+    } catch (error) {
       //
       console.error('updateV4Password error', error);
     }
@@ -372,7 +372,7 @@ class ServiceV4Migration extends ServiceBase {
       }
       await appStorage.setItem(storageKey, 'true');
       await this.migrationSettings.migrateBaseSettings();
-    } catch (_error) {
+    } catch (error) {
       //
     }
   }
@@ -395,7 +395,7 @@ class ServiceV4Migration extends ServiceBase {
         return result === DEFAULT_VERIFY_STRING;
       }
       return false;
-    } catch (_error) {
+    } catch (error) {
       return false;
     }
   }
@@ -709,7 +709,7 @@ class ServiceV4Migration extends ServiceBase {
                         }
                       }
                     }
-                  } catch (_error) {
+                  } catch (error) {
                     //
                   }
 
@@ -866,7 +866,7 @@ class ServiceV4Migration extends ServiceBase {
                   v4walletId: v4walletInfo?.wallet?.id,
                   v5walletId: v5wallet?.id || '',
                 });
-              } catch (_error) {
+              } catch (error) {
                 //
               }
             };
@@ -888,7 +888,7 @@ class ServiceV4Migration extends ServiceBase {
                   v4Account: v4account,
                   v5Account: v5account,
                 });
-              } catch (_error) {
+              } catch (error) {
                 //
               }
             };

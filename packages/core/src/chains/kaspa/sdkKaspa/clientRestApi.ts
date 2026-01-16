@@ -39,7 +39,7 @@ export class RestAPIClient {
         },
       });
       return resp.data;
-    } catch (_error) {
+    } catch (error) {
       return {
         networkName: '',
         blockCount: '0',
@@ -62,7 +62,7 @@ export class RestAPIClient {
         },
       });
       return resp.data;
-    } catch (_error) {
+    } catch (error) {
       return {
         networkName: '',
         blockCount: '0',
@@ -83,7 +83,7 @@ export class RestAPIClient {
         },
       );
       return resp.data.balance;
-    } catch (_error) {
+    } catch (error) {
       return 0n;
     }
   }
@@ -99,7 +99,7 @@ export class RestAPIClient {
         },
       );
       return resp.data;
-    } catch (_error) {
+    } catch (error) {
       return [];
     }
   }

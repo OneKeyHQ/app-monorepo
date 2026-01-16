@@ -779,7 +779,7 @@ describe('getLocalUsedAddressFromLocalPendingTxs', () => {
     expect(localUsedAddressesMap).toEqual(expectedMap);
 
     const sortedEntries = Object.entries(expectedMap)
-      .toSorted(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => a.localeCompare(b))
       .map(([address, txIds]) => `${address}:${txIds.join(',')}`)
       .join('|');
     const expectedHash = crypto

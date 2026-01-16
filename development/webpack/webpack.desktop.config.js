@@ -1,5 +1,5 @@
 const path = require('path');
-const { merge, mergeWithRules: _mergeWithRules, CustomizeRule: _CustomizeRule } = require('webpack-merge');
+const { merge, mergeWithRules, CustomizeRule } = require('webpack-merge');
 
 const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 const crypto = require('crypto');

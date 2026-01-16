@@ -115,7 +115,7 @@ function AddCustomNetwork() {
           form.setValue('chainId', parseChainId(chainId));
         }
         return chainId;
-      } catch (_error) {
+      } catch (error) {
         form.setValue('chainId', '');
         throw error;
       } finally {
@@ -197,7 +197,7 @@ function AddCustomNetwork() {
           });
           return;
         }
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
         Toast.error({
           title: intl.formatMessage({
@@ -248,7 +248,7 @@ function AddCustomNetwork() {
         }),
       });
       navigation.pop();
-    } catch (_error) {
+    } catch (error) {
       console.error(error);
       Toast.error({
         title: intl.formatMessage({
@@ -381,7 +381,7 @@ function AddCustomNetwork() {
                       id: ETranslations.form_rpc_url_invalid,
                     });
                   }
-                } catch (_error) {
+                } catch (error) {
                   return intl.formatMessage({
                     id: ETranslations.form_rpc_url_invalid,
                   });

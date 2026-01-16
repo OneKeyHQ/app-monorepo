@@ -19,7 +19,7 @@ const UsePromiseResultGallery = () => (
         title: 'Native',
         // eslint-disable-next-line react/no-unstable-nested-components
         element: () => {
-          // oxlint-disable-next-line react/rules-of-hooks, react/exhaustive-deps
+          // eslint-disable-next-line react-hooks/rules-of-hooks
           const { result } = usePromiseResult(fetchResult, [], {
             pollingInterval: 1500,
             initResult: 0,

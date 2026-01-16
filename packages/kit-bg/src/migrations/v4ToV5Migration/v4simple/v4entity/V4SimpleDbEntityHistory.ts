@@ -170,13 +170,13 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
 
     // throw new OneKeyLocalError('test');
     items = items
-      .toSorted(
+      .sort(
         (b, a) =>
           (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
           (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
       )
       // sort pending tx first
-      .toSorted((a, b) => {
+      .sort((a, b) => {
         const num1 = a.decodedTx.status === EV4DecodedTxStatus.Pending ? -1 : 1;
         const num2 = b.decodedTx.status === EV4DecodedTxStatus.Pending ? -1 : 1;
         return num1 - num2; // pending to first

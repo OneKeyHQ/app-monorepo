@@ -91,7 +91,7 @@ export function ApiEndpointForm({
           });
         }
         onSuccess();
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to save API endpoint config:', error);
         Toast.error({
           title: 'Save failed',

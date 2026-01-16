@@ -187,7 +187,7 @@ export function PrimeLoginContainer() {
         await passwordHintDialogRef.current?.close();
       }
     })();
-  }, [intl, promptPrimeLoginPasswordDialog]);
+  }, [intl, promptPrimeLoginPasswordDialog?.promiseId]);
 
   const forgetMasterPasswordDialogRef = useRef<IDialogInstance | undefined>(
     undefined,
@@ -219,7 +219,7 @@ export function PrimeLoginContainer() {
         await forgetMasterPasswordDialogRef.current?.close();
       }
     })();
-  }, [intl, promptForgetMasterPasswordDialog]);
+  }, [intl, promptForgetMasterPasswordDialog?.promiseId]);
 
   const emailCodeDialogRef = useRef<IDialogInstance | undefined>(undefined);
   useEffect(() => {
@@ -244,7 +244,7 @@ export function PrimeLoginContainer() {
         await emailCodeDialogRef.current?.close();
       }
     })();
-  }, [promptPrimeLoginEmailCodeDialog]);
+  }, [promptPrimeLoginEmailCodeDialog?.promiseId]);
 
   useEffect(() => {
     const fn = () => {

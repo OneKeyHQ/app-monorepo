@@ -48,7 +48,7 @@ export const useWatchListV2Action = () => {
 
       try {
         void actions.current.addIntoWatchListV2(watchListItems);
-      } catch (_error) {
+      } catch (error) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_an_error_occurred,

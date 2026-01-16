@@ -1174,7 +1174,7 @@ export default class Vault extends VaultBase {
             encodedTxEncrypted,
           ),
         );
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
         encodedTxOrigin = {
           from: '-',

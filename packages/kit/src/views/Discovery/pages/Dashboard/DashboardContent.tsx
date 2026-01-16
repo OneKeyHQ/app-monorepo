@@ -46,7 +46,7 @@ function DashboardContent({
           },
         );
         return result;
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
       } finally {
         setIsRefreshing(false);

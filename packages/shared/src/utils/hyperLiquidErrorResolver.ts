@@ -58,7 +58,7 @@ class HyperLiquidErrorResolver {
       if (matcher.type === 'regex' && matcher.pattern) {
         try {
           this.compiledMatchers.set(key, new RegExp(matcher.pattern));
-        } catch (_error) {
+        } catch (error) {
           console.error(
             `[HyperLiquidErrorResolver] Invalid regex pattern for ${key}:`,
             matcher.pattern,
@@ -106,7 +106,7 @@ class HyperLiquidErrorResolver {
           this.updateLocales(locales);
           return this.matchAndResolve(rawMessage);
         }
-      } catch (_error) {
+      } catch (error) {
         console.error(
           '[HyperLiquidErrorResolver] Failed to load locales from provider:',
           error,
@@ -196,7 +196,7 @@ export async function convertHyperLiquidResponse<T>(
 ): Promise<T> {
   try {
     return await fn();
-  } catch (_error) {
+  } catch (error) {
     const apiError = error as IHyperLiquidApiRequestError;
     const { response } = apiError;
 

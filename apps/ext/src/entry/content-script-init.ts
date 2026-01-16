@@ -104,7 +104,7 @@ if (process.env.NODE_ENV !== 'production') {
         }, 2000);
       }
     }
-  } catch (_error) {
+  } catch (error) {
     console.error(error);
   }
 }
@@ -113,4 +113,4 @@ if (process.env.NODE_ENV !== 'production') {
   console.log('==== injected script tag done >>>>>>>', performance.now());
 }
 
-
+export {};

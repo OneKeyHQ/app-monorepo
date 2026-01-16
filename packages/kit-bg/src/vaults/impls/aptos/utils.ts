@@ -217,7 +217,7 @@ export function waitPendingTransaction(
     let transaction: TransactionResponse | undefined;
     try {
       transaction = await client.getTransactionByHash(txHash);
-    } catch (_error: any) {
+    } catch (error: any) {
       if (right) {
         const { errorCode } = error;
         // ignore transaction not found
@@ -255,7 +255,7 @@ export async function getAccountResource(
 ): Promise<MoveResource[] | undefined> {
   try {
     return await client.getAccountResources(hexUtils.stripHexPrefix(address));
-  } catch (_error: any) {
+  } catch (error: any) {
     let err;
     try {
       err = JSON.parse(error?.message);
@@ -370,7 +370,7 @@ export function formatSignMessageRequest(
     try {
       const urlObj = new URL(application);
       host = urlObj.host;
-    } catch (_error) {
+    } catch (error) {
       host = application;
     }
     request.application = host;

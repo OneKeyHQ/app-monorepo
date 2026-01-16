@@ -296,7 +296,7 @@ function ConnectByQrCode() {
               isSoftwareWalletOnlyUser,
               hardwareTransportType: 'QRCode',
             });
-          } catch (_error) {
+          } catch (error) {
             // Clear force transport type on QR wallet creation error
             void backgroundApiProxy.serviceHardware.clearForceTransportType();
             errorToastUtils.toastIfError(error);
@@ -519,7 +519,7 @@ function useDeviceConnection({
           return;
         }
 
-        const sortedDevices = response.payload.toSorted((a, b) =>
+        const sortedDevices = response.payload.sort((a, b) =>
           natsort({ insensitive: true })(
             a.name || a.connectId || a.deviceId || a.uuid,
             b.name || b.connectId || b.deviceId || b.uuid,
@@ -571,7 +571,7 @@ function useDeviceConnection({
       console.log(
         'ensureStopScan: Device scan stopped and all ongoing searches completed',
       );
-    } catch (_error) {
+    } catch (error) {
       console.error('ensureStopScan: Error while stopping scan:', error);
       // Fallback: just stop scan without waiting
       deviceScanner.stopScan();
@@ -579,7 +579,8 @@ function useDeviceConnection({
   }, [deviceScanner]);
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
-    () => searchedDevices.map((item) => ({
+    () => [
+      ...searchedDevices.map((item) => ({
         title: item.name,
         src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
@@ -590,6 +591,7 @@ function useDeviceConnection({
         },
         opacity: 1,
       })),
+    ],
     [searchedDevices, onDeviceConnect, ensureStopScan],
   );
 
@@ -813,7 +815,7 @@ function ConnectByUSBOrBLE({
           void onDeviceConnect(connectedDevice.device as SearchDevice);
         }
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
     } finally {
@@ -929,7 +931,7 @@ function ConnectByBluetooth({
             'onboarding checkBluetoothStatus: noble pre-initialization',
           );
           await globalThis?.desktopApi?.nobleBle?.checkAvailability();
-        } catch (_error) {
+        } catch (error) {
           console.log(
             'Noble pre-initialization completed with expected error:',
             error,
@@ -969,7 +971,7 @@ function ConnectByBluetooth({
       });
       // All checks passed
       setBluetoothStatus('enabled');
-    } catch (_error) {
+    } catch (error) {
       console.error('Desktop bluetooth check failed:', error);
       setBluetoothStatus('disabledInSystem');
     }
@@ -1004,7 +1006,7 @@ function ConnectByBluetooth({
 
       try {
         await onDeviceConnect(device);
-      } catch (_error) {
+      } catch (error) {
         // Resume polling on error only if still focused
         if (isFocused) {
           startBluetoothStatusPolling();
@@ -1039,7 +1041,7 @@ function ConnectByBluetooth({
       await backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(true);
       // Re-check bluetooth status after enabling
       void checkBluetoothStatus();
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to enable desktop bluetooth:', error);
     }
   }, [checkBluetoothStatus]);
@@ -1316,7 +1318,7 @@ export function ConnectYourDevicePage() {
       return await backgroundApiProxy.serviceHardware.connect({
         device,
       });
-    } catch (_error: any) {
+    } catch (error: any) {
       if (error instanceof OneKeyHardwareError) {
         const { code, message } = error;
         if (
@@ -1457,7 +1459,7 @@ export function ConnectYourDevicePage() {
           connectId: device.connectId ?? '',
           deviceId: features.device_id || device.deviceId || '',
         });
-      } catch (_error) {
+      } catch (error) {
         errorToastUtils.toastIfError(error);
         navigation.pop();
         await trackHardwareWalletConnection({
@@ -1503,7 +1505,7 @@ export function ConnectYourDevicePage() {
           await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
             connectId: device.connectId ?? '',
           });
-      } catch (_error) {
+      } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
         return;
       }
@@ -1694,7 +1696,7 @@ export function ConnectYourDevicePage() {
         }
 
         await selectAddWalletType({ device, features });
-      } catch (_error) {
+      } catch (error) {
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();

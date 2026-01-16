@@ -66,7 +66,7 @@ const LimitOrderList = ({
           [item.orderId]: true,
         }));
         await cancelLimitOrder(item, ESwapCancelLimitOrderSource.LIST);
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
       } finally {
         setCancelLoading((prev) => ({
@@ -147,7 +147,7 @@ const LimitOrderList = ({
       );
     }
     return (
-      filteredData?.toSorted((a, b) => {
+      filteredData?.sort((a, b) => {
         const aDate = new BigNumber(a.createdAt).toNumber();
         const bDate = new BigNumber(b.createdAt).toNumber();
         return bDate - aDate;

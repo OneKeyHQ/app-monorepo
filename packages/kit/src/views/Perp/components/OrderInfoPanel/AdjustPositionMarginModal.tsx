@@ -189,7 +189,7 @@ const AdjustPositionMarginForm = memo(
         });
 
         onClose();
-      } catch (_error) {
+      } catch (error) {
         console.error('[AdjustPositionMargin] Submit failed:', error);
         // Error already handled by withToast in action
       } finally {

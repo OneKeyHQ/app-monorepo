@@ -281,7 +281,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             responseData.serverTime = serverTime;
           }
         }
-      } catch (_error) {
+      } catch (error) {
         console.error('prime cloud sync apiCheck: ', error);
       }
     }
@@ -317,7 +317,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             },
           });
         }
-      } catch (_error) {
+      } catch (error) {
         console.error('prime cloud sync apiCheck: ', error);
       }
     }
@@ -1047,7 +1047,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         isFullDBChecking: true,
         noDebounceUpload,
       });
-    } catch (_error) {
+    } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
       if (throwError) {
         throw error;
@@ -1065,7 +1065,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     try {
       await this.ensureCloudSyncIsAvailable();
       return true;
-    } catch (_error) {
+    } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
       return false;
     }
@@ -1186,7 +1186,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   async getSyncCredentialSafe(): Promise<ICloudSyncCredential | undefined> {
     try {
       return await this.getSyncCredentialWithCache();
-    } catch (_error) {
+    } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
       return undefined;
     }
@@ -1645,7 +1645,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             }
           }
         }
-      } catch (_error) {
+      } catch (error) {
         console.error('fillingSyncItemsMissingData error', error);
       }
     }
@@ -1807,12 +1807,12 @@ class ServicePrimeCloudSync extends ServiceBase {
           );
         }
         result.push(decryptedData.dbItem || item);
-      } catch (_error) {
+      } catch (error) {
         result.push(item);
         console.error('decryptAllLocalSyncItems error', error, item);
       }
     }
-    return result.toSorted((a, b) => a.id.localeCompare(b.id));
+    return result.sort((a, b) => a.id.localeCompare(b.id));
   }
 
   @backgroundMethod()
@@ -1930,7 +1930,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         );
       }
     }
-    return localItems.toSorted((a, b) => a.id.localeCompare(b.id));
+    return localItems.sort((a, b) => a.id.localeCompare(b.id));
   }
 
   @backgroundMethodForDev()

@@ -134,7 +134,7 @@ class ServiceNetworkDoctor extends ServiceBase {
       });
 
       return true;
-    } catch (_error) {
+    } catch (error) {
       // Stop progress smoother on error
       this.stopProgressSmoother();
 

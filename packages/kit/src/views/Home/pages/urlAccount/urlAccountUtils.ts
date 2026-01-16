@@ -57,7 +57,7 @@ export function getPrevUrlAccount() {
           networkId: string;
         })
       : undefined;
-  } catch (_error) {
+  } catch (error) {
     return undefined;
   }
 }
@@ -186,7 +186,7 @@ export function isCurrentlyInUrlAccountPage(): boolean {
     const currentHomeRoute = homeTabRoute.state.routes[currentHomeRouteIndex];
 
     return currentHomeRoute?.name === ETabHomeRoutes.TabHomeUrlAccountPage;
-  } catch (_error) {
+  } catch (error) {
     return false;
   }
 }

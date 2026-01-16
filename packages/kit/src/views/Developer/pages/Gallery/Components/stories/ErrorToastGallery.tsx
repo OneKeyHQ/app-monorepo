@@ -37,7 +37,7 @@ async function showHyperLiquidVariableErrorToast() {
         throw hyperLiquidError;
       }),
     );
-  } catch (_error) {
+  } catch (error) {
     console.log('HyperLiquid variable error toast demo', error);
   }
 }
@@ -169,7 +169,7 @@ function Demo1() {
           try {
             const ctx = await backgroundApiProxy.serviceDemo.demoError3();
             console.log(ctx);
-          } catch (_error) {
+          } catch (error) {
             console.log('调用 background 显示 toast3', error);
             throw error;
           }
@@ -183,7 +183,7 @@ function Demo1() {
           try {
             const ctx = await backgroundApiProxy.serviceDemo.demoError4();
             console.log(ctx);
-          } catch (_error) {
+          } catch (error) {
             console.log('调用 background 显示 toast3', error);
             throw error;
           }

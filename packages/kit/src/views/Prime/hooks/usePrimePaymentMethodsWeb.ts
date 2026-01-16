@@ -214,7 +214,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         // Mastercard: 5555555555554444
         // visa: 4242424242424242
         return purchase;
-      } catch (_error) {
+      } catch (error) {
         errorToastUtils.toastIfError(error);
         throw error;
       } finally {

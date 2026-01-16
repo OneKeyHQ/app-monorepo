@@ -59,7 +59,7 @@ async function checkIfDiskIsFull() {
         }
       }
     }
-  } catch (_error) {
+  } catch (error) {
     console.error('checkIfDiskIsFull', error);
   }
 

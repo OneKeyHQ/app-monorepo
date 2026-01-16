@@ -54,7 +54,7 @@ try {
 console.log(`[${getTimestamp()}] ESLint check started...`);
 
 const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
-const failToExit = (_message) => {
+const failToExit = (message) => {
   console.log(`[${getTimestamp()}] ESLint check failed. (${getDuration()}s)`);
   exit(1);
 };
@@ -179,10 +179,10 @@ function handleProblems(result) {
     }
 
     // First add recent files, then randomly select from others if needed
-    const shuffledRecent = [...recentWarningGroups].toSorted(
+    const shuffledRecent = [...recentWarningGroups].sort(
       () => Math.random() - 0.5,
     );
-    const shuffledOther = [...otherWarningGroups].toSorted(
+    const shuffledOther = [...otherWarningGroups].sort(
       () => Math.random() - 0.5,
     );
     const prioritized = [...shuffledRecent, ...shuffledOther];

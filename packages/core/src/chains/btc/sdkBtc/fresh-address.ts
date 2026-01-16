@@ -156,7 +156,7 @@ export async function getLocalUsedAddressFromLocalPendingTxs({
   );
 
   const sortedEntries = Object.entries(localUsedAddressesMap)
-    .toSorted(([addressA], [addressB]) => addressA.localeCompare(addressB))
+    .sort(([addressA], [addressB]) => addressA.localeCompare(addressB))
     .map(([address, txIds]) => `${address}:${txIds.join(',')}`);
 
   const serializedEntries = sortedEntries.join('|');

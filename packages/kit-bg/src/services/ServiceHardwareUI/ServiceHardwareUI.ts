@@ -329,7 +329,7 @@ class ServiceHardwareUI extends ServiceBase {
           forceDeviceResetToHome: deviceResetToHome,
         });
       }
-    } catch (_error) {
+    } catch (error) {
       // closeHardwareUiStateDialog should be called safely, do not block caller
     }
   }
@@ -462,7 +462,7 @@ class ServiceHardwareUI extends ServiceBase {
       deviceResetToHome = false;
       console.log('withHardwareProcessing done: ', r);
       return r;
-    } catch (_error) {
+    } catch (error) {
       console.error('withHardwareProcessing ERROR: ', error);
       console.error(
         'withHardwareProcessing ERROR stack: ',

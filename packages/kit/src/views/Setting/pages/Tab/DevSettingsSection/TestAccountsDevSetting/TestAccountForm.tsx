@@ -99,7 +99,7 @@ export function TestAccountForm({
           });
         }
         onSuccess();
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to save test account:', error);
         Toast.error({
           title: 'Save failed',

@@ -41,7 +41,7 @@ const useNetInfo = () => {
         if (!isCancelled) {
           setWalletEndpoint(endpoint);
         }
-      } catch (_error) {
+      } catch (error) {
         // Fallback to static endpoint on error
         if (!isCancelled) {
           const fallbackEndpoint =

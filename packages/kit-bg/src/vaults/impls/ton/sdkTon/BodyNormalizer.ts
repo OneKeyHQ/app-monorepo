@@ -40,7 +40,7 @@ export async function createNormalizedWalletTransfer(
     let amount;
     try {
       amount = BigInt(message.amount);
-    } catch (_error) {
+    } catch (error) {
       amount = BigInt(0);
     }
 

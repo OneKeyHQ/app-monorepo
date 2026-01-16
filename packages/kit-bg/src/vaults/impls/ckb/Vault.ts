@@ -266,7 +266,7 @@ export default class Vault extends VaultBase {
           config,
         },
       );
-    } catch (_err) {
+    } catch (err) {
       // ignore
       const outputs = txSkeleton.get('outputs').toArray();
       const lastIndex = outputs.length - 1;
@@ -424,7 +424,7 @@ export default class Vault extends VaultBase {
         config,
         tokenAddress,
       });
-      transfers.push(...tokenTransfers);
+      transfers = [...transfers, ...tokenTransfers];
       if (tokenTransfers.length > 0) {
         existsToken = true;
       }

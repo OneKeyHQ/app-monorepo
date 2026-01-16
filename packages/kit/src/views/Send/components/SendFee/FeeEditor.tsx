@@ -890,7 +890,7 @@ function FeeEditor(props: IProps) {
         form.setValue(filedName, valueBN.toFixed());
       }
     },
-    [form, watchAllFields],
+    [form],
   );
 
   const handleValidateDotExtraTip = useCallback(

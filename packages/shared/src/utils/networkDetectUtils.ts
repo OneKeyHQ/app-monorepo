@@ -383,7 +383,7 @@ async function detectNetworkByPrivateKeyFn({
   const buildSameImplResults = (network: IServerNetwork) => {
     const results = getPresetNetworks()
       .filter((n) => n.impl === network.impl)
-      .toSorted((a) => (a.name === network.name ? -1 : 0))
+      .sort((a) => (a.name === network.name ? -1 : 0))
       .map((n) => buildDetectedNetwork(n));
     return results;
   };

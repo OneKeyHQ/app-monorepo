@@ -101,7 +101,7 @@ export function NotificationPayloadTest() {
         title: 'parseNotificationPayload called',
         message: `Mode: ${selectedMode}`,
       });
-    } catch (_error) {
+    } catch (error) {
       Toast.error({
         title: 'Error',
         message: String(error),

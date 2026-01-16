@@ -118,7 +118,7 @@ export function warningIfNotRunInBackground({
     }
     try {
       throw new NotAutoPrintError();
-    } catch (_error) {
+    } catch (error) {
       const err = error as Error;
       errorUtils.autoPrintErrorIgnore(err);
 
@@ -369,11 +369,12 @@ export type IGlobalEventBusSyncBroadcastParams = {
 export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';
 
 export async function fetchData<T>(
-  _path: string,
-  // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last
-  _query: Record<string, unknown> = {},
-  _fallback: T,
-  _method: Method = 'GET',
+  path: string,
+  // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last, @typescript-eslint/no-unused-vars
+  query: Record<string, unknown> = {},
+  fallback: T,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  method: Method = 'GET',
 ): Promise<T> {
   throw new OneKeyLocalError('fetchData not support yet');
   // const endpoint = getFiatEndpoint();

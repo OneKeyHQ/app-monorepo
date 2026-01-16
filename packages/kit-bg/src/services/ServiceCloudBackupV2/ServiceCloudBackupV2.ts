@@ -458,7 +458,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
         transferData,
         selectedTransferData,
       };
-    } catch (_error) {
+    } catch (error) {
       await this.backgroundApi.servicePrimeTransfer.resetImportProgress();
       throw error;
     }

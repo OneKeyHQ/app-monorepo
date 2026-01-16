@@ -180,10 +180,13 @@ export abstract class CoreChainApiBase {
       basePath,
       usedRelativePaths,
     );
-    const map: ICoreApiPrivateKeysMap = {};
-    for (const key of keys) {
-      map[key.path] = bufferUtils.bytesToHex(key.extendedKey.key);
-    }
+    const map: ICoreApiPrivateKeysMap = keys.reduce((ret, key) => {
+      const result: ICoreApiPrivateKeysMap = {
+        ...ret,
+        [key.path]: bufferUtils.bytesToHex(key.extendedKey.key),
+      };
+      return result;
+    }, {} as ICoreApiPrivateKeysMap);
     return map;
   }
 

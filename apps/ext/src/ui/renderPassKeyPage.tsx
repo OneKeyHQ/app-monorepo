@@ -43,7 +43,7 @@ const usePassKeyOperations = () => {
           await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(
             checked,
           );
-        } catch (_error) {
+        } catch (error) {
           console.log(error);
         } finally {
           console.log('close on switchWebAuth');

@@ -48,7 +48,7 @@ export abstract class V4LocalDbAgentBase implements IV4LocalDBAgent {
               name,
               tx,
             });
-          } catch (_error) {
+          } catch (error) {
             if (ignoreNotFound) {
               return Promise.resolve(null);
             }

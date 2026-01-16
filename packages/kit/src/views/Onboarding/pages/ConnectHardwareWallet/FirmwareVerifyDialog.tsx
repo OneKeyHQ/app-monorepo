@@ -152,7 +152,7 @@ function useFirmwareVerifyBase({
           );
         }
       }
-    } catch (_error) {
+    } catch (error) {
       setResult('error');
 
       // Handle server-side exceptions
@@ -1071,7 +1071,7 @@ export function useFirmwareVerifyDialog() {
           'shouldUseNewAuthenticateVersion: ====>>>: ',
           shouldUseNewAuthenticateVersion,
         );
-      } catch (_error) {
+      } catch (error) {
         await onCloseFn();
         throw error;
       } finally {

@@ -201,7 +201,7 @@ export function toastIfError() {
       try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
         return await originalMethod.apply(this, args);
-      } catch (_error: unknown) {
+      } catch (error: unknown) {
         errorToastUtils.toastIfError(error);
         throw error;
       }

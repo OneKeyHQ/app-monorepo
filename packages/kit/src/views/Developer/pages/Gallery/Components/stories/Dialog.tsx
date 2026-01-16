@@ -263,7 +263,7 @@ const DialogGallery = () => {
               </Button>
               <Button
                 onPress={async () => {
-                  let _d = Dialog.show({
+                  let d = Dialog.show({
                     title: 'Lorem ipsum 1111',
                     icon: 'PlaceholderOutline',
                     description:
@@ -271,7 +271,8 @@ const DialogGallery = () => {
                     tone: 'default',
                   });
 
-                  _d = Dialog.show({
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  d = Dialog.show({
                     title: 'Lorem ipsum 2222',
                     icon: 'PlaceholderOutline',
                     description:

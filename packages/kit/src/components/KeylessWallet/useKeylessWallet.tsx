@@ -700,7 +700,7 @@ export function useKeylessWallet() {
         try {
           keylessWallet =
             await backgroundApiProxy.serviceAccount.getKeylessWallet();
-        } catch (_error) {
+        } catch (error) {
           // Continue to navigation if getKeylessWallet fails
         }
         const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId || '';
@@ -714,7 +714,7 @@ export function useKeylessWallet() {
               await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
                 { ownerId },
               );
-          } catch (_error) {
+          } catch (error) {
             // Continue to navigation if refresh fails
           }
 

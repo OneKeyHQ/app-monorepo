@@ -41,7 +41,7 @@ export function verifyIpTableConfigSignature(
     }
 
     return isValid;
-  } catch (_error) {
+  } catch (error) {
     console.error('[IpTableUtils] Signature verification error:', error);
     return false;
   }

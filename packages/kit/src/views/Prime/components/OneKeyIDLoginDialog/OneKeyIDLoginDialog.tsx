@@ -85,7 +85,7 @@ export function OneKeyIDLoginDialog({
 
       await onLoginSuccess?.();
       onClose?.();
-    } catch (_error) {
+    } catch (error) {
       console.error('Login success handler error', error);
     }
   }, [getAccessToken, intl, onLoginSuccess, onClose]);

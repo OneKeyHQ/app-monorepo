@@ -77,7 +77,7 @@ export const BorrowAlerts = memo(
             indexedAccountId,
           },
         });
-      } catch (_error) {
+      } catch (error) {
         console.error('Borrow alert receive action failed:', error);
       }
     }, [accountId, indexedAccountId, marketNetworkId, navigation, walletId]);

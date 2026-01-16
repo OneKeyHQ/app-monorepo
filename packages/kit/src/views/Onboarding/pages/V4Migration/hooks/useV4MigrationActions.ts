@@ -75,12 +75,12 @@ export function useV4MigrationActions() {
     const text = stableStringify(logs);
     try {
       copyText(text);
-    } catch (_error) {
+    } catch (error) {
       //
     }
     try {
       await shareText(text);
-    } catch (_error) {
+    } catch (error) {
       //
     }
   }, [copyText, shareText]);

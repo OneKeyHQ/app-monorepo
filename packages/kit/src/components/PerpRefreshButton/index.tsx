@@ -43,7 +43,7 @@ export function PerpRefreshButton(props: IPerpRefreshButtonProps) {
         try {
           setLoading(true);
           await actions.current.refreshAllPerpsData();
-        } catch (_error) {
+        } catch (error) {
           console.error(error);
         } finally {
           setLoading(false);

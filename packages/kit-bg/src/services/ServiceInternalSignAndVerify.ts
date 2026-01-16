@@ -92,7 +92,7 @@ class ServiceInternalSignAndVerify extends ServiceBase {
                     deriveLabel: btcDeriveType.label,
                   });
                 }
-              } catch (_error) {
+              } catch (error) {
                 console.error(
                   `Failed to get BTC account for derive type ${btcDeriveType.value}:`,
                   error,
@@ -112,7 +112,7 @@ class ServiceInternalSignAndVerify extends ServiceBase {
               results.push({ account, deriveType: globalDeriveType, network });
             }
           }
-        } catch (_error) {
+        } catch (error) {
           console.error(
             `Failed to get network account for ${supportedNetworkId}:`,
             error,
@@ -143,7 +143,7 @@ class ServiceInternalSignAndVerify extends ServiceBase {
             results.push({ account, network });
           }
         }
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to get other account:', error);
       }
     }

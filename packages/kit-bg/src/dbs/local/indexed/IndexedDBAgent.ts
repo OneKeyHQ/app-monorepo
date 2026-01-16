@@ -371,7 +371,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       const result = await task(tx);
       // await dbTx.done;
       return result;
-    } catch (_error) {
+    } catch (error) {
       let abortError: unknown | undefined;
       try {
         // cause: Uncaught (in promise) AbortError: AbortError

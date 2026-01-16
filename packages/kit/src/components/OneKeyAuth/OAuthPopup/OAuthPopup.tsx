@@ -221,7 +221,7 @@ export class OAuthPopup extends OAuthPopupBase {
             } catch {
               // Cross-origin error - popup is on different domain, continue polling
             }
-          } catch (_error) {
+          } catch (error) {
             rejectOnce(error, popup);
           } finally {
             inFlight = false;

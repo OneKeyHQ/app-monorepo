@@ -176,7 +176,7 @@ enum EXhrState {
   DONE = 4,
 }
 
-const METHODS = new Set(['GET', 'HEAD', 'POST', 'DELETE', 'OPTIONS', 'PUT', 'PATCH']);
+const METHODS = ['GET', 'HEAD', 'POST', 'DELETE', 'OPTIONS', 'PUT', 'PATCH'];
 
 export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   #abortedFlag = false;
@@ -545,7 +545,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   ): void {
     // eslint-disable-next-line no-param-reassign
     method = method.toUpperCase();
-    if (!METHODS.has(method)) {
+    if (!METHODS.includes(method)) {
       throw new DOMException(
         `The method "${method}" is not allowed.`,
         'SyntaxError',

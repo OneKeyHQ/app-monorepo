@@ -481,7 +481,7 @@ export default class Vault extends VaultBase {
       return {
         isProgrammableNFT: false,
       };
-    } catch (_error) {
+    } catch (error) {
       return {
         isProgrammableNFT: false,
       };

@@ -30,7 +30,7 @@ export default function PromptWebDeviceAccessPage() {
         await backgroundApiProxy.serviceApp.restartApp();
         window.close();
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('USB device connection failed:', error);
     } finally {
       setIsConnecting(false);

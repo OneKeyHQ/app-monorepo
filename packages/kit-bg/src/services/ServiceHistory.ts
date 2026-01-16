@@ -79,7 +79,7 @@ class ServiceHistory extends ServiceBase {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
         accountId,
       });
-    } catch (_error) {
+    } catch (error) {
       dbAccount = undefined;
     }
     const [accountAddress, xpub] = await Promise.all([
@@ -273,7 +273,7 @@ class ServiceHistory extends ServiceBase {
               networkId: account.networkId,
               pendingTxs: filteredPendingTxs,
             });
-          } catch (_error) {
+          } catch (error) {
             console.error(
               `Failed to get pendingTxsToUpdate for account ${account.accountId}:`,
               error,
@@ -309,7 +309,7 @@ class ServiceHistory extends ServiceBase {
           networkId,
           pendingTxs,
         });
-      } catch (_error) {
+      } catch (error) {
         console.error(
           `Failed to get pendingTxsToUpdate for account ${accountId}:`,
           error,
@@ -337,7 +337,7 @@ class ServiceHistory extends ServiceBase {
     let result = unionBy(
       [
         ...finalPendingTxs,
-        ...[...confirmedTxsToSave, ...onChainHistoryTxs].toSorted(
+        ...[...confirmedTxsToSave, ...onChainHistoryTxs].sort(
           (b, a) =>
             (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
             (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -487,7 +487,7 @@ class ServiceHistory extends ServiceBase {
       const result = unionBy(
         [
           ...localHistoryPendingTxs,
-          ...localHistoryConfirmedTxs.toSorted(
+          ...localHistoryConfirmedTxs.sort(
             (b, a) =>
               (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -1204,7 +1204,7 @@ class ServiceHistory extends ServiceBase {
           (await this.backgroundApi.servicePassword.encryptByInstanceId(
             JSON.stringify(decodedTx.encodedTx),
           ));
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
       }
     }

@@ -58,7 +58,7 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
               name,
               tx,
             });
-          } catch (_error) {
+          } catch (error) {
             if (ignoreNotFound) {
               return Promise.resolve(null);
             }

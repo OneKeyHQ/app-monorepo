@@ -59,7 +59,7 @@ export function KeylessShareCardsEffects(
       try {
         const packs = await generatePacks();
         refs.current.generatedPacks = packs;
-      } catch (_error) {
+      } catch (error) {
         // Handle error silently or show error state if needed
         console.error('Failed to generate packs:', error);
       } finally {

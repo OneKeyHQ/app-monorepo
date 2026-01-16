@@ -1,4 +1,4 @@
-function buildManifest(_content, _filePath) {
+function buildManifest(content, filePath) {
   // eslint-disable-next-line global-require,import/no-dynamic-require
   const manifest = require('../../../apps/ext/src/manifest');
   // generates the manifest file using the package.json information

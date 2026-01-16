@@ -57,7 +57,7 @@ class DesktopApiSystem {
         };
 
         return result;
-      } catch (_error) {
+      } catch (error) {
         // Don't cache failed results - rethrow error so memoizee won't cache it
         console.error('Failed to get system information:', error);
         throw error;

@@ -50,7 +50,7 @@ export function PrimeTransferServerStatusBar() {
         urlToCopy = config.customServerUrl;
         copyText(urlToCopy);
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to copy server URL:', error);
     }
   }, [copyText]);

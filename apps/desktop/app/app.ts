@@ -77,7 +77,7 @@ globalThis.$desktopMainAppFunctions = {
       bundleVersion: bundleData.bundleVersion,
     });
   },
-  hasJsBundle: () => {
+  useJsBundle: () => {
     const bundleData = store.getUpdateBundleData();
     if (!bundleData) {
       return false;
@@ -540,7 +540,7 @@ async function createMainWindow() {
     refreshMenu,
     getAppName: () => APP_NAME,
     getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
-    hasJsBundle: () => !!bundleIndexHtmlPath,
+    useJsBundle: () => !!bundleIndexHtmlPath,
   };
 
   if (isMac) {
@@ -803,7 +803,7 @@ async function createMainWindow() {
     logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
-    const hasJsBundle = globalThis.$desktopMainAppFunctions?.hasJsBundle?.();
+    const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
     const metadata = bundleDirPath
       ? await getMetadata({
@@ -822,7 +822,7 @@ async function createMainWindow() {
 
         // resolve iframe path
         if (isJsSdkFile && isIFrameHtml) {
-          if (hasJsBundle && indexHtmlPath && bundleDirPath) {
+          if (useJsBundle && indexHtmlPath && bundleDirPath) {
             let key = path.join('static', 'js-sdk', 'iframe.html');
             const filePath = path.join(bundleDirPath, key);
             if (isWin) {
@@ -854,7 +854,7 @@ async function createMainWindow() {
 
         // move to parent folder
         const url = request.url.substring(PROTOCOL.length + 1);
-        if (hasJsBundle && indexHtmlPath && bundleDirPath) {
+        if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
           if (decodedUrl.includes(bundleDirPath)) {
             const filePath = checkFileHash({

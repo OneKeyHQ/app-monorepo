@@ -271,7 +271,7 @@ class ServiceNetwork extends ServiceBase {
   }): Promise<IServerNetwork | undefined> {
     try {
       return await this.getNetwork({ networkId, code });
-    } catch (_error) {
+    } catch (error) {
       return undefined;
     }
   }
@@ -597,7 +597,7 @@ class ServiceNetwork extends ServiceBase {
       return result;
     }, {} as Record<string, number>);
     const resp = await this.getNetworksByIds({ networkIds });
-    const sorted = resp.networks.toSorted(
+    const sorted = resp.networks.sort(
       (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
     );
     return sorted;
@@ -932,7 +932,7 @@ class ServiceNetwork extends ServiceBase {
             impl: network.impl,
           });
         }
-      } catch (_error) {
+      } catch (error) {
         console.error('detectNetworksByAddress error', network.id, error);
       }
     }
@@ -991,7 +991,7 @@ class ServiceNetwork extends ServiceBase {
             impl: network.impl,
           });
         }
-      } catch (_error) {
+      } catch (error) {
         console.error('detectNetworksByPublicKey error', network.id, error);
       }
     }
@@ -1035,9 +1035,9 @@ class ServiceNetwork extends ServiceBase {
       };
     }
 
-    const availableNetworkIds: string[] = new Set((
+    const availableNetworkIds: string[] = (
       await this.getImportedAccountEnabledNetworks()
-    ).map((network) => network.id));
+    ).map((network) => network.id);
 
     const { groupedByImpl } =
       await networkDetectUtils.detectNetworkByPrivateKey({
@@ -1047,8 +1047,8 @@ class ServiceNetwork extends ServiceBase {
     results = results
       .map((item) => {
         item.networks = item.networks
-          .filter((network) => availableNetworkIds.has(network.networkId))
-          .toSorted((a, _b) => {
+          .filter((network) => availableNetworkIds.includes(network.networkId))
+          .sort((a, _b) => {
             if (
               [
                 presetNetworksMap.eth.id,
@@ -1691,7 +1691,7 @@ class ServiceNetwork extends ServiceBase {
     }
 
     // uniq frequentlyUsedItems and sort by value
-    frequentlyUsedItems = uniqBy(frequentlyUsedItems, 'id').toSorted((a, b) => {
+    frequentlyUsedItems = uniqBy(frequentlyUsedItems, 'id').sort((a, b) => {
       return new BigNumber(allAccountValues[b.id] ?? '0').comparedTo(
         new BigNumber(allAccountValues[a.id] ?? '0'),
       );

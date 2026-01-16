@@ -167,7 +167,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 selectedAccount,
               },
             ));
-        } catch (_error) {
+        } catch (error) {
           //
           activeAccount = {
             ...defaultActiveAccountInfo(),
@@ -725,7 +725,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         const createResult = { wallet, indexedAccount, isOverrideWallet };
         return createResult;
-      } catch (_error) {
+      } catch (error) {
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
           error: error as IOneKeyError,
@@ -1010,7 +1010,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         }
         return res;
-      } catch (_error) {
+      } catch (error) {
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         throw error;
       }

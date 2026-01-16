@@ -59,7 +59,7 @@ export class GoogleDriveStorage {
       if (RNFS && (await RNFS.exists(filePath))) {
         await RNFS.unlink(filePath);
       }
-    } catch (_error) {
+    } catch (error) {
       console.warn('Failed to cleanup temp file:', filePath, error);
     }
   }
@@ -80,13 +80,13 @@ export class GoogleDriveStorage {
             await RNCloudFs.loginIfNeeded();
             return true;
           }
-        } catch (_error) {
+        } catch (error) {
           console.warn('Google Drive availability check failed:', error);
           return false;
         }
       }
       return false;
-    } catch (_error) {
+    } catch (error) {
       console.warn('Google Drive availability check failed:', error);
       return false;
     }

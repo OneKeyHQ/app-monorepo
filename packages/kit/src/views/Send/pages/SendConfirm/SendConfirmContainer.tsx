@@ -132,7 +132,7 @@ function SendConfirmContainer() {
         unsignedTxs,
         precheckTiming: ESendPreCheckTimingEnum.BeforeTransaction,
       });
-    } catch (_e: any) {
+    } catch (e: any) {
       updatePreCheckTxStatus((e as Error).message);
     }
   }, [accountId, networkId, unsignedTxs, updatePreCheckTxStatus]);

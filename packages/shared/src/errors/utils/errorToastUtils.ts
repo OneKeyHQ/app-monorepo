@@ -27,7 +27,7 @@ async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
       if (instanceId) {
         parts.push(`InstanceId: ${instanceId}`);
       }
-    } catch (_error) {
+    } catch (error) {
       console.warn('[buildDiagnosticText] Failed to get instanceId:', error);
     }
   }
@@ -170,7 +170,7 @@ async function withErrorAutoToast<T>(
   try {
     const result = await fn();
     return result;
-  } catch (_error: unknown) {
+  } catch (error: unknown) {
     fixAxiosAbortCancelError(error);
     const alwaysShowToast = options?.alwaysShowToast ?? true;
     if (alwaysShowToast) {

@@ -190,7 +190,7 @@ async function getMasterKey(): Promise<Uint8Array | null> {
       cachedMasterKey = masterKey;
       masterKeyCacheTimestamp = Date.now();
       return masterKey;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to unwrap master key:', error);
       throw new OneKeyLocalError('Failed to unlock secure storage');
     }
@@ -255,7 +255,7 @@ const storage: ISecureStorage = {
 
     try {
       return await decryptWithMasterKey(masterKey, encryptedData);
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to decrypt secure item:', error);
       throw new OneKeyLocalError('Failed to decrypt secure storage data');
     }

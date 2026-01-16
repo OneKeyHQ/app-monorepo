@@ -251,7 +251,7 @@ class BaseApiProvider {
     const smallTokenArray: IServerAccountTokenItem[] = [];
     const riskTokenArray: IServerAccountTokenItem[] = [];
 
-    sortedAccountTokenArray.toReversed().forEach((accountToken) => {
+    sortedAccountTokenArray.reverse().forEach((accountToken) => {
       tokenArray.unshift(accountToken);
     });
 

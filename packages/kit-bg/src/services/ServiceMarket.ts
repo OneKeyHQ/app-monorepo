@@ -56,7 +56,7 @@ class ServiceMarket extends ServiceBase {
     return filters.length
       ? data
           .filter((i) => !filters.includes(i.categoryId))
-          .toSorted((a, b) => Number(a.sequenceId) - Number(b.sequenceId))
+          .sort((a, b) => Number(a.sequenceId) - Number(b.sequenceId))
       : data;
   }
 
@@ -180,7 +180,7 @@ class ServiceMarket extends ServiceBase {
           ...i,
           localId: buildId(index),
         }));
-    } catch (_error) {
+    } catch (error) {
       console.error('fetchPools error', error);
       return [];
     }

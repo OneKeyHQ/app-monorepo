@@ -158,7 +158,7 @@ function VerifyPinPage() {
         if (result.isRateLimited && result.retryAfterSeconds > 0) {
           startCooldown(result.retryAfterSeconds);
         }
-      } catch (_error) {
+      } catch (error) {
         // Silently handle errors to not block user operations
         console.error('Failed to check rate limit status:', error);
       } finally {

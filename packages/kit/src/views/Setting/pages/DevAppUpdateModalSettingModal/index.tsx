@@ -52,7 +52,7 @@ function BundleTestsContent({
               bundleVersion,
             );
             showTestResult(result);
-          } catch (_error) {
+          } catch (error) {
             showTestError(error);
           }
         }}
@@ -68,7 +68,7 @@ function BundleTestsContent({
               bundleVersion,
             );
             showTestResult(result);
-          } catch (_error) {
+          } catch (error) {
             showTestError(error);
           }
         }}
@@ -84,7 +84,7 @@ function BundleTestsContent({
               bundleVersion,
             );
             showTestResult(result);
-          } catch (_error) {
+          } catch (error) {
             showTestError(error);
           }
         }}
@@ -100,7 +100,7 @@ function BundleTestsContent({
               bundleVersion,
             );
             showTestResult(result);
-          } catch (_error) {
+          } catch (error) {
             showTestError(error);
           }
         }}
@@ -247,7 +247,7 @@ export default function DevAppUpdateModalSettingModal() {
               try {
                 const result = await BundleUpdate.testVerification();
                 showTestResult(result);
-              } catch (_error) {
+              } catch (error) {
                 showTestError(error);
               }
             }}
@@ -375,7 +375,7 @@ export default function DevAppUpdateModalSettingModal() {
                   title: 'Clear JSBundle Data',
                   description: JSON.stringify(result),
                 });
-              } catch (_error) {
+              } catch (error) {
                 Dialog.confirm({
                   title: 'Clear JSBundle Data',
                   description: `Error: ${

@@ -104,7 +104,7 @@ export class V4RealmDBAgent
         this.realm.commitTransaction();
       }
       return result;
-    } catch (_error) {
+    } catch (error) {
       if (!options?.readOnly) {
         this.realm.cancelTransaction();
       }

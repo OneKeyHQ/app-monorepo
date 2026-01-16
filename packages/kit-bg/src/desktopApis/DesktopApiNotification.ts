@@ -66,7 +66,7 @@ async function testNotificationPermission(): Promise<ENotificationPermission> {
 
   //     // 显示测试通知
   //     testNotification.show();
-  //   } catch (_error) {
+  //   } catch (error) {
   //     logger.error('Test notification failed:', error);
   //     resolve(ENotificationPermission.denied);
   //   }
@@ -115,7 +115,7 @@ async function getMacOSNotificationPermission(): Promise<ENotificationPermission
 
     // 方法4: 尝试创建测试通知来判断权限
     return await testNotificationPermission();
-  } catch (_error) {
+  } catch (error) {
     logger.error('macOS notification permission check failed:', error);
     return ENotificationPermission.default;
   }
@@ -164,7 +164,7 @@ async function getWindowsNotificationPermission(): Promise<{
       status: testResult,
       details: { method: 'test_notification', platform: 'Windows' },
     };
-  } catch (_error) {
+  } catch (error) {
     logger.error('Windows notification permission check failed:', error);
     return {
       status: ENotificationPermission.default,
@@ -221,7 +221,7 @@ async function getLinuxNotificationPermission(): Promise<{
         hasWaylandDisplay,
       },
     };
-  } catch (_error) {
+  } catch (error) {
     logger.error('Linux notification permission check failed:', error);
     return {
       status: ENotificationPermission.default,
@@ -272,7 +272,7 @@ async function getElectronNotificationPermission(): Promise<{
       notificationStatus = linuxResult.status;
       platformDetails = linuxResult.details;
     }
-  } catch (_error) {
+  } catch (error) {
     logger.error('Error checking notification permission:', error);
     notificationStatus = ENotificationPermission.default;
     platformDetails = {

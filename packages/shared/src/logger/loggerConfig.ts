@@ -26,7 +26,7 @@ function buildLoggerConfig(): ILoggerConfig {
   const defaultLoggerInstance =
     (appGlobals.$defaultLogger as unknown as Record<string, BaseScope>) || {};
   Object.keys(defaultLoggerInstance)
-    .toSorted((a, b) => natsort({ insensitive: true })(a, b))
+    .sort((a, b) => natsort({ insensitive: true })(a, b))
     .forEach((scope) => {
       config.enabled[scope] = config.enabled[scope] || {};
       Object.keys(
@@ -34,7 +34,7 @@ function buildLoggerConfig(): ILoggerConfig {
           scope
         ] || {},
       )
-        .toSorted((a, b) => natsort({ insensitive: true })(a, b))
+        .sort((a, b) => natsort({ insensitive: true })(a, b))
         .forEach((scene) => {
           if (defaultLoggerInstance[scope]) {
             const sceneInstance = (
@@ -51,7 +51,7 @@ function buildLoggerConfig(): ILoggerConfig {
               if (isSceneLike) {
                 config.enabled[scope][scene] = false;
               }
-            } catch (_error) {
+            } catch (error) {
               //
             }
           }

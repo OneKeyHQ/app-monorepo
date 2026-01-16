@@ -56,7 +56,7 @@ export function AirGapQrcodeDialogContainer() {
                 data: result,
               });
             }
-          } catch (_error) {
+          } catch (error) {
             if (event.promiseId) {
               await backgroundApiProxy.servicePromise.rejectCallback({
                 id: event.promiseId,

@@ -53,7 +53,7 @@ export function EmailOTPDialog(props: {
     try {
       await sendCode();
       setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
-    } catch (_error) {
+    } catch (error) {
       Toast.error({
         title: (error as Error)?.message,
       });
@@ -90,7 +90,7 @@ export function EmailOTPDialog(props: {
     try {
       setIsConfirming(true);
       await onConfirm(verificationCode);
-    } catch (_error) {
+    } catch (error) {
       console.error('sendEmailOTP error', error);
       setState({ status: 'error' });
     } finally {

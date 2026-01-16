@@ -122,7 +122,7 @@ export default class NotificationProvider extends NotificationProviderBase {
     if (desktopNotification) {
       try {
         desktopNotification.close();
-      } catch (_error) {
+      } catch (error) {
         // ignore
       }
       defaultLogger.notification.common.removeNotification({

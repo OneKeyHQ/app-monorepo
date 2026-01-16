@@ -62,7 +62,7 @@ export const CloudBackup = ({ packs }: ICloudBackupProps) => {
               setCloudBackupResult(
                 `✅ Backup success!\nrecordID: ${result.recordID}\nmeta: ${result.meta}`,
               );
-            } catch (_e: any) {
+            } catch (e: any) {
               setCloudBackupResult(`❌ Error: ${(e as Error)?.message}`);
             }
           }}
@@ -116,7 +116,7 @@ export const CloudBackup = ({ packs }: ICloudBackupProps) => {
                   },
                 });
               }
-            } catch (_e: any) {
+            } catch (e: any) {
               setCloudRestoreResult(`❌ Error: ${(e as Error)?.message}`);
             }
           }}

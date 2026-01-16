@@ -114,7 +114,7 @@ export function ImportSingleChainBase({
           walletId: WALLET_TYPE_IMPORTED,
         });
         form.clearErrors('accountName');
-      } catch (_error) {
+      } catch (error) {
         form.setError('accountName', {
           message: (error as Error)?.message,
         });
@@ -141,7 +141,7 @@ export function ImportSingleChainBase({
         setValidateResult(result);
         console.log('validateGeneralInputOfImporting result', result);
         // TODO: need to replaced by https://github.com/mattermost/react-native-paste-input
-      } catch (_error) {
+      } catch (error) {
         setValidateResult({
           isValid: false,
         });

@@ -189,7 +189,7 @@ const LimitOrderDetailModal = () => {
       try {
         setCancelLoading(true);
         await cancelLimitOrder(item, ESwapCancelLimitOrderSource.DETAIL);
-      } catch (_error) {
+      } catch (error) {
         console.error(error);
       } finally {
         setCancelLoading(false);

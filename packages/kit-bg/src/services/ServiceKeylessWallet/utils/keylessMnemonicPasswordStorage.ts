@@ -63,7 +63,7 @@ async function getMnemonicPasswordFromStorageWithPassword(params: {
       allowRawPassword: true,
     });
     return mnemonicPassword;
-  } catch (_error) {
+  } catch (error) {
     throw new OneKeyLocalError(
       `Failed to decrypt mnemonicPassword: invalid password or corrupted data: ${
         (error as Error)?.message

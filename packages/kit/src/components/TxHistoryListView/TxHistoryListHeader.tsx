@@ -29,7 +29,7 @@ type IProps = {
 const filterScamHistorySupportedNetworks =
   getNetworksSupportFilterScamHistory();
 const filterScamHistorySupportedNetworkIds =
-  new Set(filterScamHistorySupportedNetworks.map((n) => n.id));
+  filterScamHistorySupportedNetworks.map((n) => n.id);
 
 function TxHistoryListHeader({ filteredHistory: _filteredHistory }: IProps) {
   const intl = useIntl();
@@ -65,7 +65,7 @@ function TxHistoryListHeader({ filteredHistory: _filteredHistory }: IProps) {
   const filterScamHistorySupported = useMemo(
     () =>
       network?.isAllNetworks ||
-      filterScamHistorySupportedNetworkIds.has(network?.id ?? ''),
+      filterScamHistorySupportedNetworkIds.includes(network?.id ?? ''),
     [network],
   );
 

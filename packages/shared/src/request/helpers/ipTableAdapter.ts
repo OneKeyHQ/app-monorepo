@@ -70,7 +70,7 @@ function extractRootDomain(hostname: string): string {
  * These domains don't have their own IP Table config, but share the same
  * infrastructure as the main API domains (onekeycn.com/onekeytest.com)
  */
-const SHARED_IP_DOMAINS = new Set(['onekey.so']);
+const SHARED_IP_DOMAINS = ['onekey.so'];
 
 /**
  * Get the mapped domain for IP lookup
@@ -79,7 +79,7 @@ const SHARED_IP_DOMAINS = new Set(['onekey.so']);
 async function getMappedDomainForIpLookup(
   rootDomain: string,
 ): Promise<string | null> {
-  if (!SHARED_IP_DOMAINS.has(rootDomain)) {
+  if (!SHARED_IP_DOMAINS.includes(rootDomain)) {
     return null;
   }
 
@@ -114,7 +114,7 @@ async function shouldUseIpTable(): Promise<boolean> {
     }
 
     return true;
-  } catch (_error) {
+  } catch (error) {
     debugWarn('[IpTableAdapter] Failed to check IP Table permission:', error);
     defaultLogger.ipTable.request.warn({
       info: `[IpTableAdapter] Failed to check IP Table permission: ${
@@ -207,7 +207,7 @@ async function getSelectedIpForHostInternal(
     }
 
     return null;
-  } catch (_error) {
+  } catch (error) {
     debugWarn('[IpTableAdapter] Failed to get IP table config:', error);
     defaultLogger.ipTable.request.warn({
       info: `[IpTableAdapter] Failed to get IP table config: ${
@@ -360,7 +360,7 @@ export function createIpTableAdapter(
       }
 
       return response;
-    } catch (_error) {
+    } catch (error) {
       // Only report domain failures if this is NOT a fallback request
       if (
         !isFallback &&
@@ -431,7 +431,7 @@ export function createIpTableAdapter(
         const baseUrlObj = new URL(config.baseURL);
         hostname = baseUrlObj.hostname;
       }
-    } catch (_error) {
+    } catch (error) {
       // If URL parsing fails, use original adapter (direct request, not fallback)
       debugLog('[IpTableAdapter] URL parsing failed, using fallback');
       return callOriginalAdapter({ config, isFallback: false });
@@ -616,7 +616,7 @@ export function createIpTableAdapter(
         config,
         request: {},
       };
-    } catch (_error) {
+    } catch (error) {
       // Report IP failure if callback is registered
       if (reportRequestFailureCallback) {
         reportRequestFailureCallback({
@@ -692,7 +692,7 @@ export async function testDomainSpeed(
       info: `[IpTable] Domain speed test successful: ${fullUrl} : ${latency} ms`,
     });
     return latency;
-  } catch (_error) {
+  } catch (error) {
     debugWarn(`[IpTableAdapter] Domain test failed for ${domain}:`, error);
     defaultLogger.ipTable.request.warn({
       info: `[IpTable] Domain speed test failed for ${domain}: ${
@@ -754,7 +754,7 @@ export async function testIpSpeed(
       info: `[IpTable] IP speed test successful: ${ip} -> ${sniHostname}${path} : ${latency} ms`,
     });
     return latency;
-  } catch (_error) {
+  } catch (error) {
     debugWarn(`[IpTableAdapter] IP test failed for ${ip}:`, error);
     defaultLogger.ipTable.request.warn({
       info: `[IpTable] IP speed test failed for ${ip}: ${

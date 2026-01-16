@@ -24,7 +24,7 @@ export function deserializeTransaction(
     if (deserializer.remaining() === 0) {
       return transaction;
     }
-  } catch (_error) {
+  } catch (error) {
     // ignore
   }
 
@@ -35,7 +35,7 @@ export function deserializeTransaction(
     if (deserializer.remaining() === 0) {
       return transaction;
     }
-  } catch (_error) {
+  } catch (error) {
     throw new OneKeyLocalError(`Failed to deserialize transaction`);
   }
 

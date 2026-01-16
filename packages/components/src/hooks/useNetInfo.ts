@@ -112,7 +112,7 @@ class NetInfo {
       this.updateState({
         isInternetReachable: await reachabilityTest(response),
       });
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to fetch reachability:', error);
       this.updateState({ isInternetReachable: false });
     } finally {

@@ -271,7 +271,7 @@ class ServiceAllNetwork extends ServiceBase {
         networkId,
         indexedAccountId,
       });
-    } catch (_error) {
+    } catch (error) {
       console.log('getAccount error', error);
     }
 

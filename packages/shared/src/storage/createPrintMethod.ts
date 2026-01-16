@@ -12,7 +12,7 @@ export function createPrintMethod({
       let itemJson = item;
       try {
         itemJson = JSON.parse(item as string);
-      } catch (_error) {
+      } catch (error) {
         // noop
       } finally {
         // noop

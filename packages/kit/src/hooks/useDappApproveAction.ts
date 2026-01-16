@@ -79,7 +79,7 @@ function useDappApproveAction({
             window.close();
           }, 0);
         }
-      } catch (_error) {
+      } catch (error) {
         console.error('getResolveData ERROR:', error);
         setRejectError(error as Error);
         throw error;

@@ -198,7 +198,7 @@ export default function ImportPhraseOrPrivateKey() {
             mnemonicType,
             isWalletBackedUp: true,
           });
-        } catch (_error) {
+        } catch (error) {
           console.error(error);
         } finally {
           setIsConfirming(false);

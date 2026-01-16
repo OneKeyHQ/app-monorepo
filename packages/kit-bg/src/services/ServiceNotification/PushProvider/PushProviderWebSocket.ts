@@ -61,7 +61,7 @@ export class PushProviderWebSocket extends PushProviderBase {
         return !!r;
       }
       return false;
-    } catch (_error) {
+    } catch (error) {
       defaultLogger.notification.websocket.consoleLog(
         'WebSocket ackMessage error',
         error,

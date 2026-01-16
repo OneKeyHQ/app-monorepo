@@ -18,7 +18,7 @@ export function usePromptWebDeviceAccess() {
       });
       console.log('USB device permission granted:', device);
       return device;
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to request USB device permission:', error);
       throw error;
     }

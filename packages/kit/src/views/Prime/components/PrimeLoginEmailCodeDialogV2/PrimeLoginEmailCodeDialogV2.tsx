@@ -55,7 +55,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       await sendCode({ email });
       setIsApiReady(true);
       setCountdown(COUNTDOWN_TIME);
-    } catch (_error) {
+    } catch (error) {
       Toast.error({
         title: (error as Error)?.message,
       });
@@ -142,7 +142,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       setState({ status: 'done' });
       await onLoginSuccess?.();
       defaultLogger.referral.page.signupOneKeyIDResult(true);
-    } catch (_error) {
+    } catch (error) {
       console.error('prime login error', error);
       const e = error as Error | undefined;
       if (

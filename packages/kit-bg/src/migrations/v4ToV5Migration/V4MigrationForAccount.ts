@@ -262,7 +262,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           (accountUtils.isImportedWallet({ walletId: w.wallet.id }) &&
             w.wallet.accounts.length > 0),
       )
-      .toSorted((a, b) => {
+      .sort((a, b) => {
         if (a.wallet.type === b.wallet.type) {
           return natsort({ insensitive: true })(a.wallet.id, b.wallet.id);
         }
@@ -692,7 +692,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               await simpleDb.v4MigrationResult.saveMigratedIndexedAccountId({
                 v5indexedAccountId: indexedAccountAdded.id,
               });
-            } catch (_error) {
+            } catch (error) {
               //
             }
           }
@@ -1282,7 +1282,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             if (isString(v4device?.payloadJson)) {
               try {
                 v4devicePayloadJson = JSON.parse(v4device.payloadJson || '{}');
-              } catch (_error) {
+              } catch (error) {
                 //
               }
             }

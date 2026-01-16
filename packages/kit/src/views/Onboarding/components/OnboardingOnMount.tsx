@@ -132,7 +132,7 @@ function OnboardingOnMountCmp() {
             return;
           }
         }
-      } catch (_error) {
+      } catch (error) {
         //
       }
 

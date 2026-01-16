@@ -16,7 +16,7 @@ function useDappQuery<T = unknown>() {
       queryInfo = JSON.parse(query);
     }
     console.log('useDappQuery: ', queryInfo);
-  } catch (_error) {
+  } catch (error) {
     console.error(`parse dapp query error: ${query}`);
   }
 

@@ -244,7 +244,7 @@ export function serializeArgument(
         serializeArgument(serializer, value);
       }
     }
-  } catch (_error) {
+  } catch (error) {
     console.log('==>> error ', typeof arg, arg, error);
   }
 }

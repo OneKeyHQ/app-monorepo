@@ -90,7 +90,7 @@ export function useAutoKLineUpdate({
 
         lastUpdateTime.current = now;
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to push auto K-line data:', error);
     }
   }, [

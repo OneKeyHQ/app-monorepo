@@ -451,7 +451,7 @@ These template variables will be replaced with current context values:
 `;
 
   // Generate index
-  const sortedRoutes = routes.toSorted((a, b) =>
+  const sortedRoutes = routes.sort((a, b) =>
     a.modalName.localeCompare(b.modalName),
   );
   for (const route of sortedRoutes) {
@@ -573,7 +573,7 @@ async function main() {
   // Print summary
   console.log('\n📊 Summary by Modal:');
   for (const route of routes
-    .toSorted((a, b) => b.screens.length - a.screens.length)
+    .sort((a, b) => b.screens.length - a.screens.length)
     .slice(0, 10)) {
     console.log(
       `   ${route.modalName} (${route.modalRouteName}): ${route.screens.length} screens`,

@@ -41,7 +41,7 @@ export const KeylessWalletCreationFlow = () => {
       const packs = await generatePacks();
       setGeneratedPacks(packs);
       setStep1({ status: 'success', result: packs });
-    } catch (_e: any) {
+    } catch (e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
       setStep1({ status: 'error', error: errorMessage });
     }
@@ -59,7 +59,7 @@ export const KeylessWalletCreationFlow = () => {
       });
       setPackSetIdFromDevicePack(result.packSetIdFromDevicePack);
       setStep2({ status: 'success', result });
-    } catch (_e: any) {
+    } catch (e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
       setStep2({ status: 'error', error: errorMessage });
       console.error(e);
@@ -78,7 +78,7 @@ export const KeylessWalletCreationFlow = () => {
       });
       setPackSetIdFromCloudPack(result.packSetIdFromCloudPack);
       setStep3({ status: 'success', result });
-    } catch (_e: any) {
+    } catch (e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
       setStep3({ status: 'error', error: errorMessage });
       console.error(e);
@@ -105,7 +105,7 @@ export const KeylessWalletCreationFlow = () => {
         packSetIdFromDevicePack,
       });
       setStep4({ status: 'success', result });
-    } catch (_e: any) {
+    } catch (e: any) {
       const errorMessage = (e as Error)?.message ?? 'Unknown error';
       setStep4({ status: 'error', error: errorMessage });
       console.error(e);

@@ -83,7 +83,7 @@ export class Analytics {
           );
           ipTableAdapter = createIpTableAdapter(baseConfig);
         }
-      } catch (_error) {
+      } catch (error) {
         // Ignore errors in test environment or when modules are not available
         console.warn('[Analytics] Failed to load IP Table adapter:', error);
       }

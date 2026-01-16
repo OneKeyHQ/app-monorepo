@@ -436,7 +436,7 @@ async function decryptAsync({
           nonce,
           aad: aadBuffer,
         });
-      } catch (_error) {
+      } catch (error) {
         // Noble/GCM throws error on authentication failure (wrong AAD or tampered data)
         // This is different from wrong password (which results in wrong key derivation)
         const errorMessage =

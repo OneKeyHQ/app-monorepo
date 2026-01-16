@@ -72,7 +72,7 @@ export function waitPendingTransaction(
           showEffects: true,
         },
       });
-    } catch (_error: any) {
+    } catch (error: any) {
       if (right) {
         // ignore transaction not found
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call

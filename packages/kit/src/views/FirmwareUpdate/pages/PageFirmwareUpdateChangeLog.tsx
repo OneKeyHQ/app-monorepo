@@ -85,7 +85,7 @@ function PageFirmwareUpdateChangeLog() {
           //
         }
         return r;
-      } catch (_error) {
+      } catch (error) {
         setStepInfo({
           step: EFirmwareUpdateSteps.checkReleaseError,
           payload: {

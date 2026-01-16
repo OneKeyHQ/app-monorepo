@@ -648,7 +648,7 @@ export default function HardwareHomeScreenModal({
           });
 
         return { homeScreenList: dataList, isLoadingError: false };
-      } catch (_error) {
+      } catch (error) {
         return { homeScreenList: [], isLoadingError: true };
       }
     },
@@ -827,7 +827,7 @@ export default function HardwareHomeScreenModal({
                 finallyThumbnailHex = thumbnailHex;
                 finallyBlurScreenHex = blurScreenHex;
               }
-            } catch (_error) {
+            } catch (error) {
               buildCustomHexError = (error as Error | undefined)?.message;
             }
 
@@ -867,7 +867,7 @@ export default function HardwareHomeScreenModal({
             });
             // Do not close the current page, let the user switch wallpapers and preview them on the device
             // close();
-          } catch (_error) {
+          } catch (error) {
             errorToastUtils.toastIfError(error);
             throw error;
           } finally {

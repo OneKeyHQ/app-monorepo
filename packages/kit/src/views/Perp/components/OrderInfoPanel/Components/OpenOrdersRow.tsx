@@ -119,7 +119,7 @@ const OpenOrdersRow = memo(
         orderType,
         typeColor,
       };
-    }, [order, intl]);
+    }, [order.coin, order.side, order.orderType, intl, order.reduceOnly]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
       const date = formatTime(timeDate, {

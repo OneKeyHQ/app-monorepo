@@ -403,7 +403,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       if (!needSkipCancel) {
         sdk.cancel(originalConnectId);
       }
-    } catch (_error) {
+    } catch (error) {
       //
     }
 
@@ -422,7 +422,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       if (!needSkipCancel) {
         sdk.cancel(updatingConnectId);
       }
-    } catch (_error) {
+    } catch (error) {
       //
     }
 
@@ -576,7 +576,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           device,
         });
       }
-    } catch (_error) {
+    } catch (error) {
       // ignore
     }
 
@@ -1276,7 +1276,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         hardwareSDK?.checkBridgeStatus(),
       );
       return { status: bridgeStatus };
-    } catch (_error) {
+    } catch (error) {
       if (
         error instanceof InitIframeLoadFail ||
         error instanceof InitIframeTimeout
@@ -1339,14 +1339,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async updateTasksClear(reason: string) {
-    [await Object.keys(this.updateTasks).map(async (id) => {
+    await Promise.all([
+      Object.keys(this.updateTasks).map(async (id) => {
         await this.updateTasksReject({
           id,
           error: new FirmwareUpdateTasksClear({
             message: `updateTasksClear: ${reason}`,
           }),
         });
-      })];
+      }),
+    ]);
     this.updateTasks = {};
   }
 
@@ -1699,7 +1701,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }): Promise<void> {
     try {
       await this.cancelUpdateWorkflowIfExit();
-    } catch (_error) {
+    } catch (error) {
       await this.updateTasksReject({ id, error });
       return;
     }
@@ -1713,7 +1715,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const result = await fn?.({ id });
       await this.updateTasksResolve({ id, data: result });
       serviceHardwareUtils.hardwareLog('runUpdateTask SUCCESS', result);
-    } catch (_error) {
+    } catch (error) {
       //
       serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
       // never reject here, we should use retry
@@ -1775,7 +1777,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
               connectId,
               features,
             });
-          } catch (_error) {
+          } catch (error) {
             await firmwareUpdateStepInfoAtom.set({
               step: EFirmwareUpdateSteps.installing,
               payload: {
@@ -1943,7 +1945,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         }
 
         return { message: 'success', ...updateResult };
-      } catch (_error) {
+      } catch (error) {
         console.log('updatingFirmwareV3 error: ', error);
         throw error;
       }

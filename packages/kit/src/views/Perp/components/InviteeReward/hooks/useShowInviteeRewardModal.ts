@@ -39,7 +39,7 @@ export function useShowInviteeRewardModal() {
     let wallet;
     try {
       wallet = await backgroundApiProxy.serviceAccount.getWallet({ walletId });
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to get wallet:', error);
     }
 

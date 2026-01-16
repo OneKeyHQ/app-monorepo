@@ -102,9 +102,9 @@ module.exports = (config, projectRoot) => {
 
     const beforeCustomSerializer = (
       entryPoint,
-      _prepend,
+      prepend,
       graph,
-      _bundleOptions,
+      bundleOptions,
     ) => {
       for (const [key, value] of graph.dependencies) {
         // to entry file injection of global variables __APP__
@@ -122,7 +122,7 @@ module.exports = (config, projectRoot) => {
       prepend,
       graph,
       bundleOptions,
-      ..._args
+      ...args
     ) => {
       beforeCustomSerializer(entryPoint, prepend, graph, bundleOptions);
       const bundle = await dynamicImports(
@@ -142,8 +142,8 @@ module.exports = (config, projectRoot) => {
       };
     };
 
-    const _outputChunkDir = path.resolve(projectRoot, 'dist/chunks');
-    config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
+    const outputChunkDir = path.resolve(projectRoot, 'dist/chunks');
+    config.server.enhanceMiddleware = (metroMiddleware, metroServer) =>
       connect()
         .use(applyFixImageAssetsMiddleware(metroMiddleware))
         .use('/async-thunks', (req, res, next) => {

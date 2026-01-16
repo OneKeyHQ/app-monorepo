@@ -161,7 +161,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
           clearTimeout(timeoutId);
           return response.status === 200;
-        } catch (_error) {
+        } catch (error) {
           return false;
         }
       };
@@ -203,7 +203,7 @@ class ServicePrimeTransfer extends ServiceBase {
         isValid: false,
         correctedUrl: undefined,
       };
-    } catch (_error) {
+    } catch (error) {
       console.error('verifyWebSocketEndpoint error:', error);
       return {
         isValid: false,
@@ -515,7 +515,7 @@ class ServicePrimeTransfer extends ServiceBase {
         await this.initClientToClientApiApi({ roomId: result.roomId });
       }
       return result;
-    } catch (_error) {
+    } catch (error) {
       console.error('joinRoom error', error);
       void this.leaveRoom({
         roomId: roomId || (await primeTransferAtom.get()).pairedRoomId || '',
@@ -630,7 +630,7 @@ class ServicePrimeTransfer extends ServiceBase {
           'ECDHE key exchange failed: server verification unsuccessful',
         );
       }
-    } catch (_error) {
+    } catch (error) {
       void this.leaveRoom({ roomId, userId });
       throw error;
     }
@@ -932,7 +932,7 @@ class ServicePrimeTransfer extends ServiceBase {
           });
           return account;
         })
-        .toSorted((a, b) => this.accountSortFn(a, b));
+        .sort((a, b) => this.accountSortFn(a, b));
       return sortedAccounts;
     };
 
@@ -1104,7 +1104,7 @@ class ServicePrimeTransfer extends ServiceBase {
     // fill publicData summary by aggregating from privateBackupData
     try {
       const hdWallets = Object.values(privateBackupData.wallets);
-      const sortedHdWallets = hdWallets.toSorted((a, b) => this.walletSortFn(a, b));
+      const sortedHdWallets = hdWallets.sort((a, b) => this.walletSortFn(a, b));
       const totalHdAccounts = hdWallets.reduce(
         (sum, w) => sum + (w.indexedAccountUUIDs?.length || 0),
         0,
@@ -1118,7 +1118,8 @@ class ServicePrimeTransfer extends ServiceBase {
       publicData.totalWalletsCount = hdWallets.length;
       publicData.totalAccountsCount =
         totalHdAccounts + importedAccountsCount + watchingAccountsCount;
-      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> = sortedHdWallets.map((w) => {
+      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> = [
+        ...sortedHdWallets.map((w) => {
           let avatarInfo: IAvatarInfo | undefined;
           try {
             const parsedAvatar = JSON.parse(
@@ -1127,7 +1128,7 @@ class ServicePrimeTransfer extends ServiceBase {
             if (parsedAvatar && Object.keys(parsedAvatar).length > 0) {
               avatarInfo = parsedAvatar;
             }
-          } catch (_error) {
+          } catch (error) {
             console.error('refillWalletInfo', error);
           }
 
@@ -1139,7 +1140,8 @@ class ServicePrimeTransfer extends ServiceBase {
             accountsCount: w.indexedAccountUUIDs?.length || 0,
             walletXfp: w.xfp,
           };
-        }).filter(Boolean);
+        }),
+      ].filter(Boolean);
       if (importedAccountsCount > 0) {
         const data: IPrimeTransferPublicDataWalletDetail = {
           name: appLocale.intl.formatMessage({
@@ -1242,7 +1244,7 @@ class ServicePrimeTransfer extends ServiceBase {
                 password: localPassword,
               });
           }
-        } catch (_error) {
+        } catch (error) {
           /*
           data not matched to encoding: hex
           key: "imported--607--e205f9...355fca5--v4R2--ton_credential"
@@ -1516,7 +1518,7 @@ class ServicePrimeTransfer extends ServiceBase {
         e2eeClientToClientApi.clearSensitiveData();
         await this.handleDisconnect();
       }
-    } catch (_error) {
+    } catch (error) {
       console.error('disconnectWebSocket error', error);
     }
   }
@@ -1638,7 +1640,7 @@ class ServicePrimeTransfer extends ServiceBase {
       dataSource: data.privateData.wallets,
       credentials: data.privateData.credentials,
       decryptedCredentials: data.privateData.decryptedCredentials,
-    }).toSorted((a, b) => this.walletSortFn(a.item, b.item));
+    }).sort((a, b) => this.walletSortFn(a.item, b.item));
 
     // // Extract selected imported accounts
     const importedAccounts = this.extractSelectedItems({
@@ -1647,14 +1649,14 @@ class ServicePrimeTransfer extends ServiceBase {
       dataSource: data.privateData.importedAccounts,
       credentials: data.privateData.credentials,
       decryptedCredentials: data.privateData.decryptedCredentials,
-    }).toSorted((a, b) => this.accountSortFn(a.item, b.item));
+    }).sort((a, b) => this.accountSortFn(a.item, b.item));
 
     // // Extract selected watching accounts
     const watchingAccounts = this.extractSelectedItems({
       selectedItemMapInfo:
         selectedItemMap === 'ALL' ? 'ALL' : selectedItemMap.watchingAccount,
       dataSource: data.privateData.watchingAccounts,
-    }).toSorted((a, b) => this.accountSortFn(a.item, b.item));
+    }).sort((a, b) => this.accountSortFn(a.item, b.item));
 
     // return {
     //   wallets: [],
@@ -2201,12 +2203,12 @@ class ServicePrimeTransfer extends ServiceBase {
         }
         try {
           if (newWallet) {
-            const skipNetworks = new Set([
+            const skipNetworks = [
               // lightning network requires network verification
               presetNetworksMap.lightning.id,
               // Skip Cardano network because address generation is very slow
               presetNetworksMap.cardano.id,
-            ]);
+            ];
             // if (isFromCloudBackupRestore) {
             //   skipNetworks = [
             //     presetNetworksMap.lightning.id,
@@ -2214,7 +2216,7 @@ class ServicePrimeTransfer extends ServiceBase {
             //   ];
             // }
             const customNetworksUsed = customNetworks?.filter(
-              (n) => !skipNetworks.has(n.networkId),
+              (n) => !skipNetworks.includes(n.networkId),
             );
             const params: IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
               walletId: newWallet.id,

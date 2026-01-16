@@ -89,7 +89,7 @@ export default function useActiveTabDAppInfo() {
                   networkIcons,
                   addressLabel,
                 });
-              } catch (_error) {
+              } catch (error) {
                 console.error('DappConnectExtensionPanel error:', error);
                 resolve(null);
               }

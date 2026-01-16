@@ -191,7 +191,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           const size = parseFloat(pos.position?.szi || '0');
           return Math.abs(size) > 0;
         })
-        .toSorted(
+        .sort(
           (a, b) =>
             parseFloat(b.position.positionValue || '0') -
             parseFloat(a.position.positionValue || '0'),
@@ -288,7 +288,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           const size = parseFloat(pos.position?.szi ?? '0');
           return Math.abs(size) > 0;
         })
-        .toSorted((a, b) => {
+        .sort((a, b) => {
           const af = parseFloat(a.position?.cumFunding?.allTime ?? '0');
           const bf = parseFloat(b.position?.cumFunding?.allTime ?? '0');
           if (bf !== af) return bf - af;
@@ -380,7 +380,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
         if (isSnapshot) {
           const sortedUpdates = [...incomingUpdates]
-            .toSorted((a, b) => b.time - a.time)
+            .sort((a, b) => b.time - a.time)
             .slice(0, 200);
           set(perpsLedgerUpdatesAtom(), {
             accountAddress: activeAccountAddress,
@@ -398,7 +398,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           );
           const mergedUpdates = [...newUpdates, ...existingUpdates];
           const sortedUpdates = mergedUpdates
-            .toSorted((a, b) => b.time - a.time)
+            .sort((a, b) => b.time - a.time)
             .slice(0, 200);
 
           set(perpsLedgerUpdatesAtom(), {
@@ -530,7 +530,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         stored,
       );
       set(orderBookTickOptionsAtom(), stored);
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to load order book tick options:', error);
     } finally {
       this.orderBookTickOptionsLoaded = true;
@@ -584,7 +584,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           symbol,
           option,
         });
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to persist order book tick option:', error);
       }
     },
@@ -663,7 +663,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     try {
       console.log('updateSubscriptions__by__atomActions');
       await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
-    } catch (_error) {
+    } catch (error) {
       console.error(
         '[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:',
         error,
@@ -681,7 +681,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         isConnected: true,
         reconnectCount: 0,
       });
-    } catch (_error) {
+    } catch (error) {
       console.error(
         '[HyperliquidActions.startSubscriptions] Failed to start subscriptions:',
         error,
@@ -701,7 +701,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       this.updateConnectionState.call(set, {
         isConnected: false,
       });
-    } catch (_error) {
+    } catch (error) {
       console.error(
         '[HyperliquidActions.stopSubscriptions] Failed to stop subscriptions:',
         error,
@@ -723,7 +723,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       this.updateConnectionState.call(set, {
         isConnected: true,
       });
-    } catch (_error) {
+    } catch (error) {
       console.error(
         '[HyperliquidActions.reconnectSubscriptions] Failed to reconnect subscriptions:',
         error,
@@ -737,7 +737,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   enableTrading = contextAtomMethod(async (_get, _set) => {
     try {
       return await backgroundApiProxy.serviceHyperliquid.enableTrading();
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to enable trading:', error);
       return { success: false };
     }
@@ -1225,7 +1225,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   coin: p.position.coin,
                 });
                 return { coin: p.position.coin, midPrice: midPriceInfo.mid };
-              } catch (_error) {
+              } catch (error) {
                 console.warn(
                   `Failed to get mid price for ${p.position.coin}:`,
                   error,

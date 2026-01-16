@@ -48,7 +48,7 @@ export function NoteDialogContent({
       });
       onNoteUpdated?.();
       void dialogInstance?.close();
-    } catch (_error) {
+    } catch (error) {
       console.error('Failed to update note:', error);
     } finally {
       setIsSubmitting(false);

@@ -254,7 +254,7 @@ function getSortedNormalizedConfigs(
         createNormalizedConfigs(key, screens, initialRoutes, [], [], [])
       )
     )
-    .toSorted((a, b) => {
+    .sort((a, b) => {
       // Sort config from most specific to least specific:
       // - more segments
       // - static segments

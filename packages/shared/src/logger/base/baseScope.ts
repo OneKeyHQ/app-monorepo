@@ -113,7 +113,7 @@ export abstract class BaseScope implements IScope {
                 }
               }
             });
-          } catch (_error) {
+          } catch (error) {
             console.error(error);
           }
         },

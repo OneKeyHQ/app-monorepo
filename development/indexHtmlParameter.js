@@ -19,7 +19,7 @@ function createEjsParams({ filename = '', platform = '', browser = '' }) {
   };
 }
 
-function createInterpolateParams({ filename: _filename, platform: _platform }) {
+function createInterpolateParams({ filename, platform }) {
   return {
     WEB_PUBLIC_URL: '',
     WEB_TITLE: '',

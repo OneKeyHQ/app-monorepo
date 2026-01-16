@@ -139,7 +139,7 @@ function PrimeGlobalEffectAfterAuthReady() {
         }
       }
     })();
-  }, [user]);
+  }, [user.isLoggedIn, user.isLoggedInOnServer]);
 
   useEffect(() => {
     void (async () => {

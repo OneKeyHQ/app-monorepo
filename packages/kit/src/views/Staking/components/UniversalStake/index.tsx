@@ -710,7 +710,7 @@ export function UniversalStake({
         });
         stakefishPermitSignatureRef.current = signature;
         stakefishPermitMessageRef.current = message;
-      } catch (_error) {
+      } catch (error) {
         console.error('Stakefish permit sign error:', error);
         setApproving(false);
         return;
@@ -866,7 +866,7 @@ export function UniversalStake({
 
             // Start the recursive polling
             setTimeout(checkAllowance, pollInterval);
-          } catch (_error) {
+          } catch (error) {
             console.error('Error polling for allowance:', error);
             setApproving(false);
           }
@@ -985,7 +985,7 @@ export function UniversalStake({
 
           void onSubmit();
           setApproving(false);
-        } catch (_error: unknown) {
+        } catch (error: unknown) {
           console.error('Permit sign error:', error);
           defaultLogger.staking.page.permitSignError({
             error: error instanceof Error ? error.message : String(error),

@@ -127,7 +127,7 @@ function PBKDF2Test() {
       Toast.success({
         title: `PBKDF2 completed `,
       });
-    } catch (_error) {
+    } catch (error) {
       Toast.error({
         title: `PBKDF2 failed: ${(error as Error).message}`,
       });
@@ -154,7 +154,7 @@ function HashTest() {
       Toast.success({
         title: `Hash completed `,
       });
-    } catch (_error) {
+    } catch (error) {
       Toast.error({
         title: `Hash failed: ${(error as Error).message}`,
       });
@@ -181,7 +181,7 @@ function KeyGenTest() {
       Toast.success({
         title: `KeyGen completed`,
       });
-    } catch (_error) {
+    } catch (error) {
       Toast.error({
         title: `KeyGen failed: ${(error as Error).message}`,
       });
@@ -208,7 +208,7 @@ function AESCbcTest() {
       Toast.success({
         title: `AES-CBC completed`,
       });
-    } catch (_error) {
+    } catch (error) {
       Toast.error({
         title: `AES-CBC failed: ${(error as Error).message}`,
       });
@@ -357,7 +357,7 @@ function CryptoSubtlePolyfillTest() {
           title: 'crypto.subtle polyfill test failed',
         });
       }
-    } catch (_error) {
+    } catch (error) {
       setResult(`Error: ${(error as Error).message}`);
       Toast.error({
         title: `crypto.subtle test failed: ${(error as Error).message}`,
@@ -754,7 +754,7 @@ function SecretFunctionsTest() {
           2,
         ),
       );
-    } catch (_error) {
+    } catch (error) {
       Toast.error({
         title: `SecretFunctions failed: ${(error as Error).message}`,
       });
@@ -802,7 +802,7 @@ function SecretFunctionsTest() {
           2,
         ),
       );
-    } catch (_error) {
+    } catch (error) {
       Toast.error({
         title: `SecretFunctions2 failed: ${(error as Error).message}`,
       });

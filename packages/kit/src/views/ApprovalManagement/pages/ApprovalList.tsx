@@ -128,7 +128,7 @@ function ApprovalList() {
       updateApprovalList({ data: resp.contractApprovals });
       updateTokenMap({ data: resp.tokenMap });
       updateContractMap({ data: resp.contractMap });
-    } catch (_error) {
+    } catch (error) {
       if (error instanceof CanceledError) {
         console.log('fetchAccountApprovals canceled');
       } else {

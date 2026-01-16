@@ -28,4 +28,4 @@ describe('Kaspa UTXO Tests', () => {
   });
 });
 
-
+export {};

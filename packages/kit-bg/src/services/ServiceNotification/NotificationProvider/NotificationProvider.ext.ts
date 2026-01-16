@@ -245,12 +245,12 @@ export default class NotificationProvider extends NotificationProviderBase {
     if (notificationId) {
       try {
         this.notificationCache.delete(notificationId);
-      } catch (_error) {
+      } catch (error) {
         // ignore
       }
       try {
         chrome.notifications.clear(notificationId);
-      } catch (_error) {
+      } catch (error) {
         // ignore
       }
       defaultLogger.notification.common.removeNotification({

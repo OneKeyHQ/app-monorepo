@@ -25,7 +25,7 @@ function sortUXTO(
       new BigNumber(b.satoshis).minus(a.satoshis).toNumber(),
   };
 
-  return utxos.toSorted(
+  return utxos.sort(
     (a, b) =>
       sortFns[sortPriority](a, b) ||
       sortFns[sortPriority === 'daaScore' ? 'satoshis' : 'daaScore'](a, b) ||

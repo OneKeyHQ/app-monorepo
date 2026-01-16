@@ -49,7 +49,7 @@ class DesktopApiNetwork {
     const staticPath = getStaticPath();
     const preloadJsPath = path.join(staticPath, 'preload.js');
     logger.info('getPreloadJsContent', preloadJsPath);
-    if (globalThis.$desktopMainAppFunctions?.hasJsBundle?.()) {
+    if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
       const bundleDirPath = getBundleDirPath();
       const bundleData = store.getUpdateBundleData();
       const metadata = bundleDirPath

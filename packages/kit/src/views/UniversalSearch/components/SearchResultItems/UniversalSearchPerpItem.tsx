@@ -36,7 +36,7 @@ export function UniversalSearchPerpItem({
         await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
           coin,
         });
-      } catch (_error) {
+      } catch (error) {
         console.error('Failed to change active asset:', error);
       }
       setTimeout(() => {

@@ -47,7 +47,7 @@ function trackPrimeSubscriptionSuccess({
     if (amountMicros && typeof amountMicros === 'number') {
       amount = new BigNumber(amountMicros).div(1_000_000).toNumber();
     }
-  } catch (_error) {
+  } catch (error) {
     console.warn('Error converting price amount:', error);
     amount = 0;
   }
@@ -62,7 +62,7 @@ function trackPrimeSubscriptionSuccess({
           useShortUSSymbol: true,
         }) || 'USD';
     }
-  } catch (_error) {
+  } catch (error) {
     console.warn('Error extracting currency:', error);
     currency = 'USD';
   }
