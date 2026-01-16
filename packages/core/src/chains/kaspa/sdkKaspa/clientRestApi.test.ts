@@ -24,3 +24,6 @@ describe('Kaspa Rest API Client Tests', () => {
     process.stdout.write(`query utxo length: ${utxo.length}\n`);
   });
 });
+
+// oxlint-disable-next-line unicorn/require-module-specifiers
+export {};

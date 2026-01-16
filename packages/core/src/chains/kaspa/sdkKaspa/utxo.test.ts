@@ -27,3 +27,6 @@ describe('Kaspa UTXO Tests', () => {
     process.stdout.write(`pubkeyInfos: ${JSON.stringify(selectedUTXOs)}\n`);
   });
 });
+
+// oxlint-disable-next-line unicorn/require-module-specifiers
+export {};

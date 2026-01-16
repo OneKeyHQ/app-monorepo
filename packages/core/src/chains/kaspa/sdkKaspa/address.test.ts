@@ -39,3 +39,6 @@ describe('Kaspa Address Tests', () => {
     expect(isValid).toBe(false);
   });
 });
+
+// oxlint-disable-next-line unicorn/require-module-specifiers
+export {};
