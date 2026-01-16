@@ -1414,7 +1414,7 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string;
     pin: string;
     skipTokenCacheClear?: boolean;
-  }): Promise<IKeylessJuiceboxShare | null> {
+  }): Promise<IKeylessJuiceboxShare> {
     const { ownerId, token, pin, skipTokenCacheClear } = params;
 
     if (!token) {
@@ -2234,6 +2234,7 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async apiCheckRateLimitStatus(params: { token: string }): Promise<{
     isRateLimited: boolean;
     retryAfterSeconds: number;

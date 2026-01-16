@@ -991,6 +991,8 @@ export function useKeylessWallet() {
   };
 }
 
+let isPinReminderDialogShowing = false;
+
 export function useVerifyKeylessPinChecking() {
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const intl = useIntl();
@@ -1023,6 +1025,9 @@ export function useVerifyKeylessPinChecking() {
 
   const verifyKeylessPinChecking = useCallback(
     async (options: { forceVerify?: boolean; wallet: IDBWallet }) => {
+      if (isPinReminderDialogShowing) {
+        return;
+      }
       const activeWallet = options.wallet;
       if (activeWallet?.isKeyless) {
         const ownerId = activeWallet?.keylessDetailsInfo?.keylessOwnerId;
@@ -1101,6 +1106,7 @@ export function useVerifyKeylessPinChecking() {
           }
 
           const showPinReminderDialog = () => {
+            isPinReminderDialogShowing = true;
             Dialog.show({
               showExitButton: false,
               disableDrag: true,
@@ -1117,7 +1123,11 @@ export function useVerifyKeylessPinChecking() {
               onCancelText: intl.formatMessage({
                 id: ETranslations.global_not_now,
               }),
+              onClose: () => {
+                isPinReminderDialogShowing = false;
+              },
               onCancel: async () => {
+                isPinReminderDialogShowing = false;
                 try {
                   await cancelVerifyPin(ownerId);
                 } catch (error) {
@@ -1138,6 +1148,7 @@ export function useVerifyKeylessPinChecking() {
                 id: ETranslations.pin_verify_reminder_dialog_button_label,
               }),
               onConfirm: async () => {
+                isPinReminderDialogShowing = false;
                 const shouldVerifyPin0 = await checkShouldVerifyPin();
                 if (!shouldVerifyPin0) {
                   Toast.success({
