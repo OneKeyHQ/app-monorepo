@@ -1423,6 +1423,7 @@ export type IEarnAccountTokenResponse = {
   earnings24h?: string;
   accounts: IEarnAccount[];
   isOverviewLoaded?: boolean;
+  hideSmallAssets?: boolean;
 };
 
 export type IEarnRewardUnit = 'APY' | 'APR';

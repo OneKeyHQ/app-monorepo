@@ -135,7 +135,10 @@ const BorrowHomeContent = memo(
             onHealthFactorAlertsChange={setHealthFactorAlerts}
           />
           {hasAlerts ? (
-            <YStack my="$7" gap="$3">
+            <YStack
+              {...(gtMd ? { my: '$7' } : { mt: '$2', mb: '$7' })}
+              gap="$3"
+            >
               {showNoAddressWarning ? (
                 <NoAddressWarning
                   accountId={accountId}
