@@ -102,6 +102,15 @@ const basePlugins = [
         ONEKEY_PROXY: JSON.stringify(ONEKEY_PROXY),
         NODE_ENV: JSON.stringify(NODE_ENV),
         TAMAGUI_TARGET: JSON.stringify('web'),
+        PERF_MONITOR_ENABLED: JSON.stringify(
+          process.env.PERF_MONITOR_ENABLED || '',
+        ),
+        PERF_FUNCTION_THRESHOLD_MS: JSON.stringify(
+          process.env.PERF_FUNCTION_THRESHOLD_MS || '',
+        ),
+        PERF_FUNCTION_WARN_MS: JSON.stringify(
+          process.env.PERF_FUNCTION_WARN_MS || '',
+        ),
       },
     },
   }),

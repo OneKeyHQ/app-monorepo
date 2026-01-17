@@ -24,7 +24,11 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
-import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowAlert,
+  IEarnText,
+  IEarnTooltip,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -93,9 +97,11 @@ const OverviewItem = ({
 export const Overview = ({
   showBottomSpacing = true,
   isActive = true,
+  onHealthFactorAlertsChange,
 }: {
   showBottomSpacing?: boolean;
   isActive?: boolean;
+  onHealthFactorAlertsChange?: (alerts?: IBorrowAlert[]) => void;
 }) => {
   const {
     reserves,
@@ -172,6 +178,11 @@ export const Overview = ({
     enabled:
       isActive && !!(networkId && provider && marketAddress && earnAccountId),
   });
+  const healthFactorAlerts = healthFactorData?.alerts;
+
+  useEffect(() => {
+    onHealthFactorAlertsChange?.(healthFactorAlerts);
+  }, [healthFactorAlerts, onHealthFactorAlertsChange]);
 
   const {
     borrowRewards,

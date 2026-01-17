@@ -143,7 +143,7 @@ function VerifyPinPage() {
     async ({ isFirstCheck = false }: { isFirstCheck?: boolean } = {}) => {
       try {
         setIsCheckingRateLimit(true);
-        const token = await getKeylessOnboardingToken({ skipDelete: true });
+        const token = await getKeylessOnboardingToken();
         if (!token) {
           return;
         }
