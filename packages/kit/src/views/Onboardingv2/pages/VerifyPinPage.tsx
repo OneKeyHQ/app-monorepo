@@ -5,6 +5,7 @@ import { intervalToDuration } from 'date-fns';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import { JUICEBOX_ALLOWED_GUESSES } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IIncorrectPinErrorInfo } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -137,6 +138,16 @@ function VerifyPinPage() {
     [pinInputRef],
   );
 
+  const handleForgotPin = useCallback(() => {
+    if (isVerifyPinOnly) {
+      navigation.push(EOnboardingPagesV2.CreatePin, {
+        action: EKeylessFinalizeAction.ResetPin,
+      });
+    } else {
+      navigation.push(EOnboardingPagesV2.ResetPin);
+    }
+  }, [navigation, isVerifyPinOnly]);
+
   // Check rate limit status - reusable function
   const checkRateLimitStatus = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -154,6 +165,18 @@ function VerifyPinPage() {
               token,
             },
           );
+
+        // Check if PIN attempts are exceeded
+        if (!isNil(result.guessesRemaining) && result.guessesRemaining <= 0) {
+          // Max attempts reached - show toast and redirect to reset PIN page
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.pin_attempts_exhausted,
+            }),
+          });
+          handleForgotPin();
+          return;
+        }
 
         if (result.isRateLimited && result.retryAfterSeconds > 0) {
           startCooldown(result.retryAfterSeconds);
@@ -179,7 +202,7 @@ function VerifyPinPage() {
         );
       }
     },
-    [getKeylessOnboardingToken, startCooldown],
+    [getKeylessOnboardingToken, handleForgotPin, intl, startCooldown],
   );
 
   // Check rate limit status on page enter
@@ -206,16 +229,6 @@ function VerifyPinPage() {
     },
     [isInputDisabled],
   );
-
-  const handleForgotPin = useCallback(() => {
-    if (isVerifyPinOnly) {
-      navigation.push(EOnboardingPagesV2.CreatePin, {
-        action: EKeylessFinalizeAction.ResetPin,
-      });
-    } else {
-      navigation.push(EOnboardingPagesV2.ResetPin);
-    }
-  }, [navigation, isVerifyPinOnly]);
 
   const handleEnableInput = useCallback(() => {
     setIsManuallyEnabled(true);
@@ -245,7 +258,12 @@ function VerifyPinPage() {
         setShowAttemptError(true);
 
         if (!isNil(errorInfo?.guessesRemaining) && newAttemptsRemaining <= 0) {
-          // Max attempts reached - redirect to reset PIN page
+          // Max attempts reached - show toast and redirect to reset PIN page
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.pin_attempts_exhausted,
+            }),
+          });
           void handleForgotPin();
           return;
         }
@@ -273,6 +291,7 @@ function VerifyPinPage() {
     verifyKeylessOnboardingPin,
     handleForgotPin,
     checkRateLimitStatus,
+    intl,
   ]);
 
   // Build error message based on state
@@ -315,6 +334,47 @@ function VerifyPinPage() {
     return '';
   })();
 
+  const handleAutoInputPin = useCallback(async () => {
+    const debugPin = '1234';
+    setPin(debugPin);
+    try {
+      setIsLoading(true);
+      await verifyKeylessOnboardingPin({ pin: debugPin, mode });
+    } catch (e) {
+      void checkRateLimitStatus({ isFirstCheck: false });
+      if (
+        errorUtils.isErrorByClassName({
+          error: e,
+          className: EOneKeyErrorClassNames.IncorrectPinError,
+        })
+      ) {
+        const errorInfo = (e as { info?: IIncorrectPinErrorInfo })?.info;
+        const newAttemptsRemaining = errorInfo?.guessesRemaining ?? 0;
+        setAttemptsRemaining(newAttemptsRemaining);
+        setShowAttemptError(true);
+        if (!isNil(errorInfo?.guessesRemaining) && newAttemptsRemaining <= 0) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.pin_attempts_exhausted,
+            }),
+          });
+          void handleForgotPin();
+          return;
+        }
+      }
+      // Silently continue for auto-retry
+    } finally {
+      setIsLoading(false);
+      setPin('');
+    }
+  }, [
+    mode,
+    verifyKeylessOnboardingPin,
+    checkRateLimitStatus,
+    handleForgotPin,
+    intl,
+  ]);
+
   return (
     <PinInputLayout
       ref={pinInputRef}
@@ -348,6 +408,8 @@ function VerifyPinPage() {
       isInputDisabled={isInputDisabled}
       onEnableInput={handleEnableInput}
       errorMessage={displayErrorMessage}
+      isVerifyPinPage
+      onAutoInputPin={handleAutoInputPin}
     />
   );
 }
