@@ -368,7 +368,7 @@ export interface IBorrowApyDetailItem {
   value: IBorrowApy;
 }
 
-interface IBorrowApyComponent {
+export interface IBorrowApyComponent {
   color: string;
   value: string; // numeric string
   title: IEarnText;
@@ -386,6 +386,7 @@ export interface IBorrowApyDetailPopupData {
     icon: IKeyOfIcons;
   };
   apyDetail: {
+    description?: { text: IEarnText; button: IEarnLinkActionIcon }[];
     normal?: IBorrowApyDetailSection;
     supplyBonus?: IBorrowApyDetailSection;
     collateralBonus?: IBorrowApyDetailSection;
