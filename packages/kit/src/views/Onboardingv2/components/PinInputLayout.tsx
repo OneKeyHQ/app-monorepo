@@ -49,6 +49,8 @@ interface IPinInputLayoutProps {
   placeholder?: string;
   onClose?: () => Promise<void>;
   onEnableInput?: () => void;
+  isVerifyPinPage?: boolean;
+  onAutoInputPin?: () => void;
 }
 
 export interface IPinInputLayoutRef {
@@ -74,6 +76,8 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       placeholder = '••••',
       onClose,
       onEnableInput,
+      isVerifyPinPage,
+      onAutoInputPin,
     },
     ref,
   ) => {
@@ -193,7 +197,11 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                   </XStack>
                 ) : null}
 
-                <KeylessOnboardingDebugPanel />
+                <KeylessOnboardingDebugPanel
+                  isVerifyPinPage={isVerifyPinPage}
+                  onAutoInputPin={onAutoInputPin}
+                  onForceEnableInput={onEnableInput}
+                />
               </YStack>
             </OnboardingLayout.ConstrainedContent>
           </OnboardingLayout.Body>
