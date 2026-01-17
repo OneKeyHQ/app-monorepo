@@ -2264,6 +2264,7 @@ class ServiceKeylessWallet extends ServiceBase {
   async apiCheckRateLimitStatus(params: { token: string }): Promise<{
     isRateLimited: boolean;
     retryAfterSeconds: number;
+    guessesRemaining: number;
   }> {
     const { token } = params;
     // getJuiceboxClientFromCache already calls exchangeToken internally when creating a new client
