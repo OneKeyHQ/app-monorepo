@@ -228,9 +228,13 @@ function WalletList({
     const _importedAccounts = Object.values(data.privateData.importedAccounts);
     const _watchingAccounts = Object.values(data.privateData.watchingAccounts);
     return {
-      wallets: _wallets.sort((a, b) => walletSortFn(a, b)),
-      importedAccounts: _importedAccounts.sort((a, b) => accountSortFn(a, b)),
-      watchingAccounts: _watchingAccounts.sort((a, b) => accountSortFn(a, b)),
+      wallets: _wallets.toSorted((a, b) => walletSortFn(a, b)),
+      importedAccounts: _importedAccounts.toSorted((a, b) =>
+        accountSortFn(a, b),
+      ),
+      watchingAccounts: _watchingAccounts.toSorted((a, b) =>
+        accountSortFn(a, b),
+      ),
     };
   }, [data]);
 

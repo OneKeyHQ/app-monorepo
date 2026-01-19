@@ -602,7 +602,7 @@ function findMarginTier(
 ): IMarginTier | null {
   if (!marginTiers.length) return null;
 
-  const sortedTiers = [...marginTiers].reverse();
+  const sortedTiers = [...marginTiers].toReversed();
   for (const tier of sortedTiers) {
     if (totalValue.gte(new BigNumber(tier.lowerBound))) {
       return tier;

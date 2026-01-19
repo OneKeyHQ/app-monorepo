@@ -4,7 +4,8 @@ import RNMarkdown from 'react-native-markdown-display';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 
-import { SizableText, Stack, XStack, YStack } from '../../primitives';
+import { SizableText } from '../../primitives/SizeableText';
+import { Stack, XStack, YStack } from '../../primitives/Stack';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { ASTNode, MarkdownProps } from 'react-native-markdown-display';

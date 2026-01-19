@@ -147,7 +147,7 @@ const LimitOrderList = ({
       );
     }
     return (
-      filteredData?.sort((a, b) => {
+      filteredData?.toSorted((a, b) => {
         const aDate = new BigNumber(a.createdAt).toNumber();
         const bDate = new BigNumber(b.createdAt).toNumber();
         return bDate - aDate;

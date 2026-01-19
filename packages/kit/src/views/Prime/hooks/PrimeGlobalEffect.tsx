@@ -124,9 +124,11 @@ function PrimeGlobalEffectAfterAuthReady() {
     void autoRefreshPrimeUserInfo();
   }, [autoRefreshPrimeUserInfo]);
 
+  const isUserLoggedIn = user.isLoggedIn;
+  const isUserLoggedInOnServer = user.isLoggedInOnServer;
   useEffect(() => {
     void (async () => {
-      if (user.isLoggedIn && !user.isLoggedInOnServer) {
+      if (isUserLoggedIn && !isUserLoggedInOnServer) {
         const accessToken =
           await backgroundApiProxy.simpleDb.prime.getAuthToken();
         if (accessToken) {
@@ -139,7 +141,7 @@ function PrimeGlobalEffectAfterAuthReady() {
         }
       }
     })();
-  }, [user.isLoggedIn, user.isLoggedInOnServer]);
+  }, [isUserLoggedIn, isUserLoggedInOnServer]);
 
   useEffect(() => {
     void (async () => {

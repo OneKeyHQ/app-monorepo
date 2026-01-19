@@ -7,7 +7,7 @@ import {
 import type { Token } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Stack } from '../../primitives';
+import { Stack } from '../../primitives/Stack';
 
 import type { IStackProps } from '../../primitives';
 

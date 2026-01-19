@@ -3,7 +3,10 @@ import type {
   YStackProps,
 } from '@onekeyhq/components/src/shared/tamagui';
 
-import { Button, Icon, SizableText, YStack } from '../../primitives';
+import { Button } from '../../primitives/Button';
+import { Icon } from '../../primitives/Icon';
+import { SizableText } from '../../primitives/SizeableText';
+import { YStack } from '../../primitives/Stack';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
 

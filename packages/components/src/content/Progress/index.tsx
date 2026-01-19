@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { View } from '../../primitives';
+import { View } from '../../primitives/View';
 
 import { Progress as TMProgress } from './Progress';
 

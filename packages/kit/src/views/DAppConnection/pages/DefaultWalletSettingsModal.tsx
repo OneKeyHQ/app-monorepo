@@ -103,7 +103,7 @@ function DefaultWalletSettingsModal() {
 
               const currentOrigin = new URL(tab.url).origin;
               resolve(currentOrigin);
-            } catch (e) {
+            } catch (_e) {
               resolve(''); // Return empty string on error instead of rejecting
             }
           },
@@ -164,7 +164,7 @@ function DefaultWalletSettingsModal() {
       setTimeout(() => {
         void run({ alwaysSetState: true });
       }, 200);
-    } catch (error) {
+    } catch (_error) {
       // Still try to refresh the data even if context menu update fails
       setTimeout(() => {
         void run({ alwaysSetState: true });

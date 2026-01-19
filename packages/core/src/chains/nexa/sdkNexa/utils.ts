@@ -43,7 +43,7 @@ export function verifyNexaAddress(address: string) {
       isValid: true,
       normalizedAddress: address,
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       isValid: false,
     };

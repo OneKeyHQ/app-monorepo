@@ -405,7 +405,7 @@ class ProviderApiWalletConnect {
       option.sessionRequest?.verifyContext.verified.origin ?? '';
     try {
       return new URL(originUrl).origin;
-    } catch (error) {
+    } catch (_error) {
       return originUrl;
     }
   }

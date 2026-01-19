@@ -1,0 +1,368 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "unicorn",
+    "typescript",
+    "oxc",
+    "react",
+    "import",
+    "jest"
+  ],
+  // NOTE: JavaScript ESLint plugins (experimental feature) are not used yet
+  // because some plugin configurations are not compatible with oxlint
+  // https://oxc.rs/docs/guide/usage/linter/migrate-from-eslint.html#local-custom-eslint-plugins
+  // The following plugins remain in ESLint:
+  // - eslint-plugin-ban
+  // - eslint-plugin-import-path
+  // - eslint-plugin-use-effect-no-deps
+  // - eslint-plugin-props-checker
+  // - @cspell/eslint-plugin
+  "categories": {
+    // Code that is outright wrong or useless
+    "correctness": "error",
+    // Code that is most likely wrong or useless
+    "suspicious": "warn",
+    // Lints which are rather strict
+    "pedantic": "off",
+    // Code that could be written in a more performant way
+    "perf": "warn",
+    // Code that should be written in a more idiomatic way
+    "style": "off",
+    // Lints which prevent the use of language and library features
+    "restriction": "off"
+  },
+  "rules": {
+    // ============================================
+    // ESLint core rules
+    // ============================================
+    // NOTE: Changed to warn because oxlint doesn't fully support caughtErrorsIgnorePattern
+    "no-unused-vars": ["warn", {
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_",
+      "caughtErrorsIgnorePattern": "^_",
+      "ignoreRestSiblings": true
+    }],
+    "no-debugger": "error",
+    "no-eval": "error",
+    "radix": "error",
+    // Sort imports (migrated from ESLint)
+    "sort-imports": ["error", {
+      "ignoreMemberSort": false,
+      "ignoreDeclarationSort": true
+    }],
+    // Restricted imports (migrated from @typescript-eslint/no-restricted-imports)
+    "no-restricted-imports": ["error", {
+      "patterns": [
+        {
+          "group": ["@onekeyfe/hd-core"],
+          "message": "using `const {} = await CoreSDKLoader()` instead",
+          "allowTypeImports": true
+        },
+        {
+          "group": ["**/localDbInstance", "**/localDbInstance.native"],
+          "message": "import localDbInstance directly is not allowed, use localDb instead"
+        },
+        {
+          "group": ["@onekeyhq/desktop/app/i18n"],
+          "message": "import ETranslations from \"@onekeyhq/shared/src/locale\" instead"
+        },
+        {
+          "group": ["**/v4localDbInstance.native"],
+          "message": "import v4localDbInstance.native directly is not allowed, use v4localDbInstance instead"
+        },
+        {
+          "group": ["**/v4ToV5Migration", "v4ToV5Migration/**", "**/v4ToV5Migration/**"],
+          "message": "import **/v4ToV5Migration/** not allowed"
+        },
+        {
+          "group": ["**/v4localDBStoreNames.native"],
+          "message": "import v4localDBStoreNames instead"
+        },
+        {
+          "group": ["jotai"],
+          "importNames": ["useAtom", "useSetAtom", "atom"],
+          "message": "Direct import of useAtom/useSetAtom from jotai is not allowed. Use contextAtom or globalAtom instead."
+        }
+      ]
+    }],
+
+    // ============================================
+    // React rules (matching ESLint config)
+    // ============================================
+    // NOTE: Changed to warn to allow existing code without modification
+    "react/jsx-key": "warn",
+    "react/jsx-no-duplicate-props": "error",
+    "react/no-children-prop": "error",
+    "react/no-string-refs": "error",
+    "react/no-direct-mutation-state": "error",
+    // react-hooks/rules-of-hooks (migrated from ESLint)
+    // NOTE: Changed to warn because of false positives with functions named "use*" that aren't hooks
+    "react/rules-of-hooks": "warn",
+    // react-hooks/exhaustive-deps equivalent
+    // NOTE: Changed to warn because some dependencies are intentionally omitted
+    "react/exhaustive-deps": ["warn", {
+      "additionalHooks": "(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)"
+    }],
+
+    // ============================================
+    // TypeScript rules (matching ESLint config)
+    // ============================================
+    // Force awaited promise call, explicit add `void` if don't want await
+    "typescript/no-floating-promises": "error",
+    "typescript/consistent-type-imports": ["error", {
+      "disallowTypeAnnotations": false
+    }],
+    "typescript/no-use-before-define": "error",
+    "typescript/no-shadow": "error",
+
+    // ============================================
+    // Unicorn rules (matching ESLint config)
+    // ============================================
+    "unicorn/numeric-separators-style": "error",
+
+    // ============================================
+    // Import rules
+    // ============================================
+    // NOTE: import/no-cycle disabled due to some false positives
+    "import/no-cycle": "error",
+
+    // ============================================
+    // Jest rules (for test files) - keep off as in ESLint config
+    // ============================================
+    "jest/expect-expect": "off",
+    "jest/no-disabled-tests": "off",
+    "jest/no-conditional-expect": "off",
+    "jest/valid-title": "off",
+    "jest/no-export": "off",
+    // Require message for toThrow - not enforced in codebase
+    "jest/require-to-throw-message": "off",
+
+    // ============================================
+    // Disabled rules (too many false positives or not applicable)
+    // ============================================
+    // React 17+ with new JSX transform doesn't need React in scope
+    "react/react-in-jsx-scope": "off",
+    // Duplicate enum values are intentional in some cases
+    "typescript/no-duplicate-enum-values": "off",
+    // new Array() is sometimes needed
+    "unicorn/no-new-array": "off",
+    // These import rules have too many false positives
+    "import/no-named-as-default": "off",
+    "import/no-named-as-default-member": "off",
+    // Side-effect imports are valid
+    "import/no-unassigned-import": "off",
+    // await in loop is sometimes intentional for sequential processing
+    "no-await-in-loop": "off",
+    // Performance suggestions, not errors
+    "oxc/no-map-spread": "off",
+    // Accumulating spread in loops - disabled due to many existing usages
+    "oxc/no-accumulating-spread": "off",
+    // Event handler patterns vary
+    "unicorn/prefer-add-event-listener": "off",
+    // Function scoping is sometimes intentional
+    "unicorn/consistent-function-scoping": "off",
+    // Promise.all with await is valid pattern
+    "unicorn/no-await-in-promise-methods": "off",
+    // Constant binary expressions are sometimes intentional
+    "no-constant-binary-expression": "off",
+    // Useless catch is sometimes for debugging
+    "no-useless-catch": "off",
+    // Module default export issues
+    "import/default": "off",
+    // Parameter property assignment is valid pattern
+    "typescript/no-unnecessary-parameter-property-assignment": "off",
+    // Some expressions are intentionally unused
+    "no-unused-expressions": "off",
+    // Variables may be assigned later via destructuring or other patterns
+    "no-unassigned-vars": "off",
+    // Empty classes are valid as base classes
+    "typescript/no-extraneous-class": "off",
+    // window/self usage is valid in browser context
+    "unicorn/prefer-global-this": "error",
+    // Empty files may be placeholders
+    "unicorn/no-empty-file": "off",
+    // postMessage targetOrigin is optional in some contexts
+    "unicorn/require-post-message-target-origin": "off",
+    // Array index keys are acceptable in some list rendering scenarios
+    "react/no-array-index-key": "off",
+    // Unsafe optional chaining is valid in some patterns
+    "no-unsafe-optional-chaining": "off",
+    // useless length check may be intentional for clarity
+    "unicorn/no-useless-length-check": "off",
+    // Invalid remove event listener - some patterns are valid
+    "unicorn/no-invalid-remove-event-listener": "off",
+    // Single promise in Promise.all is sometimes intentional
+    "unicorn/no-single-promise-in-promise-methods": "off",
+    // prefer-array-find vs filter()[0] - not critical
+    "unicorn/prefer-array-find": "off",
+    // instanceof builtins is valid in some cross-realm scenarios
+    "unicorn/no-instanceof-builtins": "off",
+    // useless call may be intentional for explicitness
+    "no-useless-call": "off",
+    // iframe sandbox - handled differently in this codebase
+    "react/iframe-missing-sandbox": "off",
+    // Extending native prototypes is sometimes needed
+    "no-extend-native": "off",
+    // Constant conditions may be intentional for development
+    "no-constant-condition": "off",
+    // namespace import issues - too many false positives
+    "import/namespace": "off",
+    // Allow using Object.assign instead of spread syntax
+    "prefer-object-spread": "off"
+  },
+  // Package-specific rules (migrated from ESLint overrides)
+  "overrides": [
+    {
+      // packages/components - cannot import from kit or kit-bg
+      "files": ["packages/components/src/**/*.ts", "packages/components/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["@onekeyhq/kit", "@onekeyhq/kit-bg"],
+              "message": "Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder",
+              "allowTypeImports": true
+            }
+          ]
+        }]
+      }
+    },
+    {
+      // packages/shared - cannot import from kit, kit-bg, or components
+      "files": ["packages/shared/src/**/*.ts", "packages/shared/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["@onekeyhq/kit", "@onekeyhq/kit-bg", "@onekeyhq/components"],
+              "message": "Please avoid using @onekeyhq/kit, @onekeyhq/kit-bg, and @onekeyhq/components in this folder",
+              "allowTypeImports": true
+            }
+          ]
+        }]
+      }
+    },
+    {
+      // packages/kit-bg - cannot import from kit or components, or tamagui
+      "files": ["packages/kit-bg/src/**/*.ts", "packages/kit-bg/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["tamagui"],
+              "message": "Please avoid using tamagui in this folder",
+              "allowTypeImports": true
+            },
+            {
+              "group": ["@onekeyhq/kit", "@onekeyhq/components"],
+              "message": "Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder",
+              "allowTypeImports": true
+            }
+          ]
+        }]
+      }
+    },
+    {
+      // packages/kit - cannot import from tamagui or kit-bg internal paths
+      "files": ["packages/kit/src/**/*.ts", "packages/kit/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["tamagui"],
+              "message": "Please avoid using tamagui in this folder",
+              "allowTypeImports": true
+            },
+            {
+              "group": [
+                "@onekeyhq/kit-bg/src/connectors",
+                "@onekeyhq/kit-bg/src/dbs",
+                "@onekeyhq/kit-bg/src/endpoints",
+                "@onekeyhq/kit-bg/src/migrations",
+                "@onekeyhq/kit-bg/src/offscreens",
+                "@onekeyhq/kit-bg/src/providers",
+                "@onekeyhq/kit-bg/src/services",
+                "@onekeyhq/kit-bg/src/vaults",
+                "@onekeyhq/kit-bg/src/webembeds"
+              ],
+              "message": "Please avoid using @onekeyhq/kit-bg internal paths in this folder",
+              "allowTypeImports": true
+            }
+          ]
+        }]
+      }
+    },
+    {
+      // packages/core - cannot import from kit, kit-bg, components, or tamagui
+      "files": ["packages/core/src/**/*.ts", "packages/core/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["tamagui", "@onekeyhq/kit", "@onekeyhq/kit-bg", "@onekeyhq/components"],
+              "message": "Please avoid using tamagui, @onekeyhq/kit, @onekeyhq/kit-bg, @onekeyhq/components in this folder",
+              "allowTypeImports": true
+            }
+          ]
+        }]
+      }
+    },
+    {
+      // Test files - relax some rules
+      "files": ["test/**/*.js", "test/**/*.ts", "**/*.test.ts"],
+      "rules": {
+        "typescript/no-use-before-define": "off"
+      }
+    }
+  ],
+  "settings": {
+    "react": {
+      "formComponents": [],
+      "linkComponents": [],
+      "version": "19.1"
+    },
+    "jsx-a11y": {
+      "polymorphicPropName": null,
+      "components": {},
+      "attributes": {}
+    },
+    "jsdoc": {
+      "ignorePrivate": false,
+      "ignoreInternal": false,
+      "ignoreReplacesDocs": true,
+      "overrideReplacesDocs": true,
+      "augmentsExtendsReplacesDocs": false,
+      "implementsReplacesDocs": false,
+      "exemptDestructuredRootsFromChecks": false,
+      "tagNamePreference": {}
+    },
+    "vitest": {
+      "typecheck": false
+    }
+  },
+  "env": {
+    "browser": true,
+    "es6": true,
+    "webextensions": true,
+    "serviceworker": true,
+    "worker": true
+  },
+  "globals": {},
+  // Ignore patterns matching .eslintrc.js ignorePatterns
+  "ignorePatterns": [
+    "*.wasm.bin",
+    "@types/globals.d.ts",
+    "apps/desktop/public/static/js-sdk*",
+    "packages/components/src/primitives/Icon/Icons.tsx",
+    "packages/components/src/primitives/Icon/react/*",
+    "packages/shared/src/modules3rdParty/stripe-v3/*",
+    "packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js",
+    "packages/shared/src/locale/enum/translations.ts",
+    "packages/shared/src/locale/localeJsonMap.ts",
+    "packages/shared/src/locale/json/*",
+    "node_modules/**",
+    ".history/**",
+    "dist/**",
+    "build/**"
+  ]
+}

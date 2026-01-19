@@ -584,7 +584,7 @@ class ServiceWebviewPerp extends ServiceBase {
           milliseconds: 5000,
         });
         return status;
-      } catch (e) {
+      } catch (_e) {
         return { ...status, expectBuilderAddress: '', expectMaxBuilderFee: 0 };
       }
     }

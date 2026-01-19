@@ -27,7 +27,7 @@ export const buildBorrowTag = ({
 }): string => {
   const base = `borrow:${provider.toLowerCase()}:${action}`;
   if (action === 'claim' && claimIds?.length) {
-    return `${base}:${claimIds.sort().join(',')}`;
+    return `${base}:${claimIds.toSorted().join(',')}`;
   }
   return base;
 };

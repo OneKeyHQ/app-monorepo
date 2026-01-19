@@ -3,7 +3,7 @@ const childProcess = require('child_process');
 
 function exec(fullCmd) {
   const [cmd, ...args] = fullCmd.split(/\s+/);
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     const child = childProcess.spawn(cmd, args, {
       stdio: [
         process.stdin, // 0 use parents stdin for child
@@ -11,7 +11,7 @@ function exec(fullCmd) {
         'pipe', // 2 fs.openSync('err.out', 'w') // direct child's stderr to a file
       ],
     });
-    child.on('close', (code, signal, p1, p2, p3) => {
+    child.on('close', (code, signal) => {
       resolve({
         code,
         signal,

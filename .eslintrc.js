@@ -1,7 +1,6 @@
 // require('./development/lint/eslint-rule-force-async-bg-api'); // TODO not working
 // require('./development/lint/eslint-rule-enforce-return-type');
 
-const isDev = process.env.NODE_ENV !== 'production';
 const jsRules = {
   // '@typescript-eslint/explicit-function-return-type': ['error'],
   // eslint-disable-next-line global-require
@@ -24,24 +23,45 @@ const jsRules = {
   'arrow-body-style': 'off',
   'prefer-destructuring': 'off',
   'react/no-unstable-nested-components': 'warn',
-  'react/jsx-key': 'error',
+  // Handled by oxlint: react/jsx-key
+  'react/jsx-key': 'off',
   'react/jsx-no-useless-fragment': 'off',
-  'use-effect-no-deps/use-effect-no-deps': 'error',
-  'react-hooks/rules-of-hooks': 'error',
-  'react-hooks/exhaustive-deps': [
-    'error',
-    {
-      'additionalHooks':
-        '(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)',
-    },
-  ],
+  // Handled by oxlint: react/rules-of-hooks
+  'react-hooks/rules-of-hooks': 'off',
+  // Handled by oxlint: react/exhaustive-deps
+  'react-hooks/exhaustive-deps': 'off',
   'global-require': 'off',
   'import/no-unresolved': 'off', // tsc can check this
   'no-promise-executor-return': 'off',
   'default-param-last': 'off',
-  'import/no-cycle': 'error',
+  // Handled by oxlint: import/no-cycle
+  'import/no-cycle': 'off',
   'require-await': 'off',
   'no-void': 'off',
+  // Handled by oxlint: suspicious category
+  'block-scoped-var': 'off',
+  'no-unneeded-ternary': 'off',
+  'no-new': 'off',
+  'no-unexpected-multiline': 'off',
+  'no-useless-concat': 'off',
+  'no-useless-constructor': 'off',
+  'no-restricted-imports': 'off',
+  // Handled by oxlint: import rules
+  'import/no-empty-named-blocks': 'off',
+  'import/no-absolute-path': 'off',
+  'import/no-duplicates': 'off',
+  'import/no-self-import': 'off',
+  // Handled by oxlint: jest rules
+  'jest/no-commented-out-tests': 'off',
+  // Handled by oxlint: react rules
+  'react/jsx-no-comment-textnodes': 'off',
+  'react/jsx-no-script-url': 'off',
+  'react/no-namespace': 'off',
+  'react/style-prop-object': 'off',
+  // Handled by oxlint: unicorn rules
+  'unicorn/no-accessor-recursion': 'off',
+  'unicorn/prefer-set-has': 'off',
+  // NOTE: This rule stays in ESLint because oxlint jsPlugins is experimental
   'ban/ban': [
     'error',
     {
@@ -59,81 +79,78 @@ const jsRules = {
     },
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
-  'radix': 'error',
-  'unicorn/numeric-separators-style': 'error',
-  'unicorn/prefer-global-this': 'error',
+  // Handled by oxlint: radix
+  'radix': 'off',
+  // Handled by oxlint: unicorn/numeric-separators-style
+  'unicorn/numeric-separators-style': 'off',
+  // Handled by oxlint: unicorn/prefer-global-this
+  'unicorn/prefer-global-this': 'off',
 };
-const restrictedImportsPatterns = [
-  {
-    allowTypeImports: true,
-    group: ['@onekeyfe/hd-core'],
-    message: 'using `const {} = await CoreSDKLoader()` instead',
-  },
-  {
-    group: ['**/localDbInstance', '**/localDbInstance.native'],
-    message:
-      'import localDbInstance directly is not allowd, use localDb instead',
-  },
-  {
-    group: ['@onekeyhq/desktop/app/i18n'],
-    message: 'import ETranslations from "@onekeyhq/shared/src/locale" instead',
-  },
-  {
-    group: ['**/v4localDbInstance.native'],
-    message:
-      'import v4localDbInstance.native directly is not allowd, use v4localDbInstance instead',
-  },
-  {
-    group: [
-      '**/v4ToV5Migration',
-      'v4ToV5Migration/**',
-      '**/v4ToV5Migration/**',
-    ],
-    message: 'import **/v4ToV5Migration/** not allowed ',
-  },
-  {
-    group: ['**/v4localDBStoreNames.native'],
-    message: 'import v4localDBStoreNames instead ',
-  },
-  {
-    group: ['jotai'],
-    importNames: ['useAtom', 'useSetAtom', 'atom'],
-    message:
-      'Direct import of useAtom/useSetAtom from jotai is not allowed. Use contextAtom or globalAtom instead.',
-  },
-  //
-];
+// const restrictedImportsPatterns = [
+//   {
+//     allowTypeImports: true,
+//     group: ['@onekeyfe/hd-core'],
+//     message: 'using `const {} = await CoreSDKLoader()` instead',
+//   },
+//   {
+//     group: ['**/localDbInstance', '**/localDbInstance.native'],
+//     message:
+//       'import localDbInstance directly is not allowd, use localDb instead',
+//   },
+//   {
+//     group: ['@onekeyhq/desktop/app/i18n'],
+//     message: 'import ETranslations from "@onekeyhq/shared/src/locale" instead',
+//   },
+//   {
+//     group: ['**/v4localDbInstance.native'],
+//     message:
+//       'import v4localDbInstance.native directly is not allowd, use v4localDbInstance instead',
+//   },
+//   {
+//     group: [
+//       '**/v4ToV5Migration',
+//       'v4ToV5Migration/**',
+//       '**/v4ToV5Migration/**',
+//     ],
+//     message: 'import **/v4ToV5Migration/** not allowed ',
+//   },
+//   {
+//     group: ['**/v4localDBStoreNames.native'],
+//     message: 'import v4localDBStoreNames instead ',
+//   },
+//   {
+//     group: ['jotai'],
+//     importNames: ['useAtom', 'useSetAtom', 'atom'],
+//     message:
+//       'Direct import of useAtom/useSetAtom from jotai is not allowed. Use contextAtom or globalAtom instead.',
+//   },
+//   //
+// ];
 const tsRules = {
-  '@typescript-eslint/no-restricted-imports': [
-    'error',
-    {
-      patterns: [...restrictedImportsPatterns],
-    },
-  ],
+  // Handled by oxlint: no-restricted-imports
+  '@typescript-eslint/no-restricted-imports': 'off',
   '@typescript-eslint/default-param-last': 'off',
-  '@typescript-eslint/consistent-type-imports': [
-    'error',
-    { disallowTypeAnnotations: false },
-  ],
+  // Handled by oxlint: typescript/consistent-type-imports
+  '@typescript-eslint/consistent-type-imports': 'off',
   '@typescript-eslint/no-var-requires': 'off',
-  '@typescript-eslint/no-unused-vars': [
-    isDev ? 'warn' : 'error',
-    {
-      'argsIgnorePattern': '^_',
-      'varsIgnorePattern': '^_',
-      'caughtErrorsIgnorePattern': '^_',
-      'ignoreRestSiblings': true,
-    },
-  ],
-  '@typescript-eslint/no-use-before-define': ['error'],
-  '@typescript-eslint/no-shadow': ['error'],
+  // Handled by oxlint: no-unused-vars
+  '@typescript-eslint/no-unused-vars': 'off',
+  // Handled by oxlint: typescript/no-use-before-define
+  '@typescript-eslint/no-use-before-define': 'off',
+  // Handled by oxlint: typescript/no-shadow
+  '@typescript-eslint/no-shadow': 'off',
   '@typescript-eslint/explicit-module-boundary-types': 'off',
   '@typescript-eslint/ban-ts-comment': 'off',
   '@typescript-eslint/no-unsafe-assignment': 'off',
   '@typescript-eslint/no-unsafe-argument': 'off',
   '@typescript-eslint/require-await': 'off',
-  // force awaited promise call, explicit add `void` if don't want await
-  '@typescript-eslint/no-floating-promises': ['error'],
+  // Handled by oxlint: typescript/no-floating-promises
+  '@typescript-eslint/no-floating-promises': 'off',
+  // Handled by oxlint: suspicious category
+  '@typescript-eslint/no-confusing-non-null-assertion': 'off',
+  '@typescript-eslint/no-extraneous-class': 'off',
+  '@typescript-eslint/no-unnecessary-type-constraint': 'off',
+  '@typescript-eslint/no-useless-constructor': 'off',
   '@typescript-eslint/naming-convention': [
     'error',
     {
@@ -147,13 +164,8 @@ const tsRules = {
       'prefix': ['E'],
     },
   ],
-  'sort-imports': [
-    'error',
-    {
-      'ignoreMemberSort': false,
-      'ignoreDeclarationSort': true,
-    },
-  ],
+  // Handled by oxlint: sort-imports
+  'sort-imports': 'off',
   'import/order': [
     'warn',
     {
@@ -210,9 +222,8 @@ module.exports = {
   plugins: [
     '@cspell',
     'import-path',
-    'use-effect-no-deps',
+    // 'use-effect-no-deps',
     'ban',
-    'unicorn',
     'props-checker',
   ],
   settings: {
@@ -252,6 +263,7 @@ module.exports = {
     worker: true,
   },
   rules: {
+    // NOTE: These rules stay in ESLint because oxlint jsPlugins is experimental
     'import-path/parent-depth': ['error', 3],
     'import-path/forbidden': [
       'error',
@@ -274,6 +286,7 @@ module.exports = {
         autoFix: false,
       },
     ],
+    // NOTE: This rule stays in ESLint because oxlint jsPlugins is experimental
     'props-checker/validator': [
       'error',
       {
@@ -294,14 +307,14 @@ module.exports = {
   overrides: [
     {
       files: ['*.js', '*.jsx', '*.text-js'],
-      extends: ['wesbos'],
+      extends: ['wesbos', 'plugin:oxlint/recommended'],
       rules: {
         ...jsRules,
       },
     },
     {
       files: ['*.ts', '*.tsx'],
-      extends: ['wesbos/typescript'],
+      extends: ['wesbos/typescript', 'plugin:oxlint/recommended'],
       rules: {
         ...jsRules,
         ...tsRules,
@@ -311,133 +324,133 @@ module.exports = {
     //
     // Note: Files are checked only once with the first matching configuration.
     // The order of these overrides matters - more specific patterns should come first.
-    {
-      files: [
-        'packages/components/src/**/*.ts',
-        'packages/components/src/**/*.tsx',
-      ],
-      rules: {
-        '@typescript-eslint/no-restricted-imports': [
-          'error',
-          {
-            patterns: [
-              ...restrictedImportsPatterns,
-              {
-                allowTypeImports: true,
-                group: ['@onekeyhq/kit', '@onekeyhq/kit-bg'],
-                message:
-                  'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder',
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
-      files: ['packages/shared/src/**/*.ts', 'packages/shared/src/**/*.tsx'],
-      rules: {
-        '@typescript-eslint/no-restricted-imports': [
-          'error',
-          {
-            patterns: [
-              ...restrictedImportsPatterns,
-              {
-                allowTypeImports: true,
-                group: [
-                  '@onekeyhq/kit',
-                  '@onekeyhq/kit-bg',
-                  '@onekeyhq/components',
-                ],
-                message:
-                  'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg and @onekeyhq/components in this folder',
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
-      files: ['packages/kit-bg/src/**/*.ts', 'packages/kit-bg/src/**/*.tsx'],
-      rules: {
-        '@typescript-eslint/no-restricted-imports': [
-          'error',
-          {
-            patterns: [
-              ...restrictedImportsPatterns,
-              {
-                allowTypeImports: true,
-                group: ['tamagui'],
-                message: 'Please avoid using tamagui in this folder',
-              },
-              {
-                allowTypeImports: true,
-                group: ['@onekeyhq/kit', '@onekeyhq/components'],
-                message:
-                  'Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder',
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
-      files: ['packages/kit/src/**/*.ts', 'packages/kit/src/**/*.tsx'],
-      rules: {
-        '@typescript-eslint/no-restricted-imports': [
-          'error',
-          {
-            patterns: [
-              ...restrictedImportsPatterns,
-              {
-                allowTypeImports: true,
-                group: ['tamagui'],
-                message: 'Please avoid using tamagui in this folder',
-              },
-              {
-                allowTypeImports: true,
-                // TODO: upgrade eslint version to use regex pattern in no-restricted-imports rule
-                // https://eslint.org/docs/latest/rules/no-restricted-imports
-                group: [
-                  '@onekeyhq/kit-bg/src/connectors',
-                  '@onekeyhq/kit-bg/src/dbs',
-                  '@onekeyhq/kit-bg/src/endpoints',
-                  '@onekeyhq/kit-bg/src/migrations',
-                  '@onekeyhq/kit-bg/src/offscreens',
-                  '@onekeyhq/kit-bg/src/providers',
-                  '@onekeyhq/kit-bg/src/services',
-                  '@onekeyhq/kit-bg/src/vaults',
-                  '@onekeyhq/kit-bg/src/webembeds',
-                ],
-                message: 'Please avoid using @onekeyhq/kit-bg in this folder',
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
-      files: ['packages/core/src/**/*.ts', 'packages/core/src/**/*.tsx'],
-      rules: {
-        '@typescript-eslint/no-restricted-imports': [
-          'error',
-          {
-            patterns: [
-              ...restrictedImportsPatterns,
-              {
-                allowTypeImports: true,
-                group: [
-                  'tamagui',
-                  '@onekeyhq/kit',
-                  '@onekeyhq/kit-bg',
-                  '@onekeyhq/components',
-                ],
-                message: 'Please avoid using tamagui in this folder',
-              },
-            ],
-          },
-        ],
-      },
-    },
+    // {
+    //   files: [
+    //     'packages/components/src/**/*.ts',
+    //     'packages/components/src/**/*.tsx',
+    //   ],
+    //   rules: {
+    //     '@typescript-eslint/no-restricted-imports': [
+    //       'error',
+    //       {
+    //         patterns: [
+    //           ...restrictedImportsPatterns,
+    //           {
+    //             allowTypeImports: true,
+    //             group: ['@onekeyhq/kit', '@onekeyhq/kit-bg'],
+    //             message:
+    //               'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder',
+    //           },
+    //         ],
+    //       },
+    //     ],
+    //   },
+    // },
+    // {
+    //   files: ['packages/shared/src/**/*.ts', 'packages/shared/src/**/*.tsx'],
+    //   rules: {
+    //     '@typescript-eslint/no-restricted-imports': [
+    //       'error',
+    //       {
+    //         patterns: [
+    //           ...restrictedImportsPatterns,
+    //           {
+    //             allowTypeImports: true,
+    //             group: [
+    //               '@onekeyhq/kit',
+    //               '@onekeyhq/kit-bg',
+    //               '@onekeyhq/components',
+    //             ],
+    //             message:
+    //               'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg and @onekeyhq/components in this folder',
+    //           },
+    //         ],
+    //       },
+    //     ],
+    //   },
+    // },
+    // {
+    //   files: ['packages/kit-bg/src/**/*.ts', 'packages/kit-bg/src/**/*.tsx'],
+    //   rules: {
+    //     '@typescript-eslint/no-restricted-imports': [
+    //       'error',
+    //       {
+    //         patterns: [
+    //           ...restrictedImportsPatterns,
+    //           {
+    //             allowTypeImports: true,
+    //             group: ['tamagui'],
+    //             message: 'Please avoid using tamagui in this folder',
+    //           },
+    //           {
+    //             allowTypeImports: true,
+    //             group: ['@onekeyhq/kit', '@onekeyhq/components'],
+    //             message:
+    //               'Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder',
+    //           },
+    //         ],
+    //       },
+    //     ],
+    //   },
+    // },
+    // {
+    //   files: ['packages/kit/src/**/*.ts', 'packages/kit/src/**/*.tsx'],
+    //   rules: {
+    //     '@typescript-eslint/no-restricted-imports': [
+    //       'error',
+    //       {
+    //         patterns: [
+    //           ...restrictedImportsPatterns,
+    //           {
+    //             allowTypeImports: true,
+    //             group: ['tamagui'],
+    //             message: 'Please avoid using tamagui in this folder',
+    //           },
+    //           {
+    //             allowTypeImports: true,
+    //             // TODO: upgrade eslint version to use regex pattern in no-restricted-imports rule
+    //             // https://eslint.org/docs/latest/rules/no-restricted-imports
+    //             group: [
+    //               '@onekeyhq/kit-bg/src/connectors',
+    //               '@onekeyhq/kit-bg/src/dbs',
+    //               '@onekeyhq/kit-bg/src/endpoints',
+    //               '@onekeyhq/kit-bg/src/migrations',
+    //               '@onekeyhq/kit-bg/src/offscreens',
+    //               '@onekeyhq/kit-bg/src/providers',
+    //               '@onekeyhq/kit-bg/src/services',
+    //               '@onekeyhq/kit-bg/src/vaults',
+    //               '@onekeyhq/kit-bg/src/webembeds',
+    //             ],
+    //             message: 'Please avoid using @onekeyhq/kit-bg in this folder',
+    //           },
+    //         ],
+    //       },
+    //     ],
+    //   },
+    // },
+    // {
+    //   files: ['packages/core/src/**/*.ts', 'packages/core/src/**/*.tsx'],
+    //   rules: {
+    //     '@typescript-eslint/no-restricted-imports': [
+    //       'error',
+    //       {
+    //         patterns: [
+    //           ...restrictedImportsPatterns,
+    //           {
+    //             allowTypeImports: true,
+    //             group: [
+    //               'tamagui',
+    //               '@onekeyhq/kit',
+    //               '@onekeyhq/kit-bg',
+    //               '@onekeyhq/components',
+    //             ],
+    //             message: 'Please avoid using tamagui in this folder',
+    //           },
+    //         ],
+    //       },
+    //     ],
+    //   },
+    // },
     // test files rules must be at LAST
     {
       files: ['test/**/*.js', 'test/**/*.ts', '**/*.test.ts'],

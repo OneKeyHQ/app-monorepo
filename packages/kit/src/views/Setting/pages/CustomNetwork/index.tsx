@@ -381,7 +381,7 @@ function AddCustomNetwork() {
                       id: ETranslations.form_rpc_url_invalid,
                     });
                   }
-                } catch (error) {
+                } catch (_error) {
                   return intl.formatMessage({
                     id: ETranslations.form_rpc_url_invalid,
                   });

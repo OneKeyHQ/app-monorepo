@@ -312,7 +312,7 @@ export default class ServicePassword extends ServiceBase {
       const pwd = await biologyAuthUtils.getPassword();
       ensureSensitiveTextEncoded(pwd);
       return pwd;
-    } catch (e) {
+    } catch (_e) {
       await this.setBiologyAuthEnable(false);
       throw new OneKeyErrors.BiologyAuthFailed();
     }

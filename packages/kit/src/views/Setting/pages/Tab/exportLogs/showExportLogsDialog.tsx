@@ -122,7 +122,7 @@ function UploadLogsDialogContent() {
         }),
       });
       void dialog.close();
-    } catch (error) {
+    } catch (_error) {
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.settings_export_logs_failed_title,
@@ -195,7 +195,7 @@ function UploadLogsDialogContent() {
             id: ETranslations.settings_logs_uploaded_successfully,
           }),
         });
-      } catch (error) {
+      } catch (_error) {
         // Upload failed after retries - fallback to export
         console.log(
           '[Log Upload] All upload attempts failed, falling back to export',

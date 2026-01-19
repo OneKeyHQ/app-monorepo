@@ -177,7 +177,7 @@ export function useSwapProAccount() {
         deriveType: defaultDeriveType ?? 'default',
       });
       return res;
-    } catch (e) {
+    } catch (_e) {
       return undefined;
     }
   }, [
@@ -244,7 +244,7 @@ export function useSwapTokenPairBalanceSyncForPosition() {
       const validResults = results.filter(Boolean);
       if (validResults.length > 0) {
         setSwapProSupportNetworksTokenList((prevList) => {
-          let updatedList = [...prevList];
+          const updatedList = [...prevList];
 
           for (const tokenDetail of validResults) {
             if (tokenDetail) {
@@ -265,15 +265,12 @@ export function useSwapTokenPairBalanceSyncForPosition() {
                 };
               } else {
                 // Token doesn't exist, add it to the list
-                updatedList = [
-                  ...updatedList,
-                  {
-                    ...tokenDetail,
-                    balanceParsed: tokenDetail.balanceParsed ?? '',
-                    fiatValue: tokenDetail.fiatValue ?? '',
-                    price: tokenDetail.price ?? '',
-                  } as ISwapToken,
-                ];
+                updatedList.push({
+                  ...tokenDetail,
+                  balanceParsed: tokenDetail.balanceParsed ?? '',
+                  fiatValue: tokenDetail.fiatValue ?? '',
+                  price: tokenDetail.price ?? '',
+                } as ISwapToken);
               }
             }
           }
@@ -940,7 +937,7 @@ export function useSwapProTokenTransactionList(
             },
           );
         return response;
-      } catch (e) {
+      } catch (_e) {
         return { list: [] };
       }
     },
@@ -973,7 +970,7 @@ export function useSwapProTokenTransactionList(
       }
 
       // Add new transaction at the beginning and sort by timestamp
-      const updatedTransactions = [newTransaction, ...prev].sort(
+      const updatedTransactions = [newTransaction, ...prev].toSorted(
         (a, b) => b.timestamp - a.timestamp,
       );
       setSwapProTokenTransactionList(updatedTransactions);
@@ -1103,7 +1100,7 @@ export function useSwapProSupportNetworksTokenList(
 
           if (tokensToUpdate.length > 0) {
             setSwapProSupportNetworksTokenList((prevList) => {
-              let updatedList = [...prevList];
+              const updatedList = [...prevList];
 
               for (const tokenDetail of tokensToUpdate) {
                 if (tokenDetail) {
@@ -1124,15 +1121,12 @@ export function useSwapProSupportNetworksTokenList(
                     };
                   } else {
                     // Token doesn't exist, add it to the list
-                    updatedList = [
-                      ...updatedList,
-                      {
-                        ...tokenDetail,
-                        balanceParsed: tokenDetail.balanceParsed ?? '',
-                        fiatValue: tokenDetail.fiatValue ?? '',
-                        price: tokenDetail.price ?? '',
-                      } as ISwapToken,
-                    ];
+                    updatedList.push({
+                      ...tokenDetail,
+                      balanceParsed: tokenDetail.balanceParsed ?? '',
+                      fiatValue: tokenDetail.fiatValue ?? '',
+                      price: tokenDetail.price ?? '',
+                    } as ISwapToken);
                   }
                 }
               }

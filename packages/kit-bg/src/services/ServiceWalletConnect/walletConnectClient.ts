@@ -109,7 +109,7 @@ async function getStorageSessions({
     try {
       const session = JSON.parse(sessionString) as IWalletConnectSession[];
       return session;
-    } catch (e) {
+    } catch (_e) {
       return [];
     }
   }

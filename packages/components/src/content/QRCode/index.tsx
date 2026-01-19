@@ -21,7 +21,8 @@ import {
 import { type IAirGapUrJson, airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { Icon, Stack } from '../../primitives';
+import { Icon } from '../../primitives/Icon';
+import { Stack } from '../../primitives/Stack';
 
 import type { IIconProps } from '../../primitives';
 import type { ImageProps, ImageURISource } from 'react-native';

@@ -4,10 +4,57 @@ const { exit } = require('process');
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();
 
+console.log(`[${getTimestamp()}] Lint check started...`);
+
+// ============================================
+// Run Oxlint first (fast)
+// ============================================
+console.log(`[${getTimestamp()}] Oxlint check started...`);
+const oxlintStartTime = Date.now();
+
+try {
+  const oxlintResult = execSync(
+    'npx oxlint --tsconfig ./tsconfig.json . --fix',
+    { encoding: 'utf-8', stdio: 'pipe' },
+  );
+
+  // Parse oxlint output for warnings/errors
+  // Example output: "Found 33 warnings and 0 errors."
+  const warningMatch = oxlintResult.match(/Found (\d+) warning/);
+  const errorMatch = oxlintResult.match(/(\d+) error/);
+  const warnings = warningMatch ? Number(warningMatch[1]) : 0;
+  const errors = errorMatch ? Number(errorMatch[1]) : 0;
+
+  const oxlintDuration = ((Date.now() - oxlintStartTime) / 1000).toFixed(2);
+
+  if (errors > 0 || warnings > 0) {
+    console.log(oxlintResult);
+    console.log(
+      `[${getTimestamp()}] Oxlint check failed with ${errors} error(s) and ${warnings} warning(s). (${oxlintDuration}s)`,
+    );
+    exit(1);
+  }
+
+  console.log(`[${getTimestamp()}] Oxlint check passed. (${oxlintDuration}s)`);
+} catch (error) {
+  const oxlintDuration = ((Date.now() - oxlintStartTime) / 1000).toFixed(2);
+  if (error.stdout) {
+    console.log(error.stdout.toString('utf-8'));
+  }
+  if (error.stderr) {
+    console.error(error.stderr.toString('utf-8'));
+  }
+  console.log(`[${getTimestamp()}] Oxlint check failed. (${oxlintDuration}s)`);
+  exit(1);
+}
+
+// ============================================
+// Run ESLint (for rules not covered by oxlint)
+// ============================================
 console.log(`[${getTimestamp()}] ESLint check started...`);
 
 const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
-const failToExit = (message) => {
+const failToExit = (_message) => {
   console.log(`[${getTimestamp()}] ESLint check failed. (${getDuration()}s)`);
   exit(1);
 };
@@ -132,10 +179,10 @@ function handleProblems(result) {
     }
 
     // First add recent files, then randomly select from others if needed
-    const shuffledRecent = [...recentWarningGroups].sort(
+    const shuffledRecent = [...recentWarningGroups].toSorted(
       () => Math.random() - 0.5,
     );
-    const shuffledOther = [...otherWarningGroups].sort(
+    const shuffledOther = [...otherWarningGroups].toSorted(
       () => Math.random() - 0.5,
     );
     const prioritized = [...shuffledRecent, ...shuffledOther];

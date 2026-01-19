@@ -195,7 +195,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       } else {
         // no catch
         swapTokenMap.tokenCatch = {
-          ...(swapTokenMap.tokenCatch ?? {}),
+          ...swapTokenMap.tokenCatch,
           [key]: { data: newTokens, updatedAt: dateNow },
         };
         catchCount = Object.keys(swapTokenMap.tokenCatch).length;
@@ -1861,7 +1861,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const sortedResult = result
           .filter(Boolean)
           .flat()
-          .sort((a, b) => {
+          .toSorted((a, b) => {
             return new BigNumber(b.fiatValue ?? '0').comparedTo(
               new BigNumber(a.fiatValue ?? '0'),
             );
