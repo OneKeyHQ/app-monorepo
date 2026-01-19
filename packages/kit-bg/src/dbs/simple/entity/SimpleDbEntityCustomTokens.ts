@@ -189,7 +189,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
         console.error(error);
       }
       hiddenMap[accountKey] = {
-        ...(hiddenMap[accountKey] || {}),
+        ...hiddenMap[accountKey],
         [tokenKey]: token.symbol,
       };
     }
@@ -204,7 +204,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
         console.error(error);
       }
       customMap[accountKey] = {
-        ...(customMap[accountKey] || {}),
+        ...customMap[accountKey],
         [tokenKey]: token.symbol,
       };
     }
@@ -273,9 +273,9 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
   async addCustomTokensBatch({ tokens }: { tokens: ICloudSyncCustomToken[] }) {
     await this.setRawData(async (rawData) => {
       const data: ICustomTokenDBStruct = {
-        tokens: { ...(rawData?.tokens || {}) },
-        hiddenMap: { ...(rawData?.hiddenMap || {}) },
-        customMap: { ...(rawData?.customMap || {}) },
+        tokens: { ...rawData?.tokens },
+        hiddenMap: { ...rawData?.hiddenMap },
+        customMap: { ...rawData?.customMap },
       };
 
       const validTokens = tokens.filter(
@@ -302,9 +302,9 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
   async hideToken({ token }: { token: ICloudSyncCustomToken }) {
     await this.setRawData(async (rawData) => {
       const data: ICustomTokenDBStruct = {
-        tokens: { ...(rawData?.tokens || {}) },
-        hiddenMap: { ...(rawData?.hiddenMap || {}) },
-        customMap: { ...(rawData?.customMap || {}) },
+        tokens: { ...rawData?.tokens },
+        hiddenMap: { ...rawData?.hiddenMap },
+        customMap: { ...rawData?.customMap },
       };
 
       if (!token.accountXpubOrAddress || !token.networkId) {
@@ -351,7 +351,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
       tokenStatusMap === 'hiddenMap' &&
       accountXpubOrAddress === '0x2304e629180657B407F83F9BC7bE26A4BdF00b03'
     ) {
-      debugger;
+      // debug for specific account
     }
 
     const tokenStatus =

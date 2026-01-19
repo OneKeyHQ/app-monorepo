@@ -107,7 +107,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             map: {
               ...tokenListMap,
               ...aggregateTokenMap,
-              ...(payload.map || {}),
+              ...payload.map,
             },
           });
 
@@ -194,7 +194,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           const mergedTokenListMap = {
             ...tokenListMap,
             ...aggregateTokenMap,
-            ...(payload.map || {}),
+            ...payload.map,
           };
 
           newTokens = sortTokensByFiatValue({

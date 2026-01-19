@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -94,7 +94,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       });
 
       setProtocolData(data);
-    } catch (error) {
+    } catch (_error) {
       setProtocolData([]);
     } finally {
       setIsLoading(false);
@@ -123,7 +123,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             ? protocol.provider.vault
             : undefined,
         });
-      } catch (error) {
+      } catch (_error) {
         // ignore error
       }
     },

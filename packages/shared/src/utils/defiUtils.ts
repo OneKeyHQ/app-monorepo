@@ -114,18 +114,20 @@ function transferPositionMap(
       poolName: position.poolName,
       poolFullName: position.poolFullName,
       category: position.category,
-      assets: mergeAssets(position.assets).sort((a, b) =>
+      assets: mergeAssets(position.assets).toSorted((a, b) =>
         new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
-      debts: mergeAssets(position.debts).sort((a, b) =>
+      debts: mergeAssets(position.debts).toSorted((a, b) =>
         new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
-      rewards: mergeAssets(position.rewards).sort((a, b) =>
+      rewards: mergeAssets(position.rewards).toSorted((a, b) =>
         new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
       value: position.value.toFixed(),
     }))
-    .sort((a, b) => new BigNumber(b.value).comparedTo(new BigNumber(a.value)));
+    .toSorted((a, b) =>
+      new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
+    );
   return positions;
 }
 
@@ -283,7 +285,7 @@ function transformDeFiData({
       positions: transferPositionMap(value.positionMap),
       categories: Array.from(value.categorySet),
     }))
-    .sort((a, b) =>
+    .toSorted((a, b) =>
       new BigNumber(
         protocolMap[
           buildProtocolMapKey({

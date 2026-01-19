@@ -136,7 +136,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   private _composeOrderLogExtra(options: IOrderLogOptions) {
     const extra: Record<string, unknown> = {
-      ...(options.extra ?? {}),
+      ...options.extra,
     };
     if (typeof options.originalParams !== 'undefined') {
       extra.originalParams = options.originalParams;

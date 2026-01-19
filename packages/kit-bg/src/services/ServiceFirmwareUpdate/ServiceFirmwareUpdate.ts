@@ -403,7 +403,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       if (!needSkipCancel) {
         sdk.cancel(originalConnectId);
       }
-    } catch (error) {
+    } catch (_error) {
       //
     }
 
@@ -422,7 +422,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       if (!needSkipCancel) {
         sdk.cancel(updatingConnectId);
       }
-    } catch (error) {
+    } catch (_error) {
       //
     }
 
@@ -576,7 +576,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           device,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
 

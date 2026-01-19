@@ -344,7 +344,7 @@ function handleGetSessionSlowFunctions(req, res, sessionId, url) {
       ? sort
       : 'p95';
     const dir = order === 'asc' ? 1 : -1;
-    list = [...list].sort((a, b) => {
+    list = [...list].toSorted((a, b) => {
       const primary = dir * ((a[key] || 0) - (b[key] || 0));
       if (primary !== 0) return primary;
       return b.p95 - a.p95 || b.max - a.max || b.total - a.total;

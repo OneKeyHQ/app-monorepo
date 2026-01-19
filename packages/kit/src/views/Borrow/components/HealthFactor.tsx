@@ -60,7 +60,7 @@ const normalizeGradientStops = (
       ...stop,
       percent: clampPercent(stop.percent),
     }))
-    .sort((a, b) => a.percent - b.percent);
+    .toSorted((a, b) => a.percent - b.percent);
 
   if (normalized.length < 2) {
     return DEFAULT_GRADIENT_STOPS;

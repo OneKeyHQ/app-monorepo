@@ -428,7 +428,7 @@ class EvmApiProvider extends BaseApiProvider {
             'eth_maxPriorityFeePerGas',
             [],
           );
-        } catch (error) {
+        } catch (_error) {
           // if native method is not available, use fallback estimate method
           maxPriorityFeePerGas =
             await this.fallbackEstimateMaxPriorityFeePerGas();

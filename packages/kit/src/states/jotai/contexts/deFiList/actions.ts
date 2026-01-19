@@ -33,7 +33,7 @@ class ContextJotaiActionsDeFiList extends ContextJotaiActionsBase {
 
       if (value.merge) {
         set(deFiListProtocolsAtom(), {
-          protocols: [...protocols.protocols, ...value.protocols].sort(
+          protocols: [...protocols.protocols, ...value.protocols].toSorted(
             (a, b) => {
               return new BigNumber(
                 protocolMap[

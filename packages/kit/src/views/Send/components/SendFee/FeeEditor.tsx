@@ -863,6 +863,7 @@ function FeeEditor(props: IProps) {
     vaultSettings?.editFeeEnabled,
   ]);
 
+  type IWatchAllFieldsKeys = keyof typeof watchAllFields;
   const handleFormValueOnChange = useCallback(
     ({
       name,
@@ -873,7 +874,7 @@ function FeeEditor(props: IProps) {
       value: string | undefined;
       intRequired?: boolean;
     }) => {
-      const filedName = name as keyof typeof watchAllFields;
+      const filedName = name as IWatchAllFieldsKeys;
       const valueBN = new BigNumber(value ?? 0);
       if (valueBN.isNaN()) {
         const formattedValue = parseFloat(value ?? '');

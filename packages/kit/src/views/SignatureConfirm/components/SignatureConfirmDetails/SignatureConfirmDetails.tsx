@@ -41,17 +41,18 @@ function SignatureConfirmDetails(props: IProps) {
     nativeTokenTransferAmountToUpdate,
   } = props;
 
-  return displayComponents.map(({ component, approveInfo }) => {
+  return displayComponents.map(({ component, approveInfo }, index) => {
     switch (component.type) {
       case EParseTxComponentType.Divider:
-        return <Divider />;
+        return <Divider key={index} />;
       case EParseTxComponentType.Default:
-        return <Default component={component} />;
+        return <Default key={index} component={component} />;
       case EParseTxComponentType.DateTime:
-        return <DateTime component={component} />;
+        return <DateTime key={index} component={component} />;
       case EParseTxComponentType.Approve:
         return (
           <Assets.TokenApproval
+            key={index}
             component={component}
             accountId={accountId}
             networkId={networkId}
@@ -63,6 +64,7 @@ function SignatureConfirmDetails(props: IProps) {
       case EParseTxComponentType.Assets:
         return (
           <Assets
+            key={index}
             component={component}
             networkId={networkId}
             showNetwork={isBridge}
@@ -75,6 +77,7 @@ function SignatureConfirmDetails(props: IProps) {
       case EParseTxComponentType.InternalAssets:
         return (
           <Assets.InternalAssets
+            key={index}
             component={component}
             networkId={networkId}
             showNetwork={isBridge}
@@ -87,6 +90,7 @@ function SignatureConfirmDetails(props: IProps) {
       case EParseTxComponentType.Token:
         return (
           <Assets.Token
+            key={index}
             component={component}
             networkId={networkId}
             showNetwork={isBridge}
@@ -99,16 +103,18 @@ function SignatureConfirmDetails(props: IProps) {
       case EParseTxComponentType.NFT:
         return (
           <Assets.NFT
+            key={index}
             component={component}
             networkId={networkId}
             showNetwork={isBridge}
           />
         );
       case EParseTxComponentType.Network:
-        return <Network component={component} />;
+        return <Network key={index} component={component} />;
       case EParseTxComponentType.Address:
         return (
           <Address
+            key={index}
             component={component}
             accountId={accountId}
             networkId={networkId}
@@ -116,7 +122,7 @@ function SignatureConfirmDetails(props: IProps) {
           />
         );
       case EParseTxComponentType.Simulation:
-        return <Simulation component={component} />;
+        return <Simulation key={index} component={component} />;
       default:
         return null;
     }

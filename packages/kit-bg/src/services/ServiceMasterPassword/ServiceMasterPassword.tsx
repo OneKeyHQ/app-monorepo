@@ -807,7 +807,7 @@ class ServiceMasterPassword extends ServiceBase {
   async getLocalMasterPasswordUUIDSafe() {
     try {
       return await this.getLocalMasterPasswordUUID();
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }

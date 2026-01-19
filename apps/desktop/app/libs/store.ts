@@ -88,7 +88,7 @@ export const getSecureItem = (key: string) => {
     try {
       const result = safeStorage.decryptString(Buffer.from(value, 'hex'));
       return result;
-    } catch (e) {
+    } catch (_e) {
       logger.error(`failed to decrypt ${key}`);
       return undefined;
     }
@@ -105,7 +105,7 @@ export const setSecureItem = (key: string, value: string): void => {
     const items = store.get(EDesktopStoreKeys.EncryptedData, {});
     items[key] = safeStorage.encryptString(value).toString('hex');
     store.set(EDesktopStoreKeys.EncryptedData, items);
-  } catch (e) {
+  } catch (_e) {
     logger.error(`failed to encrypt ${key}`);
   }
 };

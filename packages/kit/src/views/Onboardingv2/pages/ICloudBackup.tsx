@@ -421,7 +421,7 @@ export default function ICloudBackup() {
                                 skipManifestUpdate: false,
                               },
                             );
-                          } catch (e) {
+                          } catch (_e) {
                             // continue deleting other items; errors are already toasted by @toastIfError
                           }
                         }

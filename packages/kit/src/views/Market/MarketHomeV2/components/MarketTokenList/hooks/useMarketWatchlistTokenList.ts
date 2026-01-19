@@ -161,7 +161,7 @@ export function useMarketWatchlistTokenList({
   const sortedData = useMemo(() => {
     if (!sortBy || !sortType) {
       // Default: use sortIndex for natural watchlist ordering (ascending)
-      return [...transformedData].sort((a, b) => {
+      return [...transformedData].toSorted((a, b) => {
         const av = a.sortIndex ?? 0;
         const bv = b.sortIndex ?? 0;
         return av - bv;
@@ -170,7 +170,7 @@ export function useMarketWatchlistTokenList({
 
     // Custom sorting
     const key = SORT_MAP[sortBy] || sortBy;
-    return [...transformedData].sort((a, b) => {
+    return [...transformedData].toSorted((a, b) => {
       const av = a[key] as number;
       const bv = b[key] as number;
       if (av === bv) return 0;

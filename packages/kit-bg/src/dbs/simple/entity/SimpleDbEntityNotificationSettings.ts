@@ -81,7 +81,7 @@ export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimp
       }
 
       return {
-        ...(rawData || {}),
+        ...rawData,
         primeBackupAccountActivity: newPrimeBackup,
       };
     });

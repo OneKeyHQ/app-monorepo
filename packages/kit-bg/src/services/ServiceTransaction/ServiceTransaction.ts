@@ -177,7 +177,7 @@ class ServiceTransaction extends ServiceBase {
             isFeeInfoOverflow,
             userConfirmed: true,
           };
-        } catch (e) {
+        } catch (_e) {
           if (!skipVerifyError) {
             throw new OneKeyLocalError({
               message: appLocale.intl.formatMessage({

@@ -46,7 +46,7 @@ export class SimpleDbEntityServerNetwork extends SimpleDbEntityBase<IServerNetwo
     lastFetchTime: number | undefined;
   }> {
     const rawData = await this.getRawData();
-    const result = Object.values(rawData?.data || {}).sort(
+    const result = Object.values(rawData?.data || {}).toSorted(
       (a, b) => (b?.createdAt ?? 0) - (a?.createdAt ?? 0),
     );
     return {

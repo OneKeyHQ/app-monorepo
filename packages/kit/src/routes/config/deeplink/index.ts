@@ -130,7 +130,7 @@ async function processDeepLinkUrlAccount(
           break;
       }
     }
-  } catch (error) {
+  } catch (_error) {
     //
   }
 }

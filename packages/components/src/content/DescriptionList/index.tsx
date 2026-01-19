@@ -4,14 +4,10 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { XStackProps } from '@onekeyhq/components/src/shared/tamagui';
 
-import {
-  Icon,
-  Image,
-  SizableText,
-  Stack,
-  StyledSizableText,
-  XStack,
-} from '../../primitives';
+import { Icon } from '../../primitives/Icon';
+import { Image } from '../../primitives/Image';
+import { SizableText, StyledSizableText } from '../../primitives/SizeableText';
+import { Stack, XStack } from '../../primitives/Stack';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type {

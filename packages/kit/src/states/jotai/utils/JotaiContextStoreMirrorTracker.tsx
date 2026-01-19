@@ -65,7 +65,7 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
           value.accountSelectorInfo.enabledNum = uniq([
             ...value.accountSelectorInfo.enabledNum,
             ...accountSelectorInfo.enabledNum,
-          ]).sort();
+          ]).toSorted();
         }
       }
       if (action === 'remove') {

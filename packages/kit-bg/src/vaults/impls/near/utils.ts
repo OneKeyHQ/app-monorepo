@@ -54,7 +54,7 @@ export function verifyNearAddress(address: string): IAddressValidation {
       ) {
         encoding = EAddressEncodings.ENCODED_PUBKEY;
       }
-    } catch (e) {
+    } catch (_e) {
       // ignored
     }
   }

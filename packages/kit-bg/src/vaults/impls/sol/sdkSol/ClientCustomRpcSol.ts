@@ -28,7 +28,7 @@ class ClientCustomRpcSol {
   async broadcastTransaction(rawTx: string, options?: any): Promise<string> {
     return this.rpc.call(ERpcMethods.SEND_TRANSACTION, [
       rawTx,
-      { encoding: EParamsEncodings.BASE64, ...(options || {}) },
+      { encoding: EParamsEncodings.BASE64, ...options },
     ]);
   }
 }

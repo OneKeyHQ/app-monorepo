@@ -5,7 +5,7 @@ import { debounce } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Stack } from '../../primitives';
+import { Stack } from '../../primitives/Stack';
 
 import type { IButtonProps } from '../../primitives/Button';
 import type { View as IView, LayoutChangeEvent } from 'react-native';

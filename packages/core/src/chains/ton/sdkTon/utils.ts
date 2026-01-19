@@ -34,7 +34,7 @@ export function encodeDnsName(domain: string): Buffer {
 
   // Build byte array: reverse order + 0x00 after each label
   const byteChunks: number[] = [];
-  for (const label of labelsAscii.reverse()) {
+  for (const label of labelsAscii.toReversed()) {
     byteChunks.push(...Buffer.from(label, 'utf8'), 0);
   }
   const bytes = Buffer.from(byteChunks);

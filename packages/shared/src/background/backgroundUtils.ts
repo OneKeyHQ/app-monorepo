@@ -369,10 +369,10 @@ export type IGlobalEventBusSyncBroadcastParams = {
 export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';
 
 export async function fetchData<T>(
-  path: string,
+  _path: string,
   // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last, @typescript-eslint/no-unused-vars
   query: Record<string, unknown> = {},
-  fallback: T,
+  _fallback: T,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   method: Method = 'GET',
 ): Promise<T> {
