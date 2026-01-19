@@ -167,6 +167,7 @@
   "auth.set_passcode": "Set passcode",
   "auth.set_password": "Set password",
   "auth.with_biometric": "Authentication with {biometric}",
+  "auth_server_error_text": "Something went wrong. Please check your internet connection or try again later.",
   "backing_up_desc": "Don’t close this window until the backup is complete.",
   "backing_up_title": "Backing up…",
   "backup.address_book_labels": "Address book & labels",

@@ -172,6 +172,7 @@
   auth_set_passcode = 'auth.set_passcode',
   auth_set_password = 'auth.set_password',
   auth_with_biometric = 'auth.with_biometric',
+  auth_server_error_text = 'auth_server_error_text',
   backing_up_desc = 'backing_up_desc',
   backing_up_title = 'backing_up_title',
   backup_address_book_labels = 'backup.address_book_labels',

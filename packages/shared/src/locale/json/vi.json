@@ -167,6 +167,7 @@
   "auth.set_passcode": "Thiết lập mã khóa",
   "auth.set_password": "Đặt mật khẩu",
   "auth.with_biometric": "Xác thực bằng {biometric}",
+  "auth_server_error_text": "Có gì đó không đúng. Vui lòng kiểm tra kết nối internet của bạn hoặc thử lại sau.",
   "backing_up_desc": "Đừng đóng cửa sổ này cho đến khi quá trình sao lưu hoàn tất.",
   "backing_up_title": "Đang sao lưu…",
   "backup.address_book_labels": "Sổ địa chỉ & nhãn",
