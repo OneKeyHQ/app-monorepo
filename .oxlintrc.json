@@ -7,6 +7,9 @@
     "eslint-plugin-ban",
     "eslint-plugin-prettier"
   ],
+  "extends": [
+    "eslint-config-prettier",
+  ],
   "plugins": ["unicorn", "typescript", "oxc", "react", "import", "jest"],
   // NOTE: JavaScript ESLint plugins (experimental feature) are not used yet
   // because some plugin configurations are not compatible with oxlint
@@ -31,6 +34,7 @@
     "restriction": "off"
   },
   "rules": {
+    "prettier/prettier": ["error"],
     "@cspell/spellchecker": [
       "warn",
       {
