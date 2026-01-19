@@ -750,7 +750,13 @@ const usePerpDeposit = (
         unsignedTxs: [updatedUnsignedTxItem],
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
       });
-      const { totalNative } = calculateFeeForSend({
+      const {
+        totalNative,
+        total,
+        totalFiat,
+        totalFiatForDisplay,
+        totalNativeForDisplay,
+      } = calculateFeeForSend({
         feeInfo: gasInfo as IFeeInfoUnit,
         nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
       });
@@ -770,6 +776,30 @@ const usePerpDeposit = (
         accountId,
         unsignedTx: updatedUnsignedTxItem,
         signOnly: false,
+      });
+      const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
+        networkId: token.networkId,
+        accountId,
+        unsignedTx: updatedUnsignedTxItem,
+        feeInfo: {
+          feeInfo: gasInfo as IFeeInfoUnit,
+          total,
+          totalNative,
+          totalFiat,
+          totalNativeForDisplay,
+          totalFiatForDisplay,
+        },
+        saveToLocalHistory: true,
+      });
+      await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
+        networkId: token.networkId,
+        accountId,
+        data: {
+          signedTx: res,
+          decodedTx,
+          approveInfo: updatedUnsignedTxItem.approveInfo,
+          feeInfo: gasInfo as IFeeInfoUnit,
+        },
       });
       return res;
     },
