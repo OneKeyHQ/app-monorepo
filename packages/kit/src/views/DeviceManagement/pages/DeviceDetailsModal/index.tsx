@@ -117,6 +117,7 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
           px="$5"
           bg="$bgApp"
           gap="$8"
+          alignItems="flex-start"
         >
           <YStack gap="$8" flex={1}>
             <DeviceBasicInfo />
