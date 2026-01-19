@@ -15,6 +15,13 @@ if (typeof Promise.allSettled !== 'function') {
 }
 
 require('./intlShim');
+const { shim: shimArrayFlatMap } = require('array.prototype.flatmap');
+
+shimArrayFlatMap();
+
+const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
+
+shimArrayToSorted();
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
