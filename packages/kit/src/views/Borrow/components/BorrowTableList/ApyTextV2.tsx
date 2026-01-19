@@ -238,7 +238,7 @@ function ApyDetailPopoverContent({
     popupData?.apyDetail.myCollateralShare ||
     popupData?.apyDetail.collateralBonus;
   const supplySection = popupData?.apyDetail.supplyBonus;
-  const linkDescriptions = popupData?.apyDetail.description;
+  const linkDescriptions = popupData?.apyDetail.descriptions;
   const hasPlatformSection = hasSectionContent(platformSection);
   const hasCollateralSection = hasSectionContent(collateralSection);
   const hasSupplySection = hasSectionContent(supplySection);
