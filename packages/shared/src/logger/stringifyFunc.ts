@@ -70,7 +70,7 @@ export function stringifyFunc(...args: any[]): string {
           );
         }
       });
-    } catch (error) {
+    } catch (_error) {
       console.warn(
         `Arg nesting too deep. This will affect the performance of logging. Try reducing the level of nesting for the parameter objects.`,
         argsNew,

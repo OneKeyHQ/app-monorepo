@@ -29,7 +29,7 @@ export function setMainWindowForOAuthServer(window: BrowserWindow | null) {
 function getDefaultBrowserNameForUrl(url: string): string {
   try {
     return app.getApplicationNameForProtocol(url) || '';
-  } catch (e) {
+  } catch (_e) {
     return '';
   }
 }
@@ -112,7 +112,6 @@ function tryOpenChromeAppWindow(url: string): boolean {
           stdio: 'ignore',
         },
       );
-      // eslint-disable-next-line @cspell/spellchecker
       child.unref();
       return true;
     }
@@ -132,7 +131,6 @@ function tryOpenChromeAppWindow(url: string): boolean {
           windowsHide: true,
         },
       );
-      // eslint-disable-next-line @cspell/spellchecker
       child.unref();
       return true;
     }
@@ -145,14 +143,13 @@ function tryOpenChromeAppWindow(url: string): boolean {
           detached: true,
           stdio: 'ignore',
         });
-        // eslint-disable-next-line @cspell/spellchecker
         child.unref();
         return true;
-      } catch (e) {
+      } catch (_e) {
         // Try next candidate
       }
     }
-  } catch (e) {
+  } catch (_e2) {
     // Ignore and fallback to default browser.
   }
 
@@ -230,7 +227,6 @@ export async function startOAuthServer(): Promise<{ port: number }> {
       }
     });
 
-    // eslint-disable-next-line @cspell/spellchecker
     oauthServer.on('error', (error: NodeJS.ErrnoException) => {
       reject(error);
     });

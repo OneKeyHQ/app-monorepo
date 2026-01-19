@@ -1421,7 +1421,7 @@ class ServiceStaking extends ServiceBase {
           accountId,
           networkId,
         });
-      } catch (e) {
+      } catch (_e) {
         return null;
       }
       if (
@@ -1479,7 +1479,7 @@ class ServiceStaking extends ServiceBase {
         accountAddress,
         account: networkAccount,
       };
-    } catch (e) {
+    } catch (_e) {
       // ignore error
       return null;
     }
@@ -1735,7 +1735,7 @@ class ServiceStaking extends ServiceBase {
       await this.updateEarnOrderStatusToServer({
         order: order as IEarnOrderItem,
       });
-    } catch (e) {
+    } catch (_e) {
       // ignore error, continue
       defaultLogger.staking.order.updateOrderStatusError({
         txId: order.txId,
@@ -1773,7 +1773,7 @@ class ServiceStaking extends ServiceBase {
             status: tx.status,
           });
         }
-      } catch (e) {
+      } catch (_e) {
         // ignore error, continue loop
         defaultLogger.staking.order.updateOrderStatusError({
           txId: tx.txId,
@@ -1930,7 +1930,7 @@ class ServiceStaking extends ServiceBase {
         : null;
 
       return blockData;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }

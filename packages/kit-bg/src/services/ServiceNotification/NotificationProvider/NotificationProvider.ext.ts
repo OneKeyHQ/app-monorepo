@@ -180,7 +180,7 @@ export default class NotificationProvider extends NotificationProviderBase {
       title,
       description,
     } = params;
-    // eslint-disable-next-line @cspell/spellchecker
+    // oxlint-disable-next-line @cspell/spellchecker
     /*
     iconUrl
     - base64 img
@@ -245,12 +245,12 @@ export default class NotificationProvider extends NotificationProviderBase {
     if (notificationId) {
       try {
         this.notificationCache.delete(notificationId);
-      } catch (error) {
+      } catch (_error) {
         // ignore
       }
       try {
         chrome.notifications.clear(notificationId);
-      } catch (error) {
+      } catch (_error) {
         // ignore
       }
       defaultLogger.notification.common.removeNotification({

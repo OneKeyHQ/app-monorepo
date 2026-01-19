@@ -108,4 +108,5 @@ appGlobals.$offscreenApiProxy = offscreenApiProxy;
 if (process.env.NODE_ENV !== 'production') {
   void appGlobals.$offscreenApiProxy.adaSdk.sayHello().then(console.log);
 }
+// oxlint-disable-next-line unicorn/require-module-specifiers
 export {};

@@ -7,7 +7,7 @@ import type { FontSizeTokens } from '@onekeyhq/components/src/shared/tamagui';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { SizableText } from '../../primitives';
+import { SizableText } from '../../primitives/SizeableText';
 import { getFontSize } from '../../utils/getFontSize';
 
 import type { ISizableTextProps } from '../../primitives';

@@ -62,7 +62,7 @@ export function FAQSection({
           screen: EModalSwapRoutes.SwapMainLand,
           params: {
             importToToken: {
-              ...(tokenInfo?.token ?? {}),
+              ...tokenInfo?.token,
               contractAddress: tokenInfo?.token?.address ?? '',
               networkId,
               networkLogoURI: network.logoURI,

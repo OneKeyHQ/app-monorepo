@@ -56,7 +56,7 @@ function TxConfirmHeaderRight(props: {
         isBridge =
           swapTx.swapInfo.sender.accountInfo.networkId !==
           swapTx.swapInfo.receiver.accountInfo.networkId;
-      } catch (e) {
+      } catch (_e) {
         isBridge = false;
       }
 

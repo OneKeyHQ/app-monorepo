@@ -391,7 +391,7 @@ export default class VaultNexa extends VaultBase {
     const feeBig = new BigNumber(fee);
     const requiredAmount = amountBig.plus(feeBig);
 
-    const confirmedUTXOs = utxos.sort((a, b) =>
+    const confirmedUTXOs = utxos.toSorted((a, b) =>
       new BigNumber(b.satoshis).gt(a.satoshis) ? 1 : -1,
     );
 

@@ -180,7 +180,7 @@ function buildPoints(list, accessorX, accessorY) {
       y: Number(accessorY(item)),
     }))
     .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
-    .sort((a, b) => a.x - b.x);
+    .toSorted((a, b) => a.x - b.x);
 }
 
 function renderSparkline(containerId, points, color, formatter) {
@@ -277,7 +277,7 @@ function buildFunctionEvents() {
       };
     })
     .filter((e) => e.duration > 0)
-    .sort((a, b) => a.start - b.start);
+    .toSorted((a, b) => a.start - b.start);
 }
 
 function buildModuleLoadEvents() {
@@ -298,7 +298,7 @@ function buildModuleLoadEvents() {
       };
     })
     .filter((e) => Number.isFinite(e.start))
-    .sort((a, b) => a.start - b.start);
+    .toSorted((a, b) => a.start - b.start);
 }
 
 function buildMarkEvents() {
@@ -319,7 +319,7 @@ function buildMarkEvents() {
       };
     })
     .filter((e) => Number.isFinite(e.start) && e.start >= 0)
-    .sort((a, b) => a.start - b.start);
+    .toSorted((a, b) => a.start - b.start);
 }
 
 function buildMemorySamples() {
@@ -335,7 +335,7 @@ function buildMemorySamples() {
     .filter(
       (p) => Number.isFinite(p.ts) && p.ts > 0 && Number.isFinite(p.value),
     )
-    .sort((a, b) => a.ts - b.ts);
+    .toSorted((a, b) => a.ts - b.ts);
 }
 
 function buildFpsSamples() {
@@ -349,7 +349,7 @@ function buildFpsSamples() {
     .filter(
       (p) => Number.isFinite(p.ts) && p.ts > 0 && Number.isFinite(p.value),
     )
-    .sort((a, b) => a.ts - b.ts);
+    .toSorted((a, b) => a.ts - b.ts);
 }
 
 function buildMetricTimestampEvents() {
@@ -390,7 +390,7 @@ function renderMetricTrack(trackEl, samples, opts) {
       return { x, y, value: p.value, ts: p.ts };
     })
     .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
-    .sort((a, b) => a.x - b.x);
+    .toSorted((a, b) => a.x - b.x);
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('width', String(trackWidth));
@@ -638,7 +638,7 @@ function renderTimeline() {
   const allFunctionEvents = buildFunctionEvents();
   const allModules = Array.from(
     new Set(allFunctionEvents.map((e) => e.module)),
-  ).sort();
+  ).toSorted();
   state.timelineAvailableModules = allModules;
   if (!state.timelineSelectedModules) {
     state.timelineSelectedModules = new Set(allModules);

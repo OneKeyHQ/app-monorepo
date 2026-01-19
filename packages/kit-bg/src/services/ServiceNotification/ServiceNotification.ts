@@ -560,7 +560,7 @@ export default class ServiceNotification extends ServiceBase {
                 dbAccount: account,
               },
             );
-          } catch (error) {
+          } catch (_error) {
             //
           }
           if (networkAccount?.addressDetail?.displayAddress) {

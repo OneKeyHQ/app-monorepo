@@ -124,7 +124,7 @@ function LiquidityFilterContent({
         convertedMin = String(
           numberFormat(String(finalMinNum), marketCapFormatter),
         );
-      } catch (error) {
+      } catch (_error) {
         // Keep original value if parsing fails
         convertedMin = minValue;
       }
@@ -135,7 +135,7 @@ function LiquidityFilterContent({
         const maxNum = parseValueToNumber(maxValue.trim());
         // No restriction on maximum value
         convertedMax = String(numberFormat(String(maxNum), marketCapFormatter));
-      } catch (error) {
+      } catch (_error) {
         // Keep original value if parsing fails
         convertedMax = maxValue;
       }

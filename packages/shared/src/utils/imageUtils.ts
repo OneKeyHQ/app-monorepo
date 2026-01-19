@@ -814,7 +814,7 @@ async function getBase64FromImageUriWeb(
     const blob = await response.blob();
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
-      // eslint-disable-next-line @cspell/spellchecker
+      // oxlint-disable-next-line @cspell/spellchecker
       reader.onloadend = async () => {
         let readerResult = reader.result as string;
 
@@ -828,7 +828,7 @@ async function getBase64FromImageUriWeb(
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-  } catch (error) {
+  } catch (_error) {
     return undefined;
   }
 }
@@ -873,7 +873,7 @@ async function getUriFromRequiredImageSource(
       `isNil=${isNil(source).toString()}`,
       `isObject=${isObject(source) ? Object.keys(source).join(',') : 'false'}`,
     );
-  } catch (error) {
+  } catch (_error) {
     // ignore
   }
 
@@ -881,7 +881,7 @@ async function getUriFromRequiredImageSource(
     if (isNumber(source)) {
       try {
         logFn?.('(native) ImageSource number', source.toString());
-      } catch (error) {
+      } catch (_error) {
         // ignore
       }
     }

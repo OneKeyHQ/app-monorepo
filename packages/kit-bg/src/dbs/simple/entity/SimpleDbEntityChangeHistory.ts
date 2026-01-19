@@ -59,7 +59,7 @@ export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHisto
       // If contentType is provided, return only that content type's history
       if (contentType) {
         const contentTypeData = entityData[contentType as string] || {};
-        return Object.values(contentTypeData).sort(
+        return Object.values(contentTypeData).toSorted(
           (a, b) => b.timestamp - a.timestamp,
         );
       }
@@ -71,7 +71,7 @@ export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHisto
           result.push(...Object.values(contentTypeMap));
         },
       );
-      return result.sort((a, b) => b.timestamp - a.timestamp);
+      return result.toSorted((a, b) => b.timestamp - a.timestamp);
     }
 
     // If only entityType is provided, collect all entities of that type
@@ -95,7 +95,7 @@ export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHisto
         },
       );
 
-      return result.sort((a, b) => b.timestamp - a.timestamp);
+      return result.toSorted((a, b) => b.timestamp - a.timestamp);
     }
 
     // If only contentType is provided, collect all entities with that content type
@@ -113,7 +113,7 @@ export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHisto
         },
       );
 
-      return result.sort((a, b) => b.timestamp - a.timestamp);
+      return result.toSorted((a, b) => b.timestamp - a.timestamp);
     }
 
     // If no filters are provided, return all history items
@@ -133,7 +133,7 @@ export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHisto
       },
     );
 
-    return result.sort((a, b) => b.timestamp - a.timestamp);
+    return result.toSorted((a, b) => b.timestamp - a.timestamp);
   }
 
   @backgroundMethod()

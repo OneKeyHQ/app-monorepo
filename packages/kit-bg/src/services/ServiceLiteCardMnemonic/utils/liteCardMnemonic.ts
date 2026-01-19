@@ -16,7 +16,7 @@ function entropyToMnemonic(entropy: string): Promise<string> {
   let x = 0;
   while (entropyNumber.gt(0)) {
     x = entropyNumber.mod(n).integerValue().toNumber();
-    // eslint-disable-next-line @cspell/spellchecker
+    // oxlint-disable-next-line @cspell/spellchecker
     entropyNumber = entropyNumber.idiv(n);
 
     mnemonic.push(wordlists[x]);
@@ -100,7 +100,7 @@ export async function decodeMnemonic(payload: string) {
 
     // 兼容 V0 旧版本
     return Buffer.from(payload, 'hex').toString().trim();
-  } catch (error) {
+  } catch (_error) {
     // 数据解析报错
     return '';
   }

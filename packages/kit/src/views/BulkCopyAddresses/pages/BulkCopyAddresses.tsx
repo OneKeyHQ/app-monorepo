@@ -478,6 +478,7 @@ function BulkCopyAddresses({
     networkAccounts,
   ]);
 
+  type IFiledNameKeys = keyof typeof formRangeWatchFields;
   const handleFormValueOnChange = useCallback(
     ({
       name,
@@ -488,7 +489,7 @@ function BulkCopyAddresses({
       value: string | undefined;
       intRequired?: boolean;
     }) => {
-      const filedName = name as keyof typeof formRangeWatchFields;
+      const filedName = name as IFiledNameKeys;
       const valueBN = new BigNumber(value ?? 0);
       if (valueBN.isNaN()) {
         const formattedValue = parseFloat(value ?? '');

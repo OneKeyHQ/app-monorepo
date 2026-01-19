@@ -5,7 +5,7 @@ import { Layout } from './utils/Layout';
 
 let i = 1;
 const fetchResult = () =>
-  new Promise((resolve) => {
+  new Promise<number>((resolve) => {
     i += 1;
     resolve(i);
   });
@@ -19,7 +19,7 @@ const UsePromiseResultGallery = () => (
         title: 'Native',
         // eslint-disable-next-line react/no-unstable-nested-components
         element: () => {
-          // eslint-disable-next-line react-hooks/rules-of-hooks
+          // oxlint-disable-next-line eslint-plugin-react-hooks/rules-of-hooks oxlint-disable-next-line eslint-plugin-react-hooks/exhaustive-deps
           const { result } = usePromiseResult(fetchResult, [], {
             pollingInterval: 1500,
             initResult: 0,

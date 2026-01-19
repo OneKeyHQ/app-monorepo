@@ -229,12 +229,12 @@ export default class NotificationProvider extends NotificationProviderBase {
     if (notificationId) {
       try {
         await cancelScheduledNotificationAsync(notificationId);
-      } catch (error) {
+      } catch (_error) {
         // ignore
       }
       try {
         await dismissNotificationAsync(notificationId);
-      } catch (error) {
+      } catch (_error) {
         // ignore
       }
       defaultLogger.notification.common.removeNotification({

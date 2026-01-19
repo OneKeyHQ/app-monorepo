@@ -38,7 +38,7 @@ const renderCarouselItem = ({
   index,
   subtitle = 'Demo Page',
 }: {
-  item: (typeof data)[number];
+  item: typeof data[number];
   index: number;
   subtitle?: string;
 }) => {

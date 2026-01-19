@@ -121,7 +121,7 @@ export function usePerpsTradingViewMessageHandler({
 
       const marks: ITradingMark[] = filteredTrades
         .map((trade) => convertFillToMark(trade))
-        .sort((a, b) => b.time - a.time);
+        .toSorted((a, b) => b.time - a.time);
 
       return marks;
     },

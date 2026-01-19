@@ -22,7 +22,7 @@ export function useSortableData(items: IInviteCodeListItem[] | undefined) {
       return items || [];
     }
 
-    const sorted = [...items].sort((a, b) => {
+    const sorted = [...items].toSorted((a, b) => {
       let aValue: string | number = a[sortBy];
       let bValue: string | number = b[sortBy];
 

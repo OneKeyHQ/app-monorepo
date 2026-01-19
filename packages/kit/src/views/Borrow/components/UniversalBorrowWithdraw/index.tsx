@@ -359,7 +359,7 @@ export function UniversalBorrowWithdraw({
   );
 
   const maxAmountText = useMemo(
-    () => intl.formatMessage({ id: ETranslations.defi_safe_max }),
+    () => intl.formatMessage({ id: ETranslations.global_max }),
     [intl],
   );
 

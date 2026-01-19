@@ -180,7 +180,7 @@ export default class Vault extends VaultBase {
       txn = toTransaction(encodedTx);
       if (encodedTx.inputs.length > MAX_UTXO_SIZE) {
         const totalAmount = encodedTx.inputs
-          .sort((a, b) =>
+          .toSorted((a, b) =>
             new BigNumber(b.satoshis).minus(a.satoshis).toNumber(),
           )
           .slice(0, MAX_UTXO_SIZE)
@@ -566,7 +566,7 @@ export default class Vault extends VaultBase {
           satoshis: utxo.value,
           blockDaaScore: new BigNumber(utxo.confirmations).toNumber(),
         }));
-      } catch (e) {
+      } catch (_e) {
         throw new OneKeyInternalError(
           appLocale.intl.formatMessage({
             id: ETranslations.feedback_failed_to_get_utxos,

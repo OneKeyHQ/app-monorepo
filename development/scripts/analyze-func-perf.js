@@ -61,7 +61,7 @@ function pickModule(file) {
 
 function percentile(arr, p) {
   if (!arr.length) return 0;
-  const sorted = [...arr].sort((a, b) => a - b);
+  const sorted = [...arr].toSorted((a, b) => a - b);
   const idx = Math.floor((p / 100) * (sorted.length - 1));
   return sorted[idx];
 }
@@ -266,7 +266,7 @@ function analyzeEntries(entries) {
       avg: f.total / f.count,
       p95: percentile(f.durations, 95),
     }))
-    .sort((a, b) => b.p95 - a.p95 || b.max - a.max)
+    .toSorted((a, b) => b.p95 - a.p95 || b.max - a.max)
     .slice(0, 30);
 
   const hotModules = Array.from(moduleMap.values())
@@ -274,14 +274,14 @@ function analyzeEntries(entries) {
       ...m,
       avg: m.total / m.count,
     }))
-    .sort((a, b) => b.total - a.total);
+    .toSorted((a, b) => b.total - a.total);
 
   const hotPages = Array.from(pageMap.values())
     .map((p) => ({
       ...p,
       avg: p.total / p.count,
     }))
-    .sort((a, b) => b.max - a.max);
+    .toSorted((a, b) => b.max - a.max);
 
   const hotRoutes = Array.from(routeMap.values())
     .map((r) => ({
@@ -289,19 +289,19 @@ function analyzeEntries(entries) {
       avg: r.total / r.count,
       functionCount: r.functions.size,
     }))
-    .sort((a, b) => b.total - a.total);
+    .toSorted((a, b) => b.total - a.total);
 
   const hotCallChains = Array.from(callChainMap.values())
     .map((c) => ({
       ...c,
       avg: c.total / c.count,
     }))
-    .sort((a, b) => b.total - a.total)
+    .toSorted((a, b) => b.total - a.total)
     .slice(0, 20);
 
   const repeatedCalls = Array.from(repeatCallMap.values())
     .filter((r) => r.count >= 3)
-    .sort((a, b) => b.count - a.count)
+    .toSorted((a, b) => b.count - a.count)
     .slice(0, 20);
 
   return {
@@ -348,7 +348,6 @@ function buildSpeedscope(entries, profileName = 'RN Function Perf') {
     Infinity,
   );
   const maxEnd = usable.reduce((m, e) => Math.max(m, e.ts), 0);
-  const base = Number.isFinite(minTs) ? minTs : 0;
   const span = Math.max(maxEnd - (Number.isFinite(minTs) ? minTs : 0), 1);
 
   const samples = [];
@@ -356,7 +355,6 @@ function buildSpeedscope(entries, profileName = 'RN Function Perf') {
   let totalDuration = 0;
 
   for (const entry of usable) {
-    const start = Math.max(0, (entry.ts || 0) - entry.duration - base);
     const stackFrames = Array.isArray(entry.stack)
       ? entry.stack
           .filter((s) => s != null && s !== 'null' && s !== '')

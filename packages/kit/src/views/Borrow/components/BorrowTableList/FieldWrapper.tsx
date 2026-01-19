@@ -6,7 +6,7 @@ type IFieldWrapperProps = {
 
 export const FieldWrapper = ({ children, ...rest }: IFieldWrapperProps) => {
   return (
-    <YStack gap="$1" minHeight="$8" w="100%" jc="flex-start" {...rest}>
+    <YStack gap="$1" minHeight="$8" w="100%" jc="center" {...rest}>
       {children}
     </YStack>
   );

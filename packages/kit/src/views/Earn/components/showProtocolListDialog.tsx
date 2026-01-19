@@ -148,7 +148,7 @@ function ProtocolListDialogContent({
 
       const groupedData = groupProtocolsByGroup(data);
       setProtocolData(groupedData);
-    } catch (error) {
+    } catch (_error) {
       setProtocolData([]);
     } finally {
       setIsLoading(false);
@@ -357,7 +357,7 @@ export function showProtocolListDialog({
                 ? protocol.provider.vault
                 : undefined,
             });
-          } catch (error) {
+          } catch (_error) {
             // Handle error silently
           } finally {
             void dialog.close();

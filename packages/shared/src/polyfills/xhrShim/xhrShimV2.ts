@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/prefer-global-this */
+// oxlint-disable unicorn/prefer-global-this
 // @ts-nocheck
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';
@@ -176,7 +176,15 @@ enum EXhrState {
   DONE = 4,
 }
 
-const METHODS = ['GET', 'HEAD', 'POST', 'DELETE', 'OPTIONS', 'PUT', 'PATCH'];
+const METHODS = new Set([
+  'GET',
+  'HEAD',
+  'POST',
+  'DELETE',
+  'OPTIONS',
+  'PUT',
+  'PATCH',
+]);
 
 export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   #abortedFlag = false;
@@ -545,7 +553,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   ): void {
     // eslint-disable-next-line no-param-reassign
     method = method.toUpperCase();
-    if (!METHODS.includes(method)) {
+    if (!METHODS.has(method)) {
       throw new DOMException(
         `The method "${method}" is not allowed.`,
         'SyntaxError',

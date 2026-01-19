@@ -414,6 +414,9 @@ export interface IAppEventBusPayload {
       | ETranslations.global_earn;
     openUrl?: boolean;
   };
+  [EAppEventBusNames.SwitchEarnMode]: {
+    mode: 'earn' | 'borrow';
+  };
   [EAppEventBusNames.SwitchEarnTab]: {
     tab: 'assets' | 'portfolio' | 'faqs';
   };
@@ -560,7 +563,7 @@ class AppEventBusClass extends CrossEventEmitter {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         payloadCloned.$$isRemoteEvent = undefined;
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
     super.emit(type, payloadCloned);
@@ -579,7 +582,7 @@ class AppEventBusClass extends CrossEventEmitter {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           payloadCloned.$$isRemoteEvent = true;
         }
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
