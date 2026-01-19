@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/prefer-global-this */
+
 /* eslint-disable no-undef */
 // react-native-crypto
 //      react-native-quick-crypto
@@ -31,7 +31,7 @@ if (process.env.NODE_ENV !== 'production') {
 const crypto = require('react-native-crypto');
 
 const { randomBytes } = require('@noble/hashes/utils');
-const uuid = require('react-native-uuid');
+const _uuid = require('react-native-uuid');
 
 // TODO polyfill randomUUID may cause RevenueCat not ready
 // const randomUUID = () => {

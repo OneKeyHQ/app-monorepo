@@ -6,6 +6,7 @@ import { Share } from 'react-native';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+// oxlint-disable-next-line import/no-cycle
 import { useClipboard } from './useClipboard';
 
 export function useShare() {

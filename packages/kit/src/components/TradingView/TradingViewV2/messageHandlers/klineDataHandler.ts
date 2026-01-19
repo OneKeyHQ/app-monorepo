@@ -27,7 +27,7 @@ function buildTransactionMarks({
   const limitedList = transactions
     .slice()
     .filter((tx) => tx.to?.amount && tx.to?.symbol)
-    .sort((a, b) => a.timestamp - b.timestamp)
+    .toSorted((a, b) => a.timestamp - b.timestamp)
     .slice(-MAX_MARKS_COUNT);
 
   return limitedList.map((tx, index) => {

@@ -139,7 +139,7 @@ class ServiceE2E extends ServiceBase {
     }
 
     wallets.forEach((wallet) => {
-      wallet.accounts = (wallet.accounts || []).sort((a, b) =>
+      wallet.accounts = (wallet.accounts || []).toSorted((a, b) =>
         natsort({ insensitive: true })(a, b),
       );
     });
@@ -198,9 +198,9 @@ class ServiceE2E extends ServiceBase {
     return {
       v4dbExists,
       accountMissingImpls,
-      accounts: (accounts || []).sort(sortFn),
-      wallets: (wallets || []).sort(sortFn),
-      devices: (devices || []).sort(sortFn).map((device: IDBDevice) => {
+      accounts: (accounts || []).toSorted(sortFn),
+      wallets: (wallets || []).toSorted(sortFn),
+      devices: (devices || []).toSorted(sortFn).map((device: IDBDevice) => {
         delete (device as { features?: string })?.features;
         return device;
       }),

@@ -97,7 +97,6 @@ function VideoContainer() {
         height="100%"
         $platform-web={{
           ...maskStyle,
-          filter: 'blur(2px)',
         }}
       >
         {!isVideoLoaded ? (

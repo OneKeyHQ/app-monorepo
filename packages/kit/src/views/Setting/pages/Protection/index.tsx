@@ -97,7 +97,7 @@ const SettingProtectionModal = () => {
           }
           setIsLocked(true);
         }
-      } catch (e) {
+      } catch (_e) {
         if (autoPopNavigation) {
           navigation.pop();
         }

@@ -229,6 +229,7 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    // eslint-disable-next-line no-nested-ternary
     ...(perpTabShowWeb
       ? {
           [pagePath`${ERootRoutes.Main}${ETabRoutes.WebviewPerpTrade}`]: {
@@ -236,16 +237,14 @@ export const buildAllowList = (
             showParams: true,
           },
         }
-      : {
-          ...(!perpDisabled
-            ? {
-                [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
-                  showUrl: true,
-                  showParams: true,
-                },
-              }
-            : {}),
-        }),
+      : !perpDisabled
+      ? {
+          [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
+            showUrl: true,
+            showParams: true,
+          },
+        }
+      : {}),
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isExtension) {

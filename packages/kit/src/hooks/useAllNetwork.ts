@@ -14,8 +14,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';

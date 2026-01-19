@@ -44,9 +44,9 @@ const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
 
   const onPinOrNot = useCallback(() => {
     if (frequentlyUsedItemsIds.has(item.id)) {
-      setFrequentlyUsedItems?.([
-        ...frequentlyUsedItems.filter((o) => o.id !== item.id),
-      ]);
+      setFrequentlyUsedItems?.(
+        frequentlyUsedItems.filter((o) => o.id !== item.id),
+      );
     } else {
       setFrequentlyUsedItems?.([...frequentlyUsedItems, item]);
     }

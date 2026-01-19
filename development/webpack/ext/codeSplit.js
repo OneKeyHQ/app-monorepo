@@ -4,7 +4,6 @@ const devUtils = require('./devUtils');
 let chunkIndex = 800;
 
 function enableCodeSplitChunks({ config }) {
-  const { name } = config;
   let maxSizeMb = 4;
   const isFirefox = devUtils.isBuildTargetBrowserFirefox();
   const isChrome = devUtils.isBuildTargetBrowserChromeLike();
@@ -19,9 +18,9 @@ function enableCodeSplitChunks({ config }) {
     maxSize: maxSizeMb * 1024 * 1024, // limit to max 2MB to ignore firefox lint error
 
     // auto-gen chunk file name by module name or just increasing number
-    name: (module, chunks, cacheGroupKey, p1, p2, p3) => {
+    name: (_module, _chunks, _cacheGroupKey) => {
       chunkIndex += 1;
-      const returnName = name ? `vendors-${name}-${chunkIndex}` : false;
+      // const returnName = name ? `vendors-${name}-${chunkIndex}` : false;
       // return returnName;
 
       // **** reduce module duplication across chunks
@@ -53,7 +52,6 @@ function enableCodeSplitChunks({ config }) {
 }
 
 function disableCodeSplitChunks({ config }) {
-  const { name } = config;
   config.optimization = config.optimization || {};
   delete config.optimization.splitChunks;
   config.output.asyncChunks = false;

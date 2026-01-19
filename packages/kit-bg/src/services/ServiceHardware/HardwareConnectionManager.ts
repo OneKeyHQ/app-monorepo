@@ -142,7 +142,7 @@ export class HardwareConnectionManager {
       const devices = response.data as unknown[];
       const isAvailable = Array.isArray(devices) && devices.length > 0;
       return isAvailable;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }

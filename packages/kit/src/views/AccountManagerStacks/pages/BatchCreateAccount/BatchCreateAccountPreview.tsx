@@ -356,7 +356,7 @@ function BatchCreateAccountPreviewPage({
             // Process the balances here
             balancesToUpdate[buildBalanceMapKey({ account })] =
               balances.balanceParsed;
-          } catch (error) {
+          } catch (_error) {
             //
           }
         }),

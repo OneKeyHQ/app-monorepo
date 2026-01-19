@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Button,
@@ -7,6 +7,7 @@ import {
   Input,
   SizableText,
   Toast,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -26,17 +27,56 @@ import dateUtils from '@onekeyhq/shared/src/utils/dateUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 export function KeylessOnboardingDebugPanelView({
   isResetMode,
   onResetModeChange,
+  isVerifyPinPage,
+  onAutoInputPin,
+  onForceEnableInput,
 }: {
   isResetMode?: boolean;
   onResetModeChange?: (val: boolean) => void;
+  isVerifyPinPage?: boolean;
+  onAutoInputPin?: () => void;
+  onForceEnableInput?: () => void;
 }) {
-  const _navigation = useAppNavigation();
+  const [isAutoRetrying, setIsAutoRetrying] = useState(false);
+  const autoRetryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startAutoRetry = useCallback(() => {
+    setIsAutoRetrying(true);
+    Toast.success({ title: '自动重试已开始 (每5秒)' });
+
+    // Immediately trigger once
+    onForceEnableInput?.();
+    onAutoInputPin?.();
+
+    // Then set up interval for every 5 seconds
+    autoRetryTimerRef.current = setInterval(() => {
+      onForceEnableInput?.();
+      onAutoInputPin?.();
+    }, 5000);
+  }, [onAutoInputPin, onForceEnableInput]);
+
+  const stopAutoRetry = useCallback(() => {
+    setIsAutoRetrying(false);
+    if (autoRetryTimerRef.current) {
+      clearInterval(autoRetryTimerRef.current);
+      autoRetryTimerRef.current = null;
+    }
+    Toast.success({ title: '自动重试已停止' });
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (autoRetryTimerRef.current) {
+        clearInterval(autoRetryTimerRef.current);
+      }
+    };
+  }, []);
   const { cacheKeylessOnboardingCustomMnemonic } = useKeylessWallet();
   const [devSettings] = useDevSettingsPersistAtom();
   const [keylessPinConfirmStatus] = useKeylessPinConfirmStatusAtom();
@@ -114,6 +154,18 @@ export function KeylessOnboardingDebugPanelView({
 
   return (
     <YStack gap="$2" py="$4">
+      {isVerifyPinPage ? (
+        <XStack gap="$2" p="$2" backgroundColor="$bgCritical" borderRadius="$2">
+          <Button
+            flex={1}
+            variant={isAutoRetrying ? 'destructive' : 'primary'}
+            onPress={isAutoRetrying ? stopAutoRetry : startAutoRetry}
+          >
+            {isAutoRetrying ? '停止自动重试 PIN' : '开始自动重试 PIN'}
+          </Button>
+        </XStack>
+      ) : null}
+
       {onResetModeChange ? (
         <Checkbox
           label="重置云端无私钥钱包（先勾选，再登录 Google 或 Apple 生效）"
@@ -241,9 +293,15 @@ export function KeylessOnboardingDebugPanelView({
 export function KeylessOnboardingDebugPanel({
   isResetMode,
   onResetModeChange,
+  isVerifyPinPage,
+  onAutoInputPin,
+  onForceEnableInput,
 }: {
   isResetMode?: boolean;
   onResetModeChange?: (val: boolean) => void;
+  isVerifyPinPage?: boolean;
+  onAutoInputPin?: () => void;
+  onForceEnableInput?: () => void;
 }) {
   return (
     <YStack>
@@ -255,6 +313,9 @@ export function KeylessOnboardingDebugPanel({
           <KeylessOnboardingDebugPanelView
             isResetMode={isResetMode}
             onResetModeChange={onResetModeChange}
+            isVerifyPinPage={isVerifyPinPage}
+            onAutoInputPin={onAutoInputPin}
+            onForceEnableInput={onForceEnableInput}
           />
         }
       />

@@ -46,7 +46,7 @@ function ListItemGroupBase({
         px: '$5',
         py,
         borderRadius: '$0',
-        ...(itemProps ?? {}),
+        ...itemProps,
         ...(child.props as object),
       } as ComponentProps<typeof ListItem>;
       res.push(cloneElement(child, mergedProps));

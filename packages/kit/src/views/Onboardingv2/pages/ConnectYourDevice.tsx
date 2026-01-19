@@ -274,7 +274,7 @@ function useDeviceConnection({
           return;
         }
 
-        const sortedDevices = response.payload.sort((a, b) =>
+        const sortedDevices = response.payload.toSorted((a, b) =>
           natsort({ insensitive: true })(
             a.name || a.connectId || a.deviceId || a.uuid,
             b.name || b.connectId || b.deviceId || b.uuid,

@@ -235,12 +235,10 @@ export default class Vault extends VaultBase {
     let groupId = '';
 
     const txGroup = isArray(encodedTx) ? encodedTx : [encodedTx];
-    let txFee = new BigNumber(0);
 
     for (let i = 0, len = txGroup.length; i < len; i += 1) {
       const { action, nativeTx } = await this._decodeAlgoTx(txGroup[i]);
       actions.push(action);
-      txFee = txFee.plus(nativeTx.fee ?? 0);
       sender = nativeTx.snd ? sdkAlgo.encodeAddress(nativeTx.snd) : '';
       if (nativeTx.grp) {
         groupId = Buffer.from(nativeTx.grp).toString('base64');

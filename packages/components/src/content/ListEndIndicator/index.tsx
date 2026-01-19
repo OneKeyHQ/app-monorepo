@@ -1,4 +1,4 @@
-import { Stack } from '../../primitives';
+import { Stack } from '../../primitives/Stack';
 
 import type { StackProps } from '@tamagui/core';
 

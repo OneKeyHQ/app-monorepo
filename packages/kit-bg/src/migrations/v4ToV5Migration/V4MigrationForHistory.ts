@@ -69,7 +69,7 @@ export class V4MigrationForHistory extends V4MigrationManagerBase {
           output.payload.isChange = output.payload.isCharge;
           delete output.payload.isCharge;
         }
-      } catch (error) {
+      } catch (_error) {
         //
       }
     });

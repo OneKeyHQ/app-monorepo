@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type ETabEarnRoutes,
@@ -167,6 +169,18 @@ function BasicEarnHome({
     },
     [navigation, route.params?.tab],
   );
+
+  useEffect(() => {
+    const handleSwitchEarnMode = ({ mode }: { mode: 'earn' | 'borrow' }) => {
+      if (mode !== defaultMode) {
+        handleModeChange(mode);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.SwitchEarnMode, handleSwitchEarnMode);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwitchEarnMode, handleSwitchEarnMode);
+    };
+  }, [defaultMode, handleModeChange]);
 
   const media = useMedia();
 

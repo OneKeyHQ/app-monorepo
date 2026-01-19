@@ -116,7 +116,7 @@ function TxAdvancedSettings(props: IProps) {
       try {
         const tx = JSON.stringify(encodedTx, null, 2);
         txString = txString ? `${txString}\n\n${tx}` : tx;
-      } catch (error) {
+      } catch (_error) {
         // ignore
       }
     }

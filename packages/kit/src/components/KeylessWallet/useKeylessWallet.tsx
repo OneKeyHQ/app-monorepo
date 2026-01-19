@@ -706,7 +706,7 @@ export function useKeylessWallet() {
         try {
           keylessWallet =
             await backgroundApiProxy.serviceAccount.getKeylessWallet();
-        } catch (error) {
+        } catch (_error) {
           // Continue to navigation if getKeylessWallet fails
         }
         const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId || '';
@@ -720,7 +720,7 @@ export function useKeylessWallet() {
               await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
                 { ownerId },
               );
-          } catch (error) {
+          } catch (_error) {
             // Continue to navigation if refresh fails
           }
 
@@ -1008,20 +1008,10 @@ export function useVerifyKeylessPinChecking() {
   const [devSettings] = useDevSettingsPersistAtom();
 
   const cancelVerifyPin = useCallback(
-    async (ownerId: string) => {
-      const accessToken =
-        await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
-          { ownerId },
-        );
-
-      if (accessToken) {
-        await backgroundApiProxy.serviceKeylessWallet.apiUpdatePinConfirmStatus(
-          {
-            token: accessToken,
-            isCancelAction: true,
-          },
-        );
-      }
+    async (ownerId: string | 'CURRENT_KEYLESS_WALLET') => {
+      await backgroundApiProxy.serviceKeylessWallet.cancelVerifyPin({
+        ownerId,
+      });
 
       // save last cancel verify pin time
       setKeylessLastCancelVerifyPinTime(Date.now());

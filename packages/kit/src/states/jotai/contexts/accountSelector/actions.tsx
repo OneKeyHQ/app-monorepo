@@ -167,7 +167,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 selectedAccount,
               },
             ));
-        } catch (error) {
+        } catch (_error) {
           //
           activeAccount = {
             ...defaultActiveAccountInfo(),
@@ -2117,7 +2117,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   // others wallet contains next available account, no need to switch to other hd hw wallet
                   shouldSelectHdHwWallet = false;
                 }
-              } catch (e) {
+              } catch (_e) {
                 //
               }
             }

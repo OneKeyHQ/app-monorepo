@@ -48,7 +48,7 @@ export class SimpleDbEntityRecentNetworks extends SimpleDbEntityBase<IRecentNetw
     const rawData = await this.getRawData();
     const recentNetworks = rawData?.recentNetworks ?? {};
 
-    const recentNetworksSorted = Object.entries(recentNetworks).sort(
+    const recentNetworksSorted = Object.entries(recentNetworks).toSorted(
       ([, { updatedAt: timestampA }], [, { updatedAt: timestampB }]) =>
         Number(timestampB) - Number(timestampA),
     );

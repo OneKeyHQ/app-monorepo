@@ -285,7 +285,7 @@ export function calculateRequiredSubscriptions(
     // If no user, we likely only need market data (handled above).
   }
 
-  return specs.sort((a, b) => a.priority - b.priority);
+  return specs.toSorted((a, b) => a.priority - b.priority);
 }
 
 export function calculateRequiredSubscriptionsMap(state: ISubscriptionState) {
@@ -300,7 +300,7 @@ export function calculateRequiredSubscriptionsMap(state: ISubscriptionState) {
 export function sortSubscriptionsByPriority(
   specs: ISubscriptionSpec<ESubscriptionType>[],
 ): ISubscriptionSpec<ESubscriptionType>[] {
-  return [...specs].sort((a, b) => a.priority - b.priority);
+  return [...specs].toSorted((a, b) => a.priority - b.priority);
 }
 
 export function calculateSubscriptionDiff(

@@ -297,7 +297,7 @@ export const StakeSection = ({
         borrowApiCtx.borrowApiParams;
 
       // Build tags array with both new borrow tag and legacy stakeTag for backward compatibility
-      const tags: string[] = [];
+      const tags: string[] = [EEarnLabels.Borrow];
       if (action === 'supply' || action === 'borrow') {
         tags.push(buildBorrowTag({ provider, action }));
       }
