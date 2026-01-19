@@ -314,7 +314,6 @@
     "metro-resolver": "0.83.2",
     "metro-runtime": "0.83.2",
     "metro-source-map": "0.83.2",
-    "@reown/appkit": "1.8.1",
     "metro-transform-plugins": "0.83.2",
     "metro-transform-worker": "0.83.2",
     "@solana/web3.js": "1.98.2",
