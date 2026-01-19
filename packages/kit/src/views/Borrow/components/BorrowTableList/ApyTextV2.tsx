@@ -62,13 +62,6 @@ function ApyComponentBar({
         weight: safeValue,
       };
     });
-    const total = normalized.reduce((sum, segment) => sum + segment.weight, 0);
-    if (total <= 0) {
-      return normalized.map((segment) => ({
-        ...segment,
-        weight: 1,
-      }));
-    }
     return normalized;
   }, [components]);
 
