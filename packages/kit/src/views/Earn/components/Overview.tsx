@@ -200,9 +200,11 @@ const Rebate = ({
 const OverviewComponent = ({
   isLoading,
   onRefresh,
+  filteredTotalFiatValue,
 }: {
   isLoading: boolean;
   onRefresh: () => void;
+  filteredTotalFiatValue?: string;
 }) => {
   const {
     activeAccount: { account, indexedAccount },
@@ -210,10 +212,11 @@ const OverviewComponent = ({
   const totalFiatMapKey = useEarnAccountKey();
   const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
-  const totalFiatValue = useMemo(
+  const rawTotalFiatValue = useMemo(
     () => earnAccount?.[totalFiatMapKey]?.totalFiatValue || '0',
     [earnAccount, totalFiatMapKey],
   );
+  const totalFiatValue = filteredTotalFiatValue ?? rawTotalFiatValue;
   const earnings24h = useMemo(
     () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
     [earnAccount, totalFiatMapKey],
@@ -311,7 +314,7 @@ const OverviewComponent = ({
         <XStack gap="$3" ai="center">
           <NumberSizeableText
             size="$heading5xl"
-            formatter="price"
+            formatter="value"
             color={getNumberColor(totalFiatValue, '$text')}
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
             numberOfLines={1}

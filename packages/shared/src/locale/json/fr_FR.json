@@ -167,6 +167,7 @@
   "auth.set_passcode": "Définir le code d'accès",
   "auth.set_password": "Définir le mot de passe",
   "auth.with_biometric": "Authentification avec {biometric}",
+  "auth_server_error_text": "Quelque chose a mal tourné. Veuillez vérifier votre connexion Internet ou réessayer plus tard.",
   "backing_up_desc": "Ne fermez pas cette fenêtre avant la fin de la sauvegarde.",
   "backing_up_title": "Sauvegarde en cours…",
   "backup.address_book_labels": "Carnet d'adresses & étiquettes",

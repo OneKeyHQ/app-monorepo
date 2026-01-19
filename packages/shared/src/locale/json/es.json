@@ -167,6 +167,7 @@
   "auth.set_passcode": "Establecer código de acceso",
   "auth.set_password": "Establecer contraseña",
   "auth.with_biometric": "Autenticación con {biometric}",
+  "auth_server_error_text": "Algo salió mal. Por favor, verifica tu conexión a internet o intenta de nuevo más tarde.",
   "backing_up_desc": "No cierres esta ventana hasta que se complete la copia de seguridad.",
   "backing_up_title": "Haciendo copia de seguridad…",
   "backup.address_book_labels": "Libreta de direcciones & etiquetas",
