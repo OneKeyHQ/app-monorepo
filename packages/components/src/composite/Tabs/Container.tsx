@@ -12,7 +12,7 @@ import {
 import type { PropsWithChildren, RefObject } from 'react';
 
 import { debounce } from 'lodash';
-import type { SharedValue} from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
