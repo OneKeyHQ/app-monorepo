@@ -1350,7 +1350,6 @@ Meteora
 DLMM
 oxlint
 serviceworker
-goodgebcoklfekldbhjmckehehjdfipe
 newtab
 hrstart
 hrend
