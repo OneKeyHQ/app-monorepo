@@ -6,8 +6,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { type IIconButtonProps, IconButton } from '../../actions';
 import { useHoverOpacity } from '../../hooks/useHoverOpacity';
 
@@ -70,9 +68,6 @@ export function PaginationButton({
           alignItems: 'center',
           ...positionStyle,
           zIndex,
-          ...(platformEnv.isWeb && !isVisible
-            ? ({ contentVisibility: 'hidden' } as any)
-            : {}),
         },
       ]}
     >
