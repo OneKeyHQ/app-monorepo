@@ -57,7 +57,9 @@ export function ContainerChild({
                 width: '100%',
                 flexShrink: 0,
                 scrollSnapAlign: 'center',
-                ...(!isCurrentTab ? ({ contentVisibility: 'hidden' } as any) : {}),
+                ...(!isCurrentTab
+                  ? ({ contentVisibility: 'hidden' } as any)
+                  : {}),
               }}
               key={index}
             >
