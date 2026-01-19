@@ -1,7 +1,10 @@
-import { Semaphore } from "async-mutex";
+import { Semaphore } from 'async-mutex';
 
-import type { IDialogShowProps } from "@onekeyhq/components/src/composite/Dialog/type";
-import type { IDecryptStringParams, IEncryptStringParams } from "@onekeyhq/core/src/secret";
+import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import type {
+  IDecryptStringParams,
+  IEncryptStringParams,
+} from '@onekeyhq/core/src/secret';
 import {
   decodePasswordAsync,
   decodeSensitiveTextAsync,
@@ -12,22 +15,28 @@ import {
   ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
-} from "@onekeyhq/core/src/secret";
+} from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
   backgroundMethod,
-} from "@onekeyhq/shared/src/background/backgroundDecorators";
-import biologyAuth from "@onekeyhq/shared/src/biologyAuth";
-import { biologyAuthNativeError } from "@onekeyhq/shared/src/biologyAuth/error";
-import * as OneKeyErrors from "@onekeyhq/shared/src/errors";
-import type { IOneKeyError } from "@onekeyhq/shared/src/errors/types/errorTypes";
-import * as deviceErrorUtils from "@onekeyhq/shared/src/errors/utils/deviceErrorUtils";
-import { defaultLogger } from "@onekeyhq/shared/src/logger/logger";
-import platformEnv from "@onekeyhq/shared/src/platformEnv";
-import accountUtils from "@onekeyhq/shared/src/utils/accountUtils";
-import timerUtils from "@onekeyhq/shared/src/utils/timerUtils";
-import { EHardwareCallContext, type IDeviceSharedCallParams } from "@onekeyhq/shared/types/device";
-import type { IPasswordRes, IPasswordSecuritySession } from "@onekeyhq/shared/types/password";
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
+import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  EHardwareCallContext,
+  type IDeviceSharedCallParams,
+} from '@onekeyhq/shared/types/device';
+import type {
+  IPasswordRes,
+  IPasswordSecuritySession,
+} from '@onekeyhq/shared/types/password';
 import {
   BIOLOGY_AUTH_CANCEL_ERROR,
   EPasswordMode,
@@ -37,27 +46,27 @@ import {
   PASSCODE_REGEX,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
-} from "@onekeyhq/shared/types/password";
-import { EReasonForNeedPassword } from "@onekeyhq/shared/types/setting";
+} from '@onekeyhq/shared/types/password';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
-import localDb from "../../dbs/local/localDb";
+import localDb from '../../dbs/local/localDb';
 import {
   firmwareUpdateWorkflowRunningAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
   v4migrationAtom,
-} from "../../states/jotai/atoms";
+} from '../../states/jotai/atoms';
 import {
   passwordAtom,
   passwordBiologyAuthInfoAtom,
   passwordPersistAtom,
   passwordPromptPromiseTriggerAtom,
-} from "../../states/jotai/atoms/password";
-import webembedApiProxy from "../../webembeds/instance/webembedApiProxy";
-import ServiceBase from "../ServiceBase";
-import { checkExtUIOpen } from "../utils";
+} from '../../states/jotai/atoms/password';
+import webembedApiProxy from '../../webembeds/instance/webembedApiProxy';
+import ServiceBase from '../ServiceBase';
+import { checkExtUIOpen } from '../utils';
 
-import { biologyAuthUtils } from "./biologyAuthUtils";
+import { biologyAuthUtils } from './biologyAuthUtils';
 
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
@@ -67,7 +76,8 @@ export default class ServicePassword extends ServiceBase {
     hour: 2,
   });
 
-  private cachedPasswordTimeOutObject: ReturnType<typeof setTimeout> | null = null;
+  private cachedPasswordTimeOutObject: ReturnType<typeof setTimeout> | null =
+    null;
 
   private passwordPromptTTL: number = timerUtils.getTimeDurationMs({
     minute: 5,
@@ -79,11 +89,15 @@ export default class ServicePassword extends ServiceBase {
 
   private extCheckLockStatusTimer?: ReturnType<typeof setInterval>;
 
-  private handleBiologyAuthError(authRes: { warning?: string; error: string; success: boolean }) {
+  private handleBiologyAuthError(authRes: {
+    warning?: string;
+    error: string;
+    success: boolean;
+  }) {
     if (!authRes.success) {
       if (authRes.warning || authRes.error === BIOLOGY_AUTH_CANCEL_ERROR) {
         const nativeError = new Error(
-          authRes.error === BIOLOGY_AUTH_CANCEL_ERROR ? "" : authRes.warning,
+          authRes.error === BIOLOGY_AUTH_CANCEL_ERROR ? '' : authRes.warning,
         );
         nativeError.name = authRes.error;
         nativeError.cause = biologyAuthNativeError;
@@ -104,13 +118,13 @@ export default class ServicePassword extends ServiceBase {
     password: string,
     contents: Array<{ id: string; credential: string }>,
   ) {
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== 'production') {
       const pwd = await this.encodeSensitiveText({ text: password });
       const itemsPromised = contents
         .map(async (t) => {
           const o: { entropy: string } = JSON.parse(t.credential);
           if (!o.entropy) {
-            return "";
+            return '';
           }
           const entropyBuff = await decryptAsync({
             password: pwd,
@@ -123,7 +137,7 @@ export default class ServicePassword extends ServiceBase {
       const items = await Promise.all(itemsPromised);
       return {
         items,
-        raw: items.join("\r\n\r\n"),
+        raw: items.join('\r\n\r\n'),
       };
     }
     return null;
@@ -161,7 +175,11 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async decodeSensitiveText({ encodedText }: { encodedText: string }): Promise<string> {
+  async decodeSensitiveText({
+    encodedText,
+  }: {
+    encodedText: string;
+  }): Promise<string> {
     return Promise.resolve(await decodeSensitiveTextAsync({ encodedText }));
   }
 
@@ -202,17 +220,19 @@ export default class ServicePassword extends ServiceBase {
         ? await this.decodeSensitiveText({
             encodedText: prevPassword,
           })
-        : "";
+        : '';
       const newPasswordRaw = password
         ? await this.decodeSensitiveText({
             encodedText: password,
           })
-        : "";
+        : '';
       if (password && prevPasswordRaw !== newPasswordRaw) {
         await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
-        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently({
-          callerName: "setCachedPassword",
-        });
+        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
+          {
+            callerName: 'setCachedPassword',
+          },
+        );
       }
     })();
     return password;
@@ -237,16 +257,20 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async getCachedPasswordOrDeviceParams({ walletId }: { walletId: string }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
-    let password: string | undefined = "";
+    let password: string | undefined = '';
     let deviceParams: IDeviceSharedCallParams | undefined;
 
     if (isHardware) {
-      deviceParams = await this.backgroundApi.serviceAccount.getWalletDeviceParams({
-        walletId,
-        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
-      });
+      deviceParams =
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        });
     }
-    if (accountUtils.isHdWallet({ walletId }) || accountUtils.isImportedWallet({ walletId })) {
+    if (
+      accountUtils.isHdWallet({ walletId }) ||
+      accountUtils.isImportedWallet({ walletId })
+    ) {
       password = await this.getCachedPassword();
     }
     return {
@@ -279,7 +303,7 @@ export default class ServicePassword extends ServiceBase {
     const isSupport = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
       await this.setBiologyAuthEnable(false);
-      throw new OneKeyErrors.OneKeyLocalError("biologyAuth not support");
+      throw new OneKeyErrors.OneKeyLocalError('biologyAuth not support');
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
     if (!authRes.success) {
@@ -296,7 +320,10 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setBiologyAuthEnable(enable: boolean, skipAuth?: boolean): Promise<void> {
+  async setBiologyAuthEnable(
+    enable: boolean,
+    skipAuth?: boolean,
+  ): Promise<void> {
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
@@ -307,7 +334,7 @@ export default class ServicePassword extends ServiceBase {
         await this.saveBiologyAuthPassword(catchPassword);
       } else {
         throw new OneKeyErrors.OneKeyLocalError(
-          "no catch password please unlock the application again or modify the password.",
+          'no catch password please unlock the application again or modify the password.',
         );
       }
     }
@@ -335,7 +362,8 @@ export default class ServicePassword extends ServiceBase {
     if (
       !skipLengthCheck &&
       passwordMode === EPasswordMode.PASSWORD &&
-      (realPassword.length < PASSWORD_MIN_LENGTH || realPassword.length > PASSWORD_MAX_LENGTH)
+      (realPassword.length < PASSWORD_MIN_LENGTH ||
+        realPassword.length > PASSWORD_MAX_LENGTH)
     ) {
       throw new OneKeyErrors.PasswordStrengthValidationFailed();
     }
@@ -357,12 +385,13 @@ export default class ServicePassword extends ServiceBase {
     const isPasscodeModeMaybe =
       platformEnv.isNative &&
       realPassword.length === PASSCODE_LENGTH &&
-      realPassword.replace(PASSCODE_REGEX, "") === realPassword;
+      realPassword.replace(PASSCODE_REGEX, '') === realPassword;
 
     // Determine if passwordMode needs to be fixed:
     // If detected as passcode but passwordMode is PASSWORD, need to fix to PASSCODE
     // If detected as not passcode but passwordMode is PASSCODE, validation would have failed above
-    const shouldFixPasscodeMode = isPasscodeModeMaybe && passwordMode === EPasswordMode.PASSWORD;
+    const shouldFixPasscodeMode =
+      isPasscodeModeMaybe && passwordMode === EPasswordMode.PASSWORD;
 
     return {
       shouldFixPasscodeMode,
@@ -463,11 +492,14 @@ export default class ServicePassword extends ServiceBase {
   async clearWebAuthCredentialId(): Promise<void> {
     await passwordPersistAtom.set((v) => ({
       ...v,
-      webAuthCredentialId: "",
+      webAuthCredentialId: '',
     }));
   }
 
-  async setPasswordSetStatus(isSet: boolean, passMode?: EPasswordMode): Promise<void> {
+  async setPasswordSetStatus(
+    isSet: boolean,
+    passMode?: EPasswordMode,
+  ): Promise<void> {
     await passwordPersistAtom.set((v) => ({
       ...v,
       isPasswordSet: isSet,
@@ -477,7 +509,10 @@ export default class ServicePassword extends ServiceBase {
 
   // password actions --------------
   @backgroundMethod()
-  async setPassword(password: string, passwordMode: EPasswordMode): Promise<string> {
+  async setPassword(
+    password: string,
+    passwordMode: EPasswordMode,
+  ): Promise<string> {
     ensureSensitiveTextEncoded(password);
     await this.validatePassword({ password, passwordMode, skipDBVerify: true });
     try {
@@ -503,11 +538,11 @@ export default class ServicePassword extends ServiceBase {
     ensureSensitiveTextEncoded(newPassword);
 
     if (!oldPassword) {
-      throw new OneKeyErrors.OneKeyLocalError("oldPassword is required");
+      throw new OneKeyErrors.OneKeyLocalError('oldPassword is required');
     }
 
     if (!newPassword) {
-      throw new OneKeyErrors.OneKeyLocalError("newPassword is required");
+      throw new OneKeyErrors.OneKeyLocalError('newPassword is required');
     }
 
     await this.validatePassword({
@@ -523,15 +558,19 @@ export default class ServicePassword extends ServiceBase {
       await this.setCachedPassword({ password: newPassword });
       await this.setPasswordSetStatus(true, passwordMode);
       ({ rollback: masterPasswordUpdateRollback } =
-        await this.backgroundApi.serviceMasterPassword.updatePasscodeForMasterPassword({
-          oldPasscode: oldPassword,
-          newPasscode: newPassword,
-        }));
+        await this.backgroundApi.serviceMasterPassword.updatePasscodeForMasterPassword(
+          {
+            oldPasscode: oldPassword,
+            newPasscode: newPassword,
+          },
+        ));
       ({ rollback: keylessDataUpdateRollback } =
-        await this.backgroundApi.serviceKeylessWallet.updateKeylessDataPasscode({
-          oldPassword,
-          newPassword,
-        }));
+        await this.backgroundApi.serviceKeylessWallet.updateKeylessDataPasscode(
+          {
+            oldPassword,
+            newPassword,
+          },
+        ));
       await localDb.updatePassword({ oldPassword, newPassword });
       await this.backgroundApi.serviceV4Migration.updateV4Password({
         oldPassword,
@@ -594,9 +633,11 @@ export default class ServicePassword extends ServiceBase {
     if (verifyingPassword) {
       void (async () => {
         try {
-          await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp({
-            password: verifyingPassword,
-          });
+          await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
+            {
+              password: verifyingPassword,
+            },
+          );
         } catch (e) {
           console.error(e);
         }
@@ -606,7 +647,7 @@ export default class ServicePassword extends ServiceBase {
             !this._mergeDuplicateHDWalletsExecuted &&
             globalThis?.$indexedDBIsMigratedToBucket?.isMigrated === false
           ) {
-            console.log("verifyPassword__mergeDuplicateHDWallets", {
+            console.log('verifyPassword__mergeDuplicateHDWallets', {
               skipAppStatusCheck,
             });
             skipAppStatusCheck = true;
@@ -706,18 +747,21 @@ export default class ServicePassword extends ServiceBase {
   }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     const isQrWallet = accountUtils.isQrWallet({ walletId });
-    let password = "";
+    let password = '';
     let deviceParams: IDeviceSharedCallParams | undefined;
 
     if (isHardware) {
       try {
-        deviceParams = await this.backgroundApi.serviceAccount.getWalletDeviceParams({
-          walletId,
-          hardwareCallContext,
-        });
+        deviceParams =
+          await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+            walletId,
+            hardwareCallContext,
+          });
       } catch (error) {
         // Check if this is a hardware error that should be thrown
-        if (deviceErrorUtils.isHardwareError({ error: error as IOneKeyError })) {
+        if (
+          deviceErrorUtils.isHardwareError({ error: error as IOneKeyError })
+        ) {
           throw error;
         }
         // ignore other errors
@@ -812,7 +856,7 @@ export default class ServicePassword extends ServiceBase {
     const errorReject =
       error ??
       new OneKeyErrors.OneKeyError({
-        message: message || "rejectPasswordPromptDialog",
+        message: message || 'rejectPasswordPromptDialog',
       });
     this.clearPasswordPromptTimeout();
     void this.backgroundApi.servicePromise.rejectCallback({
@@ -848,7 +892,8 @@ export default class ServicePassword extends ServiceBase {
   async lockApp(options?: { manual: boolean }) {
     const { manual = true } = options || {};
     this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
-    const isFirmwareUpdateRunning = await firmwareUpdateWorkflowRunningAtom.get();
+    const isFirmwareUpdateRunning =
+      await firmwareUpdateWorkflowRunningAtom.get();
     if (isFirmwareUpdateRunning) {
       return;
     }
@@ -898,7 +943,10 @@ export default class ServicePassword extends ServiceBase {
     if (platformEnv.isExtensionBackground && !this.extCheckLockStatusTimer) {
       this.extCheckLockStatusTimer = setInterval(() => {
         // skip check lock status when ext ui open
-        if (this.backgroundApi.bridgeExtBg && !checkExtUIOpen(this.backgroundApi.bridgeExtBg)) {
+        if (
+          this.backgroundApi.bridgeExtBg &&
+          !checkExtUIOpen(this.backgroundApi.bridgeExtBg)
+        ) {
           void this.checkLockStatus();
         }
       }, 1000 * 30);
@@ -906,7 +954,9 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async isAlwaysReenterPassword(reason?: EReasonForNeedPassword): Promise<boolean> {
+  public async isAlwaysReenterPassword(
+    reason?: EReasonForNeedPassword,
+  ): Promise<boolean> {
     const isPasswordSet = await this.checkPasswordSet();
     if (!reason || !isPasswordSet) {
       return false;
@@ -920,8 +970,10 @@ export default class ServicePassword extends ServiceBase {
     }
 
     const result =
-      (reason === EReasonForNeedPassword.CreateOrRemoveWallet && protectCreateOrRemoveWallet) ||
-      (reason === EReasonForNeedPassword.CreateTransaction && protectCreateTransaction);
+      (reason === EReasonForNeedPassword.CreateOrRemoveWallet &&
+        protectCreateOrRemoveWallet) ||
+      (reason === EReasonForNeedPassword.CreateTransaction &&
+        protectCreateTransaction);
 
     const now = Date.now();
     if (
