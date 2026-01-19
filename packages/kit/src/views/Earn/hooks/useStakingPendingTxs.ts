@@ -157,7 +157,7 @@ export const useStakingPendingTxsByInfo = ({
       assetsFromAll ?? Object.values(availableAssetsByType).flat();
     if (!mergedAssets || mergedAssets.length === 0) return [];
 
-    const mergedByKey = new Map<string, (typeof mergedAssets)[number]>();
+    const mergedByKey = new Map<string, typeof mergedAssets[number]>();
     mergedAssets.forEach((asset) => {
       const key = `${asset.symbol}-${asset.name}`;
       const existing = mergedByKey.get(key);

@@ -115,7 +115,7 @@ export function useTradingViewV2WebSocket({
                     points: [
                       {
                         ...receivedData,
-                        // eslint-disable-next-line @cspell/spellchecker
+                        // oxlint-disable-next-line @cspell/spellchecker
                         t: receivedData.unixTime, // Convert timestamp to t
                       },
                     ],

@@ -128,7 +128,7 @@ export class E2EEClientToClientApi {
 
     if (isVerifiedRoomId === this.roomId) {
       const message = appLocale.intl.formatMessage({
-        // eslint-disable-next-line @cspell/spellchecker
+        // oxlint-disable-next-line @cspell/spellchecker
         id: ETranslations.global_connet_error_try_again,
       });
       appEventBus.emit(EAppEventBusNames.PrimeTransferForceExit, {

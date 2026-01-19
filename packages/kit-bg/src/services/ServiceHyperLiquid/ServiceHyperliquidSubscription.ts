@@ -564,7 +564,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         reconnect: {
           maxRetries: 999,
           connectionTimeout: 5000,
-          // eslint-disable-next-line @cspell/spellchecker
+          // oxlint-disable-next-line @cspell/spellchecker
           reconnectionDelay: (
             attempt: number, // spell-checker:disable-line
           ) =>
