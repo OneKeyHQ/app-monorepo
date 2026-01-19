@@ -72,6 +72,8 @@ export const BorrowBonusTooltip = ({
             ai="center"
             jc="space-between"
             borderWidth="$0"
+            px="$0"
+            mx="$0"
           >
             {children}
           </ListItem>

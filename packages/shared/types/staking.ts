@@ -386,7 +386,7 @@ export interface IBorrowApyDetailPopupData {
     icon: IKeyOfIcons;
   };
   apyDetail: {
-    description?: { text: IEarnText; button: IEarnLinkActionIcon }[];
+    descriptions?: { text: IEarnText; button: IEarnLinkActionIcon }[];
     normal?: IBorrowApyDetailSection;
     supplyBonus?: IBorrowApyDetailSection;
     collateralBonus?: IBorrowApyDetailSection;
@@ -584,7 +584,7 @@ export interface IEarnLinkActionIcon {
   };
   icon?: IEarnIcon;
   disabled?: boolean;
-  text: IEarnText;
+  text?: IEarnText;
 }
 
 export interface IEarnDepositActionIcon {

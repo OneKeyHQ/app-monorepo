@@ -33,7 +33,7 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_DOT, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -519,6 +519,14 @@ function HistoryDetails() {
     let to = decodedTx.actions[0]?.assetTransfer?.to ?? decodedTx.to;
     if (vaultSettings?.impl === IMPL_DOT && !to) {
       to = txDetails?.to;
+    }
+    // Solana: For Receive type transactions, get the actual receiving address from receives array
+    if (
+      vaultSettings?.impl === IMPL_SOL &&
+      isEmpty(sends) &&
+      !isEmpty(receives)
+    ) {
+      to = receives[0]?.to ?? to;
     }
 
     return {

@@ -167,6 +167,7 @@
   "auth.set_passcode": "设置密码",
   "auth.set_password": "设置密码",
   "auth.with_biometric": "使用 {biometric} 进行身份验证",
+  "auth_server_error_text": "服务异常，请检查网络连接或稍后再试。",
   "backing_up_desc": "在备份完成之前，请勿关闭此窗口。",
   "backing_up_title": "正在备份…",
   "backup.address_book_labels": "地址簿和标签",

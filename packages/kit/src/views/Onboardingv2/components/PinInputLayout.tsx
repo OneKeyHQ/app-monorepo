@@ -6,6 +6,7 @@ import type {
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -21,6 +22,7 @@ import {
   Keyboard,
   Page,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -52,6 +54,7 @@ interface IPinInputLayoutProps {
   onEnableInput?: () => void;
   isVerifyPinPage?: boolean;
   onAutoInputPin?: () => void;
+  showInputSkeleton?: boolean;
 }
 
 export interface IPinInputLayoutRef {
@@ -80,11 +83,13 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       onEnableInput,
       isVerifyPinPage,
       onAutoInputPin,
+      showInputSkeleton = false,
     },
     ref,
   ) => {
     const inputRef = useRef<TextInput>(null);
     const { gtMd } = useMedia();
+    const prevShowInputSkeletonRef = useRef(showInputSkeleton);
 
     useImperativeHandle(ref, () => ({
       focus: () => {
@@ -94,6 +99,10 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
 
     useFocusEffect(
       useCallback(() => {
+        // Skip auto-focus if skeleton is showing
+        if (showInputSkeleton) {
+          return;
+        }
         const timer = setTimeout(
           () => {
             inputRef.current?.focus();
@@ -101,8 +110,22 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
           platformEnv.isNative ? 500 : 300,
         );
         return () => clearTimeout(timer);
-      }, []),
+      }, [showInputSkeleton]),
     );
+
+    // Focus when skeleton transitions from shown to hidden
+    useEffect(() => {
+      if (prevShowInputSkeletonRef.current && !showInputSkeleton) {
+        const timer = setTimeout(
+          () => {
+            inputRef.current?.focus();
+          },
+          platformEnv.isNative ? 100 : 50,
+        );
+        return () => clearTimeout(timer);
+      }
+      prevShowInputSkeletonRef.current = showInputSkeleton;
+    }, [showInputSkeleton]);
 
     const handleChangeText = useCallback(
       (text: string) => {
@@ -150,22 +173,26 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                 {/* Input Form */}
                 <HeightTransition initialHeight={50}>
                   <YStack gap="$2">
-                    <Input
-                      ref={inputRef}
-                      size="large"
-                      placeholder={placeholder}
-                      textAlign="center"
-                      fontSize={platformEnv.isNative ? 20 : 24}
-                      h={50}
-                      maxLength={4}
-                      keyboardType="number-pad"
-                      secureTextEntry
-                      value={value}
-                      error={!!errorMessage}
-                      disabled={isInputDisabled}
-                      onChangeText={handleChangeText}
-                      onSubmitEditing={handleSubmitEditing}
-                    />
+                    {showInputSkeleton ? (
+                      <Skeleton h={50} w="100%" radius={12} />
+                    ) : (
+                      <Input
+                        ref={inputRef}
+                        size="large"
+                        placeholder={placeholder}
+                        textAlign="center"
+                        fontSize={platformEnv.isNative ? 20 : 24}
+                        h={50}
+                        maxLength={4}
+                        keyboardType="number-pad"
+                        secureTextEntry
+                        value={value}
+                        error={!!errorMessage}
+                        disabled={isInputDisabled}
+                        onChangeText={handleChangeText}
+                        onSubmitEditing={handleSubmitEditing}
+                      />
+                    )}
                     {errorMessage ? (
                       <SizableText size="$bodySm" color="$textCritical">
                         {errorMessage}

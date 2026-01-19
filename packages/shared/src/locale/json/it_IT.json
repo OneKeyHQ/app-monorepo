@@ -167,6 +167,7 @@
   "auth.set_passcode": "Imposta codice di accesso",
   "auth.set_password": "Imposta password",
   "auth.with_biometric": "Autenticazione con {biometric}",
+  "auth_server_error_text": "Qualcosa è andato storto. Controlla la tua connessione a internet o riprova più tardi.",
   "backing_up_desc": "Non chiudere questa finestra finché il backup non è completo.",
   "backing_up_title": "Backup in corso…",
   "backup.address_book_labels": "Rubrica & etichette",
