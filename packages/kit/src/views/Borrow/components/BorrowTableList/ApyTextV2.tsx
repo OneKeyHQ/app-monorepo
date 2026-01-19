@@ -409,10 +409,10 @@ export const ApyTextV2 = ({
         return (
           <Tooltip
             hovering
-            placement="bottom-end"
+            placement="left"
             renderTrigger={<Stack cursor="pointer">{trigger}</Stack>}
             renderContent={
-              <ScrollView maxHeight={480}>
+              <ScrollView>
                 <ApyDetailPopoverContent popupData={popupData} />
               </ScrollView>
             }
