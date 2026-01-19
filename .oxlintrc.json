@@ -4,7 +4,8 @@
     "@cspell/eslint-plugin",
     "eslint-plugin-import-path",
     "eslint-plugin-props-checker",
-    "eslint-plugin-ban"
+    "eslint-plugin-ban",
+    "eslint-plugin-prettier"
   ],
   "plugins": ["unicorn", "typescript", "oxc", "react", "import", "jest"],
   // NOTE: JavaScript ESLint plugins (experimental feature) are not used yet

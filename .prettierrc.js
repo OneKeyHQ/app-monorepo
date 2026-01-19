@@ -4,5 +4,5 @@ module.exports = {
   quoteProps: 'preserve', // let eslint fix quoteProps
   // "printWidth": 120,
   // "tabWidth": 8,
-  plugin: ['@prettier/plugin-oxc'],
+  plugin: ['prettier-oxc-parser'],
 };
