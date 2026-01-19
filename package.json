@@ -1,6 +1,6 @@
 {
   "name": "@onekeyhq/app-monorepo",
-  "packageManager": "yarn@4.1.0",
+  "packageManager": "yarn@4.12.0",
   "private": true,
   "version": "1.0.0",
   "workspaces": [
@@ -148,7 +148,6 @@
     "p-limit": "^6.2.0",
     "p-retry": "^6.2.1",
     "p-timeout": "^6.1.4",
-    "prettier": "3.8.0",
     "punycode": "^2.3.1",
     "react": "19.1.0",
     "react-beautiful-dnd": "13.1.1",
@@ -275,7 +274,7 @@
     "oxfmt": "^0.24.0",
     "oxlint": "1.39.0",
     "patch-package": "8.0.0",
-    "prettier": "^2.8.1",
+    "prettier": "3.8.0",
     "prettier-oxc-parser": "^0.2.0",
     "progress-bar-webpack-plugin": "^2.1.0",
     "react-dev-utils": "^12.0.1",

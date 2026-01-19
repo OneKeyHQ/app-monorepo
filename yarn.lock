@@ -8546,7 +8546,7 @@ __metadata:
     p-retry: "npm:^6.2.1"
     p-timeout: "npm:^6.1.4"
     patch-package: "npm:8.0.0"
-    prettier: "npm:^2.8.1"
+    prettier: "npm:3.8.0"
     prettier-oxc-parser: "npm:^0.2.0"
     progress-bar-webpack-plugin: "npm:^2.1.0"
     punycode: "npm:^2.3.1"
@@ -35778,7 +35778,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^2.5.1, prettier@npm:^2.6.2, prettier@npm:^2.8.1, prettier@npm:^2.8.7":
+"prettier@npm:3.8.0":
+  version: 3.8.0
+  resolution: "prettier@npm:3.8.0"
+  bin:
+    prettier: bin/prettier.cjs
+  checksum: 10/a643c62f095c2987a34cea4fceddce8dea12cc3ee024494aff690cfac22ef20be835e212b39b718c833014fd22890ae156be67b75a26e2bc9b7acde9a34d31fa
+  languageName: node
+  linkType: hard
+
+"prettier@npm:^2.5.1, prettier@npm:^2.6.2, prettier@npm:^2.8.7":
   version: 2.8.8
   resolution: "prettier@npm:2.8.8"
   bin:
@@ -41541,11 +41550,11 @@ __metadata:
 
 "typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>":
   version: 5.9.3
-  resolution: "typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>::version=5.9.3&hash=d69c25"
+  resolution: "typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>::version=5.9.3&hash=5786d5"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/5d416ad4f2ea564f515a3f919e901edbfa4b497cc17dd325c5726046c3eef7ed22d1f59c787267d478311f6f0a265ff790f8a6c7e9df3ea3471458f5ec81e8b7
+  checksum: 10/696e1b017bc2635f4e0c94eb4435357701008e2f272f553d06e35b494b8ddc60aa221145e286c28ace0c89ee32827a28c2040e3a69bdc108b1a5dc8fb40b72e3
   languageName: node
   linkType: hard
 
