@@ -2094,23 +2094,51 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string;
     isCancelAction?: boolean;
   }): Promise<void> {
-    return this.updatePinConfirmStatusMutex.runExclusive(async () => {
-      const { token, isCancelAction } = params;
+    const { token, isCancelAction } = params;
 
-      const client = await this.getClient(EServiceEndpointEnum.Prime);
-      const res = await client.post<IApiClientResponse<{ ok: boolean }>>(
-        '/prime/v1/keyless-wallet/updatePinConfirmStatus',
-        {
-          token,
-          isCancelAction,
-        },
-      );
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    const res = await client.post<IApiClientResponse<{ ok: boolean }>>(
+      '/prime/v1/keyless-wallet/updatePinConfirmStatus',
+      {
+        token,
+        isCancelAction,
+      },
+    );
 
-      const isSuccess =
-        res?.data?.code === 0 && res?.data?.message === 'success';
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
 
-      if (!isSuccess) {
-        throw new OneKeyLocalError('Failed to update pin confirm status');
+    if (!isSuccess) {
+      throw new OneKeyLocalError('Failed to update pin confirm status');
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async cancelVerifyPin(params: {
+    ownerId: string | 'CURRENT_KEYLESS_WALLET';
+  }): Promise<void> {
+    await this.updatePinConfirmStatusMutex.runExclusive(async () => {
+      let { ownerId } = params;
+      if (ownerId === 'CURRENT_KEYLESS_WALLET') {
+        ownerId = '';
+        const wallet =
+          await this.backgroundApi.serviceAccount.getKeylessWallet();
+        if (wallet?.keylessDetailsInfo?.keylessOwnerId) {
+          ownerId = wallet.keylessDetailsInfo.keylessOwnerId;
+        }
+      }
+      if (!ownerId) {
+        throw new OneKeyLocalError(
+          'cancelVerifyPin ERROR: ownerId is required',
+        );
+      }
+      const accessToken = await this.getKeylessCachedAccessToken({ ownerId });
+
+      if (accessToken) {
+        await this.apiUpdatePinConfirmStatus({
+          token: accessToken,
+          isCancelAction: true,
+        });
       }
     });
   }
@@ -2264,6 +2292,7 @@ class ServiceKeylessWallet extends ServiceBase {
   async apiCheckRateLimitStatus(params: { token: string }): Promise<{
     isRateLimited: boolean;
     retryAfterSeconds: number;
+    guessesRemaining: number;
   }> {
     const { token } = params;
     // getJuiceboxClientFromCache already calls exchangeToken internally when creating a new client
