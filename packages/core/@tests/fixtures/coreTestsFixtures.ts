@@ -29,7 +29,6 @@ export type ICoreTestsHdCredential = {
   // seed: string;
 };
 const hdCredential1: ICoreTestsHdCredential = {
-  // eslint-disable-next-line @cspell/spellchecker
   // evm first account: 0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e
   password: '11111111',
   mnemonic:

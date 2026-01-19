@@ -394,7 +394,9 @@ function summarizeEntries(entries) {
       avg: f.total / f.count,
       p95: percentile(f.durations, 95),
     }))
-    .toSorted((a, b) => b.total - a.total || b.count - a.count || b.max - a.max);
+    .toSorted(
+      (a, b) => b.total - a.total || b.count - a.count || b.max - a.max,
+    );
 }
 
 function computeSessionLowFpsHotspots(
@@ -520,7 +522,9 @@ function computeSessionLowFpsHotspots(
       }
       return Array.from(map.values())
         .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-        .toSorted((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+        .toSorted(
+          (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+        )
         .slice(0, 10);
     })();
 
@@ -543,7 +547,9 @@ function computeSessionLowFpsHotspots(
       }
       return Array.from(map.values())
         .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-        .toSorted((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+        .toSorted(
+          (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+        )
         .slice(0, 10);
     })();
 
@@ -702,7 +708,9 @@ function computeSessionJsBlockHotspots(
       }
       return Array.from(map.values())
         .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-        .toSorted((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+        .toSorted(
+          (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+        )
         .slice(0, 10);
     })();
 
@@ -725,7 +733,9 @@ function computeSessionJsBlockHotspots(
       }
       return Array.from(map.values())
         .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-        .toSorted((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+        .toSorted(
+          (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+        )
         .slice(0, 10);
     })();
 
@@ -914,7 +924,9 @@ function computeSessionSpanHotspots(
     }
     return Array.from(map.values())
       .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-      .toSorted((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+      .toSorted(
+        (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+      )
       .slice(0, 10);
   })();
 
@@ -937,7 +949,9 @@ function computeSessionSpanHotspots(
     }
     return Array.from(map.values())
       .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-      .toSorted((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+      .toSorted(
+        (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+      )
       .slice(0, 10);
   })();
 

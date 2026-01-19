@@ -542,7 +542,7 @@ class ServiceWebviewPerp extends ServiceBase {
   }: {
     request: IJsBridgeMessagePayload;
     userAddress: string;
-    // eslint-disable-next-line @cspell/spellchecker
+    // oxlint-disable-next-line @cspell/spellchecker
     chainId: string; // 0xa4b1 Arbitrum hex chainId
     skipApproveAction?: boolean;
   }): Promise<IHyperLiquidUserBuilderFeeStatus> {
