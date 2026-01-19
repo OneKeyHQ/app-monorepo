@@ -32,6 +32,7 @@ import { DeviceManagementButton } from './DeviceManagementButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { WalletBoundReferralCodeButton } from './WalletBoundReferralCodeButton';
 import { WalletRemoveButton } from './WalletRemoveButton';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 function WalletEditButtonView({
   wallet,
@@ -46,6 +47,7 @@ function WalletEditButtonView({
     activeAccount: { network },
   } = useActiveAccount({ num: num ?? 0 });
   const isKeyless = useMemo(() => wallet?.isKeyless, [wallet]);
+  const [devSettings] = useDevSettingsPersistAtom();
 
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
@@ -175,7 +177,7 @@ function WalletEditButtonView({
           ) : null}
 
           {/* Keyless wallet: Verify PIN */}
-          {isKeyless ? (
+          {isKeyless && devSettings.enabled ? (
             <ActionList.Item
               icon="ChecklistOutline"
               label="Verify PIN"
@@ -255,6 +257,7 @@ function WalletEditButtonView({
       intl,
       isResetPinLoading,
       isVerifyPinLoading,
+      devSettings.enabled,
       showBackupButton,
       showDeviceManagementButton,
       showBulkCopyAddressesButton,
