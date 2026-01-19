@@ -2,7 +2,8 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Divider } from '@onekeyhq/components';
+import type { IDialogInstance} from '@onekeyhq/components';
+import { ActionList, Dialog, Divider, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
@@ -125,12 +126,29 @@ function WalletEditButtonView({
       setLoading: (loading: boolean) => void;
       mode: EOnboardingV2OneKeyIDLoginMode;
     }) => {
+      let loadingDialog: IDialogInstance | undefined;
+
       try {
         // _setLoading(true);
         await timerUtils.wait(100);
         await backgroundApiProxy.servicePassword.promptPasswordVerify({
           reason: EReasonForNeedPassword.Security,
         });
+        loadingDialog = Dialog.loading({
+          title: intl.formatMessage({
+            id: ETranslations.global_preparing,
+          }),
+        });
+        const isHealthy =
+          await backgroundApiProxy.serviceKeylessWallet.apiCheckAuthServerStatus();
+        if (!isHealthy) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.auth_server_error_text,
+            }),
+          });
+          return;
+        }
         if (platformEnv.isNative) {
           navigation.popStack();
           await timerUtils.wait(200);
@@ -138,9 +156,10 @@ function WalletEditButtonView({
         await goToOneKeyIDLoginPageForKeylessWallet({ mode });
       } finally {
         // setLoading(false);
+        void loadingDialog?.close();
       }
     },
-    [navigation, goToOneKeyIDLoginPageForKeylessWallet],
+    [navigation, goToOneKeyIDLoginPageForKeylessWallet, intl],
   );
 
   const renderItems = useCallback(
