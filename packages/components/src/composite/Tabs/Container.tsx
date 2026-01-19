@@ -32,10 +32,14 @@ export function ContainerChild({
   children,
   listContainerRef,
   containerWidth,
+  focusedTabName,
+  tabNames,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
   containerWidth: number | string | undefined;
+  focusedTabName: string;
+  tabNames: (string | null)[];
 }) {
   return (
     <TabsScrollContext.Provider value={props}>
@@ -46,12 +50,14 @@ export function ContainerChild({
         style={{ scrollSnapType: 'x' }}
       >
         {Children.map(children, (child, index) => {
+          const isCurrentTab = tabNames[index] === focusedTabName;
           return (
             <div
               style={{
                 width: '100%',
                 flexShrink: 0,
                 scrollSnapAlign: 'center',
+                ...(!isCurrentTab ? ({ contentVisibility: 'hidden' } as any) : {}),
               }}
               key={index}
             >
@@ -398,6 +404,8 @@ export function Container({
                     onChildScroll={onChildScroll}
                     registerChild={registerChild}
                     listContainerRef={listContainerRef as any}
+                    focusedTabName={focusedTab.value}
+                    tabNames={tabNames}
                   >
                     {children}
                   </ContainerChild>

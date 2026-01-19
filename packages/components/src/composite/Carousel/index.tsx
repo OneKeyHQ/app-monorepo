@@ -277,6 +277,9 @@ export function Carousel<T>({
                     style={{
                       width: pageWidth,
                       height: '100%',
+                      ...(platformEnv.isWeb && index !== pageIndex
+                        ? ({ contentVisibility: 'hidden' } as any)
+                        : {}),
                     }}
                   >
                     {renderItem({ item, index })}

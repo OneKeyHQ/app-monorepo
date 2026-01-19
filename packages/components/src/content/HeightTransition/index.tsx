@@ -63,7 +63,16 @@ function HeightTransition({
   );
 
   return (
-    <Animated.View style={[styles.hidden, style, containerStyle]}>
+    <Animated.View
+      style={[
+        styles.hidden,
+        style,
+        containerStyle,
+        platformEnv.isWeb && hide
+          ? ({ contentVisibility: 'hidden' } as any)
+          : {},
+      ]}
+    >
       <Animated.View
         style={[StyleSheet.absoluteFill, styles.autoBottom, childStyle]}
         onLayout={({ nativeEvent }) => {
