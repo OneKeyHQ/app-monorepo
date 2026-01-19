@@ -50,7 +50,7 @@ export class ClientCosmos {
   public async fetchBlockHeaderV1beta1(): Promise<ICosmosBlockHeader> {
     const response = await this.axios.get<{
       block: { header: ICosmosBlockHeader };
-      // eslint-disable-next-line @cspell/spellchecker
+      // oxlint-disable-next-line @cspell/spellchecker
     }>(`/cosmos/base/tendermint/v1beta1/blocks/latest`);
     return response.data.block.header;
   }

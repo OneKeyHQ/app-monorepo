@@ -98,13 +98,13 @@ config.cacheStores = ({ FileStore }) => [
 ];
 
 // Patch for lazy compilation instability: always set lazy=false in bundle requests
-const orignalRewriteRequestUrl =
+const originalRewriteRequestUrl =
   config.server && config.server.rewriteRequestUrl
     ? config.server.rewriteRequestUrl
     : (url) => url;
 config.server = config.server || {};
 config.server.rewriteRequestUrl = (url) =>
-  orignalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
+  originalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
 
 // Apply split code plugin, then wrap with Rozenite plugin
 const splitCodePlugin = require('./plugins');

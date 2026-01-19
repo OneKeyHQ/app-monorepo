@@ -2027,7 +2027,7 @@ class ServiceKeylessWallet extends ServiceBase {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // eslint-disable-next-line @cspell/spellchecker
+          // oxlint-disable-next-line @cspell/spellchecker
           apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
         },
         body: JSON.stringify({

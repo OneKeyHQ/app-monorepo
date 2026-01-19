@@ -20,7 +20,7 @@ const nonStandardPropsKeys: {
 };
 
 // mute Errors like
-// eslint-disable-next-line @cspell/spellchecker
+// oxlint-disable-next-line @cspell/spellchecker
 // Warning: React does not recognize the `borderCurve` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `bordercurve` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
 //      at button
 

@@ -13,7 +13,7 @@ function getSupabaseProjectRef(): string {
 }
 
 // Get Supabase auth session storage key
-// eslint-disable-next-line @cspell/spellchecker
+// oxlint-disable-next-line @cspell/spellchecker
 // Key format: sb-<project-ref>-auth-token (e.g., sb-zvxscjkvkjepbrjncvzt-auth-token)
 export function getSupabaseAuthSessionKey(): string {
   const projectRef = getSupabaseProjectRef();
