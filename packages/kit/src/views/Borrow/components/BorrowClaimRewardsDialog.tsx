@@ -63,7 +63,7 @@ function ClaimItem({
       </YStack>
       <Button
         size="small"
-        variant="secondary"
+        variant="primary"
         disabled={disabled}
         loading={isLoading}
         onPress={handlePress}
@@ -207,7 +207,7 @@ function BorrowClaimRewardsDialogContent({
 
       <Dialog.Footer
         showCancelButton
-        showConfirmButton={hasClaimableItems}
+        showConfirmButton={false}
         confirmButtonProps={{
           disabled: loading || rewardsDetails.disabled || !canClaimAll,
           loading,
