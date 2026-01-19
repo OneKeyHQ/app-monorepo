@@ -291,7 +291,7 @@ class ServiceAccount extends ServiceBase {
         });
       });
       return !resp;
-    } catch (e) {
+    } catch (_e) {
       return true;
     }
   }
@@ -1369,7 +1369,7 @@ class ServiceAccount extends ServiceBase {
   }> {
     try {
       return await this.addHyperLiquidAgentCredential(params);
-    } catch (error) {
+    } catch (_error) {
       return this.updateHyperLiquidAgentCredential(params);
     }
   }
@@ -2049,7 +2049,7 @@ class ServiceAccount extends ServiceBase {
               networkId: accountNetworkId,
             });
           }
-        } catch (e) {
+        } catch (_e) {
           //
         }
         return account;
@@ -3995,7 +3995,7 @@ class ServiceAccount extends ServiceBase {
             networkId,
             deriveType: item.deriveType,
           });
-        } catch (e) {
+        } catch (_e) {
           // fail to get account
         }
         return {
@@ -4076,7 +4076,7 @@ class ServiceAccount extends ServiceBase {
           deriveType,
         });
         return result;
-      } catch (error) {
+      } catch (_error) {
         const isCreated = await new Promise<boolean>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
             resolve,
@@ -4112,7 +4112,7 @@ class ServiceAccount extends ServiceBase {
           deriveType,
         });
         return result;
-      } catch (error) {
+      } catch (_error) {
         showSwitchAccountSelector();
       }
     }
@@ -4451,7 +4451,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: true,
             },
           }));
@@ -4466,7 +4466,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: false,
             },
           }));
@@ -4568,7 +4568,7 @@ class ServiceAccount extends ServiceBase {
         await hardwareWalletXfpStatusAtom.set((v) => ({
           ...v,
           [walletId]: {
-            ...(v?.[walletId] || {}),
+            ...v?.[walletId],
             xfpMissing: false,
           },
         }));
@@ -5172,7 +5172,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     skipEventEmit?: boolean;
   }) {
-    let addedAccounts: IDBAccount[] = [];
+    const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
@@ -5229,7 +5229,7 @@ class ServiceAccount extends ServiceBase {
               deriveType,
               skipAddIfNotEqualToAddress,
             });
-          addedAccounts = [...addedAccounts, ...(accounts || [])];
+          addedAccounts.push(...(accounts || []));
         } catch (e) {
           console.error('addImportedAccountByInput error', e);
         }
@@ -5253,7 +5253,7 @@ class ServiceAccount extends ServiceBase {
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
-    let addedAccounts: IDBAccount[] = [];
+    const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
@@ -5308,7 +5308,7 @@ class ServiceAccount extends ServiceBase {
             isUrlAccount: false,
             skipAddIfNotEqualToAddress,
           });
-          addedAccounts = [...addedAccounts, ...(accounts || [])];
+          addedAccounts.push(...(accounts || []));
         } catch (e) {
           console.error('addWatchingAccountByInput error', e);
         }

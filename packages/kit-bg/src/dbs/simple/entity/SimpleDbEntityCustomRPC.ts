@@ -18,7 +18,7 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
   async addCustomRpc({ rpcInfo }: { rpcInfo: IDBCustomRpc }) {
     await this.setRawData((rawData) => {
       const data: ICustomRpcDBStruct = {
-        data: { ...(rawData?.data || {}) },
+        data: { ...rawData?.data },
       };
       let updatedAt = rpcInfo.updatedAt ?? Date.now();
       if (
@@ -39,7 +39,7 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
   async deleteCustomRpc(networkId: string) {
     await this.setRawData((rawData) => {
       const data: ICustomRpcDBStruct = {
-        data: { ...(rawData?.data || {}) },
+        data: { ...rawData?.data },
       };
       delete data.data[networkId];
       return data;
@@ -54,7 +54,7 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
     const { networkId, enabled } = params;
     await this.setRawData((rawData) => {
       const data: ICustomRpcDBStruct = {
-        data: { ...(rawData?.data || {}) },
+        data: { ...rawData?.data },
       };
       if (data.data[networkId]) {
         data.data[networkId] = {
@@ -70,7 +70,7 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
   @backgroundMethod()
   async getAllCustomRpc(): Promise<IDBCustomRpc[]> {
     const rawData = await this.getRawData();
-    return Object.values(rawData?.data || {}).sort(
+    return Object.values(rawData?.data || {}).toSorted(
       (a, b) => (b?.updatedAt ?? 0) - (a?.updatedAt ?? 0),
     );
   }

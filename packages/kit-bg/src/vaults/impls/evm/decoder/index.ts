@@ -25,7 +25,7 @@ class EVMContractDecoder {
   ): ethers.utils.TransactionDescription | null {
     try {
       return this.erc20Interface.parseTransaction(tx);
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -35,7 +35,7 @@ class EVMContractDecoder {
   ): ethers.utils.TransactionDescription | null {
     try {
       return this.erc721Interface.parseTransaction(tx);
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -45,7 +45,7 @@ class EVMContractDecoder {
   ): ethers.utils.TransactionDescription | null {
     try {
       return this.erc1155Interface.parseTransaction(tx);
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -55,7 +55,7 @@ class EVMContractDecoder {
   ): ethers.utils.TransactionDescription | null {
     try {
       return this.batchTransferInterface.parseTransaction(tx);
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }

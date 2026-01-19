@@ -1,3 +1,5 @@
+/* eslint-disable no-restricted-syntax */
+// oxlint-disable preserve-caught-error
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
@@ -362,7 +364,6 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap fetch token cancel', {
           cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
         });
@@ -1359,7 +1360,7 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSwapHistoryListFromSimple() {
     const histories =
       await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
-    return histories.sort((a, b) => b.date.created - a.date.created);
+    return histories.toSorted((a, b) => b.date.created - a.date.created);
   }
 
   @backgroundMethod()
@@ -2104,7 +2105,7 @@ export default class ServiceSwap extends ServiceBase {
             }, ESwapLimitOrderUpdateInterval);
           }
         }
-      } catch (error) {
+      } catch (_error) {
         this.limitOrderStateInterval = setTimeout(() => {
           void this.swapLimitOrdersFetchLoop(
             indexedAccountId,

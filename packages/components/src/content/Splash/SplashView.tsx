@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Image, Stack } from '../../primitives';
+import { Image } from '../../primitives/Image';
+import { Stack } from '../../primitives/Stack';
 
 import type { ISplashViewProps } from './type';
 

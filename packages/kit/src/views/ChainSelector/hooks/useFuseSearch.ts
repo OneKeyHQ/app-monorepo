@@ -6,7 +6,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-const implArr = ['evm', 'dot', 'cosmos'];
+const implArr = new Set(['evm', 'dot', 'cosmos']);
 
 export const useFuseSearch = (networks: IServerNetwork[]) => {
   const context = useMemo(() => {
@@ -31,7 +31,7 @@ export const useFuseSearch = (networks: IServerNetwork[]) => {
           { name: `'${searchText}` }, // Contains
         ],
       };
-      if (implArr.includes(lowerSearchText)) {
+      if (implArr.has(lowerSearchText)) {
         exp.$or?.push({ impl: `=${lowerSearchText}` });
       }
       if (symbolSet.has(lowerSearchText)) {

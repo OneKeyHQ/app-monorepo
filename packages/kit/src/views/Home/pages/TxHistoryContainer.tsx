@@ -236,7 +236,7 @@ function TxHistoryListContainer(
         });
 
         r.txs = r.txs
-          .sort(
+          .toSorted(
             (b, a) =>
               (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -343,7 +343,7 @@ function TxHistoryListContainer(
         );
         accountHistoryTxs = resp
           .flat()
-          .sort(
+          .toSorted(
             (b, a) =>
               (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),

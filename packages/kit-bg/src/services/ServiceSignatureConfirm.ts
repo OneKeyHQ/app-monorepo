@@ -308,7 +308,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     let messageToParse = message;
     try {
       messageToParse = JSON.parse(messageToParse);
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
 

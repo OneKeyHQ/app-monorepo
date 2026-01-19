@@ -931,7 +931,7 @@ class ServiceUniversalSearch extends ServiceBase {
     ]
       .filter(Boolean)
       // First sort by account type (HD/HW/QR/Imported first, then others)
-      .sort((a, b) => {
+      .toSorted((a, b) => {
         const aAccountId = a?.account?.id || a?.indexedAccount?.id;
         const bAccountId = b?.account?.id || b?.indexedAccount?.id;
         const aPriority = this.getAccountPriority(aAccountId);

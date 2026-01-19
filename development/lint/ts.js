@@ -9,7 +9,7 @@ const startTime = Date.now();
 console.log(`[${getTimestamp()}] TypeScript check started...`);
 
 const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
-const failToExit = (message) => {
+const failToExit = () => {
   console.log(
     `[${getTimestamp()}] TypeScript check failed. (${getDuration()}s)`,
   );
@@ -21,7 +21,6 @@ function handleProblems(result) {
   const basicErrors = [];
 
   for (const problem of parse(result)) {
-    const message = problem.value.message.value;
     basicErrorCount += 1;
     basicErrors.push(problem);
   }

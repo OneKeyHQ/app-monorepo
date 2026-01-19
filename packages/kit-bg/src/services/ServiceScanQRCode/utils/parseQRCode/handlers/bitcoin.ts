@@ -19,7 +19,7 @@ const bitcoin: IQRCodeHandler<IBitcoinValue> = async (value, options) => {
     urnScheme.length + 1,
     split === -1 ? undefined : split,
   );
-  if (/^\/\//.test(address)) {
+  if (address.startsWith('//')) {
     return null;
   }
   const query = split === -1 ? '' : value.slice(split + 1);

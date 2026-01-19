@@ -484,7 +484,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     console.log('ProviderApiPrivate.chainWebEmbedResponse', payload);
     void this.backgroundApi.servicePromise.resolveCallback({
       id: payload?.data?.promiseId,
-      data: { ...(payload?.data?.data ?? {}) },
+      data: { ...payload?.data?.data },
     });
   }
 

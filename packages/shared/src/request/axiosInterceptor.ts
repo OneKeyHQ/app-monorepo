@@ -47,7 +47,7 @@ axios.interceptors.request.use(async (config) => {
       }
       return config;
     }
-  } catch (e) {
+  } catch (_e) {
     return config;
   }
 
@@ -93,7 +93,7 @@ axios.interceptors.response.use(
         }
         return response;
       }
-    } catch (e) {
+    } catch (_e) {
       return response;
     }
 

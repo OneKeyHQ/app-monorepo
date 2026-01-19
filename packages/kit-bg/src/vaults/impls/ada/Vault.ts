@@ -487,7 +487,7 @@ export default class Vault extends VaultBase {
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    const isValid = /^xprv/.test(xprvt) && xprvt.length >= 165;
+    const isValid = xprvt.startsWith('xprv') && xprvt.length >= 165;
     return Promise.resolve({ isValid });
   }
 
