@@ -12,7 +12,7 @@ import {
 import type { PropsWithChildren, RefObject } from 'react';
 
 import { debounce } from 'lodash';
-import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
+import { SharedValue, useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
 import { XStack, YStack } from '../../primitives';
@@ -32,15 +32,28 @@ export function ContainerChild({
   children,
   listContainerRef,
   containerWidth,
-  focusedTabName,
+  focusedTab,
   tabNames,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
   containerWidth: number | string | undefined;
-  focusedTabName: string;
+  focusedTab: SharedValue<string>;
   tabNames: (string | null)[];
 }) {
+  useAnimatedReaction(
+    () => focusedTab.value,
+    (tabName) => {
+      const focusedIndex = tabNames.findIndex(name => name === tabName);
+     if (focusedIndex > -1 && listContainerRef.current) {
+        listContainerRef.current.childNodes.forEach((element, index) => {
+          if (element) {
+          ( (element as HTMLDivElement).style as unknown as  {contentVisibility: 'hidden' | 'visible'}).contentVisibility = focusedIndex === index ? 'visible' : 'hidden'
+          }
+        })
+     }
+    },
+  );
   return (
     <TabsScrollContext.Provider value={props}>
       <XStack
@@ -50,16 +63,12 @@ export function ContainerChild({
         style={{ scrollSnapType: 'x' }}
       >
         {Children.map(children, (child, index) => {
-          const isCurrentTab = tabNames[index] === focusedTabName;
           return (
             <div
               style={{
                 width: '100%',
                 flexShrink: 0,
                 scrollSnapAlign: 'center',
-                ...(!isCurrentTab
-                  ? ({ contentVisibility: 'hidden' } as any)
-                  : {}),
               }}
               key={index}
             >
@@ -406,7 +415,7 @@ export function Container({
                     onChildScroll={onChildScroll}
                     registerChild={registerChild}
                     listContainerRef={listContainerRef as any}
-                    focusedTabName={focusedTab.value}
+                    focusedTab={focusedTab}
                     tabNames={tabNames}
                   >
                     {children}
