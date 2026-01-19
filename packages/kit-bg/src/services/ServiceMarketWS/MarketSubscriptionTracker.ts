@@ -1,6 +1,6 @@
 import type { EChannel } from './const';
 
-export type ISubscriptionType = (typeof EChannel)[keyof typeof EChannel];
+export type ISubscriptionType = typeof EChannel[keyof typeof EChannel];
 
 export type ISubscription = {
   address: string;

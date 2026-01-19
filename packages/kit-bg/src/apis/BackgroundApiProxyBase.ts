@@ -85,8 +85,8 @@ export class BackgroundApiProxyBase
     //    react-native/node_modules/pretty-format
     //    expo/node_modules/pretty-format
     let backgroundMethodNameLocal = backgroundMethodName;
-    const IGNORE_METHODS = ['hasOwnProperty', 'toJSON'];
-    if (platformEnv.isNative && IGNORE_METHODS.includes(methodName)) {
+    const IGNORE_METHODS = new Set(['hasOwnProperty', 'toJSON']);
+    if (platformEnv.isNative && IGNORE_METHODS.has(methodName)) {
       backgroundMethodNameLocal = methodName;
     }
     if (!this.backgroundApi) {
@@ -108,7 +108,7 @@ export class BackgroundApiProxyBase
       result = ensureSerializable(result, true);
       return result;
     }
-    if (!IGNORE_METHODS.includes(backgroundMethodNameLocal)) {
+    if (!IGNORE_METHODS.has(backgroundMethodNameLocal)) {
       return throwMethodNotFound(serviceName, backgroundMethodNameLocal);
     }
   }

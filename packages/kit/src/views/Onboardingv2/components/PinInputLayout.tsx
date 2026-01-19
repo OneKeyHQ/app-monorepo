@@ -48,7 +48,10 @@ interface IPinInputLayoutProps {
   isLoading?: boolean;
   placeholder?: string;
   onClose?: () => Promise<void>;
+  onUnmounted?: () => void;
   onEnableInput?: () => void;
+  isVerifyPinPage?: boolean;
+  onAutoInputPin?: () => void;
 }
 
 export interface IPinInputLayoutRef {
@@ -73,7 +76,10 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       isLoading,
       placeholder = '••••',
       onClose,
+      onUnmounted,
       onEnableInput,
+      isVerifyPinPage,
+      onAutoInputPin,
     },
     ref,
   ) => {
@@ -122,6 +128,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
 
     return (
       <Page
+        onUnmounted={onUnmounted}
         onClose={() => {
           void onClose?.();
         }}
@@ -193,7 +200,11 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                   </XStack>
                 ) : null}
 
-                <KeylessOnboardingDebugPanel />
+                <KeylessOnboardingDebugPanel
+                  isVerifyPinPage={isVerifyPinPage}
+                  onAutoInputPin={onAutoInputPin}
+                  onForceEnableInput={onEnableInput}
+                />
               </YStack>
             </OnboardingLayout.ConstrainedContent>
           </OnboardingLayout.Body>
@@ -203,7 +214,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                 <YStack
                   gap="$2"
                   w="100%"
-                  y={platformEnv.isNative ? '$5' : '$0'}
+                  y={platformEnv.isNativeIOS ? '$5' : '$0'}
                 >
                   <Button
                     size="large"

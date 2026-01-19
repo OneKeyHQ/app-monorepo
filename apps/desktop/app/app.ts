@@ -665,7 +665,7 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
-      w?.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
+      w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
     });
   });
 
@@ -681,7 +681,7 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
-      w?.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
+      w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
     });
   });
 

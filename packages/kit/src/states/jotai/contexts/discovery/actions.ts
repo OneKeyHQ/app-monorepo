@@ -1011,7 +1011,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (deskTopRef) {
             try {
               deskTopRef.executeJavaScript(injectCode);
-            } catch (e) {
+            } catch (_e) {
               // if not dom ready, no need to pause websocket
             }
           }

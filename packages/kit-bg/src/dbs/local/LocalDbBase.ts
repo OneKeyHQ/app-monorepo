@@ -687,7 +687,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
     (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
 
-  // eslint-disable-next-line spellcheck/spell-checker
+  // oxlint-disable-next-line @cspell/spellchecker
   /**
    * Get wallets
    * @param includeAllPassphraseWallet Whether to load the hidden Passphrase wallet
@@ -820,7 +820,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         return newWallet;
       }),
     );
-    wallets = wallets.sort(this.walletSortFn);
+    wallets = wallets.toSorted(this.walletSortFn);
 
     return {
       wallets,
@@ -1069,7 +1069,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }),
         ),
       );
-      wallet.hiddenWallets = wallet.hiddenWallets.sort(this.walletSortFn);
+      wallet.hiddenWallets = wallet.hiddenWallets.toSorted(this.walletSortFn);
     }
 
     // others wallet name i18n
@@ -1167,7 +1167,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       wallet.airGapAccountsInfo = JSON.parse(wallet.airGapAccountsInfoRaw);
     }
 
-    // eslint-disable-next-line spellcheck/spell-checker
+    // oxlint-disable-next-line @cspell/spellchecker
     // wallet.xfp = 'aaaaaaaa'; // mock qr wallet xfp
     return wallet;
   }
@@ -1369,7 +1369,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     accounts = accounts
       .map((a) => this.refillIndexedAccount({ indexedAccount: a }))
-      .sort((a, b) =>
+      .toSorted((a, b) =>
         // indexedAccount sort by index
         natsort({ insensitive: true })(a.order ?? a.index, b.order ?? b.index),
       );
@@ -3792,7 +3792,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             errorUtils.autoPrintErrorIgnore(error);
           }
         }
-        const resultSorted = [...result].sort((a, b) => a.order - b.order);
+        const resultSorted = [...result].toSorted((a, b) => a.order - b.order);
         console.log('getAccountNameFromAddress', { resultSorted, result });
         return resultSorted;
       }
@@ -4188,7 +4188,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         indexedAccount: undefined,
       }),
     );
-    accounts = accounts.sort((a, b) =>
+    accounts = accounts.toSorted((a, b) =>
       natsort({ insensitive: true })(a.accountOrder ?? 0, b.accountOrder ?? 0),
     );
 
@@ -5056,7 +5056,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return records
         .filter((item) => item !== null && item !== undefined)
         .filter((item) => item.deviceId === deviceId)
-        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+        .toSorted((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
     });
   }
 

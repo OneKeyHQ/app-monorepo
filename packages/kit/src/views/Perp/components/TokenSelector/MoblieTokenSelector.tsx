@@ -229,7 +229,7 @@ function MobileTokenSelectorModal({
         assetId: entry.assetId,
       }));
     } else {
-      const sorted = [...combinedEntries].sort((a, b) =>
+      const sorted = [...combinedEntries].toSorted((a, b) =>
         sortCompare(
           { asset: a.asset, sortValues: a.sortValues },
           { asset: b.asset, sortValues: b.sortValues },
@@ -414,7 +414,7 @@ function MobileTokenSelectorModal({
               platformEnv.isNative
                 ? `${activeTab}-${selectorConfig?.field ?? ''}-${
                     selectorConfig?.direction ?? ''
-                  }`
+                  }-${mockedListData.length}`
                 : undefined
             }
             useFlashList
@@ -428,7 +428,7 @@ function MobileTokenSelectorModal({
             contentContainerStyle={{
               paddingBottom: 10,
             }}
-            data={mockedListData} // eslint-disable-line spellcheck/spell-checker
+            data={mockedListData}
             renderItem={({ item: mockedToken }) => (
               <PerpTokenSelectorRow
                 isOnModal

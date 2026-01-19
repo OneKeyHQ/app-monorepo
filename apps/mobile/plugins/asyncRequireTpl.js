@@ -1,3 +1,4 @@
+// oxlint-disable unicorn/prefer-global-this
 const asyncRequire = require('metro-runtime/src/modules/asyncRequire');
 const chunkModuleIdToHashMap = require('__CHUNK_MODULE_ID_TO_HASH_MAP__');
 const { NativeModules } = require('react-native');

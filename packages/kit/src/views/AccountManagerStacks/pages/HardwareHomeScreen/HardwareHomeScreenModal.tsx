@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { useCallback, useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
@@ -649,7 +648,7 @@ export default function HardwareHomeScreenModal({
           });
 
         return { homeScreenList: dataList, isLoadingError: false };
-      } catch (error) {
+      } catch (_error) {
         return { homeScreenList: [], isLoadingError: true };
       }
     },

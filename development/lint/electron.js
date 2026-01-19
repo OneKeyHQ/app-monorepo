@@ -4,6 +4,11 @@ const { execSync } = require('child_process');
 
 const { exit } = require('process');
 
+const getTimestamp = () => new Date().toLocaleTimeString();
+const startTime = Date.now();
+
+console.log(`[${getTimestamp()}] Electron build check started...`);
+
 const projectPath = path.join(__dirname, '..', '..');
 const desktopPath = path.join(projectPath, 'apps', 'desktop');
 
@@ -40,5 +45,11 @@ try {
   throw new Error(
     `APP_NAME must be set to "OneKey Wallet" in the built app.js file. ` +
       `Expected: ${expectedAppName}`,
+    { cause: grepError },
   );
 }
+
+const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+console.log(
+  `[${getTimestamp()}] Electron build check completed. (${duration}s)`,
+);

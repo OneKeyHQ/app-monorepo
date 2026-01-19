@@ -73,7 +73,7 @@ interface IUniversalSection {
 
 const getSearchTypes = () => {
   return [
-    EUniversalSearchType.Address,
+    !platformEnv.isWebDappMode && EUniversalSearchType.Address,
     EUniversalSearchType.MarketToken,
     EUniversalSearchType.V2MarketToken,
     // Hide AccountAssets search in WebDapp mode
@@ -181,9 +181,10 @@ export function UniversalSearch({
         intl.formatMessage({
           id: ETranslations.global_universal_search_tabs_my_assets,
         }),
-      intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_dapps,
-      }),
+      !platformEnv.isWebDappMode &&
+        intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_dapps,
+        }),
     ].filter(Boolean);
   }, [intl]);
 

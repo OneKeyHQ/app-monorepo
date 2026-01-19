@@ -1,8 +1,10 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { Stack, XStack, YStack } from '@onekeyhq/components';
+import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
+import { useContractMapAtom } from '../../states/jotai/contexts/approvalList';
 import { ListItem } from '../ListItem';
 
 import ApprovalCheckMark from './ApprovalCheckMark';
@@ -25,6 +27,19 @@ function ApproveListItem(props: IProps) {
 
   const { tableLayout } = useApprovalListViewContext();
 
+  const [{ contractMap }] = useContractMapAtom();
+
+  const contract = useMemo(
+    () =>
+      contractMap[
+        approvalUtils.buildContractMapKey({
+          networkId: approval.networkId,
+          contractAddress: approval.contractAddress,
+        })
+      ],
+    [contractMap, approval.networkId, approval.contractAddress],
+  );
+
   const renderFirstColumn = useCallback(() => {
     return (
       <XStack
@@ -40,6 +55,7 @@ function ApproveListItem(props: IProps) {
         <ContractIconView
           address={approval.contractAddress}
           networkId={approval.networkId}
+          contract={contract}
         />
         <YStack flex={1}>
           <ContractNameView
@@ -47,6 +63,7 @@ function ApproveListItem(props: IProps) {
             networkId={approval.networkId}
             isRiskContract={approval.isRiskContract}
             isInactiveApproval={approval.isInactiveApproval}
+            contract={contract}
           />
           {tableLayout ? (
             <ContractNetworkView networkId={approval.networkId} />
@@ -64,7 +81,7 @@ function ApproveListItem(props: IProps) {
         </YStack>
       </XStack>
     );
-  }, [approval, tableLayout]);
+  }, [approval, tableLayout, contract]);
 
   const renderSecondColumn = useCallback(() => {
     if (!tableLayout) {

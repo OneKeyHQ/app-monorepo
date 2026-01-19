@@ -58,7 +58,7 @@ class HyperLiquidErrorResolver {
       if (matcher.type === 'regex' && matcher.pattern) {
         try {
           this.compiledMatchers.set(key, new RegExp(matcher.pattern));
-        } catch (error) {
+        } catch (_error) {
           console.error(
             `[HyperLiquidErrorResolver] Invalid regex pattern for ${key}:`,
             matcher.pattern,

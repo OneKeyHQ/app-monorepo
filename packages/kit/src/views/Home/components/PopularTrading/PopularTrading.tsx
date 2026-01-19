@@ -44,6 +44,10 @@ import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
 
+function getTokenKey(token: { chainId: string; contractAddress: string }) {
+  return `${token.chainId}:${token.contractAddress}`;
+}
+
 interface IFavoriteTokenDisplay {
   chainId: string;
   contractAddress: string;
@@ -63,7 +67,7 @@ function RecommendCardItem({
 }: {
   token: IFavoriteTokenDisplay;
   checked: boolean;
-  onChange: (checked: boolean, contractAddress: string) => void;
+  onChange: (checked: boolean, tokenKey: string) => void;
 }) {
   const { sharedFrameStyles } = useMemo(
     () =>
@@ -87,11 +91,11 @@ function RecommendCardItem({
       borderRadius="$3"
       borderWidth={1}
       borderColor="$neutral3"
-      onPress={() => onChange(!checked, token.contractAddress)}
+      onPress={() => onChange(!checked, getTokenKey(token))}
       ai="center"
       $sm={{
         px: '$2.5',
-        py: '$1.5',
+        py: '$2.5',
       }}
     >
       <XStack gap="$3" ai="center" flexShrink={1}>
@@ -385,7 +389,15 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           return;
         }
 
-        targetList = recommendedTokens.slice(0, displayCount).map((token) => ({
+        const seen = new Set<string>();
+        const uniqueTokens = recommendedTokens.filter((token) => {
+          const key = getTokenKey(token);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        targetList = uniqueTokens.slice(0, displayCount).map((token) => ({
           chainId: token.chainId,
           contractAddress: token.contractAddress,
           isNative: token.isNative ?? false,
@@ -458,18 +470,15 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     }
   }, [hasUserFavorites, favoriteTokens]);
 
-  // Handle checkbox toggle
   const handleRecommendItemChange = useCallback(
-    (checked: boolean, contractAddress: string) => {
-      const token = favoriteTokens.find(
-        (t) => t.contractAddress === contractAddress,
-      );
+    (checked: boolean, tokenKey: string) => {
+      const token = favoriteTokens.find((t) => getTokenKey(t) === tokenKey);
       if (!token) return;
 
       setSelectedTokens((prev) =>
         checked
           ? [...prev, token]
-          : prev.filter((i) => i.contractAddress !== contractAddress),
+          : prev.filter((t) => getTokenKey(t) !== tokenKey),
       );
     },
     [favoriteTokens],
@@ -513,7 +522,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       // Notify Market page to refresh watchlist
       appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
       await refreshData();
-    } catch (error) {
+    } catch (_error) {
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.global_an_error_occurred,
@@ -539,7 +548,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         // Notify Market page to refresh watchlist
         appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
         await refreshData();
-      } catch (error) {
+      } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_an_error_occurred,
@@ -577,10 +586,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     [navigation, marketTab],
   );
 
-  // Render card layout for empty state (no user favorites)
   const renderEmptyStateCards = useCallback(() => {
     const isTokenSelected = (token: IFavoriteTokenDisplay) =>
-      selectedTokens.some((t) => t.contractAddress === token.contractAddress);
+      selectedTokens.some((t) => getTokenKey(t) === getTokenKey(token));
 
     const renderCardItem = (token: IFavoriteTokenDisplay) => (
       <RecommendCardItem
@@ -591,8 +599,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       />
     );
 
-    // Mobile: 2 rows x 2 items each
-    if (platformEnv.isNative) {
+    if (!tableLayout) {
       return (
         <YStack gap="$2.5" width="100%">
           {[0, 1].map((rowIndex) => (
@@ -606,13 +613,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       );
     }
 
-    // Desktop: 4 items in one row
     return (
       <XStack gap="$3" width="100%">
         {favoriteTokens.map(renderCardItem)}
       </XStack>
     );
-  }, [favoriteTokens, selectedTokens, handleRecommendItemChange]);
+  }, [favoriteTokens, selectedTokens, handleRecommendItemChange, tableLayout]);
 
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {

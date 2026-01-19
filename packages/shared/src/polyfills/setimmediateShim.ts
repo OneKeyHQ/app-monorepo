@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/prefer-global-this */
+// oxlint-disable unicorn/prefer-global-this
 import 'setimmediate';
 
 /*

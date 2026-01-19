@@ -238,7 +238,7 @@ function TokenSelector() {
                 accountId: resp.accounts[0]?.id,
               });
             }
-          } catch (e) {
+          } catch (_e) {
             updateCreateAccountState({
               isCreatingAccount: false,
               token: null,

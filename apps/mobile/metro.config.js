@@ -37,7 +37,7 @@ config.resolver.sourceExts = [
 
 // Provide extra shims/polyfills for node modules
 config.resolver.extraNodeModules = {
-  ...(config.resolver.extraNodeModules || {}),
+  ...config.resolver.extraNodeModules,
   crypto: require.resolve(
     '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.native.js',
   ),
@@ -98,13 +98,13 @@ config.cacheStores = ({ FileStore }) => [
 ];
 
 // Patch for lazy compilation instability: always set lazy=false in bundle requests
-const orignalRewriteRequestUrl =
+const originalRewriteRequestUrl =
   config.server && config.server.rewriteRequestUrl
     ? config.server.rewriteRequestUrl
     : (url) => url;
 config.server = config.server || {};
 config.server.rewriteRequestUrl = (url) =>
-  orignalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
+  originalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
 
 // Apply split code plugin, then wrap with Rozenite plugin
 const splitCodePlugin = require('./plugins');
@@ -147,8 +147,7 @@ const applyFixImageAssetsMiddleware = (middleware) => {
   };
 };
 
-const outputChunkDir = path.resolve(projectRoot, 'dist/chunks');
-config.server.enhanceMiddleware = (metroMiddleware, metroServer) =>
+config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
   connect().use(applyFixImageAssetsMiddleware(metroMiddleware));
 
 module.exports = withRozenite(splitCodePlugin(config, projectRoot), {

@@ -8,9 +8,11 @@ import {
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useIsModalPage, useIsOverlayPage } from '../../hocs';
 import { Spinner, Stack, View, YStack } from '../../primitives';
+import { rootNavigationRef } from '../Navigation';
 
 import { useIsIpadModalPage, useTabBarHeight } from './hooks';
 import {
@@ -141,10 +143,29 @@ const AbsoluteLoadingContainer = platformEnv.isNativeIOS
       const [showLoading, changeLoadingVisibleStatus] = useState(true);
       const [showChildren, changeChildrenVisibleStatus] = useState(false);
       const isModalPage = useIsModalPage();
-      useEffect(() => {
+      const shouldShowLoading = useMemo(() => {
         if (!isModalPage) {
-          return;
+          return false;
         }
+        const rootState = rootNavigationRef.current?.getRootState();
+        const modalRoute = rootState?.routes[rootState.index];
+        if (modalRoute?.name !== ERootRoutes.Modal) {
+          return false;
+        }
+
+        // The first modal page pushed hasn't generated its own navigation state yet,
+        // so we show blank loading for a smoother transition animation.
+        if (!modalRoute.state) {
+          return true;
+        }
+        // Pages within the modal's stack (index > 0) don't need blank loading,
+        // only the first modal page (index === 0) requires it.
+        if (modalRoute.state?.index === 0) {
+          return false;
+        }
+        return false;
+      }, [isModalPage]);
+      useEffect(() => {
         setTimeout(() => {
           changeChildrenVisibleStatus(true);
           setTimeout(() => {
@@ -155,7 +176,7 @@ const AbsoluteLoadingContainer = platformEnv.isNativeIOS
         }, 1);
       }, [isModalPage]);
 
-      return isModalPage ? (
+      return shouldShowLoading ? (
         <>
           {showChildren ? children : null}
           {showLoading ? <AbsoluteContainer /> : null}

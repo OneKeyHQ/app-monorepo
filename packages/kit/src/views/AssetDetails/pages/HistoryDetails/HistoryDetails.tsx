@@ -29,7 +29,10 @@ import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_HISTORY,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -411,6 +414,7 @@ function HistoryDetails() {
       historyTxParam,
     ],
     {
+      debounced: POLLING_DEBOUNCE_INTERVAL,
       watchLoading: true,
       alwaysSetState: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
@@ -1095,7 +1099,7 @@ function HistoryDetails() {
   );
 
   const renderHistoryDetails = useCallback(() => {
-    if (isLoading && !historyInit.current) {
+    if (isLoading && !historyInit.current && !historyTxParam) {
       return (
         <Stack pt={240} justifyContent="center" alignItems="center">
           <Spinner size="large" />
@@ -1255,6 +1259,7 @@ function HistoryDetails() {
     );
   }, [
     isLoading,
+    historyTxParam,
     transfersToRender,
     intl,
     renderTxStatus,

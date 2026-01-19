@@ -12,6 +12,8 @@ import {
   OneKeyLocalError,
   RequestLimitExceededError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -47,7 +49,7 @@ export class JuiceboxClient {
 
   private juiceboxTokenCache: Map<string, IJuiceboxTokenCacheItem>; // realmId (hex) -> { token, pinHash }
 
-  private client: Client; // Client from juicebox-sdk
+  private client: Client | null = null; // Client from juicebox-sdk
 
   private bindGlobalAuthTokenProvider(): void {
     // Set global callback for juicebox-sdk
@@ -160,6 +162,10 @@ export class JuiceboxClient {
   }): Promise<void> {
     const { pin, secret, userInfo } = params;
 
+    if (!this.client) {
+      throw new OneKeyLocalError('Juicebox client is not initialized');
+    }
+
     // Validate token cache is not empty
     if (this.juiceboxTokenCache.size === 0) {
       throw new OneKeyLocalError(
@@ -206,6 +212,10 @@ export class JuiceboxClient {
     const enableKeylessDebugInfo =
       !!devSettingsPersist.enabled &&
       !!devSettingsPersist.settings?.enableKeylessDebugInfo;
+
+    if (!this.client) {
+      throw new OneKeyLocalError('Juicebox client is not initialized');
+    }
 
     try {
       const { pin, userInfo, skipTokenCacheClear } = params;
@@ -262,7 +272,11 @@ export class JuiceboxClient {
         error?.guesses_remaining ?? error?.guessesRemaining;
 
       defaultLogger.wallet.keyless.juiceboxRecoverError({
-        message: error?.message || 'Juicebox SDK recover unknown error',
+        message:
+          error?.message ||
+          appLocale.intl.formatMessage({
+            id: ETranslations.failed_to_recover_secret_from_storage,
+          }),
         sdkError: error,
       });
 
@@ -279,7 +293,11 @@ export class JuiceboxClient {
       }
 
       throw new OneKeyLocalError({
-        message: error?.message || 'Juicebox SDK recover unknown error',
+        message:
+          error?.message ||
+          appLocale.intl.formatMessage({
+            id: ETranslations.failed_to_recover_secret_from_storage,
+          }),
         data: {
           guessesRemaining,
           reason: error?.reason,
@@ -325,6 +343,7 @@ export class JuiceboxClient {
   async checkRateLimitStatus(): Promise<{
     isRateLimited: boolean;
     retryAfterSeconds: number;
+    guessesRemaining: number;
   }> {
     if (this.juiceboxTokenCache.size === 0) {
       throw new OneKeyLocalError(
@@ -341,6 +360,8 @@ export class JuiceboxClient {
 
     const response = await axios.get<{
       // {"num_guess":10,"guess_count":3,"retry_after":0}
+      num_guess: number;
+      guess_count: number;
       retry_after: number;
     }>(`${firstRealm.address}/limit`, {
       headers: {
@@ -349,10 +370,14 @@ export class JuiceboxClient {
     });
 
     const retryAfter = response.data.retry_after ?? 0;
+    const numGuess = response.data.num_guess ?? 0;
+    const guessCount = response.data.guess_count ?? 0;
+    const guessesRemaining = Math.max(0, numGuess - guessCount);
 
     return {
       isRateLimited: retryAfter > 0,
       retryAfterSeconds: retryAfter,
+      guessesRemaining,
     };
   }
 
@@ -362,5 +387,16 @@ export class JuiceboxClient {
    */
   clearTokenCache(): void {
     this.juiceboxTokenCache.clear();
+  }
+
+  /**
+   * Dispose this instance and release best-effort resources.
+   *
+   * Note: this does NOT unbind the global auth token callback because the
+   * juicebox-sdk uses a single global callback shared across all instances.
+   */
+  dispose(): void {
+    this.juiceboxTokenCache.clear();
+    this.client = null;
   }
 }

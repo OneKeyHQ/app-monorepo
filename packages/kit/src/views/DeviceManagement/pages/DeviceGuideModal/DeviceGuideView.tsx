@@ -56,7 +56,7 @@ function VideoContainer() {
 
   const maskStyle = useMemo(() => {
     const gradient = gtMd
-      ? 'linear-gradient(90deg, transparent 0%, black 70%)'
+      ? 'linear-gradient(90deg, transparent 0%, black 80%)'
       : 'linear-gradient(180deg, transparent 15%, black 70%)';
 
     return {
@@ -64,6 +64,10 @@ function VideoContainer() {
       WebkitMaskImage: gradient,
     };
   }, [gtMd]);
+
+  const handleVideoLoad = useCallback(() => {
+    setIsVideoLoaded(true);
+  }, []);
 
   return (
     <Stack
@@ -81,7 +85,7 @@ function VideoContainer() {
       bottom="20%"
       $gtMd={{
         bottom: 0,
-        left: 0,
+        left: '25%',
         top: 0,
         right: 0,
       }}
@@ -91,9 +95,10 @@ function VideoContainer() {
         position="absolute"
         width="100%"
         height="100%"
-        $platform-web={maskStyle}
+        $platform-web={{
+          ...maskStyle,
+        }}
       >
-        {/* Show poster image as fallback while video is loading */}
         {!isVideoLoaded ? (
           <Image
             position="absolute"
@@ -107,6 +112,7 @@ function VideoContainer() {
           muted
           autoPlay
           repeat
+          rate={0.8}
           position="absolute"
           width="100%"
           height="100%"
@@ -114,9 +120,8 @@ function VideoContainer() {
           playInBackground={false}
           resizeMode={EVideoResizeMode.COVER}
           source={videoSource}
-          onLoad={() => setIsVideoLoaded(true)}
+          onLoad={handleVideoLoad}
         />
-        {/* Native gradient overlay - fades video to background */}
         <LinearGradient
           colors={[
             'transparent',
@@ -205,18 +210,13 @@ function ButtonContainer() {
 
   if (gtMd) {
     return (
-      <XStack
-        gap="$3"
-        flexWrap="wrap"
-        flexDirection="row"
-        justifyContent="flex-start"
-      >
+      <XStack gap="$3" flexDirection="row" justifyContent="flex-start">
         <Button
           size="medium"
           borderRadius="$full"
           variant="primary"
-          minWidth={160}
           onPress={onAddDevice}
+          px="$4"
         >
           {intl.formatMessage({
             id: ETranslations.global_connect_hardware_wallet,
@@ -231,6 +231,7 @@ function ButtonContainer() {
           bg="$neutral2"
           iconAfter="ArrowTopRightOutline"
           onPress={handleBuyButtonPress}
+          px="$4"
           $platform-web={{
             style: {
               backdropFilter: 'blur(16px)',
@@ -238,8 +239,7 @@ function ButtonContainer() {
             },
           }}
         >
-          {intl.formatMessage({ id: ETranslations.global_buy_one })}
-          OneKey
+          {intl.formatMessage({ id: ETranslations.global_buy })} OneKey
         </Button>
       </XStack>
     );
@@ -310,8 +310,9 @@ function DeviceGuideViewContent() {
           alignItems={undefined}
           $gtMd={{
             gap: '$10',
-            maxWidth: 400,
+            maxWidth: 480,
             alignItems: 'flex-start',
+            marginTop: -48,
           }}
         >
           <DescriptionInfo />

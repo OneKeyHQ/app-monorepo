@@ -70,7 +70,7 @@ function extractRootDomain(hostname: string): string {
  * These domains don't have their own IP Table config, but share the same
  * infrastructure as the main API domains (onekeycn.com/onekeytest.com)
  */
-const SHARED_IP_DOMAINS = ['onekey.so'];
+const SHARED_IP_DOMAINS = new Set(['onekey.so']);
 
 /**
  * Get the mapped domain for IP lookup
@@ -79,7 +79,7 @@ const SHARED_IP_DOMAINS = ['onekey.so'];
 async function getMappedDomainForIpLookup(
   rootDomain: string,
 ): Promise<string | null> {
-  if (!SHARED_IP_DOMAINS.includes(rootDomain)) {
+  if (!SHARED_IP_DOMAINS.has(rootDomain)) {
     return null;
   }
 
@@ -431,7 +431,7 @@ export function createIpTableAdapter(
         const baseUrlObj = new URL(config.baseURL);
         hostname = baseUrlObj.hostname;
       }
-    } catch (error) {
+    } catch (_error) {
       // If URL parsing fails, use original adapter (direct request, not fallback)
       debugLog('[IpTableAdapter] URL parsing failed, using fallback');
       return callOriginalAdapter({ config, isFallback: false });

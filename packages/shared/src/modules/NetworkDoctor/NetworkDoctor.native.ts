@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
@@ -444,7 +443,7 @@ export class NetworkDoctor {
         resolved = true;
         try {
           socket.destroy();
-        } catch (e) {
+        } catch (_e) {
           // ignore socket destroy errors
         }
 

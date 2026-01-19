@@ -106,33 +106,44 @@ export function BorrowAssetSelectPopoverContent({
 
   if (isLoading) {
     return (
-      <YStack p="$2" gap="$3">
-        <XStack px="$3" pb="$1" justifyContent="space-between">
-          <Skeleton w="$10" h="$3" />
-          <Skeleton w="$14" h="$3" />
-        </XStack>
-        {[1, 2, 3].map((i) => (
-          <XStack
-            key={i}
-            alignItems="center"
-            justifyContent="space-between"
-            gap="$3"
-            py="$2"
-            px="$3"
-          >
-            <XStack flex={1} alignItems="center" gap="$2.5">
-              <Skeleton w="$8" h="$8" radius="round" />
-              <Stack>
-                <Skeleton w="$12" h="$4" />
-              </Stack>
+      <Stack position="relative" overflow="hidden">
+        <YStack p="$5" alignItems="center">
+          <SizableText size="$bodyMd" color="transparent">
+            {intl.formatMessage({ id: ETranslations.global_no_results })}
+          </SizableText>
+        </YStack>
+        <Stack
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          ai="center"
+          jc="center"
+          pointerEvents="none"
+        >
+          <Stack w="100%">
+            <XStack
+              alignItems="center"
+              justifyContent="space-between"
+              gap="$3"
+              py="$2"
+              px="$3"
+            >
+              <XStack flex={1} alignItems="center" gap="$2.5">
+                <Skeleton w="$8" h="$8" radius="round" />
+                <Stack>
+                  <Skeleton w="$12" h="$4" />
+                </Stack>
+              </XStack>
+              <YStack alignItems="flex-end">
+                <Skeleton w="$16" h="$4" />
+                <Skeleton w="$12" h="$3" mt="$1" />
+              </YStack>
             </XStack>
-            <YStack alignItems="flex-end">
-              <Skeleton w="$16" h="$4" />
-              <Skeleton w="$12" h="$3" mt="$1" />
-            </YStack>
-          </XStack>
-        ))}
-      </YStack>
+          </Stack>
+        </Stack>
+      </Stack>
     );
   }
 

@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -28,7 +27,7 @@ export const TRANSFER_METHOD = {
 
 const { QR_CODE, ENTER_LINK } = TRANSFER_METHOD;
 
-type ITransferMethod = (typeof TRANSFER_METHOD)[keyof typeof TRANSFER_METHOD];
+type ITransferMethod = typeof TRANSFER_METHOD[keyof typeof TRANSFER_METHOD];
 
 export function PrimeTransferHome({
   remotePairingCode,

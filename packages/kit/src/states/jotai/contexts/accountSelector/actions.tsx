@@ -167,7 +167,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 selectedAccount,
               },
             ));
-        } catch (error) {
+        } catch (_error) {
           //
           activeAccount = {
             ...defaultActiveAccountInfo(),
@@ -1308,9 +1308,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       console.log('updateHwWalletsDeprecatedStatus >>>> ', {
         willUpdateDeprecateMap,
       });
-      await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
-        willUpdateDeprecateMap,
-      });
+      const result =
+        await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
+          willUpdateDeprecateMap,
+        });
+      if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+        appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      }
     },
   );
 
@@ -2113,7 +2117,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   // others wallet contains next available account, no need to switch to other hd hw wallet
                   shouldSelectHdHwWallet = false;
                 }
-              } catch (e) {
+              } catch (_e) {
                 //
               }
             }

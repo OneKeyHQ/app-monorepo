@@ -1,23 +1,31 @@
+import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { ColorTokens } from '@onekeyhq/components';
 import {
   DashText,
   Divider,
   Icon,
   Popover,
+  ScrollView,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IBorrowApy,
+  IBorrowApyComponent,
   IBorrowApyDetailItem,
   IBorrowApyDetailPopupData,
   IBorrowApyDetailSection,
@@ -28,6 +36,57 @@ type IApyTextV2Props = {
   triggerMode?: 'underline' | 'icon';
 };
 
+function hasSectionContent(section?: IBorrowApyDetailSection) {
+  if (!section) return false;
+  return Boolean(
+    section.items.length ||
+      section.apyComponents?.length ||
+      section.descriptions?.length,
+  );
+}
+
+function ApyComponentBar({
+  components,
+}: {
+  components?: IBorrowApyComponent[];
+}) {
+  const segments = useMemo(() => {
+    if (!components?.length) return [];
+    const normalized = components.map((component) => {
+      const numericValue = Number.parseFloat(component.value);
+      const safeValue = Number.isFinite(numericValue)
+        ? Math.max(numericValue, 0)
+        : 0;
+      return {
+        color: component.color || '$bgSubdued',
+        weight: safeValue,
+      };
+    });
+    const total = normalized.reduce((sum, segment) => sum + segment.weight, 0);
+    if (total <= 0) {
+      return normalized.map((segment) => ({
+        ...segment,
+        weight: 1,
+      }));
+    }
+    return normalized;
+  }, [components]);
+
+  if (!segments.length) return null;
+
+  return (
+    <XStack h="$1.5" bg="$bgSubdued" borderRadius="$full" overflow="hidden">
+      {segments.map((segment, index) => (
+        <Stack
+          key={index}
+          flex={segment.weight}
+          bg={segment.color as ColorTokens}
+        />
+      ))}
+    </XStack>
+  );
+}
+
 function ApyDetailSection({
   section,
   showDivider,
@@ -35,69 +94,91 @@ function ApyDetailSection({
   section?: IBorrowApyDetailSection;
   showDivider?: boolean;
 }) {
-  if (!section || section.items.length === 0) return null;
+  if (!section) return null;
+  if (!hasSectionContent(section)) return null;
+
+  const hasItems = section.items.length > 0;
+  const hasComponents = Boolean(section.apyComponents?.length);
+  const hasDescriptions = Boolean(section.descriptions?.length);
 
   return (
     <>
       {/* Section Title */}
       {section.title ? (
-        <SizableText
+        <EarnText
+          text={section.title}
           size="$bodySmMedium"
           color="$textSubdued"
-          mt="$4"
-          mb="$3.5"
-        >
-          <EarnText text={section.title} />
-        </SizableText>
+          mb={hasComponents ? '$0' : '$3.5'}
+        />
+      ) : null}
+
+      {hasComponents ? (
+        <Stack mt="$3.5" mb="$3.5">
+          <ApyComponentBar components={section.apyComponents} />
+        </Stack>
       ) : null}
 
       {/* Section Items */}
-      <YStack gap="$3.5">
-        {section.items.map((item: IBorrowApyDetailItem, index: number) => (
-          <XStack key={index} jc="space-between" ai="flex-start">
-            <XStack ai="flex-start" gap="$2.5" flex={1}>
-              {item.icon ? (
-                <Icon name={item.icon.icon} size="$4" color="$iconSubdued" />
-              ) : null}
-              {!item.icon && item.logoURI ? (
-                <Token size="sm" tokenImageUri={item.logoURI} />
-              ) : null}
-              <YStack flex={1} gap="$0.5">
-                <EarnText
-                  text={item.title}
-                  size="$bodyMdMedium"
-                  color="$text"
-                />
-                {item.description ? (
-                  <EarnText
-                    text={item.description}
-                    size="$bodySm"
-                    color="$textSubdued"
-                  />
+      {hasItems ? (
+        <YStack gap="$3.5">
+          {section.items.map((item: IBorrowApyDetailItem, index: number) => (
+            <XStack key={index} jc="space-between" ai="flex-start">
+              <XStack ai="center" gap="$2.5" flex={1}>
+                {item.icon ? (
+                  <EarnIcon icon={item.icon} size="$4" color="$iconSubdued" />
                 ) : null}
-              </YStack>
+                {!item.icon && item.logoURI ? (
+                  <Token size="xxs" tokenImageUri={item.logoURI} />
+                ) : null}
+                <YStack flex={1} gap="$0.5">
+                  <EarnText
+                    text={item.title}
+                    size="$bodyMdMedium"
+                    color="$text"
+                  />
+                  {item.description ? (
+                    <EarnText
+                      text={item.description}
+                      size="$bodySm"
+                      color="$textSubdued"
+                    />
+                  ) : null}
+                </YStack>
+              </XStack>
+              <XStack ai="center" gap="$1">
+                {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
+                <ApyTextV2 apyDetail={item.value} triggerMode="icon" />
+              </XStack>
             </XStack>
-            <XStack ai="center" gap="$1">
-              {item.value.icon ? <EarnIcon icon={item.value.icon} /> : null}
-              <EarnText text={item.value.text} size="$bodyMd" color="$text" />
-            </XStack>
-          </XStack>
-        ))}
-      </YStack>
+          ))}
+        </YStack>
+      ) : null}
 
       {/* Section Descriptions - at the bottom */}
-      {section.descriptions?.map((desc, index) => (
-        <EarnText
-          key={index}
-          text={desc}
-          size="$bodySm"
-          color="$textSubdued"
-          mt="$3.5"
-          mb="$1"
-        />
-      ))}
+      {hasDescriptions ? (
+        <YStack gap="$2.5" mt="$3.5">
+          {section.descriptions?.map((desc, index) => {
+            const bulletColor = section.apyComponents?.[index]?.color;
+            return (
+              <XStack key={index} ai="center" gap="$2">
+                {bulletColor ? (
+                  <Stack p="$1" ai="center" jc="center">
+                    <Icon
+                      name="CirclePlaceholderOnSolid"
+                      size="$1.5"
+                      color={bulletColor as ColorTokens}
+                    />
+                  </Stack>
+                ) : null}
+                <EarnText text={desc} size="$bodySm" color="$textSubdued" />
+              </XStack>
+            );
+          })}
+        </YStack>
+      ) : null}
 
-      {showDivider ? <Divider my="$3" /> : null}
+      {showDivider ? <Divider my="$4" /> : null}
     </>
   );
 }
@@ -124,7 +205,8 @@ function ApyDetailTotalItem({
           ) : null}
         </YStack>
       </XStack>
-      <EarnText text={value.text} size="$bodyMd" color="$text" />
+      {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
+      <ApyTextV2 apyDetail={value} triggerMode="icon" />
     </XStack>
   );
 }
@@ -135,6 +217,19 @@ function ApyDetailPopoverContent({
 }: {
   popupData: IBorrowApyDetailPopupData | undefined;
 }) {
+  const platformSection =
+    popupData?.apyDetail.myPlatformBonusShare ||
+    popupData?.apyDetail.platformBonus;
+  const collateralSection =
+    popupData?.apyDetail.myCollateralShare ||
+    popupData?.apyDetail.collateralBonus;
+  const supplySection = popupData?.apyDetail.supplyBonus;
+  const linkDescriptions = popupData?.apyDetail.description;
+  const hasPlatformSection = hasSectionContent(platformSection);
+  const hasCollateralSection = hasSectionContent(collateralSection);
+  const hasSupplySection = hasSectionContent(supplySection);
+  const hasLinkDescriptions = Boolean(linkDescriptions?.length);
+
   return (
     <YStack
       p="$5"
@@ -147,33 +242,24 @@ function ApyDetailPopoverContent({
       <ApyDetailSection
         section={popupData?.apyDetail.normal}
         showDivider={
-          !!(
-            popupData?.apyDetail.platformBonus ||
-            popupData?.apyDetail.collateralBonus ||
-            popupData?.apyDetail.supplyBonus
-          )
+          !!(hasPlatformSection || hasCollateralSection || hasSupplySection)
         }
       />
 
       {/* Platform Bonus section */}
       <ApyDetailSection
-        section={popupData?.apyDetail.platformBonus}
-        showDivider={
-          !!(
-            popupData?.apyDetail.collateralBonus ||
-            popupData?.apyDetail.supplyBonus
-          )
-        }
+        section={platformSection}
+        showDivider={!!(hasCollateralSection || hasSupplySection)}
       />
 
       {/* Collateral Bonus section */}
       <ApyDetailSection
-        section={popupData?.apyDetail.collateralBonus}
-        showDivider={!!popupData?.apyDetail.supplyBonus}
+        section={collateralSection}
+        showDivider={!!hasSupplySection}
       />
 
       {/* Supply Bonus section */}
-      <ApyDetailSection section={popupData?.apyDetail.supplyBonus} />
+      <ApyDetailSection section={supplySection} />
 
       {/* Total APY (bottom section) */}
       {popupData?.apyDetail.totalApy ? (
@@ -190,6 +276,23 @@ function ApyDetailPopoverContent({
             value={popupData.apyDetail.totalApy.value}
           />
         </>
+      ) : null}
+
+      {hasLinkDescriptions ? (
+        <YStack mt="$3.5" gap="$3">
+          {linkDescriptions?.map((desc, index) => (
+            <XStack key={index} ai="center" gap="$2">
+              <EarnText
+                text={desc.text}
+                size="$bodySm"
+                color="$textSubdued"
+                flex={1}
+                flexShrink={1}
+              />
+              <EarnActionIcon title={desc.text.text} actionIcon={desc.button} />
+            </XStack>
+          ))}
+        </YStack>
       ) : null}
     </YStack>
   );
@@ -214,7 +317,7 @@ function TextWithDottedUnderline({
         color={textColor}
         textAlign="right"
         dashColor={textColor}
-        dashThickness={0.5}
+        dashThickness={1}
       >
         {text}
       </DashText>
@@ -282,11 +385,59 @@ export const ApyTextV2 = ({
 }: IApyTextV2Props) => {
   const intl = useIntl();
   const [open, setOpen] = useState(false);
+  const { gtMd, hoverNone, pointerCoarse } = useMedia();
 
   const hasDetail = !!apyDetail.button;
   const popupData = apyDetail.button?.data;
   const { highlight, deprecated } = apyDetail;
   const showChevron = triggerMode === 'icon' && hasDetail;
+  const useHoverTooltip =
+    triggerMode === 'underline' &&
+    hasDetail &&
+    platformEnv.isRuntimeBrowser &&
+    gtMd &&
+    !hoverNone &&
+    !pointerCoarse;
+
+  const renderDetailOverlay = useCallback(
+    (trigger: ReactNode) => {
+      if (!hasDetail) {
+        return trigger;
+      }
+
+      if (useHoverTooltip) {
+        return (
+          <Tooltip
+            hovering
+            placement="left"
+            renderTrigger={<Stack cursor="pointer">{trigger}</Stack>}
+            renderContent={
+              <ScrollView>
+                <ApyDetailPopoverContent popupData={popupData} />
+              </ScrollView>
+            }
+            contentProps={{
+              w: '$96',
+              maxWidth: '$96',
+              px: '$0',
+              py: '$0',
+            }}
+          />
+        );
+      }
+
+      return (
+        <Popover
+          open={open}
+          onOpenChange={setOpen}
+          renderTrigger={<Stack cursor="pointer">{trigger}</Stack>}
+          title={intl.formatMessage({ id: ETranslations.global_details })}
+          renderContent={<ApyDetailPopoverContent popupData={popupData} />}
+        />
+      );
+    },
+    [hasDetail, intl, open, popupData, setOpen, useHoverTooltip],
+  );
 
   // Memoize highlight content to avoid recreation
   const highlightElement = useMemo(() => {
@@ -319,21 +470,8 @@ export const ApyTextV2 = ({
   // Render highlight with optional popover
   const renderHighlightWithPopover = useCallback(() => {
     if (!highlightElement) return null;
-
-    const content = hasDetail ? (
-      <Popover
-        open={open}
-        onOpenChange={setOpen}
-        renderTrigger={<Stack cursor="pointer">{highlightElement}</Stack>}
-        title={intl.formatMessage({ id: ETranslations.global_details })}
-        renderContent={<ApyDetailPopoverContent popupData={popupData} />}
-      />
-    ) : (
-      highlightElement
-    );
-
-    return content;
-  }, [hasDetail, highlightElement, intl, open, popupData, setOpen]);
+    return renderDetailOverlay(highlightElement);
+  }, [highlightElement, renderDetailOverlay]);
 
   // Case 1: Both highlight and deprecated exist
   if (highlight && deprecated) {
@@ -359,22 +497,14 @@ export const ApyTextV2 = ({
 
     return (
       <YStack ai="flex-end">
-        <Popover
-          open={open}
-          onOpenChange={setOpen}
-          renderTrigger={
-            <Stack cursor="pointer">
-              <TextWithTrigger
-                text={displayText}
-                color={displayColor}
-                triggerMode={triggerMode}
-                showChevron={showChevron}
-              />
-            </Stack>
-          }
-          title={intl.formatMessage({ id: ETranslations.global_details })}
-          renderContent={<ApyDetailPopoverContent popupData={popupData} />}
-        />
+        {renderDetailOverlay(
+          <TextWithTrigger
+            text={displayText}
+            color={displayColor}
+            triggerMode={triggerMode}
+            showChevron={showChevron}
+          />,
+        )}
       </YStack>
     );
   }

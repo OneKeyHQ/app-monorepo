@@ -10,6 +10,13 @@ import keylessStorageUtils from './keylessStorageUtils';
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 
 /**
+ * @deprecated This file will be deprecated in a future release.
+ * DevicePack is only stored temporarily and will be cleared after keyless wallet creation.
+ * Therefore, it does not require password update support (no need for *WithPassword variants).
+ * The updateKeylessDataPasscode flow intentionally does not handle DevicePack re-encryption.
+ */
+
+/**
  * Save device pack to local storage with passcode encryption.
  * Unified method for creating, enabling, and manual recovery flows.
  */
@@ -90,7 +97,7 @@ async function getDevicePackFromStorage(params: {
   // 4. Parse JSON string to devicePack object
   try {
     return JSON.parse(jsonString) as IDeviceKeyPack;
-  } catch (error) {
+  } catch (_error) {
     throw new OneKeyLocalError(
       'Failed to parse device pack: invalid JSON format',
     );

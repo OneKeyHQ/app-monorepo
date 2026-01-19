@@ -1,3 +1,4 @@
+import { Semaphore } from 'async-mutex';
 import { isEqual } from 'lodash';
 
 import {
@@ -83,7 +84,7 @@ const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
   dispose: (client) => {
     // Best-effort cleanup: clear any cached realm tokens when the client is evicted.
     try {
-      client.clearTokenCache();
+      client.dispose();
     } catch {
       // ignore
     }
@@ -94,6 +95,8 @@ class ServiceKeylessWallet extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
+
+  updatePinConfirmStatusMutex = new Semaphore(1);
 
   private async getJuiceboxClientFromCache(
     token: string,
@@ -360,7 +363,7 @@ class ServiceKeylessWallet extends ServiceBase {
   }): Promise<IKeylessWalletRestoredData | undefined> {
     try {
       return await this.restoreKeylessWallet(params);
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -638,7 +641,7 @@ class ServiceKeylessWallet extends ServiceBase {
         return null;
       }
       return await this.getAuthPackFromCache({ packSetId });
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -672,7 +675,7 @@ class ServiceKeylessWallet extends ServiceBase {
         return null;
       }
       return await this.getKeylessDevicePack({ packSetId });
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -832,13 +835,13 @@ class ServiceKeylessWallet extends ServiceBase {
             await this.cacheAuthPackInMemory({ authPack });
             return authPack;
           }
-        } catch (error) {
+        } catch (_error) {
           // User cancelled or error occurred, return null
           return null;
         }
       }
       return null;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -895,7 +898,7 @@ class ServiceKeylessWallet extends ServiceBase {
     let authPack: IAuthKeyPack;
     try {
       authPack = JSON.parse(authPackString) as IAuthKeyPack;
-    } catch (error) {
+    } catch (_error) {
       throw new OneKeyLocalError('Failed to parse authPack from server');
     }
 
@@ -1071,7 +1074,7 @@ class ServiceKeylessWallet extends ServiceBase {
         return cloudPack;
       }
       return undefined;
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -1287,7 +1290,7 @@ class ServiceKeylessWallet extends ServiceBase {
             hashId,
           };
         }
-      } catch (e) {
+      } catch (_e) {
         throw new OneKeyLocalError('Failed to decrypt keyless backend share');
       }
     }
@@ -1414,7 +1417,7 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string;
     pin: string;
     skipTokenCacheClear?: boolean;
-  }): Promise<IKeylessJuiceboxShare | null> {
+  }): Promise<IKeylessJuiceboxShare> {
     const { ownerId, token, pin, skipTokenCacheClear } = params;
 
     if (!token) {
@@ -1497,10 +1500,13 @@ class ServiceKeylessWallet extends ServiceBase {
       refreshToken &&
       mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly
     ) {
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify();
       await keylessRefreshTokenStorage.saveTokensToStorage({
         ownerId,
         refreshToken,
         token,
+        password,
         backgroundApi: this.backgroundApi,
       });
     }
@@ -1568,6 +1574,10 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('new PIN is required');
     }
 
+    // Get password first to avoid multiple prompts
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
+
     // 2. Get backendShare from server
     const { backendShareData, hashId } = await this.apiGetKeylessBackendShare({
       token,
@@ -1586,6 +1596,7 @@ class ServiceKeylessWallet extends ServiceBase {
     const mnemonicPassword =
       await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorage({
         ownerId,
+        password,
         backgroundApi: this.backgroundApi,
       });
     if (!mnemonicPassword) {
@@ -1622,6 +1633,7 @@ class ServiceKeylessWallet extends ServiceBase {
         ownerId,
         refreshToken,
         token,
+        password,
         backgroundApi: this.backgroundApi,
       });
     }
@@ -1649,6 +1661,10 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!pin) {
       throw new OneKeyLocalError('pin is required');
     }
+
+    // Get password first to avoid multiple prompts
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
 
     // Get backend share from server
     const { backendShareData, hashId } = await this.apiGetKeylessBackendShare({
@@ -1700,6 +1716,7 @@ class ServiceKeylessWallet extends ServiceBase {
     await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
       ownerId,
       mnemonicPassword,
+      password,
       backgroundApi: this.backgroundApi,
     });
 
@@ -1709,6 +1726,7 @@ class ServiceKeylessWallet extends ServiceBase {
         ownerId,
         refreshToken,
         token,
+        password,
         backgroundApi: this.backgroundApi,
       });
     }
@@ -1734,6 +1752,20 @@ class ServiceKeylessWallet extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async clearKeylessOnboardingCache() {
+    // Best-effort cleanup: clear per-client token caches first, then clear the LRU itself.
+    for (const client of juiceboxClientCache.values()) {
+      try {
+        client.dispose();
+      } catch {
+        // ignore
+      }
+    }
+    juiceboxClientCache.clear();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async createKeylessWalletToServer(params: {
     token: string | undefined;
     refreshToken?: string | undefined;
@@ -1751,6 +1783,10 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!pin) {
       throw new OneKeyLocalError('pin is required');
     }
+
+    // Get password first to avoid multiple prompts
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
 
     // 1. Acquire distributed lock
     const { lockId, hashId } = await this.apiAcquireCreationLock({ token });
@@ -1808,6 +1844,7 @@ class ServiceKeylessWallet extends ServiceBase {
       await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
         ownerId,
         mnemonicPassword,
+        password,
         backgroundApi: this.backgroundApi,
       });
 
@@ -1836,6 +1873,7 @@ class ServiceKeylessWallet extends ServiceBase {
           ownerId,
           refreshToken,
           token,
+          password,
           backgroundApi: this.backgroundApi,
         });
       }
@@ -1906,22 +1944,76 @@ class ServiceKeylessWallet extends ServiceBase {
    * Try to refresh access token using stored refreshToken.
    * Returns new accessToken and refreshToken if refresh is successful, null otherwise.
    * Note: This requires passcode verification as refreshToken is encrypted with passcode.
+   *
+   * @param params.forceRefresh - If true (default), force refresh token regardless of local cache.
+   *                               If false, check if cached accessToken is still valid before refreshing.
    */
   @backgroundMethod()
   @toastIfError()
-  async tryRefreshTokenFromStorage(params: { ownerId: string }): Promise<{
+  async tryRefreshTokenFromStorage(params: {
+    ownerId: string;
+    forceRefresh?: boolean;
+  }): Promise<{
     accessToken: string;
     refreshToken: string;
   } | null> {
-    const { ownerId } = params;
+    const { ownerId, forceRefresh = true } = params;
     if (!ownerId) {
       throw new OneKeyLocalError('ownerId is required');
     }
     try {
+      // If not forcing refresh, check if cached accessToken is still valid
+      if (!forceRefresh) {
+        const cachedAccessToken =
+          await keylessRefreshTokenStorage.getAccessTokenFromStorage({
+            ownerId,
+            backgroundApi: this.backgroundApi,
+          });
+
+        // Check if cached accessToken exists and is still valid
+        if (cachedAccessToken) {
+          const decodedToken = stringUtils.decodeJWT(
+            cachedAccessToken,
+          ) as ISupabaseJWTPayload;
+          if (decodedToken?.exp && typeof decodedToken.exp === 'number') {
+            // Check if token is still valid (with 5 minutes buffer to avoid edge cases)
+            const expirationTime = decodedToken.exp * 1000; // Convert to milliseconds
+            const currentTime = Date.now();
+            const bufferTime = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+            if (currentTime < expirationTime - bufferTime) {
+              // Token is still valid, get refreshToken and return both
+              const { password } =
+                await this.backgroundApi.servicePassword.promptPasswordVerify();
+
+              const storedTokens =
+                await keylessRefreshTokenStorage.getTokensFromStorage({
+                  ownerId,
+                  password,
+                  backgroundApi: this.backgroundApi,
+                });
+
+              if (storedTokens?.refreshToken) {
+                return {
+                  accessToken: cachedAccessToken,
+                  refreshToken: storedTokens.refreshToken,
+                };
+              }
+            }
+          }
+        }
+      }
+
+      // Force refresh or token is expired/doesn't exist, proceed with refresh
+      // Get password first to avoid multiple prompts
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify();
+
       // Get refreshToken from secure storage (requires passcode)
       const storedTokens =
         await keylessRefreshTokenStorage.getTokensFromStorage({
           ownerId,
+          password,
           backgroundApi: this.backgroundApi,
         });
 
@@ -1935,7 +2027,7 @@ class ServiceKeylessWallet extends ServiceBase {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // eslint-disable-next-line spellcheck/spell-checker
+          // oxlint-disable-next-line @cspell/spellchecker
           apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
         },
         body: JSON.stringify({
@@ -1957,6 +2049,7 @@ class ServiceKeylessWallet extends ServiceBase {
           ownerId,
           refreshToken: refreshResult.refresh_token,
           token: refreshResult.access_token,
+          password,
           backgroundApi: this.backgroundApi,
         });
         return {
@@ -2021,9 +2114,71 @@ class ServiceKeylessWallet extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async cancelVerifyPin(params: {
+    ownerId: string | 'CURRENT_KEYLESS_WALLET';
+  }): Promise<void> {
+    await this.updatePinConfirmStatusMutex.runExclusive(async () => {
+      let { ownerId } = params;
+      if (ownerId === 'CURRENT_KEYLESS_WALLET') {
+        ownerId = '';
+        const wallet =
+          await this.backgroundApi.serviceAccount.getKeylessWallet();
+        if (wallet?.keylessDetailsInfo?.keylessOwnerId) {
+          ownerId = wallet.keylessDetailsInfo.keylessOwnerId;
+        }
+      }
+      if (!ownerId) {
+        throw new OneKeyLocalError(
+          'cancelVerifyPin ERROR: ownerId is required',
+        );
+      }
+      const accessToken = await this.getKeylessCachedAccessToken({ ownerId });
+
+      if (accessToken) {
+        await this.apiUpdatePinConfirmStatus({
+          token: accessToken,
+          isCancelAction: true,
+        });
+      }
+    });
+  }
+
+  @backgroundMethod()
+  async apiCheckAuthServerStatus(): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        timerUtils.getTimeDurationMs({ seconds: 10 }),
+      );
+
+      const healthUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/health`;
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const result = (await response.json()) as { status?: string };
+      return result?.status === 'ok';
+    } catch (_error) {
+      // Handle timeout or any other errors
+      return false;
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async apiGetPinConfirmStatus(params: { token: string }): Promise<{
     shouldRemind: boolean;
   }> {
+    // Wait for updatePinConfirmStatus mutex to complete
+    await this.updatePinConfirmStatusMutex.waitForUnlock();
     const { token } = params;
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
@@ -2085,6 +2240,24 @@ class ServiceKeylessWallet extends ServiceBase {
     return { success: true };
   }
 
+  @backgroundMethod()
+  async cleanupKeylessWalletStorage(params: {
+    ownerId: string;
+  }): Promise<void> {
+    const { ownerId } = params;
+    if (!ownerId) {
+      return;
+    }
+
+    await keylessMnemonicPasswordStorage.removeMnemonicPasswordFromStorage({
+      ownerId,
+    });
+
+    await keylessRefreshTokenStorage.removeTokensFromStorage({
+      ownerId,
+    });
+  }
+
   /**
    * Validate that the social user ID from the token matches the keyless wallet's social user ID.
    * Used during KeylessResetPin and KeylessVerifyPinOnly flows to ensure the logged-in user
@@ -2115,15 +2288,125 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async apiCheckRateLimitStatus(params: { token: string }): Promise<{
     isRateLimited: boolean;
     retryAfterSeconds: number;
+    guessesRemaining: number;
   }> {
     const { token } = params;
     // getJuiceboxClientFromCache already calls exchangeToken internally when creating a new client
     // Do not call exchangeToken again as each token can only be exchanged once
     const client = await this.getJuiceboxClientFromCache(token);
     return client.checkRateLimitStatus();
+  }
+
+  private async getAllKeylessWallets(): Promise<IDBWallet[]> {
+    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets({
+      refillWalletInfo: true,
+    });
+    return wallets.filter((w) => w.isKeyless);
+  }
+
+  @backgroundMethod()
+  async updateKeylessDataPasscode(params: {
+    oldPassword: string;
+    newPassword: string;
+  }): Promise<{
+    rollback: () => Promise<void>;
+  }> {
+    const { oldPassword, newPassword } = params;
+
+    const keylessWallets = await this.getAllKeylessWallets();
+
+    if (keylessWallets.length === 0) {
+      return { rollback: async () => {} };
+    }
+
+    const backupData: Array<{
+      ownerId: string;
+      mnemonicPassword: string | null;
+      refreshToken: string | null;
+    }> = [];
+
+    for (const wallet of keylessWallets) {
+      const ownerId = wallet.keylessDetailsInfo?.keylessOwnerId;
+      // eslint-disable-next-line no-continue
+      if (!ownerId) continue;
+
+      const mnemonicPassword =
+        await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorageWithPassword(
+          {
+            ownerId,
+            password: oldPassword,
+            backgroundApi: this.backgroundApi,
+          },
+        );
+
+      const refreshToken =
+        await keylessRefreshTokenStorage.getRefreshTokenFromStorageWithPassword(
+          {
+            ownerId,
+            password: oldPassword,
+            backgroundApi: this.backgroundApi,
+          },
+        );
+
+      backupData.push({
+        ownerId,
+        mnemonicPassword,
+        refreshToken,
+      });
+    }
+
+    for (const backup of backupData) {
+      if (backup.mnemonicPassword) {
+        await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorageWithPassword(
+          {
+            ownerId: backup.ownerId,
+            mnemonicPassword: backup.mnemonicPassword,
+            password: newPassword,
+            backgroundApi: this.backgroundApi,
+          },
+        );
+      }
+
+      if (backup.refreshToken) {
+        await keylessRefreshTokenStorage.saveRefreshTokenToStorageWithPassword({
+          ownerId: backup.ownerId,
+          refreshToken: backup.refreshToken,
+          password: newPassword,
+          backgroundApi: this.backgroundApi,
+        });
+      }
+    }
+
+    return {
+      rollback: async () => {
+        for (const backup of backupData) {
+          if (backup.mnemonicPassword) {
+            await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorageWithPassword(
+              {
+                ownerId: backup.ownerId,
+                mnemonicPassword: backup.mnemonicPassword,
+                password: oldPassword,
+                backgroundApi: this.backgroundApi,
+              },
+            );
+          }
+          if (backup.refreshToken) {
+            await keylessRefreshTokenStorage.saveRefreshTokenToStorageWithPassword(
+              {
+                ownerId: backup.ownerId,
+                refreshToken: backup.refreshToken,
+                password: oldPassword,
+                backgroundApi: this.backgroundApi,
+              },
+            );
+          }
+        }
+      },
+    };
   }
 }
 

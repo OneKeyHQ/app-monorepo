@@ -153,7 +153,7 @@ export function useImportAddressForm({
             },
           );
         setValidateResult(result);
-      } catch (error) {
+      } catch (_error) {
         setValidateResult({
           isValid: false,
         });

@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { Asset, Keypair, StellarSdk } from '.';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
@@ -73,7 +72,7 @@ export default class ClientStellar {
         return false;
       }
       return true;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }
@@ -299,7 +298,7 @@ export default class ClientStellar {
       // Return mode of inclusion fee for standard transactions
       const modeFee = result.inclusionFee?.mode || BASE_FEE;
       return modeFee;
-    } catch (error) {
+    } catch (_error) {
       // Default to base fee if network call fails
       return BASE_FEE; // 100 stroops
     }
@@ -376,7 +375,7 @@ export default class ClientStellar {
       let transaction;
       try {
         transaction = await this.transport.getTransaction(txid);
-      } catch (error) {
+      } catch (_error) {
         // If transaction query itself fails and we haven't exceeded retries, continue polling
         if (retryCount <= maxRetries) {
           return new Promise((resolve) => {
@@ -582,7 +581,7 @@ export default class ClientStellar {
         if (adminAddress === contractId) {
           type = EStellarAssetType.StellarAssetContract;
         }
-      } catch (error) {
+      } catch (_error) {
         // ignore error
       }
 

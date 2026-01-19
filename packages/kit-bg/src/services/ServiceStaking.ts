@@ -1421,7 +1421,7 @@ class ServiceStaking extends ServiceBase {
           accountId,
           networkId,
         });
-      } catch (e) {
+      } catch (_e) {
         return null;
       }
       if (
@@ -1479,7 +1479,7 @@ class ServiceStaking extends ServiceBase {
         accountAddress,
         account: networkAccount,
       };
-    } catch (e) {
+    } catch (_e) {
       // ignore error
       return null;
     }
@@ -1735,7 +1735,7 @@ class ServiceStaking extends ServiceBase {
       await this.updateEarnOrderStatusToServer({
         order: order as IEarnOrderItem,
       });
-    } catch (e) {
+    } catch (_e) {
       // ignore error, continue
       defaultLogger.staking.order.updateOrderStatusError({
         txId: order.txId,
@@ -1757,7 +1757,11 @@ class ServiceStaking extends ServiceBase {
       try {
         const order =
           await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
-        if (order && tx.status !== EDecodedTxStatus.Pending) {
+        const shouldUpdate =
+          Boolean(order) &&
+          tx.status !== EDecodedTxStatus.Pending &&
+          order?.status !== tx.status;
+        if (order && shouldUpdate) {
           order.status = tx.status;
           await this.updateEarnOrderStatusToServer({ order });
           await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
@@ -1769,7 +1773,7 @@ class ServiceStaking extends ServiceBase {
             status: tx.status,
           });
         }
-      } catch (e) {
+      } catch (_e) {
         // ignore error, continue loop
         defaultLogger.staking.order.updateOrderStatusError({
           txId: tx.txId,
@@ -1926,7 +1930,7 @@ class ServiceStaking extends ServiceBase {
         : null;
 
       return blockData;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -2409,6 +2413,39 @@ class ServiceStaking extends ServiceBase {
     return response.data.data;
   }
 
+  _getBorrowAssetsList = memoizee(
+    async (params: {
+      networkId: string;
+      provider: string;
+      marketAddress: string;
+      accountId: string;
+      action: EBorrowActionsEnum;
+    }) => {
+      const { accountId, ...rest } = params;
+
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId: params.networkId,
+          accountId,
+        });
+
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const response = await client.get<{
+        data: IBorrowAssetsList;
+      }>('/earn/v1/borrow/asset-list', {
+        params: {
+          ...rest,
+          accountAddress,
+        },
+      });
+      return response.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+    },
+  );
+
   @backgroundMethod()
   async getBorrowAssetsList(params: {
     networkId: string;
@@ -2417,24 +2454,7 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     action: EBorrowActionsEnum;
   }) {
-    const { accountId, ...rest } = params;
-
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: params.networkId,
-        accountId,
-      });
-
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{
-      data: IBorrowAssetsList;
-    }>('/earn/v1/borrow/asset-list', {
-      params: {
-        ...rest,
-        accountAddress,
-      },
-    });
-    return response.data.data;
+    return this._getBorrowAssetsList(params);
   }
 
   @backgroundMethod()
