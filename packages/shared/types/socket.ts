@@ -12,6 +12,7 @@ export enum EAppSocketEventNames {
   primeDeviceLogout = 'DEVICE_LOGOUT',
   primeConfigFlush = 'CONFIG_FLUSH',
   primeLockChanged = 'LOCK_CHANGE',
+  setBadge = 'SET_BADGE',
 }
 
 export type IPrimeSubscriptionInfo = {
@@ -56,4 +57,9 @@ export type IPrimeLockChangedInfo = {
     isDeleted: boolean;
   };
   pwdHash: string;
+};
+
+export type ISetBadgeInfo = {
+  msgId: string;
+  badge: number;
 };
