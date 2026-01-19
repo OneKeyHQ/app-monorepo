@@ -320,11 +320,11 @@ function DialogFrame({
               }}
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex || zIndex}
-              style={{
-                ...(platformEnv.isWeb && !open && forceMount
+              style={
+                platformEnv.isWeb && !open && forceMount
                   ? ({ contentVisibility: 'hidden' } as any)
-                  : {}),
-              }}
+                  : {}
+              }
             />
             {/* /* fix missing title warnings in html dialog element on Web */}
             <TMDialog.Title display="none" />
