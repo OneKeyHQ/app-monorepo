@@ -93,7 +93,7 @@ const PasswordVerifyContainer = ({
         try {
           const securePassword = await biologyAuthUtils.getPassword();
           setHasSecurePassword(!!securePassword);
-        } catch (e) {
+        } catch (_e) {
           setHasSecurePassword(false);
         }
       })();

@@ -3,7 +3,7 @@ import type { PropsWithChildren } from 'react';
 
 import { type LayoutChangeEvent } from 'react-native';
 
-import { Stack } from '../../primitives';
+import { Stack } from '../../primitives/Stack';
 
 import { SplashView } from './SplashView';
 

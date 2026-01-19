@@ -329,7 +329,7 @@ class ServiceHardwareUI extends ServiceBase {
           forceDeviceResetToHome: deviceResetToHome,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       // closeHardwareUiStateDialog should be called safely, do not block caller
     }
   }

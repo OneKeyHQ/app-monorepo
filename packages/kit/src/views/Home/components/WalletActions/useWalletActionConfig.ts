@@ -99,7 +99,7 @@ export function useWalletActionConfig() {
       });
     }
 
-    return allGroups.sort((a, b) => a.order - b.order);
+    return allGroups.toSorted((a, b) => a.order - b.order);
   };
 
   return {

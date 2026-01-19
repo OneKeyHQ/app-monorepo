@@ -62,7 +62,7 @@ class ProviderApiScdo extends ProviderApiBase {
       await timerUtils.wait(100);
       const accountsInfo = await this.getAccountsInfo(request);
       return accountsInfo.map((i) => i.account?.address);
-    } catch (e) {
+    } catch (_e) {
       return [];
     }
   }

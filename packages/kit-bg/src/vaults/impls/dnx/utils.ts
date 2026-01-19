@@ -44,7 +44,7 @@ export function integerToLittleEndianHex({
     hexString = `00${hexString}`;
   }
   const littleEndianHex: string = (hexString.match(/.{2}/g) ?? [])
-    .reverse()
+    .toReversed()
     .join('');
   return littleEndianHex;
 }

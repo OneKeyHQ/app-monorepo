@@ -1,3 +1,4 @@
+// oxlint-disable unicorn/prefer-global-this
 // check  polyfillsPlatform.ext.ts  or   polyfillsPlatform.native.js
 import './setimmediateShim';
 import './globalShim';

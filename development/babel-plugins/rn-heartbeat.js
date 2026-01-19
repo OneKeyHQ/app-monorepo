@@ -2,7 +2,7 @@
 const path = require('path');
 
 // React hooks that take callbacks
-const REACT_HOOKS_WITH_CALLBACK = [
+const REACT_HOOKS_WITH_CALLBACK = new Set([
   'useEffect',
   'useLayoutEffect',
   'useMemo',
@@ -10,7 +10,7 @@ const REACT_HOOKS_WITH_CALLBACK = [
   'useImperativeHandle',
   'usePromiseResult',
   'useAsyncCall',
-];
+]);
 
 function getEnclosingComponentName(funcPath) {
   // Walk up to find enclosing function component or class component
@@ -90,7 +90,7 @@ function getFunctionName(funcPath) {
     ) {
       hookName = callee.get('property').node.name;
     }
-    if (hookName && REACT_HOOKS_WITH_CALLBACK.includes(hookName)) {
+    if (hookName && REACT_HOOKS_WITH_CALLBACK.has(hookName)) {
       const componentName = getEnclosingComponentName(funcPath);
       if (componentName) {
         return `${componentName}@${hookName}`;

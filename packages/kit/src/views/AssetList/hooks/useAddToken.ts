@@ -242,7 +242,7 @@ export function useAccountInfoForManageToken() {
           accountIdForNetwork = networkAccount.id;
         }
         hasExistAccountFlag = true;
-      } catch (e) {
+      } catch (_e) {
         hasExistAccountFlag = false;
       }
 

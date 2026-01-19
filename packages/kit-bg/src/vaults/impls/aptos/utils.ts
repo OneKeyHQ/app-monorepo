@@ -259,7 +259,7 @@ export async function getAccountResource(
     let err;
     try {
       err = JSON.parse(error?.message);
-    } catch (e) {
+    } catch (_e) {
       throw error;
     }
     const { error_code: errorCode } = err || {};
@@ -370,7 +370,7 @@ export function formatSignMessageRequest(
     try {
       const urlObj = new URL(application);
       host = urlObj.host;
-    } catch (error) {
+    } catch (_error) {
       host = application;
     }
     request.application = host;

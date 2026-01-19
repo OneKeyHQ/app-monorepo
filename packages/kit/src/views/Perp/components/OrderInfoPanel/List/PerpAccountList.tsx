@@ -115,7 +115,7 @@ function PerpAccountList({
       .filter((update) => update.delta.status === ESwapTxHistoryStatus.PENDING);
 
     const allUpdates = [...updates, ...depositUpdates];
-    const sortedUpdates = allUpdates.sort((a, b) => b.time - a.time);
+    const sortedUpdates = allUpdates.toSorted((a, b) => b.time - a.time);
 
     const seenHashes = new Set<string>();
     return sortedUpdates.filter((update) => {

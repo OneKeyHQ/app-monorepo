@@ -499,7 +499,7 @@ const usePerpDeposit = (
         buildUnsignedParamsCheckNonce.prevNonce =
           approveUnsignedTxArr[approveUnsignedTxArr.length - 1].nonce;
       }
-      let gasFeeInfos: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[] = [];
+      const gasFeeInfos: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[] = [];
       const unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           ...buildUnsignedParamsCheckNonce,
@@ -533,13 +533,10 @@ const usePerpDeposit = (
           const unsignedTxItem = unsignedTxArr[i];
           const gasRes = gasResArr.txFees[i];
           const gasInfo = buildGasInfo(gasRes, gasResArr.common);
-          gasFeeInfos = [
-            ...gasFeeInfos,
-            {
-              encodeTx: unsignedTxItem.encodedTx ?? {},
-              gasInfo,
-            },
-          ];
+          gasFeeInfos.push({
+            encodeTx: unsignedTxItem.encodedTx ?? {},
+            gasInfo,
+          });
         }
       } else if (
         approveUnsignedTxArr?.length &&
@@ -598,13 +595,10 @@ const usePerpDeposit = (
                   }
                 : undefined,
             };
-            gasFeeInfos = [
-              ...gasFeeInfos,
-              {
-                encodeTx: unsignedTxItem.encodedTx,
-                gasInfo: lastTxGasInfo,
-              },
-            ];
+            gasFeeInfos.push({
+              encodeTx: unsignedTxItem.encodedTx,
+              gasInfo: lastTxGasInfo,
+            });
           } else {
             const estimateFeeParams =
               await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -626,13 +620,10 @@ const usePerpDeposit = (
               };
             }
             const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
-            gasFeeInfos = [
-              ...gasFeeInfos,
-              {
-                encodeTx: unsignedTxItem.encodedTx,
-                gasInfo: gasParseInfo,
-              },
-            ];
+            gasFeeInfos.push({
+              encodeTx: unsignedTxItem.encodedTx,
+              gasInfo: gasParseInfo,
+            });
           }
         }
       } else {
@@ -649,13 +640,10 @@ const usePerpDeposit = (
           accountId,
         });
         const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
-        gasFeeInfos = [
-          ...gasFeeInfos,
-          {
-            encodeTx: unsignedTx.encodedTx,
-            gasInfo: gasParseInfo,
-          },
-        ];
+        gasFeeInfos.push({
+          encodeTx: unsignedTx.encodedTx,
+          gasInfo: gasParseInfo,
+        });
       }
       return gasFeeInfos;
     },

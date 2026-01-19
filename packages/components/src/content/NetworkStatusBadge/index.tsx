@@ -3,8 +3,11 @@ import type { ComponentProps, ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, Stack } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+// oxlint-disable-next-line import/no-cycle
+import { Badge } from '../Badge';
 
 export type INetworkStatusBadgeProps = {
   connected: boolean;

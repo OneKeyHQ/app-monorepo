@@ -522,7 +522,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       // Notify Market page to refresh watchlist
       appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
       await refreshData();
-    } catch (error) {
+    } catch (_error) {
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.global_an_error_occurred,
@@ -548,7 +548,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         // Notify Market page to refresh watchlist
         appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
         await refreshData();
-      } catch (error) {
+      } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_an_error_occurred,

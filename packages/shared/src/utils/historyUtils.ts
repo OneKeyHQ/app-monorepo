@@ -195,7 +195,7 @@ export function getHistoryTxDetailInfo({
 
 // sort history
 export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
-  return txs.sort(
+  return txs.toSorted(
     (b, a) =>
       (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
       (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),

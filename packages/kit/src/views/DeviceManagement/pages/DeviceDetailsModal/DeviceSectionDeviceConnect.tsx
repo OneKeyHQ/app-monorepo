@@ -39,7 +39,7 @@ function DeviceSectionDeviceConnect() {
             }),
           });
           handleBackPress();
-        } catch (error) {
+        } catch (_error) {
           Toast.error({
             title: intl.formatMessage({
               id: ETranslations.global_cancel,

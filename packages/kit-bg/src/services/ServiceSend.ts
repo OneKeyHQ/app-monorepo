@@ -186,7 +186,7 @@ class ServiceSend extends ServiceBase {
         if (!verified) {
           throw new OneKeyLocalError('Invalid txid');
         }
-      } catch (error) {
+      } catch (_error) {
         throw new OneKeyLocalError('Invalid txid');
       }
 

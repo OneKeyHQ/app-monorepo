@@ -236,7 +236,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
               ...accountParams,
             });
           setAccountForAllNet(fromTokenAccount);
-        } catch (e) {
+        } catch (_e) {
           setAccountForAllNet(undefined);
         }
       }
@@ -260,7 +260,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
               ...accountParams,
             });
           setAccountForAllNet(toTokenAccount);
-        } catch (e) {
+        } catch (_e) {
           setAccountForAllNet(undefined);
         }
       }

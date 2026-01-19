@@ -199,7 +199,7 @@ class ProviderApiAlph extends ProviderApiBase {
     if (typeof paramsString === 'string') {
       try {
         return JSON.parse(paramsString) as T;
-      } catch (error) {
+      } catch (_error) {
         return paramsString as unknown as T;
       }
     }

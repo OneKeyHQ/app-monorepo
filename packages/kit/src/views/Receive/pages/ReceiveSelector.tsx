@@ -102,7 +102,7 @@ function ReceiveSelectorContent() {
           isSupported: url && build,
           url,
         };
-      } catch (error) {
+      } catch (_error) {
         return {
           isSupported: false,
         };

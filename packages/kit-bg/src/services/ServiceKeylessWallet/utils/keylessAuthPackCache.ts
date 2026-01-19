@@ -87,7 +87,7 @@ async function getAuthPackFromCache(params: {
       resultEncoding: 'utf8',
       allowRawPassword: true,
     });
-  } catch (error) {
+  } catch (_error) {
     throw new OneKeyLocalError(
       'Failed to decrypt authPack from cache: invalid password or corrupted data',
     );
@@ -96,7 +96,7 @@ async function getAuthPackFromCache(params: {
   // 4. Parse JSON string to authPack object
   try {
     return JSON.parse(authPackString) as IAuthKeyPack;
-  } catch (error) {
+  } catch (_error) {
     throw new OneKeyLocalError(
       'Failed to parse authPack from cache: invalid JSON format',
     );

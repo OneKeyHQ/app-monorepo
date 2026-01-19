@@ -17,7 +17,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { closeModalPages } from '../../../hooks/usePageNavigation';
 
 export const isOnboardingFromExtensionUrl = () => {
-  // eslint-disable-next-line unicorn/prefer-global-this
+  // oxlint-disable-next-line unicorn/prefer-global-this
   if (platformEnv.isExtension && typeof window !== 'undefined') {
     return globalThis.location.hash.includes('fromExt=true');
   }
