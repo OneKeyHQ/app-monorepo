@@ -6,6 +6,7 @@ import { Icon, IconButton, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -24,6 +25,10 @@ export function PerpetualTradingBanner() {
 
   const handlePress = useCallback(() => {
     if (!hlTicker) return;
+    defaultLogger.market.token.perpsBannerClick({
+      tokenSymbol: tokenDetail?.symbol ?? '',
+      hlTicker,
+    });
     setTimeout(async () => {
       navigation.switchTab(ETabRoutes.Perp);
       try {
@@ -34,7 +39,7 @@ export function PerpetualTradingBanner() {
         console.error('Failed to change active asset:', error);
       }
     }, 80);
-  }, [hlTicker, navigation]);
+  }, [hlTicker, navigation, tokenDetail?.symbol]);
 
   if (dismissed || !hlTicker) {
     return null;
