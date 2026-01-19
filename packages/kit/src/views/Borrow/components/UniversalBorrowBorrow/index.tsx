@@ -313,7 +313,7 @@ export function UniversalBorrowBorrow({
           }}
           enableMaxAmount
           maxAmountText={intl.formatMessage({
-            id: ETranslations.defi_safe_max,
+            id: ETranslations.global_max,
           })}
           onSelectPercentageStage={onSelectPercentageStage}
         />
