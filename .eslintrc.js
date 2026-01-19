@@ -52,7 +52,6 @@ const jsRules = {
   'import/no-unresolved': 'off', // tsc can check this
   'no-promise-executor-return': 'off',
   'default-param-last': 'off',
-  'import/no-cycle': 'error',
   'require-await': 'off',
   'no-void': 'off',
   'ban/ban': [
