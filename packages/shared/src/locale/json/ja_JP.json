@@ -167,6 +167,7 @@
   "auth.set_passcode": "パスコードを設定する",
   "auth.set_password": "パスワードを設定する",
   "auth.with_biometric": "{biometric}による認証",
+  "auth_server_error_text": "何かがうまくいきませんでした。インターネット接続を確認するか、後でもう一度お試しください。",
   "backing_up_desc": "バックアップが完了するまで、このウィンドウを閉じないでください。",
   "backing_up_title": "バックアップ中…",
   "backup.address_book_labels": "アドレス帳＆ラベル",

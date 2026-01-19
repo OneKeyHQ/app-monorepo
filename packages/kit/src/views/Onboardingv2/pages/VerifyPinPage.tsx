@@ -188,20 +188,7 @@ function VerifyPinPage() {
         console.error('Failed to check rate limit status:', error);
       } finally {
         setIsCheckingRateLimit(false);
-
-        // Clear previous focus timer if exists
-        if (focusTimerRef.current) {
-          clearTimeout(focusTimerRef.current);
-        }
-        focusTimerRef.current = setTimeout(
-          () => {
-            if (pinInputRef.current) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-              pinInputRef.current.focus();
-            }
-          },
-          platformEnv.isNative ? 100 : 50,
-        );
+        // Focus is now handled by PinInputLayout when skeleton transitions to input
       }
     },
     [getKeylessOnboardingToken, handleForgotPin, intl, startCooldown],
@@ -413,6 +400,7 @@ function VerifyPinPage() {
       errorMessage={displayErrorMessage}
       isVerifyPinPage
       onAutoInputPin={handleAutoInputPin}
+      showInputSkeleton={isCheckingRateLimit}
     />
   );
 }

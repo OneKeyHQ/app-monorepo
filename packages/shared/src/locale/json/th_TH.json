@@ -167,6 +167,7 @@
   "auth.set_passcode": "ตั้งรหัสผ่าน",
   "auth.set_password": "ตั้งรหัสผ่าน",
   "auth.with_biometric": "การยืนยันตัวตนด้วย {biometric}",
+  "auth_server_error_text": "เกิดข้อผิดพลาด โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ตของคุณหรือลองอีกครั้งในภายหลัง",
   "backing_up_desc": "อย่าปิดหน้าต่างนี้จนกว่าการสำรองข้อมูลจะเสร็จสิ้น",
   "backing_up_title": "กำลังสำรองข้อมูล…",
   "backup.address_book_labels": "สมุดที่อยู่ & ฉลาก",
