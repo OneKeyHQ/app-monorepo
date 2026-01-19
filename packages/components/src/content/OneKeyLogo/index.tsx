@@ -1,4 +1,7 @@
-import { Icon, Image, Skeleton, XStack, YStack } from '../../primitives';
+import { Icon } from '../../primitives/Icon';
+import { Image } from '../../primitives/Image';
+import { Skeleton } from '../../primitives/Skeleton';
+import { XStack, YStack } from '../../primitives/Stack';
 
 import type { GetProps } from '@tamagui/core';
 

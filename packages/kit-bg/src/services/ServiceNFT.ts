@@ -244,7 +244,7 @@ class ServiceNFT extends ServiceBase {
       return {
         ...(await this._getNFTMemo(params)),
       };
-    } catch (error) {
+    } catch (_error) {
       return Promise.resolve(undefined);
     }
   }

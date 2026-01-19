@@ -977,6 +977,8 @@ function TxFeeEditor(props: IProps) {
     vaultSettings?.editFeeEnabled,
   ]);
 
+  const skipFixFeeInfoDecimal = vaultSettings?.skipFixFeeInfoDecimal;
+  type IWatchAllFieldsKeys = keyof typeof watchAllFields;
   const handleFormValueOnChange = useCallback(
     ({
       name,
@@ -987,7 +989,7 @@ function TxFeeEditor(props: IProps) {
       value: string | undefined;
       intRequired?: boolean;
     }) => {
-      const filedName = name as keyof typeof watchAllFields;
+      const filedName = name as IWatchAllFieldsKeys;
       const valueBN = new BigNumber(value ?? 0);
       if (valueBN.isNaN()) {
         const formattedValue = parseFloat(value ?? '');
@@ -1002,10 +1004,7 @@ function TxFeeEditor(props: IProps) {
         form.setValue(filedName, valueBN.toFixed(0));
       } else if (!value?.includes('.')) {
         form.setValue(filedName, valueBN.toFixed());
-      } else if (
-        value?.includes('.') &&
-        !vaultSettings?.skipFixFeeInfoDecimal
-      ) {
+      } else if (value?.includes('.') && !skipFixFeeInfoDecimal) {
         const dp = valueBN.decimalPlaces();
         if (dp && dp > feeDecimals) {
           form.setValue(
@@ -1016,7 +1015,7 @@ function TxFeeEditor(props: IProps) {
         }
       }
     },
-    [feeDecimals, form, vaultSettings?.skipFixFeeInfoDecimal],
+    [feeDecimals, form, skipFixFeeInfoDecimal],
   );
 
   const handleValidateDotExtraTip = useCallback(

@@ -152,7 +152,7 @@ export function ActionButton({
         if (!networkAccount.address && activeAccount?.canCreateAddress) {
           result = true;
         }
-      } catch (e) {
+      } catch (_e) {
         result = Boolean(activeAccount?.canCreateAddress);
       }
     }

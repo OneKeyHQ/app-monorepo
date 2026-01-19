@@ -168,8 +168,8 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
         return keychainKey.value;
       }
       return null;
-    } catch (error) {
-      console.error('Key recovery error:', error);
+    } catch (_error) {
+      console.error('Key recovery error:', _error);
       return null;
     }
   }
@@ -332,8 +332,8 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
         payload: JSON.parse(record.data) as ICloudBackupKeylessWalletPayload,
         content: record.data,
       };
-    } catch (error) {
-      console.error('Failed to download keyless wallet data:', error);
+    } catch (_error) {
+      console.error('Failed to download keyless wallet data:', _error);
       return null;
     }
   }
@@ -376,8 +376,8 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
         payload: JSON.parse(record.data) as IBackupDataEncryptedPayload,
         content: record.data,
       };
-    } catch (error) {
-      console.error('Failed to download backup data:', error);
+    } catch (_error) {
+      console.error('Failed to download backup data:', _error);
       return null;
     }
   }
@@ -411,7 +411,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
               totalAccountsCount: publicData?.totalAccountsCount ?? 0,
             };
             return d;
-          } catch (e) {
+          } catch (_e) {
             return {
               recordID: record.recordID,
               dataTime: 0,
@@ -423,7 +423,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
       )
     )
       .filter(Boolean)
-      .sort((a, b) => (b.dataTime ?? 0) - (a.dataTime ?? 0));
+      .toSorted((a, b) => (b.dataTime ?? 0) - (a.dataTime ?? 0));
     return {
       total: items.length,
       items,

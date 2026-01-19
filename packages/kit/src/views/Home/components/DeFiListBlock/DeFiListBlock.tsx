@@ -683,8 +683,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         protocolCount: 0,
         positionCount: 0,
       };
-      let tempProtocols: IDeFiProtocol[] = [];
-      let tempProtocolMap: Record<string, IProtocolSummary> = {};
+      const tempProtocols: IDeFiProtocol[] = [];
+      const tempProtocolMap: Record<string, IProtocolSummary> = {};
       // merge all networks result
       for (const r of allNetworksResult) {
         tempOverview.totalValue = new BigNumber(tempOverview.totalValue)
@@ -704,11 +704,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         );
         tempOverview.protocolCount += r.overview.protocolCount;
         tempOverview.positionCount += r.overview.positionCount;
-        tempProtocols = [...tempProtocols, ...r.protocols];
-        tempProtocolMap = {
-          ...tempProtocolMap,
-          ...r.protocolMap,
-        };
+        tempProtocols.push(...r.protocols);
+        Object.assign(tempProtocolMap, r.protocolMap);
       }
       updateAccountDeFiOverview({
         currency: settings.currencyInfo.id,

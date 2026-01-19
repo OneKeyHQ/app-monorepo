@@ -7,7 +7,7 @@ export function getBufferFromBN(
 ): Buffer {
   try {
     return r.toBuffer(endian, length);
-  } catch (error) {
+  } catch (_error) {
     return r.toArrayLike(Buffer, endian, length);
   }
 }

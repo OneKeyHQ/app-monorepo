@@ -5,7 +5,7 @@ import { FormattedMessage } from 'react-intl';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { SizableText } from '../../primitives';
+import { SizableText } from '../../primitives/SizeableText';
 
 import type { ISizableTextProps } from '../../primitives';
 

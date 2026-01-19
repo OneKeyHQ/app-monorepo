@@ -32,7 +32,9 @@ import { calculateTxExtraFee } from '@onekeyhq/shared/src/utils/feeUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
+import { getBorrowTxTitle } from '../../../Borrow/borrowUtils';
 import { DAppSiteMark } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
 import { TxConfirmActions } from '../../components/SignatureConfirmActions';
@@ -280,9 +282,18 @@ function TxConfirm() {
     updateCustomRpcStatus,
   ]);
 
+  const stakingInfo = useMemo(() => {
+    const stakingTx = find(unsignedTxs, 'stakingInfo');
+    return stakingTx?.stakingInfo;
+  }, [unsignedTxs]);
+
   const txConfirmTitle = useMemo(() => {
     if ((!decodedTxs || decodedTxs.length === 0) && !decodedTxsInit) {
       return '';
+    }
+
+    if (stakingInfo?.tags?.includes(EEarnLabels.Borrow)) {
+      return getBorrowTxTitle({ intl, stakingInfo });
     }
 
     if (
@@ -297,16 +308,11 @@ function TxConfirm() {
     return intl.formatMessage({
       id: ETranslations.transaction__transaction_confirm,
     });
-  }, [decodedTxs, intl, decodedTxsInit]);
+  }, [decodedTxs, intl, decodedTxsInit, stakingInfo]);
 
   const swapInfo = useMemo(() => {
     const swapTx = find(unsignedTxs, 'swapInfo');
     return swapTx?.swapInfo;
-  }, [unsignedTxs]);
-
-  const stakingInfo = useMemo(() => {
-    const stakingTx = find(unsignedTxs, 'stakingInfo');
-    return stakingTx?.stakingInfo;
   }, [unsignedTxs]);
 
   const handleOnClose = (extra?: { flag?: string }) => {

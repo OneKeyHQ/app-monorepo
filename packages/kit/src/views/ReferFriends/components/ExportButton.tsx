@@ -41,7 +41,7 @@ export function ExportButton({
           id: ETranslations.global_success,
         }),
       });
-    } catch (error) {
+    } catch (_error) {
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.global_failed,

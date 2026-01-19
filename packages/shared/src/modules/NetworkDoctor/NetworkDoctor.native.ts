@@ -443,7 +443,7 @@ export class NetworkDoctor {
         resolved = true;
         try {
           socket.destroy();
-        } catch (e) {
+        } catch (_e) {
           // ignore socket destroy errors
         }
 

@@ -56,7 +56,7 @@ class ServiceMarket extends ServiceBase {
     return filters.length
       ? data
           .filter((i) => !filters.includes(i.categoryId))
-          .sort((a, b) => Number(a.sequenceId) - Number(b.sequenceId))
+          .toSorted((a, b) => Number(a.sequenceId) - Number(b.sequenceId))
       : data;
   }
 

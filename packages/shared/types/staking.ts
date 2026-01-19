@@ -365,16 +365,20 @@ export interface IBorrowApyDetailItem {
   logoURI?: string;
   title: IEarnText;
   description?: IEarnText;
-  value: {
-    text: IEarnText;
-    icon?: IEarnIcon;
-  };
+  value: IBorrowApy;
+}
+
+export interface IBorrowApyComponent {
+  color: string;
+  value: string; // numeric string
+  title: IEarnText;
 }
 
 export interface IBorrowApyDetailSection {
   title?: IEarnText;
   descriptions?: IEarnText[];
   items: IBorrowApyDetailItem[];
+  apyComponents?: IBorrowApyComponent[];
 }
 
 export interface IBorrowApyDetailPopupData {
@@ -382,19 +386,20 @@ export interface IBorrowApyDetailPopupData {
     icon: IKeyOfIcons;
   };
   apyDetail: {
+    description?: { text: IEarnText; button: IEarnLinkActionIcon }[];
     normal?: IBorrowApyDetailSection;
     supplyBonus?: IBorrowApyDetailSection;
     collateralBonus?: IBorrowApyDetailSection;
     platformBonus?: IBorrowApyDetailSection;
+    myCollateralShare?: IBorrowApyDetailSection;
+    myPlatformBonusShare?: IBorrowApyDetailSection;
     totalApy?: {
       icon?: {
         icon: IKeyOfIcons;
       };
       title: IEarnText;
       description?: IEarnText;
-      value: {
-        text: IEarnText;
-      };
+      value: IBorrowApy;
     };
   };
 }
@@ -1880,6 +1885,10 @@ export interface IBorrowAsset {
     description: IEarnText;
   };
   apyDetail: IBorrowApy;
+  platformBonusApy?: {
+    title: IEarnText;
+    logoURI: string;
+  };
 }
 
 export interface IBorrowAssetsList {

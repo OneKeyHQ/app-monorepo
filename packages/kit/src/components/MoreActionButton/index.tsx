@@ -1213,7 +1213,7 @@ function MoreActionDevice() {
           (item): item is IHwQrWalletWithDevice =>
             Boolean(item.device) && !item.wallet.deprecated,
         )
-        .sort((a, b) => {
+        .toSorted((a, b) => {
           // Sort by walletOrder or fallback to walletNo
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;
           const orderB = b.wallet.walletOrder || b.wallet.walletNo;
@@ -1359,7 +1359,7 @@ function MoreActionContent({
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return (
     <MoreActionProvider>
-      <YStack minHeight={560} {...containerStyle}>
+      <YStack minHeight={600} {...containerStyle}>
         <MoreActionContentHeader />
         {platformEnv.isWebDappMode ? null : <UpdateReminders />}
         {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
@@ -1555,7 +1555,7 @@ function MoreActionButtonCmp() {
       floatingPanelProps={{
         maxWidth: 384,
         width: 384,
-        height: 560,
+        height: 600,
         p: 0,
         overflow: 'hidden',
         style: { transformOrigin: 'bottom left' },

@@ -186,7 +186,7 @@ function sortMapData(data: { [key: string]: number }) {
     [key: string]: number;
   }> = {};
   Object.keys(data)
-    .sort()
+    .toSorted()
     .forEach((key) => {
       sortedResult[key] = data[key];
     });
@@ -310,13 +310,13 @@ function toastWarningAndReset(key: string) {
       indexedDBResult[key] >= generalDebuggerRule[key]
     ) {
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
 
     if (shouldDbTxCreatedDebuggerRule[key]) {
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
     resetData();
@@ -364,7 +364,7 @@ function logLocalDbCall(method: string, table: string, params: any[]) {
     ) {
       logResult();
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
   }
@@ -415,7 +415,7 @@ function logAppStorageCall(method: string, key: string) {
     ) {
       logResult();
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
   }
@@ -477,7 +477,7 @@ function logIndexedDBCreateTx() {
         );
       };
     }
-  } catch (e) {
+  } catch (_e) {
     //
   }
 }

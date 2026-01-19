@@ -160,7 +160,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
     const networks = depositConfig.map((item) => item.network);
-    const tokens = depositConfig.map((item) => item.tokens).flat();
+    const tokens = depositConfig.flatMap((item) => item.tokens);
     await perpsDepositNetworksAtom.set((prev): IPerpsDepositNetworksAtom => {
       return {
         ...prev,
@@ -414,7 +414,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       aggregateByTime: true,
     });
 
-    const sorted = [...fills].sort((a, b) => b.time - a.time);
+    const sorted = [...fills].toSorted((a, b) => b.time - a.time);
 
     await perpsTradesHistoryDataAtom.set({
       fills: sorted,
@@ -446,7 +446,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     const filtered = this._filterFills(newFills)
       .filter((f) => f.time > current.latestTime)
-      .sort((a, b) => b.time - a.time);
+      .toSorted((a, b) => b.time - a.time);
 
     if (filtered.length === 0) {
       return;
@@ -1117,7 +1117,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         )
       )
         .filter(Boolean)
-        .sort((a, b) => b.validUntil - a.validUntil);
+        .toSorted((a, b) => b.validUntil - a.validUntil);
       agentCredential = validAgents?.[0];
     }
     if (!agentCredential && isEnableTradingTrigger) {
@@ -1139,7 +1139,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         );
         const agentToRemove = (
           nonOneKeyAgents.length ? nonOneKeyAgents : extraAgents
-        ).sort((a, b) => a.validUntil - b.validUntil)?.[0];
+        ).toSorted((a, b) => a.validUntil - b.validUntil)?.[0];
         const agentNameToRemove = agentToRemove?.name as
           | EHyperLiquidAgentName
           | undefined;

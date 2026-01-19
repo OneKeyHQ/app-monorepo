@@ -74,7 +74,7 @@ function FaqInfo({
           screen: EModalSwapRoutes.SwapMainLand,
           params: {
             importToToken: {
-              ...(token ?? {}),
+              ...token,
               contractAddress: token?.address ?? '',
               networkId,
               networkLogoURI: network.logoURI,

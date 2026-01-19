@@ -25,6 +25,7 @@ import type {
   IParseTransactionParams,
   IParseTransactionResp,
 } from '@onekeyhq/shared/types/signatureConfirm';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
@@ -180,7 +181,8 @@ class ServiceSignatureConfirm extends ServiceBase {
     if (
       parsedTx &&
       (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
-      parsedTx?.type === EParseTxType.Unknown
+      parsedTx?.type === EParseTxType.Unknown &&
+      !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow)
     ) {
       parsedTx.display = null;
     }
@@ -306,7 +308,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     let messageToParse = message;
     try {
       messageToParse = JSON.parse(messageToParse);
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
 

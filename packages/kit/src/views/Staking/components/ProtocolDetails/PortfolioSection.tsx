@@ -18,7 +18,6 @@ import {
   Stack,
   XStack,
   YStack,
-  usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -261,81 +260,81 @@ function PendingInactiveItem({
   );
 }
 
-function _RewardAmountPopoverContent({
-  totalRewardAmount,
-  waitingRebateRewardAmount: _waitingRebateRewardAmount,
-  tokenSymbol,
-  onHistory,
-}: {
-  totalRewardAmount: number;
-  waitingRebateRewardAmount: number;
-  tokenSymbol: string;
-  onHistory?: IPortfolioInfoProps['onHistory'];
-}) {
-  const { closePopover } = usePopoverContext();
-  const handlePress = useCallback(async () => {
-    await closePopover?.();
-    setTimeout(() => {
-      onHistory?.({ filterType: 'rebate' });
-    }, 50);
-  }, [closePopover, onHistory]);
-  const intl = useIntl();
-  return (
-    <YStack p="$5">
-      <XStack>
-        <SizableText size="$bodyLgMedium">
-          <NumberSizeableText
-            size="$bodyLgMedium"
-            formatter="balance"
-            formatterOptions={{ tokenSymbol }}
-          >
-            {_waitingRebateRewardAmount}
-          </NumberSizeableText>
-          <SizableText size="$bodyLgMedium">
-            {` ${intl.formatMessage({
-              id: ETranslations.earn_referral_undistributed,
-            })}`}
-          </SizableText>
-        </SizableText>
-      </XStack>
-      <XStack pt="$2">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.referral_earn_reward_tips,
-          })}
-        </SizableText>
-      </XStack>
-      <XStack jc="space-between" pt="$4">
-        <SizableText size="$bodyMdMedium">
-          <SizableText size="$bodyMdMedium">
-            {`${intl.formatMessage({
-              id: ETranslations.earn_referral_total_earned,
-            })} `}
-          </SizableText>
-          <NumberSizeableText
-            size="$bodyMdMedium"
-            formatter="balance"
-            formatterOptions={{ tokenSymbol }}
-          >
-            {totalRewardAmount}
-          </NumberSizeableText>
-        </SizableText>
-        <XStack gap="$0.5" cursor="pointer" onPress={handlePress}>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.global_history,
-            })}
-          </SizableText>
-          <Icon
-            name="ChevronRightSmallOutline"
-            color="$iconSubdued"
-            size="$5"
-          />
-        </XStack>
-      </XStack>
-    </YStack>
-  );
-}
+// function _RewardAmountPopoverContent({
+//   totalRewardAmount,
+//   waitingRebateRewardAmount: _waitingRebateRewardAmount,
+//   tokenSymbol,
+//   onHistory,
+// }: {
+//   totalRewardAmount: number;
+//   waitingRebateRewardAmount: number;
+//   tokenSymbol: string;
+//   onHistory?: IPortfolioInfoProps['onHistory'];
+// }) {
+//   const { closePopover } = usePopoverContext();
+//   const handlePress = useCallback(async () => {
+//     await closePopover?.();
+//     setTimeout(() => {
+//       onHistory?.({ filterType: 'rebate' });
+//     }, 50);
+//   }, [closePopover, onHistory]);
+//   const intl = useIntl();
+//   return (
+//     <YStack p="$5">
+//       <XStack>
+//         <SizableText size="$bodyLgMedium">
+//           <NumberSizeableText
+//             size="$bodyLgMedium"
+//             formatter="balance"
+//             formatterOptions={{ tokenSymbol }}
+//           >
+//             {_waitingRebateRewardAmount}
+//           </NumberSizeableText>
+//           <SizableText size="$bodyLgMedium">
+//             {` ${intl.formatMessage({
+//               id: ETranslations.earn_referral_undistributed,
+//             })}`}
+//           </SizableText>
+//         </SizableText>
+//       </XStack>
+//       <XStack pt="$2">
+//         <SizableText size="$bodySm" color="$textSubdued">
+//           {intl.formatMessage({
+//             id: ETranslations.referral_earn_reward_tips,
+//           })}
+//         </SizableText>
+//       </XStack>
+//       <XStack jc="space-between" pt="$4">
+//         <SizableText size="$bodyMdMedium">
+//           <SizableText size="$bodyMdMedium">
+//             {`${intl.formatMessage({
+//               id: ETranslations.earn_referral_total_earned,
+//             })} `}
+//           </SizableText>
+//           <NumberSizeableText
+//             size="$bodyMdMedium"
+//             formatter="balance"
+//             formatterOptions={{ tokenSymbol }}
+//           >
+//             {totalRewardAmount}
+//           </NumberSizeableText>
+//         </SizableText>
+//         <XStack gap="$0.5" cursor="pointer" onPress={handlePress}>
+//           <SizableText size="$bodyMd" color="$textSubdued">
+//             {intl.formatMessage({
+//               id: ETranslations.global_history,
+//             })}
+//           </SizableText>
+//           <Icon
+//             name="ChevronRightSmallOutline"
+//             color="$iconSubdued"
+//             size="$5"
+//           />
+//         </XStack>
+//       </XStack>
+//     </YStack>
+//   );
+// }
 
 function PortfolioInfo({
   details,

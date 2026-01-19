@@ -508,7 +508,7 @@ export function useSwapBuildTx() {
               networkId: item.networkId,
               deriveType: defaultDeriveType ?? 'default',
             });
-        } catch (e) {
+        } catch (_e) {
           orderAccount = undefined;
         }
         if (dataMessage) {
@@ -645,7 +645,13 @@ export function useSwapBuildTx() {
           };
         },
       );
-      const { totalNative } = calculateFeeForSend({
+      const {
+        totalNative,
+        total,
+        totalFiat,
+        totalFiatForDisplay,
+        totalNativeForDisplay,
+      } = calculateFeeForSend({
         feeInfo: gasInfo as IFeeInfoUnit,
         nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
       });
@@ -665,6 +671,30 @@ export function useSwapBuildTx() {
         accountId,
         unsignedTx: updatedUnsignedTxItem,
         signOnly: false,
+      });
+      const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
+        networkId,
+        accountId,
+        unsignedTx: updatedUnsignedTxItem,
+        feeInfo: {
+          feeInfo: gasInfo as IFeeInfoUnit,
+          total,
+          totalNative,
+          totalFiat,
+          totalNativeForDisplay,
+          totalFiatForDisplay,
+        },
+        saveToLocalHistory: true,
+      });
+      await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
+        networkId,
+        accountId,
+        data: {
+          signedTx: res,
+          decodedTx,
+          approveInfo: updatedUnsignedTxItem.approveInfo,
+          feeInfo: gasInfo as IFeeInfoUnit,
+        },
       });
       return res;
     },
@@ -1691,6 +1721,7 @@ export function useSwapBuildTx() {
       currentFromToken?: ISwapToken,
       currentToToken?: ISwapToken,
       data?: IFetchQuoteResult,
+      skipLoading?: boolean,
     ) => {
       if (
         data?.fromTokenInfo &&
@@ -1712,13 +1743,15 @@ export function useSwapBuildTx() {
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
         try {
-          setSwapSteps((prev) => ({
-            ...prev,
-            preSwapData: {
-              ...prev.preSwapData,
-              swapBuildLoading: true,
-            },
-          }));
+          if (!skipLoading) {
+            setSwapSteps((prev) => ({
+              ...prev,
+              preSwapData: {
+                ...prev.preSwapData,
+                swapBuildLoading: true,
+              },
+            }));
+          }
           buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
             fromToken: data.fromTokenInfo,
             toToken: data.toTokenInfo,
@@ -1735,13 +1768,15 @@ export function useSwapBuildTx() {
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
           });
         } catch (e: any) {
-          setSwapSteps((prev) => ({
-            ...prev,
-            preSwapData: {
-              ...prev.preSwapData,
-              swapBuildLoading: false,
-            },
-          }));
+          if (!skipLoading) {
+            setSwapSteps((prev) => ({
+              ...prev,
+              preSwapData: {
+                ...prev.preSwapData,
+                swapBuildLoading: false,
+              },
+            }));
+          }
           let swapType = ESwapTabSwitchType.SWAP;
           if (data?.protocol === EProtocolOfExchange.LIMIT) {
             swapType = ESwapTabSwitchType.LIMIT;
@@ -1995,13 +2030,15 @@ export function useSwapBuildTx() {
           };
         }
       }
-      setSwapSteps((prev) => ({
-        ...prev,
-        preSwapData: {
-          ...prev.preSwapData,
-          swapBuildLoading: false,
-        },
-      }));
+      if (!skipLoading) {
+        setSwapSteps((prev) => ({
+          ...prev,
+          preSwapData: {
+            ...prev.preSwapData,
+            swapBuildLoading: false,
+          },
+        }));
+      }
       return {};
     },
     [
@@ -2033,6 +2070,7 @@ export function useSwapBuildTx() {
       shouldFallback?: boolean,
       fallbackApproveInfos?: IApproveInfo[],
       needFetchGas?: boolean,
+      skipLoading?: boolean,
     ) => {
       if (
         data?.fromTokenInfo &&
@@ -2070,7 +2108,12 @@ export function useSwapBuildTx() {
           transferInfo,
           swapInfo,
           orderId,
-        } = await buildSwapAction(currentFromToken, currentToToken, data);
+        } = await buildSwapAction(
+          currentFromToken,
+          currentToToken,
+          data,
+          skipLoading,
+        );
         if (swapInfo) {
           if (skipSendTransAction) {
             void handleBuildTxSuccessWithSignedNoSend({
@@ -2298,6 +2341,7 @@ export function useSwapBuildTx() {
                   undefined,
                   undefined,
                   needFetchGas,
+                  true,
                 );
                 return buildTxRes;
               }
@@ -2342,6 +2386,7 @@ export function useSwapBuildTx() {
                   undefined,
                   undefined,
                   needFetchGas,
+                  true,
                 );
                 return buildTxRes;
               }
@@ -2647,13 +2692,10 @@ export function useSwapBuildTx() {
               const unsignedTxItem = unsignedTxArr[i];
               const gasRes = gasResArr.txFees[i];
               const gasInfo = buildGasInfo(gasRes, gasResArr.common);
-              gasFeeInfos = [
-                ...gasFeeInfos,
-                {
-                  encodeTx: unsignedTxItem.encodedTx ?? {},
-                  gasInfo,
-                },
-              ];
+              gasFeeInfos.push({
+                encodeTx: unsignedTxItem.encodedTx ?? {},
+                gasInfo,
+              });
             }
           } catch (e: any) {
             void swapEstimateFeeEvent(
@@ -2729,13 +2771,10 @@ export function useSwapBuildTx() {
                     }
                   : undefined,
               };
-              gasFeeInfos = [
-                ...gasFeeInfos,
-                {
-                  encodeTx: unsignedTxItem.encodedTx,
-                  gasInfo: lastTxGasInfo,
-                },
-              ];
+              gasFeeInfos.push({
+                encodeTx: unsignedTxItem.encodedTx,
+                gasInfo: lastTxGasInfo,
+              });
             } else {
               const estimateFeeParams =
                 await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -2757,13 +2796,10 @@ export function useSwapBuildTx() {
                 };
               }
               const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
-              gasFeeInfos = [
-                ...gasFeeInfos,
-                {
-                  encodeTx: unsignedTxItem.encodedTx,
-                  gasInfo: gasParseInfo,
-                },
-              ];
+              gasFeeInfos.push({
+                encodeTx: unsignedTxItem.encodedTx,
+                gasInfo: gasParseInfo,
+              });
             }
           }
         } else {
@@ -2838,7 +2874,7 @@ export function useSwapBuildTx() {
             estimateNetworkFeeLoading: false,
           },
         }));
-      } catch (e: any) {
+      } catch (_e: any) {
         setSwapSteps((prev) => ({
           ...prev,
           preSwapData: {
@@ -2908,7 +2944,7 @@ export function useSwapBuildTx() {
               stepBeforeActionsLoading: false,
             },
           }));
-        } catch (e) {
+        } catch (_e) {
           setSwapSteps((prev) => ({
             ...prev,
             preSwapData: {

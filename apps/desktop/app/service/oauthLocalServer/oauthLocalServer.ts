@@ -29,7 +29,7 @@ export function setMainWindowForOAuthServer(window: BrowserWindow | null) {
 function getDefaultBrowserNameForUrl(url: string): string {
   try {
     return app.getApplicationNameForProtocol(url) || '';
-  } catch (e) {
+  } catch (_e) {
     return '';
   }
 }
@@ -148,11 +148,11 @@ function tryOpenChromeAppWindow(url: string): boolean {
         // eslint-disable-next-line @cspell/spellchecker
         child.unref();
         return true;
-      } catch (e) {
+      } catch (_e) {
         // Try next candidate
       }
     }
-  } catch (e) {
+  } catch (_e2) {
     // Ignore and fallback to default browser.
   }
 

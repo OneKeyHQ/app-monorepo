@@ -1,19 +1,26 @@
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalStakingRoutes,
   ETabEarnRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowReserveItem,
+  IStakingInfo,
+} from '@onekeyhq/shared/types/staking';
 
 import { safePushToEarnRoute } from '../Earn/earnUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/useManagePage';
+import type { IntlShape } from 'react-intl';
 
 export const BorrowNavigation = {
   // Navigate from deep link (when user clicks a borrow share link)
@@ -203,4 +210,32 @@ export const BorrowNavigation = {
     const queryString = queryParams.toString();
     return `${origin}${baseUrl}?${queryString}`;
   },
+};
+
+export const isBorrowTx = (unsignedTx: IUnsignedTxPro | undefined) => {
+  if (!unsignedTx) return false;
+  return unsignedTx?.stakingInfo?.tags?.includes(EEarnLabels.Borrow);
+};
+
+export const getBorrowTxTitle = ({
+  intl,
+  stakingInfo,
+}: {
+  intl: IntlShape;
+  stakingInfo: IStakingInfo | undefined;
+}) => {
+  switch (stakingInfo?.label) {
+    case EEarnLabels.Supply:
+      return intl.formatMessage({ id: ETranslations.defi_supply });
+    case EEarnLabels.Borrow:
+      return intl.formatMessage({ id: ETranslations.global_borrow });
+    case EEarnLabels.Repay:
+      return intl.formatMessage({ id: ETranslations.defi_repay });
+    case EEarnLabels.Withdraw:
+      return intl.formatMessage({ id: ETranslations.global_withdraw });
+    case EEarnLabels.Claim:
+      return intl.formatMessage({ id: ETranslations.earn_claim });
+    default:
+      return undefined;
+  }
 };
