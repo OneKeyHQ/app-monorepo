@@ -95,7 +95,7 @@ const jsRules = {
 //   {
 //     group: ['**/localDbInstance', '**/localDbInstance.native'],
 //     message:
-//       'import localDbInstance directly is not allowd, use localDb instead',
+//       'import localDbInstance directly is not allowed, use localDb instead',
 //   },
 //   {
 //     group: ['@onekeyhq/desktop/app/i18n'],
@@ -104,7 +104,7 @@ const jsRules = {
 //   {
 //     group: ['**/v4localDbInstance.native'],
 //     message:
-//       'import v4localDbInstance.native directly is not allowd, use v4localDbInstance instead',
+//       'import v4localDbInstance.native directly is not allowed, use v4localDbInstance instead',
 //   },
 //   {
 //     group: [

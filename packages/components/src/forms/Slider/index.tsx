@@ -8,8 +8,6 @@ import { XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type { IBaseSliderProps } from './type';
-// spell mistake in tamagui components.
-// eslint-disable-next-line @cspell/spellchecker
 import type { LayoutChangeEvent } from 'react-native';
 
 function SliderSegment({
