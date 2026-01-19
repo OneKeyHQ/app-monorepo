@@ -1,4 +1,4 @@
-/* eslint-disable @cspell/spellchecker */
+/* oxlint-disable @cspell/spellchecker */
 // Utilities for detecting whether an address belongs to a given network.
 
 import { getPresetNetworks, presetNetworksMap } from '../config/presetNetworks';
@@ -383,7 +383,7 @@ async function detectNetworkByPrivateKeyFn({
   const buildSameImplResults = (network: IServerNetwork) => {
     const results = getPresetNetworks()
       .filter((n) => n.impl === network.impl)
-      .sort((a) => (a.name === network.name ? -1 : 0))
+      .toSorted((a) => (a.name === network.name ? -1 : 0))
       .map((n) => buildDetectedNetwork(n));
     return results;
   };

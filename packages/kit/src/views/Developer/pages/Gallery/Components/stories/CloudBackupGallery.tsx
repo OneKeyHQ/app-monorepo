@@ -267,7 +267,7 @@ export function CloudBackupApiTests() {
                   'getAllBackups',
                 );
                 setBackupsList(result as any[]);
-              } catch (error) {
+              } catch (_error) {
                 // Error already handled by handleApiCall
               }
             }}

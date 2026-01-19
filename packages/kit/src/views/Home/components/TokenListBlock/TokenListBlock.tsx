@@ -1276,7 +1276,7 @@ function TokenListBlock({
     let riskyTokenListMap: {
       [key: string]: ITokenFiat;
     } = {};
-    let accountsWorth: Record<string, string> = {};
+    const accountsWorth: Record<string, string> = {};
     let createAtNetworkWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
@@ -1300,7 +1300,7 @@ function TokenListBlock({
               })
             ).mergeDeriveAssetsEnabled;
           }
-        } catch (e) {
+        } catch (_e) {
           mergeDeriveAssetsEnabled = false;
         }
 
@@ -1370,13 +1370,12 @@ function TokenListBlock({
           r.smallBalanceTokens.fiatValue ?? '0',
         );
 
-        accountsWorth = {
-          ...accountsWorth,
-          [accountUtils.buildAccountValueKey({
+        accountsWorth[
+          accountUtils.buildAccountValueKey({
             accountId: r.accountId ?? '',
             networkId: r.networkId ?? '',
-          })]: accountWorth.toFixed(),
-        };
+          })
+        ] = accountWorth.toFixed();
 
         if (
           account?.id &&

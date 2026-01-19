@@ -80,13 +80,13 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     const coinName = await checkIsDefined(this.coreApi).getCoinName({
       network,
     });
-    const addresses = inputs.map((input) => input.address);
+    const addresses = new Set(inputs.map((input) => input.address));
     const { utxoList: utxosInfo } = await vault._collectUTXOsInfoByApi();
 
     const signers: Record<string, string> = {};
     for (const utxo of utxosInfo) {
       const { address, path } = utxo;
-      if (addresses.includes(address)) {
+      if (addresses.has(address)) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         signers[address] = path;
       }
@@ -183,7 +183,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       hash: tx.getId(),
       version: tx.version,
       inputs: tx.ins.map((i) => ({
-        prev_hash: Buffer.from(i.hash.reverse()).toString('hex'),
+        prev_hash: Buffer.from(i.hash.toReversed()).toString('hex'),
         prev_index: i.index,
         script_sig: Buffer.from(i.script).toString('hex'),
         sequence: i.sequence,

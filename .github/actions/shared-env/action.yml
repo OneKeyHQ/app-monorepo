@@ -69,13 +69,16 @@ runs:
         workflow: daily-build-dev
         name: workflow-params
         run_id: ${{ github.event.workflow_run.id }}
-      
+        path: ${{ runner.temp }}/workflow-params
+
     - name: Load workflow parameters
       if: ${{ github.event.workflow_run }}
       shell: bash
       run: |
-        if [ -f params.env ]; then
-          cat params.env >> $GITHUB_ENV
+        # Load params.env from isolated temp directory to prevent artifact poisoning
+        PARAMS_FILE="${{ runner.temp }}/workflow-params/params.env"
+        if [ -f "$PARAMS_FILE" ]; then
+          cat "$PARAMS_FILE" >> $GITHUB_ENV
         fi
 
     - name: Switch to target branch

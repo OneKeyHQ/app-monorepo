@@ -65,7 +65,7 @@ function ReceiveOptions({
 
 function ReceiveSelectorContent() {
   const intl = useIntl();
-  // eslint-disable-next-line @cspell/spellchecker
+  // oxlint-disable-next-line @cspell/spellchecker
   const binanceHelpLink = useHelpLink({
     path: 'articles/12553421',
   });
@@ -102,7 +102,7 @@ function ReceiveSelectorContent() {
           isSupported: url && build,
           url,
         };
-      } catch (error) {
+      } catch (_error) {
         return {
           isSupported: false,
         };
@@ -391,7 +391,7 @@ function ReceiveSelectorContent() {
                         variant="tertiary"
                         childrenAsText={false}
                         onPress={() => {
-                          // eslint-disable-next-line @cspell/spellchecker
+                          // oxlint-disable-next-line @cspell/spellchecker
                           openUrlExternal(binanceHelpLink);
                         }}
                       >

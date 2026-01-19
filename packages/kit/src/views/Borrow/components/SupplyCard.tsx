@@ -11,6 +11,7 @@ import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
+import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
@@ -27,7 +28,7 @@ import { Card } from './Card';
 type ISupplyAsset = IBorrowReserveItem['supply']['assets'][number];
 
 export const SupplyCard = () => {
-  const { reserves, market, reservesLoading } = useBorrowContext();
+  const { reserves, market, borrowDataStatus } = useBorrowContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
@@ -80,7 +81,10 @@ export const SupplyCard = () => {
     [navigation, market, gtMd, handleManageSupply, accountId, indexedAccountId],
   );
 
-  const showLoading = !reserves && reservesLoading;
+  const showLoading =
+    borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
+    borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
+    borrowDataStatus === EBorrowDataStatus.LoadingReserves;
 
   // Filter data based on showZeroBalance (mobile always shows all assets)
   const filteredAssets = useMemo(() => {
@@ -101,7 +105,7 @@ export const SupplyCard = () => {
       balance: intl.formatMessage({ id: ETranslations.global_balance }),
       supply: intl.formatMessage({ id: ETranslations.defi_supply }),
       assetCanBeCollateral: intl.formatMessage({
-        id: ETranslations.defi_asset_can_be_collateral,
+        id: ETranslations.global_asset,
       }),
       assetsToSupply: intl.formatMessage({
         id: ETranslations.defi_assets_to_supply,
@@ -141,7 +145,7 @@ export const SupplyCard = () => {
         render: (item: ISupplyAsset) => (
           <AssetWithAmountField
             token={item.token}
-            canBeCollateral={item.canBeCollateral}
+            canBeCollateral={false}
             amount={item.walletBalance.title}
             amountDescription={item.walletBalance.description}
             showWalletIcon

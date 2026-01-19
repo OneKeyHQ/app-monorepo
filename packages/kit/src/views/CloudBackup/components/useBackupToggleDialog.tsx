@@ -61,7 +61,7 @@ function BackupToggleDialogFooter({
           setLoading(true);
           await backupToggleAction.toggle(willIsEnabled, callback);
           await timerUtils.wait(500);
-        } catch (e) {
+        } catch (_e) {
           //
         } finally {
           setLoading(false);

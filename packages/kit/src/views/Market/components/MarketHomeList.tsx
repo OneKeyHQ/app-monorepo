@@ -592,11 +592,12 @@ function BasicMarketHomeList({
     [intl, mdColumnKeys],
   );
 
+  type ISortType = typeof sortByType;
   const handleMdSortByTypeChange = useCallback(
     (value: string) => {
       setMdSortByType(value);
       const item = selectOptions.find((v) => v.value === value);
-      setSortByType(item?.options as typeof sortByType);
+      setSortByType(item?.options as ISortType);
     },
     [selectOptions, setSortByType],
   );

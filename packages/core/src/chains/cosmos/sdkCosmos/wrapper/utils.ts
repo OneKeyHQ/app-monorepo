@@ -287,7 +287,7 @@ export function getSequence(signDoc: TransactionWrapper): BigNumber {
   return (
     signerInfos
       .map((s) => new BigNumber(s.sequence.toString()))
-      .sort((a, b) => b.comparedTo(a))[0] ?? new BigNumber(0)
+      .toSorted((a, b) => b.comparedTo(a))[0] ?? new BigNumber(0)
   );
 }
 
@@ -299,7 +299,7 @@ function sortObjectByKey(obj: Record<string, any>): any {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return obj.map(sortObjectByKey);
   }
-  const sortedKeys = Object.keys(obj).sort();
+  const sortedKeys = Object.keys(obj).toSorted();
   const result: Record<string, any> = {};
   sortedKeys.forEach((key) => {
     result[key] = sortObjectByKey(obj[key]);

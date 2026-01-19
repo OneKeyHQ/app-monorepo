@@ -252,7 +252,7 @@ export function validateTypedSignMessageDataV1(
   try {
     // typedSignatureHash will throw if the data is invalid.
     typedSignatureHash(message as any);
-  } catch (e) {
+  } catch (_e) {
     throw new OneKeyLocalError(`Expected EIP712 typed data.`);
   }
 }
@@ -290,7 +290,7 @@ export function validateTypedSignMessageDataV3V4(
   } else {
     try {
       messageObject = JSON.parse(message);
-    } catch (e) {
+    } catch (_e) {
       throw new OneKeyLocalError(
         'Message data must be passed as a valid JSON string.',
       );

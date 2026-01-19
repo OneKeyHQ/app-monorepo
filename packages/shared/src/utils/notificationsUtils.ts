@@ -160,7 +160,7 @@ export function parseNotificationPayload(
         appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
           payload: payloadObj,
         });
-      } catch (error) {
+      } catch (_error) {
         fallbackHandler();
       }
       break;
@@ -170,7 +170,7 @@ export function parseNotificationPayload(
         appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
           payload: payloadObj,
         });
-      } catch (error) {
+      } catch (_error) {
         fallbackHandler();
       }
 

@@ -68,7 +68,7 @@ function getOriginFromUrl({ url }: { url: string }): string {
 function safeParseURL(url: string): URL | null {
   try {
     return new URL(url);
-  } catch (e) {
+  } catch (_e) {
     return null;
   }
 }
@@ -174,14 +174,14 @@ export function parseUrl(url: string): IUrlValue | null {
         return paramList;
       }, {}),
     };
-  } catch (e) {
+  } catch (_e) {
     return null;
   }
 }
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
-// eslint-disable-next-line @cspell/spellchecker
+// oxlint-disable-next-line @cspell/spellchecker
 // check the ens format 元宇宙.bnb / diamondgs198.x
 export const addressIsEnsFormat = (address: string) => {
   const parts = address.split('.');
@@ -293,7 +293,7 @@ function safeGetWalletConnectOrigin(proposal: WalletKitTypes.SessionProposal) {
   try {
     const { origin } = new URL(proposal.params.proposer.metadata.url);
     return origin;
-  } catch (err) {
+  } catch (_err) {
     try {
       const key = `${proposal.params.proposer.metadata.name}--${proposal.params.proposer.metadata.description}`;
       const nameToUrl = NameToUrlMapForInvalidDapp[key];

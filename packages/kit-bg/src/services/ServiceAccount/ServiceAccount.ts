@@ -291,7 +291,7 @@ class ServiceAccount extends ServiceBase {
         });
       });
       return !resp;
-    } catch (e) {
+    } catch (_e) {
       return true;
     }
   }
@@ -1369,7 +1369,7 @@ class ServiceAccount extends ServiceBase {
   }> {
     try {
       return await this.addHyperLiquidAgentCredential(params);
-    } catch (error) {
+    } catch (_error) {
       return this.updateHyperLiquidAgentCredential(params);
     }
   }
@@ -1850,7 +1850,7 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    // eslint-disable-next-line @cspell/spellchecker
+    // oxlint-disable-next-line @cspell/spellchecker
     // /evm/0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
     if (networkId === IMPL_EVM) {
       // eslint-disable-next-line no-param-reassign
@@ -2049,7 +2049,7 @@ class ServiceAccount extends ServiceBase {
               networkId: accountNetworkId,
             });
           }
-        } catch (e) {
+        } catch (_e) {
           //
         }
         return account;
@@ -3370,6 +3370,10 @@ class ServiceAccount extends ServiceBase {
         'Remove non-hd and non-hw wallet is not allowed',
       );
     }
+
+    const wallet = await this.getWalletSafe({ walletId });
+    const keylessOwnerId = wallet?.keylessDetailsInfo?.keylessOwnerId;
+
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
@@ -3394,6 +3398,12 @@ class ServiceAccount extends ServiceBase {
     void this.cleanupOrphanedHyperLiquidAgentCredentials({
       walletId,
     });
+
+    if (keylessOwnerId) {
+      void this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage({
+        ownerId: keylessOwnerId,
+      });
+    }
 
     if (!skipBackupWalletRemove) {
       void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
@@ -3985,7 +3995,7 @@ class ServiceAccount extends ServiceBase {
             networkId,
             deriveType: item.deriveType,
           });
-        } catch (e) {
+        } catch (_e) {
           // fail to get account
         }
         return {
@@ -4066,7 +4076,7 @@ class ServiceAccount extends ServiceBase {
           deriveType,
         });
         return result;
-      } catch (error) {
+      } catch (_error) {
         const isCreated = await new Promise<boolean>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
             resolve,
@@ -4102,7 +4112,7 @@ class ServiceAccount extends ServiceBase {
           deriveType,
         });
         return result;
-      } catch (error) {
+      } catch (_error) {
         showSwitchAccountSelector();
       }
     }
@@ -4441,7 +4451,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: true,
             },
           }));
@@ -4456,7 +4466,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: false,
             },
           }));
@@ -4558,7 +4568,7 @@ class ServiceAccount extends ServiceBase {
         await hardwareWalletXfpStatusAtom.set((v) => ({
           ...v,
           [walletId]: {
-            ...(v?.[walletId] || {}),
+            ...v?.[walletId],
             xfpMissing: false,
           },
         }));
@@ -5162,7 +5172,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     skipEventEmit?: boolean;
   }) {
-    let addedAccounts: IDBAccount[] = [];
+    const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
@@ -5219,7 +5229,7 @@ class ServiceAccount extends ServiceBase {
               deriveType,
               skipAddIfNotEqualToAddress,
             });
-          addedAccounts = [...addedAccounts, ...(accounts || [])];
+          addedAccounts.push(...(accounts || []));
         } catch (e) {
           console.error('addImportedAccountByInput error', e);
         }
@@ -5243,7 +5253,7 @@ class ServiceAccount extends ServiceBase {
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
-    let addedAccounts: IDBAccount[] = [];
+    const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
@@ -5298,7 +5308,7 @@ class ServiceAccount extends ServiceBase {
             isUrlAccount: false,
             skipAddIfNotEqualToAddress,
           });
-          addedAccounts = [...addedAccounts, ...(accounts || [])];
+          addedAccounts.push(...(accounts || []));
         } catch (e) {
           console.error('addWatchingAccountByInput error', e);
         }

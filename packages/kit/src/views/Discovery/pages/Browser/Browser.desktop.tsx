@@ -49,7 +49,7 @@ function DesktopBrowser() {
 
   // Sort tabs by id to maintain stable order and prevent re-renders
   const orderTabs = useMemo(
-    () => [...tabs].sort((a, b) => a.id.localeCompare(b.id)),
+    () => [...tabs].toSorted((a, b) => a.id.localeCompare(b.id)),
     [tabs],
   );
 

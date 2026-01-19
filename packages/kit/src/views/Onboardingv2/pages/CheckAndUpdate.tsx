@@ -612,7 +612,7 @@ function CheckAndUpdatePage({
         }, 150);
       }
       isFirmwareVerifiedRef.current = !!result.verified;
-    } catch (error) {
+    } catch (_error) {
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[0] = {

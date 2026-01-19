@@ -70,7 +70,7 @@ export const parseContentPList = () => {
       cachedMacBundleInfo = plist.parse(pListString) as IMacBundleInfo;
       return cachedMacBundleInfo;
     }
-  } catch (e) {
+  } catch (_e) {
     return {} as IMacBundleInfo;
   }
 };

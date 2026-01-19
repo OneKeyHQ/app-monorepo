@@ -160,9 +160,9 @@ export type IStakeBaseParams = {
   message?: string;
 
   inviteCode?: string;
-  // eslint-disable-next-line @cspell/spellchecker
+  // oxlint-disable-next-line @cspell/spellchecker
   bindedAccountAddress?: string;
-  // eslint-disable-next-line @cspell/spellchecker
+  // oxlint-disable-next-line @cspell/spellchecker
   bindedNetworkId?: string;
 
   // Stakefish ETH validator
@@ -277,7 +277,7 @@ export type IStakeTx =
 // Stakefish validator exit broadcast response (no on-chain tx needed)
 export type IStakeTxStakefishExitBroadcast = {
   exitBroadcasted: boolean;
-  // eslint-disable-next-line @cspell/spellchecker
+  // oxlint-disable-next-line @cspell/spellchecker
   validators: {
     pubkey: string;
     validatorIndex: string;
@@ -365,16 +365,20 @@ export interface IBorrowApyDetailItem {
   logoURI?: string;
   title: IEarnText;
   description?: IEarnText;
-  value: {
-    text: IEarnText;
-    icon?: IEarnIcon;
-  };
+  value: IBorrowApy;
+}
+
+export interface IBorrowApyComponent {
+  color: string;
+  value: string; // numeric string
+  title: IEarnText;
 }
 
 export interface IBorrowApyDetailSection {
   title?: IEarnText;
   descriptions?: IEarnText[];
   items: IBorrowApyDetailItem[];
+  apyComponents?: IBorrowApyComponent[];
 }
 
 export interface IBorrowApyDetailPopupData {
@@ -382,19 +386,20 @@ export interface IBorrowApyDetailPopupData {
     icon: IKeyOfIcons;
   };
   apyDetail: {
+    descriptions?: { text: IEarnText; button: IEarnLinkActionIcon }[];
     normal?: IBorrowApyDetailSection;
     supplyBonus?: IBorrowApyDetailSection;
     collateralBonus?: IBorrowApyDetailSection;
     platformBonus?: IBorrowApyDetailSection;
+    myCollateralShare?: IBorrowApyDetailSection;
+    myPlatformBonusShare?: IBorrowApyDetailSection;
     totalApy?: {
       icon?: {
         icon: IKeyOfIcons;
       };
       title: IEarnText;
       description?: IEarnText;
-      value: {
-        text: IEarnText;
-      };
+      value: IBorrowApy;
     };
   };
 }
@@ -579,7 +584,7 @@ export interface IEarnLinkActionIcon {
   };
   icon?: IEarnIcon;
   disabled?: boolean;
-  text: IEarnText;
+  text?: IEarnText;
 }
 
 export interface IEarnDepositActionIcon {
@@ -1423,6 +1428,7 @@ export type IEarnAccountTokenResponse = {
   earnings24h?: string;
   accounts: IEarnAccount[];
   isOverviewLoaded?: boolean;
+  hideSmallAssets?: boolean;
 };
 
 export type IEarnRewardUnit = 'APY' | 'APR';
@@ -1619,6 +1625,8 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
   metadata: {
     protocol: IEarnInvestmentItemV2['protocol'];
     network: IEarnInvestmentItemV2['network'];
+    fiatValue?: string;
+    fiatValueUsd?: string;
   };
 };
 
@@ -1846,6 +1854,7 @@ export interface IBorrowHealthFactor {
     text: IEarnText;
     button?: IBorrowHealthFactorRiskDetail;
   };
+  alerts?: IBorrowAlert[];
 }
 
 export interface IBorrowRewards {
@@ -1876,6 +1885,10 @@ export interface IBorrowAsset {
     description: IEarnText;
   };
   apyDetail: IBorrowApy;
+  platformBonusApy?: {
+    title: IEarnText;
+    logoURI: string;
+  };
 }
 
 export interface IBorrowAssetsList {
@@ -2054,7 +2067,7 @@ export interface IBorrowHistory {
 
 export interface IBorrowReserveDetailDailyInfo {
   borrowCapacity: IEarnText;
-  // eslint-disable-next-line @cspell/spellchecker
+  // oxlint-disable-next-line @cspell/spellchecker
   borrowable: IEarnText;
   borrowCapResetRemainingTime: IEarnText;
   withdrawCapacity: IEarnText;
@@ -2216,6 +2229,11 @@ export interface IBorrowTransactionConfirmation {
     description: IEarnText;
   };
   liquidationRisk?: boolean;
+  refundFee?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip: IEarnTooltip;
+  };
   blockRepay?: boolean;
   healthFactor?: {
     current?: {

@@ -373,7 +373,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         {
           ...deviceCommonParams,
           path: account.path,
-          // eslint-disable-next-line @cspell/spellchecker
+          // oxlint-disable-next-line @cspell/spellchecker
           appdomain: Buffer.from(msg.payload.appDomain ?? '').toString('hex'),
           expireAt: msg.payload.timestamp,
           comment: Buffer.from(msg.message).toString('hex'),

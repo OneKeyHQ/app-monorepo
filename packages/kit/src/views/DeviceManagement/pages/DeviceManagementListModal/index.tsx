@@ -211,7 +211,7 @@ function DeviceManagementV2ListWeb() {
           (item): item is IHwQrWalletWithDevice =>
             Boolean(item.device) && !item.wallet.deprecated,
         )
-        .sort((a, b) => {
+        .toSorted((a, b) => {
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;
           const orderB = b.wallet.walletOrder || b.wallet.walletNo;
           return orderA - orderB;
@@ -314,9 +314,14 @@ function DeviceManagementV2ListWeb() {
         headerStyle: {
           backgroundColor: !showHeader ? 'transparent' : theme.bgApp.val,
         },
+        title: showHeader
+          ? intl.formatMessage({
+              id: ETranslations.global_device_management,
+            })
+          : '',
       });
     }
-  }, [navigation, showHeader, gtMd, theme.bgApp.val]);
+  }, [navigation, showHeader, gtMd, theme.bgApp.val, intl]);
 
   const renderHeader = () => {
     // Desktop: always show header

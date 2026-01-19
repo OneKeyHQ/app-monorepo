@@ -91,7 +91,7 @@ export class CosmwasmQuery implements IQuery {
           let balance: BigNumber;
           try {
             balance = new BigNumber(get(result, 'balance', '0'));
-          } catch (error) {
+          } catch (_error) {
             balance = new BigNumber(0);
           }
           return {

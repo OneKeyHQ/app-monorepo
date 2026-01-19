@@ -197,7 +197,7 @@ class DesktopApiDev {
           });
         }
         return parsed;
-      } catch (error) {
+      } catch (_error) {
         sendProgress({
           stage: ELogUploadStage.Error,
           message: text,

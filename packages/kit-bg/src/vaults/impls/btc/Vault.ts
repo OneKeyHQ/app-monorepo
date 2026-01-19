@@ -788,72 +788,100 @@ export default class VaultBtc extends VaultBase {
     }
 
     return {
-      inputs: inputs.map(({ txid, amount, ...keep }) => ({
-        address: account.address,
-        path: '',
-        ...keep,
-        txid,
-        value: amount,
-      })),
-      outputs: outputs.map(({ type, amount, address, path, script }) => {
-        const valueText = amount;
+      inputs: inputs.map(
+        ({
+          txid,
+          amount,
+          ...keep
+        }: {
+          txid: string;
+          amount: string;
+          vout: number;
+          coinbase: boolean;
+          own: boolean;
+          confirmations: number;
+          required?: boolean;
+        }) => ({
+          address: account.address,
+          path: '',
+          ...keep,
+          txid,
+          value: amount,
+        }),
+      ),
+      outputs: outputs.map(
+        ({
+          type,
+          amount,
+          address,
+          path,
+          script,
+        }: {
+          type?: string;
+          amount?: string;
+          address?: string;
+          path?: string;
+          script?: string;
+        }) => {
+          const valueText = amount;
 
-        // OP_RETURN output
-        if (
-          type === 'opreturn' &&
-          valueText &&
-          new BigNumber(valueText).eq(0) &&
-          !address &&
-          script === transferInfo.opReturn
-        ) {
-          return {
-            address: '',
-            value: valueText,
-            payload: {
-              opReturn: transferInfo.opReturn,
-            },
-          };
-        }
+          // OP_RETURN output
+          if (
+            type === 'opreturn' &&
+            valueText &&
+            new BigNumber(valueText).eq(0) &&
+            !address &&
+            script === transferInfo.opReturn
+          ) {
+            return {
+              address: '',
+              value: valueText,
+              payload: {
+                opReturn: transferInfo.opReturn,
+              },
+            };
+          }
 
-        if (!valueText || new BigNumber(valueText).lte(0)) {
-          throw new OneKeyLocalError(
-            'buildEncodedTxFromBatchTransfer ERROR: Invalid value',
-          );
-        }
-
-        if (!address) {
-          throw new OneKeyLocalError(
-            'buildEncodedTxFromBatchTransfer ERROR: Invalid output address',
-          );
-        }
-
-        if (type === 'payment') {
-          return {
-            address,
-            value: valueText,
-          };
-        }
-
-        if (type === 'change') {
-          if (!path) {
+          if (!valueText || new BigNumber(valueText).lte(0)) {
             throw new OneKeyLocalError(
-              'buildEncodedTxFromBatchTransfer ERROR: Invalid change path',
+              'buildEncodedTxFromBatchTransfer ERROR: Invalid value',
             );
           }
-          return {
-            address,
-            value: valueText,
-            payload: {
-              isChange: true,
-              bip44Path: path,
-            },
-          };
-        }
 
-        throw new OneKeyLocalError(
-          'buildEncodedTxFromBatchTransfer ERROR: Invalid output type',
-        );
-      }),
+          if (!address) {
+            throw new OneKeyLocalError(
+              'buildEncodedTxFromBatchTransfer ERROR: Invalid output address',
+            );
+          }
+
+          if (type === 'payment') {
+            return {
+              address,
+              value: valueText,
+            };
+          }
+
+          if (type === 'change') {
+            if (!path) {
+              throw new OneKeyLocalError(
+                'buildEncodedTxFromBatchTransfer ERROR: Invalid change path',
+              );
+            }
+            return {
+              address,
+              value: valueText,
+              payload: {
+                isChange: true,
+                bip44Path: path,
+              },
+            };
+          }
+
+          throw new OneKeyLocalError(
+            'buildEncodedTxFromBatchTransfer ERROR: Invalid output type',
+          );
+        },
+      ),
       inputsForCoinSelect,
       outputsForCoinSelect,
       fee: fee.toString(),
@@ -1151,7 +1179,7 @@ export default class VaultBtc extends VaultBase {
           negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
         }
 
-        return fees.sort((a, b) =>
+        return fees.toSorted((a, b) =>
           new BigNumber(a).comparedTo(new BigNumber(b)),
         );
       } catch (e) {
@@ -1208,7 +1236,7 @@ export default class VaultBtc extends VaultBase {
           );
         }
         return { utxoList, frozenUtxoList, allUtxoList };
-      } catch (e) {
+      } catch (_e) {
         throw new OneKeyInternalError(
           appLocale.intl.formatMessage({
             id: ETranslations.feedback_failed_to_get_utxos,

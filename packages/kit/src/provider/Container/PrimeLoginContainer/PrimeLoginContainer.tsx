@@ -61,7 +61,6 @@ export function PrimeLoginContainer() {
       promptPrimeLoginEmailDialog,
       promptPrimeLoginPasswordDialog,
       promptPrimeLoginEmailCodeDialog,
-      promptForgetMasterPasswordDialog,
     },
   ] = usePrimeLoginDialogAtom();
   const navigation = useAppNavigation();
@@ -96,9 +95,11 @@ export function PrimeLoginContainer() {
 
   const passwordDialogRef = useRef<IDialogInstance | undefined>(undefined);
   const passwordHintDialogRef = useRef<IDialogInstance | undefined>(undefined);
+  const promptPrimeLoginEmailCodeDialogPromiseId =
+    promptPrimeLoginEmailCodeDialog?.promiseId;
   useEffect(() => {
     void (async () => {
-      if (promptPrimeLoginPasswordDialog?.promiseId) {
+      if (promptPrimeLoginEmailCodeDialogPromiseId) {
         await passwordDialogRef.current?.close();
         await passwordHintDialogRef.current?.close();
         const data = passwordDataRef.current;
@@ -139,13 +140,13 @@ export function PrimeLoginContainer() {
             renderContent: (
               <PrimeLoginPasswordDialog
                 data={data}
-                promiseId={promptPrimeLoginPasswordDialog?.promiseId}
+                promiseId={promptPrimeLoginEmailCodeDialogPromiseId}
                 richTextDescription={description}
               />
             ),
             onClose: async () => {
               await backgroundApiProxy.servicePrime.cancelPrimeLogin({
-                promiseId: promptPrimeLoginPasswordDialog?.promiseId,
+                promiseId: promptPrimeLoginEmailCodeDialogPromiseId,
                 dialogType: 'promptPrimeLoginPasswordDialog',
               });
             },
@@ -174,7 +175,7 @@ export function PrimeLoginContainer() {
                 return;
               }
               await backgroundApiProxy.servicePrime.cancelPrimeLogin({
-                promiseId: promptPrimeLoginPasswordDialog?.promiseId,
+                promiseId: promptPrimeLoginEmailCodeDialogPromiseId,
                 dialogType: 'promptPrimeLoginPasswordDialog',
               });
             },
@@ -187,14 +188,14 @@ export function PrimeLoginContainer() {
         await passwordHintDialogRef.current?.close();
       }
     })();
-  }, [intl, promptPrimeLoginPasswordDialog?.promiseId]);
+  }, [intl, promptPrimeLoginEmailCodeDialogPromiseId]);
 
   const forgetMasterPasswordDialogRef = useRef<IDialogInstance | undefined>(
     undefined,
   );
   useEffect(() => {
     void (async () => {
-      if (promptForgetMasterPasswordDialog?.promiseId) {
+      if (promptPrimeLoginEmailCodeDialogPromiseId) {
         await forgetMasterPasswordDialogRef.current?.close();
 
         forgetMasterPasswordDialogRef.current = Dialog.show({
@@ -205,12 +206,12 @@ export function PrimeLoginContainer() {
           }),
           renderContent: (
             <PrimeForgetMasterPasswordDialog
-              promiseId={promptForgetMasterPasswordDialog?.promiseId}
+              promiseId={promptPrimeLoginEmailCodeDialogPromiseId}
             />
           ),
           onClose: async () => {
             await backgroundApiProxy.servicePrime.cancelPrimeLogin({
-              promiseId: promptForgetMasterPasswordDialog?.promiseId,
+              promiseId: promptPrimeLoginEmailCodeDialogPromiseId,
               dialogType: 'promptForgetMasterPasswordDialog',
             });
           },
@@ -219,23 +220,23 @@ export function PrimeLoginContainer() {
         await forgetMasterPasswordDialogRef.current?.close();
       }
     })();
-  }, [intl, promptForgetMasterPasswordDialog?.promiseId]);
+  }, [intl, promptPrimeLoginEmailCodeDialogPromiseId]);
 
   const emailCodeDialogRef = useRef<IDialogInstance | undefined>(undefined);
   useEffect(() => {
     void (async () => {
-      if (promptPrimeLoginEmailCodeDialog?.promiseId) {
+      if (promptPrimeLoginEmailCodeDialogPromiseId) {
         await emailCodeDialogRef.current?.close();
         emailCodeDialogRef.current = Dialog.show({
           renderContent: (
             <Stack />
             // <PrimeLoginEmailCodeDialog
-            //   promiseId={promptPrimeLoginEmailCodeDialog?.promiseId}
+            //   promiseId={promptPrimeLoginEmailCodeDialogPromiseId}
             // />
           ),
           onClose: async () => {
             await backgroundApiProxy.servicePrime.cancelPrimeLogin({
-              promiseId: promptPrimeLoginEmailCodeDialog?.promiseId,
+              promiseId: promptPrimeLoginEmailCodeDialogPromiseId,
               dialogType: 'promptPrimeLoginEmailCodeDialog',
             });
           },
@@ -244,7 +245,7 @@ export function PrimeLoginContainer() {
         await emailCodeDialogRef.current?.close();
       }
     })();
-  }, [promptPrimeLoginEmailCodeDialog?.promiseId]);
+  }, [promptPrimeLoginEmailCodeDialogPromiseId]);
 
   useEffect(() => {
     const fn = () => {

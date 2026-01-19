@@ -2,7 +2,6 @@ import { payments } from 'bitcoinjs-lib';
 
 import type { PsbtInput } from 'bip174';
 
-// eslint-disable-next-line @cspell/spellchecker
 // The methods in bip371 cannot be exported in the new version of bitcoinjs-lib, so they are written here.
 
 export const toXOnly = (pubKey: Uint8Array) =>
@@ -14,7 +13,7 @@ function isPaymentFactory(payment: any): (script: Uint8Array) => boolean {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       payment({ output: script });
       return true;
-    } catch (err) {
+    } catch (_err) {
       return false;
     }
   };

@@ -481,7 +481,7 @@ export default class Vault extends VaultBase {
       return {
         isProgrammableNFT: false,
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         isProgrammableNFT: false,
       };
@@ -1254,7 +1254,7 @@ export default class Vault extends VaultBase {
           }
         }
       }
-    } catch (e) {
+    } catch (_e) {
       return Promise.resolve(encodedTx);
     }
 

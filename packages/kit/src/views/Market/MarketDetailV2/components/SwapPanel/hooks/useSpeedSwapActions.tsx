@@ -125,7 +125,7 @@ export function useSpeedSwapActions(props: {
         deriveType: defaultDeriveType ?? 'default',
       });
       return res;
-    } catch (e) {
+    } catch (_e) {
       return undefined;
     }
   }, [account, marketToken?.networkId]);
@@ -158,14 +158,7 @@ export function useSpeedSwapActions(props: {
         });
       }
     })();
-  }, [
-    tradeType,
-    defaultTradeTokens,
-    tradeToken?.contractAddress,
-    tradeToken?.logoURI,
-    tradeToken?.networkId,
-    tradeToken?.symbol,
-  ]);
+  }, [tradeType, defaultTradeTokens, tradeToken]);
 
   const { fromToken, toToken, balanceToken } = useMemo(() => {
     if (tradeType === ESwapDirection.BUY) {
@@ -407,7 +400,7 @@ export function useSpeedSwapActions(props: {
         swapBuildResData: {
           ...buildRes,
           result: {
-            ...(buildRes?.result ?? {}),
+            ...buildRes?.result,
             slippage: buildRes?.result?.slippage ?? slippage,
           },
         },
@@ -445,7 +438,7 @@ export function useSpeedSwapActions(props: {
       });
 
       return buildRes;
-    } catch (e) {
+    } catch (_e) {
       setSpeedSwapBuildTxLoading(false);
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
         fromTokenAmount,
@@ -735,7 +728,7 @@ export function useSpeedSwapActions(props: {
           },
         }));
         setSpeedSwapApproveActionLoading(false);
-      } catch (e) {
+      } catch (_e) {
         setInAppNotificationAtom((pre) => ({
           ...pre,
           speedSwapApprovingLoading: false,
@@ -855,7 +848,7 @@ export function useSpeedSwapActions(props: {
             setBalance(new BigNumber(tokenDetail[0].balanceParsed ?? 0));
           }
           setFetchBalanceLoading(false);
-        } catch (e) {
+        } catch (_e) {
           setFetchBalanceLoading(false);
         }
       } else {
@@ -873,7 +866,7 @@ export function useSpeedSwapActions(props: {
 
   const fetchTokenPrice = useCallback(async () => {
     setPriceRate((prev) => ({
-      ...(prev ?? {}),
+      ...prev,
       loading: true,
     }));
     if (fromToken.price && toToken.price) {
@@ -912,7 +905,7 @@ export function useSpeedSwapActions(props: {
         });
       } else {
         setPriceRate((prev) => ({
-          ...(prev ?? {}),
+          ...prev,
           loading: false,
         }));
       }

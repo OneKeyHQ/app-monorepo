@@ -6,6 +6,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 //
 // Keep it DEV-only and read from env so we don't hardcode a team-wide ID.
 const devExtensionIdKey =
+  // cspell:disable-next-line
   // DEV extensionId:   goodgebcoklfekldbhjmckehehjdfipe
   'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArQxWBwYxmyGIm461gHgZKcoiu9uzjxBvnIkzIsv5woytRUbDt3ZyF1wnSceoSxcLiTN3q/Ml0X/EAIjV+eLzzKbeYsbmYNbTcdq71I6vxIQ4X4YbafVx8bURz13hFYl8YxFVNlNP2GxcNATNeF3CIMDL+VhYBV/eJ6Oaj1YbZhDESyYPBDtNjyT3wc7eD4kE9ICEX3EC/cksRbuZ80/Rzsyn66hH+EJxfcJT9sO4f2ol6PvBDurDcEUB3fIt1NglCPBF8Kn5NRLhsr+c8r0bBvAObyVu5oow73iaAi8BS4nMmaBybc9Ec/n6A3U7DfOL1p7zE66X7lRRNcfr6lHTvQIDAQAB';
 

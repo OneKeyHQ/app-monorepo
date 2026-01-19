@@ -121,7 +121,7 @@ class ServiceApp extends ServiceBase {
           await timerUtils.wait(600);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       //
     }
     defaultLogger.setting.page.clearDataStep('v4localDb-reset');

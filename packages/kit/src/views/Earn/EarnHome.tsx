@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type ETabEarnRoutes,
@@ -13,6 +17,7 @@ import {
   openUrlExternal,
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
@@ -30,6 +35,7 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions } from '../../states/jotai/contexts/earn';
 import { BorrowHome } from '../Borrow/pages/BorrowHome';
+import { isBorrowTag } from '../Staking/utils/utils';
 
 import { BannerV2 } from './components/BannerV2';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
@@ -42,11 +48,16 @@ import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 import { useBannerInfo } from './hooks/useBannerInfo';
 import { useBlockRegion } from './hooks/useBlockRegion';
+import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
 import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
 
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
+
+const BORROW_PENDING_REFRESH_DELAY = timerUtils.getTimeDurationMs({
+  seconds: 3,
+});
 
 function BasicEarnHome({
   showHeader,
@@ -80,6 +91,27 @@ function BasicEarnHome({
     return portfolioLoading;
   }, [portfolioLoading, showContent]);
 
+  const { hideSmallAssets } = useEarnHideSmallAssets();
+
+  // Calculate filtered total fiat value when hiding small assets
+  const filteredTotalFiatValue = useMemo(() => {
+    if (!hideSmallAssets) {
+      return undefined; // Use default from Overview
+    }
+
+    const { investments } = portfolioData;
+    const total = investments.reduce((sum, inv) => {
+      // Filter assets with fiatValueUsd < 0.01
+      const valueUsd = Number(inv.totalFiatValueUsd ?? 0);
+      if (valueUsd >= 0.01) {
+        return sum.plus(new BigNumber(inv.totalFiatValue ?? 0));
+      }
+      return sum;
+    }, new BigNumber(0));
+
+    return total.toFixed();
+  }, [hideSmallAssets, portfolioData]);
+
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     return [EEarnLabels.Stake, EEarnLabels.Withdraw].includes(
       tx.stakingInfo.label,
@@ -99,6 +131,47 @@ function BasicEarnHome({
     }
     previousIsPendingRef.current = isPending;
   }, [isPending, refreshEarnDataRaw]);
+
+  const [borrowNetworkIds, setBorrowNetworkIds] = useState<string[]>([]);
+  const borrowRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
+
+  const handleRegisterBorrowRefresh = useCallback(
+    (handler: (() => Promise<void>) | null) => {
+      borrowRefreshHandlerRef.current = handler;
+    },
+    [],
+  );
+
+  const handleBorrowNetworksChange = useCallback((nextNetworkIds: string[]) => {
+    setBorrowNetworkIds((prev) => {
+      if (
+        prev.length === nextNetworkIds.length &&
+        prev.every((id, index) => id === nextNetworkIds[index])
+      ) {
+        return prev;
+      }
+      return nextNetworkIds;
+    });
+  }, []);
+
+  const handleBorrowPendingRefresh = useCallback(() => {
+    void borrowRefreshHandlerRef.current?.();
+  }, []);
+
+  const { filteredTxs: borrowPendingTxs = [] } = useStakingPendingTxsByInfo({
+    networkIds: borrowNetworkIds,
+    tagMatcher: isBorrowTag,
+    onRefresh: handleBorrowPendingRefresh,
+    onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
+  });
+  const prevBorrowPendingIdsRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const nextIds = borrowPendingTxs.map((tx) => tx.id).join(',');
+    if (prevBorrowPendingIdsRef.current !== nextIds) {
+      prevBorrowPendingIdsRef.current = nextIds;
+    }
+  }, [borrowPendingTxs]);
 
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
@@ -120,6 +193,18 @@ function BasicEarnHome({
     },
     [navigation, route.params?.tab],
   );
+
+  useEffect(() => {
+    const handleSwitchEarnMode = ({ mode }: { mode: 'earn' | 'borrow' }) => {
+      if (mode !== defaultMode) {
+        handleModeChange(mode);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.SwitchEarnMode, handleSwitchEarnMode);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwitchEarnMode, handleSwitchEarnMode);
+    };
+  }, [defaultMode, handleModeChange]);
 
   const media = useMedia();
 
@@ -229,14 +314,18 @@ function BasicEarnHome({
         <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
           <YStack gap="$7.5">
             <YStack px="$5">
-              <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+              <Overview
+                onRefresh={refreshEarnData}
+                isLoading={isLoading}
+                filteredTotalFiatValue={filteredTotalFiatValue}
+              />
             </YStack>
             {banners ? <YStack width="100%">{banners}</YStack> : null}
           </YStack>
         </YStack>
       ),
     }),
-    [showContent, refreshEarnData, isLoading, banners],
+    [showContent, refreshEarnData, isLoading, filteredTotalFiatValue, banners],
   );
 
   // const [tabPageHeight, setTabPageHeight] = useState(
@@ -290,7 +379,7 @@ function BasicEarnHome({
               bg="$bgApp"
               pt="$5"
               width="100%"
-              // onLayout={handleTabPageLayout}
+            // onLayout={handleTabPageLayout}
             >
               <TabPageHeader
                 sceneName={EAccountSelectorSceneName.home}
@@ -304,7 +393,13 @@ function BasicEarnHome({
           display={isBorrowMode ? 'flex' : 'none'}
           pointerEvents={isBorrowMode ? 'auto' : 'none'}
         >
-          <BorrowHome header={marketSelectorHeader} isActive={isBorrowMode} />
+          <BorrowHome
+            header={marketSelectorHeader}
+            isActive={isBorrowMode}
+            pendingTxs={borrowPendingTxs}
+            onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
+            onBorrowNetworksChange={handleBorrowNetworksChange}
+          />
         </YStack>
       </YStack>
     );
@@ -331,7 +426,11 @@ function BasicEarnHome({
             <YStack flex={1}>
               <YStack>
                 <XStack px="$5">
-                  <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+                  <Overview
+                    onRefresh={refreshEarnData}
+                    isLoading={isLoading}
+                    filteredTotalFiatValue={filteredTotalFiatValue}
+                  />
                 </XStack>
                 {banners ? (
                   <YStack
@@ -351,7 +450,14 @@ function BasicEarnHome({
               />
             </YStack>
           }
-          borrow={<BorrowHome isActive={isBorrowMode} />}
+          borrow={
+            <BorrowHome
+              isActive={isBorrowMode}
+              pendingTxs={borrowPendingTxs}
+              onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
+              onBorrowNetworksChange={handleBorrowNetworksChange}
+            />
+          }
         />
       </EarnPageContainer>
     </LazyPageContainer>
