@@ -65,7 +65,6 @@ import type {
   IFeeUTXO,
   IGasEIP1559,
   IGasLegacy,
-  ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import {
   EMessageTypesEth,
