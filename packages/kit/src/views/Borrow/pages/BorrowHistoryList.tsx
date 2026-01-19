@@ -244,8 +244,21 @@ const HistoryContent = ({
   const intl = useIntl();
 
   const items = useMemo(() => {
+    // Define the desired order for filter options
+    const filterOrder = ['all', 'supply', 'borrow', 'withdraw', 'repay'];
     const keys = Object.keys(filter);
-    return keys.map((key) => ({
+
+    // Sort keys according to the defined order
+    const sortedKeys = keys.sort((a, b) => {
+      const indexA = filterOrder.indexOf(a.toLowerCase());
+      const indexB = filterOrder.indexOf(b.toLowerCase());
+      // If key not in order list, put it at the end
+      const orderA = indexA === -1 ? filterOrder.length : indexA;
+      const orderB = indexB === -1 ? filterOrder.length : indexB;
+      return orderA - orderB;
+    });
+
+    return sortedKeys.map((key) => ({
       label: filter[key],
       value: key,
     }));

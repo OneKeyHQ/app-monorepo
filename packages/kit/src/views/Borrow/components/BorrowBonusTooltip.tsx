@@ -234,12 +234,7 @@ export const BorrowBonusTooltip = ({
                     {data.data.rewards.map((reward, index) => {
                       return (
                         <XStack gap="$1.5" key={index} ai="center">
-                          <Token
-                            size="xs"
-                            tokenImageUri={reward.logoURI}
-                            w="$4"
-                            h="$4"
-                          />
+                          <Token size="xxs" tokenImageUri={reward.logoURI} />
                           <EarnText
                             text={reward.type}
                             size="$bodyMd"
