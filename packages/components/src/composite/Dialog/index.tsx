@@ -321,7 +321,7 @@ function DialogFrame({
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex || zIndex}
               style={
-                platformEnv.isWeb && !open && forceMount
+                !platformEnv.isNative && !open && forceMount
                   ? ({ contentVisibility: 'hidden' } as any)
                   : {}
               }
@@ -354,7 +354,7 @@ function DialogFrame({
               outlineColor="$neutral3"
               style={{
                 outlineStyle: 'solid',
-                ...(platformEnv.isWeb && !open && forceMount
+                ...(!platformEnv.isNative && !open && forceMount
                   ? ({ contentVisibility: 'hidden' } as any)
                   : {}),
               }}
