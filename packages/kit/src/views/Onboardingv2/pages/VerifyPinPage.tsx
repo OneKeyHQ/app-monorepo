@@ -4,7 +4,6 @@ import { useRoute } from '@react-navigation/core';
 import { intervalToDuration } from 'date-fns';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { useDebouncedCallback } from 'use-debounce';
 
 import { Toast } from '@onekeyhq/components';
 import { JUICEBOX_ALLOWED_GUESSES } from '@onekeyhq/shared/src/consts/authConsts';
@@ -60,6 +59,7 @@ function VerifyPinPage() {
   const [isManuallyEnabled, setIsManuallyEnabled] = useState(false);
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCancelTimeRef = useRef<number>(0);
 
   const isInputDisabled =
     (cooldownSeconds > 0 || isCheckingRateLimit) && !isManuallyEnabled;
@@ -289,21 +289,23 @@ function VerifyPinPage() {
     checkRateLimitStatus,
   ]);
 
-  const handleCancelVerifyPin = useDebouncedCallback(
-    async () => {
-      if (
-        mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly &&
-        !isSubmitSuccessRef.current
-      ) {
-        await cancelVerifyPin('CURRENT_KEYLESS_WALLET');
+  const handleCancelVerifyPin = useCallback(async () => {
+    if (
+      mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly &&
+      !isSubmitSuccessRef.current
+    ) {
+      const now = Date.now();
+      const timeSinceLastCancel = now - lastCancelTimeRef.current;
+
+      // Skip cancel if called within 2 second of last cancel
+      if (timeSinceLastCancel < 2000) {
+        return;
       }
-    },
-    1000,
-    {
-      leading: true,
-      trailing: false,
-    },
-  );
+
+      lastCancelTimeRef.current = now;
+      await cancelVerifyPin('CURRENT_KEYLESS_WALLET');
+    }
+  }, [cancelVerifyPin, mode]);
 
   // Cancel verify pin on unmount if needed
   useEffect(() => {
