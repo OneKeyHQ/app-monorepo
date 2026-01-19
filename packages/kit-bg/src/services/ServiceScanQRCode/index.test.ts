@@ -339,7 +339,7 @@ describe('useParseQRCode', () => {
         data: expect.objectContaining({
           recipient: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
           amount: '0.01',
-          // eslint-disable-next-line @cspell/spellchecker
+          // oxlint-disable-next-line @cspell/spellchecker
           splToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         }),
       }),

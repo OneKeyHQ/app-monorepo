@@ -58,7 +58,6 @@ export const Slider = ({
 
   const handleSlideMove = useCallback(
     // spell mistake in tamagui components.
-    // eslint-disable-next-line @cspell/spellchecker
     (_: unknown, v: number) => {
       if (!isSlidingRef.current) {
         onSlideStart?.();

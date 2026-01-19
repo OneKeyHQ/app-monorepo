@@ -180,7 +180,7 @@ export default class NotificationProvider extends NotificationProviderBase {
       title,
       description,
     } = params;
-    // eslint-disable-next-line @cspell/spellchecker
+    // oxlint-disable-next-line @cspell/spellchecker
     /*
     iconUrl
     - base64 img
