@@ -1836,7 +1836,7 @@ export const emojiList = [
   '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
 ] as const;
 
-export type IEmojiTypes = (typeof emojiList)[number];
+export type IEmojiTypes = typeof emojiList[number];
 
 export const colors = [];
 

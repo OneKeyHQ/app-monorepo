@@ -1499,7 +1499,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
             await this.startUpdateFirmwareTaskBase(
               {
                 connectId: params?.releaseResult?.updatingConnectId,
-                version: params?.releaseResult?.updateInfos?.firmware?.toVersion,
+                version:
+                  params?.releaseResult?.updateInfos?.firmware?.toVersion,
                 firmwareType: 'firmware',
                 deviceType,
               },
