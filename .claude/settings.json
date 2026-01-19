@@ -6,5 +6,10 @@
     "swift-lsp@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
     "feature-dev@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(node -e:*)"
+    ]
   }
 }
