@@ -7,8 +7,7 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// oxlint-disable-next-line import/no-cycle
-import { XStack } from '../../primitives';
+import { XStack } from '../../primitives/Stack';
 
 import type { IXStackProps } from '../../primitives';
 
