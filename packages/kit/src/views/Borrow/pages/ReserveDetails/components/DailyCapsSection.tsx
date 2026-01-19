@@ -25,21 +25,23 @@ export function DailyCapsSection({
 
   const dailyInfo = details.dailyInfo;
   const labels = {
-    dailyCaps: intl.formatMessage({ id: ETranslations.defi_daily_caps }),
     dailyBorrowCap: intl.formatMessage({
       id: ETranslations.defi_daily_borrow_cap,
     }),
     borrowableToday: intl.formatMessage({
       id: ETranslations.defi_borrowable_today,
     }),
-    dailyCapResetsIn: intl.formatMessage({
-      id: ETranslations.defi_daily_cap_resets_in,
+    borrowCapResetsIn: intl.formatMessage({
+      id: ETranslations.defi_borrow_cap_resets_in,
     }),
     dailyWithdrawCap: intl.formatMessage({
       id: ETranslations.defi_daily_withdraw_cap,
     }),
     withdrawableToday: intl.formatMessage({
       id: ETranslations.defi_withdrawable_today,
+    }),
+    withdrawCapResetsIn: intl.formatMessage({
+      id: ETranslations.defi_withdraw_cap_resets_in,
     }),
   };
 
@@ -56,7 +58,7 @@ export function DailyCapsSection({
     },
     {
       key: 'borrowCapResetsIn',
-      title: labels.dailyCapResetsIn,
+      title: labels.borrowCapResetsIn,
       description: dailyInfo?.borrowCapResetRemainingTime ?? fallbackText,
     },
     {
@@ -71,13 +73,15 @@ export function DailyCapsSection({
     },
     {
       key: 'withdrawCapResetsIn',
-      title: labels.dailyCapResetsIn,
+      title: labels.withdrawCapResetsIn,
       description: dailyInfo?.withdrawCapResetRemainingTime ?? fallbackText,
     },
   ];
 
   return (
-    <DetailsSectionContainer title={labels.dailyCaps}>
+    <DetailsSectionContainer
+      title={intl.formatMessage({ id: ETranslations.defi_daily_caps })}
+    >
       <XStack flexWrap="wrap" m="$-5" p="$2">
         {items.map((item) => (
           <GridItem

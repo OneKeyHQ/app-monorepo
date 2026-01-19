@@ -414,6 +414,9 @@ export interface IAppEventBusPayload {
       | ETranslations.global_earn;
     openUrl?: boolean;
   };
+  [EAppEventBusNames.SwitchEarnMode]: {
+    mode: 'earn' | 'borrow';
+  };
   [EAppEventBusNames.SwitchEarnTab]: {
     tab: 'assets' | 'portfolio' | 'faqs';
   };
