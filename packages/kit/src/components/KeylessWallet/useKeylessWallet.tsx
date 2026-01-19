@@ -1163,54 +1163,74 @@ export function useVerifyKeylessPinChecking() {
               onConfirmText: intl.formatMessage({
                 id: ETranslations.global_continue,
               }),
-              onConfirm: async () => {
+              onConfirm: async ({ close }) => {
+                // Close PIN reminder dialog first
                 isPinReminderDialogShowing = false;
-                const shouldVerifyPin0 = await checkShouldVerifyPin();
-                if (!shouldVerifyPin0) {
-                  Toast.success({
+                await close();
+
+                try {
+                  // Verify password (returns immediately if cached, otherwise shows dialog)
+                  await backgroundApiProxy.servicePassword.promptPasswordVerify();
+
+                  // Password verified - show loading dialog
+                  isPinReminderDialogShowing = true;
+                  const loadingDialog = Dialog.loading({
                     title: intl.formatMessage({
-                      id: ETranslations.pin_verify_reminder_dialog_verified_toast,
+                      id: ETranslations.global_preparing,
                     }),
                   });
-                  return;
-                }
 
-                if (shouldVerifyPin0) {
-                  // check auth server status
-                  const isHealthy =
-                    await backgroundApiProxy.serviceKeylessWallet.apiCheckAuthServerStatus();
-                  if (!isHealthy) {
-                    Toast.error({
-                      title: intl.formatMessage({
-                        id: ETranslations.auth_server_error_text,
-                      }),
-                    });
-                    return;
-                  }
-                }
-
-                // Use void to start async flow without blocking dialog close
-                void (async () => {
                   try {
-                    await backgroundApiProxy.servicePassword.promptPasswordVerify();
-                    // Password verified, continue to next step
-                    void goToOneKeyIDLoginPageForKeylessWallet({
+                    const shouldVerifyPin0 = await checkShouldVerifyPin();
+                    if (!shouldVerifyPin0) {
+                      Toast.success({
+                        title: intl.formatMessage({
+                          id: ETranslations.pin_verify_reminder_dialog_verified_toast,
+                        }),
+                      });
+                      isPinReminderDialogShowing = false;
+                      await loadingDialog.close();
+                      return;
+                    }
+
+                    const isHealthy =
+                      await backgroundApiProxy.serviceKeylessWallet.apiCheckAuthServerStatus();
+                    if (!isHealthy) {
+                      Toast.error({
+                        title: intl.formatMessage({
+                          id: ETranslations.auth_server_error_text,
+                        }),
+                      });
+                      isPinReminderDialogShowing = false;
+                      await loadingDialog.close();
+                      return;
+                    }
+
+                    // Navigate first (includes async prep work), then close loading dialog
+                    await goToOneKeyIDLoginPageForKeylessWallet({
                       mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
                     });
-                  } catch (error) {
-                    // Continue to navigation if cancel fails
-                    if (
-                      errorUtils.isErrorByClassName({
-                        error,
-                        className: [
-                          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-                        ],
-                      })
-                    ) {
-                      showPinReminderDialog();
-                    }
+
+                    isPinReminderDialogShowing = false;
+                    await loadingDialog.close();
+                  } catch (innerError) {
+                    isPinReminderDialogShowing = false;
+                    await loadingDialog.close();
+                    errorToastUtils.toastIfError(innerError);
                   }
-                })();
+                } catch (error) {
+                  // Password dialog cancelled - reshow original PIN reminder
+                  if (
+                    errorUtils.isErrorByClassName({
+                      error,
+                      className: [
+                        EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+                      ],
+                    })
+                  ) {
+                    showPinReminderDialog();
+                  }
+                }
               },
             });
           };
