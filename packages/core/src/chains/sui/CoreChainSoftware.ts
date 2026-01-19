@@ -125,7 +125,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (hexUtils.isHexString(privateKeyRaw)) {
       privateKey = bufferUtils.toBuffer(privateKeyRaw, 'hex');
     } else {
-      // eslint-disable-next-line @cspell/spellchecker
+      // oxlint-disable-next-line @cspell/spellchecker
       // suiprivkey1qq*****
       // privateKey = bufferUtils.toBuffer(privateKeyRaw, 'utf-8'); // not correct buffer convert for sui
     }

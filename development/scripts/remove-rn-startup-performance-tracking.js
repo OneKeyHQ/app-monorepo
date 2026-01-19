@@ -30,7 +30,11 @@ let stats = {
 };
 
 function shouldExcludeDir(dirName) {
-  return excludeDirs.has(dirName) || dirName.startsWith('tmp-') || dirName.startsWith('.');
+  return (
+    excludeDirs.has(dirName) ||
+    dirName.startsWith('tmp-') ||
+    dirName.startsWith('.')
+  );
 }
 
 function findFiles(dir, files = []) {
@@ -61,7 +65,7 @@ function findFiles(dir, files = []) {
 function removePerformanceTracking(filePath) {
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
-    
+
     // Skip if no performance tracking
     if (!content.includes('$$perfStart_') && !content.includes('perfReady')) {
       stats.skipped++;
@@ -80,39 +84,45 @@ function removePerformanceTracking(filePath) {
     if (fs.existsSync(readyFilePath)) {
       fs.unlinkSync(readyFilePath);
       stats.readyFilesDeleted++;
-      console.log(`✓ Deleted ready file: ${path.relative(rootDir, readyFilePath)}`);
+      console.log(
+        `✓ Deleted ready file: ${path.relative(rootDir, readyFilePath)}`,
+      );
     }
 
     let newContent = content;
 
     // Remove import statement
-    const importPattern = new RegExp(`import '\\.\\/${fileNameWithoutExt}\\.perfReady';\\n`, 'g');
+    const importPattern = new RegExp(
+      `import '\\.\\/${fileNameWithoutExt}\\.perfReady';\\n`,
+      'g',
+    );
     newContent = newContent.replace(importPattern, '');
 
     // Remove the end tracking code
     newContent = newContent.replace(
       /\nif \(typeof \(globalThis as any\)\.\$\$perfStart_[a-zA-Z0-9_]+ !== 'undefined'\) \{[\s\S]*?\}\n?$/,
-      ''
+      '',
     );
 
     // Also try to remove old format (without 'as any')
     newContent = newContent.replace(
       /\nif \(typeof globalThis\.\$\$perfStart_[a-zA-Z0-9_]+ !== 'undefined'\) \{[\s\S]*?\}\n?$/,
-      ''
+      '',
     );
 
     // Check if we should remove the eslint-disable import/order comment
     // Remove it if it's at the beginning and there are no other imports that need it
-    const eslintDisablePattern = /^\/\*\s*eslint-disable\s+import\/order\s*\*\/\s*\n/;
-    
+    const eslintDisablePattern =
+      /^\/\*\s*eslint-disable\s+import\/order\s*\*\/\s*\n/;
+
     if (eslintDisablePattern.test(newContent)) {
       // Check if the next line after eslint-disable is an import
       const afterEslintDisable = newContent.replace(eslintDisablePattern, '');
-      
+
       // If there are no imports at the very beginning (or only perfReady import which we removed),
       // then we can safely remove the eslint-disable comment
       const startsWithImport = /^import\s+/.test(afterEslintDisable.trim());
-      
+
       if (!startsWithImport) {
         newContent = newContent.replace(eslintDisablePattern, '');
         stats.eslintCommentsRemoved++;
@@ -140,10 +150,7 @@ function processAllFiles() {
 
   console.log('Finding all .ts and .tsx files...\n');
 
-  const files = [
-    ...findFiles(packagesDir),
-    ...findFiles(appsDir),
-  ];
+  const files = [...findFiles(packagesDir), ...findFiles(appsDir)];
 
   console.log(`Found ${files.length} files to process\n`);
 
@@ -166,7 +173,7 @@ function processAllFiles() {
 if (require.main === module) {
   console.log('Removing performance tracking from all .ts and .tsx files...');
   console.log(`Root directory: ${rootDir}\n`);
-  
+
   processAllFiles();
 }
 
