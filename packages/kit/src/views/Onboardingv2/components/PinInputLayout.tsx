@@ -48,6 +48,7 @@ interface IPinInputLayoutProps {
   isLoading?: boolean;
   placeholder?: string;
   onClose?: () => Promise<void>;
+  onUnmounted?: () => void;
   onEnableInput?: () => void;
   isVerifyPinPage?: boolean;
   onAutoInputPin?: () => void;
@@ -75,6 +76,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       isLoading,
       placeholder = '••••',
       onClose,
+      onUnmounted,
       onEnableInput,
       isVerifyPinPage,
       onAutoInputPin,
@@ -126,6 +128,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
 
     return (
       <Page
+        onUnmounted={onUnmounted}
         onClose={() => {
           void onClose?.();
         }}

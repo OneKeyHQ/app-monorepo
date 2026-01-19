@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { intervalToDuration } from 'date-fns';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { Toast } from '@onekeyhq/components';
 import { JUICEBOX_ALLOWED_GUESSES } from '@onekeyhq/shared/src/consts/authConsts';
@@ -150,8 +151,7 @@ function VerifyPinPage() {
 
   // Check rate limit status - reusable function
   const checkRateLimitStatus = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async ({ isFirstCheck = false }: { isFirstCheck?: boolean } = {}) => {
+    async ({ isFirstCheck }: { isFirstCheck: boolean }) => {
       try {
         setIsCheckingRateLimit(true);
         const token = await getKeylessOnboardingToken();
@@ -168,12 +168,14 @@ function VerifyPinPage() {
 
         // Check if PIN attempts are exceeded
         if (!isNil(result.guessesRemaining) && result.guessesRemaining <= 0) {
-          // Max attempts reached - show toast and redirect to reset PIN page
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.pin_attempts_exhausted,
-            }),
-          });
+          if (isFirstCheck) {
+            // Max attempts reached - show toast and redirect to reset PIN page
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.pin_attempts_exhausted,
+              }),
+            });
+          }
           handleForgotPin();
           return;
         }
@@ -258,12 +260,6 @@ function VerifyPinPage() {
         setShowAttemptError(true);
 
         if (!isNil(errorInfo?.guessesRemaining) && newAttemptsRemaining <= 0) {
-          // Max attempts reached - show toast and redirect to reset PIN page
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.pin_attempts_exhausted,
-            }),
-          });
           void handleForgotPin();
           return;
         }
@@ -291,8 +287,30 @@ function VerifyPinPage() {
     verifyKeylessOnboardingPin,
     handleForgotPin,
     checkRateLimitStatus,
-    intl,
   ]);
+
+  const handleCancelVerifyPin = useDebouncedCallback(
+    async () => {
+      if (
+        mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly &&
+        !isSubmitSuccessRef.current
+      ) {
+        await cancelVerifyPin('CURRENT_KEYLESS_WALLET');
+      }
+    },
+    1000,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
+
+  // Cancel verify pin on unmount if needed
+  useEffect(() => {
+    return () => {
+      void handleCancelVerifyPin();
+    };
+  }, [handleCancelVerifyPin]);
 
   // Build error message based on state
   const displayErrorMessage = (() => {
@@ -353,11 +371,6 @@ function VerifyPinPage() {
         setAttemptsRemaining(newAttemptsRemaining);
         setShowAttemptError(true);
         if (!isNil(errorInfo?.guessesRemaining) && newAttemptsRemaining <= 0) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.pin_attempts_exhausted,
-            }),
-          });
           void handleForgotPin();
           return;
         }
@@ -367,29 +380,17 @@ function VerifyPinPage() {
       setIsLoading(false);
       setPin('');
     }
-  }, [
-    mode,
-    verifyKeylessOnboardingPin,
-    checkRateLimitStatus,
-    handleForgotPin,
-    intl,
-  ]);
+  }, [mode, verifyKeylessOnboardingPin, checkRateLimitStatus, handleForgotPin]);
 
   return (
     <PinInputLayout
       ref={pinInputRef}
       isLoading={isLoading}
       onClose={async () => {
-        if (
-          mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly &&
-          !isSubmitSuccessRef.current
-        ) {
-          const wallet =
-            await backgroundApiProxy.serviceAccount.getKeylessWallet();
-          if (wallet?.keylessDetailsInfo?.keylessOwnerId) {
-            void cancelVerifyPin(wallet.keylessDetailsInfo.keylessOwnerId);
-          }
-        }
+        void handleCancelVerifyPin();
+      }}
+      onUnmounted={() => {
+        void handleCancelVerifyPin();
       }}
       title={title}
       placeholder=""
