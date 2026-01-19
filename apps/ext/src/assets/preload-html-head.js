@@ -1,4 +1,5 @@
-/* eslint-disable unicorn/prefer-global-this */
+// oxlint-disable unicorn/prefer-global-this
+
 /*
 - packages/shared/src/web/index.html.ejs
 - packages/kit/src/store/reducers/settings.ts # setThemePreloadToLocalStorage

@@ -178,7 +178,7 @@
     // Empty classes are valid as base classes
     "typescript/no-extraneous-class": "off",
     // window/self usage is valid in browser context
-    "unicorn/prefer-global-this": "off",
+    "unicorn/prefer-global-this": "error",
     // Empty files may be placeholders
     "unicorn/no-empty-file": "off",
     // postMessage targetOrigin is optional in some contexts

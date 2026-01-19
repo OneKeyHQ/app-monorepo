@@ -224,7 +224,6 @@ module.exports = {
     'import-path',
     // 'use-effect-no-deps',
     'ban',
-    'unicorn',
     'props-checker',
   ],
   settings: {

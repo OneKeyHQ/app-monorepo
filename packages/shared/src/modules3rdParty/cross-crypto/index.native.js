@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/prefer-global-this */
+
 /* eslint-disable no-undef */
 // react-native-crypto
 //      react-native-quick-crypto
