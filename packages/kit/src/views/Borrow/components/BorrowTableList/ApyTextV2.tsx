@@ -68,7 +68,12 @@ function ApyComponentBar({
   if (!segments.length) return null;
 
   return (
-    <XStack h="$1.5" bg="$bgSubdued" borderRadius="$full" overflow="hidden">
+    <XStack
+      h="$1.5"
+      bg="$bgStrongActive"
+      borderRadius="$full"
+      overflow="hidden"
+    >
       {segments.map((segment, index) => (
         <Stack
           key={index}
