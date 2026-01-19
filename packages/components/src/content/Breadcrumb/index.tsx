@@ -7,7 +7,9 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Icon, Image, SizableText, XStack } from '../../primitives';
+import { Icon } from '../../primitives/Icon';
+import { Image } from '../../primitives/Image';
+import { SizableText } from '../../primitives/SizeableText';
 
 import type { IXStackProps } from '../../primitives';
 

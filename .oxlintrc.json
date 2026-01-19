@@ -124,7 +124,7 @@
     // Import rules
     // ============================================
     // NOTE: import/no-cycle disabled due to some false positives
-    "import/no-cycle": "off",
+    "import/no-cycle": "error",
 
     // ============================================
     // Jest rules (for test files) - keep off as in ESLint config
