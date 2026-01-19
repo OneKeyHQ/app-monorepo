@@ -68,7 +68,7 @@ function ClaimItem({
         loading={isLoading}
         onPress={handlePress}
       >
-        <EarnText text={item.button.text} size="$bodyMdMedium" />
+        {item.button?.text?.text}
       </Button>
     </XStack>
   );
@@ -206,7 +206,7 @@ function BorrowClaimRewardsDialogContent({
       </ScrollView>
 
       <Dialog.Footer
-        showCancelButton
+        showCancelButton={false}
         showConfirmButton={false}
         confirmButtonProps={{
           disabled: loading || rewardsDetails.disabled || !canClaimAll,
