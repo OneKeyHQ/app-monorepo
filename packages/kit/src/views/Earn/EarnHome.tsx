@@ -102,14 +102,11 @@ function BasicEarnHome({
     const { investments } = portfolioData;
     const total = investments.reduce((sum, inv) => {
       // Filter assets with fiatValueUsd < 0.01
-      const filteredAssetsValue = inv.assets.reduce((assetSum, asset) => {
-        const assetValueUsd = Number(asset.metadata?.fiatValueUsd ?? 0);
-        if (assetValueUsd >= 0.01) {
-          return assetSum.plus(new BigNumber(asset.metadata?.fiatValue ?? 0));
-        }
-        return assetSum;
-      }, new BigNumber(0));
-      return sum.plus(filteredAssetsValue);
+      const valueUsd = Number(inv.totalFiatValueUsd ?? 0);
+      if (valueUsd >= 0.01) {
+        return sum.plus(new BigNumber(inv.totalFiatValue ?? 0));
+      }
+      return sum;
     }, new BigNumber(0));
 
     return total.toFixed();
@@ -382,7 +379,7 @@ function BasicEarnHome({
               bg="$bgApp"
               pt="$5"
               width="100%"
-              // onLayout={handleTabPageLayout}
+            // onLayout={handleTabPageLayout}
             >
               <TabPageHeader
                 sceneName={EAccountSelectorSceneName.home}
