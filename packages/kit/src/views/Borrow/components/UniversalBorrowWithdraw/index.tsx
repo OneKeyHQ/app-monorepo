@@ -409,23 +409,23 @@ export function UniversalBorrowWithdraw({
               action={
                 alert.button
                   ? {
-                    primary: alert.button.text.text,
-                    onPrimaryPress: () => {
-                      if (alert.button?.data?.link) {
-                        handleOpenWebSite({
-                          switchToMultiTabBrowser: gtMd,
-                          navigation,
-                          useCurrentWindow: false,
-                          webSite: {
-                            url: alert.button.data.link,
-                            title: alert.button.data.link,
-                            logo: undefined,
-                            sortIndex: undefined,
-                          },
-                        });
-                      }
-                    },
-                  }
+                      primary: alert.button.text.text,
+                      onPrimaryPress: () => {
+                        if (alert.button?.data?.link) {
+                          handleOpenWebSite({
+                            switchToMultiTabBrowser: gtMd,
+                            navigation,
+                            useCurrentWindow: false,
+                            webSite: {
+                              url: alert.button.data.link,
+                              title: alert.button.data.link,
+                              logo: undefined,
+                              sortIndex: undefined,
+                            },
+                          });
+                        }
+                      },
+                    }
                   : undefined
               }
             />
