@@ -409,23 +409,23 @@ export function UniversalBorrowWithdraw({
               action={
                 alert.button
                   ? {
-                      primary: alert.button.text.text,
-                      onPrimaryPress: () => {
-                        if (alert.button?.data?.link) {
-                          handleOpenWebSite({
-                            switchToMultiTabBrowser: gtMd,
-                            navigation,
-                            useCurrentWindow: false,
-                            webSite: {
-                              url: alert.button.data.link,
-                              title: alert.button.data.link,
-                              logo: undefined,
-                              sortIndex: undefined,
-                            },
-                          });
-                        }
-                      },
-                    }
+                    primary: alert.button.text.text,
+                    onPrimaryPress: () => {
+                      if (alert.button?.data?.link) {
+                        handleOpenWebSite({
+                          switchToMultiTabBrowser: gtMd,
+                          navigation,
+                          useCurrentWindow: false,
+                          webSite: {
+                            url: alert.button.data.link,
+                            title: alert.button.data.link,
+                            logo: undefined,
+                            sortIndex: undefined,
+                          },
+                        });
+                      }
+                    },
+                  }
                   : undefined
               }
             />
@@ -555,7 +555,13 @@ export function UniversalBorrowWithdraw({
                 title={
                   <XStack ai="center" gap="$1.5">
                     <EarnText
-                      text={transactionConfirmation?.refundFee?.title}
+                      text={{
+                        text: intl.formatMessage({
+                          id: ETranslations.defi_refundable_fee,
+                        }),
+                        size: '$bodyMd',
+                        color: '$textSubdued',
+                      }}
                     />
                     <EarnTooltip
                       tooltip={transactionConfirmation?.refundFee?.tooltip}
@@ -563,9 +569,12 @@ export function UniversalBorrowWithdraw({
                   </XStack>
                 }
               >
-                <EarnText
-                  text={transactionConfirmation?.refundFee?.description}
-                />
+                <XStack>
+                  <EarnText text={transactionConfirmation?.refundFee?.title} />
+                  <EarnText
+                    text={transactionConfirmation?.refundFee?.description}
+                  />
+                </XStack>
               </BorrowInfoItem>
             ) : null}
           </YStack>
