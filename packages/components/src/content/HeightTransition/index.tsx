@@ -68,9 +68,6 @@ function HeightTransition({
         styles.hidden,
         style,
         containerStyle,
-        platformEnv.isWeb && hide
-          ? ({ contentVisibility: 'hidden' } as any)
-          : {},
       ]}
     >
       <Animated.View
