@@ -48,3 +48,6 @@ Execute the following workflow to create a Pull Request from current changes:
 
 - Always target `x` as the base branch for the PR
 - The commit message should follow the format: `type: description`
+- **Issue ID handling**: If the commit message contains `OK-{number}` format (e.g., OK-49185), extract this issue ID and append it to the PR title in parentheses
+  - Example: `fix: hide wallets tab in universal search for web dapp mode(OK-49185)`
+  - The issue ID should be placed at the end of the title without a space before the opening parenthesis
