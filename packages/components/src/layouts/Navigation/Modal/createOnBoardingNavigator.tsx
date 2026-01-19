@@ -162,7 +162,8 @@ function OnBoardingModalNavigator({
         flex={1}
         bg="$bg"
         style={{
-          contentVisibility: !platformEnv.isNative && !isCurrentRoute ? 'hidden' : undefined,
+          contentVisibility:
+            !platformEnv.isNative && !isCurrentRoute ? 'hidden' : undefined,
         }}
       >
         {render()}

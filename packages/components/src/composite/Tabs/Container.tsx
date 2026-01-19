@@ -12,7 +12,8 @@ import {
 import type { PropsWithChildren, RefObject } from 'react';
 
 import { debounce } from 'lodash';
-import { SharedValue, useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
+import type { SharedValue} from 'react-native-reanimated';
+import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
 import { WindowScroller } from 'react-virtualized';
 
 import { XStack, YStack } from '../../primitives';
@@ -44,14 +45,18 @@ export function ContainerChild({
   useAnimatedReaction(
     () => focusedTab.value,
     (tabName) => {
-      const focusedIndex = tabNames.findIndex(name => name === tabName);
-     if (focusedIndex > -1 && listContainerRef.current) {
+      const focusedIndex = tabNames.findIndex((name) => name === tabName);
+      if (focusedIndex > -1 && listContainerRef.current) {
         listContainerRef.current.childNodes.forEach((element, index) => {
           if (element) {
-          ( (element as HTMLDivElement).style as unknown as  {contentVisibility: 'hidden' | 'visible'}).contentVisibility = focusedIndex === index ? 'visible' : 'hidden'
+            (
+              (element as HTMLDivElement).style as unknown as {
+                contentVisibility: 'hidden' | 'visible';
+              }
+            ).contentVisibility = focusedIndex === index ? 'visible' : 'hidden';
           }
-        })
-     }
+        });
+      }
     },
   );
   return (

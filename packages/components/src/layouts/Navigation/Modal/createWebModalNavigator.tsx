@@ -246,7 +246,8 @@ function WebModalNavigator({
           shadowOpacity: 0.3,
           shadowRadius: 10,
           shadowOffset: { width: -5, height: 0 },
-          contentVisibility: !platformEnv.isNative && !isCurrentRoute ? 'hidden' : undefined,
+          contentVisibility:
+            !platformEnv.isNative && !isCurrentRoute ? 'hidden' : undefined,
         }}
       >
         {render()}
