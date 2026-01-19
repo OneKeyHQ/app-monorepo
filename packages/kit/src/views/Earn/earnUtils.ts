@@ -57,6 +57,15 @@ export async function safePushToEarnRoute(
   route: ETabEarnRoutes,
   params?: any,
 ) {
+  const shouldSwitchToEarnMode =
+    route === ETabEarnRoutes.EarnHome ||
+    route === ETabEarnRoutes.EarnProtocols ||
+    route === ETabEarnRoutes.EarnProtocolDetails ||
+    route === ETabEarnRoutes.EarnProtocolDetailsShare;
+  if (shouldSwitchToEarnMode) {
+    appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
+  }
+
   const targetTab = platformEnv.isNative
     ? ETabRoutes.Discovery
     : ETabRoutes.Earn;
@@ -241,11 +250,18 @@ export const EarnNavigation = {
     if (platformEnv.isNative) {
       await navigation.popToMainRoute();
       await timerUtils.wait(50);
+      switchTab(ETabRoutes.Discovery);
+      await timerUtils.wait(50);
+      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+        tab: ETranslations.global_earn,
+      });
+    } else {
+      switchTab(ETabRoutes.Earn);
     }
-    switchTab(ETabRoutes.Earn);
     await timerUtils.wait(50);
     navigation.popToTop();
     await timerUtils.wait(80);
+    appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
     appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
       tab: params?.tab ?? 'assets',
     });

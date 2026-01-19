@@ -291,6 +291,7 @@ export const Overview = ({
           protocol: earnUtils.getEarnProviderName({ providerName: provider }),
           protocolLogoURI: market?.logoURI,
           tags: [
+            EEarnLabels.Borrow,
             buildBorrowTag({
               provider,
               action: 'claim',
@@ -316,6 +317,7 @@ export const Overview = ({
           protocol: earnUtils.getEarnProviderName({ providerName: provider }),
           protocolLogoURI: market?.logoURI,
           tags: [
+            EEarnLabels.Borrow,
             buildBorrowTag({
               provider,
               action: 'claim',

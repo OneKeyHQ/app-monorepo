@@ -132,11 +132,7 @@ const Rebate = ({
                 children: (
                   <>
                     <XStack ai="center" gap="$2.5">
-                      <Token
-                        size="sm"
-                        borderRadius="$2"
-                        tokenImageUri={item.token.logoURI}
-                      />
+                      <Token size="sm" tokenImageUri={item.token.logoURI} />
                       <EarnText
                         size="$bodyMdMedium"
                         color="$text"
@@ -164,11 +160,7 @@ const Rebate = ({
                 children: (
                   <XStack ai="center" jc="space-between" w="100%">
                     <XStack gap="$2.5" ai="center">
-                      <Token
-                        size="sm"
-                        borderRadius="$2"
-                        tokenImageUri={item.token.logoURI}
-                      />
+                      <Token size="sm" tokenImageUri={item.token.logoURI} />
                       <EarnText
                         size="$bodyMdMedium"
                         color="$text"
