@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": ["@cspell/eslint-plugin"],
   "plugins": [
     "unicorn",
     "typescript",
@@ -16,7 +17,6 @@
   // - eslint-plugin-import-path
   // - eslint-plugin-use-effect-no-deps
   // - eslint-plugin-props-checker
-  // - @cspell/eslint-plugin
   "categories": {
     // Code that is outright wrong or useless
     "correctness": "error",
@@ -32,6 +32,18 @@
     "restriction": "off"
   },
   "rules": {
+    "@cspell/spellchecker": [
+      "warn",
+      {
+        "ignoreImports": true,
+        "ignoreImportProperties": true,
+        "checkJSXText": true,
+        "checkComments": true,
+        "checkStrings": false,
+        "checkIdentifiers": true,
+        "autoFix": false,
+      },
+    ],
     // ============================================
     // ESLint core rules
     // ============================================

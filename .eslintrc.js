@@ -220,7 +220,7 @@ const resolveExtensions = (platform) =>
 
 module.exports = {
   plugins: [
-    '@cspell',
+    // '@cspell',
     'import-path',
     // 'use-effect-no-deps',
     'ban',
@@ -274,18 +274,18 @@ module.exports = {
         },
       ],
     ],
-    '@cspell/spellchecker': [
-      'warn',
-      {
-        ignoreImports: true,
-        ignoreImportProperties: true,
-        checkJSXText: true,
-        checkComments: true,
-        checkStrings: false,
-        checkIdentifiers: true,
-        autoFix: false,
-      },
-    ],
+    // '@cspell/spellchecker': [
+    //   'warn',
+    //   {
+    //     ignoreImports: true,
+    //     ignoreImportProperties: true,
+    //     checkJSXText: true,
+    //     checkComments: true,
+    //     checkStrings: false,
+    //     checkIdentifiers: true,
+    //     autoFix: false,
+    //   },
+    // ],
     // NOTE: This rule stays in ESLint because oxlint jsPlugins is experimental
     'props-checker/validator': [
       'error',
