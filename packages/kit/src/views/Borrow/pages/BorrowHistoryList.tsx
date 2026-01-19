@@ -249,7 +249,7 @@ const HistoryContent = ({
     const keys = Object.keys(filter);
 
     // Sort keys according to the defined order
-    const sortedKeys = keys.sort((a, b) => {
+    const sortedKeys = keys.toSorted((a, b) => {
       const indexA = filterOrder.indexOf(a.toLowerCase());
       const indexB = filterOrder.indexOf(b.toLowerCase());
       // If key not in order list, put it at the end

@@ -10,6 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Icon } from '../../primitives/Icon';
 import { Image } from '../../primitives/Image';
 import { SizableText } from '../../primitives/SizeableText';
+import { XStack } from '../../primitives/Stack';
 
 import type { IXStackProps } from '../../primitives';
 
