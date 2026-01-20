@@ -5,8 +5,7 @@ import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketBannerList } from '../components/MarketBanner';
-import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
-import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
+import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 
 import { useMarketTabsLogic } from './hooks';
@@ -100,12 +99,11 @@ function MobileLayoutComponent({
         </Tabs.ScrollView>
       </Tabs.Tab>
       <Tabs.Tab name={trendingTabName}>
-        <Tabs.ScrollView>
-          <YStack pt="$2" {...listContainerProps}>
-            <MarketFilterBarSmall {...filterBarProps} />
-            <MarketNormalTokenList networkId={selectedNetworkId} />
-          </YStack>
-        </Tabs.ScrollView>
+        <MobileMarketTokenFlatList
+          networkId={selectedNetworkId}
+          filterBarProps={filterBarProps}
+          listContainerProps={listContainerProps}
+        />
       </Tabs.Tab>
     </Tabs.Container>
   );
