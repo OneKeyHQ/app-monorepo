@@ -167,6 +167,7 @@
   "auth.set_passcode": "Atur kode sandi",
   "auth.set_password": "Atur kata sandi",
   "auth.with_biometric": "Otentikasi dengan {biometric}",
+  "auth_server_error_text": "Sesuatu yang salah. Silakan periksa koneksi internet Anda atau coba lagi nanti.",
   "backing_up_desc": "Jangan tutup jendela ini sampai pencadangan selesai.",
   "backing_up_title": "Mencadangkan…",
   "backup.address_book_labels": "Buku alamat & label",

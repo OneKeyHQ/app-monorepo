@@ -35,6 +35,7 @@ import {
 
 import NotificationsHelpCenterInstruction from '../../components/NotificationsHelpCenterInstruction';
 import NotificationsTestButton from '../../components/NotificationsTestButton';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export default function NotificationsSettings() {
   const intl = useIntl();
@@ -222,29 +223,31 @@ export default function NotificationsSettings() {
                 </ListItem>
 
                 {/* Price alerts */}
-                <ListItem>
-                  <ListItem.Text
-                    flex={1}
-                    primary={intl.formatMessage({
-                      id: ETranslations.global_price_alerts,
-                    })}
-                    secondary={intl.formatMessage({
-                      id: ETranslations.global_get_alert_token_move,
-                    })}
-                    secondaryTextProps={{
-                      maxWidth: '$96',
-                    }}
-                  />
-                  <Switch
-                    size="small"
-                    value={!!settings?.priceAlertsEnabled}
-                    onChange={(checked) => {
-                      void updateSettings({
-                        priceAlertsEnabled: checked,
-                      });
-                    }}
-                  />
-                </ListItem>
+                {platformEnv.isExtension ? null : (
+                  <ListItem>
+                    <ListItem.Text
+                      flex={1}
+                      primary={intl.formatMessage({
+                        id: ETranslations.global_price_alerts,
+                      })}
+                      secondary={intl.formatMessage({
+                        id: ETranslations.global_get_alert_token_move,
+                      })}
+                      secondaryTextProps={{
+                        maxWidth: '$96',
+                      }}
+                    />
+                    <Switch
+                      size="small"
+                      value={!!settings?.priceAlertsEnabled}
+                      onChange={(checked) => {
+                        void updateSettings({
+                          priceAlertsEnabled: checked,
+                        });
+                      }}
+                    />
+                  </ListItem>
+                )}
 
                 {/* Perps trading */}
                 <ListItem>

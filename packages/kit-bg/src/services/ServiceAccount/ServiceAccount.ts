@@ -430,7 +430,16 @@ class ServiceAccount extends ServiceBase {
     filterQrWallet?: boolean;
     filterHiddenWallet?: boolean;
     skipDuplicateDevice?: boolean;
+    skipDuplicateDeviceSameType?: boolean;
   }) {
+    type FilterCtx = {
+      wallet: IDBWallet;
+      deviceId?: string;
+      isHwWallet: boolean;
+      isQrWallet: boolean;
+      isHiddenWallet: boolean;
+    };
+
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
       excludeKeylessWallet: true,
@@ -439,58 +448,79 @@ class ServiceAccount extends ServiceBase {
     const filterQrWallet = params?.filterQrWallet ?? false;
     const filterHiddenWallet = params?.filterHiddenWallet ?? false;
     const skipDuplicateDevice = params?.skipDuplicateDevice ?? false;
+    const skipDuplicateDeviceSameType =
+      params?.skipDuplicateDeviceSameType ?? false;
+
+    // Map of deviceId -> walletId for hardware wallets
+    const deviceToWalletByType: Record<string, string> = {};
+    const deviceHasHw: Record<string, string> = {};
+
+    if (skipDuplicateDevice && !skipDuplicateDeviceSameType) {
+      for (const w of wallets) {
+        if (
+          accountUtils.isHwWallet({ walletId: w.id }) &&
+          !accountUtils.isHwHiddenWallet({ wallet: w }) &&
+          w.associatedDevice
+        ) {
+          deviceHasHw[w.associatedDevice] = w.id;
+        }
+      }
+    }
+
+    const buildFilterCtx = (wallet: IDBWallet): FilterCtx => ({
+      wallet,
+      deviceId: wallet.associatedDevice,
+      isHwWallet: accountUtils.isHwWallet({ walletId: wallet.id }),
+      isQrWallet: accountUtils.isQrWallet({ walletId: wallet.id }),
+      isHiddenWallet: accountUtils.isHwHiddenWallet({ wallet }),
+    });
+
+    // Filter valid type
+    const isValidType = (ctx: FilterCtx) => ctx.isHwWallet || ctx.isQrWallet;
+    // Filter hidden wallet
+    const passesHiddenFilter = (ctx: FilterCtx) =>
+      !filterHiddenWallet || !ctx.isHiddenWallet;
+    // Filter QR wallet
+    const passesQrFilter = (ctx: FilterCtx) =>
+      !filterQrWallet || !ctx.isQrWallet;
+
+    // Filter duplicate device
+    const passesDupFilter = (ctx: FilterCtx) => {
+      if (!ctx.deviceId) return true;
+
+      if (skipDuplicateDeviceSameType) {
+        const key = `${ctx.deviceId}:${ctx.isHwWallet ? 'hw' : 'qr'}`;
+        return !deviceToWalletByType[key];
+      }
+
+      if (skipDuplicateDevice && ctx.isQrWallet) {
+        return !deviceHasHw[ctx.deviceId];
+      }
+
+      return true;
+    };
 
     const result: {
       [walletId: string]: IHwQrWalletWithDevice;
     } = {};
 
-    // Map of deviceId -> walletId for hardware wallets
-    const deviceToHwWalletMap: Record<string, string> = {};
-
-    // Collect all hardware wallet device IDs if skip duplication is enabled
-    if (skipDuplicateDevice) {
-      for (const wallet of wallets) {
-        if (
-          accountUtils.isHwWallet({ walletId: wallet.id }) &&
-          !accountUtils.isHwHiddenWallet({ wallet }) &&
-          wallet.associatedDevice
-        ) {
-          deviceToHwWalletMap[wallet.associatedDevice] = wallet.id;
-        }
-      }
-    }
-
     for (const wallet of wallets) {
-      const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
-      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
-      const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
+      const ctx = buildFilterCtx(wallet);
+      const passes =
+        isValidType(ctx) &&
+        passesHiddenFilter(ctx) &&
+        passesQrFilter(ctx) &&
+        passesDupFilter(ctx);
 
-      // Check if this wallet should be included in the result
-      const isValidWalletType = isHwWallet || isQrWallet;
-      const passesHiddenWalletFilter = !filterHiddenWallet || !isHiddenWallet;
-      const passesQrWalletFilter = !filterQrWallet || !isQrWallet;
-      const passesDeviceDuplicationCheck = !(
-        skipDuplicateDevice &&
-        isQrWallet &&
-        wallet.associatedDevice &&
-        deviceToHwWalletMap[wallet.associatedDevice]
-      );
+      if (!passes) continue;
 
-      // Only add wallet to result if it passes all checks
-      if (
-        isValidWalletType &&
-        passesHiddenWalletFilter &&
-        passesQrWalletFilter &&
-        passesDeviceDuplicationCheck
-      ) {
-        const device = (allDevices ?? []).find(
-          (d) => d.id === wallet.associatedDevice,
-        );
-        result[wallet.id] = {
-          wallet,
-          device,
-        };
+      if (skipDuplicateDeviceSameType && ctx.isHwWallet) {
+        const key = `${ctx.deviceId}:${ctx.isHwWallet ? 'hw' : 'qr'}`;
+        deviceToWalletByType[key] = wallet.id;
       }
+
+      const device = (allDevices ?? []).find((d) => d.id === ctx.deviceId);
+      result[wallet.id] = { wallet, device };
     }
 
     return result;

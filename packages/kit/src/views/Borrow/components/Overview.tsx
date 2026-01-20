@@ -193,8 +193,7 @@ export const Overview = ({
     provider,
     marketAddress,
     accountId: earnAccountId,
-    enabled:
-      isActive && !!(networkId && provider && marketAddress && earnAccountId),
+    enabled: !!(networkId && provider && marketAddress && earnAccountId),
   });
 
   const handleBorrowClaim = useUniversalBorrowClaim({

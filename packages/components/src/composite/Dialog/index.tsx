@@ -320,6 +320,11 @@ function DialogFrame({
               }}
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex || zIndex}
+              style={
+                !platformEnv.isNative && !open && forceMount
+                  ? ({ contentVisibility: 'hidden' } as any)
+                  : {}
+              }
             />
             {/* /* fix missing title warnings in html dialog element on Web */}
             <TMDialog.Title display="none" />
@@ -349,6 +354,9 @@ function DialogFrame({
               outlineColor="$neutral3"
               style={{
                 outlineStyle: 'solid',
+                ...(!platformEnv.isNative && !open && forceMount
+                  ? ({ contentVisibility: 'hidden' } as any)
+                  : {}),
               }}
               bg="$bg"
               width={MAX_CONTENT_WIDTH}

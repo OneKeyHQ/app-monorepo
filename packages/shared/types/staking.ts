@@ -386,7 +386,7 @@ export interface IBorrowApyDetailPopupData {
     icon: IKeyOfIcons;
   };
   apyDetail: {
-    description?: { text: IEarnText; button: IEarnLinkActionIcon }[];
+    descriptions?: { text: IEarnText; button: IEarnLinkActionIcon }[];
     normal?: IBorrowApyDetailSection;
     supplyBonus?: IBorrowApyDetailSection;
     collateralBonus?: IBorrowApyDetailSection;
@@ -584,7 +584,7 @@ export interface IEarnLinkActionIcon {
   };
   icon?: IEarnIcon;
   disabled?: boolean;
-  text: IEarnText;
+  text?: IEarnText;
 }
 
 export interface IEarnDepositActionIcon {
@@ -627,8 +627,20 @@ export interface IEarnRewardClaimGroup {
   items: IEarnRewardClaimItem[];
 }
 
+export interface IEarnBorrowUnclaimableReward {
+  title: IEarnText;
+  items: {
+    id: string;
+    title: IEarnText;
+    description: IEarnText;
+    token: IBorrowToken;
+    button: IEarnLinkActionIcon;
+  }[];
+}
+
 export interface IEarnRewardsDetail {
   claimable: IEarnRewardClaimGroup[];
+  unclaimable: IEarnBorrowUnclaimableReward[];
 }
 
 export interface IEarnRewardsDetailsData {
@@ -1933,8 +1945,14 @@ export interface IBorrowReserveItem {
         description: IEarnText;
         button: IEarnHistoryActionIcon;
       };
+      alerts?: IBorrowAlert[];
       description: IEarnText;
-      distributed: {
+      distributed?: {
+        title: IEarnText;
+        description: IEarnText;
+        token: IBorrowToken;
+      }[];
+      undistributed?: {
         title: IEarnText;
         description: IEarnText;
         token: IBorrowToken;

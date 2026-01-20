@@ -15,7 +15,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
-function ResetPinPage() {
+function ResetPinGuidePage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
@@ -121,4 +121,4 @@ function ResetPinPage() {
   );
 }
 
-export { ResetPinPage as default };
+export { ResetPinGuidePage as default };

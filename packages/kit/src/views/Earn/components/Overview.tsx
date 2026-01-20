@@ -200,9 +200,13 @@ const Rebate = ({
 const OverviewComponent = ({
   isLoading,
   onRefresh,
+  filteredTotalFiatValue,
+  filteredEarnings24h,
 }: {
   isLoading: boolean;
   onRefresh: () => void;
+  filteredTotalFiatValue?: string;
+  filteredEarnings24h?: string;
 }) => {
   const {
     activeAccount: { account, indexedAccount },
@@ -210,14 +214,16 @@ const OverviewComponent = ({
   const totalFiatMapKey = useEarnAccountKey();
   const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
-  const totalFiatValue = useMemo(
+  const rawTotalFiatValue = useMemo(
     () => earnAccount?.[totalFiatMapKey]?.totalFiatValue || '0',
     [earnAccount, totalFiatMapKey],
   );
-  const earnings24h = useMemo(
+  const totalFiatValue = filteredTotalFiatValue ?? rawTotalFiatValue;
+  const rawEarnings24h = useMemo(
     () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
     [earnAccount, totalFiatMapKey],
   );
+  const earnings24h = filteredEarnings24h ?? rawEarnings24h;
   const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
   const evmAccount = useMemo(() => {
     return earnAccount?.[totalFiatMapKey]?.accounts?.find(
@@ -311,7 +317,7 @@ const OverviewComponent = ({
         <XStack gap="$3" ai="center">
           <NumberSizeableText
             size="$heading5xl"
-            formatter="price"
+            formatter="value"
             color={getNumberColor(totalFiatValue, '$text')}
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
             numberOfLines={1}
@@ -337,7 +343,7 @@ const OverviewComponent = ({
         }}
       >
         <NumberSizeableText
-          formatter="price"
+          formatter="value"
           formatterOptions={{
             currency: settings.currencyInfo.symbol,
             showPlusMinusSigns: Number(earnings24h) !== 0,

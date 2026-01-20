@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -46,6 +48,7 @@ import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 import { useBannerInfo } from './hooks/useBannerInfo';
 import { useBlockRegion } from './hooks/useBlockRegion';
+import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
 import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
@@ -87,6 +90,45 @@ function BasicEarnHome({
     }
     return portfolioLoading;
   }, [portfolioLoading, showContent]);
+
+  const { hideSmallAssets } = useEarnHideSmallAssets();
+
+  // Calculate filtered total fiat value when hiding small assets
+  const filteredTotalFiatValue = useMemo(() => {
+    if (!hideSmallAssets) {
+      return undefined; // Use default from Overview
+    }
+
+    const { investments } = portfolioData;
+    const total = investments.reduce((sum, inv) => {
+      // Filter assets with fiatValueUsd < 0.01
+      const valueUsd = Number(inv.totalFiatValueUsd ?? 0);
+      if (valueUsd >= 0.01) {
+        return sum.plus(new BigNumber(inv.totalFiatValue ?? 0));
+      }
+      return sum;
+    }, new BigNumber(0));
+
+    return total.toFixed();
+  }, [hideSmallAssets, portfolioData]);
+
+  // Calculate filtered 24h earnings when hiding small assets (same logic)
+  const filteredEarnings24h = useMemo(() => {
+    if (!hideSmallAssets) {
+      return undefined;
+    }
+
+    const { investments } = portfolioData;
+    const total = investments.reduce((sum, inv) => {
+      const valueUsd = Number(inv.totalFiatValueUsd ?? 0);
+      if (valueUsd >= 0.01) {
+        return sum.plus(new BigNumber(inv.earnings24hFiatValue ?? 0));
+      }
+      return sum;
+    }, new BigNumber(0));
+
+    return total.toFixed();
+  }, [hideSmallAssets, portfolioData]);
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     return [EEarnLabels.Stake, EEarnLabels.Withdraw].includes(
@@ -290,14 +332,26 @@ function BasicEarnHome({
         <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
           <YStack gap="$7.5">
             <YStack px="$5">
-              <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+              <Overview
+                onRefresh={refreshEarnData}
+                isLoading={isLoading}
+                filteredTotalFiatValue={filteredTotalFiatValue}
+                filteredEarnings24h={filteredEarnings24h}
+              />
             </YStack>
             {banners ? <YStack width="100%">{banners}</YStack> : null}
           </YStack>
         </YStack>
       ),
     }),
-    [showContent, refreshEarnData, isLoading, banners],
+    [
+      showContent,
+      refreshEarnData,
+      isLoading,
+      filteredTotalFiatValue,
+      filteredEarnings24h,
+      banners,
+    ],
   );
 
   // const [tabPageHeight, setTabPageHeight] = useState(
@@ -398,7 +452,12 @@ function BasicEarnHome({
             <YStack flex={1}>
               <YStack>
                 <XStack px="$5">
-                  <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+                  <Overview
+                    onRefresh={refreshEarnData}
+                    isLoading={isLoading}
+                    filteredTotalFiatValue={filteredTotalFiatValue}
+                    filteredEarnings24h={filteredEarnings24h}
+                  />
                 </XStack>
                 {banners ? (
                   <YStack

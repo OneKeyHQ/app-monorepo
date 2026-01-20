@@ -20,6 +20,7 @@ import type {
   IPrimeConfigFlushInfo,
   IPrimeDeviceLogoutInfo,
   IPrimeLockChangedInfo,
+  ISetBadgeInfo,
 } from '@onekeyhq/shared/types/socket';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
@@ -235,6 +236,22 @@ export class PushProviderWebSocket extends PushProviderBase {
         );
       },
     );
+
+    this.socket.on(EAppSocketEventNames.setBadge, (payload: ISetBadgeInfo) => {
+      defaultLogger.notification.websocket.consoleLog(
+        'WebSocket 收到 setBadge 消息:',
+        payload,
+      );
+      void this.backgroundApi.serviceNotification.ackNotificationMessage({
+        msgId: payload.msgId,
+        action: ENotificationPushMessageAckAction.arrived,
+      });
+      void this.backgroundApi.serviceNotification.setBadge({
+        count: payload.badge,
+      });
+      // Trigger notification list refresh to sync read status in UI
+      appEventBus.emit(EAppEventBusNames.UpdateNotificationBadge, undefined);
+    });
 
     // this.socket.off('notification');
   }
