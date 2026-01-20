@@ -144,14 +144,15 @@ export function useSpeedSwapActions(props: {
   if (tradeTokenRef.current !== tradeToken) {
     tradeTokenRef.current = tradeToken;
   }
-
+  const tradeTokenNetworkId = tradeToken.networkId;
+  const tradeTokenContractAddress = tradeToken.contractAddress;
   useEffect(() => {
     void (async () => {
-      if (!tradeToken.networkId) return;
+      if (!tradeTokenNetworkId) return;
       const tokenDetail =
         await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-          networkId: tradeToken.networkId,
-          contractAddress: tradeToken.contractAddress,
+          networkId: tradeTokenNetworkId,
+          contractAddress: tradeTokenContractAddress,
         });
       if (tokenDetail?.length) {
         setTradeTokenDetail({
@@ -166,8 +167,8 @@ export function useSpeedSwapActions(props: {
   }, [
     tradeType,
     defaultTradeTokens,
-    tradeToken.networkId,
-    tradeToken.contractAddress,
+    tradeTokenNetworkId,
+    tradeTokenContractAddress,
   ]);
 
   const { fromToken, toToken, balanceToken } = useMemo(() => {
