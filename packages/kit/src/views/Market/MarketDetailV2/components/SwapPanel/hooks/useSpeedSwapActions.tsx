@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -140,6 +140,11 @@ export function useSpeedSwapActions(props: {
   const [tradeTokenDetail, setTradeTokenDetail] =
     useState<ISwapToken>(tradeToken);
 
+  const tradeTokenRef = useRef<ISwapToken>(undefined);
+  if (tradeTokenRef.current !== tradeToken) {
+    tradeTokenRef.current = tradeToken;
+  }
+
   useEffect(() => {
     void (async () => {
       if (!tradeToken?.networkId) return;
@@ -151,10 +156,10 @@ export function useSpeedSwapActions(props: {
       if (tokenDetail?.length) {
         setTradeTokenDetail({
           ...tokenDetail[0],
-          symbol: tradeToken?.symbol,
+          symbol: tradeTokenRef.current?.symbol ?? '',
           logoURI: tokenDetail[0]?.logoURI
             ? tokenDetail[0]?.logoURI
-            : tradeToken?.logoURI,
+            : tradeTokenRef.current?.logoURI ?? '',
         });
       }
     })();
@@ -163,8 +168,6 @@ export function useSpeedSwapActions(props: {
     defaultTradeTokens,
     tradeToken?.networkId,
     tradeToken?.contractAddress,
-    tradeToken?.symbol,
-    tradeToken?.logoURI,
   ]);
 
   const { fromToken, toToken, balanceToken } = useMemo(() => {

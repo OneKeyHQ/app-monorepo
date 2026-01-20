@@ -11,10 +11,7 @@ import {
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  ISwapProSpeedConfig,
-  ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapProSpeedConfig } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { TradeTypeSelector } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
