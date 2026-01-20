@@ -217,7 +217,11 @@ export const BorrowBonusTooltip = ({
             {/* Undistributed section */}
             {isEmpty(data?.undistributed) ? null : (
               <>
-                <SizableText size="$bodySmMedium" color="$textSubdued" mt="$2.5">
+                <SizableText
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                  mt="$2.5"
+                >
                   {intl.formatMessage({
                     id: ETranslations.earn_referral_undistributed,
                   })}
