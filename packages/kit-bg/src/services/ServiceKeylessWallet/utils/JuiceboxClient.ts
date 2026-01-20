@@ -206,7 +206,6 @@ export class JuiceboxClient {
   async recover(params: {
     pin: string; // TODO hashPin
     userInfo: string; // ownerId
-    skipTokenCacheClear?: boolean;
   }): Promise<string> {
     const devSettingsPersist = await devSettingsPersistAtom.get();
     const enableKeylessDebugInfo =
@@ -218,7 +217,7 @@ export class JuiceboxClient {
     }
 
     try {
-      const { pin, userInfo, skipTokenCacheClear } = params;
+      const { pin, userInfo } = params;
 
       // Validate token cache is not empty
       if (this.juiceboxTokenCache.size === 0) {
@@ -246,11 +245,6 @@ export class JuiceboxClient {
 
       // Convert recovered Uint8Array back to utf8 string
       const secretUtf8 = bufferUtils.bytesToUtf8(recoveredSecret);
-
-      // Clear token cache after successful recovery
-      if (!skipTokenCacheClear) {
-        this.clearTokenCache();
-      }
 
       return secretUtf8;
     } catch (e) {
