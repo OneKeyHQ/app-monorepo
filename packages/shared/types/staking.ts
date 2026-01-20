@@ -627,8 +627,20 @@ export interface IEarnRewardClaimGroup {
   items: IEarnRewardClaimItem[];
 }
 
+export interface IEarnBorrowUnclaimableReward {
+  title: IEarnText;
+  items: {
+    id: string;
+    title: IEarnText;
+    description: IEarnText;
+    token: IBorrowToken;
+    button: IEarnLinkActionIcon;
+  }[];
+}
+
 export interface IEarnRewardsDetail {
   claimable: IEarnRewardClaimGroup[];
+  unclaimable: IEarnBorrowUnclaimableReward[];
 }
 
 export interface IEarnRewardsDetailsData {

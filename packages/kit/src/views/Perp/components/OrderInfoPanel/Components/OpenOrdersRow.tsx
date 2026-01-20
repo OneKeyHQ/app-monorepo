@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -190,6 +190,13 @@ const OpenOrdersRow = memo(
       };
     }, [order.children]);
 
+    const [isHovered, setIsHovered] = useState(false);
+    const baseBgColor = isHovered
+      ? '$bgApp'
+      : index % 2 === 1
+        ? '$bgSubdued'
+        : '$bgApp';
+
     if (isMobile) {
       return (
         <ListItem
@@ -322,10 +329,16 @@ const OpenOrdersRow = memo(
         px="$3"
         alignItems="center"
         hoverStyle={{ bg: '$bgHover' }}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
         minWidth={cellMinWidth}
-        {...(index % 2 === 1 && {
-          backgroundColor: '$bgSubdued',
-        })}
+        {...(index % 2 === 1
+          ? {
+              backgroundColor: '$bgSubdued',
+            }
+          : {
+              backgroundColor: '$bgApp',
+            })}
       >
         {/* Time */}
         <YStack
@@ -467,7 +480,25 @@ const OpenOrdersRow = memo(
           {...getColumnStyle(columnConfigs[9])}
           justifyContent={calcCellAlign(columnConfigs[9].align)}
           alignItems="center"
+          {...(columnConfigs[9]?.fixed && {
+            position: 'sticky' as any,
+            right: 0,
+            zIndex: 1,
+            pr: '$2',
+            backgroundColor: baseBgColor,
+          })}
         >
+          {columnConfigs[9]?.fixed && isHovered ? (
+            <XStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              backgroundColor="$bgHover"
+              pointerEvents="none"
+            />
+          ) : null}
           <SizableText
             color="$green11"
             hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}

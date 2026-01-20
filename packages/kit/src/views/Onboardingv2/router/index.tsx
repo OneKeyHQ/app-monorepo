@@ -161,8 +161,8 @@ const VerifyPin = LazyLoadPage(
   false,
   <OnboardingLayoutFallback />,
 );
-const ResetPin = LazyLoadPage(
-  () => import('../pages/ResetPinPage'),
+const ResetPinGuidePage = LazyLoadPage(
+  () => import('../pages/ResetPinGuidePage'),
   undefined,
   false,
   <OnboardingLayoutFallback />,
@@ -320,8 +320,8 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
     options: hiddenHeaderOptions,
   },
   {
-    name: EOnboardingPagesV2.ResetPin,
-    component: ResetPin,
+    name: EOnboardingPagesV2.ResetPinGuide,
+    component: ResetPinGuidePage,
     options: hiddenHeaderOptions,
   },
   {
