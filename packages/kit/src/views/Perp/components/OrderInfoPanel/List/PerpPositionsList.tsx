@@ -133,6 +133,7 @@ function PerpPositionsList({
         minWidth: 100,
         align: 'right',
         flex: 1,
+        fixed: true,
         ...(positionsLength > 0 && {
           onPress: () => showCloseAllPositionsDialog(),
         }),
