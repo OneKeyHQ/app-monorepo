@@ -6,6 +6,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { navigateToNotificationDetailByLocalParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   openUrlExternal,
@@ -101,15 +102,44 @@ function BaseNotificationHandlerContainer() {
       EAppEventBusNames.ShowNotificationViewDialog,
       handleShowNotificationViewDialog,
     );
-    const handleShowNotificationPageNavigation = ({
+    const handleShowNotificationPageNavigation = async ({
       payload: payloadObj,
+      extras,
     }: {
       payload: {
         screen: string;
         params: Record<string, any>;
       };
+      extras?: {
+        params?: {
+          coin?: string;
+          type?: string;
+          [key: string]: any;
+        };
+        [key: string]: any;
+      };
     }) => {
       const localParams = getLocalParams();
+
+      const isPerpNavigation =
+        payloadObj.screen === 'main' &&
+        payloadObj.params?.screen === ETabRoutes.Perp;
+
+      const perpToken = isPerpNavigation
+        ? (payloadObj.params?.params as { token?: string } | undefined)
+            ?.token || extras?.params?.coin
+        : null;
+
+      if (perpToken) {
+        try {
+          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+            coin: String(perpToken).toUpperCase(),
+          });
+        } catch (error) {
+          console.error('Failed to change perps active asset:', error);
+        }
+      }
+
       navigateToNotificationDetailByLocalParams({
         payload: payloadObj,
         localParams,

@@ -57,6 +57,7 @@
     "_packageVersions": "node ./development/lint/package-versions.js",
     "lint:project": "yarn _tsc && yarn _lint && concurrently --kill-others-on-fail \"yarn _electron\" \"yarn _folder\" \"yarn _lang\" \"yarn _packageVersions\"",
     "lint": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn lint:project",
+    "eslint": "sh -c 'cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"/.eslintcache'",
     "oxlint": "npx oxlint --tsconfig ./tsconfig.json . --fix",
     "lint:only": "npx oxlint --tsconfig ./tsconfig.json . --fix",
     "tsc:only": "npx tsgo -p ./tsconfig.json --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty --max-old-space-size=8192",
@@ -182,6 +183,7 @@
     "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
+    "eslint": "8.57.1",
     "@babel/plugin-proposal-class-properties": "^7.18.6",
     "@babel/plugin-proposal-class-static-block": "^7.21.0",
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
