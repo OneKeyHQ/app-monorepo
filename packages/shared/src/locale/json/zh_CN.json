@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "输入 PIN",
   "pin_verify_reminder_dialog_desc": "恢复无私钥钱包需要 <em>PIN</em> 和<em>邮箱验证</em>。为避免您遗忘 PIN，OneKey 会不定期提醒您验证 PIN。",
   "pin_verify_reminder_dialog_title": "PIN 记忆检查",
-  "pin_verify_reminder_dialog_verified_toast": "已在其他设备完成 PIN 验证",
+  "pin_verify_reminder_dialog_verified_toast": "已在其他设备处理 PIN 检查",
   "preparing_backup_desc": "请稍候…",
   "preparing_backup_title": "正在准备备份…",
   "prime.about_cloud_sync": "关于云端同步",

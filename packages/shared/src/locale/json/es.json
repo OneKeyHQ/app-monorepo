@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "Ingrese el PIN",
   "pin_verify_reminder_dialog_desc": "Recuperar una billetera sin clave requiere tanto tu <em>PIN</em> como <em>verificación de correo electrónico</em>. Para ayudarte a evitar olvidar tu PIN, OneKey te pedirá ocasionalmente que lo verifiques.",
   "pin_verify_reminder_dialog_title": "Recordatorio de PIN",
-  "pin_verify_reminder_dialog_verified_toast": "PIN verificado en otro dispositivo",
+  "pin_verify_reminder_dialog_verified_toast": "PIN check handled on another dispositivo",
   "preparing_backup_desc": "Un momento…",
   "preparing_backup_title": "Preparando la copia de seguridad…",
   "prime.about_cloud_sync": "Acerca de la sincronización con la nube",

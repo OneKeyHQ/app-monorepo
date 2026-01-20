@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "Masukkan PIN",
   "pin_verify_reminder_dialog_desc": "Memulihkan dompet tanpa kunci memerlukan <em>PIN</em> dan <em>verifikasi email</em> Anda. Untuk membantu Anda menghindari lupa PIN Anda, OneKey akan sesekali meminta Anda untuk memverifikasinya.",
   "pin_verify_reminder_dialog_title": "Peringatan PIN cek",
-  "pin_verify_reminder_dialog_verified_toast": "PIN terverifikasi di perangkat lain",
+  "pin_verify_reminder_dialog_verified_toast": "PIN check ditangani di perangkat lain",
   "preparing_backup_desc": "Tunggu sebentar…",
   "preparing_backup_title": "Menyiapkan cadangan…",
   "prime.about_cloud_sync": "Tentang Cloud Sync",

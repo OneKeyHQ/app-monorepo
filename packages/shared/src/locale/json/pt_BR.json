@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "Digite o PIN",
   "pin_verify_reminder_dialog_desc": "Recuperar uma carteira sem chave requer tanto o seu <em>PIN</em> quanto a <em>verificação de e-mail</em>. Para ajudá-lo a evitar esquecer seu PIN, a OneKey ocasionalmente solicitará que você o verifique.",
   "pin_verify_reminder_dialog_title": "Lembrete de PIN",
-  "pin_verify_reminder_dialog_verified_toast": "PIN verificado em outro dispositivo",
+  "pin_verify_reminder_dialog_verified_toast": "PIN check tratado em outro dispositivo",
   "preparing_backup_desc": "Só um momento…",
   "preparing_backup_title": "Preparando backup…",
   "prime.about_cloud_sync": "Sobre a Sincronização na Nuvem",

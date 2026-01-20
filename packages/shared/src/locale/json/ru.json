@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "Введите PIN",
   "pin_verify_reminder_dialog_desc": "Восстановление безключевого кошелька требует как вашего <em>PIN</em>, так и <em>подтверждения по электронной почте</em>. Чтобы помочь вам не забыть ваш PIN, OneKey время от времени будет предлагать вам его подтвердить.",
   "pin_verify_reminder_dialog_title": "Напоминание о PIN-коде",
-  "pin_verify_reminder_dialog_verified_toast": "ПИН-код подтвержден на другом устройстве.",
+  "pin_verify_reminder_dialog_verified_toast": "Проверка PIN выполнена на другом устройстве",
   "preparing_backup_desc": "Минутку…",
   "preparing_backup_title": "Подготовка резервной копии…",
   "prime.about_cloud_sync": "О облачной синхронизации",

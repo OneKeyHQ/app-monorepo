@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "পিন প্রবেশ করুন",
   "pin_verify_reminder_dialog_desc": "কীলেস ওয়ালেট পুনরুদ্ধার করতে আপনার <em>PIN</em> এবং <em>ইমেল যাচাইকরণ</em> উভয়ই প্রয়োজন। আপনার PIN ভুলে যাওয়া এড়াতে সাহায্য করার জন্য, OneKey মাঝে মাঝে আপনাকে এটি যাচাই করতে বলবে।",
   "pin_verify_reminder_dialog_title": "PIN স্মরণকারী পরীক্ষা",
-  "pin_verify_reminder_dialog_verified_toast": "অন্য ডিভাইসে পিন যাচাই করা হয়েছে",
+  "pin_verify_reminder_dialog_verified_toast": "PIN চেক অন্য একটি ডিভাইসে পরিচালিত হয়েছে",
   "preparing_backup_desc": "একটু অপেক্ষা করুন…",
   "preparing_backup_title": "ব্যাকআপ প্রস্তুত করা হচ্ছে…",
   "prime.about_cloud_sync": "ক্লাউড সিঙ্ক সম্বন্ধে",

@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "PIN 입력",
   "pin_verify_reminder_dialog_desc": "키 없는 지갑을 복구하려면 <em>PIN</em>과 <em>이메일 확인</em>이 모두 필요합니다. PIN을 잊지 않도록 OneKey가 가끔 확인하라는 메시지를 표시합니다.",
   "pin_verify_reminder_dialog_title": "PIN 알림 확인",
-  "pin_verify_reminder_dialog_verified_toast": "다른 기기에서 PIN 확인 완료",
+  "pin_verify_reminder_dialog_verified_toast": "PIN 확인이 다른 기기에서 처리되었습니다",
   "preparing_backup_desc": "잠시만요…",
   "preparing_backup_title": "백업을 준비하는 중…",
   "prime.about_cloud_sync": "클라우드 동기화에 대하여",

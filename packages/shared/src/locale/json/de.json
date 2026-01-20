@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "Geben Sie die PIN ein",
   "pin_verify_reminder_dialog_desc": "Das Wiederherstellen eines schlüsselosen Wallets erfordert sowohl Ihre <em>PIN</em> als auch <em>E-Mail-Verifizierung</em>. Um Ihnen zu helfen, Ihre PIN nicht zu vergessen, wird OneKey Sie gelegentlich auffordern, diese zu verifizieren.",
   "pin_verify_reminder_dialog_title": "PIN-Erinnerungsprüfung",
-  "pin_verify_reminder_dialog_verified_toast": "PIN auf einem anderen Gerät verifiziert",
+  "pin_verify_reminder_dialog_verified_toast": "PIN-Überprüfung auf einem anderen Gerät durchgeführt",
   "preparing_backup_desc": "Einen Moment …",
   "preparing_backup_title": "Sicherung wird vorbereitet …",
   "prime.about_cloud_sync": "Über die Cloud-Synchronisation",

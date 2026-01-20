@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "Entrez le code PIN",
   "pin_verify_reminder_dialog_desc": "Récupérer un portefeuille sans clé nécessite à la fois votre <em>PIN</em> et <em>vérification par e-mail</em>. Pour vous aider à éviter d'oublier votre PIN, OneKey vous demandera occasionnellement de le vérifier.",
   "pin_verify_reminder_dialog_title": "Rappel de PIN",
-  "pin_verify_reminder_dialog_verified_toast": "Code PIN vérifié sur un autre appareil",
+  "pin_verify_reminder_dialog_verified_toast": "PIN check handled on another appareil",
   "preparing_backup_desc": "Un instant…",
   "preparing_backup_title": "Préparation de la sauvegarde…",
   "prime.about_cloud_sync": "À propos de la synchronisation cloud",

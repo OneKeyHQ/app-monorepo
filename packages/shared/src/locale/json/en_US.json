@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "Enter PIN",
   "pin_verify_reminder_dialog_desc": "Recovering a keyless wallet requires both your <em>PIN</em> and <em>email verification</em>. To help you avoid forgetting your PIN, OneKey will occasionally prompt you to verify it.",
   "pin_verify_reminder_dialog_title": "PIN check",
-  "pin_verify_reminder_dialog_verified_toast": "PIN Verified on other device",
+  "pin_verify_reminder_dialog_verified_toast": "PIN check handled on another device",
   "preparing_backup_desc": "Just a moment…",
   "preparing_backup_title": "Preparing backup…",
   "prime.about_cloud_sync": "About cloud sync",

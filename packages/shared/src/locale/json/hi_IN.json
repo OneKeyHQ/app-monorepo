@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "पिन दर्ज करें",
   "pin_verify_reminder_dialog_desc": "कुंजीरहित वॉलेट को रिकवर करने के लिए आपके <em>PIN</em> और <em>ईमेल सत्यापन</em>दोनों की आवश्यकता होती है। आपका PIN भूलने से बचाने के लिए OneKey समय‑समय पर आपसे इसे पुष्टि करने को कहेगा।",
   "pin_verify_reminder_dialog_title": "PIN याद दिलाने की जांच",
-  "pin_verify_reminder_dialog_verified_toast": "दूसरे डिवाइस पर पिन सत्यापित हो गया है",
+  "pin_verify_reminder_dialog_verified_toast": "PIN जांच एक अन्य उपकरण पर संभाली गई",
   "preparing_backup_desc": "बस एक पल…",
   "preparing_backup_title": "बैकअप तैयार किया जा रहा है…",
   "prime.about_cloud_sync": "क्लाउड सिंक के बारे में",

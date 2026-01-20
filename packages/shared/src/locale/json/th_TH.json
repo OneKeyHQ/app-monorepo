@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "输入 PIN",
   "pin_verify_reminder_dialog_desc": "การกู้คืนกระเป๋าแบบไม่มีคีย์ต้องใช้ทั้ง <em>PIN</em> และ <em>การตรวจสอบอีเมล</em> เพื่อช่วยให้คุณหลีกเลี่ยงการลืม PIN ของคุณ OneKey จะมีการแจ้งเตือนให้คุณตรวจสอบเป็นครั้งคราว",
   "pin_verify_reminder_dialog_title": "PIN เตือนความจำตรวจสอบ",
-  "pin_verify_reminder_dialog_verified_toast": "ยืนยันรหัส PIN บนอุปกรณ์อื่นแล้ว",
+  "pin_verify_reminder_dialog_verified_toast": "PIN check handled on another อุปกรณ์",
   "preparing_backup_desc": "สักครู่…",
   "preparing_backup_title": "กำลังเตรียมสำรองข้อมูล…",
   "prime.about_cloud_sync": "เกี่ยวกับคลาวด์ซิงค์",

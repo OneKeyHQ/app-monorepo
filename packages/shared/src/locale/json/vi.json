@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "Nhập PIN",
   "pin_verify_reminder_dialog_desc": "Khôi phục một ví không khóa yêu cầu cả <em>Mã PIN</em> và <em>Xác minh email</em> của bạn. Để giúp bạn tránh quên Mã PIN của mình, OneKey sẽ thỉnh thoảng nhắc bạn xác minh nó.",
   "pin_verify_reminder_dialog_title": "Nhắc nhở PIN kiểm tra",
-  "pin_verify_reminder_dialog_verified_toast": "Mã PIN đã được xác minh trên thiết bị khác",
+  "pin_verify_reminder_dialog_verified_toast": "PIN check được xử lý trên một thiết bị khác",
   "preparing_backup_desc": "Chờ một chút…",
   "preparing_backup_title": "Đang chuẩn bị sao lưu…",
   "prime.about_cloud_sync": "Về Cloud Sync",

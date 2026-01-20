@@ -2733,7 +2733,7 @@
   "pin_verify_reminder_dialog_button_label": "PINを入力してください",
   "pin_verify_reminder_dialog_desc": "キーなしウォレットを復元するには、あなたの<em>PIN</em>と<em>メール確認</em>の両方が必要です。OneKeyは、あなたがPINを忘れないように、時々確認を促します。",
   "pin_verify_reminder_dialog_title": "PINリマインダー確認",
-  "pin_verify_reminder_dialog_verified_toast": "他のデバイスでPINを確認しました",
+  "pin_verify_reminder_dialog_verified_toast": "PINチェックは別のデバイスで処理されました",
   "preparing_backup_desc": "少々お待ちください…",
   "preparing_backup_title": "バックアップを準備中…",
   "prime.about_cloud_sync": "クラウド同期について",
