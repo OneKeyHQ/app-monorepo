@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance} from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import { ActionList, Dialog, Divider, Toast } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';

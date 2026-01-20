@@ -872,8 +872,13 @@ export default class ServicePassword extends ServiceBase {
   // lock ---------------------------
   @backgroundMethod()
   async unLockApp() {
-    await passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
-    await passwordAtom.set((v) => ({
+    const isManualLocking = await passwordPersistAtom.get();
+    void passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
+    // wait ext ui update state
+    if (platformEnv.isExtension && isManualLocking) {
+      await timerUtils.wait(100);
+    }
+    void passwordAtom.set((v) => ({
       ...v,
       unLock: true,
     }));
@@ -890,7 +895,7 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async lockApp(options?: { manual: boolean }) {
-    const { manual = true } = options || {};
+    const { manual = false } = options || {};
     this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
     const isFirmwareUpdateRunning =
       await firmwareUpdateWorkflowRunningAtom.get();
