@@ -17,6 +17,7 @@ function BulkSendContentWrapper({
         mx: 'auto',
         maxWidth: '$180',
       }}
+      bg="$bgApp"
       {...rest}
     >
       {children}

@@ -241,13 +241,18 @@ function BaseBulkSendAddressesInput() {
         </BulkSendContentWrapper>
       </Page.Body>
       <Page.Footer>
-        <Page.FooterActions
-          onConfirmText="Next"
-          confirmButtonProps={{
-            onPress: handleSubmit,
-            disabled: isSubmitDisabled,
-          }}
-        />
+        <BulkSendContentWrapper px="$0" py="$0">
+          <Page.FooterActions
+            $gtMd={{
+              px: '$0',
+            }}
+            onConfirmText="Next"
+            confirmButtonProps={{
+              onPress: handleSubmit,
+              disabled: isSubmitDisabled,
+            }}
+          />
+        </BulkSendContentWrapper>
       </Page.Footer>
     </Page>
   );
