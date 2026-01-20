@@ -41,7 +41,7 @@ function getHeaderTitle(
     : fallback;
 }
 
-const DesktopDragZoneBoxView = platformEnv.isDesktop
+const DesktopDragZoneBoxView = platformEnv.isDesktopMac
   ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
       const isModalPage = useIsOverlayPage();
 
