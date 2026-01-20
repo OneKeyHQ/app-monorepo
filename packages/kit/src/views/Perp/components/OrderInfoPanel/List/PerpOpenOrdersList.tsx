@@ -119,6 +119,7 @@ function PerpOpenOrdersList({
         minWidth: 100,
         align: 'right',
         flex: 1,
+        fixed: true,
         ...(openOrders.length > 0 && {
           onPress: () => showCancelAllOrdersDialog(),
         }),

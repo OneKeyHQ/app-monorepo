@@ -152,6 +152,14 @@ export function parseNotificationPayload(
   mode: ENotificationPushMessageMode,
   payload: string | undefined,
   fallbackHandler: () => void,
+  extras?: {
+    params?: {
+      coin?: string;
+      type?: string;
+      [key: string]: any;
+    };
+    [key: string]: any;
+  },
 ) {
   switch (mode) {
     case ENotificationPushMessageMode.page:
@@ -159,6 +167,7 @@ export function parseNotificationPayload(
         const payloadObj = JSON.parse(payload || '');
         appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
           payload: payloadObj,
+          extras,
         });
       } catch (_error) {
         fallbackHandler();
@@ -290,7 +299,12 @@ async function navigateToNotificationDetail({
   }
 
   if (mode) {
-    parseNotificationPayload(mode, payload, showFallbackUpdateDialog);
+    parseNotificationPayload(
+      mode,
+      payload,
+      showFallbackUpdateDialog,
+      message?.extras,
+    );
     return;
   }
 

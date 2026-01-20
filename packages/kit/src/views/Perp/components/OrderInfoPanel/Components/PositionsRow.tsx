@@ -568,11 +568,20 @@ const PositionRowDesktopActions = memo(
   ({
     columnConfig,
     onClosePosition,
+    rowIndex,
+    isRowHovered,
   }: {
     columnConfig: IColumnConfig;
     onClosePosition: (type: 'market' | 'limit') => void;
+    rowIndex?: number;
+    isRowHovered?: boolean;
   }) => {
     const intl = useIntl();
+    const baseBgColor = isRowHovered
+      ? '$bgApp'
+      : rowIndex !== undefined && rowIndex % 2 === 1
+      ? '$bgSubdued'
+      : '$bgApp';
     return (
       <DebugRenderTracker
         position="bottom-right"
@@ -584,7 +593,25 @@ const PositionRowDesktopActions = memo(
           justifyContent={calcCellAlign(columnConfig.align)}
           alignItems="center"
           gap="$2"
+          {...(columnConfig?.fixed && {
+            position: 'sticky' as any,
+            right: 0,
+            zIndex: 1,
+            backgroundColor: baseBgColor,
+            pr: '$2',
+          })}
         >
+          {columnConfig?.fixed && isRowHovered ? (
+            <XStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              backgroundColor="$bgHover"
+              pointerEvents="none"
+            />
+          ) : null}
           <XStack cursor="pointer" onPress={() => onClosePosition('market')}>
             <SizableText
               cursor="pointer"
@@ -654,6 +681,7 @@ const PositionRowDesktop = memo(
     onViewTpslOrders,
     onShare,
   }: IPositionRowDesktopProps) => {
+    const [isHovered, setIsHovered] = useState(false);
     return (
       <DebugRenderTracker
         position="left-center"
@@ -668,9 +696,15 @@ const PositionRowDesktop = memo(
           flex={1}
           alignItems="center"
           hoverStyle={{ bg: '$bgHover' }}
-          {...(mockedPosition.index % 2 === 1 && {
-            backgroundColor: '$bgSubdued',
-          })}
+          onHoverIn={() => setIsHovered(true)}
+          onHoverOut={() => setIsHovered(false)}
+          {...(mockedPosition.index % 2 === 1
+            ? {
+                backgroundColor: '$bgSubdued',
+              }
+            : {
+                backgroundColor: '$bgApp',
+              })}
         >
           <PositionRowDesktopSymbolAndLeverage
             columnConfig={columnConfigs[0]}
@@ -718,6 +752,8 @@ const PositionRowDesktop = memo(
           <PositionRowDesktopActions
             columnConfig={columnConfigs[9]}
             onClosePosition={onClosePosition}
+            rowIndex={mockedPosition.index}
+            isRowHovered={isHovered}
           />
         </XStack>
       </DebugRenderTracker>
