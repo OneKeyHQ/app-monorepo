@@ -181,6 +181,7 @@ export class Analytics {
     walletCount?: number;
     appWalletCount?: number;
     hwWalletCount?: number;
+    keylessWalletCount?: number;
   }) {
     if (this.instanceId && this.baseURL) {
       void this.requestUserProfile(attributes);
