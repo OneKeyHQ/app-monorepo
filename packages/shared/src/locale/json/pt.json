@@ -167,6 +167,7 @@
   "auth.set_passcode": "Definir código de acesso",
   "auth.set_password": "Definir senha",
   "auth.with_biometric": "Autenticação com {biometric}",
+  "auth_server_error_text": "Algo correu mal. Por favor, verifique a sua ligação à internet ou tente novamente mais tarde.",
   "backing_up_desc": "Não feche esta janela até que o backup esteja completo.",
   "backing_up_title": "Fazendo backup…",
   "backup.address_book_labels": "Agenda de endereços & etiquetas",

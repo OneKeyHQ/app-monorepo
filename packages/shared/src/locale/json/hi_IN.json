@@ -167,6 +167,7 @@
   "auth.set_passcode": "पासकोड सेट करें",
   "auth.set_password": "पासवर्ड सेट करें",
   "auth.with_biometric": "{biometric} के साथ प्रमाणीकरण",
+  "auth_server_error_text": "कुछ गलत हो गया। कृपया अपना इंटरनेट कनेक्शन जाँचें या बाद में फिर से प्रयास करें।",
   "backing_up_desc": "जब तक बैकअप पूरा न हो जाए, इस विंडो को बंद न करें।",
   "backing_up_title": "बैकअप लिया जा रहा है…",
   "backup.address_book_labels": "पता पुस्तिका और लेबल",

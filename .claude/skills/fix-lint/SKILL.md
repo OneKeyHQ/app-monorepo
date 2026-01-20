@@ -1,11 +1,13 @@
 ---
 name: fix-lint
-description: Helps fix ESLint errors and warnings in the OneKey codebase. Use when running yarn lint and encountering warnings, cleaning up code before committing, or fixing spellcheck, unused variable, or other ESLint warnings.
+description: Helps fix oxlint errors and warnings in the OneKey codebase. Use when running yarn lint and encountering warnings, cleaning up code before committing, or fixing spellcheck, unused variable, or other linting warnings.
 ---
 
 # Fix Lint Skill
 
-This skill helps fix ESLint warnings in the OneKey app-monorepo codebase.
+This skill helps fix oxlint warnings in the OneKey app-monorepo codebase.
+
+**IMPORTANT**: This project uses **oxlint** (not ESLint). The active linting configuration is in `.oxlintrc.json`.
 
 ## Usage
 
@@ -19,7 +21,7 @@ Use this skill when:
 ### Step 1: Run Lint and Analyze Warnings
 
 ```bash
-NODE_OPTIONS="--max-old-space-size=8192" yarn lint:only 2>&1 | tail -100
+yarn lint:only 2>&1 | tail -100
 ```
 
 ### Step 2: Categorize Warnings
@@ -123,7 +125,7 @@ function Parent() {
 ### Step 4: Verify Fixes
 
 ```bash
-NODE_OPTIONS="--max-old-space-size=8192" yarn lint:only 2>&1 | tail -50
+yarn lint:only 2>&1 | tail -50
 ```
 
 ## Common Patterns in This Codebase
@@ -156,7 +158,7 @@ const { used, unused: _unused } = usePromiseResult(...);
 
 1. **Run lint with increased memory** for large codebases:
    ```bash
-   NODE_OPTIONS="--max-old-space-size=8192" yarn lint:only
+   yarn lint:only
    ```
 
 2. **Check if word is in skip list** before adding:

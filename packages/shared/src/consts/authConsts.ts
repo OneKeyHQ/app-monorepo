@@ -164,10 +164,10 @@ const GOOGLE_OAUTH_CLIENT_IOS =
 
 // test
 // const GOOGLE_OAUTH_CLIENT_WEB =
-// eslint-disable-next-line @cspell/spellchecker
+// oxlint-disable-next-line @cspell/spellchecker
 //   '244450898872-vmpg9dgocpqtqhm5pk42u4s6hvprogp6.apps.googleusercontent.com';
 // const GOOGLE_OAUTH_CLIENT_IOS =
-// eslint-disable-next-line @cspell/spellchecker
+// oxlint-disable-next-line @cspell/spellchecker
 //   '244450898872-5uo9r8ekdc82huckjcr4br67edvf3vlg.apps.googleusercontent.com';
 
 // ================================================
@@ -200,14 +200,14 @@ export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
 // export const KEYLESS_SUPABASE_PROJECT_URL =
 //   'https://supabase.onekey-internal.com'; // onekeytest
 // export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
-// eslint-disable-next-line @cspell/spellchecker
+// oxlint-disable-next-line @cspell/spellchecker
 //   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY3NTg3OTE4LCJleHAiOjE5MjUyNjc5MTh9.F69Rgt30To2V0Rij1nbTpjkHyAv6VpWGz3a81rkpM0U';
 
 // --- local test
 // export const KEYLESS_SUPABASE_PROJECT_URL =
 //   'https://wtspqckturkzhstyjabx.supabase.co';
 // export const KEYLESS_SUPABASE_PUBLIC_API_KEY =
-// eslint-disable-next-line @cspell/spellchecker
+// oxlint-disable-next-line @cspell/spellchecker
 //   'sb_publishable_So24RIupCcXUHaKo1gM4VA_uOBbgjoN';
 
 // ================================================
@@ -288,7 +288,7 @@ export const KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD =
 // Helper function to get AAD by version
 export function getKeylessAadByVersion(
   type: keyof typeof KEYLESS_AAD_VERSIONS,
-  version?: keyof (typeof KEYLESS_AAD_VERSIONS)[typeof type],
+  version?: keyof typeof KEYLESS_AAD_VERSIONS[typeof type],
 ): string {
   const targetVersion = version || KEYLESS_AAD_CURRENT_VERSION[type];
   return KEYLESS_AAD_VERSIONS[type][targetVersion];

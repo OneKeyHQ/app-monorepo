@@ -167,6 +167,7 @@
   "auth.set_passcode": "পাসকোড সেট করুন",
   "auth.set_password": "পাসওয়ার্ড সেট করুন",
   "auth.with_biometric": "{biometric} দ্বারা প্রমাণীকরণ",
+  "auth_server_error_text": "কোনো ত্রুটি ঘটেছে। অনুগ্রহ করে আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন অথবা পরে আবার চেষ্টা করুন।",
   "backing_up_desc": "ব্যাকআপ সম্পূর্ণ না হওয়া পর্যন্ত এই উইন্ডোটি বন্ধ করবেন না।",
   "backing_up_title": "ব্যাকআপ নেওয়া হচ্ছে…",
   "backup.address_book_labels": "ঠিকানা বই & লেবেল",

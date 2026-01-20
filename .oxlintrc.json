@@ -1,13 +1,16 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "unicorn",
-    "typescript",
-    "oxc",
-    "react",
-    "import",
-    "jest"
+  "jsPlugins": [
+    "@cspell/eslint-plugin",
+    "eslint-plugin-import-path",
+    "eslint-plugin-props-checker",
+    "eslint-plugin-ban",
+    "eslint-plugin-prettier"
   ],
+  "extends": [
+    "eslint-config-prettier",
+  ],
+  "plugins": ["unicorn", "typescript", "oxc", "react", "import", "jest"],
   // NOTE: JavaScript ESLint plugins (experimental feature) are not used yet
   // because some plugin configurations are not compatible with oxlint
   // https://oxc.rs/docs/guide/usage/linter/migrate-from-eslint.html#local-custom-eslint-plugins
@@ -16,7 +19,6 @@
   // - eslint-plugin-import-path
   // - eslint-plugin-use-effect-no-deps
   // - eslint-plugin-props-checker
-  // - @cspell/eslint-plugin
   "categories": {
     // Code that is outright wrong or useless
     "correctness": "error",
@@ -32,59 +34,127 @@
     "restriction": "off"
   },
   "rules": {
+    "prettier/prettier": ["error"],
+    "@cspell/spellchecker": [
+      "warn",
+      {
+        "ignoreImports": true,
+        "ignoreImportProperties": true,
+        "checkJSXText": true,
+        "checkComments": true,
+        "checkStrings": false,
+        "checkIdentifiers": true,
+        "autoFix": false
+      }
+    ],
+    "import-path/parent-depth": ["error", 3],
+    "import-path/forbidden": [
+      "error",
+      [
+        {
+          "match": "/index$",
+          "message": "Index on the end of path is redundant"
+        }
+      ]
+    ],
+    // NOTE: This rule stays in ESLint because oxlint jsPlugins is experimental
+    "props-checker/validator": [
+      "error",
+      {
+        "props": [
+          {
+            "propName": "onPress",
+            "components": [
+              { "component": "Stack", "dependOn": "pressStyle" },
+              { "component": "XStack", "dependOn": "pressStyle" },
+              { "component": "YStack", "dependOn": "pressStyle" }
+            ]
+          },
+          { "propName": "accessible", "components": ["TextInput"] }
+        ]
+      }
+    ],
+    "ban/ban": [
+      "error",
+      {
+        "name": ["*", "toLocaleUpperCase"],
+        "message": "Prefer use toUpperCase"
+      },
+      {
+        "name": ["*", "toLocaleLowerCase"],
+        "message": "Prefer use toLowerCase"
+      },
+      {
+        "name": ["InteractionManager", "runAfterInteractions"],
+        "message": "Use timerUtils.setTimeoutPromised instead of InteractionManager.runAfterInteractions"
+      }
+    ],
     // ============================================
     // ESLint core rules
     // ============================================
     // NOTE: Changed to warn because oxlint doesn't fully support caughtErrorsIgnorePattern
-    "no-unused-vars": ["warn", {
-      "argsIgnorePattern": "^_",
-      "varsIgnorePattern": "^_",
-      "caughtErrorsIgnorePattern": "^_",
-      "ignoreRestSiblings": true
-    }],
+    "no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "ignoreRestSiblings": true
+      }
+    ],
     "no-debugger": "error",
     "no-eval": "error",
     "radix": "error",
     // Sort imports (migrated from ESLint)
-    "sort-imports": ["error", {
-      "ignoreMemberSort": false,
-      "ignoreDeclarationSort": true
-    }],
+    "sort-imports": [
+      "error",
+      {
+        "ignoreMemberSort": false,
+        "ignoreDeclarationSort": true
+      }
+    ],
     // Restricted imports (migrated from @typescript-eslint/no-restricted-imports)
-    "no-restricted-imports": ["error", {
-      "patterns": [
-        {
-          "group": ["@onekeyfe/hd-core"],
-          "message": "using `const {} = await CoreSDKLoader()` instead",
-          "allowTypeImports": true
-        },
-        {
-          "group": ["**/localDbInstance", "**/localDbInstance.native"],
-          "message": "import localDbInstance directly is not allowed, use localDb instead"
-        },
-        {
-          "group": ["@onekeyhq/desktop/app/i18n"],
-          "message": "import ETranslations from \"@onekeyhq/shared/src/locale\" instead"
-        },
-        {
-          "group": ["**/v4localDbInstance.native"],
-          "message": "import v4localDbInstance.native directly is not allowed, use v4localDbInstance instead"
-        },
-        {
-          "group": ["**/v4ToV5Migration", "v4ToV5Migration/**", "**/v4ToV5Migration/**"],
-          "message": "import **/v4ToV5Migration/** not allowed"
-        },
-        {
-          "group": ["**/v4localDBStoreNames.native"],
-          "message": "import v4localDBStoreNames instead"
-        },
-        {
-          "group": ["jotai"],
-          "importNames": ["useAtom", "useSetAtom", "atom"],
-          "message": "Direct import of useAtom/useSetAtom from jotai is not allowed. Use contextAtom or globalAtom instead."
-        }
-      ]
-    }],
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["@onekeyfe/hd-core"],
+            "message": "using `const {} = await CoreSDKLoader()` instead",
+            "allowTypeImports": true
+          },
+          {
+            "group": ["**/localDbInstance", "**/localDbInstance.native"],
+            "message": "import localDbInstance directly is not allowed, use localDb instead"
+          },
+          {
+            "group": ["@onekeyhq/desktop/app/i18n"],
+            "message": "import ETranslations from \"@onekeyhq/shared/src/locale\" instead"
+          },
+          {
+            "group": ["**/v4localDbInstance.native"],
+            "message": "import v4localDbInstance.native directly is not allowed, use v4localDbInstance instead"
+          },
+          {
+            "group": [
+              "**/v4ToV5Migration",
+              "v4ToV5Migration/**",
+              "**/v4ToV5Migration/**"
+            ],
+            "message": "import **/v4ToV5Migration/** not allowed"
+          },
+          {
+            "group": ["**/v4localDBStoreNames.native"],
+            "message": "import v4localDBStoreNames instead"
+          },
+          {
+            "group": ["jotai"],
+            "importNames": ["useAtom", "useSetAtom", "atom"],
+            "message": "Direct import of useAtom/useSetAtom from jotai is not allowed. Use contextAtom or globalAtom instead."
+          }
+        ]
+      }
+    ],
 
     // ============================================
     // React rules (matching ESLint config)
@@ -100,18 +170,24 @@
     "react/rules-of-hooks": "warn",
     // react-hooks/exhaustive-deps equivalent
     // NOTE: Changed to warn because some dependencies are intentionally omitted
-    "react/exhaustive-deps": ["warn", {
-      "additionalHooks": "(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)"
-    }],
+    "react/exhaustive-deps": [
+      "warn",
+      {
+        "additionalHooks": "(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)"
+      }
+    ],
 
     // ============================================
     // TypeScript rules (matching ESLint config)
     // ============================================
     // Force awaited promise call, explicit add `void` if don't want await
     "typescript/no-floating-promises": "error",
-    "typescript/consistent-type-imports": ["error", {
-      "disallowTypeAnnotations": false
-    }],
+    "typescript/consistent-type-imports": [
+      "error",
+      {
+        "disallowTypeAnnotations": false
+      }
+    ],
     "typescript/no-use-before-define": "error",
     "typescript/no-shadow": "error",
 
@@ -214,97 +290,124 @@
   "overrides": [
     {
       // packages/components - cannot import from kit or kit-bg
-      "files": ["packages/components/src/**/*.ts", "packages/components/src/**/*.tsx"],
+      "files": [
+        "packages/components/src/**/*.ts",
+        "packages/components/src/**/*.tsx"
+      ],
       "rules": {
-        "no-restricted-imports": ["error", {
-          "patterns": [
-            {
-              "group": ["@onekeyhq/kit", "@onekeyhq/kit-bg"],
-              "message": "Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder",
-              "allowTypeImports": true
-            }
-          ]
-        }]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@onekeyhq/kit", "@onekeyhq/kit-bg"],
+                "message": "Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
       }
     },
     {
       // packages/shared - cannot import from kit, kit-bg, or components
       "files": ["packages/shared/src/**/*.ts", "packages/shared/src/**/*.tsx"],
       "rules": {
-        "no-restricted-imports": ["error", {
-          "patterns": [
-            {
-              "group": ["@onekeyhq/kit", "@onekeyhq/kit-bg", "@onekeyhq/components"],
-              "message": "Please avoid using @onekeyhq/kit, @onekeyhq/kit-bg, and @onekeyhq/components in this folder",
-              "allowTypeImports": true
-            }
-          ]
-        }]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "@onekeyhq/kit",
+                  "@onekeyhq/kit-bg",
+                  "@onekeyhq/components"
+                ],
+                "message": "Please avoid using @onekeyhq/kit, @onekeyhq/kit-bg, and @onekeyhq/components in this folder",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
       }
     },
     {
       // packages/kit-bg - cannot import from kit or components, or tamagui
       "files": ["packages/kit-bg/src/**/*.ts", "packages/kit-bg/src/**/*.tsx"],
       "rules": {
-        "no-restricted-imports": ["error", {
-          "patterns": [
-            {
-              "group": ["tamagui"],
-              "message": "Please avoid using tamagui in this folder",
-              "allowTypeImports": true
-            },
-            {
-              "group": ["@onekeyhq/kit", "@onekeyhq/components"],
-              "message": "Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder",
-              "allowTypeImports": true
-            }
-          ]
-        }]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["tamagui"],
+                "message": "Please avoid using tamagui in this folder",
+                "allowTypeImports": true
+              },
+              {
+                "group": ["@onekeyhq/kit", "@onekeyhq/components"],
+                "message": "Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
       }
     },
     {
       // packages/kit - cannot import from tamagui or kit-bg internal paths
       "files": ["packages/kit/src/**/*.ts", "packages/kit/src/**/*.tsx"],
       "rules": {
-        "no-restricted-imports": ["error", {
-          "patterns": [
-            {
-              "group": ["tamagui"],
-              "message": "Please avoid using tamagui in this folder",
-              "allowTypeImports": true
-            },
-            {
-              "group": [
-                "@onekeyhq/kit-bg/src/connectors",
-                "@onekeyhq/kit-bg/src/dbs",
-                "@onekeyhq/kit-bg/src/endpoints",
-                "@onekeyhq/kit-bg/src/migrations",
-                "@onekeyhq/kit-bg/src/offscreens",
-                "@onekeyhq/kit-bg/src/providers",
-                "@onekeyhq/kit-bg/src/services",
-                "@onekeyhq/kit-bg/src/vaults",
-                "@onekeyhq/kit-bg/src/webembeds"
-              ],
-              "message": "Please avoid using @onekeyhq/kit-bg internal paths in this folder",
-              "allowTypeImports": true
-            }
-          ]
-        }]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["tamagui"],
+                "message": "Please avoid using tamagui in this folder",
+                "allowTypeImports": true
+              },
+              {
+                "group": [
+                  "@onekeyhq/kit-bg/src/connectors",
+                  "@onekeyhq/kit-bg/src/dbs",
+                  "@onekeyhq/kit-bg/src/endpoints",
+                  "@onekeyhq/kit-bg/src/migrations",
+                  "@onekeyhq/kit-bg/src/offscreens",
+                  "@onekeyhq/kit-bg/src/providers",
+                  "@onekeyhq/kit-bg/src/services",
+                  "@onekeyhq/kit-bg/src/vaults",
+                  "@onekeyhq/kit-bg/src/webembeds"
+                ],
+                "message": "Please avoid using @onekeyhq/kit-bg internal paths in this folder",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
       }
     },
     {
       // packages/core - cannot import from kit, kit-bg, components, or tamagui
       "files": ["packages/core/src/**/*.ts", "packages/core/src/**/*.tsx"],
       "rules": {
-        "no-restricted-imports": ["error", {
-          "patterns": [
-            {
-              "group": ["tamagui", "@onekeyhq/kit", "@onekeyhq/kit-bg", "@onekeyhq/components"],
-              "message": "Please avoid using tamagui, @onekeyhq/kit, @onekeyhq/kit-bg, @onekeyhq/components in this folder",
-              "allowTypeImports": true
-            }
-          ]
-        }]
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "tamagui",
+                  "@onekeyhq/kit",
+                  "@onekeyhq/kit-bg",
+                  "@onekeyhq/components"
+                ],
+                "message": "Please avoid using tamagui, @onekeyhq/kit, @onekeyhq/kit-bg, @onekeyhq/components in this folder",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
       }
     },
     {

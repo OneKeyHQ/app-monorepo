@@ -27,7 +27,7 @@ export const TRANSFER_METHOD = {
 
 const { QR_CODE, ENTER_LINK } = TRANSFER_METHOD;
 
-type ITransferMethod = (typeof TRANSFER_METHOD)[keyof typeof TRANSFER_METHOD];
+type ITransferMethod = typeof TRANSFER_METHOD[keyof typeof TRANSFER_METHOD];
 
 export function PrimeTransferHome({
   remotePairingCode,

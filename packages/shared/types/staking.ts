@@ -160,9 +160,9 @@ export type IStakeBaseParams = {
   message?: string;
 
   inviteCode?: string;
-  // eslint-disable-next-line @cspell/spellchecker
+  // oxlint-disable-next-line @cspell/spellchecker
   bindedAccountAddress?: string;
-  // eslint-disable-next-line @cspell/spellchecker
+  // oxlint-disable-next-line @cspell/spellchecker
   bindedNetworkId?: string;
 
   // Stakefish ETH validator
@@ -277,7 +277,7 @@ export type IStakeTx =
 // Stakefish validator exit broadcast response (no on-chain tx needed)
 export type IStakeTxStakefishExitBroadcast = {
   exitBroadcasted: boolean;
-  // eslint-disable-next-line @cspell/spellchecker
+  // oxlint-disable-next-line @cspell/spellchecker
   validators: {
     pubkey: string;
     validatorIndex: string;
@@ -386,7 +386,7 @@ export interface IBorrowApyDetailPopupData {
     icon: IKeyOfIcons;
   };
   apyDetail: {
-    description?: { text: IEarnText; button: IEarnLinkActionIcon }[];
+    descriptions?: { text: IEarnText; button: IEarnLinkActionIcon }[];
     normal?: IBorrowApyDetailSection;
     supplyBonus?: IBorrowApyDetailSection;
     collateralBonus?: IBorrowApyDetailSection;
@@ -584,7 +584,7 @@ export interface IEarnLinkActionIcon {
   };
   icon?: IEarnIcon;
   disabled?: boolean;
-  text: IEarnText;
+  text?: IEarnText;
 }
 
 export interface IEarnDepositActionIcon {
@@ -627,8 +627,20 @@ export interface IEarnRewardClaimGroup {
   items: IEarnRewardClaimItem[];
 }
 
+export interface IEarnBorrowUnclaimableReward {
+  title: IEarnText;
+  items: {
+    id: string;
+    title: IEarnText;
+    description: IEarnText;
+    token: IBorrowToken;
+    button: IEarnLinkActionIcon;
+  }[];
+}
+
 export interface IEarnRewardsDetail {
   claimable: IEarnRewardClaimGroup[];
+  unclaimable: IEarnBorrowUnclaimableReward[];
 }
 
 export interface IEarnRewardsDetailsData {
@@ -2067,7 +2079,7 @@ export interface IBorrowHistory {
 
 export interface IBorrowReserveDetailDailyInfo {
   borrowCapacity: IEarnText;
-  // eslint-disable-next-line @cspell/spellchecker
+  // oxlint-disable-next-line @cspell/spellchecker
   borrowable: IEarnText;
   borrowCapResetRemainingTime: IEarnText;
   withdrawCapacity: IEarnText;
