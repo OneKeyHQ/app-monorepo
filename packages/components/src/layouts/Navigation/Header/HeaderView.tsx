@@ -185,6 +185,9 @@ function HeaderView({
     return isDesktopModeUI ? '$bgSubdued' : '$bgApp';
   }, [headerTransparent, isDesktopModeUI]);
 
+  const routeName = route.name
+  const title = useMemo(() => getHeaderTitle(options, routeName), [routeName, options]);
+  const headerViewKey = useMemo(() => `${title}-${routeName}`, [title, routeName])
   if (!headerShown) {
     return null;
   }
@@ -223,6 +226,7 @@ function HeaderView({
           <Header
             layout={layout}
             title={getHeaderTitle(options, route.name)}
+            key={headerViewKey}
             headerTintColor={theme.text.val}
             headerLeft={headerLeftView as any}
             headerRightContainerStyle={

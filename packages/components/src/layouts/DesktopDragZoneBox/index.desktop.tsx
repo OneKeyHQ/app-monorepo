@@ -60,31 +60,3 @@ export function DesktopDragZoneBox({
   );
 }
 
-export function DesktopDragZoneAbsoluteBar({
-  w = '100%',
-  h = '$16',
-  ...others
-}: IDesktopDragZoneAbsoluteBarProps) {
-  // const highlightDragZone = platformEnv.isDev;
-  const highlightDragZone = false;
-
-  return (
-    <Stack
-      position="absolute"
-      zIndex={highlightDragZone ? 1 : -1}
-      left={0}
-      top={0}
-      w={w}
-      h={h}
-      {...others}
-    >
-      <DesktopDragZoneBox
-        style={{
-          width: '100%',
-          height: '100%',
-          backgroundColor: highlightDragZone ? 'rgba(0,0,0,0.3)' : undefined,
-        }}
-      />
-    </Stack>
-  );
-}
