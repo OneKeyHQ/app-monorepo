@@ -344,7 +344,14 @@ function BasicEarnHome({
         </YStack>
       ),
     }),
-    [showContent, refreshEarnData, isLoading, filteredTotalFiatValue, banners],
+    [
+      showContent,
+      refreshEarnData,
+      isLoading,
+      filteredTotalFiatValue,
+      filteredEarnings24h,
+      banners,
+    ],
   );
 
   // const [tabPageHeight, setTabPageHeight] = useState(
