@@ -7,7 +7,6 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
-  useSwapProSelectTokenAtom,
   useSwapProSliderValueAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -85,7 +84,6 @@ const SwapProContainer = ({
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
     useSwapProTokenInfoSync();
   // Delay rendering heavy components to improve initial render performance
@@ -215,6 +213,8 @@ const SwapProContainer = ({
         <YStack flexBasis="60%" flexShrink={1} alignSelf="stretch">
           {shouldRenderHeavyComponents ? (
             <SwapProTradingPanel
+              supportSpeedSwap={!!supportSpeedSwap}
+              onlySupportCrossChain={onlySupportCrossChain}
               swapProConfig={speedConfig}
               configLoading={isLoading}
               balanceLoading={balanceLoading}
@@ -239,9 +239,6 @@ const SwapProContainer = ({
         </YStack>
       </XStack>
       <SwapProErrorAlert
-        supportSpeedSwap={supportSpeedSwap}
-        onlySupportCrossChain={onlySupportCrossChain}
-        actionToken={swapProSelectToken}
         title={swapProErrorAlert?.title}
         message={swapProErrorAlert?.message}
       />

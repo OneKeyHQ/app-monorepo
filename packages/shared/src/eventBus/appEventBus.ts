@@ -396,6 +396,14 @@ export interface IAppEventBusPayload {
       screen: string;
       params: Record<string, any>;
     };
+    extras?: {
+      params?: {
+        coin?: string;
+        type?: string;
+        [key: string]: any;
+      };
+      [key: string]: any;
+    };
   };
   [EAppEventBusNames.ShowNotificationInDappPage]: string;
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
@@ -441,6 +449,10 @@ export interface IAppEventBusPayload {
     description: string;
     icon: string | undefined;
     remotePushMessageInfo: INotificationPushMessageInfo;
+  };
+  [EAppEventBusNames.ExecuteNotificationCommand]: {
+    action: string;
+    data?: Record<string, unknown>;
   };
 }
 

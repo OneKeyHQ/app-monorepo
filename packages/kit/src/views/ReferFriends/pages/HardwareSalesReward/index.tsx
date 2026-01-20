@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -21,7 +23,11 @@ import type {
   IHardwareCumulativeRewards,
   IHardwareRecordItem,
 } from '@onekeyhq/shared/src/referralCode/type';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -41,6 +47,45 @@ function HardwareSalesRewardPageWrapper() {
 
   const intl = useIntl();
   const { md } = useMedia();
+  const navigation = useAppNavigation();
+  const route = useRoute<{
+    key: string;
+    name: string;
+    params?: { showOrderDetail?: boolean; orderId?: string };
+  }>();
+
+  // Handle showOrderDetail param - fetch data first, then open modal
+  useFocusEffect(
+    useCallback(() => {
+      if (!route.params?.showOrderDetail || !route.params?.orderId) {
+        return;
+      }
+      const orderId = route.params.orderId;
+      navigation.setParams({ showOrderDetail: undefined, orderId: undefined });
+
+      // Fetch order detail and open modal if successful
+      void (async () => {
+        try {
+          const data =
+            await backgroundApiProxy.serviceReferralCode.getHardwareRecordDetail(
+              orderId,
+            );
+          if (data) {
+            navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+              screen: EModalReferFriendsRoutes.HardwareSalesOrderDetail,
+              params: { data },
+            });
+          }
+        } catch (error) {
+          // Silently fail - user is already on HardwareSalesReward page
+          console.error(
+            'Failed to fetch hardware order detail for modal:',
+            error,
+          );
+        }
+      })();
+    }, [navigation, route.params?.showOrderDetail, route.params?.orderId]),
+  );
 
   const [isLoading, setIsLoading] = useState(false);
   const [cumulativeRewards, setCumulativeRewards] = useState<

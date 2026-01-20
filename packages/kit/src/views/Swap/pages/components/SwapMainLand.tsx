@@ -1126,7 +1126,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     onlySupportCrossChain,
   } = useSwapProTokenInit();
 
-  useSwapProErrorAlert(!supportSpeedSwap);
+  useSwapProErrorAlert();
   useSwapQuote();
 
   const renderSwapSwapBridgeContainer = useCallback(() => {

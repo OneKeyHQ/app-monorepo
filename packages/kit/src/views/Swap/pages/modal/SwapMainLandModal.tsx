@@ -30,6 +30,7 @@ const SwapMainLandModalPage = () => {
     importNetworkId,
     importToToken,
     swapTabSwitchType,
+    fromAmount,
     importDeriveType,
     swapSource,
   } = route.params ?? {};
@@ -76,6 +77,7 @@ const SwapMainLandModalPage = () => {
           importNetworkId,
           importToToken,
           swapTabSwitchType,
+          fromAmount,
         }}
       />
     </Page>
