@@ -198,8 +198,14 @@ function BorrowClaimRewardsDialogContent({
   const { gtMd } = useMedia();
   const listMaxHeight = gtMd ? 520 : 360;
 
-  const claimableGroups = rewardsDetails.data.rewardsDetail.claimable ?? [];
-  const unclaimableGroups = rewardsDetails.data.rewardsDetail.unclaimable ?? [];
+  const claimableGroups = useMemo(
+    () => rewardsDetails.data.rewardsDetail.claimable ?? [],
+    [rewardsDetails.data.rewardsDetail.claimable],
+  );
+  const unclaimableGroups = useMemo(
+    () => rewardsDetails.data.rewardsDetail.unclaimable ?? [],
+    [rewardsDetails.data.rewardsDetail.unclaimable],
+  );
 
   const handleClaimItem = useCallback(
     async (item: IEarnRewardClaimItem) => {

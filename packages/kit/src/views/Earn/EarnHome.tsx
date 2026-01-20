@@ -379,7 +379,7 @@ function BasicEarnHome({
               bg="$bgApp"
               pt="$5"
               width="100%"
-            // onLayout={handleTabPageLayout}
+              // onLayout={handleTabPageLayout}
             >
               <TabPageHeader
                 sceneName={EAccountSelectorSceneName.home}
