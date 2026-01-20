@@ -152,6 +152,7 @@ export function parseNotificationPayload(
   mode: ENotificationPushMessageMode,
   payload: string | undefined,
   fallbackHandler: () => void,
+  extrasParams?: Record<string, unknown>,
 ) {
   switch (mode) {
     case ENotificationPushMessageMode.page:
@@ -190,6 +191,26 @@ export function parseNotificationPayload(
         EAppEventBusNames.ShowNotificationInDappPage,
         payload as string,
       );
+      break;
+    case ENotificationPushMessageMode.command:
+      try {
+        const { action, data } = JSON.parse(payload || '{}') as {
+          action?: string;
+          data?: Record<string, unknown>;
+        };
+        if (!action) {
+          fallbackHandler();
+          return;
+        }
+        // Merge extrasParams with data, extrasParams takes precedence for orderId etc.
+        const mergedData = { ...data, ...extrasParams };
+        appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
+          action,
+          data: mergedData,
+        });
+      } catch (_error) {
+        fallbackHandler();
+      }
       break;
     default:
       break;
@@ -290,7 +311,12 @@ async function navigateToNotificationDetail({
   }
 
   if (mode) {
-    parseNotificationPayload(mode, payload, showFallbackUpdateDialog);
+    parseNotificationPayload(
+      mode,
+      payload,
+      showFallbackUpdateDialog,
+      message?.extras?.params as Record<string, unknown> | undefined,
+    );
     return;
   }
 
