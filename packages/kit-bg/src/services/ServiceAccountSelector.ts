@@ -123,7 +123,7 @@ class ServiceAccountSelector extends ServiceBase {
           swapMap[num] = swapDataMerged;
           if (swapMap && swapMap[num]) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            swapMap[num]!.networkId = usedNetworkId;
+            swapMap[num].networkId = usedNetworkId;
           }
         }
       };

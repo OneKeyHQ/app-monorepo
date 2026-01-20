@@ -183,7 +183,7 @@ function VerifyPinPage() {
               }),
             });
           }
-          handleForgotPin();
+          await handleForgotPin();
           return;
         }
 

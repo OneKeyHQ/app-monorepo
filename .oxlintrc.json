@@ -176,6 +176,20 @@
         "additionalHooks": "(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)"
       }
     ],
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/no-unnecessary-boolean-literal-compare": "off",
+    // ============================================
+    // TODO: will enabled in next version after fixing issues
+    "typescript/no-base-to-string": "off",
+    "typescript/no-unsafe-enum-comparison": "off",
+    "typescript/no-meaningless-void-operator": "off",
+    "typescript/no-unnecessary-type-arguments": "off",
+    "typescript/no-unnecessary-template-expression": "off",
+    "typescript/no-duplicate-type-constituents": "off",
+    "typescript/no-misused-spread": "off",
+    "typescript/no-redundant-type-constituents": "off",
+    "typescript/require-array-sort-compare": "off",
+    "typescript/no-array-delete": "off",
     // ============================================
     // TypeScript rules (matching ESLint config)
     // ============================================
@@ -430,6 +444,7 @@
         "typescript/unbound-method": "off",
         "typescript/no-unsafe-type-assertion": "off",
         "typescript/no-implied-eval": "off",
+        "typescript/no-base-to-string": "off",
         "typescript/no-unnecessary-template-expression": "off",
         "typescript/restrict-template-expressions": "off",
         "typescript/require-array-sort-compare":"off",
