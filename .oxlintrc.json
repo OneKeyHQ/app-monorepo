@@ -181,7 +181,7 @@
     // TypeScript rules (matching ESLint config)
     // ============================================
     // Force awaited promise call, explicit add `void` if don't want await
-    "typescript/no-floating-promises": "error",
+    "typescript/no-floating-promises": ["error", { "ignoreVoid": false }],
     "typescript/consistent-type-imports": [
       "error",
       {
