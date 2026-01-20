@@ -85,22 +85,34 @@ export function DesktopLayout({
 
   const pageWidth = useTabContainerWidth();
   const renderItem = useCallback(
-    ({ item }: { item: string }) => {
+    ({ item, index }: { item: string; index: number }) => {
+      const selectedIndex = carouselRef.current?.getCurrentIndex();
+      const isNotFocused = !platformEnv.isNative && selectedIndex !== index;
       if (item === watchlistTabName) {
         return (
-          <YStack px="$4" height={height} flex={1}>
+          <YStack
+            px="$4"
+            height={height}
+            flex={1}
+            style={isNotFocused ? { contentVisibility: 'hidden' } : undefined}
+          >
             <MarketWatchlistTokenList />
           </YStack>
         );
       }
       return (
-        <YStack px="$4" height={height} flex={1}>
+        <YStack
+          px="$4"
+          height={height}
+          flex={1}
+          style={isNotFocused ? { contentVisibility: 'hidden' } : undefined}
+        >
           <MarketFilterBar {...filterBarProps} />
           <MarketNormalTokenList networkId={selectedNetworkId} />
         </YStack>
       );
     },
-    [filterBarProps, height, selectedNetworkId, watchlistTabName],
+    [filterBarProps, height, selectedNetworkId, watchlistTabName, carouselRef],
   );
 
   const isFocused = useIsFirstFocus();
