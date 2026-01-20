@@ -34,6 +34,7 @@ import {
 } from '../components/PinInputLayout';
 
 import type { RouteProp } from '@react-navigation/core';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const MAX_ATTEMPTS = JUICEBOX_ALLOWED_GUESSES;
 
@@ -139,13 +140,19 @@ function VerifyPinPage() {
     [pinInputRef],
   );
 
-  const handleForgotPin = useCallback(() => {
+  const handleForgotPin = useCallback(async () => {
     if (isVerifyPinOnly) {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
       navigation.push(EOnboardingPagesV2.CreatePin, {
         action: EKeylessFinalizeAction.ResetPin,
       });
     } else {
-      navigation.push(EOnboardingPagesV2.ResetPin);
+      // Navigate to ResetPinGuide page which is a guide page showing instructions
+      // on how to reset PIN using another device, not the actual reset operation page.
+      // The actual reset operation happens in CreatePinPage when action is ResetPin.
+      navigation.push(EOnboardingPagesV2.ResetPinGuide);
     }
   }, [navigation, isVerifyPinOnly]);
 

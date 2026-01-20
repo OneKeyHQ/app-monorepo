@@ -43,6 +43,7 @@ import {
   EPasswordPromptType,
   EPasswordVerifyStatus,
   PASSCODE_LENGTH,
+  PASSCODE_REGEX,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
 } from '@onekeyhq/shared/types/password';
@@ -282,7 +283,7 @@ export default class ServicePassword extends ServiceBase {
   // biologyAuth&WebAuth ------------------------------
   async saveBiologyAuthPassword(password: string): Promise<void> {
     ensureSensitiveTextEncoded(password);
-    /* The password also needs to be stored when the system closes the fingerprint identification, 
+    /* The password also needs to be stored when the system closes the fingerprint identification,
        so that the user can open the system fingerprint identification later
     */
     // const { isSupport } = await passwordBiologyAuthInfoAtom.get();
@@ -347,28 +348,54 @@ export default class ServicePassword extends ServiceBase {
   async validatePasswordValidRules({
     password,
     passwordMode,
+    skipLengthCheck,
   }: {
     passwordMode: EPasswordMode;
     password: string;
-  }): Promise<void> {
+    skipLengthCheck?: boolean;
+  }): Promise<{ shouldFixPasscodeMode?: boolean }> {
     ensureSensitiveTextEncoded(password);
     const realPassword = await decodePasswordAsync({
       password,
     });
     // **** length matched
     if (
+      !skipLengthCheck &&
       passwordMode === EPasswordMode.PASSWORD &&
       (realPassword.length < PASSWORD_MIN_LENGTH ||
         realPassword.length > PASSWORD_MAX_LENGTH)
     ) {
       throw new OneKeyErrors.PasswordStrengthValidationFailed();
     }
-    if (passwordMode === EPasswordMode.PASSCODE) {
+    if (!skipLengthCheck && passwordMode === EPasswordMode.PASSCODE) {
       if (realPassword.length !== PASSCODE_LENGTH) {
         throw new OneKeyErrors.PasswordStrengthValidationFailed();
       }
     }
+
+    if (!realPassword.length) {
+      throw new OneKeyErrors.PasswordStrengthValidationFailed();
+    }
     // **** other rules ....
+
+    // Check if password might be a passcode:
+    // 1. Must be on mobile platform
+    // 2. Must be exactly 6 digits
+    // 3. Must match regex pattern (only digits)
+    const isPasscodeModeMaybe =
+      platformEnv.isNative &&
+      realPassword.length === PASSCODE_LENGTH &&
+      realPassword.replace(PASSCODE_REGEX, '') === realPassword;
+
+    // Determine if passwordMode needs to be fixed:
+    // If detected as passcode but passwordMode is PASSWORD, need to fix to PASSCODE
+    // If detected as not passcode but passwordMode is PASSCODE, validation would have failed above
+    const shouldFixPasscodeMode =
+      isPasscodeModeMaybe && passwordMode === EPasswordMode.PASSWORD;
+
+    return {
+      shouldFixPasscodeMode,
+    };
   }
 
   async validatePasswordSame({
@@ -406,10 +433,16 @@ export default class ServicePassword extends ServiceBase {
     if (newPassword) {
       ensureSensitiveTextEncoded(newPassword);
     }
+    let validateResult:
+      | {
+          shouldFixPasscodeMode?: boolean;
+        }
+      | undefined;
     if (!newPassword) {
-      await this.validatePasswordValidRules({
+      validateResult = await this.validatePasswordValidRules({
         password,
         passwordMode,
+        skipLengthCheck: true,
       });
     } else {
       await this.validatePasswordValidRules({
@@ -423,6 +456,17 @@ export default class ServicePassword extends ServiceBase {
     }
     if (!skipDBVerify) {
       await localDb.verifyPassword({ password });
+      if (!newPassword && validateResult?.shouldFixPasscodeMode) {
+        const { isPasscodeModeFixed } = await passwordPersistAtom.get();
+        if (!isPasscodeModeFixed) {
+          // Fix passwordMode to PASSCODE when detected password is actually a passcode
+          await passwordPersistAtom.set((prev) => ({
+            ...prev,
+            isPasscodeModeFixed: true,
+            passwordMode: EPasswordMode.PASSCODE,
+          }));
+        }
+      }
     }
   }
 

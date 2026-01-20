@@ -228,6 +228,7 @@ function WebModalNavigator({
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const { render } = routeDescriptor;
+    const isCurrentRoute = routeIndex === state.index;
     routeDescriptor.render = () => (
       <Stack
         ref={(ref) => {
@@ -245,6 +246,8 @@ function WebModalNavigator({
           shadowOpacity: 0.3,
           shadowRadius: 10,
           shadowOffset: { width: -5, height: 0 },
+          contentVisibility:
+            !platformEnv.isNative && !isCurrentRoute ? 'hidden' : undefined,
         }}
       >
         {render()}
