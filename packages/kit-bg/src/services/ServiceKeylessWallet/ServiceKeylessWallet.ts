@@ -1416,9 +1416,8 @@ class ServiceKeylessWallet extends ServiceBase {
     ownerId: string;
     token: string;
     pin: string;
-    skipTokenCacheClear?: boolean;
   }): Promise<IKeylessJuiceboxShare> {
-    const { ownerId, token, pin, skipTokenCacheClear } = params;
+    const { ownerId, token, pin } = params;
 
     if (!token) {
       throw new OneKeyLocalError(
@@ -1441,7 +1440,6 @@ class ServiceKeylessWallet extends ServiceBase {
       const secret = await juiceboxClient.recover({
         pin,
         userInfo: ownerId,
-        skipTokenCacheClear,
       });
 
       const parts = secret.split('--');
@@ -1491,8 +1489,6 @@ class ServiceKeylessWallet extends ServiceBase {
       ownerId,
       token,
       pin,
-      skipTokenCacheClear:
-        mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
     });
 
     // Save tokens to secure storage (refreshToken with passcode, token without)

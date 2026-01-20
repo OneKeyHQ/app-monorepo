@@ -1217,6 +1217,8 @@ export function useVerifyKeylessPinChecking() {
                     isPinReminderDialogShowing = false;
                     await loadingDialog.close();
                     errorToastUtils.toastIfError(innerError);
+                  } finally {
+                    await loadingDialog.close();
                   }
                 } catch (error) {
                   // Password dialog cancelled - reshow original PIN reminder
