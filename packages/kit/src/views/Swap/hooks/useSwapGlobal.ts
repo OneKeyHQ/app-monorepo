@@ -75,7 +75,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [, setSwapTips] = useSwapTipsAtom();
   const fromToken = useMemo(() => {
@@ -644,6 +644,8 @@ export function useSwapInit(params?: ISwapInitParams) {
   const swapFromMarketJumpTokenRef = useRef<{
     token: ISwapToken | undefined;
     type: ESwapTabSwitchType;
+    amount?: string;
+    otherToken?: ISwapToken | undefined;
     direction: 'from' | 'to';
   }>(undefined);
   if (swapFromMarketJumpTokenRef.current !== swapFromMarketJumpToken) {
@@ -674,7 +676,16 @@ export function useSwapInit(params?: ISwapInitParams) {
             ) {
               void setToToken(undefined);
             }
+            if (swapFromMarketJumpTokenRef.current.otherToken) {
+              void setToToken(swapFromMarketJumpTokenRef.current.otherToken);
+            }
             void selectFromToken(swapFromMarketJumpTokenRef.current.token);
+            if (swapFromMarketJumpTokenRef.current.amount) {
+              void setFromTokenAmount({
+                value: swapFromMarketJumpTokenRef.current.amount,
+                isInput: true,
+              });
+            }
           } else {
             if (
               equalTokenNoCaseSensitive({
@@ -684,7 +695,18 @@ export function useSwapInit(params?: ISwapInitParams) {
             ) {
               void setSwapFromToken(undefined);
             }
+            if (swapFromMarketJumpTokenRef.current.otherToken) {
+              void setSwapFromToken(
+                swapFromMarketJumpTokenRef.current.otherToken,
+              );
+            }
             void selectToToken(swapFromMarketJumpTokenRef.current.token);
+            if (swapFromMarketJumpTokenRef.current.amount) {
+              void setFromTokenAmount({
+                value: swapFromMarketJumpTokenRef.current.amount,
+                isInput: true,
+              });
+            }
           }
           setSwapFromMarketJumpToken({
             token: undefined,
