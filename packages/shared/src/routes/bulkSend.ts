@@ -14,4 +14,11 @@ export type IModalBulkSendParamList = {
     indexedAccountId: string | undefined;
     tokenInfo?: IToken;
   };
+  [EModalBulkSendRoutes.BulkSendAmountInput]: {
+    networkId: string;
+    accountId: string;
+    senderAddresses: string[];
+    receiverAddressesWithAmounts: Record<string, string>; // address: amount
+    tokenInfo: IToken;
+  };
 };

@@ -166,7 +166,7 @@ function BaseBulkSendAddressesInput() {
         } else {
           setSelectedTokenDetail(undefined);
         }
-      } catch (e) {
+      } catch (_) {
         setSelectedTokenDetail(undefined);
       } finally {
         setTokenDetailsState({
@@ -215,7 +215,7 @@ function BaseBulkSendAddressesInput() {
 
       pollingIntervalRef.current = setInterval(() => {
         void fetchSelectedTokenFiatInfo();
-      }, 15000);
+      }, 15_000);
     }
 
     return () => {

@@ -6,6 +6,9 @@ import type { IModalBulkSendParamList } from '@onekeyhq/shared/src/routes';
 const BulkSendAddressesInput = LazyLoad(
   () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAddressesInput'),
 );
+const BulkSendAmountsInput = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAmountsInput'),
+);
 export const BulkSendModalRouter: IModalFlowNavigatorConfig<
   EModalBulkSendRoutes,
   IModalBulkSendParamList
@@ -13,5 +16,9 @@ export const BulkSendModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalBulkSendRoutes.BulkSendAddressesInput,
     component: BulkSendAddressesInput,
+  },
+  {
+    name: EModalBulkSendRoutes.BulkSendAmountInput,
+    component: BulkSendAmountsInput,
   },
 ];
