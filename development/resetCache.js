@@ -23,9 +23,9 @@ function exec(fullCmd) {
 }
 
 void Promise.race([
-  new Promise((resolve) => setTimeout({resolve}, 60 * 1000)),
+  new Promise((resolve) => setTimeout({ resolve }, 60 * 1000)),
   Promise.all([
     exec('yarn expo start --clear'),
     exec('yarn react-native start --reset-cache'),
-  ])
-])
+  ]),
+]);

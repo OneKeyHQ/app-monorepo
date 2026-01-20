@@ -194,8 +194,8 @@ const OpenOrdersRow = memo(
     const baseBgColor = isHovered
       ? '$bgApp'
       : index % 2 === 1
-        ? '$bgSubdued'
-        : '$bgApp';
+      ? '$bgSubdued'
+      : '$bgApp';
 
     if (isMobile) {
       return (
