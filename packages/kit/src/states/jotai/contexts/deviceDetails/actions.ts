@@ -123,6 +123,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
     set(walletWithDeviceStateAtom(), data);
     await this.updateDeviceMetaStatic.call(set);
     await this.updateDeviceMetaState.call(set);
+    return data;
   });
 
   getCurrentWalletId = contextAtomMethod(async (get) => {
