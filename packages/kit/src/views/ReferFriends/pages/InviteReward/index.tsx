@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { CumulativeRewards } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CumulativeRewards';
@@ -30,6 +32,8 @@ import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
 import { ReferFriendsPageContainer } from '../../components';
 
@@ -103,6 +107,29 @@ function InviteRewardContent({
 function InviteRewardPage() {
   const intl = useIntl();
   const { md } = useMedia();
+  const navigation = useAppNavigation();
+  const navigateToRewardHistory = useNavigateToRewardHistory();
+  const route = useRoute<{
+    key: string;
+    name: string;
+    params?: { showRewardDistributionHistory?: boolean };
+  }>();
+
+  // Handle showRewardDistributionHistory param - open modal once when param is set
+  useFocusEffect(
+    useCallback(() => {
+      if (!route.params?.showRewardDistributionHistory) {
+        return;
+      }
+      navigation.setParams({ showRewardDistributionHistory: undefined });
+      navigateToRewardHistory();
+    }, [
+      navigation,
+      navigateToRewardHistory,
+      route.params?.showRewardDistributionHistory,
+    ]),
+  );
+
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 

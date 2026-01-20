@@ -202,6 +202,12 @@ export enum ENotificationPushMessageMode {
   openInBrowser = 3,
   openInApp = 4,
   openInDapp = 5,
+  command = 6,
+}
+
+export enum ENotificationCommand {
+  openRewardDistributionHistoryModal = 'openRewardDistributionHistoryModal',
+  openHardwareSalesOrder = 'openHardwareSalesOrder',
 }
 // /notification/v1/message/ack
 export type INotificationPushMessageAckParams = {
