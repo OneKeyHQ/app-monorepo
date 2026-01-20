@@ -34,7 +34,7 @@ function DesktopDragZoneBoxMac({
     <Stack
       key="false"
       {...rest}
-      className={'app-region-drag'}
+      className="app-region-drag"
       style={{
         userSelect: 'none',
         cursor: 'default',
