@@ -28,6 +28,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
@@ -83,7 +84,10 @@ import type {
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type { IV4Token } from '../../migrations/v4ToV5Migration/v4types';
-import type { IV4MigrationAtom } from '../../states/jotai/atoms/v4migration';
+import type {
+  IV4MigrationAtom,
+  IV4MigrationPersistAtom,
+} from '../../states/jotai/atoms/v4migration';
 import type { VaultBase } from '../../vaults/base/VaultBase';
 
 @backgroundClass()
@@ -210,6 +214,82 @@ class ServiceV4Migration extends ServiceBase {
     );
   }
 
+  async checkV5HasUserData(): Promise<boolean> {
+    return v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        // Check if V5 password is set (similar to V4 password check)
+        // If password is set, consider migration as completed
+        const isV5PasswordSet = await localDb.isPasswordSet();
+        if (isV5PasswordSet) {
+          return true;
+        }
+
+        // Check if V5 has user-created wallets (HD, HW, Imported, Watching)
+        // Exclude system default wallets (imported, watching, external)
+        const { wallets } = await localDb.getAllWallets();
+        const userWallets = wallets.filter((wallet) => {
+          // Exclude system default singleton wallets
+          if (accountUtils.isOthersWallet({ walletId: wallet.id })) {
+            return false;
+          }
+          // Include user-created wallets: HD, HW, Imported, Watching
+          return (
+            accountUtils.isHdWallet({ walletId: wallet.id }) ||
+            accountUtils.isHwWallet({ walletId: wallet.id }) ||
+            accountUtils.isQrWallet({ walletId: wallet.id }) ||
+            accountUtils.isImportedWallet({ walletId: wallet.id }) ||
+            accountUtils.isWatchingWallet({ walletId: wallet.id })
+          );
+        });
+
+        if (userWallets.length > 0) {
+          return true;
+        }
+
+        // Check if V5 has any accounts
+        const { accounts } = await localDb.getAllAccounts();
+        if (accounts.length > 0) {
+          return true;
+        }
+
+        return false;
+      },
+      {
+        name: 'check v5 has user data',
+        errorResultFn: () => false,
+      },
+    );
+  }
+
+  async checkMigrationCompleted(): Promise<boolean> {
+    const result = await v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        const migrationResult = await simpleDb.v4MigrationResult.getRawData();
+        if (!migrationResult?.migrated) {
+          return false;
+        }
+
+        const { v4 } = migrationResult.migrated;
+        if (!v4) {
+          return false;
+        }
+
+        // Check if there are any migrated wallets or accounts
+        const hasMigratedWallets =
+          Boolean(v4.wallets) && Object.keys(v4.wallets || {}).length > 0;
+        const hasMigratedAccounts =
+          Boolean(v4.accounts) && Object.keys(v4.accounts || {}).length > 0;
+
+        return hasMigratedWallets || hasMigratedAccounts;
+      },
+      {
+        name: 'check migration completed',
+        errorResultFn: () => false,
+      },
+    );
+    return result ?? false;
+  }
+
   @backgroundMethod()
   async canRenameFromV4AccountName({
     indexedAccount,
@@ -274,7 +354,7 @@ class ServiceV4Migration extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async checkShouldMigrateV4OnMount() {
+  async checkShouldMigrateV4OnMountFn() {
     if (platformEnv.isWeb) {
       return false;
     }
@@ -358,6 +438,38 @@ class ServiceV4Migration extends ServiceBase {
     // const v4localDbContext = await this.migrationAccount.getV4LocalDbContext();
     // persist migration status to global atom
     return false;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async checkShouldMigrateV4OnMount() {
+    const result = await this.checkShouldMigrateV4OnMountFn();
+    if (result) {
+      // Check if V5 already has user data or migration is completed
+      // If so, no need to migrate even if V4 data exists
+      const v5HasUserData = await this.checkV5HasUserData();
+      if (v5HasUserData) {
+        await v4migrationPersistAtom.set(
+          (v: IV4MigrationPersistAtom): IV4MigrationPersistAtom => ({
+            ...v,
+            v4migrationAutoStartDisabled: true,
+          }),
+        );
+        return false;
+      }
+
+      const migrationCompleted = await this.checkMigrationCompleted();
+      if (migrationCompleted) {
+        await v4migrationPersistAtom.set(
+          (v: IV4MigrationPersistAtom): IV4MigrationPersistAtom => ({
+            ...v,
+            v4migrationAutoStartDisabled: true,
+          }),
+        );
+        return false;
+      }
+    }
+    return result;
   }
 
   @backgroundMethod()
