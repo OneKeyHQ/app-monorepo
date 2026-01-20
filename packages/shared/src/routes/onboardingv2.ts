@@ -55,7 +55,7 @@ export enum EOnboardingPagesV2 {
   CreatePin = 'CreatePin',
   ConfirmPin = 'ConfirmPin',
   VerifyPin = 'VerifyPin',
-  ResetPin = 'ResetPin',
+  ResetPinGuide = 'ResetPinGuide',
   NewPinCreated = 'NewPinCreated',
   CreatePasscode = 'CreatePasscode',
   MoreAction = 'MoreAction',
@@ -148,7 +148,7 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.VerifyPin]: {
     mode?: EOnboardingV2OneKeyIDLoginMode;
   };
-  [EOnboardingPagesV2.ResetPin]: undefined;
+  [EOnboardingPagesV2.ResetPinGuide]: undefined;
   [EOnboardingPagesV2.NewPinCreated]: undefined;
   [EOnboardingPagesV2.MoreAction]: undefined;
 };
