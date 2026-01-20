@@ -326,8 +326,10 @@ export function NotificationListView({
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
-  const [{ lastReceivedTime, firstTimeGuideOpened, badge }, setNotificationsData] =
-    useNotificationsAtom();
+  const [
+    { lastReceivedTime, firstTimeGuideOpened, badge },
+    setNotificationsData,
+  ] = useNotificationsAtom();
 
   const isFirstTimeGuideOpened = useRef(false);
   const listRef = useRef<ISectionListRef<unknown>>(null);
