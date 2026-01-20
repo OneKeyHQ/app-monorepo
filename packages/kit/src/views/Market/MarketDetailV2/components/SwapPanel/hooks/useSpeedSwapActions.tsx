@@ -161,10 +161,10 @@ export function useSpeedSwapActions(props: {
   }, [
     tradeType,
     defaultTradeTokens,
-    tradeToken.networkId,
-    tradeToken.contractAddress,
-    tradeToken.symbol,
-    tradeToken.logoURI,
+    tradeToken?.networkId,
+    tradeToken?.contractAddress,
+    tradeToken?.symbol,
+    tradeToken?.logoURI,
   ]);
 
   const { fromToken, toToken, balanceToken } = useMemo(() => {
