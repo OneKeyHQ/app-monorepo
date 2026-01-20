@@ -567,7 +567,8 @@ export function CommonTableListView({
                 >
                   <Spinner size="large" />
                 </YStack>
-              ) : paginatedData.length === 0 ? (
+              ) : null}
+              {!listLoading && paginatedData.length === 0 ? (
                 <YStack
                   flex={1}
                   justifyContent="flex-start"
@@ -586,9 +587,10 @@ export function CommonTableListView({
                     {emptySubMessage}
                   </SizableText>
                 </YStack>
-              ) : (
-                paginatedData.map((item, index) => renderRow(item, index))
-              )}
+              ) : null}
+              {!listLoading && paginatedData.length > 0
+                ? paginatedData.map((item, index) => renderRow(item, index))
+                : null}
             </YStack>
             {enablePagination && currentListPage ? (
               <PaginationFooter

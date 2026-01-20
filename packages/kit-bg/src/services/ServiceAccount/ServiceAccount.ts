@@ -432,7 +432,7 @@ class ServiceAccount extends ServiceBase {
     skipDuplicateDevice?: boolean;
     skipDuplicateDeviceSameType?: boolean;
   }) {
-    type FilterCtx = {
+    type IFilterCtx = {
       wallet: IDBWallet;
       deviceId?: string;
       isHwWallet: boolean;
@@ -467,7 +467,7 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
-    const buildFilterCtx = (wallet: IDBWallet): FilterCtx => ({
+    const buildFilterCtx = (wallet: IDBWallet): IFilterCtx => ({
       wallet,
       deviceId: wallet.associatedDevice,
       isHwWallet: accountUtils.isHwWallet({ walletId: wallet.id }),
@@ -476,16 +476,16 @@ class ServiceAccount extends ServiceBase {
     });
 
     // Filter valid type
-    const isValidType = (ctx: FilterCtx) => ctx.isHwWallet || ctx.isQrWallet;
+    const isValidType = (ctx: IFilterCtx) => ctx.isHwWallet || ctx.isQrWallet;
     // Filter hidden wallet
-    const passesHiddenFilter = (ctx: FilterCtx) =>
+    const passesHiddenFilter = (ctx: IFilterCtx) =>
       !filterHiddenWallet || !ctx.isHiddenWallet;
     // Filter QR wallet
-    const passesQrFilter = (ctx: FilterCtx) =>
+    const passesQrFilter = (ctx: IFilterCtx) =>
       !filterQrWallet || !ctx.isQrWallet;
 
     // Filter duplicate device
-    const passesDupFilter = (ctx: FilterCtx) => {
+    const passesDupFilter = (ctx: IFilterCtx) => {
       if (!ctx.deviceId) return true;
 
       if (skipDuplicateDeviceSameType) {
