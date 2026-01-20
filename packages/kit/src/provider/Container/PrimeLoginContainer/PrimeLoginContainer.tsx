@@ -61,6 +61,7 @@ export function PrimeLoginContainer() {
       promptPrimeLoginEmailDialog,
       promptPrimeLoginPasswordDialog,
       promptPrimeLoginEmailCodeDialog,
+      promptForgetMasterPasswordDialog,
     },
   ] = usePrimeLoginDialogAtom();
   const navigation = useAppNavigation();
@@ -95,11 +96,12 @@ export function PrimeLoginContainer() {
 
   const passwordDialogRef = useRef<IDialogInstance | undefined>(undefined);
   const passwordHintDialogRef = useRef<IDialogInstance | undefined>(undefined);
-  const promptPrimeLoginEmailCodeDialogPromiseId =
-    promptPrimeLoginEmailCodeDialog?.promiseId;
+
+  const promptPrimeLoginPasswordDialogPromiseId =
+    promptPrimeLoginPasswordDialog?.promiseId;
   useEffect(() => {
     void (async () => {
-      if (promptPrimeLoginEmailCodeDialogPromiseId) {
+      if (promptPrimeLoginPasswordDialogPromiseId) {
         await passwordDialogRef.current?.close();
         await passwordHintDialogRef.current?.close();
         const data = passwordDataRef.current;
@@ -140,13 +142,13 @@ export function PrimeLoginContainer() {
             renderContent: (
               <PrimeLoginPasswordDialog
                 data={data}
-                promiseId={promptPrimeLoginEmailCodeDialogPromiseId}
+                promiseId={promptPrimeLoginPasswordDialogPromiseId}
                 richTextDescription={description}
               />
             ),
             onClose: async () => {
               await backgroundApiProxy.servicePrime.cancelPrimeLogin({
-                promiseId: promptPrimeLoginEmailCodeDialogPromiseId,
+                promiseId: promptPrimeLoginPasswordDialogPromiseId,
                 dialogType: 'promptPrimeLoginPasswordDialog',
               });
             },
@@ -175,7 +177,7 @@ export function PrimeLoginContainer() {
                 return;
               }
               await backgroundApiProxy.servicePrime.cancelPrimeLogin({
-                promiseId: promptPrimeLoginEmailCodeDialogPromiseId,
+                promiseId: promptPrimeLoginPasswordDialogPromiseId,
                 dialogType: 'promptPrimeLoginPasswordDialog',
               });
             },
@@ -188,14 +190,16 @@ export function PrimeLoginContainer() {
         await passwordHintDialogRef.current?.close();
       }
     })();
-  }, [intl, promptPrimeLoginEmailCodeDialogPromiseId]);
+  }, [intl, promptPrimeLoginPasswordDialogPromiseId]);
 
   const forgetMasterPasswordDialogRef = useRef<IDialogInstance | undefined>(
     undefined,
   );
+  const promptForgetMasterPasswordDialogPromiseId =
+    promptForgetMasterPasswordDialog?.promiseId;
   useEffect(() => {
     void (async () => {
-      if (promptPrimeLoginEmailCodeDialogPromiseId) {
+      if (promptForgetMasterPasswordDialogPromiseId) {
         await forgetMasterPasswordDialogRef.current?.close();
 
         forgetMasterPasswordDialogRef.current = Dialog.show({
@@ -206,12 +210,12 @@ export function PrimeLoginContainer() {
           }),
           renderContent: (
             <PrimeForgetMasterPasswordDialog
-              promiseId={promptPrimeLoginEmailCodeDialogPromiseId}
+              promiseId={promptForgetMasterPasswordDialogPromiseId}
             />
           ),
           onClose: async () => {
             await backgroundApiProxy.servicePrime.cancelPrimeLogin({
-              promiseId: promptPrimeLoginEmailCodeDialogPromiseId,
+              promiseId: promptForgetMasterPasswordDialogPromiseId,
               dialogType: 'promptForgetMasterPasswordDialog',
             });
           },
@@ -220,9 +224,11 @@ export function PrimeLoginContainer() {
         await forgetMasterPasswordDialogRef.current?.close();
       }
     })();
-  }, [intl, promptPrimeLoginEmailCodeDialogPromiseId]);
+  }, [intl, promptForgetMasterPasswordDialogPromiseId]);
 
   const emailCodeDialogRef = useRef<IDialogInstance | undefined>(undefined);
+  const promptPrimeLoginEmailCodeDialogPromiseId =
+    promptPrimeLoginEmailCodeDialog?.promiseId;
   useEffect(() => {
     void (async () => {
       if (promptPrimeLoginEmailCodeDialogPromiseId) {
