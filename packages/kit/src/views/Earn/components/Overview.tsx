@@ -201,10 +201,12 @@ const OverviewComponent = ({
   isLoading,
   onRefresh,
   filteredTotalFiatValue,
+  filteredEarnings24h,
 }: {
   isLoading: boolean;
   onRefresh: () => void;
   filteredTotalFiatValue?: string;
+  filteredEarnings24h?: string;
 }) => {
   const {
     activeAccount: { account, indexedAccount },
@@ -217,10 +219,11 @@ const OverviewComponent = ({
     [earnAccount, totalFiatMapKey],
   );
   const totalFiatValue = filteredTotalFiatValue ?? rawTotalFiatValue;
-  const earnings24h = useMemo(
+  const rawEarnings24h = useMemo(
     () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
     [earnAccount, totalFiatMapKey],
   );
+  const earnings24h = filteredEarnings24h ?? rawEarnings24h;
   const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
   const evmAccount = useMemo(() => {
     return earnAccount?.[totalFiatMapKey]?.accounts?.find(
@@ -340,7 +343,7 @@ const OverviewComponent = ({
         }}
       >
         <NumberSizeableText
-          formatter="price"
+          formatter="value"
           formatterOptions={{
             currency: settings.currencyInfo.symbol,
             showPlusMinusSigns: Number(earnings24h) !== 0,

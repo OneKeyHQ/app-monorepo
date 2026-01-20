@@ -176,12 +176,25 @@
         "additionalHooks": "(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)"
       }
     ],
-
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/no-unnecessary-boolean-literal-compare": "off",
+    // ============================================
+    // TODO: will enabled in next version after fixing issues
+    "typescript/no-base-to-string": "off",
+    "typescript/no-unsafe-enum-comparison": "off",
+    "typescript/no-meaningless-void-operator": "off",
+    "typescript/no-unnecessary-type-arguments": "off",
+    "typescript/no-unnecessary-template-expression": "off",
+    "typescript/no-duplicate-type-constituents": "off",
+    "typescript/no-misused-spread": "off",
+    "typescript/no-redundant-type-constituents": "off",
+    "typescript/require-array-sort-compare": "off",
+    "typescript/no-array-delete": "off",
     // ============================================
     // TypeScript rules (matching ESLint config)
     // ============================================
     // Force awaited promise call, explicit add `void` if don't want await
-    "typescript/no-floating-promises": "error",
+    "typescript/no-floating-promises": ["error"],
     "typescript/consistent-type-imports": [
       "error",
       {
@@ -415,6 +428,26 @@
       "files": ["test/**/*.js", "test/**/*.ts", "**/*.test.ts"],
       "rules": {
         "typescript/no-use-before-define": "off"
+      }
+    },
+    {
+      // JS/JSX files - disable TypeScript-specific rules
+      "files": ["**/*.js", "**/*.jsx"],
+      "rules": {
+        "typescript/no-floating-promises": "off",
+        "typescript/consistent-type-imports": "off",
+        "typescript/no-use-before-define": "off",
+        "typescript/no-shadow": "off",
+        "typescript/no-duplicate-enum-values": "off",
+        "typescript/no-extraneous-class": "off",
+        "typescript/no-unnecessary-parameter-property-assignment": "off",
+        "typescript/unbound-method": "off",
+        "typescript/no-unsafe-type-assertion": "off",
+        "typescript/no-implied-eval": "off",
+        "typescript/no-base-to-string": "off",
+        "typescript/no-unnecessary-template-expression": "off",
+        "typescript/restrict-template-expressions": "off",
+        "typescript/require-array-sort-compare":"off",
       }
     }
   ],

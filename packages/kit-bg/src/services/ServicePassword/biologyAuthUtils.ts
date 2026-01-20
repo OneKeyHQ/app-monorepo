@@ -24,7 +24,9 @@ class BiologyAuthUtils implements IBiologyAuth {
   }
 
   savePassword = async (password: string) => {
-    if (!(await appStorage.secureStorage.supportSecureStorage())) return;
+    if (!(await appStorage.secureStorage.supportSecureStorage())) {
+      return;
+    }
     let text = await decodeSensitiveTextAsync({ encodedText: password });
     const settings = await settingsPersistAtom.get();
     text = await encodeSensitiveTextAsync({
