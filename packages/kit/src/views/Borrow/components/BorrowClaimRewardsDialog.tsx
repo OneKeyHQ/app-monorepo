@@ -261,7 +261,7 @@ function BorrowClaimRewardsDialogContent({
 
   return (
     <YStack gap="$4">
-      <ScrollView maxHeight={listMaxHeight}>
+      <ScrollView maxHeight={listMaxHeight} mx="$-5" px="$5">
         <YStack gap="$2">
           {claimableGroups.map((group, index) => (
             <ClaimGroup
