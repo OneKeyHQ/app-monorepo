@@ -151,6 +151,7 @@ function OnBoardingModalNavigator({
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const { render } = routeDescriptor;
+    const isCurrentRoute = routeIndex === state.index;
     routeDescriptor.render = () => (
       <Stack
         ref={(ref) => {
@@ -160,6 +161,10 @@ function OnBoardingModalNavigator({
         }}
         flex={1}
         bg="$bg"
+        style={{
+          contentVisibility:
+            !platformEnv.isNative && !isCurrentRoute ? 'hidden' : undefined,
+        }}
       >
         {render()}
       </Stack>
