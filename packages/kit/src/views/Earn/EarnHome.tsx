@@ -112,6 +112,24 @@ function BasicEarnHome({
     return total.toFixed();
   }, [hideSmallAssets, portfolioData]);
 
+  // Calculate filtered 24h earnings when hiding small assets (same logic)
+  const filteredEarnings24h = useMemo(() => {
+    if (!hideSmallAssets) {
+      return undefined;
+    }
+
+    const { investments } = portfolioData;
+    const total = investments.reduce((sum, inv) => {
+      const valueUsd = Number(inv.totalFiatValueUsd ?? 0);
+      if (valueUsd >= 0.01) {
+        return sum.plus(new BigNumber(inv.earnings24hFiatValue ?? 0));
+      }
+      return sum;
+    }, new BigNumber(0));
+
+    return total.toFixed();
+  }, [hideSmallAssets, portfolioData]);
+
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     return [EEarnLabels.Stake, EEarnLabels.Withdraw].includes(
       tx.stakingInfo.label,
@@ -318,6 +336,7 @@ function BasicEarnHome({
                 onRefresh={refreshEarnData}
                 isLoading={isLoading}
                 filteredTotalFiatValue={filteredTotalFiatValue}
+                filteredEarnings24h={filteredEarnings24h}
               />
             </YStack>
             {banners ? <YStack width="100%">{banners}</YStack> : null}
@@ -325,7 +344,14 @@ function BasicEarnHome({
         </YStack>
       ),
     }),
-    [showContent, refreshEarnData, isLoading, filteredTotalFiatValue, banners],
+    [
+      showContent,
+      refreshEarnData,
+      isLoading,
+      filteredTotalFiatValue,
+      filteredEarnings24h,
+      banners,
+    ],
   );
 
   // const [tabPageHeight, setTabPageHeight] = useState(
@@ -430,6 +456,7 @@ function BasicEarnHome({
                     onRefresh={refreshEarnData}
                     isLoading={isLoading}
                     filteredTotalFiatValue={filteredTotalFiatValue}
+                    filteredEarnings24h={filteredEarnings24h}
                   />
                 </XStack>
                 {banners ? (
