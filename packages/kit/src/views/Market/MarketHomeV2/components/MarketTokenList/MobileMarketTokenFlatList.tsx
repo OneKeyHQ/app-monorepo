@@ -35,6 +35,7 @@ interface IMobileMarketTokenFlatListProps {
   };
 }
 
+const EMPTY_DATA = [];
 function MobileMarketTokenFlatListBase({
   networkId,
   filterBarProps,
@@ -112,9 +113,10 @@ function MobileMarketTokenFlatListBase({
     return null;
   }, [isLoadingMore, canLoadMore, data.length]);
 
+  const loading = isLoading || isNetworkSwitching;
   // List empty - skeleton or empty message
   const ListEmptyComponent = useMemo(() => {
-    if (isLoading || isNetworkSwitching) {
+    if (loading) {
       return <TokenListSkeleton count={10} />;
     }
 
@@ -127,7 +129,7 @@ function MobileMarketTokenFlatListBase({
         </SizableText>
       </Stack>
     );
-  }, [isLoading, isNetworkSwitching, intl]);
+  }, [loading, intl]);
 
   // Note: getItemLayout is disabled because dynamic item heights are more accurate
   // If re-enabling, measure actual rendered item height and uncomment below:
@@ -142,7 +144,7 @@ function MobileMarketTokenFlatListBase({
 
   return (
     <Tabs.FlatList<IMarketToken>
-      data={data}
+      data={loading ? EMPTY_DATA : data}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       onEndReached={handleEndReached}

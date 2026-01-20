@@ -12,12 +12,7 @@ export const TokenListSkeleton: FC<ITokenListSkeletonProps> = ({
   return (
     <YStack>
       {Array.from({ length: count }).map((_, idx) => (
-        <XStack
-          key={idx}
-          px="$3"
-          py="$3"
-          alignItems="center"
-        >
+        <XStack key={idx} px="$3" py="$3" alignItems="center">
           {/* Left side: Token icon + text skeleton */}
           <XStack flex={1} alignItems="center" gap="$3">
             {/* Token icon with network badge */}
