@@ -450,6 +450,10 @@ export interface IAppEventBusPayload {
     icon: string | undefined;
     remotePushMessageInfo: INotificationPushMessageInfo;
   };
+  [EAppEventBusNames.ExecuteNotificationCommand]: {
+    action: string;
+    data?: Record<string, unknown>;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
