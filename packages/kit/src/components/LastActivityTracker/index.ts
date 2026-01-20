@@ -76,25 +76,30 @@ const LastActivityTracker = () => {
 
   // idle event trigger
   useEffect(() => {
-    if (supportSystemIdle && enableSystemIdleLock && unLock) {
-      if (platformEnv.isExtension) {
-        chrome.idle.setDetectionInterval(appLockDuration * 60);
-        chrome.idle.onStateChanged.addListener(extHandleSystemIdle);
-      }
+    setTimeout(() => {
+      if (supportSystemIdle && enableSystemIdleLock && unLock) {
+        if (platformEnv.isExtension) {
+          chrome.idle.setDetectionInterval(appLockDuration * 60);
+          chrome.idle.onStateChanged.addListener(extHandleSystemIdle);
+        }
 
-      if (platformEnv.isDesktop) {
-        globalThis?.desktopApi?.setSystemIdleTime(appLockDuration * 60, () => {
-          void backgroundApiProxy.servicePassword.lockApp();
-        });
+        if (platformEnv.isDesktop) {
+          globalThis?.desktopApi?.setSystemIdleTime(
+            appLockDuration * 60,
+            () => {
+              void backgroundApiProxy.servicePassword.lockApp();
+            },
+          );
+        }
+      } else {
+        if (platformEnv.isExtension) {
+          chrome.idle.onStateChanged.removeListener(extHandleSystemIdle);
+        }
+        if (platformEnv.isDesktop) {
+          globalThis?.desktopApi?.setSystemIdleTime(0); // set 0 to disable
+        }
       }
-    } else {
-      if (platformEnv.isExtension) {
-        chrome.idle.onStateChanged.removeListener(extHandleSystemIdle);
-      }
-      if (platformEnv.isDesktop) {
-        globalThis?.desktopApi?.setSystemIdleTime(0); // set 0 to disable
-      }
-    }
+    }, 0);
   }, [
     appLockDuration,
     enableSystemIdleLock,
