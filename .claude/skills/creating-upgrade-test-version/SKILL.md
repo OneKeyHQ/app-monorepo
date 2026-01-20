@@ -27,17 +27,17 @@ The version should follow the pattern `9XXX.YY.Z` where:
 
 ### Step 2: Calculate Build Number
 
-Calculate the build number as: **current date (YYYYMMDD) + "00" suffix + 30**
+Calculate the build number as: **current date (YYYYMMDD) + "00" suffix + 1730**
 
-The build number must be 10 digits in format: `YYYYMMDD00 + 30 = YYYYMMDD30`
+The build number must be 10 digits in format: `YYYYMMDD00 + 1730`
 
-Example: If today is `20260113`, the build number is `2026011300 + 30 = 2026011330`
+Example: If today is `20260113`, the build number is `2026011300 + 1730 = 2026013030`
 
 ```bash
 # Calculate build number (10 digits)
 DATE=$(date +%Y%m%d)
-BUILD_NUMBER=$((${DATE}00 + 30))
-echo "Build number: $BUILD_NUMBER"  # Output: 2026011330
+BUILD_NUMBER=$((${DATE}00 + 1730))
+echo "Build number: $BUILD_NUMBER"  # Output: 2026013030
 ```
 
 ### Step 3: Create and Checkout Branch
@@ -104,7 +104,7 @@ versionName "<test_version>"
 
 Example:
 ```gradle
-versionCode 2026011330
+versionCode 2026013030
 versionName "9005.20.0"
 ```
 
@@ -129,12 +129,12 @@ git push -u origin <test_version>
 
 For test version `9005.20.0` on date `2026-01-13`:
 
-1. Build number = `2026011300 + 30` = `2026011330` (10 digits)
+1. Build number = `2026011300 + 1730` = `2026013030` (10 digits)
 2. Create branch `9005.20.0`
 3. Set VERSION=`9005.20.0` in `.env.version`
-4. Hardcode BUILD_NUMBER=`2026011330` in shared-env action
-5. Hardcode BUILD_NUMBER=`2026011330` in release-android workflow
-6. Set versionCode=`2026011330`, versionName=`"9005.20.0"` in build.gradle
+4. Hardcode BUILD_NUMBER=`2026013030` in shared-env action
+5. Hardcode BUILD_NUMBER=`2026013030` in release-android workflow
+6. Set versionCode=`2026013030`, versionName=`"9005.20.0"` in build.gradle
 7. Commit and push
 
 ## Validation Checklist
