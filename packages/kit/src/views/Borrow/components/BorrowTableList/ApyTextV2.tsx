@@ -50,32 +50,35 @@ function ApyComponentBar({
 }: {
   components?: IBorrowApyComponent[];
 }) {
-  const segments = useMemo(() => {
-    if (!components?.length) return [];
+  const { segments, totalWeight } = useMemo(() => {
+    if (!components?.length) return { segments: [], totalWeight: 0 };
+    let currentTotal = 0;
     const normalized = components.map((component) => {
       const numericValue = Number.parseFloat(component.value);
       const safeValue = Number.isFinite(numericValue)
         ? Math.max(numericValue, 0)
         : 0;
+      currentTotal += safeValue;
       return {
         color: component.color || '$bgSubdued',
         weight: safeValue,
       };
     });
-    const total = normalized.reduce((sum, segment) => sum + segment.weight, 0);
-    if (total <= 0) {
-      return normalized.map((segment) => ({
-        ...segment,
-        weight: 1,
-      }));
-    }
-    return normalized;
+    return {
+      segments: normalized,
+      totalWeight: currentTotal,
+    };
   }, [components]);
 
   if (!segments.length) return null;
 
   return (
-    <XStack h="$1.5" bg="$bgSubdued" borderRadius="$full" overflow="hidden">
+    <XStack
+      h="$1.5"
+      bg="$bgStrongActive"
+      borderRadius="$full"
+      overflow="hidden"
+    >
       {segments.map((segment, index) => (
         <Stack
           key={index}
@@ -83,6 +86,7 @@ function ApyComponentBar({
           bg={segment.color as ColorTokens}
         />
       ))}
+      {totalWeight < 100 ? <Stack flex={100 - totalWeight} /> : null}
     </XStack>
   );
 }
@@ -155,26 +159,42 @@ function ApyDetailSection({
         </YStack>
       ) : null}
 
-      {/* Section Descriptions - at the bottom */}
-      {hasDescriptions ? (
+      {/* Section Components Legends */}
+      {hasComponents ? (
         <YStack gap="$2.5" mt="$3.5">
-          {section.descriptions?.map((desc, index) => {
-            const bulletColor = section.apyComponents?.[index]?.color;
+          {section.apyComponents?.map((component, index) => {
+            if (!component.title) return null;
             return (
               <XStack key={index} ai="center" gap="$2">
-                {bulletColor ? (
-                  <Stack p="$1" ai="center" jc="center">
-                    <Icon
-                      name="CirclePlaceholderOnSolid"
-                      size="$1.5"
-                      color={bulletColor as ColorTokens}
-                    />
-                  </Stack>
-                ) : null}
-                <EarnText text={desc} size="$bodySm" color="$textSubdued" />
+                <Stack p="$1" ai="center" jc="center">
+                  <Icon
+                    name="CirclePlaceholderOnSolid"
+                    size="$1.5"
+                    color={component.color as ColorTokens}
+                  />
+                </Stack>
+                <EarnText
+                  text={component.title}
+                  size="$bodySm"
+                  color="$textSubdued"
+                />
               </XStack>
             );
           })}
+        </YStack>
+      ) : null}
+
+      {/* Section Descriptions - at the bottom */}
+      {hasDescriptions ? (
+        <YStack gap="$2.5" mt="$3.5">
+          {section.descriptions?.map((desc, index) => (
+            <EarnText
+              key={index}
+              text={desc}
+              size="$bodySm"
+              color="$textSubdued"
+            />
+          ))}
         </YStack>
       ) : null}
 
@@ -224,7 +244,7 @@ function ApyDetailPopoverContent({
     popupData?.apyDetail.myCollateralShare ||
     popupData?.apyDetail.collateralBonus;
   const supplySection = popupData?.apyDetail.supplyBonus;
-  const linkDescriptions = popupData?.apyDetail.description;
+  const linkDescriptions = popupData?.apyDetail.descriptions;
   const hasPlatformSection = hasSectionContent(platformSection);
   const hasCollateralSection = hasSectionContent(collateralSection);
   const hasSupplySection = hasSectionContent(supplySection);

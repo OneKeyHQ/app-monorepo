@@ -167,6 +167,7 @@
   "auth.set_passcode": "암호 설정",
   "auth.set_password": "비밀번호 설정",
   "auth.with_biometric": "{biometric}을 이용한 인증",
+  "auth_server_error_text": "문제가 발생했습니다. 인터넷 연결을 확인하거나 나중에 다시 시도해 주세요.",
   "backing_up_desc": "백업이 완료될 때까지 이 창을 닫지 마세요.",
   "backing_up_title": "백업 중…",
   "backup.address_book_labels": "주소록 & 라벨",

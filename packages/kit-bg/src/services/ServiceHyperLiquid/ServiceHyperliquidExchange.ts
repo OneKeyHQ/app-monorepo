@@ -17,6 +17,8 @@ import {
   OneKeyLocalError,
   WatchedAccountTradeError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   dispatchHyperLiquidOrderLog,
@@ -365,9 +367,28 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         >(error),
         error: serializeHyperLiquidError(error),
       });
-      throw new OneKeyLocalError(
-        `Failed to approve builder fee: ${String(error)}`,
-      );
+      const errStr = String(error);
+      // Abstract Wallet Error
+      if (errStr.includes('Failed to sign typed data')) {
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.transfer_connection_error, // TODO: replace i18n key
+          }),
+        });
+      }
+      // Hyperliquid Error
+      else if (errStr.includes('Too many builders approved')) {
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.transfer_connection_error, // TODO: replace i18n key
+          }),
+        });
+      }
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.global_unknown_error,
+        }),
+      });
     }
   }
 

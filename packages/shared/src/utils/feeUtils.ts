@@ -45,7 +45,7 @@ export function calculateSolTotalFee({
 }) {
   return new BigNumber(computeUnitPrice)
     .times(computeUnitLimit)
-    .shiftedBy(-computeUnitPriceDecimals)
+    .shiftedBy(-new BigNumber(computeUnitPriceDecimals).toNumber())
     .plus(baseFee)
     .shiftedBy(-feeInfo.common.feeDecimals)
     .toFixed();

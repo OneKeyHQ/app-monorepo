@@ -34,6 +34,7 @@ import {
 } from '../components/PinInputLayout';
 
 import type { RouteProp } from '@react-navigation/core';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const MAX_ATTEMPTS = JUICEBOX_ALLOWED_GUESSES;
 
@@ -139,13 +140,19 @@ function VerifyPinPage() {
     [pinInputRef],
   );
 
-  const handleForgotPin = useCallback(() => {
+  const handleForgotPin = useCallback(async () => {
     if (isVerifyPinOnly) {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
       navigation.push(EOnboardingPagesV2.CreatePin, {
         action: EKeylessFinalizeAction.ResetPin,
       });
     } else {
-      navigation.push(EOnboardingPagesV2.ResetPin);
+      // Navigate to ResetPinGuide page which is a guide page showing instructions
+      // on how to reset PIN using another device, not the actual reset operation page.
+      // The actual reset operation happens in CreatePinPage when action is ResetPin.
+      navigation.push(EOnboardingPagesV2.ResetPinGuide);
     }
   }, [navigation, isVerifyPinOnly]);
 
@@ -176,7 +183,7 @@ function VerifyPinPage() {
               }),
             });
           }
-          handleForgotPin();
+          await handleForgotPin();
           return;
         }
 
@@ -188,20 +195,7 @@ function VerifyPinPage() {
         console.error('Failed to check rate limit status:', error);
       } finally {
         setIsCheckingRateLimit(false);
-
-        // Clear previous focus timer if exists
-        if (focusTimerRef.current) {
-          clearTimeout(focusTimerRef.current);
-        }
-        focusTimerRef.current = setTimeout(
-          () => {
-            if (pinInputRef.current) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-              pinInputRef.current.focus();
-            }
-          },
-          platformEnv.isNative ? 100 : 50,
-        );
+        // Focus is now handled by PinInputLayout when skeleton transitions to input
       }
     },
     [getKeylessOnboardingToken, handleForgotPin, intl, startCooldown],
@@ -319,11 +313,7 @@ function VerifyPinPage() {
     if (errorMessage) {
       return errorMessage;
     }
-    if (
-      showAttemptError &&
-      attemptsRemaining < MAX_ATTEMPTS &&
-      attemptsRemaining > 0
-    ) {
+    if (showAttemptError && attemptsRemaining > 0) {
       const baseMessage = intl.formatMessage(
         {
           id: ETranslations.pin_attempts_remaining,
@@ -413,6 +403,7 @@ function VerifyPinPage() {
       errorMessage={displayErrorMessage}
       isVerifyPinPage
       onAutoInputPin={handleAutoInputPin}
+      showInputSkeleton={isCheckingRateLimit}
     />
   );
 }

@@ -30,6 +30,8 @@ export const BIOLOGY_AUTH_CANCEL_ERROR = 'user_cancel';
 export const PASSCODE_LENGTH = 6;
 export const PASSCODE_PROTECTION_ATTEMPTS = 10;
 export const PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX = 5;
+// Regex to match non-digit characters (used to filter out non-digits from passcode input)
+export const PASSCODE_REGEX = /[^\d]/gm;
 export const PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP: Record<
   string,
   number
