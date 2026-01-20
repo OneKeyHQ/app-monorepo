@@ -1,7 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
 import { getSupabaseAuthSessionKey } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
+import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -23,19 +23,8 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     if (!sessionKey) {
       throw new OneKeyLocalError('Supabase auth session key not found');
     }
-    try {
-      const sessionData = await supabaseStorageInstance.getItem(sessionKey);
-      if (sessionData) {
-        const session = JSON.parse(sessionData) as {
-          access_token?: string;
-        };
-        const result = session?.access_token || '';
-        return result || '';
-      }
-      return '';
-    } catch {
-      return '';
-    }
+    const session = await getSupabaseClient().client.auth.getSession();
+    return session.data.session?.access_token || '';
   }
 
   // Note: Supabase storage instance automatically saves token when session is created/updated
