@@ -53,6 +53,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -1206,7 +1207,7 @@ function MoreActionDevice() {
       const r =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
           filterHiddenWallet: true,
-          skipDuplicateDevice: true,
+          skipDuplicateDeviceSameType: true,
         });
       const devices: Array<IDeviceManagementListItem> = Object.values(r)
         .filter(
@@ -1225,6 +1226,9 @@ function MoreActionDevice() {
           features: item.device?.featuresInfo,
         });
         item.firmwareTypeBadge = firmwareTypeBadge;
+        item.isQrWallet = accountUtils.isQrWallet({
+          walletId: item.wallet.id,
+        });
       }
       return devices;
     },
@@ -1273,6 +1277,7 @@ function MoreActionDevice() {
                 size={44}
                 key={item.wallet.id}
                 wallet={item.wallet}
+                badge={item.isQrWallet ? 'QR' : undefined}
               />
             ))}
             {hwQrWalletList.length > 5 ? (

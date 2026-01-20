@@ -53,6 +53,7 @@ export type IDeviceManagementListItem = IHwQrWalletWithDevice & {
   bleName?: string;
   shouldUpdate?: boolean;
   updateVersionDisplay?: string;
+  isQrWallet?: boolean;
 };
 
 function DeviceListItem({
@@ -73,6 +74,7 @@ function DeviceListItem({
       top: 0,
       left: -1,
     },
+    badge: item.isQrWallet ? 'QR' : undefined,
   };
 
   const isVerified = Boolean(item.device?.verifiedAtVersion);
@@ -82,6 +84,10 @@ function DeviceListItem({
   });
 
   const renderItemText = useMemo(() => {
+    if (item.isQrWallet) {
+      return null;
+    }
+
     if (item.shouldUpdate) {
       if (gtMd) {
         return (
@@ -113,6 +119,7 @@ function DeviceListItem({
     return null;
   }, [
     gtMd,
+    item.isQrWallet,
     item.shouldUpdate,
     item.updateVersionDisplay,
     item.firmwareVersionDisplay,
@@ -159,7 +166,7 @@ function DeviceListItem({
             >
               {item.wallet.name}
             </SizableText>
-            <VerifiedBadge isVerified={isVerified} />
+            {item.isQrWallet ? null : <VerifiedBadge isVerified={isVerified} />}
           </XStack>
           {bleName ? (
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -204,7 +211,7 @@ function DeviceManagementV2ListWeb() {
       const r =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
           filterHiddenWallet: true,
-          skipDuplicateDevice: true,
+          skipDuplicateDeviceSameType: true,
         });
       const devices: Array<IDeviceManagementListItem> = Object.values(r)
         .filter(
@@ -228,6 +235,9 @@ function DeviceManagementV2ListWeb() {
         const deviceDetectStatus = detectStatus?.[item.device?.connectId ?? ''];
         const shouldUpdate = deviceDetectStatus?.hasUpgrade;
         const updateVersionDisplay = deviceDetectStatus?.toVersion;
+        item.isQrWallet = accountUtils.isQrWallet({
+          walletId: item.wallet.id,
+        });
         item.firmwareTypeBadge = firmwareTypeBadge;
         item.firmwareVersionDisplay = `v${
           deviceVersion.firmwareVersion ?? '-'
