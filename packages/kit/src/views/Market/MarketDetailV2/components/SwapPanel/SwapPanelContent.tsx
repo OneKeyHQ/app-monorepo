@@ -25,7 +25,6 @@ import {
   TokenInputSection,
 } from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
-import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
 import { useSwapAnalytics } from './hooks/useSwapAnalytics';
 import { ESwapDirection } from './hooks/useTradeType';
 
@@ -39,6 +38,8 @@ export type ISwapPanelContentProps = {
     warningMessage?: string;
     actionTranslationId?: ETranslations;
     actionToken?: ISwapToken;
+    actionOtherToken?: ISwapToken;
+    onlySupportCrossChain?: boolean;
   };
   isApproved: boolean;
   defaultTokens: IToken[];
@@ -80,7 +81,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     onWrappedSwap,
     isWrapped,
     hasInitialReady,
-    onCloseDialog,
     currentMarketToken,
   } = props;
 
@@ -219,23 +219,15 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         ) : null}
       </YStack>
 
-      {/* Unsupported swap warning */}
-      {hasInitialReady && !supportSpeedSwap.enabled ? (
-        <UnsupportedSwapWarning
-          customMessage={supportSpeedSwap.warningMessage}
-          actionTranslationId={supportSpeedSwap.actionTranslationId}
-          actionToken={supportSpeedSwap.actionToken}
-          onCloseDialog={onCloseDialog}
-          tradeType={tradeType ?? ESwapDirection.BUY}
-        />
-      ) : null}
-
       {!isApproved && paymentAmount.gt(0) && balance.gte(paymentAmount) ? (
         <ApproveButton onApprove={onApprove} loading={isLoading} />
       ) : (
         <ActionButton
-          disabled={!supportSpeedSwap.enabled}
+          supportSpeedSwap={!!supportSpeedSwap?.enabled}
+          onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
           loading={isLoading}
+          actionToken={supportSpeedSwap?.actionToken}
+          actionOtherToken={supportSpeedSwap?.actionOtherToken}
           tradeType={tradeType}
           onPress={isWrapped ? onWrappedSwap : onSwap}
           amount={paymentAmount.toFixed()}
