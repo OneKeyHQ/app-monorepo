@@ -6,7 +6,6 @@ import { SupabaseAuthContext } from './SupabaseAuthContext';
 import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import type { Session } from '@supabase/supabase-js';
 
-
 export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   const [authSession, setSession] = useState<Session | undefined | null>();
   // const [profile, setProfile] = useState<any>();
