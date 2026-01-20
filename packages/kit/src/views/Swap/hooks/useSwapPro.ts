@@ -1332,7 +1332,7 @@ export function useSwapProActionsQuote() {
   };
 }
 
-export function useSwapProErrorAlert(networkNotSupported?: boolean) {
+export function useSwapProErrorAlert() {
   const intl = useIntl();
   const [, setSwapProErrorAlert] = useSwapProErrorAlertAtom();
   const swapProAccount = useSwapProAccount();
@@ -1352,15 +1352,6 @@ export function useSwapProErrorAlert(networkNotSupported?: boolean) {
           id: ETranslations.swap_page_alert_account_does_not_support_swap,
         }),
       });
-    } else if (networkNotSupported) {
-      setSwapProErrorAlert({
-        title: intl.formatMessage({
-          id: ETranslations.dexmarket_swap_unsupported_title,
-        }),
-        message: intl.formatMessage({
-          id: ETranslations.dexmarket_swap_unsupported_desc,
-        }),
-      });
     } else if (currentQuoteRes?.errorMessage) {
       setSwapProErrorAlert({
         title: currentQuoteRes?.errorMessage,
@@ -1371,7 +1362,6 @@ export function useSwapProErrorAlert(networkNotSupported?: boolean) {
   }, [
     currentQuoteRes,
     intl,
-    networkNotSupported,
     setSwapProErrorAlert,
     swapProAccount.result?.addressDetail.address,
   ]);

@@ -1945,8 +1945,14 @@ export interface IBorrowReserveItem {
         description: IEarnText;
         button: IEarnHistoryActionIcon;
       };
+      alerts?: IBorrowAlert[];
       description: IEarnText;
-      distributed: {
+      distributed?: {
+        title: IEarnText;
+        description: IEarnText;
+        token: IBorrowToken;
+      }[];
+      undistributed?: {
         title: IEarnText;
         description: IEarnText;
         token: IBorrowToken;

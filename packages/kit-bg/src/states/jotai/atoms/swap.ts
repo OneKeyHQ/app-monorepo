@@ -26,12 +26,15 @@ export const {
   use: useSwapFromMarketJumpTokenAtom,
 } = globalAtom<{
   token: ISwapToken | undefined;
+  otherToken?: ISwapToken | undefined;
+  amount?: string;
   type: ESwapTabSwitchType;
   direction: 'from' | 'to';
 }>({
   name: EAtomNames.swapFromMarketJumpTokenAtom,
   initialValue: {
     token: undefined,
+    otherToken: undefined,
     type: ESwapTabSwitchType.SWAP,
     direction: 'from',
   },

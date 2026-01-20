@@ -21,23 +21,27 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useReferFriends } from '../../../hooks/useReferFriends';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useBrowserAction } from '../../../states/jotai/contexts/discovery';
 import { DiscoveryBrowserProviderMirror } from '../../../views/Discovery/components/DiscoveryBrowserProviderMirror';
 
+import { executeNotificationCommand } from './commandRegistry';
 import { useInitialNotification } from './hooks';
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
   const navigation = useAppNavigation();
+  const { toInviteRewardPage, openHardwareSalesOrderDetail } =
+    useReferFriends();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
   const activeAccountRef = useRef(activeAccount);
   activeAccountRef.current = activeAccount;
 
-  const getLocalParams = useCallback(() => {
-    return {
+  const getLocalParams = useCallback(
+    () => ({
       accountId: activeAccountRef.current?.account?.id,
       indexedAccountId: activeAccountRef.current?.indexedAccount?.id,
       networkId: activeAccountRef.current?.network?.id,
@@ -45,8 +49,9 @@ function BaseNotificationHandlerContainer() {
       accountName: activeAccountRef.current?.account?.name,
       deriveType: activeAccountRef.current?.deriveType,
       avatarUrl: activeAccountRef.current?.wallet?.avatar,
-    };
-  }, [activeAccountRef]);
+    }),
+    [],
+  );
 
   const browserAction = useBrowserAction().current;
 
@@ -176,6 +181,25 @@ function BaseNotificationHandlerContainer() {
       EAppEventBusNames.ShowNotificationInDappPage,
       handleShowNotificationDappNavigation,
     );
+
+    const handleExecuteCommand = ({
+      action,
+      data,
+    }: {
+      action: string;
+      data?: Record<string, unknown>;
+    }) => {
+      const context = { toInviteRewardPage, openHardwareSalesOrderDetail };
+      const success = executeNotificationCommand(action, context, data);
+      if (!success) {
+        showFallbackUpdateDialog(null);
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.ExecuteNotificationCommand,
+      handleExecuteCommand,
+    );
+
     return () => {
       appEventBus.off(
         EAppEventBusNames.ShowFallbackUpdateDialog,
@@ -193,8 +217,19 @@ function BaseNotificationHandlerContainer() {
         EAppEventBusNames.ShowNotificationInDappPage,
         handleShowNotificationDappNavigation,
       );
+      appEventBus.off(
+        EAppEventBusNames.ExecuteNotificationCommand,
+        handleExecuteCommand,
+      );
     };
-  }, [browserAction, getLocalParams, navigation, showFallbackUpdateDialog]);
+  }, [
+    browserAction,
+    getLocalParams,
+    navigation,
+    showFallbackUpdateDialog,
+    toInviteRewardPage,
+    openHardwareSalesOrderDetail,
+  ]);
   useInitialNotification();
   return null;
 }
