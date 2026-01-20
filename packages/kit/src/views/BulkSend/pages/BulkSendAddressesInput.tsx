@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Form, Page, YStack, useForm } from '@onekeyhq/components';
 import type {
@@ -139,7 +139,6 @@ function BaseBulkSendAddressesInput() {
 
   const fetchSelectedTokenFiatInfo = useCallback(async () => {
     if (selectedAccountId && selectedNetworkId && selectedToken) {
-      setTokenDetailsState({ initialized: false, isRefreshing: true });
       const [checkInscriptionProtectionEnabled, vaultSettings] =
         await Promise.all([
           backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled({
@@ -200,15 +199,37 @@ function BaseBulkSendAddressesInput() {
     void initBulkSendInfo();
   }, [initBulkSendInfo]);
 
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+
   useEffect(() => {
-    if (selectedAccountId && selectedNetworkId && selectedToken) {
-      void fetchSelectedTokenFiatInfo();
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
+
+    if (selectedAccountId && selectedNetworkId && selectedToken) {
+      setTokenDetailsState({ initialized: false, isRefreshing: true });
+      void fetchSelectedTokenFiatInfo();
+
+      pollingIntervalRef.current = setInterval(() => {
+        void fetchSelectedTokenFiatInfo();
+      }, 15000);
+    }
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
   }, [
     fetchSelectedTokenFiatInfo,
     selectedAccountId,
     selectedNetworkId,
     selectedToken,
+    setTokenDetailsState,
   ]);
 
   useEffect(() => {
