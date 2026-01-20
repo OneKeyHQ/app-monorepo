@@ -164,7 +164,7 @@ export function UniversalSearch({
       intl.formatMessage({
         id: ETranslations.global_all,
       }),
-      intl.formatMessage({
+      !platformEnv.isWebDappMode && intl.formatMessage({
         id: ETranslations.global_universal_search_tabs_wallets,
       }),
       intl.formatMessage({
