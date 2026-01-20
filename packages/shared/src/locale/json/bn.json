@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "মার্জিন আপডেট করা হচ্ছে",
   "perp_trading_adjust_margin_updated": "মার্জিন আপডেট করা হয়েছে",
   "perps.account_not_support": "বর্তমান অ্যাকাউন্ট সমর্থিত নয়। অনুগ্রহ করে একটি EVM অ্যাকাউন্ট সংযুক্ত করুন এবং পুনরায় চেষ্টা করুন।",
+  "perps.builder_max_error": "বিল্ডার ফি অনুমোদন করতে ব্যর্থ।",
   "perps.buy_tip": "আরও দরকার {token} ?",
   "perps.connection_error": "হার্ডওয়্যার সংযোগের ত্রুটি। সংযোগটি পরীক্ষা করুন এবং আবার চেষ্টা করুন।",
   "perps.get_reward": "পুরষ্কার পান",

@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "証拠金を更新中",
   "perp_trading_adjust_margin_updated": "マージンを更新しました",
   "perps.account_not_support": "現在のアカウントはサポートされていません。EVMアカウントを接続して再試行してください。",
+  "perps.builder_max_error": "ビルダーフィーの承認に失敗しました。",
   "perps.buy_tip": "もっと必要 {token}?",
   "perps.connection_error": "ハードウェア接続エラーです。接続を確認して、もう一度お試しください。",
   "perps.get_reward": "報酬を獲得",

@@ -44,7 +44,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_token_selector_asset,
         }),
-        width: 120,
+        width: 110,
         align: 'left',
       },
       {
@@ -52,7 +52,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_position_position_size,
         }),
-        minWidth: 140,
+        minWidth: 120,
         align: 'left',
         flex: 1,
       },

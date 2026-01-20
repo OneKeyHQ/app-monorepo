@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "마진 업데이트 중",
   "perp_trading_adjust_margin_updated": "마진이 업데이트됨",
   "perps.account_not_support": "현재 계좌는 지원되지 않습니다. EVM 계좌를 연결하고 다시 시도해 주세요.",
+  "perps.builder_max_error": "빌더 수수료 승인이 실패했습니다.",
   "perps.buy_tip": "더 필요해요 {token}?",
   "perps.connection_error": "하드웨어 연결 오류. 연결을 확인하고 다시 시도하십시오.",
   "perps.get_reward": "보상을 받으세요",

@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "Обновление маржи",
   "perp_trading_adjust_margin_updated": "Маржа обновлена",
   "perps.account_not_support": "Поддержка текущей учетной записи невозможна. Пожалуйста, подключите учетную запись EVM и повторите попытку.",
+  "perps.builder_max_error": "Не удалось утвердить плату строителя.",
   "perps.buy_tip": "Нужно больше {token}?",
   "perps.connection_error": "Ошибка подключения оборудования. Пожалуйста, проверьте соединение и попробуйте снова.",
   "perps.get_reward": "Получите награды",
