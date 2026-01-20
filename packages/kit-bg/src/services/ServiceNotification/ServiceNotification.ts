@@ -187,6 +187,7 @@ export default class ServiceNotification extends ServiceBase {
       await notificationsDevSettingsPersistAtom.get();
     const msgId =
       messageInfo.extras?.params?.msgId || messageInfo.extras?.msgId;
+
     defaultLogger.notification.common.notificationReceived({
       messageInfo,
       notificationId: msgId,
@@ -1251,7 +1252,8 @@ export default class ServiceNotification extends ServiceBase {
     const result = await client.post<
       IApiClientResponse<INotificationPushMessageListItem[]>
     >('/notification/v1/message/list', topicTypes ? { topicTypes } : undefined);
-    return result?.data?.data || [];
+    const data = result?.data?.data || [];
+    return data;
   }
 
   @backgroundMethod()

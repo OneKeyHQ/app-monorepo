@@ -135,4 +135,5 @@ export enum EAppEventBusNames {
   SwapLimitOrderBuildSuccess = 'SwapLimitOrderBuildSuccess',
   RefreshNativeTokenInfo = 'RefreshNativeTokenInfo',
   ShowInAppPushNotification = 'ShowInAppPushNotification',
+  ExecuteNotificationCommand = 'ExecuteNotificationCommand',
 }
