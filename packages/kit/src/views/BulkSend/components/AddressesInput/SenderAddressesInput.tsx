@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/shared/types/address';
 
 import { useBulkSendContext } from '../BulkSendContext';
+import { useDebouncedValidation } from '../../hooks/useDebouncedValidation';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
 
@@ -98,11 +99,11 @@ function SenderAddressesInput() {
             setAddressBadges(
               walletAccountItems[0]
                 ? [
-                  {
-                    label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
-                    type: 'success',
-                  },
-                ]
+                    {
+                      label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
+                      type: 'success',
+                    },
+                  ]
                 : [],
             );
             for (const item of walletAccountItems) {
@@ -163,6 +164,10 @@ function SenderAddressesInput() {
       setSelectedAccountId,
       setSelectedIndexedAccountId,
     ],
+  );
+
+  const debouncedValidateAddresses = useDebouncedValidation(
+    handleValidateAddresses,
   );
 
   const renderSenderAddressesDescription = useCallback(() => {
@@ -230,7 +235,7 @@ function SenderAddressesInput() {
       label="Sending Address(es)"
       description={renderSenderAddressesDescription()}
       rules={{
-        validate: handleValidateAddresses,
+        validate: debouncedValidateAddresses,
       }}
     >
       <LineNumberedTextArea
