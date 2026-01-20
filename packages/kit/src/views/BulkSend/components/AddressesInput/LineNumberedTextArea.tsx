@@ -52,6 +52,7 @@ export type ILineNumberedTextAreaProps = {
     num?: number;
     clearNotMatch?: boolean;
     onBeforeAccountSelectorOpen?: () => void;
+    accountSelectorOnly?: boolean;
   };
   onActiveAccountChange?: (
     activeAccount: IAccountSelectorActiveAccountInfo,
@@ -206,9 +207,15 @@ function LineNumberedTextArea({
     }) => {
       onInputTypeChange?.(inputType);
 
-      handleChangeText(text);
+      if (singleLine) {
+        handleChangeText(text);
+      } else {
+        // In multi-line mode, append the address on a new line
+        const newValue = value ? `${value}\n${text}` : text;
+        handleChangeText(newValue);
+      }
     },
-    [handleChangeText, onInputTypeChange],
+    [handleChangeText, onInputTypeChange, singleLine, value],
   );
 
   const styles = useMemo(
@@ -407,6 +414,7 @@ function LineNumberedTextArea({
                     onBeforeAccountSelectorOpen={
                       accountSelector?.onBeforeAccountSelectorOpen
                     }
+                    accountSelectorOnly={accountSelector?.accountSelectorOnly}
                   />
                 ) : null}
               </XStack>

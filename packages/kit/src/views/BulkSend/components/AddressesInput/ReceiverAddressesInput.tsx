@@ -6,9 +6,7 @@ import { isNil } from 'lodash';
 
 import { Form } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 
 import { useBulkSendContext } from '../BulkSendContext';
@@ -18,7 +16,7 @@ import LineNumberedTextArea from './LineNumberedTextArea';
 import type { ILineError } from './LineNumberedTextArea';
 
 function ReceiverAddressesInput() {
-  const { selectedNetworkId, selectedToken } = useBulkSendContext();
+  const { selectedAccountId, selectedNetworkId, selectedToken } = useBulkSendContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
 
   const [errors, setErrors] = useState<ILineError[]>([]);
@@ -204,38 +202,30 @@ function ReceiverAddressesInput() {
   );
 
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.addressInput,
-        sceneUrl: '',
+    <Form.Field
+      name="receiverAddresses"
+      label="Receiving Address(es)"
+      rules={{
+        required: true,
+        validate: handleValidateAddresses,
       }}
-      enabledNum={[0]}
-      availableNetworksMap={{
-        0: {
-          networkIds: [selectedNetworkId ?? ''],
-          defaultNetworkId: selectedNetworkId,
-        },
-      }}
+      description="Supports: Address only OR Address, Amount"
     >
-      <Form.Field
-        name="receiverAddresses"
-        label="Receiving Address(es)"
-        rules={{
-          required: true,
-          validate: handleValidateAddresses,
+      <LineNumberedTextArea
+        showPaste
+        showUpload
+        showAccountSelector
+        accountSelector={{
+          num: 1,
+          clearNotMatch: true,
         }}
-        description="Supports: Address only OR Address, Amount"
-      >
-        <LineNumberedTextArea
-          showPaste
-          showUpload
-          showAccountSelector
-          placeholder="Enter addresses, one per line"
-          height={120}
-          errors={errors}
-        />
-      </Form.Field>
-    </AccountSelectorProviderMirror>
+        placeholder="Enter addresses, one per line"
+        height={120}
+        errors={errors}
+        networkId={selectedNetworkId}
+        accountId={selectedAccountId}
+      />
+    </Form.Field>
   );
 }
 

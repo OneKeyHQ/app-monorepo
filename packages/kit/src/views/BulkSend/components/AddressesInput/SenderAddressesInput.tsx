@@ -10,11 +10,9 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EInputAddressChangeType,
   type IAddressBadge,
@@ -100,11 +98,11 @@ function SenderAddressesInput() {
             setAddressBadges(
               walletAccountItems[0]
                 ? [
-                    {
-                      label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
-                      type: 'success',
-                    },
-                  ]
+                  {
+                    label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
+                    type: 'success',
+                  },
+                ]
                 : [],
             );
             for (const item of walletAccountItems) {
@@ -227,47 +225,34 @@ function SenderAddressesInput() {
   }, [selectedAccountId, selectedIndexedAccountId]);
 
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.addressInput,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-      availableNetworksMap={{
-        0: {
-          networkIds: [selectedNetworkId ?? ''],
-          defaultNetworkId: selectedNetworkId,
-        },
+    <Form.Field
+      name="senderAddresses"
+      label="Sending Address(es)"
+      description={renderSenderAddressesDescription()}
+      rules={{
+        validate: handleValidateAddresses,
       }}
     >
-      <Form.Field
-        name="senderAddresses"
-        label="Sending Address(es)"
-        description={renderSenderAddressesDescription()}
-        rules={{
-          validate: handleValidateAddresses,
+      <LineNumberedTextArea
+        singleLine
+        showAddressBadges
+        addressBadges={addressBadges}
+        showPaste
+        // TODO: init account selector with selected account id or indexed account id
+        showAccountSelector
+        placeholder="Enter address"
+        showLineNumbers={false}
+        accountSelector={{
+          num: 0,
+          clearNotMatch: true,
+          accountSelectorOnly: true,
         }}
-      >
-        <LineNumberedTextArea
-          singleLine
-          showAddressBadges
-          addressBadges={addressBadges}
-          showPaste
-          // TODO: init account selector with selected account id or indexed account id
-          showAccountSelector
-          placeholder="Enter address"
-          showLineNumbers={false}
-          accountSelector={{
-            num: 0,
-            clearNotMatch: true,
-          }}
-          networkId={selectedNetworkId}
-          accountId={selectedAccountId}
-          onActiveAccountChange={handleActiveAccountChange}
-          onInputTypeChange={handleInputTypeChange}
-        />
-      </Form.Field>
-    </AccountSelectorProviderMirror>
+        networkId={selectedNetworkId}
+        accountId={selectedAccountId}
+        onActiveAccountChange={handleActiveAccountChange}
+        onInputTypeChange={handleInputTypeChange}
+      />
+    </Form.Field>
   );
 }
 

@@ -6,6 +6,7 @@ import type {
   IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -13,6 +14,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import ReceiverAddressesInput from '../components/AddressesInput/ReceiverAddressesInput';
 import SenderAddressesInput from '../components/AddressesInput/SenderAddressesInput';
 import AssetSelectorTrigger from '../components/AssetSelectorTrigger';
 import BulkSendBar from '../components/BulkSendBar';
@@ -22,8 +24,6 @@ import {
   useBulkSendContext,
 } from '../components/BulkSendContext';
 import BulkSendHeader from '../components/BulkSendHeader';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import ReceiverAddressesInput from '../components/AddressesInput/ReceiverAddressesInput';
 
 function BaseBulkSendAddressesInput() {
   const route = useAppRoute<
@@ -46,6 +46,7 @@ function BaseBulkSendAddressesInput() {
     selectedToken,
     selectedNetworkId,
     selectedAccountId,
+    selectedTokenDetail,
     tokenDetailsState,
   } = useBulkSendContext();
 
@@ -217,8 +218,19 @@ function BaseBulkSendAddressesInput() {
   }, [fetchSelectedAccountAddress, selectedAccountId, selectedNetworkId]);
 
   const isSubmitDisabled = useMemo(() => {
-    return !form.formState.isValid || !tokenDetailsState.initialized;
-  }, [form.formState.isValid, tokenDetailsState.initialized]);
+    const isTokenLoading =
+      !tokenDetailsState.initialized ||
+      (tokenDetailsState.isRefreshing && !selectedTokenDetail);
+    return (
+      !form.formState.isValid || form.formState.isValidating || isTokenLoading
+    );
+  }, [
+    form.formState.isValid,
+    form.formState.isValidating,
+    tokenDetailsState.initialized,
+    tokenDetailsState.isRefreshing,
+    selectedTokenDetail,
+  ]);
 
   const handleSubmit = useCallback(() => {
     // TODO: Implement next step
@@ -233,10 +245,28 @@ function BaseBulkSendAddressesInput() {
           <BulkSendHeader />
           <YStack gap="$6" $gtMd={{ gap: '$8' }}>
             <AssetSelectorTrigger />
-            <Form form={form}>
-              <SenderAddressesInput />
-              <ReceiverAddressesInput />
-            </Form>
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.addressInput,
+                sceneUrl: '',
+              }}
+              enabledNum={[0, 1]}
+              availableNetworksMap={{
+                0: {
+                  networkIds: [selectedNetworkId ?? ''],
+                  defaultNetworkId: selectedNetworkId,
+                },
+                1: {
+                  networkIds: [selectedNetworkId ?? ''],
+                  defaultNetworkId: selectedNetworkId,
+                },
+              }}
+            >
+              <Form form={form}>
+                <SenderAddressesInput />
+                <ReceiverAddressesInput />
+              </Form>
+            </AccountSelectorProviderMirror>
           </YStack>
         </BulkSendContentWrapper>
       </Page.Body>
