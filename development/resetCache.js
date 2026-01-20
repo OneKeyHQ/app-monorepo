@@ -22,11 +22,10 @@ function exec(fullCmd) {
   });
 }
 
-// **** clean ReactNative and Expo Metro bundler cache
-exec('yarn expo start --clear');
-exec('yarn react-native start --reset-cache');
-// exec('yarn expo build:ios --clear-provisioning-profile');
-
-setTimeout(() => {
-  process.exit(0);
-}, 20 * 1000);
+void Promise.race([
+  new Promise((resolve) => setTimeout({ resolve }, 60 * 1000)),
+  Promise.all([
+    exec('yarn expo start --clear'),
+    exec('yarn react-native start --reset-cache'),
+  ]),
+]);

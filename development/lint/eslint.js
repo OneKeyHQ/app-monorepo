@@ -13,7 +13,7 @@ const oxlintStartTime = Date.now();
 
 try {
   const oxlintResult = execSync(
-    'npx oxlint --tsconfig ./tsconfig.json . --fix',
+    'npx oxlint --tsconfig ./tsconfig.json --type-aware --type-check . --fix',
     { encoding: 'utf-8', stdio: 'pipe' },
   );
 

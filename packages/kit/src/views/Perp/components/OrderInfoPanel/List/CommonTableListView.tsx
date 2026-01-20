@@ -277,6 +277,7 @@ export interface IColumnConfig {
   flex?: number;
   align?: 'left' | 'center' | 'right';
   onPress?: () => void;
+  fixed?: boolean;
 }
 
 export interface ICommonTableListViewProps {
@@ -291,7 +292,7 @@ export interface ICommonTableListViewProps {
   borderColor?: string;
   rowHoverColor?: string;
   isMobile?: boolean;
-  // 分页相关
+  // pagination
   enablePagination?: boolean;
   pageSize?: number;
   currentListPage?: number;
@@ -508,6 +509,12 @@ export function CommonTableListView({
                     })}
                     onPress={column.onPress}
                     cursor={column.onPress ? 'pointer' : 'default'}
+                    {...(column.fixed && {
+                      position: 'sticky' as any,
+                      right: 0,
+                      pr: '$2',
+                    })}
+                    bg={column.fixed ? '$bgApp' : undefined}
                   >
                     {column.tooltip ? (
                       <Tooltip
@@ -549,54 +556,40 @@ export function CommonTableListView({
                 );
               })}
             </XStack>
-            <ListView
-              debugRenderTrackerProps={listViewDebugRenderTrackerProps}
-              style={{
-                flex: 1,
-              }}
-              data={paginatedData}
-              renderItem={({ item, index }) => {
-                return renderRow(item, index);
-              }}
-              ListEmptyComponent={
-                listLoading ? (
-                  <YStack
-                    flex={1}
-                    justifyContent="center"
-                    alignItems="center"
-                    p="$20"
+            {/* Desktop mode: use map instead of ListView for CSS sticky support */}
+            <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
+              {listLoading ? (
+                <YStack
+                  flex={1}
+                  justifyContent="center"
+                  alignItems="center"
+                  p="$20"
+                >
+                  <Spinner size="large" />
+                </YStack>
+              ) : paginatedData.length === 0 ? (
+                <YStack
+                  flex={1}
+                  justifyContent="flex-start"
+                  alignItems="flex-start"
+                  p="$5"
+                >
+                  <SizableText size="$bodyMd" color="$text" textAlign="center">
+                    {emptyMessage}
+                  </SizableText>
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    textAlign="center"
+                    mt="$2"
                   >
-                    <Spinner size="large" />
-                  </YStack>
-                ) : (
-                  <YStack
-                    flex={1}
-                    justifyContent="flex-start"
-                    alignItems="flex-start"
-                    p="$5"
-                  >
-                    <SizableText
-                      size="$bodyMd"
-                      color="$text"
-                      textAlign="center"
-                    >
-                      {emptyMessage}
-                    </SizableText>
-                    <SizableText
-                      size="$bodySm"
-                      color="$textSubdued"
-                      textAlign="center"
-                      mt="$2"
-                    >
-                      {emptySubMessage}
-                    </SizableText>
-                  </YStack>
-                )
-              }
-              contentContainerStyle={{
-                paddingBottom: enablePagination ? 0 : 16,
-              }}
-            />
+                    {emptySubMessage}
+                  </SizableText>
+                </YStack>
+              ) : (
+                paginatedData.map((item, index) => renderRow(item, index))
+              )}
+            </YStack>
             {enablePagination && currentListPage ? (
               <PaginationFooter
                 currentPage={currentListPage}
