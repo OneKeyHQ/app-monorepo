@@ -2,10 +2,12 @@ import { Semaphore } from 'async-mutex';
 import { isEqual } from 'lodash';
 
 import {
+  decryptRevealableSeed,
   decryptStringAsync,
   encryptStringAsync,
   generateMnemonic,
   mnemonicToEntropy,
+  revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
@@ -21,6 +23,7 @@ import {
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX,
   KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
+  KEYLESS_ENCRYPTION_ITERATIONS,
   KEYLESS_MNEMONIC_GCM_AAD,
   KEYLESS_SUPABASE_PROJECT_URL,
   KEYLESS_SUPABASE_PUBLIC_API_KEY,
@@ -1157,6 +1160,47 @@ class ServiceKeylessWallet extends ServiceBase {
     }
   }
 
+  /**
+   * Decrypt keyless wallet mnemonic using mnemonicPassword.
+   * Uses consistent encryption parameters: GCM mode, 600k iterations, KEYLESS_MNEMONIC_GCM_AAD.
+   */
+  private async decryptKeylessMnemonic(params: {
+    encryptedMnemonic: string;
+    mnemonicPassword: string;
+  }): Promise<string> {
+    const { encryptedMnemonic, mnemonicPassword } = params;
+    return decryptStringAsync({
+      data: encryptedMnemonic,
+      dataEncoding: 'hex',
+      resultEncoding: 'utf-8',
+      password: mnemonicPassword,
+      allowRawPassword: true,
+      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      mode: EAppCryptoAesEncryptionMode.gcm,
+      aad: KEYLESS_MNEMONIC_GCM_AAD,
+    });
+  }
+
+  /**
+   * Encrypt keyless wallet mnemonic using mnemonicPassword.
+   * Uses consistent encryption parameters: GCM mode, 600k iterations, KEYLESS_MNEMONIC_GCM_AAD.
+   */
+  private async encryptKeylessMnemonic(params: {
+    mnemonic: string;
+    mnemonicPassword: string;
+  }): Promise<string> {
+    const { mnemonic, mnemonicPassword } = params;
+    return encryptStringAsync({
+      data: mnemonic,
+      dataEncoding: 'utf-8',
+      password: mnemonicPassword,
+      allowRawPassword: true,
+      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      mode: EAppCryptoAesEncryptionMode.gcm,
+      aad: KEYLESS_MNEMONIC_GCM_AAD,
+    });
+  }
+
   private buildKeylessSocialUserIdFromToken(params: { token: string }): string {
     const { token } = params;
     const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
@@ -1276,7 +1320,7 @@ class ServiceKeylessWallet extends ServiceBase {
           resultEncoding: 'utf-8',
           password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
           allowRawPassword: true,
-          iterations: 600_000,
+          iterations: KEYLESS_ENCRYPTION_ITERATIONS,
           mode: EAppCryptoAesEncryptionMode.gcm,
           aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
         });
@@ -1389,7 +1433,7 @@ class ServiceKeylessWallet extends ServiceBase {
       dataEncoding: 'utf-8',
       password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
       allowRawPassword: true,
-      iterations: 600_000,
+      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
     });
@@ -1597,7 +1641,36 @@ class ServiceKeylessWallet extends ServiceBase {
       });
     if (!mnemonicPassword) {
       throw new OneKeyLocalError(
-        'Mnemonic password not found in storage. Please restore the wallet first.',
+        'Mnemonic password not found in storage. Please restore the wallet again.',
+      );
+    }
+
+    // 3.1. Verify mnemonicPassword can decrypt backendShareData and matches local keyless wallet
+    const decryptedMnemonic = await this.decryptKeylessMnemonic({
+      encryptedMnemonic: backendShareData.encryptedMnemonic,
+      mnemonicPassword,
+    });
+    if (!decryptedMnemonic) {
+      throw new OneKeyLocalError(
+        'Mnemonic password does not match backend share data. Please verify your credentials.',
+      );
+    }
+
+    // 3.2. Verify decrypted mnemonic matches local keyless wallet mnemonic
+    const keylessWallet =
+      await this.backgroundApi.serviceAccount.getKeylessWallet();
+    if (!keylessWallet) {
+      throw new OneKeyLocalError('Keyless wallet not found.');
+    }
+    const credential = await localDb.getCredential(keylessWallet.id);
+    const rs = await decryptRevealableSeed({
+      rs: credential.credential,
+      password,
+    });
+    const localMnemonic = revealEntropyToMnemonic(rs.entropyWithLangPrefixed);
+    if (localMnemonic !== decryptedMnemonic) {
+      throw new OneKeyLocalError(
+        'Decrypted mnemonic does not match local keyless wallet. Please verify your credentials.',
       );
     }
 
@@ -1697,15 +1770,9 @@ class ServiceKeylessWallet extends ServiceBase {
     const mnemonicPassword = bufferUtils.bytesToBase64(mnemonicPasswordBytes);
 
     // Decrypt mnemonic using recovered password
-    const mnemonic = await decryptStringAsync({
-      data: backendShareData.encryptedMnemonic,
-      dataEncoding: 'hex',
-      resultEncoding: 'utf-8',
-      password: mnemonicPassword,
-      allowRawPassword: true,
-      iterations: 600_000,
-      mode: EAppCryptoAesEncryptionMode.gcm,
-      aad: KEYLESS_MNEMONIC_GCM_AAD,
+    const mnemonic = await this.decryptKeylessMnemonic({
+      encryptedMnemonic: backendShareData.encryptedMnemonic,
+      mnemonicPassword,
     });
 
     // Save mnemonicPassword to secure storage for Reset PIN flow
@@ -1807,14 +1874,9 @@ class ServiceKeylessWallet extends ServiceBase {
       }
       const mnemonicPasswordBytes = crypto.getRandomValues(new Uint8Array(32));
       const mnemonicPassword = bufferUtils.bytesToBase64(mnemonicPasswordBytes);
-      const encryptedMnemonic: string = await encryptStringAsync({
-        data: mnemonic,
-        dataEncoding: 'utf-8',
-        password: mnemonicPassword,
-        allowRawPassword: true,
-        iterations: 600_000,
-        mode: EAppCryptoAesEncryptionMode.gcm,
-        aad: KEYLESS_MNEMONIC_GCM_AAD,
+      const encryptedMnemonic: string = await this.encryptKeylessMnemonic({
+        mnemonic,
+        mnemonicPassword,
       });
       const mnemonicPasswordShares = await shamirUtils.split(
         new Uint8Array(mnemonicPasswordBytes),

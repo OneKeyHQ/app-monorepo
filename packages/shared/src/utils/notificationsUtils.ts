@@ -200,6 +200,26 @@ export function parseNotificationPayload(
         payload as string,
       );
       break;
+    case ENotificationPushMessageMode.command:
+      try {
+        const { action, data } = JSON.parse(payload || '{}') as {
+          action?: string;
+          data?: Record<string, unknown>;
+        };
+        if (!action) {
+          fallbackHandler();
+          return;
+        }
+        // Merge extras.params with data, extras.params takes precedence for orderId etc.
+        const mergedData = { ...data, ...extras?.params };
+        appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
+          action,
+          data: mergedData,
+        });
+      } catch (_error) {
+        fallbackHandler();
+      }
+      break;
     default:
       break;
   }

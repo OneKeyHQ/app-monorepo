@@ -90,6 +90,9 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   communityRecognized?: boolean;
+  perpsInfo?: {
+    hlTicker: string;
+  };
   [key: string]: unknown;
 }
 

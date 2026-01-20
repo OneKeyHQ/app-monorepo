@@ -254,6 +254,9 @@ export const KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY =
 export const KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX =
   'backend_share_enc_v1:';
 
+// Keyless encryption iterations (PBKDF2 iterations for key derivation)
+export const KEYLESS_ENCRYPTION_ITERATIONS = 600_000;
+
 // Keyless AES-GCM AAD (Additional Authenticated Data)
 // Bind ciphertext to its intended usage context to prevent cross-purpose substitution.
 

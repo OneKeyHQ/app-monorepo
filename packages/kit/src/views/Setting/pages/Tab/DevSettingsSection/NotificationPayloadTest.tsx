@@ -10,7 +10,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
-import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
+import {
+  ENotificationCommand,
+  ENotificationPushMessageMode,
+} from '@onekeyhq/shared/types/notification';
 
 const modeOptions = [
   {
@@ -32,6 +35,10 @@ const modeOptions = [
   {
     label: 'Mode 5: Open in DApp',
     value: ENotificationPushMessageMode.openInDapp,
+  },
+  {
+    label: 'Mode 6: Command',
+    value: ENotificationPushMessageMode.command,
   },
 ];
 
@@ -75,6 +82,13 @@ const payloadExamples: Record<ENotificationPushMessageMode, string> = {
   [ENotificationPushMessageMode.openInBrowser]: 'https://onekey.so',
   [ENotificationPushMessageMode.openInApp]: 'https://onekey.so/support',
   [ENotificationPushMessageMode.openInDapp]: 'https://app.uniswap.org',
+  [ENotificationPushMessageMode.command]: JSON.stringify(
+    {
+      action: ENotificationCommand.openRewardDistributionHistoryModal,
+    },
+    null,
+    2,
+  ),
 };
 
 export function NotificationPayloadTest() {
@@ -156,6 +170,9 @@ export function NotificationPayloadTest() {
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
           Mode 5 (openInDapp): URL string for DApp browser
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          Mode 6 (command): JSON with action and optional data
         </SizableText>
       </YStack>
 

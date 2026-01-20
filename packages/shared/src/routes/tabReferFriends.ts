@@ -13,9 +13,18 @@ export type ITabReferFriendsParamList = {
     utmSource?: string;
     code?: string;
   };
-  TabInviteReward: undefined;
+  TabInviteReward:
+    | {
+        showRewardDistributionHistory?: boolean;
+      }
+    | undefined;
   TabYourReferred: undefined;
-  TabHardwareSalesReward: undefined;
+  TabHardwareSalesReward:
+    | {
+        showOrderDetail?: boolean;
+        orderId?: string;
+      }
+    | undefined;
   TabEarnReward: {
     title: string;
   };

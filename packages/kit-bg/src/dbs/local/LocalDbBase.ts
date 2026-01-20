@@ -2276,7 +2276,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async updateDevice({ features }: { features: IOneKeyDeviceFeatures }) {
+  async updateDevice({
+    features,
+    preciseUpdateFields,
+  }: {
+    features: IOneKeyDeviceFeatures;
+    preciseUpdateFields?: Partial<IOneKeyDeviceFeatures>;
+  }) {
     const device = await this.getDeviceByQuery({
       features,
     });
@@ -2284,8 +2290,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return;
     }
 
+    let updateFeatures = features;
+    if (preciseUpdateFields && device.featuresInfo) {
+      updateFeatures = {
+        ...device.featuresInfo,
+        ...preciseUpdateFields,
+      };
+    }
+
     const featuresInfo = await deviceUtils.attachAppParamsToFeatures({
-      features,
+      features: updateFeatures,
     });
     let isUpdated = false;
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {

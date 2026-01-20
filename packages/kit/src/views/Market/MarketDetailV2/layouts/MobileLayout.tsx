@@ -32,6 +32,7 @@ import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMi
 import {
   InformationPanel,
   MarketTradingView,
+  PerpetualTradingBanner,
   SwapPanel,
   TokenActivityOverview,
   TokenOverview,
@@ -107,6 +108,9 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const informationHeader = useMemo(() => {
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
+        <Stack px="$5">
+          <PerpetualTradingBanner />
+        </Stack>
         <InformationPanel />
         <Stack h={tradingViewHeight} position="relative">
           <MarketTradingView
