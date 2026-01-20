@@ -313,11 +313,7 @@ function VerifyPinPage() {
     if (errorMessage) {
       return errorMessage;
     }
-    if (
-      showAttemptError &&
-      attemptsRemaining < MAX_ATTEMPTS &&
-      attemptsRemaining > 0
-    ) {
+    if (showAttemptError && attemptsRemaining > 0) {
       const baseMessage = intl.formatMessage(
         {
           id: ETranslations.pin_attempts_remaining,
