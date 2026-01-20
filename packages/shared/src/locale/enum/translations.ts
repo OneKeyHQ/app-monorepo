@@ -2710,6 +2710,7 @@
   perp_trading_adjust_margin_update = 'perp_trading_adjust_margin_update',
   perp_trading_adjust_margin_updated = 'perp_trading_adjust_margin_updated',
   perps_account_not_support = 'perps.account_not_support',
+  perps_builder_max_error = 'perps.builder_max_error',
   perps_buy_tip = 'perps.buy_tip',
   perps_connection_error = 'perps.connection_error',
   perps_get_reward = 'perps.get_reward',

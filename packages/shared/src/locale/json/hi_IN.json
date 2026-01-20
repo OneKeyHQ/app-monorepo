@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "मार्जिन अपडेट किया जा रहा है",
   "perp_trading_adjust_margin_updated": "मार्जिन अपडेट किया गया",
   "perps.account_not_support": "चालू खाता समर्थित नहीं है। कृपया एक ईवीएम खाता कनेक्ट करें और पुनः प्रयास करें।",
+  "perps.builder_max_error": "बिल्डर शुल्क को मंजूरी देने में विफल।",
   "perps.buy_tip": "और चाहिए {token}?",
   "perps.connection_error": "हार्डवेयर कनेक्शन त्रुटि। कृपया कनेक्शन की जांच करें और फिर से प्रयास करें।",
   "perps.get_reward": "पुरस्कार पाना",

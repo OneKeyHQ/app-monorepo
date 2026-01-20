@@ -191,11 +191,8 @@ const OpenOrdersRow = memo(
     }, [order.children]);
 
     const [isHovered, setIsHovered] = useState(false);
-    const baseBgColor = isHovered
-      ? '$bgApp'
-      : index % 2 === 1
-      ? '$bgSubdued'
-      : '$bgApp';
+    const isOddRow = index % 2 === 1;
+    const baseBgColor = isHovered || !isOddRow ? '$bgApp' : '$bgSubdued';
 
     if (isMobile) {
       return (

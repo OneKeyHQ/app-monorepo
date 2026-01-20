@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "Mise à jour de la marge",
   "perp_trading_adjust_margin_updated": "Marge mise à jour",
   "perps.account_not_support": "Votre compte actuel n'est pas pris en charge. Veuillez vous connecter à un compte EVM et réessayer.",
+  "perps.builder_max_error": "Échec de l'approbation des frais de constructeur.",
   "perps.buy_tip": "J'en ai besoin de plus {token}?",
   "perps.connection_error": "Erreur de connexion matérielle. Veuillez vérifier la connexion et réessayer.",
   "perps.get_reward": "Obtenez des récompenses",

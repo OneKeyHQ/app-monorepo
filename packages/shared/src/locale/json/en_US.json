@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "Updating Margin",
   "perp_trading_adjust_margin_updated": "Margin Updated",
   "perps.account_not_support": "Current account is not supported. Please connect an EVM account and retry.",
+  "perps.builder_max_error": "Fail to sign. Please contact the support.",
   "perps.buy_tip": "Need more {token} ?",
   "perps.connection_error": "Hardware connection error. Please check the connection and try again.",
   "perps.get_reward": "Get Rewards",

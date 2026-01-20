@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "Marge wird aktualisiert",
   "perp_trading_adjust_margin_updated": "Marge aktualisiert",
   "perps.account_not_support": "Girokonten werden nicht unterstützt. Bitte verbinden Sie ein EVM-Konto und versuchen Sie es erneut.",
+  "perps.builder_max_error": "Fehler beim Genehmigen der Builder-Gebühr.",
   "perps.buy_tip": "Wir brauchen mehr {token}?",
   "perps.connection_error": "Hardware-Verbindungsfehler. Bitte überprüfen Sie die Verbindung und versuchen Sie es erneut.",
   "perps.get_reward": "Prämien sichern",

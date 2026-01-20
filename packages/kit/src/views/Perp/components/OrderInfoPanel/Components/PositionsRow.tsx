@@ -577,11 +577,8 @@ const PositionRowDesktopActions = memo(
     isRowHovered?: boolean;
   }) => {
     const intl = useIntl();
-    const baseBgColor = isRowHovered
-      ? '$bgApp'
-      : rowIndex !== undefined && rowIndex % 2 === 1
-      ? '$bgSubdued'
-      : '$bgApp';
+    const isOddRow = rowIndex !== undefined && rowIndex % 2 === 1;
+    const baseBgColor = isRowHovered || !isOddRow ? '$bgApp' : '$bgSubdued';
     return (
       <DebugRenderTracker
         position="bottom-right"

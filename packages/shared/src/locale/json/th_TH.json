@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "กำลังอัปเดตมาร์จิ้น",
   "perp_trading_adjust_margin_updated": "อัปเดตมาร์จิ้นแล้ว",
   "perps.account_not_support": "บัญชีปัจจุบันไม่รองรับ โปรดเชื่อมต่อบัญชี EVM แล้วลองใหม่อีกครั้ง",
+  "perps.builder_max_error": "ไม่สามารถอนุมัติค่าธรรมเนียมผู้สร้างได้。",
   "perps.buy_tip": "ต้องการเพิ่มเติม {token}-",
   "perps.connection_error": "เกิดข้อผิดพลาดในการเชื่อมต่อฮาร์ดแวร์ โปรดตรวจสอบการเชื่อมต่อและลองอีกครั้ง。",
   "perps.get_reward": "รับรางวัล",

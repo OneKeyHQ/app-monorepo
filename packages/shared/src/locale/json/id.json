@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "Memperbarui Margin",
   "perp_trading_adjust_margin_updated": "Margin Diperbarui",
   "perps.account_not_support": "Rekening giro tidak didukung. Harap hubungkan akun EVM dan coba lagi.",
+  "perps.builder_max_error": "Gagal menyetujui biaya pembangun.",
   "perps.buy_tip": "Butuh lebih banyak {token}?",
   "perps.connection_error": "Kesalahan koneksi perangkat keras. Silakan periksa koneksi dan coba lagi.",
   "perps.get_reward": "Dapatkan Hadiah",

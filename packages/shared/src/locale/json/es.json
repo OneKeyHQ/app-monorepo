@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "Actualizando el margen",
   "perp_trading_adjust_margin_updated": "Margen actualizado",
   "perps.account_not_support": "La cuenta actual no es compatible. Conecte una cuenta EVM y vuelva a intentarlo.",
+  "perps.builder_max_error": "No se pudo aprobar la tarifa del constructor.",
   "perps.buy_tip": "Necesita más {token}?",
   "perps.connection_error": "Error de conexión de hardware. Por favor, verifica la conexión y vuelve a intentarlo.",
   "perps.get_reward": "Obtenga recompensas",

@@ -2705,6 +2705,7 @@
   "perp_trading_adjust_margin_update": "Đang cập nhật ký quỹ",
   "perp_trading_adjust_margin_updated": "Đã cập nhật biên lợi nhuận",
   "perps.account_not_support": "Tài khoản hiện tại không được hỗ trợ. Vui lòng kết nối tài khoản EVM và thử lại.",
+  "perps.builder_max_error": "Không thể phê duyệt phí xây dựng.",
   "perps.buy_tip": "Cần thêm nữa {token}?",
   "perps.connection_error": "Lỗi kết nối phần cứng. Vui lòng kiểm tra kết nối và thử lại.",
   "perps.get_reward": "Nhận phần thưởng",
