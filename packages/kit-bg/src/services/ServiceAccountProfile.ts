@@ -886,6 +886,9 @@ class ServiceAccountProfile extends ServiceBase {
     accountId?: string;
   }) {
     if (walletId) {
+      if (accountUtils.isKeylessWallet({ walletId })) {
+        return ERequestWalletTypeEnum.KEYLESS_WALLET;
+      }
       if (accountUtils.isHdWallet({ walletId })) {
         return ERequestWalletTypeEnum.HD;
       }
@@ -907,6 +910,9 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
     if (accountId) {
+      if (accountUtils.isKeylessAccount({ accountId })) {
+        return ERequestWalletTypeEnum.KEYLESS_WALLET;
+      }
       if (accountUtils.isHdAccount({ accountId })) {
         return ERequestWalletTypeEnum.HD;
       }
