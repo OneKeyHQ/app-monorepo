@@ -248,16 +248,21 @@ export const BorrowBonusTooltip = ({
                     ),
                   });
                 })}
-                <YStack mt="$2">
-                  <EarnText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    text={data.description}
-                  />
-                  <Divider mt="$5" mb="$3.5" />
-                </YStack>
               </>
             )}
+
+            {/* Description text - show when either distributed or undistributed has items */}
+            {(!isEmpty(data?.distributed) || !isEmpty(data?.undistributed)) &&
+            data.description ? (
+              <YStack mt="$2">
+                <EarnText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  text={data.description}
+                />
+                <Divider mt="$5" mb="$3.5" />
+              </YStack>
+            ) : null}
             <Stack>
               <YStack gap="$3">
                 {/* Platform bonus info card */}
