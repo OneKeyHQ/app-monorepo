@@ -35,6 +35,16 @@ function demoError(error: unknown, apiName: string) {
   }
 }
 
+function demoClear(apiName: string) {
+  Toast.success({
+    title: `${apiName} Success`,
+    message: 'Data cleared successfully',
+  });
+  if (!platformEnv.isNative) {
+    console.log('Storage API Clear:', apiName);
+  }
+}
+
 function StorageApiTests() {
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -47,9 +57,8 @@ function StorageApiTests() {
           onPress={async () => {
             try {
               setLoading('clearAppStorage');
-              const result =
-                await backgroundApiProxy.serviceApp.clearAppStorage();
-              demoLog(result, 'clearAppStorage');
+              await backgroundApiProxy.serviceApp.clearAppStorage();
+              demoClear('clearAppStorage');
             } catch (e) {
               demoError(e, 'clearAppStorage');
             } finally {
@@ -84,9 +93,8 @@ function StorageApiTests() {
           onPress={async () => {
             try {
               setLoading('clearSimpleDB');
-              const result =
-                await backgroundApiProxy.serviceApp.clearSimpleDB();
-              demoLog(result, 'clearSimpleDB');
+              await backgroundApiProxy.serviceApp.clearSimpleDB();
+              demoClear('clearSimpleDB');
             } catch (e) {
               demoError(e, 'clearSimpleDB');
             } finally {
@@ -121,9 +129,8 @@ function StorageApiTests() {
           onPress={async () => {
             try {
               setLoading('clearGlobalStatus');
-              const result =
-                await backgroundApiProxy.serviceApp.clearGlobalStatus();
-              demoLog(result, 'clearGlobalStatus');
+              await backgroundApiProxy.serviceApp.clearGlobalStatus();
+              demoClear('clearGlobalStatus');
             } catch (e) {
               demoError(e, 'clearGlobalStatus');
             } finally {
