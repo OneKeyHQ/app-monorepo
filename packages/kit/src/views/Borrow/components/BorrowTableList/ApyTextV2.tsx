@@ -50,19 +50,24 @@ function ApyComponentBar({
 }: {
   components?: IBorrowApyComponent[];
 }) {
-  const segments = useMemo(() => {
-    if (!components?.length) return [];
+  const { segments, totalWeight } = useMemo(() => {
+    if (!components?.length) return { segments: [], totalWeight: 0 };
+    let currentTotal = 0;
     const normalized = components.map((component) => {
       const numericValue = Number.parseFloat(component.value);
       const safeValue = Number.isFinite(numericValue)
         ? Math.max(numericValue, 0)
         : 0;
+      currentTotal += safeValue;
       return {
         color: component.color || '$bgSubdued',
         weight: safeValue,
       };
     });
-    return normalized;
+    return {
+      segments: normalized,
+      totalWeight: currentTotal,
+    };
   }, [components]);
 
   if (!segments.length) return null;
@@ -81,6 +86,7 @@ function ApyComponentBar({
           bg={segment.color as ColorTokens}
         />
       ))}
+      {totalWeight < 100 ? <Stack flex={100 - totalWeight} /> : null}
     </XStack>
   );
 }
