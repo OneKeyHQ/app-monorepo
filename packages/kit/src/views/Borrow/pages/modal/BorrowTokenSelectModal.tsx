@@ -155,7 +155,6 @@ export default function BorrowTokenSelectModal() {
           return (
             <AssetWithAmountField
               token={item.token}
-              canBeCollateral={item.canBeCollateral}
               amountLabel={{ text: labels.availableWithColon }}
               amount={balance.title}
               amountDescription={balance.description}
@@ -188,7 +187,6 @@ export default function BorrowTokenSelectModal() {
           return (
             <AssetField
               token={item.token}
-              canBeCollateral={item.canBeCollateral}
               platformBonusApy={item?.platformBonusApy}
             />
           );
