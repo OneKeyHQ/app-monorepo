@@ -3,9 +3,9 @@ import { Pressable } from 'react-native';
 import { Stack } from '../../primitives';
 
 import type {
-  IDesktopDragZoneAbsoluteBarProps,
   IDesktopDragZoneBoxProps,
 } from './index.type';
+import { useIsFocused } from '@react-navigation/native';
 
 let lastTime: Date | undefined;
 let num = 0;
@@ -35,6 +35,7 @@ export function DesktopDragZoneBox({
   ...rest
 }: IDesktopDragZoneBoxProps) {
   const Component = renderAs === 'Pressable' ? Pressable : Stack;
+  const isPageFocus = useIsFocused();
 
   return (
     // @ts-expect-error - Component type varies based on renderAs prop
@@ -50,6 +51,7 @@ export function DesktopDragZoneBox({
           {
             userSelect: 'none',
             cursor: 'default',
+            zIndex: isPageFocus ? 1 : -1,
           },
           style,
         ] as any
