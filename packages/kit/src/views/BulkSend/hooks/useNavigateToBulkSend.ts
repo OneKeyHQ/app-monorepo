@@ -53,7 +53,7 @@ export function useNavigateToBulkSend() {
         });
       } else {
         navigation.switchTab(ETabRoutes.Home, {
-          screen: ETabHomeRoutes.TabHomeBulkSend,
+          screen: ETabHomeRoutes.TabHomeBulkSendAddressesInput,
           params: {
             networkId,
             accountId,

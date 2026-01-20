@@ -1,5 +1,5 @@
 function BulkSendAmountsInput() {
-  return null;
+  return "hello";
 }
 
 export default BulkSendAmountsInput;

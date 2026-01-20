@@ -2,8 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Form, Page, YStack, useForm } from '@onekeyhq/components';
 import type {
+  IModalBulkSendParamList
+} from '@onekeyhq/shared/src/routes';
+import {
   EModalBulkSendRoutes,
-  IModalBulkSendParamList,
+  ETabHomeRoutes,
+  ETabRoutes
 } from '@onekeyhq/shared/src/routes';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -24,6 +28,8 @@ import {
   useBulkSendContext,
 } from '../components/BulkSendContext';
 import BulkSendHeader from '../components/BulkSendHeader';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function BaseBulkSendAddressesInput() {
   const route = useAppRoute<
@@ -58,6 +64,8 @@ function BaseBulkSendAddressesInput() {
     mode: 'onChange',
     reValidateMode: 'onChange',
   });
+
+  const navigation = useAppNavigation();
 
   const initBulkSendInfo = useCallback(async () => {
     let _selectedAccountId: string | undefined;
@@ -254,9 +262,40 @@ function BaseBulkSendAddressesInput() {
   ]);
 
   const handleSubmit = useCallback(() => {
-    // TODO: Implement next step
-    console.log('handleSubmit');
-  }, []);
+    if (!selectedNetworkId || !selectedAccountId || !selectedToken) {
+      return;
+    }
+
+    const formValues = form.getValues();
+    const senderAddresses = formValues.senderAddresses.split('\n');
+    const receiverAddressesWithAmounts = formValues.receiverAddresses.split('\n').map((line) => {
+      const [address, amount] = line.split(' ');
+      return { address, amount };
+    });
+
+    if (platformEnv.isNative) {
+      navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {
+        networkId: selectedNetworkId,
+        accountId: selectedAccountId,
+        senderAddresses,
+        receiverAddressesWithAmounts,
+        tokenInfo: selectedToken,
+      });
+    } else {
+      navigation.switchTab(ETabRoutes.Home, {
+        screen: ETabHomeRoutes.TabHomeBulkSendAmountsInput,
+        params: {
+          networkId: selectedNetworkId,
+          accountId: selectedAccountId,
+          senderAddresses,
+          receiverAddressesWithAmounts,
+          tokenInfo: selectedToken,
+        },
+      });
+    }
+
+
+  }, [form, selectedNetworkId, selectedAccountId, selectedToken, navigation]);
 
   return (
     <Page scrollEnabled>
@@ -292,7 +331,12 @@ function BaseBulkSendAddressesInput() {
         </BulkSendContentWrapper>
       </Page.Body>
       <Page.Footer>
-        <BulkSendContentWrapper px="$0" py="$0">
+        <BulkSendContentWrapper $gtMd={{
+          mt: '$0',
+          px: '$0',
+          mx: 'auto',
+          maxWidth: '$180',
+        }}>
           <Page.FooterActions
             $gtMd={{
               px: '$0',

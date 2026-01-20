@@ -18,7 +18,7 @@ export const BulkSendModalRouter: IModalFlowNavigatorConfig<
     component: BulkSendAddressesInput,
   },
   {
-    name: EModalBulkSendRoutes.BulkSendAmountInput,
+    name: EModalBulkSendRoutes.BulkSendAmountsInput,
     component: BulkSendAmountsInput,
   },
 ];

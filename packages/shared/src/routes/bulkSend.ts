@@ -1,10 +1,10 @@
-import type { IToken } from '../../types/token';
+import type { IToken } from "../../types/token";
 
 export enum EModalBulkSendRoutes {
-  BulkSendAddressesInput = 'bulkSendAddressesInput',
-  BulkSendAmountInput = 'BulkSendAmountInput',
-  BulkSendReview = 'BulkSendReview',
-  BulkSendProcess = 'BulkSendProcess',
+  BulkSendAddressesInput = "bulkSendAddressesInput",
+  BulkSendAmountsInput = "BulkSendAmountsInput",
+  BulkSendReview = "BulkSendReview",
+  BulkSendProcess = "BulkSendProcess",
 }
 
 export type IModalBulkSendParamList = {
@@ -14,11 +14,11 @@ export type IModalBulkSendParamList = {
     indexedAccountId: string | undefined;
     tokenInfo?: IToken;
   };
-  [EModalBulkSendRoutes.BulkSendAmountInput]: {
+  [EModalBulkSendRoutes.BulkSendAmountsInput]: {
     networkId: string;
     accountId: string;
     senderAddresses: string[];
-    receiverAddressesWithAmounts: Record<string, string>; // address: amount
+    receiverAddressesWithAmounts: { address: string; amount: string }[];
     tokenInfo: IToken;
   };
 };
