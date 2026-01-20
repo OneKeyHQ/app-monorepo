@@ -1015,6 +1015,11 @@ function isKeylessWallet({
   );
 }
 
+function isKeylessAccount({ accountId }: { accountId: string }): boolean {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isKeylessWallet({ walletId });
+}
+
 function getKeylessWalletPackSetId({ walletId }: { walletId: string }): string {
   const packSetId = walletId.split(`${WALLET_TYPE_HD}-keyless-`)[1];
   if (!packSetId) {
@@ -1147,6 +1152,7 @@ export default {
   buildAllNetworkIndexedAccountIdFromAccountId,
 
   isKeylessWallet,
+  isKeylessAccount,
   hashKeylessSocialUserId,
   isHdWallet,
   isQrWallet,
