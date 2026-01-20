@@ -179,7 +179,10 @@ export const BorrowBonusTooltip = ({
               </YStack>
             ) : null}
 
-            <Divider mb="$3" />
+            {/* Divider - only show when distributed or undistributed has items */}
+            {!isEmpty(data?.distributed) || !isEmpty(data?.undistributed) ? (
+              <Divider mb="$3" />
+            ) : null}
 
             {/* Distributed section */}
             {isEmpty(data?.distributed) ? null : (
@@ -251,9 +254,8 @@ export const BorrowBonusTooltip = ({
               </>
             )}
 
-            {/* Description text - show when either distributed or undistributed has items */}
-            {(!isEmpty(data?.distributed) || !isEmpty(data?.undistributed)) &&
-            data.description ? (
+            {/* Description text - always show when description exists */}
+            {data.description ? (
               <YStack mt="$2">
                 <EarnText
                   size="$bodySm"
