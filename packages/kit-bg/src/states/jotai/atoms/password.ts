@@ -63,6 +63,7 @@ export type IPasswordPersistAtom = {
   appLockDuration: number; // ELockDuration
   enableSystemIdleLock: boolean;
   passwordMode: EPasswordMode;
+  isPasscodeModeFixed?: boolean;
   enablePasswordErrorProtection: boolean;
   passwordErrorAttempts: number;
   passwordErrorProtectionTime: number;
@@ -75,6 +76,7 @@ export const passwordAtomInitialValue: IPasswordPersistAtom = {
   manualLocking: false,
   enableSystemIdleLock: true,
   passwordMode: EPasswordMode.PASSWORD,
+  isPasscodeModeFixed: undefined,
   enablePasswordErrorProtection: false,
   passwordErrorAttempts: 0,
   passwordErrorProtectionTime: 0,
