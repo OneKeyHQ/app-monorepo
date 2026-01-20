@@ -123,7 +123,11 @@ function InviteRewardPage() {
       }
       navigation.setParams({ showRewardDistributionHistory: undefined });
       navigateToRewardHistory();
-    }, [navigation, navigateToRewardHistory, route.params?.showRewardDistributionHistory]),
+    }, [
+      navigation,
+      navigateToRewardHistory,
+      route.params?.showRewardDistributionHistory,
+    ]),
   );
 
   // Redirect to ReferAFriend page if user is not logged in

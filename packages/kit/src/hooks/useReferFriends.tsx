@@ -396,6 +396,12 @@ export const useReferFriends = () => {
       toHardwareSalesRewardPage,
       openHardwareSalesOrderDetail,
     }),
-    [toReferFriendsPage, shareReferRewards, toInviteRewardPage, toHardwareSalesRewardPage, openHardwareSalesOrderDetail],
+    [
+      toReferFriendsPage,
+      shareReferRewards,
+      toInviteRewardPage,
+      toHardwareSalesRewardPage,
+      openHardwareSalesOrderDetail,
+    ],
   );
 };

@@ -21,7 +21,7 @@ import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareRecordItem } from '@onekeyhq/shared/src/referralCode/type';
 import type { IModalReferFriendsParamList } from '@onekeyhq/shared/src/routes';
-import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import type { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ReferFriendsPageContainer } from '../../components';

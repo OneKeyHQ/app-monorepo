@@ -78,6 +78,10 @@ function HardwareSalesRewardPageWrapper() {
           }
         } catch (error) {
           // Silently fail - user is already on HardwareSalesReward page
+          console.error(
+            'Failed to fetch hardware order detail for modal:',
+            error,
+          );
         }
       })();
     }, [navigation, route.params?.showOrderDetail, route.params?.orderId]),
