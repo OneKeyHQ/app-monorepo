@@ -1,6 +1,7 @@
 import type {
   IEarnWalletHistoryItem,
   IEarnWalletHistoryNetwork,
+  IHardwareRecordItem,
 } from '../referralCode/type';
 
 export enum EModalReferFriendsRoutes {
@@ -9,6 +10,7 @@ export enum EModalReferFriendsRoutes {
   YourReferred = 'YourReferred',
   YourReferredWalletAddresses = 'YourReferredWalletAddresses',
   HardwareSalesReward = 'HardwareSalesReward',
+  HardwareSalesOrderDetail = 'HardwareSalesOrderDetail',
   InviteReward = 'InviteReward',
   EditAddress = 'EditAddress',
   EarnReward = 'EarnReward',
@@ -31,8 +33,20 @@ export type IModalReferFriendsParamList = {
     networks: IEarnWalletHistoryNetwork[];
     items: IEarnWalletHistoryItem[];
   };
-  [EModalReferFriendsRoutes.HardwareSalesReward]: undefined;
-  [EModalReferFriendsRoutes.InviteReward]: undefined;
+  [EModalReferFriendsRoutes.HardwareSalesReward]:
+    | {
+        showOrderDetail?: boolean;
+        orderId?: string;
+      }
+    | undefined;
+  [EModalReferFriendsRoutes.HardwareSalesOrderDetail]: {
+    data: IHardwareRecordItem;
+  };
+  [EModalReferFriendsRoutes.InviteReward]:
+    | {
+        showRewardDistributionHistory?: boolean;
+      }
+    | undefined;
   [EModalReferFriendsRoutes.EditAddress]: {
     enabledNetworks: string[];
     accountId: string;

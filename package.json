@@ -68,6 +68,7 @@
     "app:desktop:op": "yarn op yarn app:desktop",
     "app:ios:op": "yarn op yarn app:ios",
     "app:android:op": "yarn op yarn app:android",
+    "app:native-bundle:op": "yarn op yarn app:native-bundle",
     "prepare": "husky"
   },
   "dependencies": {
