@@ -11,21 +11,22 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useSettingsPersistAtom,
-  useSwapFromMarketJumpTokenAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  EModalRoutes,
+  EModalSwapRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
   ERootRoutes,
-  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
@@ -75,7 +76,6 @@ export function ActionButton({
   const [settingsValue] = useSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
-  const [, setSwapFromMarketJumpTokenAtom] = useSwapFromMarketJumpTokenAtom();
   const { createAddress } = useAccountSelectorCreateAddress();
   // Get payment token price for buy orders
   const { price: paymentTokenPrice } = usePaymentTokenPrice(
@@ -118,29 +118,24 @@ export function ActionButton({
   ]);
 
   const handleJumpToSwapAction = useCallback(() => {
-    if (onlySupportCrossChain) {
-      setSwapFromMarketJumpTokenAtom({
-        token: actionToken,
-        otherToken: actionOtherToken,
-        amount,
-        type: ESwapTabSwitchType.BRIDGE,
-        direction: tradeType === ESwapDirection.BUY ? 'to' : 'from',
-      });
-      navigation.switchTab(ETabRoutes.Swap);
-    } else {
-      setSwapFromMarketJumpTokenAtom({
-        token: actionToken,
-        amount,
-        otherToken: actionOtherToken,
-        type: ESwapTabSwitchType.SWAP,
-        direction: tradeType === ESwapDirection.BUY ? 'to' : 'from',
-      });
-      navigation.switchTab(ETabRoutes.Swap);
-    }
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        fromAmount: isValidAmount ? amount : '',
+        importToToken:
+          tradeType === ESwapDirection.BUY ? actionToken : actionOtherToken,
+        importFromToken:
+          tradeType === ESwapDirection.BUY ? actionOtherToken : actionToken,
+        swapTabSwitchType: onlySupportCrossChain
+          ? ESwapTabSwitchType.BRIDGE
+          : ESwapTabSwitchType.SWAP,
+        swapSource: ESwapSource.MARKET,
+      },
+    });
   }, [
+    isValidAmount,
     amount,
     onlySupportCrossChain,
-    setSwapFromMarketJumpTokenAtom,
     actionToken,
     actionOtherToken,
     tradeType,

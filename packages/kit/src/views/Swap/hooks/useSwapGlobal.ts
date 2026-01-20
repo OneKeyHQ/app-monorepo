@@ -443,6 +443,12 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (!!fromTokenRef.current || !!toTokenRef.current) {
       return;
     }
+    if (params?.fromAmount) {
+      void setFromTokenAmount({
+        value: params.fromAmount,
+        isInput: true,
+      });
+    }
     if (
       (params?.importFromToken &&
         swapNetworksRef.current.find(
@@ -557,11 +563,13 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
     }
   }, [
+    params?.fromAmount,
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
     params?.swapTabSwitchType,
     skipSyncDefaultSelectedToken,
+    setFromTokenAmount,
     syncNetworksSort,
     checkSupportTokenSwapType,
     setSwapFromToken,
