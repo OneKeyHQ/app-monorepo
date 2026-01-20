@@ -188,15 +188,6 @@ export default class ServiceNotification extends ServiceBase {
     const msgId =
       messageInfo.extras?.params?.msgId || messageInfo.extras?.msgId;
 
-    console.log('=== NOTIFICATION RECEIVED ===', {
-      msgId,
-      title: messageInfo.title,
-      content: messageInfo.content,
-      pushSource: messageInfo.pushSource,
-      extras: messageInfo.extras,
-      fullMessageInfo: messageInfo,
-    });
-
     defaultLogger.notification.common.notificationReceived({
       messageInfo,
       notificationId: msgId,
@@ -261,13 +252,6 @@ export default class ServiceNotification extends ServiceBase {
       return;
     }
     this.addShowedNotificationId(notificationId);
-
-    console.log('=== NOTIFICATION CLICKED ===', {
-      notificationId,
-      eventSource,
-      params,
-      remotePushMessageInfo: params?.remotePushMessageInfo,
-    });
 
     defaultLogger.notification.common.notificationClicked({
       eventSource,
@@ -1269,10 +1253,6 @@ export default class ServiceNotification extends ServiceBase {
       IApiClientResponse<INotificationPushMessageListItem[]>
     >('/notification/v1/message/list', topicTypes ? { topicTypes } : undefined);
     const data = result?.data?.data || [];
-    console.log('=== NOTIFICATION LIST ===');
-    console.log('topicTypes:', topicTypes);
-    console.log('count:', data.length);
-    console.log('data:', JSON.stringify(data, null, 2));
     return data;
   }
 
