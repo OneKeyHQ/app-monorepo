@@ -74,11 +74,6 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     [title],
   );
 
-  const renderUniversalSearchInput = useCallback(
-    () => <UniversalSearchInput />,
-    [],
-  );
-
   const renderNotificationButton = useCallback(
     () => (
       <HeaderButtonGroup>
