@@ -876,8 +876,7 @@ export default class ServicePassword extends ServiceBase {
     const { manualLocking: isManualLocking } =
       await passwordPersistManualLockStateAtom.get();
     if (isManualLocking) {
-      await passwordPersistManualLockStateAtom.set((v) => ({
-        ...v,
+      await passwordPersistManualLockStateAtom.set(() => ({
         manualLocking: false,
       }));
     }
@@ -910,8 +909,7 @@ export default class ServicePassword extends ServiceBase {
     }
     await this.clearCachedPassword();
     if (manual) {
-      await passwordPersistManualLockStateAtom.set((v) => ({
-        ...v,
+      await passwordPersistManualLockStateAtom.set(() => ({
         manualLocking: true,
       }));
     }
