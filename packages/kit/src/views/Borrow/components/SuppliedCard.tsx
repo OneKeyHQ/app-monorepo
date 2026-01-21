@@ -31,13 +31,15 @@ const SuppliedHeader = ({
   data,
   suppliedBalanceLabel,
   apyLabel,
+  isDesktop,
 }: {
   data?: IBorrowReserveItem['supplied'];
   suppliedBalanceLabel: string;
   apyLabel: string;
+  isDesktop?: boolean;
 }) => {
   return (
-    <XStack mt="$3" mb="$5" px="$5" gap="$5">
+    <XStack mt="$3" mb={isDesktop ? '$3' : '$2'} px="$5" gap="$5">
       {data?.suppliedBalance?.title ? (
         <XStack gap="$1" ai="center">
           <EarnText
@@ -247,6 +249,7 @@ export const SuppliedCard = () => {
             data={reserves?.supplied}
             suppliedBalanceLabel={labels.suppliedBalance}
             apyLabel={labels.apy}
+            isDesktop={gtMd}
           />
         ) : null
       }
