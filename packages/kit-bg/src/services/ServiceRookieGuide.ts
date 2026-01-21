@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ERookieTaskType,
@@ -25,6 +26,7 @@ class ServiceRookieGuide extends ServiceBase {
   async getRookieGuideInfo(): Promise<IRookieGuideInfo> {
     // Auto-activate when H5 calls this method (user opened the guide page)
     await this.backgroundApi.simpleDb.rookieGuide.activate();
+    defaultLogger.rookieGuide.guide.activated();
 
     const [taskProgress, balanceInfo, oneKeyId, instanceId] = await Promise.all(
       [
@@ -35,18 +37,36 @@ class ServiceRookieGuide extends ServiceBase {
       ],
     );
 
-    return {
+    const result: IRookieGuideInfo = {
       fiatBalance: balanceInfo.balance,
       currency: balanceInfo.currency,
       oneKeyId,
       instanceId,
       taskProgress,
     };
+
+    defaultLogger.rookieGuide.guide.getInfo({
+      fiatBalance: result.fiatBalance,
+      currency: result.currency,
+      isLoggedIn: oneKeyId.isLoggedIn,
+      instanceId,
+    });
+
+    return result;
   }
 
   @backgroundMethod()
   async getTaskProgress(): Promise<IRookieGuideProgress> {
-    return this.backgroundApi.simpleDb.rookieGuide.getProgress();
+    const progress =
+      await this.backgroundApi.simpleDb.rookieGuide.getProgress();
+    const completedTasks = (Object.keys(progress) as ERookieTaskType[]).filter(
+      (key) => progress[key],
+    );
+    defaultLogger.rookieGuide.guide.getProgress({
+      completedTasks,
+      totalTasks: 5,
+    });
+    return progress;
   }
 
   @backgroundMethod()
@@ -54,6 +74,12 @@ class ServiceRookieGuide extends ServiceBase {
     // Only record if user has opened the guide page
     const isActivated =
       await this.backgroundApi.simpleDb.rookieGuide.isActivated();
+
+    defaultLogger.rookieGuide.guide.taskCompleted({
+      taskType,
+      isActivated,
+    });
+
     if (!isActivated) {
       return;
     }
@@ -62,6 +88,7 @@ class ServiceRookieGuide extends ServiceBase {
 
   @backgroundMethod()
   async resetProgress(): Promise<void> {
+    defaultLogger.rookieGuide.guide.resetProgress();
     await this.backgroundApi.simpleDb.rookieGuide.resetProgress();
   }
 
@@ -135,11 +162,24 @@ class ServiceRookieGuide extends ServiceBase {
         );
       }
 
+      const willRecord = new BigNumber(totalBalance).gt(0);
+
+      defaultLogger.rookieGuide.guide.checkDepositTask({
+        accountId,
+        isEligible: isEligibleAccount,
+        balance: totalBalance,
+        willRecord,
+      });
+
       // Record if balance > 0
-      if (new BigNumber(totalBalance).gt(0)) {
+      if (willRecord) {
         await this.recordTaskCompleted(ERookieTaskType.DEPOSIT);
       }
-    } catch {
+    } catch (error) {
+      defaultLogger.rookieGuide.guide.error({
+        method: 'checkAndRecordDepositTask',
+        error: (error as Error)?.message || 'Unknown error',
+      });
       // Silent fail - don't break main flow
     }
   }

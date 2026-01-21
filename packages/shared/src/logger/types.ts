@@ -41,6 +41,7 @@ export enum EScopeName {
   networkDoctor = 'networkDoctor',
   onboarding = 'onboarding',
   universalSearch = 'universalSearch',
+  rookieGuide = 'rookieGuide',
 }
 export interface IScope {
   getName: () => EScopeName;
