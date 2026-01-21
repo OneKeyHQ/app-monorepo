@@ -14,6 +14,7 @@ export type IModalBulkSendParamList = {
     accountId: string | undefined;
     indexedAccountId: string | undefined;
     tokenInfo?: IToken;
+    isInModal: boolean;
   };
   [EModalBulkSendRoutes.BulkSendAmountsInput]: {
     networkId: string;
@@ -25,5 +26,6 @@ export type IModalBulkSendParamList = {
     receivers: { address: string; amount: string | undefined }[];
     tokenInfo: IToken;
     bulkSendMode: EBulkSendMode;
+    isInModal?: boolean;
   };
 };

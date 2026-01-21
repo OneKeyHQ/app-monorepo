@@ -29,7 +29,6 @@ import {
 } from './components/Context';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 function BaseBulkSendAddressesInput() {
@@ -40,7 +39,7 @@ function BaseBulkSendAddressesInput() {
 
   const { activeAccount } = useActiveAccount({ num: 0 });
 
-  const { accountId, networkId, indexedAccountId, tokenInfo } =
+  const { accountId, networkId, indexedAccountId, tokenInfo, isInModal } =
     route.params ?? {};
 
   const {
@@ -278,7 +277,7 @@ function BaseBulkSendAddressesInput() {
       return { address: address.trim(), amount: amount?.trim() };
     });
 
-    if (platformEnv.isNative) {
+    if (isInModal) {
       navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {
         networkId: selectedNetworkId,
         accountId: selectedAccountId,
@@ -309,7 +308,7 @@ function BaseBulkSendAddressesInput() {
       <BulkSendBar />
       <Page.Body>
         <BulkSendContentWrapper>
-          <BulkSendHeader />
+          <BulkSendHeader bulkSendMode={bulkSendMode} />
           <YStack gap="$6" $gtMd={{ gap: '$8' }}>
             <AssetSelectorTrigger />
             <AccountSelectorProviderMirror

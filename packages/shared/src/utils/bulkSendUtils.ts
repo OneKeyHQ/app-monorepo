@@ -1,6 +1,6 @@
-import { getNetworkIdsMap } from '../config/networkIds';
+import { getNetworkIdsMap } from "../config/networkIds";
 
-import networkUtils from './networkUtils';
+import networkUtils from "./networkUtils";
 
 function getBulkSendSupportedEVMNetworkIds() {
   const networkIdsMap = getNetworkIdsMap();
@@ -36,8 +36,22 @@ function fixBulkSendSupportedNetworkId({ networkId }: { networkId: string }) {
   return supportedNetworkIds[0];
 }
 
+function getBulkSendModeLabel(bulkSendMode: EBulkSendMode) {
+  switch (bulkSendMode) {
+    case EBulkSendMode.OneToMany:
+      return "One to Many";
+    case EBulkSendMode.ManyToOne:
+      return "Many to One";
+    case EBulkSendMode.ManyToMany:
+      return "Many to Many";
+    default:
+      return "Unknown";
+  }
+}
+
 export default {
   fixBulkSendSupportedNetworkId,
   getBulkSendSupportedEVMNetworkIds,
   getBulkSendSupportedNetworkIds,
+  getBulkSendModeLabel,
 };

@@ -1,18 +1,20 @@
-import { useCallback } from 'react';
+import { useCallback } from "react";
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import backgroundApiProxy from "@onekeyhq/kit/src/background/instance/backgroundApiProxy";
+import useAppNavigation from "@onekeyhq/kit/src/hooks/useAppNavigation";
+import platformEnv from "@onekeyhq/shared/src/platformEnv";
 import {
   EModalBulkSendRoutes,
   EModalRoutes,
   ETabHomeRoutes,
   ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
-import type { IToken } from '@onekeyhq/shared/types/token';
+} from "@onekeyhq/shared/src/routes";
+import type { IToken } from "@onekeyhq/shared/types/token";
+import { useMedia } from "@onekeyhq/components";
 
 export function useNavigateToBulkSend() {
   const navigation = useAppNavigation();
+  const media = useMedia();
 
   const navigateToBulkSend = useCallback(
     async ({
@@ -26,11 +28,8 @@ export function useNavigateToBulkSend() {
       indexedAccountId: string | undefined;
       tokenInfo?: IToken;
     }) => {
-      if (
-        platformEnv.isExtensionUiPopup ||
-        platformEnv.isExtensionUiSidePanel
-      ) {
-        const path = '/bulk-send';
+      if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+        const path = "/bulk-send";
 
         await backgroundApiProxy.serviceApp.openExtensionExpandTab({
           path,
@@ -41,17 +40,7 @@ export function useNavigateToBulkSend() {
             tokenInfo,
           },
         });
-      } else if (platformEnv.isNative) {
-        navigation.pushModal(EModalRoutes.BulkSendModal, {
-          screen: EModalBulkSendRoutes.BulkSendAddressesInput,
-          params: {
-            networkId,
-            accountId,
-            indexedAccountId,
-            tokenInfo,
-          },
-        });
-      } else {
+      } else if (media.gtMd) {
         navigation.switchTab(ETabRoutes.Home, {
           screen: ETabHomeRoutes.TabHomeBulkSendAddressesInput,
           params: {
@@ -61,9 +50,20 @@ export function useNavigateToBulkSend() {
             tokenInfo,
           },
         });
+      } else {
+        navigation.pushModal(EModalRoutes.BulkSendModal, {
+          screen: EModalBulkSendRoutes.BulkSendAddressesInput,
+          params: {
+            networkId,
+            accountId,
+            indexedAccountId,
+            tokenInfo,
+            isInModal: true,
+          },
+        });
       }
     },
-    [navigation],
+    [navigation, media.gtMd],
   );
 
   return navigateToBulkSend;

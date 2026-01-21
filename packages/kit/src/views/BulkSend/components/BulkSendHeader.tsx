@@ -1,16 +1,27 @@
-import { SizableText, Stack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 
-function BulkSendHeader() {
+function BulkSendHeader({ bulkSendMode }: { bulkSendMode: EBulkSendMode }) {
   const intl = useIntl();
+  const media = useMedia();
+
+  if (!media.gtMd) return null;
+
   return (
-    <YStack gap="$1.5">
-      <SizableText size="$bodyMdMedium">
+    <YStack gap="$1">
+      <SizableText size="$heading2xl">
         {intl.formatMessage({
           id: ETranslations.global_asset,
         })}
       </SizableText>
+      <XStack gap="$1" alignItems="center">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {bulkSendUtils.getBulkSendModeLabel(bulkSendMode)}
+        </SizableText>
+      </XStack>
     </YStack>
   );
 }

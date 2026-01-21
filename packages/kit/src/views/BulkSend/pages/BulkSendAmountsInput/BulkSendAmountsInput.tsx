@@ -13,7 +13,7 @@ import { POLLING_DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_TOKEN } from '@onekeyhq
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 function BaseBulkSendAmountsInput() {
-  const { tokenDetails, tokenDetailsState } = useBulkSendAmountsInputContext();
+  const { tokenDetails, tokenDetailsState, bulkSendMode } = useBulkSendAmountsInputContext();
   const handleSubmit = useCallback(() => {
     console.log('handleSubmit');
   }, []);
@@ -26,7 +26,7 @@ function BaseBulkSendAmountsInput() {
     <BulkSendBar />
     <Page.Body>
       <BulkSendContentWrapper>
-        <BulkSendHeader />
+        <BulkSendHeader bulkSendMode={bulkSendMode} />
       </BulkSendContentWrapper>
     </Page.Body>
     <Page.Footer>
