@@ -62,6 +62,14 @@ class ServiceUniversalSearch extends ServiceBase {
     return 1; // Others accounts (Watching/External)
   }
 
+  private buildAddressImplDedupeKey(
+    displayAddress: string,
+    networkId: string,
+  ): string {
+    const networkImpl = networkUtils.getNetworkImpl({ networkId });
+    return `${displayAddress}_${networkImpl}`;
+  }
+
   @backgroundMethod()
   async universalSearchRecommend({
     searchTypes,
@@ -468,6 +476,10 @@ class ServiceUniversalSearch extends ServiceBase {
     let addressSearchItems: IUniversalSearchResultItem[] = [];
 
     // Step 2: Check if address belongs to internal wallets for valid networks
+    // Deduplicate by address + impl combination
+    // (e.g., same Polkadot address valid on hydration, bifrost-ksm, bifrost, asset-hub should show once)
+    const processedAddressImplKeys = new Set<string>();
+
     for (const validNetworkId of batchValidateResult.networkIds) {
       const localValidateResult = await serviceValidator.localValidateAddress({
         networkId: validNetworkId,
@@ -475,6 +487,16 @@ class ServiceUniversalSearch extends ServiceBase {
       });
 
       if (localValidateResult.isValid) {
+        const dedupeKey = this.buildAddressImplDedupeKey(
+          localValidateResult.displayAddress,
+          validNetworkId,
+        );
+
+        if (processedAddressImplKeys.has(dedupeKey)) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+
         const internalItems = await this.findInternalWalletAccounts({
           address: localValidateResult.displayAddress,
           networkId: validNetworkId,
@@ -482,12 +504,7 @@ class ServiceUniversalSearch extends ServiceBase {
 
         if (internalItems.length > 0) {
           addressSearchItems.push(...internalItems);
-          console.log(
-            '[universalSearchOfAddress] internalItems from network',
-            validNetworkId,
-            ':',
-            internalItems,
-          );
+          processedAddressImplKeys.add(dedupeKey);
         }
       }
     }
@@ -661,6 +678,9 @@ class ServiceUniversalSearch extends ServiceBase {
     const { serviceNetwork, serviceValidator } = this.backgroundApi;
     const items: IUniversalSearchResultItem[] = [];
 
+    // Deduplicate by address + impl combination
+    const processedAddressImplKeys = new Set<string>();
+
     // Validate for each supported network
     for (const batchNetworkId of batchValidateResult.networkIds) {
       const settings = await getVaultSettings({ networkId: batchNetworkId });
@@ -676,6 +696,16 @@ class ServiceUniversalSearch extends ServiceBase {
         );
 
         if (network && localValidateResult.isValid) {
+          const dedupeKey = this.buildAddressImplDedupeKey(
+            localValidateResult.displayAddress,
+            batchNetworkId,
+          );
+
+          if (processedAddressImplKeys.has(dedupeKey)) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+
           items.push({
             type: EUniversalSearchType.Address,
             payload: {
@@ -683,6 +713,7 @@ class ServiceUniversalSearch extends ServiceBase {
               network,
             },
           } as IUniversalSearchResultItem);
+          processedAddressImplKeys.add(dedupeKey);
         }
       }
     }
