@@ -97,7 +97,12 @@ export function useReplaceToReferFriends() {
         const screen = isLogin
           ? ETabReferFriendsRoutes.TabInviteReward
           : ETabReferFriendsRoutes.TabReferAFriend;
-        navigation.replace(screen, navParams);
+        // Use reset instead of replace to clear the navigation stack
+        // This prevents the back button from appearing on the root screen
+        navigation.reset({
+          index: 0,
+          routes: [{ name: screen, params: navParams }],
+        });
       }
     },
     [navigation],
