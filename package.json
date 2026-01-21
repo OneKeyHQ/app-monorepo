@@ -68,8 +68,7 @@
     "app:desktop:op": "yarn op yarn app:desktop",
     "app:ios:op": "yarn op yarn app:ios",
     "app:android:op": "yarn op yarn app:android",
-    "app:native-bundle:op": "yarn op yarn app:native-bundle",
-    "prepare": "husky"
+    "app:native-bundle:op": "yarn op yarn app:native-bundle"
   },
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
@@ -269,7 +268,6 @@
     "fake-indexeddb": "^5.0.0",
     "html-webpack-plugin": "^5.5.3",
     "http-proxy-middleware": "^2.0.3",
-    "husky": "^9.1.7",
     "ip": "^1.1.9",
     "jest": "^29.7.0",
     "jest-expo": "~53.0.8",
