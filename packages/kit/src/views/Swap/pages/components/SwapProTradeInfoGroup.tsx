@@ -7,8 +7,14 @@ import {
   Badge,
   NumberSizeableText,
   SizableText,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapLimitPriceUseRateAtom,
   useSwapProDirectionAtom,
@@ -53,6 +59,7 @@ const SwapProTradeInfoGroup = ({
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProQuoteResultPro] = useSwapSpeedQuoteResultAtom();
   const [swapProQuoteFetchingPro] = useSwapSpeedQuoteFetchingAtom();
@@ -70,6 +77,13 @@ const SwapProTradeInfoGroup = ({
     }
     return defaultLimitTokens;
   }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
+  const { result: enableAddressTypeSelector } = usePromiseResult(async () => {
+    const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: inputToken?.networkId ?? '',
+    });
+    return result?.mergeDeriveAssetsEnabled;
+  }, [inputToken?.networkId]);
+
   const limitPriceValue = useMemo(() => {
     const swapLimitPriceUseRateBN = new BigNumber(
       swapLimitPriceUseRate.rate || 0,
@@ -188,16 +202,48 @@ const SwapProTradeInfoGroup = ({
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.global_balance })}
         valueComponent={
-          <NumberSizeableText
-            size="$bodySmMedium"
-            formatter="balance"
-            formatterOptions={{ tokenSymbol: inputToken?.symbol ?? '-' }}
-            onPress={onBalanceMax}
-            numberOfLines={1}
-            maxWidth="$36"
-          >
-            {balanceValue}
-          </NumberSizeableText>
+          <XStack alignItems="center" gap="$1">
+            <NumberSizeableText
+              size="$bodySmMedium"
+              formatter="balance"
+              onPress={onBalanceMax}
+              numberOfLines={1}
+              maxWidth="$36"
+            >
+              {balanceValue}
+            </NumberSizeableText>
+            <SizableText
+              size="$bodySmMedium"
+              numberOfLines={1}
+              textAlign="right"
+              maxWidth="$36"
+            >
+              {inputToken?.symbol ?? '-'}
+            </SizableText>
+            {!!inputToken && enableAddressTypeSelector ? (
+              <AddressTypeSelector
+                refreshOnOpen
+                placement="bottom-start"
+                networkId={inputToken.networkId ?? ''}
+                indexedAccountId={activeAccount?.indexedAccount?.id ?? ''}
+                walletId={activeAccount?.wallet?.id ?? ''}
+                activeDeriveType={activeAccount?.deriveType}
+                activeDeriveInfo={activeAccount?.deriveInfo}
+                renderSelectorTrigger={
+                  <DeriveTypeSelectorTriggerIconRenderer
+                    autoShowLabel={false}
+                    onPress={() => {}}
+                    iconProps={{
+                      size: '$4',
+                    }}
+                    labelProps={{
+                      pl: '$1',
+                    }}
+                  />
+                }
+              />
+            ) : null}
+          </XStack>
         }
         titleProps={ITEM_TITLE_PROPS}
         valueProps={ITEM_VALUE_PROPS}

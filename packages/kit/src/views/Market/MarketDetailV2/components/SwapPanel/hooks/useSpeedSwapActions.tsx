@@ -110,25 +110,44 @@ export function useSpeedSwapActions(props: {
     new BigNumber(0),
   );
 
+  const [tradeTokenDetail, setTradeTokenDetail] =
+    useState<ISwapToken>(tradeToken);
+
+  const { fromToken, toToken, balanceToken } = useMemo(() => {
+    if (tradeType === ESwapDirection.BUY) {
+      return {
+        fromToken: tradeTokenDetail,
+        toToken: marketToken,
+        balanceToken: tradeTokenDetail,
+      };
+    }
+    return {
+      fromToken: marketToken,
+      toToken: tradeTokenDetail,
+      balanceToken: marketToken,
+    };
+  }, [tradeType, marketToken, tradeTokenDetail]);
+
   const netAccountRes = usePromiseResult(async () => {
     try {
       const defaultDeriveType =
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: marketToken?.networkId ?? '',
+          networkId: balanceToken?.networkId ?? '',
         });
       const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
         accountId: account?.indexedAccount?.id
           ? undefined
           : account?.account?.id,
         indexedAccountId: account?.indexedAccount?.id ?? '',
-        networkId: marketToken?.networkId,
+        networkId: balanceToken?.networkId,
         deriveType: defaultDeriveType ?? 'default',
       });
       return res;
     } catch (_e) {
       return undefined;
     }
-  }, [account, marketToken?.networkId]);
+  }, [account, balanceToken?.networkId]);
+
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: netAccountRes.result?.id ?? '',
     networkId: marketToken?.networkId,
@@ -136,9 +155,6 @@ export function useSpeedSwapActions(props: {
   const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
     leading: true,
   });
-
-  const [tradeTokenDetail, setTradeTokenDetail] =
-    useState<ISwapToken>(tradeToken);
 
   const tradeTokenRef = useRef<ISwapToken>(undefined);
   if (tradeTokenRef.current !== tradeToken) {
@@ -170,21 +186,6 @@ export function useSpeedSwapActions(props: {
     tradeTokenNetworkId,
     tradeTokenContractAddress,
   ]);
-
-  const { fromToken, toToken, balanceToken } = useMemo(() => {
-    if (tradeType === ESwapDirection.BUY) {
-      return {
-        fromToken: tradeTokenDetail,
-        toToken: marketToken,
-        balanceToken: tradeTokenDetail,
-      };
-    }
-    return {
-      fromToken: marketToken,
-      toToken: tradeTokenDetail,
-      balanceToken: marketToken,
-    };
-  }, [tradeType, marketToken, tradeTokenDetail]);
 
   const speedSwapApproveTransactionLoading = useMemo(() => {
     const speedSwapApproveTransaction =

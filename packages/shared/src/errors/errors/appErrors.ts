@@ -45,6 +45,24 @@ export class IncorrectPassword extends OneKeyAppError {
   override className = EOneKeyErrorClassNames.IncorrectPassword;
 }
 
+export class KeylessDataCorruptedError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyError: KeylessDataCorruptedError',
+        // TODO @franco i18n
+        // defaultKey: ETranslations.auth_error_passcode_incorrect,
+        defaultKey:
+          '数据损坏，可能是更换了新设备，如果您记得 PIN 和社交账户，请登出钱包后重新添加' as any,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.KeylessDataCorruptedError;
+
+  override name = EOneKeyErrorClassNames.KeylessDataCorruptedError;
+}
+
 export class IncorrectMasterPassword extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
