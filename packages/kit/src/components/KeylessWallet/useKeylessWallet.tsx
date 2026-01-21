@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Dialog,
   SizableText,
@@ -857,32 +858,43 @@ export function useKeylessWallet() {
       let mnemonic = '';
       let ownerId = '';
       let keylessDetailsInfo;
-      if (action === EKeylessFinalizeAction.Create) {
-        const result =
-          await backgroundApiProxy.serviceKeylessWallet.createKeylessWalletToServer(
-            {
-              token,
-              refreshToken,
-              pin,
-              customMnemonic: await getKeylessOnboardingCustomMnemonic(),
-            },
-          );
-        mnemonic = result.mnemonic;
-        ownerId = result.ownerId;
-        keylessDetailsInfo = result.keylessDetailsInfo;
-      }
-      if (action === EKeylessFinalizeAction.Restore) {
-        const result =
-          await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletFromServer(
-            {
-              token,
-              refreshToken,
-              pin,
-            },
-          );
-        mnemonic = result.mnemonic;
-        ownerId = result.ownerId;
-        keylessDetailsInfo = result.keylessDetailsInfo;
+      let loadingDialog: IDialogInstance | undefined;
+      try {
+        loadingDialog = Dialog.loading({
+          title: intl.formatMessage({
+            id: ETranslations.global_preparing,
+          }),
+        });
+        await timerUtils.wait(600);
+        if (action === EKeylessFinalizeAction.Create) {
+          const result =
+            await backgroundApiProxy.serviceKeylessWallet.createKeylessWalletToServer(
+              {
+                token,
+                refreshToken,
+                pin,
+                customMnemonic: await getKeylessOnboardingCustomMnemonic(),
+              },
+            );
+          mnemonic = result.mnemonic;
+          ownerId = result.ownerId;
+          keylessDetailsInfo = result.keylessDetailsInfo;
+        }
+        if (action === EKeylessFinalizeAction.Restore) {
+          const result =
+            await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletFromServer(
+              {
+                token,
+                refreshToken,
+                pin,
+              },
+            );
+          mnemonic = result.mnemonic;
+          ownerId = result.ownerId;
+          keylessDetailsInfo = result.keylessDetailsInfo;
+        }
+      } finally {
+        await loadingDialog?.close?.();
       }
       navigation.navigate(ERootRoutes.Onboarding, {
         screen: EOnboardingV2Routes.OnboardingV2,
