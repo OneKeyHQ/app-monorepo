@@ -6,6 +6,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import {
   MarketTradingView,
@@ -29,6 +30,10 @@ export function DesktopLayout() {
     networkId,
     accountAddress,
   });
+
+  // Hide tabs for BTC network
+  const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
+
   return (
     <XStack flex={1}>
       {/* Left column */}
@@ -49,13 +54,15 @@ export function DesktopLayout() {
           ) : null}
         </Stack>
 
-        {/* Info tabs */}
-        <Stack h="30vh">
-          <DesktopInformationTabs
-            portfolioData={portfolioData}
-            isRefreshing={isRefreshing}
-          />
-        </Stack>
+        {/* Info tabs - hide for BTC network */}
+        {!isBTCNetwork ? (
+          <Stack h="30vh">
+            <DesktopInformationTabs
+              portfolioData={portfolioData}
+              isRefreshing={isRefreshing}
+            />
+          </Stack>
+        ) : null}
       </YStack>
 
       {/* Right column */}

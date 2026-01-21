@@ -69,7 +69,15 @@ export function MobileInformationTabs({
     return baseTitle;
   }, [intl, tokenDetail?.holders]);
 
+  // Hide all tabs for BTC network
+  const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
+
   const tabs = useMemo(() => {
+    // Hide all tabs for BTC network
+    if (isBTCNetwork) {
+      return [];
+    }
+
     // Check if current network supports holders tab (not available for native tokens)
     const shouldShowHoldersTab = !isNative && isHoldersTabSupported(networkId);
     // Check if there's an account address available
@@ -119,14 +127,15 @@ export function MobileInformationTabs({
     portfolioData,
     isRefreshing,
     isNative,
+    isBTCNetwork,
   ]);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <MobileInformationTabsHeader {...props} />;
   }, []);
 
-  // Hide tabs for BTC network
-  if (!networkId || networkUtils.isBTCNetwork(networkId)) {
+  // Hide entire component if no networkId
+  if (!networkId) {
     return null;
   }
 

@@ -25,6 +25,7 @@ import {
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -98,12 +99,19 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     [focusedTab, tabNames, width],
   );
 
+  // Hide tabs for BTC network
+  const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
+
   const tradingViewHeight = useMemo(() => {
+    // When tabs are hidden (BTC network), use more height for the chart
+    if (isBTCNetwork) {
+      return height;
+    }
     if (platformEnv.isNative) {
       return Number(height) * 0.58;
     }
-    return '40vh';
-  }, [height]);
+    return height;
+  }, [height, isBTCNetwork]);
 
   const informationHeader = useMemo(() => {
     return (
