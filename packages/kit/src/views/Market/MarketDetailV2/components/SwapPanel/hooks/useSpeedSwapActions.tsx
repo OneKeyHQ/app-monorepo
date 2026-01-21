@@ -127,7 +127,6 @@ export function useSpeedSwapActions(props: {
       balanceToken: marketToken,
     };
   }, [tradeType, marketToken, tradeTokenDetail]);
-
   const netAccountRes = usePromiseResult(async () => {
     try {
       const defaultDeriveType =
@@ -147,6 +146,28 @@ export function useSpeedSwapActions(props: {
       return undefined;
     }
   }, [account, balanceToken?.networkId]);
+
+  // Listen for derive type changes and re-fetch network account
+  useEffect(() => {
+    const handleDeriveTypeChanged = () => {
+      void netAccountRes.run();
+    };
+    appEventBus.off(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      handleDeriveTypeChanged,
+    );
+    appEventBus.on(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      handleDeriveTypeChanged,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.NetworkDeriveTypeChanged,
+        handleDeriveTypeChanged,
+      );
+    };
+  }, [netAccountRes]);
 
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: netAccountRes.result?.id ?? '',

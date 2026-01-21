@@ -58,13 +58,14 @@ import {
   BTCFreshAddressListItem,
   BiologyAuthListItem,
   ChangeOrSetPasswordListItem,
-  CleanDataListItem,
   ClearAppCacheListItem,
+  ClearPendingTransactionsListItem,
   CurrencyListItem,
   DesktopBluetoothListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
+  ResetAppListItem,
   ResetPinListItem,
   ThemeListItem,
 } from './CustomElement';
@@ -559,11 +560,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               renderElement: <ClearAppCacheListItem />,
             },
             {
+              icon: 'ClockTimeHistoryOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_clear_pending_transactions,
+              }),
+              renderElement: <ClearPendingTransactionsListItem />,
+            },
+          ],
+          [
+            {
               icon: 'FolderDeleteOutline',
               title: intl.formatMessage({
-                id: ETranslations.settings_clear_data,
+                id: ETranslations.settings_reset_app,
               }),
-              renderElement: <CleanDataListItem />,
+              renderElement: <ResetAppListItem />,
             },
           ],
         ],

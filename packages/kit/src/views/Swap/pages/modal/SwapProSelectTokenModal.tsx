@@ -103,7 +103,7 @@ const SwapProSelectTokenPage = ({
             })}
             zIndex={20}
             value={searchValue}
-            onSearchTextChange={setSearchValue}
+            onChangeText={setSearchValue}
           />
         </Stack>
         {searchValueDebounce ? (
