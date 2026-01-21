@@ -275,10 +275,13 @@ export function ClearPendingTransactionsListItem(props: ICustomElementProps) {
 }
 
 export function ResetAppListItem(props: ICustomElementProps) {
+  const { iconProps, titleProps, ...restProps } = props;
   const resetApp = useResetApp();
   return (
     <TabSettingsListItem
-      {...props}
+      {...restProps}
+      iconProps={{ ...iconProps, color: '$iconCritical' }}
+      titleProps={{ ...titleProps, color: '$textCritical' }}
       onPress={resetApp}
       testID="setting-erase-data"
       drillIn
