@@ -37,6 +37,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     setPaymentToken,
     paymentToken,
     paymentAmount,
+    sellAmount,
     tradeType,
     setSlippage,
     slippage,
@@ -172,7 +173,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     defaultTradeTokens: defaultTokens,
     provider,
     tradeType: tradeType || ESwapDirection.BUY,
-    fromTokenAmount: paymentAmount.toFixed(),
+    fromTokenAmount:
+      tradeType === ESwapDirection.BUY
+        ? paymentAmount.toFixed()
+        : sellAmount.toFixed(),
     antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
     onCloseDialog,
   };

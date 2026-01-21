@@ -29,7 +29,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
-import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 import type { IToken } from '../types';
@@ -39,11 +38,8 @@ export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
   supportSpeedSwap?: boolean;
   amount: string;
-  token?: {
-    symbol: string;
-  };
+  token?: IToken;
   balance?: BigNumber;
-  paymentToken?: IToken;
   networkId?: string;
   isWrapped?: boolean;
   actionToken?: ISwapToken;
@@ -61,7 +57,6 @@ export function ActionButton({
   disabled,
   onPress,
   isWrapped,
-  paymentToken,
   actionOtherToken,
   networkId,
   onlySupportCrossChain,
@@ -77,11 +72,6 @@ export function ActionButton({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const { createAddress } = useAccountSelectorCreateAddress();
-  // Get payment token price for buy orders
-  const { price: paymentTokenPrice } = usePaymentTokenPrice(
-    tradeType === ESwapDirection.BUY ? paymentToken : undefined,
-    networkId,
-  );
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
     tradeType === ESwapDirection.BUY
@@ -97,25 +87,8 @@ export function ActionButton({
       return undefined;
     }
 
-    if (tradeType === ESwapDirection.BUY && paymentTokenPrice) {
-      // For buy orders: payment amount × payment token price
-      return amountBN.multipliedBy(paymentTokenPrice).toNumber();
-    }
-
-    if (tradeType === ESwapDirection.SELL && tokenDetail?.price) {
-      // For sell orders: target token amount × target token price
-      return amountBN.multipliedBy(tokenDetail.price).toNumber();
-    }
-
-    return undefined;
-  }, [
-    tradeType,
-    tokenDetail?.price,
-    paymentTokenPrice,
-    amount,
-    isValidAmount,
-    amountBN,
-  ]);
+    return amountBN.multipliedBy(new BigNumber(token?.price || '0')).toNumber();
+  }, [token?.price, amount, isValidAmount, amountBN]);
 
   const handleJumpToSwapAction = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
