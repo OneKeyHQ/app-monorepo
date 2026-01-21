@@ -540,28 +540,30 @@ export function UniversalSearch({
   );
 
   const keyExtractor = useCallback(
-    (item: IUniversalSearchResultItem, index: number) => {
-      switch (item.type) {
+    (item: IUniversalSearchResultItem, index: number): string => {
+      const { type, payload } = item;
+      switch (type) {
         case EUniversalSearchType.Address:
-          return `${item.type}-${
-            item.payload.account?.id || item.payload.wallet?.id || index
-          }`;
+          return `${type}-${
+            payload.account?.id ??
+            payload.indexedAccount?.id ??
+            payload.wallet?.id ??
+            index
+          }-${payload.network?.id ?? ''}`;
         case EUniversalSearchType.MarketToken:
-          return `${item.type}-${item.payload.coingeckoId || index}`;
+          return `${type}-${payload.coingeckoId ?? index}`;
         case EUniversalSearchType.V2MarketToken:
-          return `${item.type}-${
-            item.payload.address || item.payload.symbol
-          }-${index}`;
+          return `${type}-${payload.address ?? payload.symbol}-${index}`;
         case EUniversalSearchType.AccountAssets:
-          return `${item.type}-${
-            item.payload.token.address || item.payload.token.symbol
+          return `${type}-${
+            payload.token.address ?? payload.token.symbol
           }-${index}`;
         case EUniversalSearchType.Dapp:
-          return `${item.type}-${item.payload.dappId || index}`;
+          return `${type}-${payload.dappId ?? index}`;
         case EUniversalSearchType.Perp:
-          return `${item.type}-${item.payload.name}-${index}`;
+          return `${type}-${payload.name}-${index}`;
         default:
-          return `${index}`;
+          return String(index);
       }
     },
     [],
@@ -593,7 +595,8 @@ export function UniversalSearch({
 
       return sectionsWithSliceData;
     }
-    return sections.filter((i) => i.title === filterType);
+    const filtered = sections.filter((i) => i.title === filterType);
+    return filtered;
   }, [filterType, isInAllTab, sections, isFocusInMarketTab]);
 
   const renderResult = useCallback(() => {

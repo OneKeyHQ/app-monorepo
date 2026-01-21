@@ -41,6 +41,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
+import { useNavigateToMarketTab } from '../../../Market/hooks';
+import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
 
@@ -160,6 +162,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const navigation = useAppNavigation();
+  const navigateToMarketTab = useNavigateToMarketTab();
   const [favoriteTokens, setFavoriteTokens] = useState<IFavoriteTokenDisplay[]>(
     [],
   );
@@ -622,13 +625,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
-    rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-      screen: marketTab,
-      params: {
-        screen: ETabMarketRoutes.TabMarket,
-      },
-    });
-  }, [marketTab]);
+    navigateToMarketTab({ tabToSelect: EMarketHomeTab.Watchlist });
+  }, [navigateToMarketTab]);
 
   // Render table/list layout for user favorites
   const renderUserFavoritesList = useCallback(() => {

@@ -2076,6 +2076,7 @@
   "insufficient_fee_append_desc": "com base na taxa máxima estimada: {amount} {symbol}",
   "interact_with_contract": "Interagir com (Para)",
   "kaspa_official": "Kaspa Oficial",
+  "keyless_device_changed_recovery_warning": "Detetámos um problema com os dados, possivelmente causado por uma mudança de dispositivo. No momento, não é possível alterar ou confirmar o seu PIN. Verifique se ainda se lembra do PIN e se consegue acessar o e-mail associado e, depois, saia e entre novamente nesta carteira para tentar de novo.",
   "keyless_verify_identity_desc": "Inicie sessão com a sua conta de {provider} para continuar",
   "keyless_verify_identity_title": "Verifique a sua identidade",
   "keyless_wallet": "Carteira sem chave",
