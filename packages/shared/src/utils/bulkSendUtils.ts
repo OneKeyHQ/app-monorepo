@@ -1,3 +1,4 @@
+import { EBulkSendMode } from "../../types/bulkSend";
 import { getNetworkIdsMap } from "../config/networkIds";
 
 import networkUtils from "./networkUtils";

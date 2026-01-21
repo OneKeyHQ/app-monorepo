@@ -11,11 +11,9 @@ function BulkSendHeader({ bulkSendMode }: { bulkSendMode: EBulkSendMode }) {
   if (!media.gtMd) return null;
 
   return (
-    <YStack gap="$1">
+    <YStack gap="$1" mb="$6">
       <SizableText size="$heading2xl">
-        {intl.formatMessage({
-          id: ETranslations.global_asset,
-        })}
+        Bulk Send
       </SizableText>
       <XStack gap="$1" alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">

@@ -9,8 +9,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 
-import { useBulkSendAddressesInputContext } from '../BulkSendContext';
-import { useDebouncedValidation } from '../../hooks/useDebouncedValidation';
+import { useBulkSendAddressesInputContext } from '../Context';
+import { useDebouncedValidation } from '../../../../hooks/useDebouncedValidation';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
 

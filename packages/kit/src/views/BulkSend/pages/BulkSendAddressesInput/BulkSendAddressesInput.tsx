@@ -301,7 +301,7 @@ function BaseBulkSendAddressesInput() {
     }
 
 
-  }, [form, selectedNetworkId, selectedAccountId, selectedToken, navigation, bulkSendMode]);
+  }, [form, selectedNetworkId, selectedAccountId, selectedToken, navigation, bulkSendMode, isInModal]);
 
   return (
     <Page scrollEnabled>

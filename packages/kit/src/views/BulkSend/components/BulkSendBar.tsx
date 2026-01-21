@@ -23,7 +23,7 @@ function BulkSendBar() {
   return (
     <TabPageHeader
       sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Home}
+      tabRoute={ETabRoutes.Market}
       customHeaderLeftItems={customHeaderLeft}
       hideSearch={!media.gtMd}
     />
