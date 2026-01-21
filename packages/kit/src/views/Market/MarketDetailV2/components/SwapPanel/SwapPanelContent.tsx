@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { YStack } from '@onekeyhq/components';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
@@ -60,10 +61,14 @@ export type ISwapPanelContentProps = {
   };
   hasInitialReady: boolean;
   currentMarketToken?: ISwapToken;
+  enableAddressTypeSelector: boolean;
+  activeAccount: IAccountSelectorActiveAccountInfo;
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
   const {
+    activeAccount,
+    enableAddressTypeSelector,
     swapPanel,
     isLoading,
     balanceLoading,
@@ -169,6 +174,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       <YStack gap="$2" mt="$2">
         {/* Token input section */}
         <SwapPanelTop
+          enableAddressTypeSelector={enableAddressTypeSelector}
+          activeAccount={activeAccount}
           balance={balance}
           balanceToken={balanceToken}
           balanceLoading={balanceLoading}
