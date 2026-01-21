@@ -86,7 +86,7 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
 
     const placeholderStyle = {
       opacity: placeholder ? 0.5 : pinCodeTextStyle?.opacity || 1,
-      ...(placeholder ? placeholderTextStyle : []),
+      ...(placeholder ? placeholderTextStyle : {}),
     };
 
     return (
