@@ -1,4 +1,5 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { KeylessDataCorruptedError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -63,12 +64,12 @@ async function getMnemonicPasswordFromStorageWithPassword(params: {
       allowRawPassword: true,
     });
     return mnemonicPassword;
-  } catch (error) {
-    throw new OneKeyLocalError(
-      `Failed to decrypt mnemonicPassword: invalid password or corrupted data: ${
-        (error as Error)?.message
-      }`,
-    );
+  } catch (_error) {
+    defaultLogger.wallet.keyless.dataCorruptedError({
+      reason:
+        'getMnemonicPasswordFromStorageWithPassword: failed to decrypt mnemonicPassword by decryptionKey',
+    });
+    throw new KeylessDataCorruptedError();
   }
 }
 
