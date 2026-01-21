@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -10,6 +12,10 @@ import {
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { InfoItemLabel } from './InfoItemLabel';
@@ -37,6 +43,10 @@ export function BalanceDisplay({
   activeAccount,
 }: IBalanceDisplayProps) {
   const intl = useIntl();
+  const onSelect = useCallback(async () => {
+    appEventBus.emit(EAppEventBusNames.NetworkDeriveTypeChanged, undefined);
+  }, []);
+
   return (
     <XStack justifyContent="space-between" alignItems="center" height="$6">
       <InfoItemLabel
@@ -84,8 +94,7 @@ export function BalanceDisplay({
               networkId={token.networkId ?? ''}
               indexedAccountId={activeAccount?.indexedAccount?.id ?? ''}
               walletId={activeAccount?.wallet?.id ?? ''}
-              activeDeriveType={activeAccount?.deriveType}
-              activeDeriveInfo={activeAccount?.deriveInfo}
+              onSelect={onSelect}
               renderSelectorTrigger={
                 <DeriveTypeSelectorTriggerIconRenderer
                   autoShowLabel={false}
