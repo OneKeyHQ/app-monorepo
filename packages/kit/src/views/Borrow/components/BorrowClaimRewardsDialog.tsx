@@ -52,9 +52,9 @@ function ClaimItem({
 
   return (
     <XStack alignItems="center" gap="$3" py="$2">
-      <Token size="lg" tokenImageUri={item.token.logoURI} />
+      <Token size="md" tokenImageUri={item.token.logoURI} />
       <YStack flex={1} gap="$0.5">
-        <EarnText text={item.title} size="$bodyLgMedium" color="$text" />
+        <EarnText text={item.title} size="$bodyMdMedium" color="$text" />
         {item.description ? (
           <EarnText
             text={item.description}
@@ -128,9 +128,9 @@ function UnclaimableItem({ item }: IUnclaimableItemProps) {
 
   return (
     <XStack alignItems="center" gap="$3" py="$2">
-      <Token size="lg" tokenImageUri={item.token.logoURI} />
+      <Token size="md" tokenImageUri={item.token.logoURI} />
       <YStack flex={1} gap="$0.5">
-        <EarnText text={item.title} size="$bodyLgMedium" color="$text" />
+        <EarnText text={item.title} size="$bodyMdMedium" color="$text" />
         {item.description ? (
           <EarnText
             text={item.description}
