@@ -253,9 +253,6 @@ export function ActionButton({
       id: ETranslations.swap_page_button_no_connected_wallet,
     });
   }
-  if (!supportSpeedSwap) {
-    buttonText = `${actionText} ${actionToken?.symbol ?? '-'} `;
-  }
   // Use colored style only for normal trading states (has amount, not disabled, has account)
   let shouldUseColoredStyle =
     hasAmount && !shouldDisable && !noAccount && !disabled;
@@ -371,7 +368,7 @@ export function ActionButton({
   return (
     <Button
       size={gtMd ? 'medium' : 'large'}
-      disabled={Boolean(isButtonDisabled && supportSpeedSwap)}
+      disabled={isButtonDisabled}
       onPress={handlePress}
       loading={createAddressLoading || otherProps.loading}
       {...otherProps}
