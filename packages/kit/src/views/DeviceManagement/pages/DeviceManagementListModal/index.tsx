@@ -23,7 +23,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -32,7 +31,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -194,10 +193,10 @@ const ListEmptyComponent = () => (
 function DeviceManagementV2ListWeb() {
   const intl = useIntl();
   const navigation = useNavigation();
-  const appNavigation = useAppNavigation();
   const { gtMd } = useMedia();
   const theme = useTheme();
   const { pushToDeviceDetail } = useDeviceManagerNavigation();
+  const toOnBoardingPage = useNavigateToPickYourDevicePage();
 
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
   const { connectedDevices } = useHardwareWalletConnectStatus();
@@ -407,11 +406,7 @@ function DeviceManagementV2ListWeb() {
       {showHeader && !gtMd ? (
         <Page.Footer>
           <Page.FooterActions
-            onConfirm={() => {
-              appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-                screen: EOnboardingPages.ConnectYourDevice,
-              });
-            }}
+            onConfirm={toOnBoardingPage}
             onConfirmText={intl.formatMessage({
               id: ETranslations.global_add_new_device,
             })}

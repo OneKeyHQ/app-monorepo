@@ -99,3 +99,34 @@ export const useToOnBoardingPage = () => {
     [navigation],
   );
 };
+
+/**
+ * TODO: Remove this hook and use the useNavigateToOnBoardingPage common hook instead
+ */
+export const useNavigateToPickYourDevicePage = () => {
+  return useMemo(
+    () => async () => {
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel
+      ) {
+        await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          path: `/onboarding/${EOnboardingPagesV2.PickYourDevice}`,
+        });
+        if (platformEnv.isExtensionUiSidePanel) {
+          window.close();
+        }
+      } else {
+        await closeModalPages();
+        await timerUtils.wait(150);
+        rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.PickYourDevice,
+          },
+        });
+      }
+    },
+    [],
+  );
+};
