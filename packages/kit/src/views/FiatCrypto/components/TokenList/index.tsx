@@ -39,7 +39,7 @@ type ITokenListProps = {
 };
 
 function keyExtractor(item: IFiatCryptoToken): string {
-  return `${item.networkId}--${item.address || 'main'}`;
+  return `${item.name}-${item.networkId}--${item.address || 'main'}`;
 }
 
 const ListItemFiatToken = ({
@@ -242,6 +242,7 @@ export function TokenList({ items, onPress }: ITokenListProps) {
       </Stack>
       <Stack flex={1}>
         <ListView
+          useFlashList
           estimatedItemSize={72}
           data={data}
           renderItem={({ item }) => (
