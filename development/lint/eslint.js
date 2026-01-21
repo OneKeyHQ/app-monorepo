@@ -1,5 +1,6 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
+const os = require('os');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 
@@ -12,8 +13,10 @@ console.log(`[${getTimestamp()}] Oxlint check started...`);
 const oxlintStartTime = Date.now();
 
 try {
+  const cpus = os.cpus().length;
+  console.log(`Using ${cpus} threads for oxlint...`);
   const oxlintResult = execSync(
-    'npx oxlint --tsconfig ./tsconfig.json --type-aware . --fix',
+    `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} . --fix`,
     { encoding: 'utf-8', stdio: 'pipe' },
   );
 

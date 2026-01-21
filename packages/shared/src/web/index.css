@@ -234,6 +234,9 @@ textarea {
 .app-region-no-drag {
   -webkit-app-region: no-drag;
 }
+.app-region-drag {
+  -webkit-app-region: drag;
+}
 
 /* react-beautiful-dnd */
 [data-rbd-drag-handle-context-id] {

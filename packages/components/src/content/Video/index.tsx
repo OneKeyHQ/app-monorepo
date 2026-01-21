@@ -16,11 +16,9 @@ export function Video(rawProps: IVideoProps) {
   }, [rate]);
 
   if (resizeMode) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     (style as any)['object-fit'] = resizeMode;
   }
   return (
-    // eslint-disable-next-line jsx-a11y/media-has-caption
     <video
       ref={videoRef}
       autoPlay

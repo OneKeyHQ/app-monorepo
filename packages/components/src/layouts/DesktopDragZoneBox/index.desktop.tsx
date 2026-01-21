@@ -1,90 +1,50 @@
-import { Pressable } from 'react-native';
-
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Stack } from '../../primitives';
 
-import type {
-  IDesktopDragZoneAbsoluteBarProps,
-  IDesktopDragZoneBoxProps,
-} from './index.type';
+import type { IDesktopDragZoneBoxProps } from './index.type';
 
-let lastTime: Date | undefined;
-let num = 0;
-
-const toggleMaxWindow = () => {
-  const nowTime = new Date();
-  if (
-    lastTime === undefined ||
-    Math.round(nowTime.getTime() - lastTime.getTime()) > 200
-  ) {
-    // reset
-    lastTime = nowTime;
-    num = 0;
-  } else {
-    num += 1;
-  }
-  if (num === 1) {
-    void globalThis.desktopApiProxy.system.toggleMaximizeWindow();
-  }
-};
-
-export function DesktopDragZoneBox({
+function BaseDesktopDragZoneBox({
   children,
-  style,
-  disabled,
-  renderAs = 'Pressable',
   ...rest
 }: IDesktopDragZoneBoxProps) {
-  const Component = renderAs === 'Pressable' ? Pressable : Stack;
-
-  return (
-    // @ts-expect-error - Component type varies based on renderAs prop
-    <Component
-      {...rest}
-      onPress={toggleMaxWindow}
-      disabled={disabled}
-      style={
-        [
-          !disabled && {
-            WebkitAppRegion: 'drag',
-          },
-          {
-            userSelect: 'none',
-            cursor: 'default',
-          },
-          style,
-        ] as any
-      }
-    >
-      {children}
-    </Component>
-  );
-}
-
-export function DesktopDragZoneAbsoluteBar({
-  w = '100%',
-  h = '$16',
-  ...others
-}: IDesktopDragZoneAbsoluteBarProps) {
-  // const highlightDragZone = platformEnv.isDev;
-  const highlightDragZone = false;
-
   return (
     <Stack
-      position="absolute"
-      zIndex={highlightDragZone ? 1 : -1}
-      left={0}
-      top={0}
-      w={w}
-      h={h}
-      {...others}
+      {...rest}
+      style={{
+        userSelect: 'none',
+        cursor: 'default',
+      }}
     >
-      <DesktopDragZoneBox
-        style={{
-          width: '100%',
-          height: '100%',
-          backgroundColor: highlightDragZone ? 'rgba(0,0,0,0.3)' : undefined,
-        }}
-      />
+      {children}
     </Stack>
   );
 }
+
+function DesktopDragZoneBoxMac({
+  children,
+  style,
+  disabled,
+  ...rest
+}: IDesktopDragZoneBoxProps) {
+  return disabled ? (
+    <Stack key="true" {...rest}>
+      {children}
+    </Stack>
+  ) : (
+    <Stack
+      key="false"
+      {...rest}
+      className="app-region-drag"
+      style={{
+        userSelect: 'none',
+        cursor: 'default',
+      }}
+    >
+      {children}
+    </Stack>
+  );
+}
+
+export const DesktopDragZoneBox = platformEnv.isDesktopMac
+  ? DesktopDragZoneBoxMac
+  : BaseDesktopDragZoneBox;

@@ -167,15 +167,15 @@
     "react/no-direct-mutation-state": "error",
     // react-hooks/rules-of-hooks (migrated from ESLint)
     // NOTE: Changed to warn because of false positives with functions named "use*" that aren't hooks
-    "react/rules-of-hooks": "warn",
+    "react/rules-of-hooks": "error",
     // react-hooks/exhaustive-deps equivalent
-    // NOTE: Changed to warn because some dependencies are intentionally omitted
     "react/exhaustive-deps": [
-      "warn",
+      "error",
       {
         "additionalHooks": "(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)"
       }
     ],
+    "react/jsx-curly-brace-presence": ["error", { "props": "never", "children": "never" }],
     "typescript/no-unsafe-type-assertion": "off",
     "typescript/no-unnecessary-boolean-literal-compare": "off",
     // ============================================
