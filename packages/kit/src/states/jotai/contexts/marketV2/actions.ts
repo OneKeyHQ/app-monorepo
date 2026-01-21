@@ -20,6 +20,7 @@ import type {
   IMarketTokenDetailResponse,
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
+import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 
 import {
   contextAtomMethod,
@@ -230,6 +231,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         callerName: 'jotaiContextActions_addIntoWatchListV2',
       });
       await this.refreshWatchListV2.call(set);
+      // Record MARKET task completion for rookie guide
+      void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
+        ERookieTaskType.MARKET,
+      );
     },
   );
 

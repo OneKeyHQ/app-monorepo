@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import {
   EProtocolOfExchange,
   ESwapTxHistoryStatus,
@@ -114,6 +115,10 @@ export function useSwapTxHistoryActions() {
         };
         await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
           swapHistoryItem,
+        );
+        // Record SWAP task completion for rookie guide
+        void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
+          ERookieTaskType.SWAP,
         );
       }
     },

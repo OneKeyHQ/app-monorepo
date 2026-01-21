@@ -4,11 +4,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type {
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
   ERookieTaskType,
-  IRookieGuideInfo,
-  IRookieGuideOneKeyIdInfo,
-  IRookieGuideProgress,
+  type IRookieGuideInfo,
+  type IRookieGuideOneKeyIdInfo,
+  type IRookieGuideProgress,
 } from '@onekeyhq/shared/types/rookieGuide';
 
 import { activeAccountValueAtom } from '../states/jotai/atoms';
@@ -22,6 +23,9 @@ const DEFAULT_BALANCE_INFO = { balance: '0', currency: 'usd' };
 class ServiceRookieGuide extends ServiceBase {
   @backgroundMethod()
   async getRookieGuideInfo(): Promise<IRookieGuideInfo> {
+    // Auto-activate when H5 calls this method (user opened the guide page)
+    await this.backgroundApi.simpleDb.rookieGuide.activate();
+
     const [taskProgress, balanceInfo, oneKeyId, instanceId] = await Promise.all(
       [
         this.getTaskProgress(),
@@ -47,6 +51,12 @@ class ServiceRookieGuide extends ServiceBase {
 
   @backgroundMethod()
   async recordTaskCompleted(taskType: ERookieTaskType): Promise<void> {
+    // Only record if user has opened the guide page
+    const isActivated =
+      await this.backgroundApi.simpleDb.rookieGuide.isActivated();
+    if (!isActivated) {
+      return;
+    }
     await this.backgroundApi.simpleDb.rookieGuide.recordTaskCompleted(taskType);
   }
 
@@ -89,6 +99,48 @@ class ServiceRookieGuide extends ServiceBase {
       };
     } catch {
       return { isLoggedIn: false };
+    }
+  }
+
+  /**
+   * Check and record DEPOSIT task completion for rookie guide.
+   * Conditions: HD/Keyless/HW Wallet with balance > 0
+   */
+  @backgroundMethod()
+  async checkAndRecordDepositTask(accountId: string): Promise<void> {
+    try {
+      // Only track for HD, Keyless, and HW accounts
+      const isEligibleAccount =
+        accountUtils.isHdAccount({ accountId }) ||
+        accountUtils.isKeylessAccount({ accountId }) ||
+        accountUtils.isHwAccount({ accountId });
+
+      if (!isEligibleAccount) {
+        return;
+      }
+
+      // Get current balance
+      const accountValue = await activeAccountValueAtom.get();
+      if (accountValue?.accountId !== accountId) {
+        return;
+      }
+
+      let totalBalance = '0';
+      if (typeof accountValue.value === 'string') {
+        totalBalance = accountValue.value;
+      } else {
+        totalBalance = Object.values(accountValue.value || {}).reduce(
+          (acc, v) => new BigNumber(acc).plus(v || '0').toFixed(),
+          '0',
+        );
+      }
+
+      // Record if balance > 0
+      if (new BigNumber(totalBalance).gt(0)) {
+        await this.recordTaskCompleted(ERookieTaskType.DEPOSIT);
+      }
+    } catch {
+      // Silent fail - don't break main flow
     }
   }
 }

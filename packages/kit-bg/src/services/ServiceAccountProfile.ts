@@ -763,6 +763,11 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     await simpleDb.accountValue.updateAllNetworkAccountValue(usdAccountValue);
+
+    // Check DEPOSIT task for rookie guide (fire-and-forget)
+    void this.backgroundApi.serviceRookieGuide.checkAndRecordDepositTask(
+      params.accountId,
+    );
   }
 
   @backgroundMethod()
