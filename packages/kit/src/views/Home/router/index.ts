@@ -1,35 +1,40 @@
-import type { ITabSubNavigatorConfig } from "@onekeyhq/components";
-import platformEnv from "@onekeyhq/shared/src/platformEnv";
-import { ETabHomeRoutes } from "@onekeyhq/shared/src/routes";
+import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 
-import { LazyLoadPage } from "../../../components/LazyLoadPage";
-import { urlAccountLandingRewrite } from "../pages/urlAccount/urlAccountUtils";
+import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import { urlAccountLandingRewrite } from '../pages/urlAccount/urlAccountUtils';
 
-const HomePageContainer = LazyLoadPage(() => import("../pages/HomePageContainer"));
+const HomePageContainer = LazyLoadPage(
+  () => import('../pages/HomePageContainer'),
+);
 
 const UrlAccountPageContainer = LazyLoadPage(async () => {
   const { UrlAccountPageContainer: UrlAccountPageContainerModule } =
-    await import("../pages/urlAccount/UrlAccountPage");
+    await import('../pages/urlAccount/UrlAccountPage');
   return { default: UrlAccountPageContainerModule };
 });
 
 const UrlAccountLanding = LazyLoadPage(async () => {
-  const { UrlAccountLanding: UrlAccountLandingModule } =
-    await import("../pages/urlAccount/UrlAccountPage");
+  const { UrlAccountLanding: UrlAccountLandingModule } = await import(
+    '../pages/urlAccount/UrlAccountPage'
+  );
   return { default: UrlAccountLandingModule };
 });
 
 const ReferralLanding = LazyLoadPage(async () => {
-  const { ReferralLandingPage } = await import("../pages/referralLanding/ReferralLandingPage");
+  const { ReferralLandingPage } = await import(
+    '../pages/referralLanding/ReferralLandingPage'
+  );
   return { default: ReferralLandingPage };
 });
 
 const BulkSendAddressesInput = LazyLoadPage(
-  () => import("@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAddressesInput"),
+  () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAddressesInput'),
 );
 
 const BulkSendAmountsInput = LazyLoadPage(
-  () => import("@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAmountsInput"),
+  () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAmountsInput'),
 );
 
 export const urlAccountRoutes = [
@@ -40,18 +45,18 @@ export const urlAccountRoutes = [
 ];
 
 // Rewrite pattern for referral landing with app redirect: /r/:code/app/:page
-export const referralLandingRewrite = "/r/:code/app/:page";
+export const referralLandingRewrite = '/r/:code/app/:page';
 // Rewrite pattern for referral landing without page: /r/:code/app
-export const referralLandingRewriteWithoutPage = "/r/:code/app";
+export const referralLandingRewriteWithoutPage = '/r/:code/app';
 // Rewrite pattern for referral landing with code only: /r/:code
-export const referralLandingRewriteCodeOnly = "/r/:code";
+export const referralLandingRewriteCodeOnly = '/r/:code';
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabHomeRoutes.TabHome,
     component: HomePageContainer,
     // translationId: 'wallet__wallet',
-    rewrite: "/",
+    rewrite: '/',
     headerShown: !platformEnv.isNative,
   },
   {
@@ -94,7 +99,7 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabHomeRoutes.TabHomeBulkSendAddressesInput,
     component: BulkSendAddressesInput,
     exact: true,
-    rewrite: "/bulk-send",
+    rewrite: '/bulk-send',
   },
   {
     name: ETabHomeRoutes.TabHomeBulkSendAmountsInput,

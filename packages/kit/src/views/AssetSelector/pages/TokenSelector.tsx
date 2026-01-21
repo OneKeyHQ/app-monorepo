@@ -32,7 +32,6 @@ import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTo
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const num = 0;
 
@@ -117,7 +116,7 @@ function TokenSelector() {
         if (aggregateTokenList.length > 1 || allAggregateTokenList.length > 1) {
           navigation.push(
             aggregateTokenSelectorScreen ??
-              EAssetSelectorRoutes.AggregateTokenSelector,
+            EAssetSelectorRoutes.AggregateTokenSelector,
             {
               accountId,
               indexedAccountId,
@@ -150,13 +149,13 @@ function TokenSelector() {
           ) {
             const params = token.accountId
               ? {
-                  accountId: token.accountId ?? '',
-                  networkId: token.networkId ?? '',
-                }
+                accountId: token.accountId ?? '',
+                networkId: token.networkId ?? '',
+              }
               : {
-                  accountId: account?.id ?? '',
-                  networkId: network?.id ?? '',
-                };
+                accountId: account?.id ?? '',
+                networkId: network?.id ?? '',
+              };
 
             let deriveType;
 

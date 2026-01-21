@@ -18,10 +18,9 @@ import {
   type IAddressBadge,
 } from '@onekeyhq/shared/types/address';
 
-
 import LineNumberedTextArea from './LineNumberedTextArea';
 import { useBulkSendAddressesInputContext } from '../Context';
-import { useDebouncedValidation } from '../../../../hooks/useDebouncedValidation';
+import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 
 function SenderAddressesInput() {
   const {
@@ -99,11 +98,11 @@ function SenderAddressesInput() {
             setAddressBadges(
               walletAccountItems[0]
                 ? [
-                  {
-                    label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
-                    type: 'success',
-                  },
-                ]
+                    {
+                      label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
+                      type: 'success',
+                    },
+                  ]
                 : [],
             );
             for (const item of walletAccountItems) {

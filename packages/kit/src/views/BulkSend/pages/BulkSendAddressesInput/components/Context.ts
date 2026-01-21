@@ -1,7 +1,7 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext } from 'react';
 
-import type { IToken, ITokenFiat } from "@onekeyhq/shared/types/token";
-import { EBulkSendMode } from "@onekeyhq/shared/types/bulkSend";
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 export type IBulkSendAddressesInputContext = {
   selectedAccountId: string | undefined;
@@ -13,33 +13,40 @@ export type IBulkSendAddressesInputContext = {
   selectedIndexedAccountId: string | undefined;
   setSelectedIndexedAccountId: (indexedAccountId: string | undefined) => void;
   selectedTokenDetail: ({ info: IToken } & ITokenFiat) | undefined;
-  setSelectedTokenDetail: (tokenDetail: ({ info: IToken } & ITokenFiat) | undefined) => void;
+  setSelectedTokenDetail: (
+    tokenDetail: ({ info: IToken } & ITokenFiat) | undefined,
+  ) => void;
   tokenDetailsState: {
     initialized: boolean;
     isRefreshing: boolean;
   };
-  setTokenDetailsState: (state: { initialized: boolean; isRefreshing: boolean }) => void;
+  setTokenDetailsState: (state: {
+    initialized: boolean;
+    isRefreshing: boolean;
+  }) => void;
   bulkSendMode: EBulkSendMode;
   setBulkSendMode: (bulkSendMode: EBulkSendMode) => void;
 };
-export const BulkSendAddressesInputContext = createContext<IBulkSendAddressesInputContext>({
-  selectedAccountId: undefined,
-  setSelectedAccountId: () => {},
-  selectedNetworkId: undefined,
-  setSelectedNetworkId: () => {},
-  selectedToken: undefined,
-  setSelectedToken: () => {},
-  selectedIndexedAccountId: undefined,
-  setSelectedIndexedAccountId: () => {},
-  selectedTokenDetail: undefined,
-  setSelectedTokenDetail: () => {},
-  tokenDetailsState: {
-    initialized: false,
-    isRefreshing: false,
-  },
-  setTokenDetailsState: () => {},
-  bulkSendMode: EBulkSendMode.OneToMany,
-  setBulkSendMode: () => {},
-});
+export const BulkSendAddressesInputContext =
+  createContext<IBulkSendAddressesInputContext>({
+    selectedAccountId: undefined,
+    setSelectedAccountId: () => {},
+    selectedNetworkId: undefined,
+    setSelectedNetworkId: () => {},
+    selectedToken: undefined,
+    setSelectedToken: () => {},
+    selectedIndexedAccountId: undefined,
+    setSelectedIndexedAccountId: () => {},
+    selectedTokenDetail: undefined,
+    setSelectedTokenDetail: () => {},
+    tokenDetailsState: {
+      initialized: false,
+      isRefreshing: false,
+    },
+    setTokenDetailsState: () => {},
+    bulkSendMode: EBulkSendMode.OneToMany,
+    setBulkSendMode: () => {},
+  });
 
-export const useBulkSendAddressesInputContext = () => useContext(BulkSendAddressesInputContext);
+export const useBulkSendAddressesInputContext = () =>
+  useContext(BulkSendAddressesInputContext);

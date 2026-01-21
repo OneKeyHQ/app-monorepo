@@ -1382,3 +1382,5 @@ Subresource
 keystonehq
 htmls
 Unclaimable
+linea
+zksyncera

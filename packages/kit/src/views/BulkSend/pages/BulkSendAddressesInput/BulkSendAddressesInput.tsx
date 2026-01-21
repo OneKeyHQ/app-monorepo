@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Form, Page, YStack, useForm } from '@onekeyhq/components';
-import type {
-  IModalBulkSendParamList
-} from '@onekeyhq/shared/src/routes';
+import type { IModalBulkSendParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalBulkSendRoutes,
   ETabHomeRoutes,
-  ETabRoutes
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -299,9 +297,15 @@ function BaseBulkSendAddressesInput() {
         },
       });
     }
-
-
-  }, [form, selectedNetworkId, selectedAccountId, selectedToken, navigation, bulkSendMode, isInModal]);
+  }, [
+    form,
+    selectedNetworkId,
+    selectedAccountId,
+    selectedToken,
+    navigation,
+    bulkSendMode,
+    isInModal,
+  ]);
 
   return (
     <Page scrollEnabled>
@@ -337,12 +341,14 @@ function BaseBulkSendAddressesInput() {
         </BulkSendContentWrapper>
       </Page.Body>
       <Page.Footer>
-        <BulkSendContentWrapper $gtMd={{
-          mt: '$0',
-          px: '$0',
-          mx: 'auto',
-          maxWidth: '$180',
-        }}>
+        <BulkSendContentWrapper
+          $gtMd={{
+            mt: '$0',
+            px: '$0',
+            mx: 'auto',
+            maxWidth: '$180',
+          }}
+        >
           <Page.FooterActions
             $gtMd={{
               px: '$0',
@@ -384,7 +390,9 @@ function BulkSendAddressesInput() {
     initialized: false,
     isRefreshing: false,
   });
-  const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(EBulkSendMode.OneToMany);
+  const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(
+    EBulkSendMode.OneToMany,
+  );
 
   const context = useMemo(
     () => ({

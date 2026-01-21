@@ -1,3 +1,3 @@
-import BulkSendAddressesInput from "./BulkSendAddressesInput";
+import BulkSendAddressesInput from './BulkSendAddressesInput';
 
 export default BulkSendAddressesInput;

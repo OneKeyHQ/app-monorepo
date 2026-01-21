@@ -1,9 +1,6 @@
 import { useCallback } from 'react';
 
-import {
-  useNavigation as useReactNavigation,
-  useRoute,
-} from '@react-navigation/native';
+import { useNavigation as useReactNavigation } from '@react-navigation/native';
 
 import { useIsTabletDetailView } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -12,7 +9,6 @@ import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 export function useBulkSendBackNavigation() {
   const navigation = useAppNavigation();
   const reactNavigation = useReactNavigation();
-  const route = useRoute();
   const isTabletDetailView = useIsTabletDetailView();
 
   const handleBackPress = useCallback(() => {

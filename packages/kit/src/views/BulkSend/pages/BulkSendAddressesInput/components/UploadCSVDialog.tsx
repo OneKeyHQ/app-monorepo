@@ -121,7 +121,7 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
 
         onUploaded?.(lines);
         void dialog.close();
-      } catch (error) {
+      } catch (_error) {
         Toast.error({ title: 'Failed to read file' });
       } finally {
         setIsLoading(false);

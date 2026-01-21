@@ -1,3 +1,3 @@
-import BulkSendAmountsInput from "./BulkSendAmountsInput";
+import BulkSendAmountsInput from './BulkSendAmountsInput';
 
 export default BulkSendAmountsInput;
