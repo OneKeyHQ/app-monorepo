@@ -258,6 +258,12 @@ const RefreshControlGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/RefreshControl'
     ),
 );
+const RookieGuideGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/RookieGuideGallery'
+    ),
+);
 const ScanQrCodeGallery = LazyLoadPage(
   () =>
     import(
@@ -864,6 +870,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentRefreshControl,
     component: RefreshControlGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentRookieGuide,
+    component: RookieGuideGallery,
   },
   {
     name: EGalleryRoutes.ComponentBlurView,
