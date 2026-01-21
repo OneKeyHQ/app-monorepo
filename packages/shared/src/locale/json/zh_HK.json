@@ -2076,6 +2076,7 @@
   "insufficient_fee_append_desc": "基於最大估計費用：{amount} {symbol}",
   "interact_with_contract": "互動地址 (至)",
   "kaspa_official": "Kaspa 官方",
+  "keyless_device_changed_recovery_warning": "數據異常，可能由於更換設備導致。目前暫時無法修改或驗證 PIN。請確認您仍記得 PIN，且可存取綁定郵箱後，登出並重新登入此錢包再試。",
   "keyless_verify_identity_desc": "使用您的 {provider} 帐户登录以继续",
   "keyless_verify_identity_title": "驗證你的身份",
   "keyless_wallet": "無私鑰錢包",

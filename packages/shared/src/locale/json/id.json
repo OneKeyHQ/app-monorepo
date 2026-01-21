@@ -2076,6 +2076,7 @@
   "insufficient_fee_append_desc": "berdasarkan perkiraan biaya maksimum: {amount} {symbol}",
   "interact_with_contract": "Berinteraksi dengan (Kepada)",
   "kaspa_official": "Kaspa Resmi",
+  "keyless_device_changed_recovery_warning": "Terdeteksi masalah data, kemungkinan karena perubahan perangkat. Anda tidak dapat mengubah atau memverifikasi PIN Anda saat ini. Pastikan Anda masih mengingat PIN Anda dan dapat mengakses email yang terhubung, lalu keluar dan masuk kembali ke dompet ini untuk mencoba lagi.",
   "keyless_verify_identity_desc": "Masuk dengan akun {provider} Anda untuk melanjutkan",
   "keyless_verify_identity_title": "Verifikasi identitas Anda",
   "keyless_wallet": "Dompet tanpa kunci",
