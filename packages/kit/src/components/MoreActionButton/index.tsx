@@ -1356,12 +1356,33 @@ export function MoreActionContentPage() {
   );
 }
 
+const NAVIGATION_ACTION_TYPES = new Set([
+  'GO_BACK',
+  'PUSH',
+  'NAVIGATE',
+  'POP_TO_TOP',
+  'POP_TO',
+  'POP',
+  'NAVIGATE_DEPRECATED',
+  'RESET',
+  'REPLACE',
+  'JUMP_TO',
+]);
 function MoreActionContent({
   containerStyle,
 }: {
   containerStyle?: IYStackProps;
 }) {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const { closePopover } = usePopoverContext();
+
+  useEffect(() => {
+    rootNavigationRef.current?.addListener('__unsafe_action__', ({ data }) => {
+      if (NAVIGATION_ACTION_TYPES.has(data.action.type)) {
+        void closePopover?.();
+      }
+    });
+  }, [closePopover]);
   return (
     <MoreActionProvider>
       <YStack minHeight={600} {...containerStyle}>

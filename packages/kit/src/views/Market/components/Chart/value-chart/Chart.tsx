@@ -32,11 +32,7 @@ export default function ChartWrapper({
   const throttledOnHover = throttle(onHover, 25);
 
   useAnimatedReaction<[boolean, string, string]>(
-    () => [
-      (isActive).value,
-      (originalX).value,
-      (originalY).value,
-    ],
+    () => [isActive.value, originalX.value, originalY.value],
     ([hasValue, x, y]) => {
       runOnJS(throttledOnHover)(
         hasValue
