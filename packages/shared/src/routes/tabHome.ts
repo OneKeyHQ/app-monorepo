@@ -1,4 +1,5 @@
 import type { IToken } from "@onekeyhq/shared/types/token";
+import type { EBulkSendMode } from "@onekeyhq/shared/types/bulkSend";
 
 export enum ETabHomeRoutes {
   TabHome = "TabHome",
@@ -43,9 +44,13 @@ export type ITabHomeParamList = {
   };
   [ETabHomeRoutes.TabHomeBulkSendAmountsInput]: {
     networkId: string;
-    accountId: string;
-    senderAddresses: string[];
-    receiverAddressesWithAmounts: { address: string; amount: string }[];
+    accountId: string | undefined;
+    senders: {
+      address: string;
+      amount: string | undefined;
+    }[];
+    receivers: { address: string; amount: string | undefined }[];
     tokenInfo: IToken;
+    bulkSendMode: EBulkSendMode;
   };
 } & ITabHomeUrlAccountParamList;

@@ -9,7 +9,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 
-import { useBulkSendContext } from '../BulkSendContext';
+import { useBulkSendAddressesInputContext } from '../BulkSendContext';
 import { useDebouncedValidation } from '../../hooks/useDebouncedValidation';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
@@ -18,7 +18,7 @@ import type { ILineError } from './LineNumberedTextArea';
 
 function ReceiverAddressesInput() {
   const { selectedAccountId, selectedNetworkId, selectedToken } =
-    useBulkSendContext();
+    useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
 
   const [errors, setErrors] = useState<ILineError[]>([]);

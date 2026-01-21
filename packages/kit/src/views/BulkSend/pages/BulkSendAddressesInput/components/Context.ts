@@ -1,8 +1,9 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext } from "react";
 
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type { IToken, ITokenFiat } from "@onekeyhq/shared/types/token";
+import { EBulkSendMode } from "@onekeyhq/shared/types/bulkSend";
 
-export type IBulkSendContext = {
+export type IBulkSendAddressesInputContext = {
   selectedAccountId: string | undefined;
   setSelectedAccountId: (accountId: string | undefined) => void;
   selectedNetworkId: string | undefined;
@@ -12,19 +13,16 @@ export type IBulkSendContext = {
   selectedIndexedAccountId: string | undefined;
   setSelectedIndexedAccountId: (indexedAccountId: string | undefined) => void;
   selectedTokenDetail: ({ info: IToken } & ITokenFiat) | undefined;
-  setSelectedTokenDetail: (
-    tokenDetail: ({ info: IToken } & ITokenFiat) | undefined,
-  ) => void;
+  setSelectedTokenDetail: (tokenDetail: ({ info: IToken } & ITokenFiat) | undefined) => void;
   tokenDetailsState: {
     initialized: boolean;
     isRefreshing: boolean;
   };
-  setTokenDetailsState: (state: {
-    initialized: boolean;
-    isRefreshing: boolean;
-  }) => void;
+  setTokenDetailsState: (state: { initialized: boolean; isRefreshing: boolean }) => void;
+  bulkSendMode: EBulkSendMode;
+  setBulkSendMode: (bulkSendMode: EBulkSendMode) => void;
 };
-export const BulkSendContext = createContext<IBulkSendContext>({
+export const BulkSendAddressesInputContext = createContext<IBulkSendAddressesInputContext>({
   selectedAccountId: undefined,
   setSelectedAccountId: () => {},
   selectedNetworkId: undefined,
@@ -40,6 +38,8 @@ export const BulkSendContext = createContext<IBulkSendContext>({
     isRefreshing: false,
   },
   setTokenDetailsState: () => {},
+  bulkSendMode: EBulkSendMode.OneToMany,
+  setBulkSendMode: () => {},
 });
 
-export const useBulkSendContext = () => useContext(BulkSendContext);
+export const useBulkSendAddressesInputContext = () => useContext(BulkSendAddressesInputContext);

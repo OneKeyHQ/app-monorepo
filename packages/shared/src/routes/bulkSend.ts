@@ -1,4 +1,5 @@
 import type { IToken } from "../../types/token";
+import type { EBulkSendMode } from "../../types/bulkSend";
 
 export enum EModalBulkSendRoutes {
   BulkSendAddressesInput = "bulkSendAddressesInput",
@@ -16,9 +17,13 @@ export type IModalBulkSendParamList = {
   };
   [EModalBulkSendRoutes.BulkSendAmountsInput]: {
     networkId: string;
-    accountId: string;
-    senderAddresses: string[];
-    receiverAddressesWithAmounts: { address: string; amount: string }[];
+    accountId: string | undefined;
+    senders: {
+      address: string;
+      amount: string | undefined;
+    }[];
+    receivers: { address: string; amount: string | undefined }[];
     tokenInfo: IToken;
+    bulkSendMode: EBulkSendMode;
   };
 };

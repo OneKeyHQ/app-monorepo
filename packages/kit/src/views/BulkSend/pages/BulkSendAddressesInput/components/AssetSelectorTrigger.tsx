@@ -8,14 +8,14 @@ import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ListItem } from '../../../components/ListItem';
-import { Token } from '../../../components/Token';
-import { useAccountData } from '../../../hooks/useAccountData';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import useConfigurableChainSelector from '../../ChainSelector/hooks/useChainSelector';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 
-import { useBulkSendContext } from './BulkSendContext';
+import { useBulkSendAddressesInputContext } from './Context';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -30,7 +30,7 @@ function AssetSelectorTrigger() {
     selectedIndexedAccountId,
     setSelectedAccountId,
     setSelectedNetworkId,
-  } = useBulkSendContext();
+  } = useBulkSendAddressesInputContext();
   const navigation = useAppNavigation();
 
   const openChainSelector = useConfigurableChainSelector();

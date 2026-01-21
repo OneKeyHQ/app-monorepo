@@ -18,7 +18,7 @@ import {
   type IAddressBadge,
 } from '@onekeyhq/shared/types/address';
 
-import { useBulkSendContext } from '../BulkSendContext';
+import { useBulkSendAddressesInputContext } from '../BulkSendContext';
 import { useDebouncedValidation } from '../../hooks/useDebouncedValidation';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
@@ -32,7 +32,7 @@ function SenderAddressesInput() {
     setSelectedIndexedAccountId,
     selectedTokenDetail,
     tokenDetailsState,
-  } = useBulkSendContext();
+  } = useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>([]);
 
@@ -99,11 +99,11 @@ function SenderAddressesInput() {
             setAddressBadges(
               walletAccountItems[0]
                 ? [
-                    {
-                      label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
-                      type: 'success',
-                    },
-                  ]
+                  {
+                    label: `${walletAccountItems[0].walletName} / ${walletAccountItems[0].accountName}`,
+                    type: 'success',
+                  },
+                ]
                 : [],
             );
             for (const item of walletAccountItems) {
@@ -150,7 +150,7 @@ function SenderAddressesInput() {
           }
 
           return true;
-        } catch (e) {
+        } catch (_) {
           setAddressBadges([]);
           return 'Address not found in your wallet';
         }

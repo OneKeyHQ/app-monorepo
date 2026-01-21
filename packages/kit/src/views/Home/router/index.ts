@@ -4,7 +4,6 @@ import { ETabHomeRoutes } from "@onekeyhq/shared/src/routes";
 
 import { LazyLoadPage } from "../../../components/LazyLoadPage";
 import { urlAccountLandingRewrite } from "../pages/urlAccount/urlAccountUtils";
-import BulkSendAmountsInput from "../../BulkSend/pages/BulkSendAmountsInput";
 
 const HomePageContainer = LazyLoadPage(() => import("../pages/HomePageContainer"));
 
@@ -27,6 +26,10 @@ const ReferralLanding = LazyLoadPage(async () => {
 
 const BulkSendAddressesInput = LazyLoadPage(
   () => import("@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAddressesInput"),
+);
+
+const BulkSendAmountsInput = LazyLoadPage(
+  () => import("@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAmountsInput"),
 );
 
 export const urlAccountRoutes = [

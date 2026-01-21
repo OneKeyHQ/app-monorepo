@@ -1,4 +1,4 @@
-export enum EBulkSendType {
+export enum EBulkSendMode {
   OneToMany = 'oneToMany',
   ManyToOne = 'manyToOne',
   ManyToMany = 'manyToMany',

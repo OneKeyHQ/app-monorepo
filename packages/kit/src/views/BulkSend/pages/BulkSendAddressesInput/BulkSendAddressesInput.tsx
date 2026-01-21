@@ -14,22 +14,23 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { useAppRoute } from '../../../hooks/useAppRoute';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import ReceiverAddressesInput from '../components/AddressesInput/ReceiverAddressesInput';
-import SenderAddressesInput from '../components/AddressesInput/SenderAddressesInput';
-import AssetSelectorTrigger from '../components/AssetSelectorTrigger';
-import BulkSendBar from '../components/BulkSendBar';
-import BulkSendContentWrapper from '../components/BulkSendContentWrapper';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
+import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
+import AssetSelectorTrigger from './components/AssetSelectorTrigger';
+import BulkSendBar from '../../components/BulkSendBar';
+import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import {
-  BulkSendContext,
-  useBulkSendContext,
-} from '../components/BulkSendContext';
-import BulkSendHeader from '../components/BulkSendHeader';
-import useAppNavigation from '../../../hooks/useAppNavigation';
+  BulkSendAddressesInputContext,
+  useBulkSendAddressesInputContext,
+} from './components/Context';
+import BulkSendHeader from '../../components/BulkSendHeader';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 function BaseBulkSendAddressesInput() {
   const route = useAppRoute<
@@ -54,7 +55,8 @@ function BaseBulkSendAddressesInput() {
     selectedAccountId,
     selectedTokenDetail,
     tokenDetailsState,
-  } = useBulkSendContext();
+    bulkSendMode,
+  } = useBulkSendAddressesInputContext();
 
   const form = useForm({
     defaultValues: {
@@ -267,19 +269,23 @@ function BaseBulkSendAddressesInput() {
     }
 
     const formValues = form.getValues();
-    const senderAddresses = formValues.senderAddresses.split('\n');
-    const receiverAddressesWithAmounts = formValues.receiverAddresses.split('\n').map((line) => {
-      const [address, amount] = line.split(' ');
-      return { address, amount };
+    const senders = formValues.senderAddresses.split('\n').map((line) => {
+      const [address] = line.trim().split(',');
+      return { address: address.trim(), amount: undefined };
+    });
+    const receivers = formValues.receiverAddresses.split('\n').map((line) => {
+      const [address, amount] = line.trim().split(',');
+      return { address: address.trim(), amount: amount?.trim() };
     });
 
     if (platformEnv.isNative) {
       navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {
         networkId: selectedNetworkId,
         accountId: selectedAccountId,
-        senderAddresses,
-        receiverAddressesWithAmounts,
+        senders,
+        receivers,
         tokenInfo: selectedToken,
+        bulkSendMode,
       });
     } else {
       navigation.switchTab(ETabRoutes.Home, {
@@ -287,15 +293,16 @@ function BaseBulkSendAddressesInput() {
         params: {
           networkId: selectedNetworkId,
           accountId: selectedAccountId,
-          senderAddresses,
-          receiverAddressesWithAmounts,
+          senders,
+          receivers,
           tokenInfo: selectedToken,
+          bulkSendMode,
         },
       });
     }
 
 
-  }, [form, selectedNetworkId, selectedAccountId, selectedToken, navigation]);
+  }, [form, selectedNetworkId, selectedAccountId, selectedToken, navigation, bulkSendMode]);
 
   return (
     <Page scrollEnabled>
@@ -378,6 +385,7 @@ function BulkSendAddressesInput() {
     initialized: false,
     isRefreshing: false,
   });
+  const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(EBulkSendMode.OneToMany);
 
   const context = useMemo(
     () => ({
@@ -393,6 +401,8 @@ function BulkSendAddressesInput() {
       setSelectedTokenDetail,
       tokenDetailsState,
       setTokenDetailsState,
+      bulkSendMode,
+      setBulkSendMode,
     }),
     [
       selectedAccountId,
@@ -407,6 +417,8 @@ function BulkSendAddressesInput() {
       setSelectedTokenDetail,
       tokenDetailsState,
       setTokenDetailsState,
+      bulkSendMode,
+      setBulkSendMode,
     ],
   );
 
@@ -418,9 +430,9 @@ function BulkSendAddressesInput() {
       }}
       enabledNum={[0]}
     >
-      <BulkSendContext.Provider value={context}>
+      <BulkSendAddressesInputContext.Provider value={context}>
         <BaseBulkSendAddressesInput />
-      </BulkSendContext.Provider>
+      </BulkSendAddressesInputContext.Provider>
     </AccountSelectorProviderMirror>
   );
 }
