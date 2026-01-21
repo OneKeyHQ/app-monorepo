@@ -105,6 +105,10 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const tradingViewHeight = useMemo(() => {
     // When tabs are hidden (BTC network), use more height for the chart
     if (isBTCNetwork) {
+      if (platformEnv.isNative) {
+        return Number(height) - 120;
+      }
+
       return height;
     }
     if (platformEnv.isNative) {
