@@ -1,5 +1,3 @@
-import { useCallback, useState } from 'react';
-
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -8,20 +6,18 @@ import {
   Badge,
   Divider,
   Page,
-  RefreshControl,
   ScrollView,
   SizableText,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IHardwareRecordItem } from '@onekeyhq/shared/src/referralCode/type';
-import type { IModalReferFriendsParamList } from '@onekeyhq/shared/src/routes';
-import type { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalReferFriendsRoutes,
+  IModalReferFriendsParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ReferFriendsPageContainer } from '../../components';
@@ -55,26 +51,7 @@ const statusToRewardColor: Record<IHardwareRecordStatus, IColorTokens> = {
 function HardwareSalesOrderDetailPageWrapper() {
   const intl = useIntl();
   const route = useRoute<IRouteProps>();
-  const { data: initialData } = route.params;
-
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [data, setData] = useState<IHardwareRecordItem>(initialData);
-
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      const result =
-        await backgroundApiProxy.serviceReferralCode.getHardwareRecordDetail(
-          data.orderNumber,
-        );
-      setData(result);
-    } catch (err) {
-      console.error('Failed to refresh hardware record detail:', err);
-      Toast.error({ title: 'Failed to refresh order details' });
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [data.orderNumber]);
+  const { data } = route.params;
 
   const rewardColor =
     statusToRewardColor[(data.status as IHardwareRecordStatus) ?? ''] ||
@@ -89,15 +66,7 @@ function HardwareSalesOrderDetailPageWrapper() {
       />
       <Page.Body>
         <ReferFriendsPageContainer flex={1}>
-          <ScrollView
-            flex={1}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-              />
-            }
-          >
+          <ScrollView flex={1}>
             {/* Order Details - Two column grid layout */}
             <XStack flexWrap="wrap" pt="$3" px="$5" pb="$5">
               {/* Row 1: Time | Order ID */}

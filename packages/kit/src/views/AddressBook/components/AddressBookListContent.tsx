@@ -139,7 +139,7 @@ const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
     <Empty
       icon="SearchOutline"
       title={intl.formatMessage({
-        id: ETranslations.address_book_no_results_title,
+        id: ETranslations.address_book_no_results_title_migration,
       })}
       description={intl.formatMessage({
         id: ETranslations.address_book_empty_description,
