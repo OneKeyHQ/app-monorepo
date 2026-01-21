@@ -67,13 +67,11 @@ export type IPasswordPersistAtom = {
   enablePasswordErrorProtection: boolean;
   passwordErrorAttempts: number;
   passwordErrorProtectionTime: number;
-  manualLocking: boolean;
 };
 export const passwordAtomInitialValue: IPasswordPersistAtom = {
   isPasswordSet: false,
   webAuthCredentialId: '',
   appLockDuration: Number(ELockDuration.Never),
-  manualLocking: false,
   enableSystemIdleLock: true,
   passwordMode: EPasswordMode.PASSWORD,
   isPasscodeModeFixed: undefined,
@@ -87,6 +85,20 @@ export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
     name: EAtomNames.passwordPersistAtom,
     initialValue: passwordAtomInitialValue,
   });
+
+export type IPasswordPersistManualLockStateAtom = {
+  manualLocking: boolean;
+};
+export const {
+  target: passwordPersistManualLockStateAtom,
+  use: usePasswordPersistManualLockStateAtom,
+} = globalAtom<IPasswordPersistManualLockStateAtom>({
+  persist: true,
+  name: EAtomNames.passwordPersistManualLockStateAtom,
+  initialValue: {
+    manualLocking: false,
+  },
+});
 
 export const { target: passwordModeAtom, use: usePasswordModeAtom } =
   globalAtomComputed<EPasswordMode>((get) => {
@@ -154,9 +166,8 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
     if (isMigrationModalOpen || isProcessing) {
       return false;
     }
-    const { isPasswordSet, appLockDuration, manualLocking } = get(
-      passwordPersistAtom.atom(),
-    );
+    const { isPasswordSet, appLockDuration } = get(passwordPersistAtom.atom());
+    const { manualLocking } = get(passwordPersistManualLockStateAtom.atom());
     if (isPasswordSet) {
       if (manualLocking) {
         return true;

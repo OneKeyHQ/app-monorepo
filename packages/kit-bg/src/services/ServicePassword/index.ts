@@ -60,6 +60,7 @@ import {
   passwordAtom,
   passwordBiologyAuthInfoAtom,
   passwordPersistAtom,
+  passwordPersistManualLockStateAtom,
   passwordPromptPromiseTriggerAtom,
 } from '../../states/jotai/atoms/password';
 import webembedApiProxy from '../../webembeds/instance/webembedApiProxy';
@@ -872,8 +873,12 @@ export default class ServicePassword extends ServiceBase {
   // lock ---------------------------
   @backgroundMethod()
   async unLockApp() {
-    const isManualLocking = await passwordPersistAtom.get();
-    void passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
+    const { manualLocking: isManualLocking } =
+      await passwordPersistManualLockStateAtom.get();
+    void passwordPersistManualLockStateAtom.set((v) => ({
+      ...v,
+      manualLocking: false,
+    }));
     // wait ext ui update state
     if (platformEnv.isExtension && isManualLocking) {
       await timerUtils.wait(100);
@@ -907,7 +912,10 @@ export default class ServicePassword extends ServiceBase {
     }
     await this.clearCachedPassword();
     if (manual) {
-      await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
+      await passwordPersistManualLockStateAtom.set((v) => ({
+        ...v,
+        manualLocking: true,
+      }));
     }
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
   }
