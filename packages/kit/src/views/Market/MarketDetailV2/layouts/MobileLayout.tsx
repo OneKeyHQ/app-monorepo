@@ -99,23 +99,24 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     [focusedTab, tabNames, width],
   );
 
-  // Hide tabs for BTC network
+  // For BTC network, hide tabs only if no portfolio data
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
+  const hasPortfolioData = portfolioData.length > 0;
+  const shouldHideTabs = isBTCNetwork && !hasPortfolioData;
 
   const tradingViewHeight = useMemo(() => {
-    // When tabs are hidden (BTC network), use more height for the chart
-    if (isBTCNetwork) {
+    // When tabs are completely hidden (BTC network with no portfolio), use more height for the chart
+    if (shouldHideTabs) {
       if (platformEnv.isNative) {
         return Number(height) - 120;
       }
-
       return height;
     }
     if (platformEnv.isNative) {
       return Number(height) * 0.58;
     }
     return height;
-  }, [height, isBTCNetwork]);
+  }, [height, shouldHideTabs]);
 
   const informationHeader = useMemo(() => {
     return (

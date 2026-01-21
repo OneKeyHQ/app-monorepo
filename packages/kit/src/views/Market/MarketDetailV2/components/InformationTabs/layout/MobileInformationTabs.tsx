@@ -69,19 +69,36 @@ export function MobileInformationTabs({
     return baseTitle;
   }, [intl, tokenDetail?.holders]);
 
-  // Hide all tabs for BTC network
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
 
   const tabs = useMemo(() => {
-    // Hide all tabs for BTC network
-    if (isBTCNetwork) {
-      return [];
-    }
-
     // Check if current network supports holders tab (not available for native tokens)
     const shouldShowHoldersTab = !isNative && isHoldersTabSupported(networkId);
     // Check if there's an account address available
     const shouldShowPortfolioTab = !!accountAddress;
+    // Check if there's portfolio data
+    const hasPortfolioData = portfolioData.length > 0;
+
+    // For BTC network, only show portfolio tab if has portfolio data
+    if (isBTCNetwork) {
+      if (shouldShowPortfolioTab && hasPortfolioData) {
+        return [
+          <Tabs.Tab
+            key="portfolio"
+            name={intl.formatMessage({
+              id: ETranslations.dexmarket_details_myposition,
+            })}
+          >
+            <Portfolio
+              portfolioData={portfolioData}
+              isRefreshing={!!isRefreshing}
+              accountAddress={accountAddress}
+            />
+          </Tabs.Tab>,
+        ];
+      }
+      return [];
+    }
 
     const items = [
       <Tabs.Tab
@@ -134,6 +151,9 @@ export function MobileInformationTabs({
     return <MobileInformationTabsHeader {...props} />;
   }, []);
 
+  // Generate unique key based on tabs composition
+  const tabsKey = useMemo(() => tabs.map((tab) => tab.key).join('-'), [tabs]);
+
   // Hide entire component if no networkId
   if (!networkId) {
     return null;
@@ -141,7 +161,7 @@ export function MobileInformationTabs({
 
   return (
     <Tabs.Container
-      key={tabs.length}
+      key={tabsKey}
       headerContainerStyle={{
         width: '100%',
         shadowColor: 'transparent',

@@ -31,8 +31,10 @@ export function DesktopLayout() {
     accountAddress,
   });
 
-  // Hide tabs for BTC network
+  // For BTC network, show tabs only if has portfolio data
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
+  const hasPortfolioData = portfolioData.length > 0;
+  const shouldShowTabs = !isBTCNetwork || hasPortfolioData;
 
   return (
     <XStack flex={1}>
@@ -54,12 +56,13 @@ export function DesktopLayout() {
           ) : null}
         </Stack>
 
-        {/* Info tabs - hide for BTC network */}
-        {!isBTCNetwork ? (
+        {/* Info tabs - for BTC network, show only if has portfolio data */}
+        {shouldShowTabs ? (
           <Stack h="30vh">
             <DesktopInformationTabs
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
+              isBTCNetwork={isBTCNetwork}
             />
           </Stack>
         ) : null}
