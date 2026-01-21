@@ -113,29 +113,31 @@ export function ControlPanel({
             })}
           </SizableText>
         </YStack>
-        <YStack gap="$1" alignItems="center">
-          <IconButton
-            title={intl.formatMessage({
-              id: ETranslations.explore_share,
-            })}
-            cursor="pointer"
-            icon="ShareOutline"
-            size="large"
-            onPress={onShareImage}
-            disabled={isLoading}
-            iconSize="$6"
-            borderRadius="$4"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            hoverStyle={{ borderColor: '$borderHover' }}
-            bg="$bgApp"
-          />
-          <SizableText size="$bodySm" color="$text">
-            {intl.formatMessage({
-              id: ETranslations.explore_share,
-            })}
-          </SizableText>
-        </YStack>
+        {isMobile ? (
+          <YStack gap="$1" alignItems="center">
+            <IconButton
+              title={intl.formatMessage({
+                id: ETranslations.explore_share,
+              })}
+              cursor="pointer"
+              icon="ShareOutline"
+              size="large"
+              onPress={onShareImage}
+              disabled={isLoading}
+              iconSize="$6"
+              borderRadius="$4"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              hoverStyle={{ borderColor: '$borderHover' }}
+              bg="$bgApp"
+            />
+            <SizableText size="$bodySm" color="$text">
+              {intl.formatMessage({
+                id: ETranslations.explore_share,
+              })}
+            </SizableText>
+          </YStack>
+        ) : null}
         <YStack gap="$1" alignItems="center">
           <IconButton
             title={intl.formatMessage({
