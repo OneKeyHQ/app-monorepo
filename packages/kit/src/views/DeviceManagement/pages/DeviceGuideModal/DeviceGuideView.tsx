@@ -283,6 +283,7 @@ function DeviceGuideViewContent() {
       bg="$bgApp"
       testID="blank-page"
       pb={bottom}
+      zIndex={0}
     >
       <VideoContainer />
 
