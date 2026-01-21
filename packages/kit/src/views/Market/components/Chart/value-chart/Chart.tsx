@@ -34,9 +34,9 @@ export default function ChartWrapper({
 
   useAnimatedReaction<[boolean, string, string]>(
     () => [
-      (isActive as SharedValue<boolean>).value,
-      (originalX as SharedValue<string>).value,
-      (originalY as SharedValue<string>).value,
+      (isActive).value,
+      (originalX).value,
+      (originalY).value,
     ],
     ([hasValue, x, y]) => {
       runOnJS(throttledOnHover)(
