@@ -18,12 +18,11 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsFirstFocused } from '@onekeyhq/kit/src/hooks/useIsFirstFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 
 import type { ImageSourcePropType } from 'react-native';
 import type { ReactVideoSource } from 'react-native-video';
@@ -187,7 +186,7 @@ function DescriptionInfo() {
 
 function ButtonContainer() {
   const intl = useIntl();
-  const appNavigation = useAppNavigation();
+  const toOnBoardingPage = useNavigateToPickYourDevicePage();
   const { gtMd } = useMedia();
 
   const handleBuyButtonPress = useCallback(async () => {
@@ -203,10 +202,8 @@ function ButtonContainer() {
   }, []);
 
   const onAddDevice = useCallback(async () => {
-    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ConnectYourDevice,
-    });
-  }, [appNavigation]);
+    void toOnBoardingPage();
+  }, [toOnBoardingPage]);
 
   if (gtMd) {
     return (
@@ -286,6 +283,7 @@ function DeviceGuideViewContent() {
       bg="$bgApp"
       testID="blank-page"
       pb={bottom}
+      zIndex={0}
     >
       <VideoContainer />
 
