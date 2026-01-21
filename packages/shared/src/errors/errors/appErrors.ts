@@ -50,10 +50,7 @@ export class KeylessDataCorruptedError extends OneKeyAppError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyError: KeylessDataCorruptedError',
-        // TODO @franco i18n
-        // defaultKey: ETranslations.auth_error_passcode_incorrect,
-        defaultKey:
-          '数据损坏，可能是更换了新设备，如果您记得 PIN 和社交账户，请登出钱包后重新添加' as any,
+        defaultKey: ETranslations.keyless_device_changed_recovery_warning,
       }),
     );
   }

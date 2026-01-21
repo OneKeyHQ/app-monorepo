@@ -2081,6 +2081,7 @@
   insufficient_fee_append_desc = 'insufficient_fee_append_desc',
   interact_with_contract = 'interact_with_contract',
   kaspa_official = 'kaspa_official',
+  keyless_device_changed_recovery_warning = 'keyless_device_changed_recovery_warning',
   keyless_verify_identity_desc = 'keyless_verify_identity_desc',
   keyless_verify_identity_title = 'keyless_verify_identity_title',
   keyless_wallet = 'keyless_wallet',
