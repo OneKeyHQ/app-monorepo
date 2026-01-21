@@ -555,7 +555,9 @@ export function UniversalSearch({
         case EUniversalSearchType.V2MarketToken:
           return `${type}-${payload.address ?? payload.symbol}-${index}`;
         case EUniversalSearchType.AccountAssets:
-          return `${type}-${payload.token.address ?? payload.token.symbol}-${index}`;
+          return `${type}-${
+            payload.token.address ?? payload.token.symbol
+          }-${index}`;
         case EUniversalSearchType.Dapp:
           return `${type}-${payload.dappId ?? index}`;
         case EUniversalSearchType.Perp:

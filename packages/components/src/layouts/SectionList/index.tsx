@@ -176,8 +176,7 @@ function BaseSectionList<T>(
   }));
   const renderSectionAndItem = useCallback(
     ({ item }: { item: T }) => {
-      const { type, value, section, index, sectionIndex } =
-        item as ISectionLayoutItem;
+      const { type, value, section, index } = item as ISectionLayoutItem;
       switch (type) {
         case ESectionLayoutType.SectionSeparator: {
           return SectionSeparatorComponent;
