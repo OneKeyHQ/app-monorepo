@@ -875,15 +875,13 @@ export default class ServicePassword extends ServiceBase {
   async unLockApp() {
     const { manualLocking: isManualLocking } =
       await passwordPersistManualLockStateAtom.get();
-    void passwordPersistManualLockStateAtom.set((v) => ({
-      ...v,
-      manualLocking: false,
-    }));
-    // wait ext ui update state
-    if (platformEnv.isExtension && isManualLocking) {
-      await timerUtils.wait(100);
+    if (isManualLocking) {
+      await passwordPersistManualLockStateAtom.set((v) => ({
+        ...v,
+        manualLocking: false,
+      }));
     }
-    void passwordAtom.set((v) => ({
+    await passwordAtom.set((v) => ({
       ...v,
       unLock: true,
     }));
