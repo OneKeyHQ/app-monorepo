@@ -249,8 +249,6 @@ export class PushProviderWebSocket extends PushProviderBase {
       void this.backgroundApi.serviceNotification.setBadge({
         count: payload.badge,
       });
-      // Trigger notification list refresh to sync read status in UI
-      appEventBus.emit(EAppEventBusNames.UpdateNotificationBadge, undefined);
     });
 
     // this.socket.off('notification');

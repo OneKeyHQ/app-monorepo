@@ -99,6 +99,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     }
     let actionTranslationId;
     let actionToken: ISwapToken | undefined;
+    let actionOtherToken: ISwapToken | undefined;
     if (!speedSwapEnabled) {
       actionTranslationId = onlySupportCrossChain
         ? ETranslations.promode_swap_unsupported_message_btc
@@ -111,12 +112,22 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         logoURI: tokenDetail?.logoUrl || '',
         isNative: !!tokenDetail?.isNative,
       };
+      actionOtherToken = {
+        networkId: paymentToken?.networkId || '',
+        contractAddress: paymentToken?.contractAddress || '',
+        symbol: paymentToken?.symbol || '',
+        decimals: paymentToken?.decimals || 0,
+        logoURI: paymentToken?.logoURI || '',
+        isNative: paymentToken?.isNative || false,
+      };
     }
     return {
       enabled: isEnabled,
       warningMessage,
       actionTranslationId,
       actionToken,
+      actionOtherToken,
+      onlySupportCrossChain,
     };
   }, [
     accountNetworkNotSupported,
@@ -124,6 +135,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     networkId,
     onlySupportCrossChain,
     originalSupportSpeedSwap,
+    paymentToken?.contractAddress,
+    paymentToken?.decimals,
+    paymentToken?.isNative,
+    paymentToken?.logoURI,
+    paymentToken?.networkId,
+    paymentToken?.symbol,
     tokenDetail?.address,
     tokenDetail?.decimals,
     tokenDetail?.isNative,

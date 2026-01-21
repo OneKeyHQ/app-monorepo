@@ -45,8 +45,8 @@ function BaseHomeHeaderContainer() {
           bg="$bgApp"
           pointerEvents="box-none"
         >
-          <ReceiveInfo closable containerProps={{ m: '$5' }} />
-          <ReferralCodeBlock closable containerProps={{ m: '$5' }} />
+          <ReceiveInfo containerProps={{ m: '$5' }} />
+          <ReferralCodeBlock containerProps={{ m: '$5' }} />
         </YStack>
       );
     }
@@ -59,13 +59,12 @@ function BaseHomeHeaderContainer() {
       >
         {showReceiveInfo ? (
           <Stack height={270} m="$5">
-            <ReceiveInfo closable setShowReceiveInfo={setShowReceiveInfo} />
+            <ReceiveInfo setShowReceiveInfo={setShowReceiveInfo} />
           </Stack>
         ) : null}
         {showReferralCodeBlock ? (
           <Stack height={270} m="$5">
             <ReferralCodeBlock
-              closable
               setShowReferralCodeBlock={setShowReferralCodeBlock}
             />
           </Stack>

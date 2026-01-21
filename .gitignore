@@ -12,6 +12,7 @@ __generated__
 .claude/settings.local.json
 .clauderc
 .tmp/
+.cursor/plans/
 *.private_ai_docs.md
 .cursor/plans/
 dist

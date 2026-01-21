@@ -1,8 +1,25 @@
 diff --git a/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java b/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java
-index c731640..6bdefe4 100644
+index c731640..39ccff3 100644
 --- a/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java
 +++ b/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java
-@@ -168,7 +168,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -45,6 +45,7 @@ import java.util.List;
+ import java.util.Map;
+ 
+ import io.reactivex.exceptions.UndeliverableException;
++import io.reactivex.exceptions.CompositeException;
+ import io.reactivex.plugins.RxJavaPlugins;
+ 
+ @ReactModule(name = BlePlxModule.NAME)
+@@ -56,7 +57,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+     super(reactContext);
+     this.reactContext = reactContext;
+     RxJavaPlugins.setErrorHandler(throwable -> {
+-      if (throwable instanceof UndeliverableException) {
++      if (throwable instanceof UndeliverableException || throwable instanceof CompositeException) {
+         RxBleLog.e("Handle all unhandled exceptions from RxJava: " + throwable.getMessage());
+       } else {
+         Thread currentThread = Thread.currentThread();
+@@ -168,7 +169,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
      }, new OnErrorCallback() {
        @Override
        public void onError(BleError error) {
@@ -11,7 +28,7 @@ index c731640..6bdefe4 100644
        }
      });
    }
-@@ -187,7 +187,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -187,7 +188,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
      }, new OnErrorCallback() {
        @Override
        public void onError(BleError error) {
@@ -20,7 +37,7 @@ index c731640..6bdefe4 100644
        }
      });
    }
-@@ -273,7 +273,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -273,7 +274,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -29,7 +46,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -296,7 +296,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -296,7 +297,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -38,7 +55,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -318,7 +318,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -318,7 +319,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -47,7 +64,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -338,7 +338,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -338,7 +339,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -56,7 +73,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -358,7 +358,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -358,7 +359,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -65,7 +82,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -422,7 +422,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -422,7 +423,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -74,7 +91,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -442,7 +442,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -442,7 +443,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -83,7 +100,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -461,7 +461,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -461,7 +462,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -92,7 +109,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -483,7 +483,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -483,7 +484,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -101,7 +118,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -503,7 +503,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -503,7 +504,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }
        promise.resolve(jsArray);
      } catch (BleError error) {
@@ -110,7 +127,7 @@ index c731640..6bdefe4 100644
      }
  
    }
-@@ -524,7 +524,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -524,7 +525,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }
        promise.resolve(jsCharacteristics);
      } catch (BleError error) {
@@ -119,7 +136,7 @@ index c731640..6bdefe4 100644
      }
    }
  
-@@ -541,7 +541,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -541,7 +542,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }
        promise.resolve(jsCharacteristics);
      } catch (BleError error) {
@@ -128,7 +145,7 @@ index c731640..6bdefe4 100644
      }
    }
  
-@@ -561,7 +561,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -561,7 +562,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }
        promise.resolve(jsDescriptors);
      } catch (BleError error) {
@@ -137,7 +154,7 @@ index c731640..6bdefe4 100644
      }
    }
  
-@@ -580,7 +580,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -580,7 +581,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }
        promise.resolve(jsDescriptors);
      } catch (BleError error) {
@@ -146,7 +163,7 @@ index c731640..6bdefe4 100644
      }
    }
  
-@@ -598,7 +598,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -598,7 +599,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }
        promise.resolve(jsDescriptors);
      } catch (BleError error) {
@@ -155,7 +172,7 @@ index c731640..6bdefe4 100644
      }
    }
  
-@@ -627,7 +627,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -627,7 +628,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -164,7 +181,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -654,7 +654,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -654,7 +655,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -173,7 +190,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -680,7 +680,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -680,7 +681,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -182,7 +199,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -706,7 +706,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -706,7 +707,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -191,7 +208,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -732,7 +732,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -732,7 +733,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -200,7 +217,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -757,7 +757,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -757,7 +758,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -209,7 +226,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -788,7 +788,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -788,7 +789,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -218,7 +235,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -818,7 +818,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -818,7 +819,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -227,7 +244,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -848,7 +848,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -848,7 +849,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError error) {
@@ -236,7 +253,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -878,7 +878,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -878,7 +879,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        }, new OnErrorCallback() {
          @Override
          public void onError(BleError bleError) {
@@ -245,7 +262,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -906,7 +906,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -906,7 +907,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        new OnErrorCallback() {
          @Override
          public void onError(BleError bleError) {
@@ -254,7 +271,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -932,7 +932,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -932,7 +933,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        new OnErrorCallback() {
          @Override
          public void onError(BleError bleError) {
@@ -263,7 +280,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -956,7 +956,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -956,7 +957,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        new OnErrorCallback() {
          @Override
          public void onError(BleError bleError) {
@@ -272,7 +289,7 @@ index c731640..6bdefe4 100644
          }
        });
    }
-@@ -988,7 +988,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -988,7 +989,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        new OnErrorCallback() {
          @Override
          public void onError(BleError bleError) {
@@ -281,7 +298,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -1019,7 +1019,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -1019,7 +1020,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        new OnErrorCallback() {
          @Override
          public void onError(BleError bleError) {
@@ -290,7 +307,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -1048,7 +1048,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -1048,7 +1049,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        new OnErrorCallback() {
          @Override
          public void onError(BleError bleError) {
@@ -299,7 +316,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -1075,7 +1075,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -1075,7 +1076,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
        new OnErrorCallback() {
          @Override
          public void onError(BleError bleError) {
@@ -308,7 +325,7 @@ index c731640..6bdefe4 100644
          }
        }
      );
-@@ -1101,7 +1101,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+@@ -1101,7 +1102,7 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
      if(this.bleAdapter == null){
        BleError bleError = new BleError(BleErrorCode.BluetoothManagerDestroyed, String.format("BleManager cannot call the %s function because BleManager has been destroyed", functionName), null);
  

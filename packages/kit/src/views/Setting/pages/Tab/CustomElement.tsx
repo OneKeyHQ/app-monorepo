@@ -1,4 +1,11 @@
-import { Suspense, useCallback, useContext, useMemo, useState } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { upperFirst } from 'lodash';
@@ -32,6 +39,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
@@ -451,6 +459,43 @@ export function AutoLockListItem(props: ICustomElementProps) {
       />
     </TabSettingsListItem>
   ) : null;
+}
+
+export function ChangeOrSetPasswordListItem(props: ICustomElementProps) {
+  const intl = useIntl();
+  const [{ isPasswordSet }] = usePasswordPersistAtom();
+
+  useEffect(() => {
+    void backgroundApiProxy.servicePassword.checkPasswordSet();
+  }, []);
+
+  const onPress = useCallback(async () => {
+    if (isPasswordSet) {
+      const oldEncodedPassword =
+        await backgroundApiProxy.servicePassword.promptPasswordVerify({
+          reason: EReasonForNeedPassword.Security,
+        });
+      const dialog = Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.global_change_passcode,
+        }),
+        renderContent: (
+          <PasswordUpdateContainer
+            oldEncodedPassword={oldEncodedPassword.password}
+            onUpdateRes={async (data) => {
+              if (data) {
+                await dialog.close();
+              }
+            }}
+          />
+        ),
+        showFooter: false,
+      });
+    } else {
+      void backgroundApiProxy.servicePassword.promptPasswordVerify();
+    }
+  }, [intl, isPasswordSet]);
+  return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
 function SocialButton({

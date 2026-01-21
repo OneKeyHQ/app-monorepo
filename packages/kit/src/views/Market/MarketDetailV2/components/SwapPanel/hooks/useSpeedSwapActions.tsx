@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -140,25 +140,36 @@ export function useSpeedSwapActions(props: {
   const [tradeTokenDetail, setTradeTokenDetail] =
     useState<ISwapToken>(tradeToken);
 
+  const tradeTokenRef = useRef<ISwapToken>(undefined);
+  if (tradeTokenRef.current !== tradeToken) {
+    tradeTokenRef.current = tradeToken;
+  }
+  const tradeTokenNetworkId = tradeToken.networkId;
+  const tradeTokenContractAddress = tradeToken.contractAddress;
   useEffect(() => {
     void (async () => {
-      if (!tradeToken?.networkId) return;
+      if (!tradeTokenNetworkId) return;
       const tokenDetail =
         await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-          networkId: tradeToken?.networkId ?? '',
-          contractAddress: tradeToken?.contractAddress ?? '',
+          networkId: tradeTokenNetworkId,
+          contractAddress: tradeTokenContractAddress,
         });
       if (tokenDetail?.length) {
         setTradeTokenDetail({
           ...tokenDetail[0],
-          symbol: tradeToken?.symbol,
+          symbol: tradeTokenRef.current?.symbol ?? '',
           logoURI: tokenDetail[0]?.logoURI
             ? tokenDetail[0]?.logoURI
-            : tradeToken?.logoURI,
+            : tradeTokenRef.current?.logoURI ?? '',
         });
       }
     })();
-  }, [tradeType, defaultTradeTokens, tradeToken]);
+  }, [
+    tradeType,
+    defaultTradeTokens,
+    tradeTokenNetworkId,
+    tradeTokenContractAddress,
+  ]);
 
   const { fromToken, toToken, balanceToken } = useMemo(() => {
     if (tradeType === ESwapDirection.BUY) {

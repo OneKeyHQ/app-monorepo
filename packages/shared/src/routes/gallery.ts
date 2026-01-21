@@ -109,4 +109,5 @@ export enum EGalleryRoutes {
   ComponentPlayground = 'component-Playground',
   ComponentAuth = 'component-Auth',
   ComponentOneKeyID = 'component-OneKeyID',
+  ComponentStorage = 'component-Storage',
 }

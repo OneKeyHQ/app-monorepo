@@ -24,6 +24,7 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
 import { useDeviceManagerModalStyle } from '../../hooks/useDeviceManagerModalStyle';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
 
@@ -59,13 +60,17 @@ function DeviceGetStartedLayout() {
 function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
   const intl = useIntl();
   const { refresh } = useDeviceDetailsActions();
+  const { handleBackPress } = useDeviceBackNavigation();
 
   const isQrWallet = accountUtils.isQrWallet({ walletId });
 
   useEffect(() => {
     if (!walletId) return;
-    const fn = () => {
-      void refresh(walletId);
+    const fn = async () => {
+      const data = await refresh(walletId);
+      if (!data) {
+        void handleBackPress?.();
+      }
     };
     void fn();
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
@@ -76,7 +81,7 @@ function DeviceDetailsModalV2Cmp({ walletId }: { walletId: string }) {
       appEventBus.off(EAppEventBusNames.HardwareFeaturesUpdate, fn);
       appEventBus.off(EAppEventBusNames.FinishFirmwareUpdate, fn);
     };
-  }, [refresh, walletId]);
+  }, [refresh, walletId, handleBackPress]);
 
   const actions = useFirmwareUpdateActions();
   const localActions = useDeviceDetailsActions();
@@ -155,6 +160,7 @@ function DeviceDetailsModal() {
   const { walletId } = (route.params as { walletId: string }) || {
     walletId: '',
   };
+
   return (
     <AccountSelectorProviderMirror
       config={{ sceneName: EAccountSelectorSceneName.home }}
