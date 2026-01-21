@@ -2,7 +2,7 @@ import {
   OAUTH_FLOW_TIMEOUT_MS,
   ONEKEY_OAUTH_STATE_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IOAuthPopupOptions, IOAuthPopupResult } from './types';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -177,7 +177,8 @@ export abstract class OAuthPopupBase {
    * Wrap error with OneKeyLocalError if not already.
    */
   protected static wrapError(error: unknown, fallbackMessage: string): Error {
-    if (error instanceof OneKeyLocalError) {
+    // if (error instanceof OneKeyLocalError) {
+    if (error instanceof OneKeyLocalError || error instanceof OneKeyError) {
       return error;
     }
     return new OneKeyLocalError(

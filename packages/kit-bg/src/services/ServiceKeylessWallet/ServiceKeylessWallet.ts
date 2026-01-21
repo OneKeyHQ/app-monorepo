@@ -28,7 +28,10 @@ import {
   KEYLESS_SUPABASE_PROJECT_URL,
   KEYLESS_SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  KeylessDataCorruptedError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IAuthKeyPack,
@@ -46,6 +49,7 @@ import keylessWalletUtils from '@onekeyhq/shared/src/keylessWallet/keylessWallet
 import shamirUtils from '@onekeyhq/shared/src/keylessWallet/shamirUtils';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -1640,9 +1644,11 @@ class ServiceKeylessWallet extends ServiceBase {
         backgroundApi: this.backgroundApi,
       });
     if (!mnemonicPassword) {
-      throw new OneKeyLocalError(
-        'Mnemonic password not found in storage. Please restore the wallet again.',
-      );
+      defaultLogger.wallet.keyless.dataCorruptedError({
+        reason:
+          'getMnemonicPasswordFromStorage: mnemonicPassword not found in secure storage',
+      });
+      throw new KeylessDataCorruptedError();
     }
 
     // 3.1. Verify mnemonicPassword can decrypt backendShareData and matches local keyless wallet

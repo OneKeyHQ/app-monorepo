@@ -196,6 +196,13 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     isWrapped,
   } = speedSwapActions;
 
+  const { result: mergeDeriveAssetsEnabled } = usePromiseResult(async () => {
+    const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: balanceToken?.networkId || '',
+    });
+    return result?.mergeDeriveAssetsEnabled;
+  }, [balanceToken?.networkId]);
+
   const filterDefaultTokens = useMemo(() => {
     if (defaultTokens?.length === 1) {
       return [...defaultTokens];
@@ -290,6 +297,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   return (
     <SwapPanelContent
+      activeAccount={activeAccount}
+      enableAddressTypeSelector={!!mergeDeriveAssetsEnabled}
       currentMarketToken={{
         networkId: networkId || '',
         contractAddress: tokenDetail?.address || '',
