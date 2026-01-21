@@ -5,17 +5,22 @@ import BulkSendHeader from '../../components/BulkSendHeader';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import type { EModalBulkSendRoutes, IModalBulkSendParamList } from '@onekeyhq/shared/src/routes';
 import { useCallback, useMemo, useState } from 'react';
-import { BulkSendAmountsInputContext, type IBulkSendAmountsInputContext } from './components/Context';
+import { BulkSendAmountsInputContext, type IBulkSendAmountsInputContext, useBulkSendAmountsInputContext } from './components/Context';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { POLLING_DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_TOKEN } from '@onekeyhq/shared/src/consts/walletConsts';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 function BaseBulkSendAmountsInput() {
+  const { tokenDetails, tokenDetailsState } = useBulkSendAmountsInputContext();
   const handleSubmit = useCallback(() => {
     console.log('handleSubmit');
   }, []);
 
   const isSubmitDisabled = useMemo(() => {
-    return false;
-  }, []);
+    return !tokenDetailsState.initialized || (tokenDetailsState.isRefreshing && !tokenDetails);
+  }, [tokenDetailsState.initialized, tokenDetailsState.isRefreshing, tokenDetails]);
 
   return <Page scrollEnabled>
     <BulkSendBar />
@@ -64,6 +69,58 @@ function BulkSendAmountsInput() {
     initialized: false,
     isRefreshing: false,
   });
+
+
+  usePromiseResult(async () => {
+    if (bulkSendMode === EBulkSendMode.OneToMany && accountId && networkId && tokenInfo) {
+      setTokenDetailsState(prev => ({
+        ...prev,
+        isRefreshing: true,
+      }));
+      const [checkInscriptionProtectionEnabled, vaultSettings] =
+        await Promise.all([
+          backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled({
+            networkId,
+            accountId,
+          }),
+          backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          }),
+        ]);
+      const withCheckInscription =
+        checkInscriptionProtectionEnabled && vaultSettings.hasFrozenBalance;
+
+      try {
+        const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+          accountId,
+          networkId,
+          contractList: [tokenInfo.address],
+          withFrozenBalance: true,
+          withCheckInscription,
+        });
+
+        if (resp[0]) {
+          setTokenDetails(resp[0]);
+          setTokenDetailsState({
+            initialized: true,
+            isRefreshing: false,
+          });
+        } else {
+          setTokenDetails(undefined);
+
+        }
+      } catch (_) {
+        setTokenDetails(undefined);
+
+      } finally {
+        setTokenDetailsState({
+          initialized: true,
+          isRefreshing: false,
+        });
+      }
+    }
+  }, [networkId, accountId, tokenInfo, bulkSendMode],
+    { debounced: POLLING_DEBOUNCE_INTERVAL, pollingInterval: POLLING_INTERVAL_FOR_TOKEN });
 
 
 

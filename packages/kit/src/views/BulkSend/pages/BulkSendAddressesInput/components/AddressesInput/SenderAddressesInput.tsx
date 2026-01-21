@@ -18,10 +18,10 @@ import {
   type IAddressBadge,
 } from '@onekeyhq/shared/types/address';
 
-import { useBulkSendAddressesInputContext } from '../BulkSendContext';
-import { useDebouncedValidation } from '../../hooks/useDebouncedValidation';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
+import { useBulkSendAddressesInputContext } from '../Context';
+import { useDebouncedValidation } from '../../../../hooks/useDebouncedValidation';
 
 function SenderAddressesInput() {
   const {
@@ -183,7 +183,7 @@ function SenderAddressesInput() {
             color="$textSubdued"
             formatterOptions={{ tokenSymbol: selectedTokenDetail?.info.symbol }}
           >
-            {selectedTokenDetail?.balanceParsed}
+            {selectedTokenDetail?.balanceParsed ?? '-'}
           </NumberSizeableText>
         </XStack>
       );
