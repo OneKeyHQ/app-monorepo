@@ -2076,6 +2076,7 @@
   "insufficient_fee_append_desc": "最大推定手数料に基づく: {amount} {symbol}",
   "interact_with_contract": "(に)交流する",
   "kaspa_official": "Kaspa公式",
+  "keyless_device_changed_recovery_warning": "デバイスの変更などにより、データの問題が検出されました。現在は、PIN を変更したり確認したりすることができません。PIN を覚えていて、リンク済みのメールにアクセスできることを必ず確認してから、一度このウォレットからサインアウトし、再度サインインしてやり直してください。",
   "keyless_verify_identity_desc": "{provider}アカウントでログインして続行してください",
   "keyless_verify_identity_title": "あなたの身元を確認してください",
   "keyless_wallet": "キーレスウォレット",
