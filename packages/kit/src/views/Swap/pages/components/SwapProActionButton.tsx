@@ -354,13 +354,22 @@ const SwapProActionButton = ({
     return quoteLoading;
   }, [swapProTradeType, quoteLoading, quoteFetching]);
   const actionButtonDisabled = useMemo(() => {
-    return (
+    let originalDisabled =
       !hasEnoughBalance ||
       !currentQuoteRes?.toAmount ||
       balanceLoading ||
-      currentQuoteLoading
-    );
-  }, [hasEnoughBalance, currentQuoteRes, balanceLoading, currentQuoteLoading]);
+      currentQuoteLoading;
+    if (!supportSpeedSwap) {
+      originalDisabled = !hasEnoughBalance;
+    }
+    return originalDisabled;
+  }, [
+    hasEnoughBalance,
+    currentQuoteRes,
+    balanceLoading,
+    currentQuoteLoading,
+    supportSpeedSwap,
+  ]);
 
   const actionButtonText = useMemo(() => {
     const directionText = intl.formatMessage({
@@ -375,12 +384,7 @@ const SwapProActionButton = ({
     if (swapProDirection === ESwapDirection.BUY) {
       tokenSymbol = toToken?.symbol ?? '-';
     }
-    if (!supportSpeedSwap) {
-      return {
-        resValue: `${directionText} ${tokenSymbol}`,
-        subValue: '',
-      };
-    }
+
     if (!hasEnoughBalance) {
       return {
         resValue: intl.formatMessage({
@@ -452,7 +456,6 @@ const SwapProActionButton = ({
     swapProDirection,
     inputToken?.symbol,
     currencyInfo?.symbol,
-    supportSpeedSwap,
     hasEnoughBalance,
     swapProAccount?.result?.addressDetail.address,
     currentQuoteRes,
@@ -464,7 +467,7 @@ const SwapProActionButton = ({
 
   return (
     <Button
-      disabled={Boolean(actionButtonDisabled && supportSpeedSwap)}
+      disabled={actionButtonDisabled}
       onPress={debouncedOnSwapProActionClick}
       variant="primary"
       size="small"
