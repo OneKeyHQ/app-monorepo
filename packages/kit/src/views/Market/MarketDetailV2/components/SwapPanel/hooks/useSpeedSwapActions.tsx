@@ -10,6 +10,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -127,25 +128,34 @@ export function useSpeedSwapActions(props: {
       balanceToken: marketToken,
     };
   }, [tradeType, marketToken, tradeTokenDetail]);
+
+  // Use atom to get selected derive type from Market Detail page
+  const [selectedDeriveType] = useSelectedDeriveTypeAtom();
+
   const netAccountRes = usePromiseResult(async () => {
     try {
       const defaultDeriveType =
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: balanceToken?.networkId ?? '',
         });
+
+      // Prioritize Market Detail page selected derive type over global
+      const effectiveDeriveType =
+        selectedDeriveType ?? defaultDeriveType ?? 'default';
+
       const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
         accountId: account?.indexedAccount?.id
           ? undefined
           : account?.account?.id,
         indexedAccountId: account?.indexedAccount?.id ?? '',
         networkId: balanceToken?.networkId,
-        deriveType: defaultDeriveType ?? 'default',
+        deriveType: effectiveDeriveType,
       });
       return res;
     } catch (_e) {
       return undefined;
     }
-  }, [account, balanceToken?.networkId]);
+  }, [account, balanceToken?.networkId, selectedDeriveType]);
 
   // Listen for derive type changes and re-fetch network account
   useEffect(() => {
