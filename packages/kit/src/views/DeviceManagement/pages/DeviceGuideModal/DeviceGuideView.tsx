@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -25,7 +25,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 
 import type { ImageSourcePropType } from 'react-native';
-import type { ReactVideoSource } from 'react-native-video';
+import type { OnProgressData, ReactVideoSource } from 'react-native-video';
 
 const LightPosterImage =
   require('./assets/mydevice_hero_poster_light.jpg') as ImageSourcePropType;
@@ -64,8 +64,15 @@ function VideoContainer() {
     };
   }, [gtMd]);
 
-  const handleVideoLoad = useCallback(() => {
-    setIsVideoLoaded(true);
+  const isVideoLoadedRef = useRef(isVideoLoaded);
+  isVideoLoadedRef.current = isVideoLoaded;
+  const handleVideoLoad = useCallback((e: OnProgressData) => {
+    if (isVideoLoadedRef.current) {
+      return;
+    }
+    if (e.currentTime > 0) {
+      setIsVideoLoaded(true);
+    }
   }, []);
 
   return (
@@ -98,15 +105,6 @@ function VideoContainer() {
           ...maskStyle,
         }}
       >
-        {!isVideoLoaded ? (
-          <Image
-            position="absolute"
-            width="100%"
-            height="100%"
-            resizeMode="cover"
-            source={posterSource}
-          />
-        ) : null}
         <Video
           muted
           autoPlay
@@ -119,8 +117,17 @@ function VideoContainer() {
           playInBackground={false}
           resizeMode={EVideoResizeMode.COVER}
           source={videoSource}
-          onLoad={handleVideoLoad}
+          onProgress={handleVideoLoad}
         />
+        {!isVideoLoaded ? (
+          <Image
+            position="absolute"
+            width="100%"
+            height="100%"
+            resizeMode="cover"
+            source={posterSource}
+          />
+        ) : null}
         <LinearGradient
           colors={[
             'transparent',
