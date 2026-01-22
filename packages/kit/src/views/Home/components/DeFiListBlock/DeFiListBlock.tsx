@@ -861,9 +861,9 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
                 tableLayout
                   ? undefined
                   : {
-                    mx: '$0',
-                    px: '$0',
-                  }
+                      mx: '$0',
+                      px: '$0',
+                    }
               }
               isTokenSelectorView={false}
             />

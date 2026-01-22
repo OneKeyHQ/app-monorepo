@@ -33,7 +33,7 @@ export function CreateCodeButton({
       const scrollView = scrollViewRef?.current;
 
       if (typeof scrollView?.scrollTo === 'function') {
-        scrollView.scrollToEnd({ animated: true })
+        scrollView.scrollToEnd({ animated: true });
       }
     }, 500);
   }, [scrollViewRef]);
