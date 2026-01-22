@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -196,7 +197,7 @@ export function TokenDetailHeaderLeft({
                         />
                       ) : null}
 
-                      {networkId ? (
+                      {networkId && address !== SUI_TYPE_ARG ? (
                         <ShareButton
                           networkId={networkId}
                           address={address}

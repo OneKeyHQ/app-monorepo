@@ -102,7 +102,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     if (platformEnv.isNative) {
       return Number(height) * 0.58;
     }
-    return '40vh';
+    return 'calc(100vh - 96px - 74px - 250px)';
   }, [height]);
 
   const informationHeader = useMemo(() => {

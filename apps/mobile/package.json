@@ -41,7 +41,7 @@
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
     "@notifee/react-native": "9.1.8",
-    "@onekeyfe/react-native-animated-charts": "1.0.1",
+    "@onekeyfe/react-native-animated-charts": "2.0.1",
     "@onekeyfe/react-native-background-thread": "1.1.14",
     "@onekeyfe/react-native-ble-utils": "0.1.4",
     "@onekeyfe/react-native-check-biometric-auth-changed": "1.1.14",

@@ -70,6 +70,11 @@ function LanguageListItem() {
       value={value}
       onChange={onChange}
       floatingPanelProps={{ maxHeight: 280 }}
+      sheetProps={{
+        disableDrag: true,
+        snapPoints: [80],
+        snapPointsMode: 'percent',
+      }}
       placement="bottom-end"
       renderTrigger={() => (
         <ListItem
@@ -135,6 +140,11 @@ function CurrencyListItem() {
       value={settings.currencyInfo.id}
       onChange={handleChange}
       floatingPanelProps={{ maxHeight: 280 }}
+      sheetProps={{
+        disableDrag: true,
+        snapPoints: [80],
+        snapPointsMode: 'percent',
+      }}
       placement="bottom-end"
       renderTrigger={() => (
         <ListItem

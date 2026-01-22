@@ -324,6 +324,9 @@ function GetStarted() {
   };
 
   const handleGoogleLogin = useCallback(async () => {
+    defaultLogger.account.wallet.onboard({
+      onboardMethod: 'createKeylessWallet',
+    });
     await checkKeylessWalletLocalExistence({
       signInProvider: EOAuthSocialLoginProvider.Google,
     });

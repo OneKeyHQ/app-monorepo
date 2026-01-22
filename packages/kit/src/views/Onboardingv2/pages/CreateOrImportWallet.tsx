@@ -197,6 +197,9 @@ function CreateOrImportWallet() {
   };
 
   const handleKeylessWalletClick = useCallback(async () => {
+    defaultLogger.account.wallet.onboard({
+      onboardMethod: 'createKeylessWallet',
+    });
     // await enableKeylessWallet({
     //   fromScene: EKeylessWalletEnableScene.Onboarding,
     // });

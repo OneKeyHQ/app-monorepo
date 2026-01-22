@@ -13,7 +13,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // import ExtremeLabels from './ExtremeLabels';
 
 import type { IOnHoverFunction } from '../chartUtils';
-import type { SharedValue } from 'react-native-reanimated';
 
 export default function ChartWrapper({
   isFetching,

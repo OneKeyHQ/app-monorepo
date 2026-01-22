@@ -9,14 +9,14 @@ import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/auth
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  createTemporarySupabaseClient,
+  getSupabaseClient,
+} from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 
 import { OAuthPopup } from '../OAuthPopup';
 import { ensureOneKeyOAuthState } from '../oauthUtils';
 
-import {
-  createTemporarySupabaseClient,
-  getSupabaseClient,
-} from './getSupabaseClient';
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
 import type { AuthResponse, SupabaseClient } from '@supabase/supabase-js';

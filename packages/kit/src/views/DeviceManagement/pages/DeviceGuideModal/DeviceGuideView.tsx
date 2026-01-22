@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,15 +18,14 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsFirstFocused } from '@onekeyhq/kit/src/hooks/useIsFirstFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 
 import type { ImageSourcePropType } from 'react-native';
-import type { ReactVideoSource } from 'react-native-video';
+import type { OnProgressData, ReactVideoSource } from 'react-native-video';
 
 const LightPosterImage =
   require('./assets/mydevice_hero_poster_light.jpg') as ImageSourcePropType;
@@ -65,8 +64,15 @@ function VideoContainer() {
     };
   }, [gtMd]);
 
-  const handleVideoLoad = useCallback(() => {
-    setIsVideoLoaded(true);
+  const isVideoLoadedRef = useRef(isVideoLoaded);
+  isVideoLoadedRef.current = isVideoLoaded;
+  const handleVideoLoad = useCallback((e: OnProgressData) => {
+    if (isVideoLoadedRef.current) {
+      return;
+    }
+    if (e.currentTime > 0) {
+      setIsVideoLoaded(true);
+    }
   }, []);
 
   return (
@@ -99,15 +105,6 @@ function VideoContainer() {
           ...maskStyle,
         }}
       >
-        {!isVideoLoaded ? (
-          <Image
-            position="absolute"
-            width="100%"
-            height="100%"
-            resizeMode="cover"
-            source={posterSource}
-          />
-        ) : null}
         <Video
           muted
           autoPlay
@@ -120,8 +117,17 @@ function VideoContainer() {
           playInBackground={false}
           resizeMode={EVideoResizeMode.COVER}
           source={videoSource}
-          onLoad={handleVideoLoad}
+          onProgress={handleVideoLoad}
         />
+        {!isVideoLoaded ? (
+          <Image
+            position="absolute"
+            width="100%"
+            height="100%"
+            resizeMode="cover"
+            source={posterSource}
+          />
+        ) : null}
         <LinearGradient
           colors={[
             'transparent',
@@ -187,7 +193,7 @@ function DescriptionInfo() {
 
 function ButtonContainer() {
   const intl = useIntl();
-  const appNavigation = useAppNavigation();
+  const toOnBoardingPage = useNavigateToPickYourDevicePage();
   const { gtMd } = useMedia();
 
   const handleBuyButtonPress = useCallback(async () => {
@@ -203,10 +209,8 @@ function ButtonContainer() {
   }, []);
 
   const onAddDevice = useCallback(async () => {
-    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ConnectYourDevice,
-    });
-  }, [appNavigation]);
+    void toOnBoardingPage();
+  }, [toOnBoardingPage]);
 
   if (gtMd) {
     return (
@@ -286,6 +290,7 @@ function DeviceGuideViewContent() {
       bg="$bgApp"
       testID="blank-page"
       pb={bottom}
+      zIndex={0}
     >
       <VideoContainer />
 

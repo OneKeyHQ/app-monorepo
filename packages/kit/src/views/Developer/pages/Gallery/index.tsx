@@ -593,6 +593,13 @@ const OneKeyIDGallery = LazyLoadPage(
     ),
 );
 
+const StorageGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/StorageGallery'
+    ),
+);
+
 const OTPInputGallery = LazyLoadPage(
   () =>
     import(
@@ -1030,5 +1037,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentOneKeyID,
     component: OneKeyIDGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentStorage,
+    component: StorageGallery,
   },
 ];

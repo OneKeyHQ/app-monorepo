@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import * as ExpoSharing from 'expo-sharing';
 import { Share } from 'react-native';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -13,19 +12,14 @@ export function useShare() {
   const { copyText } = useClipboard();
   const shareText = useCallback(
     async (text: string) => {
-      if (platformEnv.isNativeIOS) {
-        if (await ExpoSharing.isAvailableAsync()) {
-          // https://docs.expo.dev/versions/latest/sdk/sharing/
-          await ExpoSharing.shareAsync(text);
-          return;
-        }
-      }
-      if (platformEnv.isNativeAndroid) {
+      // On mobile devices, use native share functionality
+      if (platformEnv.isNative) {
         await Share.share({
           message: text,
         });
         return;
       }
+      // On desktop/web, just copy link and show success message
       copyText(text, ETranslations.global_link_copied);
     },
     [copyText],

@@ -536,9 +536,13 @@ export default class Vault extends VaultBase {
         }
 
         const asset = new Asset(assetCode, assetIssuer);
-        const amountFormatted = new BigNumber(amount).toFixed(
-          tokenInfo.decimals,
-        );
+        const amountBN = new BigNumber(amount);
+        if (amountBN.isZero() || !amountBN.isPositive()) {
+          throw new OneKeyInternalError({
+            key: ETranslations.send_cannot_send_amount_zero,
+          });
+        }
+        let amountFormatted = amountBN.toFixed(tokenInfo.decimals);
 
         transactionBuilder.addOperation(
           Operation.payment({

@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -131,6 +131,10 @@ const TradesHistoryRow = memo(
       return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
     }, [fill.closedPnl, fill.fee]);
 
+    const [isHovered, setIsHovered] = useState(false);
+    const isOddRow = index % 2 === 1;
+    const baseBgColor = isHovered || !isOddRow ? '$bgApp' : '$bgSubdued';
+
     if (isMobile) {
       return (
         <ListItem
@@ -253,6 +257,7 @@ const TradesHistoryRow = memo(
         </ListItem>
       );
     }
+
     return (
       <XStack
         flex={1}
@@ -260,10 +265,16 @@ const TradesHistoryRow = memo(
         px="$3"
         alignItems="center"
         hoverStyle={{ bg: '$bgHover' }}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
         minWidth={cellMinWidth}
-        {...(index % 2 === 1 && {
-          backgroundColor: '$bgSubdued',
-        })}
+        {...(index % 2 === 1
+          ? {
+              backgroundColor: '$bgSubdued',
+            }
+          : {
+              backgroundColor: '$bgApp',
+            })}
       >
         {/* Time */}
         <YStack
@@ -371,7 +382,25 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
           gap="$1"
+          {...(columnConfigs[7]?.fixed && {
+            position: 'sticky' as any,
+            right: 0,
+            zIndex: 1,
+            pr: '$2',
+            backgroundColor: baseBgColor,
+          })}
         >
+          {columnConfigs[7]?.fixed && isHovered ? (
+            <XStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              backgroundColor="$bgHover"
+              pointerEvents="none"
+            />
+          ) : null}
           <SizableText
             numberOfLines={1}
             ellipsizeMode="tail"
@@ -391,7 +420,9 @@ const TradesHistoryRow = memo(
               hoverStyle={null}
               pressStyle={null}
             />
-          ) : null}
+          ) : (
+            <XStack width={16} height={16} />
+          )}
         </XStack>
       </XStack>
     );

@@ -1,4 +1,11 @@
-import { Suspense, useCallback, useContext, useMemo, useState } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { upperFirst } from 'lodash';
@@ -12,7 +19,6 @@ import type {
   ISizableTextProps,
 } from '@onekeyhq/components';
 import {
-  ActionList,
   Badge,
   Dialog,
   ESwitchSize,
@@ -32,6 +38,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
@@ -236,57 +243,48 @@ export function ClearAppCacheListItem(props: ICustomElementProps) {
   return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
-export function CleanDataListItem(props: ICustomElementProps) {
+export function ClearPendingTransactionsListItem(props: ICustomElementProps) {
   const intl = useIntl();
+  const onPress = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.settings_clear_pending_transactions,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.settings_clear_pending_transactions_desc,
+      }),
+      tone: 'destructive',
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_clear,
+      }),
+      onConfirm: async () => {
+        await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+        appEventBus.emit(
+          EAppEventBusNames.ClearLocalHistoryPendingTxs,
+          undefined,
+        );
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.global_success,
+          }),
+        });
+      },
+    });
+  }, [intl]);
+  return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
+}
+
+export function ResetAppListItem(props: ICustomElementProps) {
+  const { iconProps, titleProps, ...restProps } = props;
   const resetApp = useResetApp();
   return (
-    <ActionList
-      offset={{ mainAxis: -4, crossAxis: -10 }}
-      title={props?.title || ''}
-      renderTrigger={
-        <TabSettingsListItem {...props} testID="setting-clear-data">
-          <ListItem.DrillIn name="ChevronDownSmallOutline" />
-        </TabSettingsListItem>
-      }
-      items={[
-        {
-          label: intl.formatMessage({
-            id: ETranslations.settings_clear_pending_transactions,
-          }),
-          onPress: () => {
-            Dialog.show({
-              title: intl.formatMessage({
-                id: ETranslations.settings_clear_pending_transactions,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.settings_clear_pending_transactions_desc,
-              }),
-              tone: 'destructive',
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_clear,
-              }),
-              onConfirm: async () => {
-                await backgroundApiProxy.serviceSetting.clearPendingTransaction();
-                appEventBus.emit(
-                  EAppEventBusNames.ClearLocalHistoryPendingTxs,
-                  undefined,
-                );
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.global_success,
-                  }),
-                });
-              },
-            });
-          },
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.settings_reset_app }),
-          destructive: true,
-          onPress: resetApp,
-          testID: 'setting-erase-data',
-        },
-      ]}
+    <TabSettingsListItem
+      {...restProps}
+      iconProps={{ ...iconProps, color: '$iconCritical' }}
+      titleProps={{ ...titleProps, color: '$textCritical' }}
+      onPress={resetApp}
+      testID="setting-erase-data"
+      drillIn
     />
   );
 }
@@ -451,6 +449,43 @@ export function AutoLockListItem(props: ICustomElementProps) {
       />
     </TabSettingsListItem>
   ) : null;
+}
+
+export function ChangeOrSetPasswordListItem(props: ICustomElementProps) {
+  const intl = useIntl();
+  const [{ isPasswordSet }] = usePasswordPersistAtom();
+
+  useEffect(() => {
+    void backgroundApiProxy.servicePassword.checkPasswordSet();
+  }, []);
+
+  const onPress = useCallback(async () => {
+    if (isPasswordSet) {
+      const oldEncodedPassword =
+        await backgroundApiProxy.servicePassword.promptPasswordVerify({
+          reason: EReasonForNeedPassword.Security,
+        });
+      const dialog = Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.global_change_passcode,
+        }),
+        renderContent: (
+          <PasswordUpdateContainer
+            oldEncodedPassword={oldEncodedPassword.password}
+            onUpdateRes={async (data) => {
+              if (data) {
+                await dialog.close();
+              }
+            }}
+          />
+        ),
+        showFooter: false,
+      });
+    } else {
+      void backgroundApiProxy.servicePassword.promptPasswordVerify();
+    }
+  }, [intl, isPasswordSet]);
+  return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
 function SocialButton({

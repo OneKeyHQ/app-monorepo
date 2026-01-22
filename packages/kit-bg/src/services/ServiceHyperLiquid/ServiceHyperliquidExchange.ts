@@ -372,7 +372,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       if (errStr.includes('Failed to sign typed data')) {
         throw new OneKeyLocalError({
           message: appLocale.intl.formatMessage({
-            id: ETranslations.transfer_connection_error, // TODO: replace i18n key
+            id: ETranslations.perps_connection_error,
           }),
         });
       }
@@ -380,7 +380,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       else if (errStr.includes('Too many builders approved')) {
         throw new OneKeyLocalError({
           message: appLocale.intl.formatMessage({
-            id: ETranslations.transfer_connection_error, // TODO: replace i18n key
+            id: ETranslations.perps_builder_max_error,
           }),
         });
       }

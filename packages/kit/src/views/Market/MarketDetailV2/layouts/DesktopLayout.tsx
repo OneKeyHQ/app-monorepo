@@ -6,6 +6,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import {
   MarketTradingView,
@@ -29,6 +30,9 @@ export function DesktopLayout() {
     networkId,
     accountAddress,
   });
+
+  const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
+
   return (
     <XStack flex={1}>
       {/* Left column */}
@@ -54,6 +58,7 @@ export function DesktopLayout() {
           <DesktopInformationTabs
             portfolioData={portfolioData}
             isRefreshing={isRefreshing}
+            isBTCNetwork={isBTCNetwork}
           />
         </Stack>
       </YStack>

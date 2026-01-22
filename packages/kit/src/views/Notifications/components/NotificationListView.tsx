@@ -326,8 +326,10 @@ export function NotificationListView({
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
-  const [{ lastReceivedTime, firstTimeGuideOpened }, setNotificationsData] =
-    useNotificationsAtom();
+  const [
+    { lastReceivedTime, firstTimeGuideOpened, badge },
+    setNotificationsData,
+  ] = useNotificationsAtom();
 
   const isFirstTimeGuideOpened = useRef(false);
   const listRef = useRef<ISectionListRef<unknown>>(null);
@@ -390,6 +392,17 @@ export function NotificationListView({
     [ENotificationPushTopicTypes.accountActivity]: 0,
     [ENotificationPushTopicTypes.system]: 0,
   });
+
+  // Clear tab unread badges when global badge becomes 0
+  useEffect(() => {
+    if (badge === 0) {
+      setUnreadMap({
+        [ENotificationPushTopicTypes.accountActivity]: 0,
+        [ENotificationPushTopicTypes.system]: 0,
+      });
+    }
+  }, [badge]);
+
   const [result, setResult] = useState<INotificationPushMessageListItem[]>([]);
   const cacheListRef = useRef<
     Record<ENotificationPushTopicTypes, INotificationPushMessageListItem[]>

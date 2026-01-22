@@ -30,6 +30,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalAssetListRoutes,
   IModalAssetListParamList,
@@ -385,6 +386,11 @@ function AddCustomTokenModal() {
       } finally {
         setIsLoading(false);
       }
+      defaultLogger.account.wallet.addCustomToken({
+        network: selectedNetworkIdValue,
+        tokenSymbol: symbol,
+        tokenAddress: contractAddress,
+      });
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.address_book_add_address_toast_add_success,

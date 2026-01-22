@@ -14,7 +14,7 @@ import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
 
-const BORROW_POLLING_INTERVAL = 3 * 60 * 1000; // 3 minutes
+const BORROW_POLLING_INTERVAL = 1 * 60 * 1000; // 1 minute
 const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
 
 export const BorrowDataGate = ({

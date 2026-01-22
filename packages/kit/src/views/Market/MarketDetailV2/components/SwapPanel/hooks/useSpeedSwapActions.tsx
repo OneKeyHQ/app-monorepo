@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -110,55 +110,8 @@ export function useSpeedSwapActions(props: {
     new BigNumber(0),
   );
 
-  const netAccountRes = usePromiseResult(async () => {
-    try {
-      const defaultDeriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: marketToken?.networkId ?? '',
-        });
-      const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
-        accountId: account?.indexedAccount?.id
-          ? undefined
-          : account?.account?.id,
-        indexedAccountId: account?.indexedAccount?.id ?? '',
-        networkId: marketToken?.networkId,
-        deriveType: defaultDeriveType ?? 'default',
-      });
-      return res;
-    } catch (_e) {
-      return undefined;
-    }
-  }, [account, marketToken?.networkId]);
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId: netAccountRes.result?.id ?? '',
-    networkId: marketToken?.networkId,
-  });
-  const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
-    leading: true,
-  });
-
   const [tradeTokenDetail, setTradeTokenDetail] =
     useState<ISwapToken>(tradeToken);
-
-  useEffect(() => {
-    void (async () => {
-      if (!tradeToken?.networkId) return;
-      const tokenDetail =
-        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-          networkId: tradeToken?.networkId ?? '',
-          contractAddress: tradeToken?.contractAddress ?? '',
-        });
-      if (tokenDetail?.length) {
-        setTradeTokenDetail({
-          ...tokenDetail[0],
-          symbol: tradeToken?.symbol,
-          logoURI: tokenDetail[0]?.logoURI
-            ? tokenDetail[0]?.logoURI
-            : tradeToken?.logoURI,
-        });
-      }
-    })();
-  }, [tradeType, defaultTradeTokens, tradeToken]);
 
   const { fromToken, toToken, balanceToken } = useMemo(() => {
     if (tradeType === ESwapDirection.BUY) {
@@ -174,6 +127,86 @@ export function useSpeedSwapActions(props: {
       balanceToken: marketToken,
     };
   }, [tradeType, marketToken, tradeTokenDetail]);
+  const netAccountRes = usePromiseResult(async () => {
+    try {
+      const defaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: balanceToken?.networkId ?? '',
+        });
+      const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+        accountId: account?.indexedAccount?.id
+          ? undefined
+          : account?.account?.id,
+        indexedAccountId: account?.indexedAccount?.id ?? '',
+        networkId: balanceToken?.networkId,
+        deriveType: defaultDeriveType ?? 'default',
+      });
+      return res;
+    } catch (_e) {
+      return undefined;
+    }
+  }, [account, balanceToken?.networkId]);
+
+  // Listen for derive type changes and re-fetch network account
+  useEffect(() => {
+    const handleDeriveTypeChanged = () => {
+      void netAccountRes.run();
+    };
+    appEventBus.off(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      handleDeriveTypeChanged,
+    );
+    appEventBus.on(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      handleDeriveTypeChanged,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.NetworkDeriveTypeChanged,
+        handleDeriveTypeChanged,
+      );
+    };
+  }, [netAccountRes]);
+
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId: netAccountRes.result?.id ?? '',
+    networkId: marketToken?.networkId,
+  });
+  const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
+    leading: true,
+  });
+
+  const tradeTokenRef = useRef<ISwapToken>(undefined);
+  if (tradeTokenRef.current !== tradeToken) {
+    tradeTokenRef.current = tradeToken;
+  }
+  const tradeTokenNetworkId = tradeToken.networkId;
+  const tradeTokenContractAddress = tradeToken.contractAddress;
+  useEffect(() => {
+    void (async () => {
+      if (!tradeTokenNetworkId) return;
+      const tokenDetail =
+        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId: tradeTokenNetworkId,
+          contractAddress: tradeTokenContractAddress,
+        });
+      if (tokenDetail?.length) {
+        setTradeTokenDetail({
+          ...tokenDetail[0],
+          symbol: tradeTokenRef.current?.symbol ?? '',
+          logoURI: tokenDetail[0]?.logoURI
+            ? tokenDetail[0]?.logoURI
+            : tradeTokenRef.current?.logoURI ?? '',
+        });
+      }
+    })();
+  }, [
+    tradeType,
+    defaultTradeTokens,
+    tradeTokenNetworkId,
+    tradeTokenContractAddress,
+  ]);
 
   const speedSwapApproveTransactionLoading = useMemo(() => {
     const speedSwapApproveTransaction =

@@ -9,11 +9,8 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
@@ -52,7 +49,6 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
@@ -61,13 +57,15 @@ import {
   AutoLockListItem,
   BTCFreshAddressListItem,
   BiologyAuthListItem,
-  CleanDataListItem,
+  ChangeOrSetPasswordListItem,
   ClearAppCacheListItem,
+  ClearPendingTransactionsListItem,
   CurrencyListItem,
   DesktopBluetoothListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
+  ResetAppListItem,
   ResetPinListItem,
   ThemeListItem,
 } from './CustomElement';
@@ -474,34 +472,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       ? ETranslations.global_change_passcode
                       : ETranslations.global_set_passcode,
                   }),
-                  onPress: async () => {
-                    if (isPasswordSet) {
-                      const oldEncodedPassword =
-                        await backgroundApiProxy.servicePassword.promptPasswordVerify(
-                          {
-                            reason: EReasonForNeedPassword.Security,
-                          },
-                        );
-                      const dialog = Dialog.show({
-                        title: intl.formatMessage({
-                          id: ETranslations.global_change_passcode,
-                        }),
-                        renderContent: (
-                          <PasswordUpdateContainer
-                            oldEncodedPassword={oldEncodedPassword.password}
-                            onUpdateRes={async (data) => {
-                              if (data) {
-                                await dialog.close();
-                              }
-                            }}
-                          />
-                        ),
-                        showFooter: false,
-                      });
-                    } else {
-                      void backgroundApiProxy.servicePassword.promptPasswordVerify();
-                    }
-                  },
+                  renderElement: <ChangeOrSetPasswordListItem />,
                 },
             platformEnv.isWebDappMode || !isKeylessWalletExistsLocal
               ? undefined
@@ -589,11 +560,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               renderElement: <ClearAppCacheListItem />,
             },
             {
+              icon: 'ClockTimeHistoryOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_clear_pending_transactions,
+              }),
+              renderElement: <ClearPendingTransactionsListItem />,
+            },
+          ],
+          [
+            {
               icon: 'FolderDeleteOutline',
               title: intl.formatMessage({
-                id: ETranslations.settings_clear_data,
+                id: ETranslations.settings_reset_app,
               }),
-              renderElement: <CleanDataListItem />,
+              renderElement: <ResetAppListItem />,
             },
           ],
         ],

@@ -45,6 +45,21 @@ export class IncorrectPassword extends OneKeyAppError {
   override className = EOneKeyErrorClassNames.IncorrectPassword;
 }
 
+export class KeylessDataCorruptedError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyError: KeylessDataCorruptedError',
+        defaultKey: ETranslations.keyless_device_changed_recovery_warning,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.KeylessDataCorruptedError;
+
+  override name = EOneKeyErrorClassNames.KeylessDataCorruptedError;
+}
+
 export class IncorrectMasterPassword extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
