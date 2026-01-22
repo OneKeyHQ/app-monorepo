@@ -20,6 +20,7 @@ import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IConnectedSite } from '@onekeyhq/shared/types/signatureRecord';
 
 import { useGetSignatureSections } from './hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const getConnectedSiteTitle = (url: string) => {
   try {
@@ -110,6 +111,7 @@ export const ConnectedSites = () => {
 
   return (
     <Tabs.SectionList
+      windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       stickySectionHeadersEnabled={false}
       sections={sections}
       // estimatedItemSize={154}
