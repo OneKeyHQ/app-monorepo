@@ -248,7 +248,7 @@ export const HealthFactor = ({
             >
               {displayText}
             </SizableText>
-            <Stack style={{ transform: 'rotate(180deg)' }}>
+            <Stack style={{ transform: [{ rotate: '180deg' }] }}>
               <Icon
                 name="ChevronTriangleUpSmallOutline"
                 size="$4"
