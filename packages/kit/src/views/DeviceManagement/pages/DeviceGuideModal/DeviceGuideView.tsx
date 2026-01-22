@@ -64,14 +64,14 @@ function VideoContainer() {
     };
   }, [gtMd]);
 
-  const isVideoLoadedRef = useRef(isVideoLoaded)
-  isVideoLoadedRef.current = isVideoLoaded
+  const isVideoLoadedRef = useRef(isVideoLoaded);
+  isVideoLoadedRef.current = isVideoLoaded;
   const handleVideoLoad = useCallback((e: OnProgressData) => {
     if (isVideoLoadedRef.current) {
-      return
+      return;
     }
     if (e.currentTime > 0) {
-      setIsVideoLoaded(true)
+      setIsVideoLoaded(true);
     }
   }, []);
 

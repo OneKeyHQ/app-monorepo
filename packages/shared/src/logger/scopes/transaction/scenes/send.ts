@@ -1,7 +1,7 @@
-import type { EUtxoSelectionStrategy } from "@onekeyhq/shared/types/send";
+import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
-import { BaseScene } from "../../../base/baseScene";
-import { LogToLocal, LogToServer } from "../../../base/decorators";
+import { BaseScene } from '../../../base/baseScene';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class SendScene extends BaseScene {
   @LogToLocal()
@@ -88,7 +88,11 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
-  public addressInput({ addressInputMethod }: { addressInputMethod: string | undefined }) {
+  public addressInput({
+    addressInputMethod,
+  }: {
+    addressInputMethod: string | undefined;
+  }) {
     return {
       addressInputMethod,
     };
