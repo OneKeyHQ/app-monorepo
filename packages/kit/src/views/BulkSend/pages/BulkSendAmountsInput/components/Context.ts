@@ -1,10 +1,7 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext } from "react";
 
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
-import {
-  EAmountInputMode,
-  EBulkSendMode,
-} from '@onekeyhq/shared/types/bulkSend';
+import type { IToken, ITokenFiat } from "@onekeyhq/shared/types/token";
+import { EAmountInputMode, EBulkSendMode } from "@onekeyhq/shared/types/bulkSend";
 
 export type IAmountInputValues = {
   specifiedAmount: string;
@@ -21,18 +18,14 @@ export type IAmountInputError = {
 export type IBulkSendAmountsInputContext = {
   accountId: string | undefined;
   networkId: string;
+  tokenInfo: IToken;
   tokenDetails: ({ info: IToken } & ITokenFiat) | undefined;
-  setTokenDetails: (
-    tokenDetails: ({ info: IToken } & ITokenFiat) | undefined,
-  ) => void;
+  setTokenDetails: (tokenDetails: ({ info: IToken } & ITokenFiat) | undefined) => void;
   tokenDetailsState: {
     initialized: boolean;
     isRefreshing: boolean;
   };
-  setTokenDetailsState: (state: {
-    initialized: boolean;
-    isRefreshing: boolean;
-  }) => void;
+  setTokenDetailsState: (state: { initialized: boolean; isRefreshing: boolean }) => void;
   bulkSendMode: EBulkSendMode;
   senders: { address: string; amount: string | undefined }[];
   receivers: { address: string; amount: string | undefined }[];
@@ -47,32 +40,37 @@ export type IBulkSendAmountsInputContext = {
   isAmountValid: boolean;
 };
 
-export const BulkSendAmountsInputContext =
-  createContext<IBulkSendAmountsInputContext>({
-    accountId: undefined,
-    networkId: '',
-    tokenDetails: undefined,
-    setTokenDetails: () => {},
-    tokenDetailsState: {
-      initialized: false,
-      isRefreshing: false,
-    },
-    setTokenDetailsState: () => {},
-    bulkSendMode: EBulkSendMode.OneToMany,
-    senders: [],
-    receivers: [],
-    amountInputMode: EAmountInputMode.Specified,
-    setAmountInputMode: () => {},
-    amountInputValues: {
-      specifiedAmount: '',
-      rangeMin: '',
-      rangeMax: '',
-    },
-    setAmountInputValues: () => {},
-    amountInputErrors: {},
-    setAmountInputErrors: () => {},
-    isAmountValid: false,
-  });
+export const BulkSendAmountsInputContext = createContext<IBulkSendAmountsInputContext>({
+  accountId: undefined,
+  networkId: "",
+  tokenDetails: undefined,
+  tokenInfo: {
+    address: "",
+    name: "",
+    symbol: "",
+    decimals: 18,
+    isNative: false,
+  },
+  setTokenDetails: () => {},
+  tokenDetailsState: {
+    initialized: false,
+    isRefreshing: false,
+  },
+  setTokenDetailsState: () => {},
+  bulkSendMode: EBulkSendMode.OneToMany,
+  senders: [],
+  receivers: [],
+  amountInputMode: EAmountInputMode.Specified,
+  setAmountInputMode: () => {},
+  amountInputValues: {
+    specifiedAmount: "",
+    rangeMin: "",
+    rangeMax: "",
+  },
+  setAmountInputValues: () => {},
+  amountInputErrors: {},
+  setAmountInputErrors: () => {},
+  isAmountValid: false,
+});
 
-export const useBulkSendAmountsInputContext = () =>
-  useContext(BulkSendAmountsInputContext);
+export const useBulkSendAmountsInputContext = () => useContext(BulkSendAmountsInputContext);

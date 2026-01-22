@@ -116,7 +116,7 @@ function TokenSelector() {
         if (aggregateTokenList.length > 1 || allAggregateTokenList.length > 1) {
           navigation.push(
             aggregateTokenSelectorScreen ??
-            EAssetSelectorRoutes.AggregateTokenSelector,
+              EAssetSelectorRoutes.AggregateTokenSelector,
             {
               accountId,
               indexedAccountId,
@@ -149,13 +149,13 @@ function TokenSelector() {
           ) {
             const params = token.accountId
               ? {
-                accountId: token.accountId ?? '',
-                networkId: token.networkId ?? '',
-              }
+                  accountId: token.accountId ?? '',
+                  networkId: token.networkId ?? '',
+                }
               : {
-                accountId: account?.id ?? '',
-                networkId: network?.id ?? '',
-              };
+                  accountId: account?.id ?? '',
+                  networkId: network?.id ?? '',
+                };
 
             let deriveType;
 

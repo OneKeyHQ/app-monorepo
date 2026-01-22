@@ -242,6 +242,7 @@ function BulkSendAmountsInput() {
     () => ({
       accountId,
       networkId,
+      tokenInfo,
       tokenDetails,
       setTokenDetails,
       tokenDetailsState,
@@ -269,6 +270,7 @@ function BulkSendAmountsInput() {
       amountInputValues,
       amountInputErrors,
       isAmountValid,
+      tokenInfo,
     ],
   );
 

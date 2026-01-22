@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import {
-  Image,
   Input,
+  NumberSizeableText,
   SegmentControl,
   SizableText,
   Stack,
@@ -15,12 +15,15 @@ import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/share
 import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
 
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 
 import {
   type IAmountInputError,
   useBulkSendAmountsInputContext,
 } from './Context';
+import { ListItem } from '../../../../../components/ListItem';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 // Validation helper
 function validateAmount(
@@ -99,6 +102,7 @@ function validateRangeAmount(
 function SpecifiedAmountInput() {
   const {
     networkId,
+    tokenInfo,
     tokenDetails,
     tokenDetailsState,
     receivers,
@@ -111,10 +115,10 @@ function SpecifiedAmountInput() {
   const { network } = useAccountData({ networkId });
 
   const isLoading =
-    !tokenDetailsState.initialized || tokenDetailsState.isRefreshing;
+    !tokenDetailsState.initialized && tokenDetailsState.isRefreshing;
   const balance = tokenDetails?.balanceParsed ?? '0';
-  const decimals = tokenDetails?.info.decimals ?? 18;
-  const tokenSymbol = tokenDetails?.info.symbol ?? 'ETH';
+  const decimals = tokenInfo.decimals;
+  const tokenSymbol = tokenInfo.symbol;
 
   const handleChange = useCallback(
     (value: string) => {
@@ -184,11 +188,13 @@ function RangeAmountInput() {
     setAmountInputValues,
     amountInputErrors,
     setAmountInputErrors,
+    tokenInfo,
   } = useBulkSendAmountsInputContext();
 
+  const [settings] = useSettingsPersistAtom();
+
   const balance = tokenDetails?.balanceParsed ?? '0';
-  const decimals = tokenDetails?.info.decimals ?? 18;
-  const tokenSymbol = tokenDetails?.info.symbol ?? 'ETH';
+  const decimals = tokenInfo.decimals;
 
   const validateRange = useCallback(
     (min: string, max: string): IAmountInputError => {
@@ -256,14 +262,14 @@ function RangeAmountInput() {
   // Calculate fiat values
   const minFiatValue = useMemo(() => {
     const amount = new BigNumber(amountInputValues.rangeMin || '0');
-    if (amount.isNaN() || !tokenDetails?.price) return '$0.00';
-    return `$${amount.times(tokenDetails.price).toFixed(2)}`;
+    if (amount.isNaN() || !tokenDetails?.price) return '0';
+    return amount.times(tokenDetails.price).toFixed();
   }, [amountInputValues.rangeMin, tokenDetails?.price]);
 
   const maxFiatValue = useMemo(() => {
     const amount = new BigNumber(amountInputValues.rangeMax || '0');
-    if (amount.isNaN() || !tokenDetails?.price) return '$0.00';
-    return `$${amount.times(tokenDetails.price).toFixed(2)}`;
+    if (amount.isNaN() || !tokenDetails?.price) return '0';
+    return amount.times(tokenDetails.price).toFixed();
   }, [amountInputValues.rangeMax, tokenDetails?.price]);
 
   const minSharedStyles = getSharedInputStyles({
@@ -303,11 +309,11 @@ function RangeAmountInput() {
               px="$3.5"
               pb="$2"
             >
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <NumberSizeableText size="$bodyMd" color="$textSubdued" formatter="value" formatterOptions={{ currency: settings.currencyInfo.symbol }}>
                 {minFiatValue}
-              </SizableText>
+              </NumberSizeableText>
               <SizableText size="$bodyMdMedium" color="$text">
-                {tokenSymbol}
+                {tokenDetails?.info.symbol}
               </SizableText>
             </XStack>
           </Stack>
@@ -347,11 +353,11 @@ function RangeAmountInput() {
               px="$3.5"
               pb="$2"
             >
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <NumberSizeableText size="$bodyMd" color="$textSubdued" formatter="value" formatterOptions={{ currency: settings.currencyInfo.symbol }}>
                 {maxFiatValue}
-              </SizableText>
+              </NumberSizeableText>
               <SizableText size="$bodyMdMedium" color="$text">
-                {tokenSymbol}
+                {tokenDetails?.info.symbol}
               </SizableText>
             </XStack>
           </Stack>
@@ -367,95 +373,85 @@ function RangeAmountInput() {
 }
 
 function CustomAmountDisplay() {
-  const { networkId, tokenDetails, receivers } =
+  const { networkId, tokenDetails, receivers, tokenInfo } =
     useBulkSendAmountsInputContext();
 
   const { network } = useAccountData({ networkId });
 
-  // Calculate total amount from receivers
-  const totalAmount = useMemo(() => {
-    return receivers.reduce((sum, r) => {
-      const amount = new BigNumber(r.amount || '0');
-      return sum.plus(amount.isNaN() ? 0 : amount);
-    }, new BigNumber(0));
-  }, [receivers]);
+  const [settings] = useSettingsPersistAtom();
 
-  const fiatValue = useMemo(() => {
-    if (!tokenDetails?.price) return '$0.00';
-    return `$${totalAmount.times(tokenDetails.price).toFixed(2)}`;
-  }, [totalAmount, tokenDetails?.price]);
+  const tokenSymbol = tokenInfo.symbol;
 
-  const tokenSymbol = tokenDetails?.info.symbol ?? 'ETH';
+  const { totalAmount, totalFiatValue } = useMemo(() => {
+    let total = new BigNumber(0);
+    for (const receiver of receivers) {
+      const amount = new BigNumber(receiver.amount || '0');
+      if (!amount.isNaN()) {
+        total = total.plus(amount);
+      }
+    }
+    const fiat =
+      tokenDetails?.price && !total.isZero()
+        ? total.times(tokenDetails.price).toFixed()
+        : '0';
+    return {
+      totalAmount: total.isZero() ? '0' : total.toFixed(),
+      totalFiatValue: fiat,
+    };
+  }, [receivers, tokenDetails?.price]);
 
   return (
-    <XStack gap="$3" alignItems="center" minHeight={48} py="$2" w="100%">
-      <Stack
-        w={40}
-        h={40}
-        bg="$bgStrong"
-        borderRadius="$full"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Image
-          size={40}
-          borderRadius="$full"
-          source={{ uri: tokenDetails?.info.logoURI }}
+    <ListItem
+      renderAvatar={() => (
+        <Token
+          tokenImageUri={tokenDetails?.info.logoURI}
+          size="sm"
+          showNetworkIcon
+          networkImageUri={network?.logoURI}
+          networkId={network?.id}
         />
-        <Stack
-          position="absolute"
-          right={-4}
-          bottom={-4}
-          p="$0.5"
-          bg="$bgApp"
-          borderRadius="$full"
-        >
-          <Image
-            size={16}
-            borderRadius="$full"
-            source={{ uri: network?.logoURI }}
-          />
-        </Stack>
-      </Stack>
-      <YStack flex={1}>
-        <SizableText size="$bodyLgMedium" color="$text">
-          {totalAmount.toFixed()} {tokenSymbol}
-        </SizableText>
+      )}
+      bg="$bgSubdued"
+      mx="$0"
+      $gtMd={{
+        px: '$0',
+        bg: '$bgApp',
+      }}
+    >
+      <XStack alignItems="center" gap="$2" justifyContent="space-between">
+        <ListItem.Text
+          flex={1}
+          primary={
+            <NumberSizeableText size="$bodyLgMedium" formatter="balance" formatterOptions={{ tokenSymbol }}>
+              {totalAmount}
+            </NumberSizeableText>
+          }
+          secondary={
+            <NumberSizeableText size="$bodyMd" color="$textSubdued" formatter="value" formatterOptions={{ currency: settings.currencyInfo.symbol }}>
+              {totalFiatValue}
+            </NumberSizeableText>
+          }
+        />
         <SizableText size="$bodyMd" color="$textSubdued">
-          {fiatValue}
+          Sending Amount
         </SizableText>
-      </YStack>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        Sending amount
-      </SizableText>
-    </XStack>
+      </XStack>
+    </ListItem>
   );
 }
 
 export function AmountInputSection() {
-  const {
-    amountInputMode,
-    setAmountInputMode,
-    receivers,
-    tokenDetails,
-    setAmountInputErrors,
-  } = useBulkSendAmountsInputContext();
-
-  const hasCustomAmounts = useMemo(
-    () => receivers.some((r) => r.amount !== undefined),
-    [receivers],
-  );
+  const { amountInputMode, setAmountInputMode, setAmountInputErrors } =
+    useBulkSendAmountsInputContext();
 
   const segmentOptions = useMemo(() => {
     const options = [
       { label: 'Specified', value: EAmountInputMode.Specified },
       { label: 'Range', value: EAmountInputMode.Range },
+      { label: 'Custom', value: EAmountInputMode.Custom },
     ];
-    if (hasCustomAmounts) {
-      options.push({ label: 'Custom', value: EAmountInputMode.Custom });
-    }
     return options;
-  }, [hasCustomAmounts]);
+  }, []);
 
   const handleModeChange = useCallback(
     (value: string | number) => {
@@ -465,25 +461,6 @@ export function AmountInputSection() {
     },
     [setAmountInputMode, setAmountInputErrors],
   );
-
-  // Validate custom mode (check if total exceeds balance)
-  useEffect(() => {
-    if (amountInputMode === EAmountInputMode.Custom && tokenDetails) {
-      const totalAmount = receivers.reduce((sum, r) => {
-        const amount = new BigNumber(r.amount || '0');
-        return sum.plus(amount.isNaN() ? 0 : amount);
-      }, new BigNumber(0));
-
-      const balance = new BigNumber(tokenDetails.balanceParsed ?? '0');
-      if (totalAmount.isGreaterThan(balance)) {
-        setAmountInputErrors({
-          specifiedAmount: 'Total amount exceeds balance',
-        });
-      } else {
-        setAmountInputErrors({});
-      }
-    }
-  }, [amountInputMode, receivers, tokenDetails, setAmountInputErrors]);
 
   const renderContent = useCallback(() => {
     switch (amountInputMode) {

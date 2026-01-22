@@ -1,5 +1,5 @@
-import { OneKeyLocalError } from "@onekeyhq/shared/src/errors";
-import platformEnv from "@onekeyhq/shared/src/platformEnv";
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
   EGalleryRoutes,
@@ -17,7 +17,7 @@ import {
   ETabRoutes,
   ETabSwapRoutes,
   ETestModalPages,
-} from "@onekeyhq/shared/src/routes";
+} from '@onekeyhq/shared/src/routes';
 
 interface IAllowSettingItem {
   /** whether to show URL parameters, it is false in default. */
@@ -34,7 +34,7 @@ export type IScreenPathConfig = Record<
   }
 >;
 
-const removeExtraSlash = (path: string) => path.replace(/\/+/g, "");
+const removeExtraSlash = (path: string) => path.replace(/\/+/g, '');
 const addPath = (prev: string, path: string) => {
   if (!path) {
     return prev;
@@ -43,7 +43,7 @@ const addPath = (prev: string, path: string) => {
   if (!prev) {
     return path;
   }
-  if (prev.endsWith("/")) {
+  if (prev.endsWith('/')) {
     return `${prev}${path}`;
   }
   return `${prev}/${path}`;
@@ -51,10 +51,10 @@ const addPath = (prev: string, path: string) => {
 
 const allowListMap = new Map<string, string>();
 
-const buildAllowListMapKey = (screenNames: string[]) => screenNames.join(",");
+const buildAllowListMapKey = (screenNames: string[]) => screenNames.join(',');
 
 export const getAllowPathFromScreenNames = (screenNames: string[]) =>
-  allowListMap.get(buildAllowListMapKey(screenNames)) || "/";
+  allowListMap.get(buildAllowListMapKey(screenNames)) || '/';
 
 export const buildAllowList = (
   screens: IScreenPathConfig,
@@ -118,12 +118,12 @@ export const buildAllowList = (
       if (nextScreenConfig) {
         screenConfig = nextScreenConfig;
       }
-      const paths = screen.path.split("/:");
+      const paths = screen.path.split('/:');
       const rawPath = removeExtraSlash(paths[0]);
       const screenPath = paths.length > 1 ? `${rawPath}/.` : rawPath;
       // if the path is rewritten path, the full path will be rewritten.
       return screen.exact ? screenPath : addPath(prev, screenPath);
-    }, "");
+    }, '');
     const fullPath = `/${path}`;
     allowListMap.set(buildAllowListMapKey(screenNames), fullPath);
     return fullPath;
@@ -145,26 +145,31 @@ export const buildAllowList = (
     //     showUrl: true,
     //     showParams: true,
     //   },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetail}`]: {
-      showUrl: true,
-      showParams: true,
-    },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetailV2}`]: {
-      showUrl: true,
-      showParams: true,
-    },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketNativeDetail}`]: {
-      showUrl: true,
-      showParams: true,
-    },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabReferAFriend}`]: {
-      showUrl: true,
-      showParams: false,
-    },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabInviteReward}`]: {
-      showUrl: true,
-      showParams: false,
-    },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetail}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetailV2}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketNativeDetail}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabReferAFriend}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabInviteReward}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Earn}`]: {
       showUrl: true,
       showParams: true,
@@ -193,10 +198,11 @@ export const buildAllowList = (
     // it will automatically find the real route according to the route stacks.
 
     // Swap Pages
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Swap}${ETabSwapRoutes.TabSwap}`]: {
-      showUrl: true,
-      showParams: true,
-    },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Swap}${ETabSwapRoutes.TabSwap}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
 
     [pagePath`${ERootRoutes.Onboarding}${EOnboardingV2Routes.OnboardingV2}${EOnboardingPagesV2.GetStarted}`]:
       {
@@ -244,13 +250,13 @@ export const buildAllowList = (
           },
         }
       : !perpDisabled
-        ? {
-            [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
-              showUrl: true,
-              showParams: true,
-            },
-          }
-        : {}),
+      ? {
+          [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
+            showUrl: true,
+            showParams: true,
+          },
+        }
+      : {}),
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isExtension) {
@@ -269,12 +275,15 @@ export const buildAllowList = (
       };
     });
     // Developer Pages
-    rules[pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.TabDeveloper}`] =
-      {
-        showUrl: true,
-        showParams: true,
-      };
-    rules[pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.DevHome}`] = {
+    rules[
+      pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.TabDeveloper}`
+    ] = {
+      showUrl: true,
+      showParams: true,
+    };
+    rules[
+      pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.DevHome}`
+    ] = {
       showUrl: true,
       showParams: true,
     };
