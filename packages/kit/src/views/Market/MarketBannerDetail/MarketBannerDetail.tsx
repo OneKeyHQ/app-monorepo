@@ -149,7 +149,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         />
       );
     }
-    return null;
+    return <Page.Header headerShown={false} />;
   }, [
     isWebDesktop,
     gtMd,
