@@ -1,7 +1,7 @@
-import type { IStackProps } from '@onekeyhq/components';
+import type { IKeyOfIcons, IStackProps } from '@onekeyhq/components';
 import {
   Heading,
-  Image,
+  Icon,
   LinearGradient,
   SizableText,
   Stack,
@@ -9,46 +9,43 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
-const DATA = [
+const DATA: {
+  icon: IKeyOfIcons;
+  title: string;
+  description: string;
+  time: string;
+  stacked?: boolean;
+}[] = [
   {
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.global_wallet_activity,
-    }),
-    description: appLocale.intl.formatMessage({
-      id: ETranslations.global_real_time_updates,
-    }),
+    icon: 'ArrowBottomOutline',
+    title: 'Received 1.25 ETH',
+    description: 'Your transaction from 0x71...c2 is confirmed.',
     time: 'now',
     stacked: true,
   },
   {
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.global_market_moves,
-    }),
-    description: appLocale.intl.formatMessage({
-      id: ETranslations.global_daily_price_change,
-    }),
+    icon: 'SpeakerPromoteOutline',
+    title: 'BTC broke $100,000',
+    description: 'Your watched token BTC is up 5.2% in 1 day.',
     time: '10m ago',
   },
   {
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.global_perps_alert,
-    }),
-    description: appLocale.intl.formatMessage({
-      id: ETranslations.global_instant_update_liquidation,
-    }),
+    icon: 'InfoCircleOutline',
+    title: 'Take-profit triggered',
+    description: 'Your ETH-PERP position has reached the target price and was closed.',
     time: '1h ago',
   },
 ];
 
 function Item({
+  icon,
   title,
   description,
   time,
   stacked,
 }: {
+  icon: IKeyOfIcons;
   title?: string;
   description?: string;
   time?: string;
@@ -95,11 +92,18 @@ function Item({
           borderRadius: '$6',
         }}
       >
-        <Image
-          source={require('@onekeyhq/kit/assets/logo-decorated.png')}
-          w="$10"
-          h="$10"
-        />
+        <Stack
+          w={28}
+          h={28}
+          bg="$bgStrong"
+          borderRadius="$full"
+          borderWidth={0.5}
+          borderColor="$borderSubdued"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon name={icon} size={18} color="$icon" />
+        </Stack>
         <Stack flex={1}>
           <XStack gap="$2.5" alignItems="baseline">
             <Heading
