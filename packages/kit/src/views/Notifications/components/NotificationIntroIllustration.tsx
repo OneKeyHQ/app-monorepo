@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import type { IKeyOfIcons, IStackProps } from '@onekeyhq/components';
 import {
   Heading,
@@ -9,34 +11,7 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
-
-const DATA: {
-  icon: IKeyOfIcons;
-  title: string;
-  description: string;
-  time: string;
-  stacked?: boolean;
-}[] = [
-  {
-    icon: 'ArrowBottomOutline',
-    title: 'Received 1.25 ETH',
-    description: 'Your transaction from 0x71...c2 is confirmed.',
-    time: 'now',
-    stacked: true,
-  },
-  {
-    icon: 'SpeakerPromoteOutline',
-    title: 'BTC broke $100,000',
-    description: 'Your watched token BTC is up 5.2% in 1 day.',
-    time: '10m ago',
-  },
-  {
-    icon: 'InfoCircleOutline',
-    title: 'Take-profit triggered',
-    description: 'Your ETH-PERP position has reached the target price and was closed.',
-    time: '1h ago',
-  },
-];
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function Item({
   icon,
@@ -140,9 +115,41 @@ function Item({
 }
 
 function NotificationIntroIllustration({ ...rest }: IStackProps) {
+  const intl = useIntl();
+
+  const data = [
+    {
+      icon: 'ArrowBottomOutline' as IKeyOfIcons,
+      title: intl.formatMessage({ id: ETranslations.global_receive_eth }),
+      description: intl.formatMessage({
+        id: ETranslations.global_receive_eth_detail,
+      }),
+      time: 'now',
+      stacked: true,
+    },
+    {
+      icon: 'SpeakerPromoteOutline' as IKeyOfIcons,
+      title: intl.formatMessage({ id: ETranslations.global_btc_broke }),
+      description: intl.formatMessage({
+        id: ETranslations.global_btc_broke_detail,
+      }),
+      time: '10m ago',
+    },
+    {
+      icon: 'InfoCircleOutline' as IKeyOfIcons,
+      title: intl.formatMessage({
+        id: ETranslations.global_liquidation_warning,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.global_liquidation_warning_detail,
+      }),
+      time: '1h ago',
+    },
+  ];
+
   return (
     <Stack gap="$2.5" w="100%" maxWidth="$96" mx="auto" {...rest}>
-      {DATA.map((item) => (
+      {data.map((item) => (
         <Item key={item.title} {...item} />
       ))}
     </Stack>
