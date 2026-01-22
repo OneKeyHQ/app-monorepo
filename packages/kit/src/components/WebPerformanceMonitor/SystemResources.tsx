@@ -110,23 +110,27 @@ function SystemResources() {
         style={[styles.text, isCpuHigh && styles.highUsage]}
         value={`CPU: ${resources.cpu}%`}
         editable={false}
+        accessible
       />
       <TextInput
         style={[styles.text, isPrivateHigh && styles.highUsage]}
         value={`MEM: ${Number(resources.memory.private)}MB`}
         editable={false}
+        accessible
       />
       {resources.memory.residentSet !== undefined ? (
         <TextInput
           style={[styles.text, isResidentSetHigh && styles.highUsage]}
           value={`MEM2: ${resources.memory.residentSet}MB`}
           editable={false}
+          accessible
         />
       ) : null}
       <TextInput
         style={[styles.text, isBlinkHigh && styles.highUsage]}
         value={`Blink: ${resources.memory.blink.allocated}/${resources.memory.blink.total}MB`}
         editable={false}
+        accessible
       />
     </View>
   );
