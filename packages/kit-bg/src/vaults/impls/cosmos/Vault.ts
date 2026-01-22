@@ -280,10 +280,10 @@ export default class VaultCosmos extends VaultBase {
   override async buildInternalDappEncodedTx(
     params: IInternalDappTxParams,
   ): Promise<IEncodedTxCosmos> {
-    return TransactionWrapper.fromAminoSignDoc(
-      params.internalDappTx as IStakeTxCosmosAmino,
-      undefined,
-    ).toObject();
+    return TransactionWrapper.fromAminoSignDoc({
+      signDoc: params.internalDappTx as IStakeTxCosmosAmino,
+      msg: undefined,
+    }).toObject();
   }
 
   private _getTransactionTypeByMessage(
@@ -379,11 +379,14 @@ export default class VaultCosmos extends VaultBase {
     const fee = getFee(txWrapper);
     const sequence = getSequence(txWrapper);
 
-    let feePrice = '0.01';
+    let feePrice = '0';
     if (fee?.gas_limit) {
-      feePrice = new BigNumber(fee?.amount[0]?.amount ?? '1')
-        .div(fee?.gas_limit)
-        .toFixed(6);
+      const feeAmount = new BigNumber(fee?.amount[0]?.amount ?? '0');
+      if (feeAmount.isZero()) {
+        feePrice = '0';
+      } else {
+        feePrice = feeAmount.div(fee?.gas_limit).toFixed(6);
+      }
     }
 
     const result: IDecodedTx = {
@@ -428,10 +431,25 @@ export default class VaultCosmos extends VaultBase {
     throw new OneKeyInternalError();
   }
 
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    const newEncodedTx = params.encodedTx as IEncodedTxCosmos;
+    if (newEncodedTx.signOptions?.preferNoSetFee) {
+      return Promise.resolve('');
+    }
+    return newEncodedTx;
+  }
+
   private async _attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxCosmos;
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxCosmos> {
+    if (params.encodedTx.signOptions?.preferNoSetFee) {
+      return params.encodedTx;
+    }
+
     const { gas, common } = params.feeInfo;
     const { gasPrice: price, gasLimit: limit } = gas ?? {};
 
@@ -474,6 +492,13 @@ export default class VaultCosmos extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
+    if (
+      (params.unsignedTx?.encodedTx as unknown as IEncodedTxCosmos | undefined)
+        ?.signOptions?.preferNoSetFee
+    ) {
+      return params.unsignedTx;
+    }
+
     if (!params.unsignedTx || !params.feeInfo) {
       throw new OneKeyInternalError('unsignedTx and feeInfo are required');
     }
