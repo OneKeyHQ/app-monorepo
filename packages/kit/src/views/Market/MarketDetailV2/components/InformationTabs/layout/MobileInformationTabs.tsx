@@ -74,59 +74,36 @@ export function MobileInformationTabs({
   const tabs = useMemo(() => {
     // Check if current network supports holders tab (not available for native tokens)
     const shouldShowHoldersTab = !isNative && isHoldersTabSupported(networkId);
-    // Check if there's an account address available
-    const shouldShowPortfolioTab = !!accountAddress;
-    // Check if there's portfolio data
-    const hasPortfolioData = portfolioData.length > 0;
-
-    // For BTC network, only show portfolio tab if has portfolio data
-    if (isBTCNetwork) {
-      if (shouldShowPortfolioTab && hasPortfolioData) {
-        return [
-          <Tabs.Tab
-            key="portfolio"
-            name={intl.formatMessage({
-              id: ETranslations.dexmarket_details_myposition,
-            })}
-          >
-            <Portfolio
-              portfolioData={portfolioData}
-              isRefreshing={!!isRefreshing}
-              accountAddress={accountAddress}
-            />
-          </Tabs.Tab>,
-        ];
-      }
-      return [];
-    }
+    // BTC network doesn't show transactions tab
+    const shouldShowTransactionsTab = !isBTCNetwork;
 
     const items = [
-      <Tabs.Tab
-        key="transactions"
-        name={intl.formatMessage({
-          id: ETranslations.dexmarket_details_transactions,
-        })}
-      >
-        <TransactionsHistory
-          tokenAddress={tokenAddress}
-          networkId={networkId}
-          onScrollEnd={onScrollEnd}
-        />
-      </Tabs.Tab>,
-      shouldShowPortfolioTab && (
+      shouldShowTransactionsTab && (
         <Tabs.Tab
-          key="portfolio"
+          key="transactions"
           name={intl.formatMessage({
-            id: ETranslations.dexmarket_details_myposition,
+            id: ETranslations.dexmarket_details_transactions,
           })}
         >
-          <Portfolio
-            portfolioData={portfolioData}
-            isRefreshing={!!isRefreshing}
-            accountAddress={accountAddress}
+          <TransactionsHistory
+            tokenAddress={tokenAddress}
+            networkId={networkId}
+            onScrollEnd={onScrollEnd}
           />
         </Tabs.Tab>
       ),
+      <Tabs.Tab
+        key="portfolio"
+        name={intl.formatMessage({
+          id: ETranslations.dexmarket_details_myposition,
+        })}
+      >
+        <Portfolio
+          portfolioData={portfolioData}
+          isRefreshing={!!isRefreshing}
+          accountAddress={accountAddress}
+        />
+      </Tabs.Tab>,
       shouldShowHoldersTab && (
         <Tabs.Tab key="holders" name={holdersTabName}>
           <Holders tokenAddress={tokenAddress} networkId={networkId} />
