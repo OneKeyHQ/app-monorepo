@@ -657,6 +657,58 @@ async function createMainWindow() {
     throw new OneKeyLocalError('Test Electron Native crash 996');
   });
 
+  // System Resources
+  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_CPU_USAGE, async () => {
+    try {
+      const cpuUsage = process.getCPUUsage();
+      // Calculate CPU usage percentage
+      const totalUsage = cpuUsage.percentCPUUsage;
+      return {
+        usage: totalUsage,
+      };
+    } catch (error) {
+      console.error('Failed to get CPU usage:', error);
+      return { usage: 0 };
+    }
+  });
+
+  ipcMain.handle(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE, async () => {
+    try {
+      const memoryUsage = await process.getProcessMemoryInfo();
+      const blinkMemory = process.getBlinkMemoryInfo();
+
+      // Format memory value: if < 1, keep 2 decimals; if >= 1, round to integer
+      const formatMemoryValue = (valueInKB: number): string => {
+        const valueInMB = valueInKB / 1024;
+        if (valueInMB < 1) {
+          return valueInMB.toFixed(2);
+        }
+        return Math.round(valueInMB).toString();
+      };
+
+      // private: available on all platforms (macOS, Windows, Linux)
+      // residentSet: only available on Linux and Windows
+      // blinkMemory: Blink (rendering engine) memory usage
+      return {
+        private: Math.round(memoryUsage.private / 1024), // Convert KB to MB
+        residentSet: memoryUsage.residentSet
+          ? Math.round(memoryUsage.residentSet / 1024)
+          : undefined, // Convert KB to MB, undefined on macOS
+        blink: {
+          allocated: formatMemoryValue(blinkMemory.allocated), // Formatted string
+          total: formatMemoryValue(blinkMemory.total), // Formatted string
+        },
+      };
+    } catch (error) {
+      console.error('Failed to get memory usage:', error);
+      return {
+        private: 0,
+        residentSet: undefined,
+        blink: { allocated: '0', total: '0' },
+      };
+    }
+  });
+
   desktopApi.desktopApiSetup();
 
   // reset appState to undefined  to avoid screen lock.
@@ -780,7 +832,6 @@ async function createMainWindow() {
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
-        console.log('request url', request);
         const jsSdkPattern = '/static/js-sdk/';
         const jsSdkIndex = request.url.indexOf(jsSdkPattern);
 
