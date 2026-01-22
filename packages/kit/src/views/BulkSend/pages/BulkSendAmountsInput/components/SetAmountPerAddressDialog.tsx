@@ -6,20 +6,19 @@ import { Dialog, SizableText, YStack } from '@onekeyhq/components';
 import {
   EAmountInputMode,
   EBulkSendMode,
+  type IAmountInputError,
+  type IAmountInputValues,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import {
   BulkSendAmountsInputContext,
-  type IAmountInputError,
-  type IAmountInputValues,
-  calculateIsAmountValid,
-  calculateTotalAmounts,
   useBulkSendAmountsInputContext,
 } from './Context';
 import { AmountInputSection } from './AmountInput';
 import { AmountPreview } from './AmountPreview';
+import { calculateIsAmountValid, calculateTotalAmounts } from '../../../utils';
 
 type ISetAmountPerAddressDialogProps = {
   accountId: string | undefined;
@@ -132,12 +131,10 @@ function SetAmountPerAddressDialogContent({
   const { totalTokenAmount, totalFiatAmount } = useMemo(
     () =>
       calculateTotalAmounts({
-        amountInputMode,
-        amountInputValues,
         transfersInfo,
         tokenPrice: tokenDetails?.price,
       }),
-    [amountInputMode, amountInputValues, transfersInfo, tokenDetails?.price],
+    [transfersInfo, tokenDetails?.price],
   );
 
   const handleMaxPress = useCallback(() => {
@@ -168,15 +165,15 @@ function SetAmountPerAddressDialogContent({
       networkId,
       tokenInfo,
       tokenDetails,
-      setTokenDetails: () => {},
+      setTokenDetails: () => { },
       tokenDetailsState: {
         initialized: true,
         isRefreshing: false,
       },
-      setTokenDetailsState: () => {},
+      setTokenDetailsState: () => { },
       bulkSendMode: EBulkSendMode.OneToMany,
       transfersInfo,
-      setTransfersInfo: () => {},
+      setTransfersInfo: () => { },
       amountInputMode,
       setAmountInputMode,
       amountInputValues,

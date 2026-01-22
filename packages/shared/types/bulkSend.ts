@@ -14,3 +14,16 @@ export enum EAmountInputMode {
   Range = 'range',
   Custom = 'custom',
 }
+
+
+export type IAmountInputValues = {
+  specifiedAmount: string;
+  rangeMin: string;
+  rangeMax: string;
+};
+
+export type IAmountInputError = {
+  specifiedAmount?: string;
+  rangeMin?: string;
+  rangeMax?: string;
+};

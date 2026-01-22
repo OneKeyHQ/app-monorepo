@@ -1,7 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import {
   IconButton,
   Input,
@@ -18,6 +16,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { useBulkSendAmountsInputContext } from './Context';
 import { showSetAmountPerAddressDialog } from './SetAmountPerAddressDialog';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 function AssetSection() {
   const { networkId, tokenInfo, tokenDetails } =
@@ -57,20 +56,23 @@ function SetAmountPerAddressSection() {
     amountInputValues,
     setAmountInputMode,
     setAmountInputValues,
+    totalTokenAmount,
+    totalFiatAmount,
   } = useBulkSendAmountsInputContext();
+
+  const [settings] = useSettingsPersistAtom();
 
   const { primaryText, secondaryText } = useMemo(() => {
     const tokenSymbol = tokenInfo.symbol;
 
+    const secondaryText = `Total: ${totalTokenAmount} ${tokenSymbol} (${totalFiatAmount}${settings.currencyInfo.symbol})`;
+
     switch (amountInputMode) {
       case EAmountInputMode.Specified: {
         const specifiedAmount = amountInputValues.specifiedAmount || '0';
-        const total = new BigNumber(specifiedAmount)
-          .times(transfersInfo.length)
-          .toFixed();
         return {
           primaryText: `${specifiedAmount} ${tokenSymbol}`,
-          secondaryText: `Total: ${total} ${tokenSymbol}`,
+          secondaryText,
         };
       }
       case EAmountInputMode.Range: {
@@ -78,13 +80,13 @@ function SetAmountPerAddressSection() {
         const max = amountInputValues.rangeMax || '0';
         return {
           primaryText: `${min} ${tokenSymbol} ~ ${max} ${tokenSymbol}`,
-          secondaryText: undefined,
+          secondaryText,
         };
       }
       case EAmountInputMode.Custom:
         return {
           primaryText: 'Custom',
-          secondaryText: 'Set for each accounts',
+          secondaryText,
         };
       default:
         return {
@@ -95,7 +97,9 @@ function SetAmountPerAddressSection() {
   }, [
     amountInputMode,
     amountInputValues,
-    transfersInfo.length,
+    totalTokenAmount,
+    totalFiatAmount,
+    settings.currencyInfo.symbol,
     tokenInfo.symbol,
   ]);
 
@@ -111,6 +115,22 @@ function SetAmountPerAddressSection() {
       onConfirm: (mode, values) => {
         setAmountInputMode(mode);
         setAmountInputValues(values);
+
+        if (mode === EAmountInputMode.Range) {
+          const amounts = generateRandomAmountsFromRange({
+            transfersInfo,
+            rangeMin: values.rangeMin,
+            rangeMax: values.rangeMax,
+            decimals: tokenInfo.decimals,
+          });
+          setTransfersInfo(amounts);
+        } else {
+          const amounts = generateAmountsFromSpecifiedAmount({
+            specifiedAmount: values.specifiedAmount ?? '0',
+            transfersInfo,
+          });
+          setTransfersInfo(amounts);
+        }
       },
     });
   }, [

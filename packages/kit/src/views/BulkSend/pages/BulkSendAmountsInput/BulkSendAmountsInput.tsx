@@ -24,17 +24,18 @@ import BulkSendHeader from '../../components/BulkSendHeader';
 
 import {
   BulkSendAmountsInputContext,
-  type IAmountInputError,
-  type IAmountInputValues,
   type IBulkSendAmountsInputContext,
-  calculateIsAmountValid,
-  calculateTotalAmounts,
   useBulkSendAmountsInputContext,
 } from './components/Context';
 import TableLayout from './components/TableLayout';
 import MobileLayout from './components/MobileLayout';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  type IAmountInputError,
+  type IAmountInputValues,
+} from '@onekeyhq/shared/types/bulkSend';
+import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
 
 function BaseBulkSendAmountsInput() {
   const { tokenDetails, tokenDetailsState, bulkSendMode, isAmountValid } =
@@ -150,16 +151,13 @@ function BulkSendAmountsInput() {
     ],
   );
 
-  // Calculate total amounts using shared logic
   const { totalTokenAmount, totalFiatAmount } = useMemo(
     () =>
       calculateTotalAmounts({
-        amountInputMode,
-        amountInputValues,
         transfersInfo,
         tokenPrice: tokenDetails?.price,
       }),
-    [amountInputMode, amountInputValues, transfersInfo, tokenDetails?.price],
+    [transfersInfo, tokenDetails?.price],
   );
 
   usePromiseResult(

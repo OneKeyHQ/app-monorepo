@@ -12,16 +12,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
-import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
+import { EAmountInputMode, type IAmountInputError } from '@onekeyhq/shared/types/bulkSend';
 
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 
-import {
-  type IAmountInputError,
-  useBulkSendAmountsInputContext,
-} from './Context';
+import { useBulkSendAmountsInputContext } from './Context';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -44,10 +41,6 @@ function validateAmount(
 
   if (amount.isNegative()) {
     return 'Amount cannot be negative';
-  }
-
-  if (amount.isZero()) {
-    return 'Amount cannot be zero';
   }
 
   const decimalPlaces = amount.decimalPlaces() ?? 0;
@@ -81,10 +74,6 @@ function validateRangeAmount(
 
   if (amount.isNegative()) {
     return 'Amount cannot be negative';
-  }
-
-  if (amount.isZero()) {
-    return 'Amount cannot be zero';
   }
 
   const decimalPlaces = amount.decimalPlaces() ?? 0;
