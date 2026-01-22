@@ -5,7 +5,6 @@ import BigNumber from 'bignumber.js';
 import {
   IconButton,
   Input,
-  NumberSizeableText,
   SizableText,
   Stack,
   XStack,
@@ -16,11 +15,9 @@ import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useBulkSendAmountsInputContext } from './Context';
 
-// Asset Component - displays token with network badge
 function AssetSection() {
   const { networkId, tokenInfo, tokenDetails } =
     useBulkSendAmountsInputContext();
@@ -48,52 +45,48 @@ function AssetSection() {
   );
 }
 
-// SetAmountPerAddress Component - displays amount settings with drill-in
 function SetAmountPerAddressSection() {
-  const {
-    tokenInfo,
-    tokenDetails,
-    transfersInfo,
-    amountInputMode,
-    amountInputValues,
-  } = useBulkSendAmountsInputContext();
-  const [settings] = useSettingsPersistAtom();
+  const { tokenInfo, transfersInfo, amountInputMode, amountInputValues } =
+    useBulkSendAmountsInputContext();
 
-  const { displayAmount, totalFiatValue } = useMemo(() => {
-    let total = new BigNumber(0);
+  const { primaryText, secondaryText } = useMemo(() => {
+    const tokenSymbol = tokenInfo.symbol;
 
-    if (amountInputMode === EAmountInputMode.Custom) {
-      // Custom mode: sum all individual amounts
-      for (const transfer of transfersInfo) {
-        const amount = new BigNumber(transfer.amount || '0');
-        if (!amount.isNaN()) {
-          total = total.plus(amount);
-        }
+    switch (amountInputMode) {
+      case EAmountInputMode.Specified: {
+        const specifiedAmount = amountInputValues.specifiedAmount || '0';
+        const total = new BigNumber(specifiedAmount)
+          .times(transfersInfo.length)
+          .toFixed();
+        return {
+          primaryText: `${specifiedAmount} ${tokenSymbol}`,
+          secondaryText: `Total: ${total} ${tokenSymbol}`,
+        };
       }
-    } else if (amountInputMode === EAmountInputMode.Specified) {
-      // Specified mode: amount * receiver count
-      const specifiedAmount = new BigNumber(
-        amountInputValues.specifiedAmount || '0',
-      );
-      if (!specifiedAmount.isNaN()) {
-        total = specifiedAmount.times(transfersInfo.length);
+      case EAmountInputMode.Range: {
+        const min = amountInputValues.rangeMin || '0';
+        const max = amountInputValues.rangeMax || '0';
+        return {
+          primaryText: `${min} ${tokenSymbol} ~ ${max} ${tokenSymbol}`,
+          secondaryText: undefined,
+        };
       }
+      case EAmountInputMode.Custom:
+        return {
+          primaryText: 'Custom',
+          secondaryText: 'Set for each accounts',
+        };
+      default:
+        return {
+          primaryText: `0 ${tokenSymbol}`,
+          secondaryText: undefined,
+        };
     }
-
-    const fiat =
-      tokenDetails?.price && !total.isZero()
-        ? total.times(tokenDetails.price).toFixed()
-        : '0';
-
-    return {
-      displayAmount: total.isZero() ? '0' : total.toFixed(),
-      totalFiatValue: fiat,
-    };
   }, [
     amountInputMode,
-    amountInputValues.specifiedAmount,
-    transfersInfo,
-    tokenDetails?.price,
+    amountInputValues,
+    transfersInfo.length,
+    tokenInfo.symbol,
   ]);
 
   return (
@@ -102,32 +95,14 @@ function SetAmountPerAddressSection() {
       <ListItem mx="$0" px="$0" drillIn>
         <ListItem.Text
           flex={1}
-          primary={
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="balance"
-              formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
-            >
-              {displayAmount}
-            </NumberSizeableText>
-          }
-          secondary={
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            >
-              {totalFiatValue}
-            </NumberSizeableText>
-          }
+          primary={primaryText}
+          secondary={secondaryText}
         />
       </ListItem>
     </YStack>
   );
 }
 
-// TransferInfoList Component - displays transfer list with delete functionality
 function TransferInfoListSection() {
   const { transfersInfo, setTransfersInfo, amountInputMode } =
     useBulkSendAmountsInputContext();
@@ -230,9 +205,7 @@ function TransferInfoListSection() {
 
           {/* TO */}
           <Stack flex={1} minWidth={0}>
-            <SizableText size="$bodyMdMedium">
-              {transfer.to}
-            </SizableText>
+            <SizableText size="$bodyMdMedium">{transfer.to}</SizableText>
           </Stack>
 
           {/* AMOUNT */}
@@ -275,13 +248,10 @@ function TransferInfoListSection() {
 function TableLayout() {
   return (
     <YStack gap="$8">
-      {/* Asset and SetAmountPerAddress row */}
       <XStack gap="$6">
         <AssetSection />
         <SetAmountPerAddressSection />
       </XStack>
-
-      {/* Transfer Info List */}
       <TransferInfoListSection />
     </YStack>
   );
