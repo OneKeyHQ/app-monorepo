@@ -20,14 +20,7 @@ export function ReferAFriendHowToPhase({
 }: IReferAFriendHowToPhaseProps) {
   const intl = useIntl();
 
-  const inviterRebate = postConfig.inviterRebate as {
-    amount: number;
-    unit: string;
-  };
-  const theirDiscount = postConfig.theirDiscount as {
-    amount: number;
-    unit: string;
-  };
+  const { inviterRebate, theirDiscount } = postConfig;
 
   return (
     <YStack gap="$5">

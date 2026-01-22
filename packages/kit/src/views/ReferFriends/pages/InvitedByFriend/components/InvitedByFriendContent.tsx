@@ -16,14 +16,19 @@ function InvitedByFriendContent({ referralCode }: { referralCode?: string }) {
   );
 
   useEffect(() => {
-    void backgroundApiProxy.serviceReferralCode
-      .getPostConfig()
-      .then((config: IInvitePostConfig | undefined) => {
-        setPostConfig(config);
-        void backgroundApiProxy.serviceReferralCode
-          .fetchPostConfig()
-          .then(setPostConfig);
-      });
+    async function loadPostConfig() {
+      const cachedConfig =
+        await backgroundApiProxy.serviceReferralCode.getPostConfig();
+      if (cachedConfig) {
+        setPostConfig(cachedConfig);
+      }
+      const freshConfig =
+        await backgroundApiProxy.serviceReferralCode.fetchPostConfig();
+      if (freshConfig) {
+        setPostConfig(freshConfig);
+      }
+    }
+    void loadPostConfig();
   }, []);
 
   const inviteeDiscount = postConfig?.inviteeDiscount as
