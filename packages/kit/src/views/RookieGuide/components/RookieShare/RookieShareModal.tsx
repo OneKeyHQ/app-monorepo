@@ -13,6 +13,9 @@ import type {
   IRookieShareImageGeneratorRef,
 } from '@onekeyhq/shared/types/rookieGuide';
 
+// Track if a dialog is currently showing to prevent duplicate dialogs
+let isDialogShowing = false;
+
 import { ControlPanel } from './ControlPanel';
 import { ShareView } from './ShareView';
 import { useShareActions } from './useShareActions';
@@ -157,6 +160,13 @@ export function showRookieShareDialog(
   data: IRookieShareData,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
+  // Prevent duplicate dialogs
+  if (isDialogShowing) {
+    return null;
+  }
+
+  isDialogShowing = true;
+
   const DialogInstance = dialog ?? Dialog;
 
   const dialogInstance = DialogInstance.show({
@@ -179,6 +189,9 @@ export function showRookieShareDialog(
       />
     ),
     showFooter: false,
+    onClose: () => {
+      isDialogShowing = false;
+    },
   });
 
   return dialogInstance;
