@@ -20,6 +20,7 @@ export interface IMessageHandlerContext {
   onPanesCountChange?: (count: number) => void;
   accountAddress?: string;
   tokenSymbol?: string;
+  marksTimeRange?: React.MutableRefObject<{ min: number; max: number } | null>;
 }
 
 export interface IMessageHandlerParams {

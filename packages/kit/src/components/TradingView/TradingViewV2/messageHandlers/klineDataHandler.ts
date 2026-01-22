@@ -112,7 +112,13 @@ export async function handleKLineDataRequest({
   data,
   context,
 }: IMessageHandlerParams): Promise<void> {
-  const { tokenAddress = '', networkId = '', webRef, accountAddress } = context;
+  const {
+    tokenAddress = '',
+    networkId = '',
+    webRef,
+    accountAddress,
+    marksTimeRange,
+  } = context;
 
   // Safely extract history data with proper type checking
   const messageData = data.data;
@@ -130,6 +136,21 @@ export async function handleKLineDataRequest({
     const resolution = safeData.resolution as string;
     const from = safeData.from as number;
     const to = safeData.to as number;
+
+    // Track the time range that user has browsed
+    if (marksTimeRange) {
+      const timeRangeRef = marksTimeRange as React.MutableRefObject<{
+        min: number;
+        max: number;
+      } | null>;
+      const current = timeRangeRef.current;
+      if (current) {
+        current.min = Math.min(current.min, from);
+        current.max = Math.max(current.max, to);
+      } else {
+        timeRangeRef.current = { min: from, max: to };
+      }
+    }
 
     // Use combined function to get sliced data
     try {
