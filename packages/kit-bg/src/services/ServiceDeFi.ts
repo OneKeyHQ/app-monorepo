@@ -1,33 +1,31 @@
-import BigNumber from 'bignumber.js';
-import { debounce, isEmpty } from 'lodash';
+import BigNumber from "bignumber.js";
+import { debounce, isEmpty } from "lodash";
 
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
+import type { ICurrencyItem } from "@onekeyhq/kit/src/views/Setting/pages/Currency";
 import {
   backgroundClass,
   backgroundMethod,
-} from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+} from "@onekeyhq/shared/src/background/backgroundDecorators";
+import { getNetworkIdsMap } from "@onekeyhq/shared/src/config/networkIds";
+import accountUtils from "@onekeyhq/shared/src/utils/accountUtils";
+import defiUtils from "@onekeyhq/shared/src/utils/defiUtils";
+import networkUtils from "@onekeyhq/shared/src/utils/networkUtils";
 import type {
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
-} from '@onekeyhq/shared/types/defi';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+} from "@onekeyhq/shared/types/defi";
+import { EServiceEndpointEnum } from "@onekeyhq/shared/types/endpoint";
 
-import ServiceBase from './ServiceBase';
+import ServiceBase from "./ServiceBase";
 
-import type { IDeFiDBStruct } from '../dbs/simple/entity/SimpleDbEntityDeFi';
+import type { IDeFiDBStruct } from "../dbs/simple/entity/SimpleDbEntityDeFi";
 
 @backgroundClass()
 class ServiceDeFi extends ServiceBase {
   private enabledNetworksMapEmptyCacheExpiresAt = 0;
 
-  private ensureEnabledNetworksMapPromise:
-    | Promise<Record<string, boolean>>
-    | undefined
-    | null = null;
+  private ensureEnabledNetworksMapPromise: Promise<Record<string, boolean>> | undefined | null =
+    null;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -47,13 +45,7 @@ class ServiceDeFi extends ServiceBase {
   > = {};
 
   _updateAccountDeFiOverviewDebounced = debounce(
-    async ({
-      accountAddress,
-      xpub,
-    }: {
-      accountAddress?: string;
-      xpub?: string;
-    }) => {
+    async ({ accountAddress, xpub }: { accountAddress?: string; xpub?: string }) => {
       await this.updateAccountsLocalDeFiOverview({
         accountAddress,
         xpub,
@@ -99,9 +91,7 @@ class ServiceDeFi extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchAccountDeFiPositions(
-    params: IFetchAccountDeFiPositionsParams,
-  ) {
+  public async fetchAccountDeFiPositions(params: IFetchAccountDeFiPositionsParams) {
     const {
       accountId,
       networkId,
@@ -113,17 +103,14 @@ class ServiceDeFi extends ServiceBase {
       sourceCurrencyInfo,
       targetCurrencyInfo,
       saveToLocal,
+      isForceRefresh,
     } = params;
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
 
-    const currentNetworkId = isUrlAccount
-      ? this._currentUrlNetworkId
-      : this._currentNetworkId;
+    const currentNetworkId = isUrlAccount ? this._currentUrlNetworkId : this._currentNetworkId;
 
-    const currentAccountId = isUrlAccount
-      ? this._currentUrlAccountId
-      : this._currentAccountId;
+    const currentAccountId = isUrlAccount ? this._currentUrlAccountId : this._currentAccountId;
 
     if (isAllNetworks && currentNetworkId !== getNetworkIdsMap().onekeyall)
       return {
@@ -157,17 +144,17 @@ class ServiceDeFi extends ServiceBase {
     const resp = await client.post<{
       data: IFetchAccountDeFiPositionsResp;
     }>(
-      '/wallet/v1/portfolio/positions',
+      "/wallet/v1/portfolio/positions",
       {
         networkId,
         accountAddress,
+        isForceRefresh,
       },
       {
         signal: controller.signal,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        headers: await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
       },
     );
 
@@ -242,7 +229,7 @@ class ServiceDeFi extends ServiceBase {
             targetCurrencyInfo,
             value: resp.data.data.data.totals.netWorth,
           }).toNumber(),
-          currency: targetCurrencyInfo?.id ?? '',
+          currency: targetCurrencyInfo?.id ?? "",
         },
       };
       await this._updateAccountDeFiOverviewDebounced({
@@ -272,10 +259,13 @@ class ServiceDeFi extends ServiceBase {
     }
 
     await this.backgroundApi.simpleDb.deFi.updateEnabledNetworksMap({
-      enabledNetworksMap: networkIds.reduce((acc, networkId) => {
-        acc[networkId] = true;
-        return acc;
-      }, {} as Record<string, boolean>),
+      enabledNetworksMap: networkIds.reduce(
+        (acc, networkId) => {
+          acc[networkId] = true;
+          return acc;
+        },
+        {} as Record<string, boolean>,
+      ),
     });
   }
 
@@ -284,15 +274,14 @@ class ServiceDeFi extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.get<{
       data: { networkIds: string[] };
-    }>('/wallet/v1/portfolio/chains');
+    }>("/wallet/v1/portfolio/chains");
     const networkIds = resp.data.data.networkIds ?? [];
     return networkIds;
   }
 
   @backgroundMethod()
   public async getDeFiEnabledNetworksMap() {
-    const existing =
-      (await this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap()) ?? {};
+    const existing = (await this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap()) ?? {};
     if (!isEmpty(existing)) {
       this.enabledNetworksMapEmptyCacheExpiresAt = 0;
       return existing;
@@ -313,8 +302,7 @@ class ServiceDeFi extends ServiceBase {
       } catch (error) {
         console.error(error);
       }
-      const refreshed =
-        await this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap();
+      const refreshed = await this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap();
       const result = refreshed ?? {};
       if (isEmpty(result)) {
         this.enabledNetworksMapEmptyCacheExpiresAt = Date.now() + 30_000;
@@ -343,10 +331,7 @@ class ServiceDeFi extends ServiceBase {
     }[];
     deFiRawData?: IDeFiDBStruct;
   }) {
-    if (
-      accounts[0] &&
-      networkUtils.isAllNetwork({ networkId: accounts[0].networkId })
-    ) {
+    if (accounts[0] && networkUtils.isAllNetwork({ networkId: accounts[0].networkId })) {
       const result: Array<{
         accountId: string;
         networkId: string;
@@ -364,19 +349,18 @@ class ServiceDeFi extends ServiceBase {
       const rawData = await this.backgroundApi.simpleDb.deFi.getRawData();
       for (let i = 0; i < accounts.length; i += 1) {
         const account = accounts[i];
-        const { accountsInfo } =
-          await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+        const { accountsInfo } = await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+          accountId: account.accountId,
+          networkId: account.networkId,
+          indexedAccountId: account.indexedAccountId,
+          deriveType: undefined,
+          nftEnabledOnly: false,
+          DeFiEnabledOnly: true,
+          excludeTestNetwork: true,
+          networksEnabledOnly: !accountUtils.isOthersAccount({
             accountId: account.accountId,
-            networkId: account.networkId,
-            indexedAccountId: account.indexedAccountId,
-            deriveType: undefined,
-            nftEnabledOnly: false,
-            DeFiEnabledOnly: true,
-            excludeTestNetwork: true,
-            networksEnabledOnly: !accountUtils.isOthersAccount({
-              accountId: account.accountId,
-            }),
-          });
+          }),
+        });
         for (const accountInfo of accountsInfo) {
           const key = accountUtils.buildAccountLocalAssetsKey({
             accountAddress: accountInfo.apiAddress,
@@ -388,15 +372,13 @@ class ServiceDeFi extends ServiceBase {
                 accountId: account.accountId,
                 networkId: account.networkId,
                 overview: {
-                  [accountInfo.networkId]:
-                    rawData.overview[key][accountInfo.networkId],
+                  [accountInfo.networkId]: rawData.overview[key][accountInfo.networkId],
                 },
               };
             } else {
               result[i].overview = {
                 ...result[i].overview,
-                [accountInfo.networkId]:
-                  rawData.overview[key][accountInfo.networkId],
+                [accountInfo.networkId]: rawData.overview[key][accountInfo.networkId],
               };
             }
           }
