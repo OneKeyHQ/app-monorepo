@@ -5,8 +5,10 @@ import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 import type { IVideoProps } from './type';
 
 export function Video(rawProps: IVideoProps) {
-  const [{ source, repeat, resizeMode, rate, muted, onProgress, ...props }, style] =
-    usePropsAndStyle(rawProps);
+  const [
+    { source, repeat, resizeMode, rate, muted, onProgress, ...props },
+    style,
+  ] = usePropsAndStyle(rawProps);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
