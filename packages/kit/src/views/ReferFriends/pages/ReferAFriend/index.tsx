@@ -82,6 +82,7 @@ function ReferAFriendPage({
             }}
           >
             <ReferAFriendHowToPhase
+              postConfig={postConfig}
               actions={
                 showInlineActions ? (
                   <ReferAFriendPhaseActions
