@@ -64,7 +64,7 @@ function sortUtxo({
   utxos: ICoinSelectInput[];
   feeRate: number;
 }) {
-  return utxos.concat().sort((a, b) => {
+  return utxos.concat().toSorted((a, b) => {
     if (a.forceSelect) {
       return -1;
     }

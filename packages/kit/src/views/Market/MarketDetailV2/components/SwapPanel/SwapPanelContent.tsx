@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import { YStack } from '@onekeyhq/components';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
@@ -25,7 +26,6 @@ import {
   TokenInputSection,
 } from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
-import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
 import { useSwapAnalytics } from './hooks/useSwapAnalytics';
 import { ESwapDirection } from './hooks/useTradeType';
 
@@ -39,6 +39,8 @@ export type ISwapPanelContentProps = {
     warningMessage?: string;
     actionTranslationId?: ETranslations;
     actionToken?: ISwapToken;
+    actionOtherToken?: ISwapToken;
+    onlySupportCrossChain?: boolean;
   };
   isApproved: boolean;
   defaultTokens: IToken[];
@@ -59,10 +61,14 @@ export type ISwapPanelContentProps = {
   };
   hasInitialReady: boolean;
   currentMarketToken?: ISwapToken;
+  enableAddressTypeSelector: boolean;
+  activeAccount: IAccountSelectorActiveAccountInfo;
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
   const {
+    activeAccount,
+    enableAddressTypeSelector,
     swapPanel,
     isLoading,
     balanceLoading,
@@ -80,13 +86,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     onWrappedSwap,
     isWrapped,
     hasInitialReady,
-    onCloseDialog,
     currentMarketToken,
   } = props;
 
   const {
     paymentAmount,
     paymentToken,
+    sellAmount,
+    setSellAmount,
     setPaymentAmount,
     setPaymentToken,
     tradeType,
@@ -97,12 +104,20 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const tokenBuyInputRef = useRef<ITokenInputSectionRef>(null);
   const tokenSellInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
-
+  const sellAmountRef = useRef(sellAmount);
   // Initialize analytics hook
   const swapAnalytics = useSwapAnalytics();
   if (paymentAmount !== paymentAmountRef.current) {
     paymentAmountRef.current = paymentAmount;
   }
+  if (sellAmount !== sellAmountRef.current) {
+    sellAmountRef.current = sellAmount;
+  }
+
+  const currentInputAmount = useMemo(() => {
+    return tradeType === ESwapDirection.BUY ? paymentAmount : sellAmount;
+  }, [tradeType, paymentAmount, sellAmount]);
+
   const handleBalanceClick = useCallback(() => {
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === balanceToken?.networkId,
@@ -112,19 +127,20 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         0,
         balance.minus(new BigNumber(reserveGas)),
       ).decimalPlaces(balanceToken?.decimals ?? 6, BigNumber.ROUND_DOWN);
-      setPaymentAmount(maxAmount);
+
       if (tradeType === ESwapDirection.BUY) {
+        setPaymentAmount(maxAmount);
         tokenBuyInputRef.current?.setValue(maxAmount.toFixed());
       } else {
+        setSellAmount(maxAmount);
         tokenSellInputRef.current?.setValue(maxAmount.toFixed());
       }
-    } else {
+    } else if (tradeType === ESwapDirection.BUY) {
       setPaymentAmount(balance);
-      if (tradeType === ESwapDirection.BUY) {
-        tokenBuyInputRef.current?.setValue(balance.toFixed());
-      } else {
-        tokenSellInputRef.current?.setValue(balance.toFixed());
-      }
+      tokenBuyInputRef.current?.setValue(balance.toFixed());
+    } else {
+      setSellAmount(balance);
+      tokenSellInputRef.current?.setValue(balance.toFixed());
     }
   }, [
     swapNativeTokenReserveGas,
@@ -133,28 +149,39 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     balanceToken?.decimals,
     balance,
     setPaymentAmount,
+    setSellAmount,
     tradeType,
   ]);
 
   useEffect(() => {
     if (
-      new BigNumber(paymentAmountRef.current?.toFixed()).gt(0) &&
-      !validateAmountInput(
-        paymentAmountRef.current?.toFixed(),
-        balanceToken?.decimals,
-      )
+      (new BigNumber(paymentAmountRef.current?.toFixed()).gt(0) &&
+        tradeType === ESwapDirection.BUY &&
+        !validateAmountInput(
+          paymentAmountRef.current?.toFixed(),
+          balanceToken?.decimals,
+        )) ||
+      (new BigNumber(sellAmountRef.current?.toFixed()).gt(0) &&
+        tradeType === ESwapDirection.SELL &&
+        !validateAmountInput(
+          sellAmountRef.current?.toFixed(),
+          balanceToken?.decimals,
+        ))
     ) {
       const changeAmount = new BigNumber(
-        paymentAmountRef.current?.toFixed(),
+        tradeType === ESwapDirection.BUY
+          ? paymentAmountRef.current?.toFixed()
+          : sellAmountRef.current?.toFixed(),
       ).decimalPlaces(balanceToken?.decimals ?? 0, BigNumber.ROUND_DOWN);
-      setPaymentAmount(changeAmount);
       if (tradeType === ESwapDirection.BUY) {
+        setPaymentAmount(changeAmount);
         tokenBuyInputRef.current?.setValue(changeAmount.toFixed());
       } else {
+        setSellAmount(changeAmount);
         tokenSellInputRef.current?.setValue(changeAmount.toFixed());
       }
     }
-  }, [tradeType, balanceToken?.decimals, setPaymentAmount]);
+  }, [tradeType, balanceToken?.decimals, setPaymentAmount, setSellAmount]);
 
   useEffect(() => {
     tokenBuyInputRef.current?.setValue('');
@@ -169,6 +196,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       <YStack gap="$2" mt="$2">
         {/* Token input section */}
         <SwapPanelTop
+          enableAddressTypeSelector={enableAddressTypeSelector}
+          activeAccount={activeAccount}
           balance={balance}
           balanceToken={balanceToken}
           balanceLoading={balanceLoading}
@@ -191,7 +220,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           style={tradeType === ESwapDirection.SELL ? {} : { display: 'none' }}
           tradeType={ESwapDirection.SELL}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
-          onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
+          onChange={(amount) => setSellAmount(new BigNumber(amount))}
           selectedToken={balanceToken}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
@@ -219,32 +248,23 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         ) : null}
       </YStack>
 
-      {/* Unsupported swap warning */}
-      {hasInitialReady && !supportSpeedSwap.enabled ? (
-        <UnsupportedSwapWarning
-          customMessage={supportSpeedSwap.warningMessage}
-          actionTranslationId={supportSpeedSwap.actionTranslationId}
-          actionToken={supportSpeedSwap.actionToken}
-          onCloseDialog={onCloseDialog}
-          tradeType={tradeType ?? ESwapDirection.BUY}
-        />
-      ) : null}
-
-      {!isApproved && paymentAmount.gt(0) && balance.gte(paymentAmount) ? (
+      {!isApproved &&
+      currentInputAmount.gt(0) &&
+      balance.gte(currentInputAmount) ? (
         <ApproveButton onApprove={onApprove} loading={isLoading} />
       ) : (
         <ActionButton
-          disabled={!supportSpeedSwap.enabled}
+          supportSpeedSwap={!!supportSpeedSwap?.enabled}
+          onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
           loading={isLoading}
+          actionToken={supportSpeedSwap?.actionToken}
+          actionOtherToken={supportSpeedSwap?.actionOtherToken}
           tradeType={tradeType}
           onPress={isWrapped ? onWrappedSwap : onSwap}
-          amount={paymentAmount.toFixed()}
-          token={
-            tradeType === ESwapDirection.SELL ? balanceToken : paymentToken
-          }
+          amount={currentInputAmount.toFixed()}
+          token={balanceToken}
           balance={balance}
           isWrapped={isWrapped}
-          paymentToken={paymentToken}
           networkId={networkId}
           onSwapAction={() =>
             swapAnalytics.logSwapAction({

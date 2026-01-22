@@ -48,6 +48,7 @@ import type {
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { showPrimeTransferImportProcessingDialog } from './components/PrimeTransferImportProcessingDialog';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 function PreviewHeader({
   title,
@@ -228,9 +229,13 @@ function WalletList({
     const _importedAccounts = Object.values(data.privateData.importedAccounts);
     const _watchingAccounts = Object.values(data.privateData.watchingAccounts);
     return {
-      wallets: _wallets.sort((a, b) => walletSortFn(a, b)),
-      importedAccounts: _importedAccounts.sort((a, b) => accountSortFn(a, b)),
-      watchingAccounts: _watchingAccounts.sort((a, b) => accountSortFn(a, b)),
+      wallets: _wallets.toSorted((a, b) => walletSortFn(a, b)),
+      importedAccounts: _importedAccounts.toSorted((a, b) =>
+        accountSortFn(a, b),
+      ),
+      watchingAccounts: _watchingAccounts.toSorted((a, b) =>
+        accountSortFn(a, b),
+      ),
     };
   }, [data]);
 
@@ -543,6 +548,11 @@ export default function PagePrimeTransferPreview() {
 
           // exitTransferFlow();
           // await timerUtils.wait(1000);
+
+          // Delay to ensure the dialog is closed before proceeding
+          if (platformEnv.isNative) {
+            await timerUtils.wait(350);
+          }
 
           await backgroundApiProxy.servicePrimeTransfer.initImportProgress({
             selectedTransferData,

@@ -50,6 +50,7 @@ export enum ERequestWalletTypeEnum {
   HW_QRCODE = 'hw-qrcode',
   URL = 'url',
   THIRD_PARTY = 'third-party',
+  KEYLESS_WALLET = 'keyless-wallet',
   UNKNOWN = 'unknown',
 }
 

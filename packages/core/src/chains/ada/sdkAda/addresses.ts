@@ -80,7 +80,6 @@ export const validShelleyAddress = (address: string): boolean =>
   (address.startsWith('addr1') || address.startsWith('addr_test1')) &&
   isValidShelleyAddress(address);
 export const validBootstrapAddress = (address: string): boolean =>
-  // eslint-disable-next-line @cspell/spellchecker
   // Byron era Ae2 and DdzFF
   (address.startsWith('Ae2') || address.startsWith('DdzFF')) &&
   isValidBootstrapAddress(address);

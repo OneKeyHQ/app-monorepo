@@ -34,7 +34,7 @@ export default async function (
         server,
       },
     };
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }

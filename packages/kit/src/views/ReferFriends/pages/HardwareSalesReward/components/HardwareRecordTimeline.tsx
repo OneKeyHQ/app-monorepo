@@ -125,12 +125,7 @@ export function HardwareRecordTimeline({
   }
 
   return (
-    <YStack
-      bg="$bgSubdued"
-      borderTopWidth={1}
-      borderBottomWidth={1}
-      borderColor="$neutral2"
-    >
+    <YStack>
       <SizableText
         size="$headingSm"
         color="$textSubdued"
@@ -143,7 +138,7 @@ export function HardwareRecordTimeline({
         })}
       </SizableText>
       <YStack px="$5" pb="$4">
-        {history.map((historyItem: IHistoryItem, index: number) => (
+        {history.map((historyItem, index) => (
           <TimelineItem
             key={`${historyItem.type}-${historyItem.timestamp}-${index}`}
             historyItem={historyItem}

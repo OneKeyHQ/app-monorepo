@@ -177,6 +177,9 @@ export function useCloudBackup() {
     async ({ hideRestoreButton }: { hideRestoreButton?: boolean } = {}) => {
       const isAvailable = await checkIsAvailable();
       if (isAvailable) {
+        if (platformEnv.isNativeAndroid) {
+          await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
+        }
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
@@ -447,6 +450,10 @@ export function useCloudBackup() {
               },
             );
             await verifyPasswordDialog?.close?.();
+            // Delay to ensure the dialog is closed before proceeding
+            if (platformEnv.isNative) {
+              await timerUtils.wait(350);
+            }
             importProcessingDialog = showPrimeTransferImportProcessingDialog({
               navigation,
             });
@@ -501,6 +508,10 @@ export function useCloudBackup() {
       const isAvailable = await checkIsAvailable();
       let loadingDialog: IDialogInstance | null = null;
       if (isAvailable) {
+        if (platformEnv.isNativeAndroid) {
+          await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
+        }
+
         if (platformEnv.isNativeAndroid || alwaysGoToBackupDetail) {
           await goToPageBackupDetail({
             actionType: 'backup',

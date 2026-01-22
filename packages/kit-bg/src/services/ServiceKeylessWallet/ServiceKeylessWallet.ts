@@ -2,10 +2,12 @@ import { Semaphore } from 'async-mutex';
 import { isEqual } from 'lodash';
 
 import {
+  decryptRevealableSeed,
   decryptStringAsync,
   encryptStringAsync,
   generateMnemonic,
   mnemonicToEntropy,
+  revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
@@ -21,11 +23,15 @@ import {
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX,
   KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
+  KEYLESS_ENCRYPTION_ITERATIONS,
   KEYLESS_MNEMONIC_GCM_AAD,
   KEYLESS_SUPABASE_PROJECT_URL,
   KEYLESS_SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  KeylessDataCorruptedError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IAuthKeyPack,
@@ -43,6 +49,7 @@ import keylessWalletUtils from '@onekeyhq/shared/src/keylessWallet/keylessWallet
 import shamirUtils from '@onekeyhq/shared/src/keylessWallet/shamirUtils';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -363,7 +370,7 @@ class ServiceKeylessWallet extends ServiceBase {
   }): Promise<IKeylessWalletRestoredData | undefined> {
     try {
       return await this.restoreKeylessWallet(params);
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -641,7 +648,7 @@ class ServiceKeylessWallet extends ServiceBase {
         return null;
       }
       return await this.getAuthPackFromCache({ packSetId });
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -675,7 +682,7 @@ class ServiceKeylessWallet extends ServiceBase {
         return null;
       }
       return await this.getKeylessDevicePack({ packSetId });
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -835,13 +842,13 @@ class ServiceKeylessWallet extends ServiceBase {
             await this.cacheAuthPackInMemory({ authPack });
             return authPack;
           }
-        } catch (error) {
+        } catch (_error) {
           // User cancelled or error occurred, return null
           return null;
         }
       }
       return null;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -898,7 +905,7 @@ class ServiceKeylessWallet extends ServiceBase {
     let authPack: IAuthKeyPack;
     try {
       authPack = JSON.parse(authPackString) as IAuthKeyPack;
-    } catch (error) {
+    } catch (_error) {
       throw new OneKeyLocalError('Failed to parse authPack from server');
     }
 
@@ -1074,7 +1081,7 @@ class ServiceKeylessWallet extends ServiceBase {
         return cloudPack;
       }
       return undefined;
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
@@ -1155,6 +1162,47 @@ class ServiceKeylessWallet extends ServiceBase {
       void (!deviceKeyPack && !authKeyPack);
       // do nothing
     }
+  }
+
+  /**
+   * Decrypt keyless wallet mnemonic using mnemonicPassword.
+   * Uses consistent encryption parameters: GCM mode, 600k iterations, KEYLESS_MNEMONIC_GCM_AAD.
+   */
+  private async decryptKeylessMnemonic(params: {
+    encryptedMnemonic: string;
+    mnemonicPassword: string;
+  }): Promise<string> {
+    const { encryptedMnemonic, mnemonicPassword } = params;
+    return decryptStringAsync({
+      data: encryptedMnemonic,
+      dataEncoding: 'hex',
+      resultEncoding: 'utf-8',
+      password: mnemonicPassword,
+      allowRawPassword: true,
+      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      mode: EAppCryptoAesEncryptionMode.gcm,
+      aad: KEYLESS_MNEMONIC_GCM_AAD,
+    });
+  }
+
+  /**
+   * Encrypt keyless wallet mnemonic using mnemonicPassword.
+   * Uses consistent encryption parameters: GCM mode, 600k iterations, KEYLESS_MNEMONIC_GCM_AAD.
+   */
+  private async encryptKeylessMnemonic(params: {
+    mnemonic: string;
+    mnemonicPassword: string;
+  }): Promise<string> {
+    const { mnemonic, mnemonicPassword } = params;
+    return encryptStringAsync({
+      data: mnemonic,
+      dataEncoding: 'utf-8',
+      password: mnemonicPassword,
+      allowRawPassword: true,
+      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      mode: EAppCryptoAesEncryptionMode.gcm,
+      aad: KEYLESS_MNEMONIC_GCM_AAD,
+    });
   }
 
   private buildKeylessSocialUserIdFromToken(params: { token: string }): string {
@@ -1276,7 +1324,7 @@ class ServiceKeylessWallet extends ServiceBase {
           resultEncoding: 'utf-8',
           password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
           allowRawPassword: true,
-          iterations: 600_000,
+          iterations: KEYLESS_ENCRYPTION_ITERATIONS,
           mode: EAppCryptoAesEncryptionMode.gcm,
           aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
         });
@@ -1290,7 +1338,7 @@ class ServiceKeylessWallet extends ServiceBase {
             hashId,
           };
         }
-      } catch (e) {
+      } catch (_e) {
         throw new OneKeyLocalError('Failed to decrypt keyless backend share');
       }
     }
@@ -1389,7 +1437,7 @@ class ServiceKeylessWallet extends ServiceBase {
       dataEncoding: 'utf-8',
       password: KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_KEY,
       allowRawPassword: true,
-      iterations: 600_000,
+      iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
     });
@@ -1416,9 +1464,8 @@ class ServiceKeylessWallet extends ServiceBase {
     ownerId: string;
     token: string;
     pin: string;
-    skipTokenCacheClear?: boolean;
   }): Promise<IKeylessJuiceboxShare> {
-    const { ownerId, token, pin, skipTokenCacheClear } = params;
+    const { ownerId, token, pin } = params;
 
     if (!token) {
       throw new OneKeyLocalError(
@@ -1441,7 +1488,6 @@ class ServiceKeylessWallet extends ServiceBase {
       const secret = await juiceboxClient.recover({
         pin,
         userInfo: ownerId,
-        skipTokenCacheClear,
       });
 
       const parts = secret.split('--');
@@ -1491,8 +1537,6 @@ class ServiceKeylessWallet extends ServiceBase {
       ownerId,
       token,
       pin,
-      skipTokenCacheClear:
-        mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
     });
 
     // Save tokens to secure storage (refreshToken with passcode, token without)
@@ -1600,8 +1644,39 @@ class ServiceKeylessWallet extends ServiceBase {
         backgroundApi: this.backgroundApi,
       });
     if (!mnemonicPassword) {
+      defaultLogger.wallet.keyless.dataCorruptedError({
+        reason:
+          'getMnemonicPasswordFromStorage: mnemonicPassword not found in secure storage',
+      });
+      throw new KeylessDataCorruptedError();
+    }
+
+    // 3.1. Verify mnemonicPassword can decrypt backendShareData and matches local keyless wallet
+    const decryptedMnemonic = await this.decryptKeylessMnemonic({
+      encryptedMnemonic: backendShareData.encryptedMnemonic,
+      mnemonicPassword,
+    });
+    if (!decryptedMnemonic) {
       throw new OneKeyLocalError(
-        'Mnemonic password not found in storage. Please restore the wallet first.',
+        'Mnemonic password does not match backend share data. Please verify your credentials.',
+      );
+    }
+
+    // 3.2. Verify decrypted mnemonic matches local keyless wallet mnemonic
+    const keylessWallet =
+      await this.backgroundApi.serviceAccount.getKeylessWallet();
+    if (!keylessWallet) {
+      throw new OneKeyLocalError('Keyless wallet not found.');
+    }
+    const credential = await localDb.getCredential(keylessWallet.id);
+    const rs = await decryptRevealableSeed({
+      rs: credential.credential,
+      password,
+    });
+    const localMnemonic = revealEntropyToMnemonic(rs.entropyWithLangPrefixed);
+    if (localMnemonic !== decryptedMnemonic) {
+      throw new OneKeyLocalError(
+        'Decrypted mnemonic does not match local keyless wallet. Please verify your credentials.',
       );
     }
 
@@ -1701,15 +1776,9 @@ class ServiceKeylessWallet extends ServiceBase {
     const mnemonicPassword = bufferUtils.bytesToBase64(mnemonicPasswordBytes);
 
     // Decrypt mnemonic using recovered password
-    const mnemonic = await decryptStringAsync({
-      data: backendShareData.encryptedMnemonic,
-      dataEncoding: 'hex',
-      resultEncoding: 'utf-8',
-      password: mnemonicPassword,
-      allowRawPassword: true,
-      iterations: 600_000,
-      mode: EAppCryptoAesEncryptionMode.gcm,
-      aad: KEYLESS_MNEMONIC_GCM_AAD,
+    const mnemonic = await this.decryptKeylessMnemonic({
+      encryptedMnemonic: backendShareData.encryptedMnemonic,
+      mnemonicPassword,
     });
 
     // Save mnemonicPassword to secure storage for Reset PIN flow
@@ -1811,14 +1880,9 @@ class ServiceKeylessWallet extends ServiceBase {
       }
       const mnemonicPasswordBytes = crypto.getRandomValues(new Uint8Array(32));
       const mnemonicPassword = bufferUtils.bytesToBase64(mnemonicPasswordBytes);
-      const encryptedMnemonic: string = await encryptStringAsync({
-        data: mnemonic,
-        dataEncoding: 'utf-8',
-        password: mnemonicPassword,
-        allowRawPassword: true,
-        iterations: 600_000,
-        mode: EAppCryptoAesEncryptionMode.gcm,
-        aad: KEYLESS_MNEMONIC_GCM_AAD,
+      const encryptedMnemonic: string = await this.encryptKeylessMnemonic({
+        mnemonic,
+        mnemonicPassword,
       });
       const mnemonicPasswordShares = await shamirUtils.split(
         new Uint8Array(mnemonicPasswordBytes),
@@ -2027,7 +2091,7 @@ class ServiceKeylessWallet extends ServiceBase {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // eslint-disable-next-line @cspell/spellchecker
+          // oxlint-disable-next-line @cspell/spellchecker
           apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
         },
         body: JSON.stringify({
@@ -2094,23 +2158,51 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string;
     isCancelAction?: boolean;
   }): Promise<void> {
-    return this.updatePinConfirmStatusMutex.runExclusive(async () => {
-      const { token, isCancelAction } = params;
+    const { token, isCancelAction } = params;
 
-      const client = await this.getClient(EServiceEndpointEnum.Prime);
-      const res = await client.post<IApiClientResponse<{ ok: boolean }>>(
-        '/prime/v1/keyless-wallet/updatePinConfirmStatus',
-        {
-          token,
-          isCancelAction,
-        },
-      );
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    const res = await client.post<IApiClientResponse<{ ok: boolean }>>(
+      '/prime/v1/keyless-wallet/updatePinConfirmStatus',
+      {
+        token,
+        isCancelAction,
+      },
+    );
 
-      const isSuccess =
-        res?.data?.code === 0 && res?.data?.message === 'success';
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
 
-      if (!isSuccess) {
-        throw new OneKeyLocalError('Failed to update pin confirm status');
+    if (!isSuccess) {
+      throw new OneKeyLocalError('Failed to update pin confirm status');
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async cancelVerifyPin(params: {
+    ownerId: string | 'CURRENT_KEYLESS_WALLET';
+  }): Promise<void> {
+    await this.updatePinConfirmStatusMutex.runExclusive(async () => {
+      let { ownerId } = params;
+      if (ownerId === 'CURRENT_KEYLESS_WALLET') {
+        ownerId = '';
+        const wallet =
+          await this.backgroundApi.serviceAccount.getKeylessWallet();
+        if (wallet?.keylessDetailsInfo?.keylessOwnerId) {
+          ownerId = wallet.keylessDetailsInfo.keylessOwnerId;
+        }
+      }
+      if (!ownerId) {
+        throw new OneKeyLocalError(
+          'cancelVerifyPin ERROR: ownerId is required',
+        );
+      }
+      const accessToken = await this.getKeylessCachedAccessToken({ ownerId });
+
+      if (accessToken) {
+        await this.apiUpdatePinConfirmStatus({
+          token: accessToken,
+          isCancelAction: true,
+        });
       }
     });
   }
@@ -2138,7 +2230,7 @@ class ServiceKeylessWallet extends ServiceBase {
 
       const result = (await response.json()) as { status?: string };
       return result?.status === 'ok';
-    } catch (error) {
+    } catch (_error) {
       // Handle timeout or any other errors
       return false;
     }
@@ -2264,6 +2356,7 @@ class ServiceKeylessWallet extends ServiceBase {
   async apiCheckRateLimitStatus(params: { token: string }): Promise<{
     isRateLimited: boolean;
     retryAfterSeconds: number;
+    guessesRemaining: number;
   }> {
     const { token } = params;
     // getJuiceboxClientFromCache already calls exchangeToken internally when creating a new client

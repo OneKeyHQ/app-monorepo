@@ -424,7 +424,7 @@ export default class Vault extends VaultBase {
         config,
         tokenAddress,
       });
-      transfers = [...transfers, ...tokenTransfers];
+      transfers.push(...tokenTransfers);
       if (tokenTransfers.length > 0) {
         existsToken = true;
       }

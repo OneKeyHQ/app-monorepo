@@ -648,7 +648,7 @@ export default function HardwareHomeScreenModal({
           });
 
         return { homeScreenList: dataList, isLoadingError: false };
-      } catch (error) {
+      } catch (_error) {
         return { homeScreenList: [], isLoadingError: true };
       }
     },

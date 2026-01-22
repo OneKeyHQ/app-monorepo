@@ -13,6 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -20,7 +21,9 @@ import {
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import appStorage, {
+  storageHub,
+} from '@onekeyhq/shared/src/storage/appStorage';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -34,6 +37,7 @@ import { v4appStorage } from '../migrations/v4ToV5Migration/v4appStorage';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import v4dbHubs from '../migrations/v4ToV5Migration/v4dbHubs';
 import { appIsLocked } from '../states/jotai/atoms';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
 
@@ -121,7 +125,7 @@ class ServiceApp extends ServiceBase {
           await timerUtils.wait(600);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       //
     }
     defaultLogger.setting.page.clearDataStep('v4localDb-reset');
@@ -334,6 +338,259 @@ class ServiceApp extends ServiceBase {
   async getLaunchTimesLastReset() {
     const v = await simpleDb.appStatus.getRawData();
     return v?.launchTimesLastReset ?? 0;
+  }
+
+  @backgroundMethod()
+  async clearAppStorage() {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError(
+        'clearAppStorage is only available when devSettings is enabled',
+      );
+    }
+
+    try {
+      // Clear appStorage (works for both web and native)
+      await appStorage.clear();
+      defaultLogger.setting.page.clearDataStep('appStorage-clear');
+      return { success: true };
+    } catch (error) {
+      console.error('clearAppStorage error', error);
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async clearSimpleDB() {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError(
+        'clearSimpleDB is only available when devSettings is enabled',
+      );
+    }
+
+    try {
+      let clearedKeysCount = 0;
+
+      if (platformEnv.isWeb || platformEnv.isDesktop) {
+        // Web/Desktop: Clear the dedicated SimpleDB IndexedDB database
+        const simpleDbStorage = storageHub.$webStorageSimpleDB;
+        if (simpleDbStorage) {
+          const allKeys = await simpleDbStorage.getAllKeys();
+          clearedKeysCount = allKeys.length;
+          await simpleDbStorage.clear();
+        }
+      } else {
+        // Native: Filter and remove keys with simple_db_v5 prefix from appStorage
+        const SIMPLE_DB_KEY_PREFIX = 'simple_db_v5';
+        const allKeys = await appStorage.getAllKeys();
+        const simpleDbKeys = allKeys.filter((key) =>
+          key.startsWith(SIMPLE_DB_KEY_PREFIX),
+        );
+
+        if (simpleDbKeys.length > 0) {
+          await appStorage.multiRemove(simpleDbKeys);
+        }
+        clearedKeysCount = simpleDbKeys.length;
+      }
+
+      defaultLogger.setting.page.clearDataStep('simpleDB-clear');
+      return {
+        success: true,
+        clearedKeysCount,
+      };
+    } catch (error) {
+      console.error('clearSimpleDB error', error);
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async clearGlobalStatus() {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError(
+        'clearGlobalStatus is only available when devSettings is enabled',
+      );
+    }
+
+    try {
+      let clearedKeysCount = 0;
+
+      if (platformEnv.isWeb || platformEnv.isDesktop) {
+        // Web/Desktop: Clear the dedicated GlobalStates IndexedDB database
+        const globalStatesStorage = storageHub.$webStorageGlobalStates;
+        if (globalStatesStorage) {
+          const allKeys = await globalStatesStorage.getAllKeys();
+          clearedKeysCount = allKeys.length;
+          await globalStatesStorage.clear();
+        }
+      } else {
+        // Native: Filter and remove keys with g_states_v5 prefix from appStorage
+        const GLOBAL_STATES_KEY_PREFIX = 'g_states_v5';
+        const allKeys = await appStorage.getAllKeys();
+        const globalStatesKeys = allKeys.filter((key) =>
+          key.startsWith(GLOBAL_STATES_KEY_PREFIX),
+        );
+
+        if (globalStatesKeys.length > 0) {
+          await appStorage.multiRemove(globalStatesKeys);
+        }
+        clearedKeysCount = globalStatesKeys.length;
+      }
+
+      defaultLogger.setting.page.clearDataStep('globalStatus-clear');
+      return {
+        success: true,
+        clearedKeysCount,
+      };
+    } catch (error) {
+      console.error('clearGlobalStatus error', error);
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getAppStorageFirstItem() {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError(
+        'getAppStorageFirstItem is only available when devSettings is enabled',
+      );
+    }
+
+    try {
+      const allKeys = await appStorage.getAllKeys();
+      if (allKeys.length === 0) {
+        return {
+          isEmpty: true,
+          key: null,
+          value: null,
+          totalKeys: 0,
+        };
+      }
+
+      const firstKey = allKeys[0];
+      const firstValue = await appStorage.getItem(firstKey);
+
+      return {
+        isEmpty: false,
+        key: firstKey,
+        value: firstValue,
+        totalKeys: allKeys.length,
+      };
+    } catch (error) {
+      console.error('getAppStorageFirstItem error', error);
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getSimpleDBFirstItem() {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError(
+        'getSimpleDBFirstItem is only available when devSettings is enabled',
+      );
+    }
+
+    try {
+      let allKeys: readonly string[] = [];
+      let storage: typeof appStorage | null = null;
+
+      if (platformEnv.isWeb || platformEnv.isDesktop) {
+        // Web/Desktop: Query from dedicated SimpleDB IndexedDB database
+        const simpleDbStorage = storageHub.$webStorageSimpleDB;
+        if (simpleDbStorage) {
+          storage = simpleDbStorage;
+          allKeys = await simpleDbStorage.getAllKeys();
+        }
+      } else {
+        // Native: Filter keys with simple_db_v5 prefix from appStorage
+        const SIMPLE_DB_KEY_PREFIX = 'simple_db_v5';
+        const allAppStorageKeys = await appStorage.getAllKeys();
+        allKeys = allAppStorageKeys.filter((key) =>
+          key.startsWith(SIMPLE_DB_KEY_PREFIX),
+        );
+        storage = appStorage;
+      }
+
+      if (allKeys.length === 0 || !storage) {
+        return {
+          isEmpty: true,
+          key: null,
+          value: null,
+          totalKeys: 0,
+        };
+      }
+
+      const firstKey = allKeys[0];
+      const firstValue = await storage.getItem(firstKey);
+
+      return {
+        isEmpty: false,
+        key: firstKey,
+        value: firstValue,
+        totalKeys: allKeys.length,
+      };
+    } catch (error) {
+      console.error('getSimpleDBFirstItem error', error);
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getGlobalStatusFirstItem() {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError(
+        'getGlobalStatusFirstItem is only available when devSettings is enabled',
+      );
+    }
+
+    try {
+      let allKeys: readonly string[] = [];
+      let storage: typeof appStorage | null = null;
+
+      if (platformEnv.isWeb || platformEnv.isDesktop) {
+        // Web/Desktop: Query from dedicated GlobalStates IndexedDB database
+        const globalStatesStorage = storageHub.$webStorageGlobalStates;
+        if (globalStatesStorage) {
+          storage = globalStatesStorage;
+          allKeys = await globalStatesStorage.getAllKeys();
+        }
+      } else {
+        // Native: Filter keys with g_states_v5 prefix from appStorage
+        const GLOBAL_STATES_KEY_PREFIX = 'g_states_v5';
+        const allAppStorageKeys = await appStorage.getAllKeys();
+        allKeys = allAppStorageKeys.filter((key) =>
+          key.startsWith(GLOBAL_STATES_KEY_PREFIX),
+        );
+        storage = appStorage;
+      }
+
+      if (allKeys.length === 0 || !storage) {
+        return {
+          isEmpty: true,
+          key: null,
+          value: null,
+          totalKeys: 0,
+        };
+      }
+
+      const firstKey = allKeys[0];
+      const firstValue = await storage.getItem(firstKey);
+
+      return {
+        isEmpty: false,
+        key: firstKey,
+        value: firstValue,
+        totalKeys: allKeys.length,
+      };
+    } catch (error) {
+      console.error('getGlobalStatusFirstItem error', error);
+      throw error;
+    }
   }
 }
 

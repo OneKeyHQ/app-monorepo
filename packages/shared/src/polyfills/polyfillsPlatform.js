@@ -1,6 +1,7 @@
+// oxlint-disable unicorn/prefer-global-this
 /* eslint-disable no-inner-declarations */
 /* eslint-disable prefer-template */
-/* eslint-disable unicorn/prefer-global-this */
+
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
 
@@ -14,6 +15,13 @@ if (typeof Promise.allSettled !== 'function') {
 }
 
 require('./intlShim');
+const { shim: shimArrayFlatMap } = require('array.prototype.flatmap');
+
+shimArrayFlatMap();
+
+const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
+
+shimArrayToSorted();
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
@@ -66,7 +74,7 @@ if (platformEnv.isNative) {
 
     AssetSourceResolver.prototype.defaultAsset = wrap(
       AssetSourceResolver.prototype.defaultAsset,
-      function (func, ...args) {
+      function (_func, ..._args) {
         const isLoadedFromServer = this.isLoadedFromServer();
         if (isLoadedFromServer) {
           const serverUrl = this.assetServerURL();
@@ -191,7 +199,7 @@ try {
   const fr = new FileReader();
   try {
     fr.readAsArrayBuffer(new Blob(['hello'], { type: 'text/plain' }));
-  } catch (error) {
+  } catch (_error) {
     shimsInjectedLog('FileReader.prototype.readAsArrayBuffer');
     FileReader.prototype.readAsArrayBuffer = function (blob) {
       if (this.readyState === this.LOADING) {
@@ -212,7 +220,7 @@ try {
       fr.readAsDataURL(blob);
     };
   }
-} catch (error) {
+} catch (_error) {
   console.log('Missing FileReader; unsupported platform');
 }
 

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/prefer-global-this */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import safeStringify from 'fast-safe-stringify';

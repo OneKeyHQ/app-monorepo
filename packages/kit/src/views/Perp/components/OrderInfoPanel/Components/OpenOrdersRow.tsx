@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -58,11 +58,12 @@ const OpenOrdersRow = memo(
   }: IOpenOrdersRowProps) => {
     const actions = useHyperliquidActions();
     const intl = useIntl();
+    const { coin, side, orderType: originalOrderType, reduceOnly } = order;
     const assetInfo = useMemo(() => {
-      const parsedCoin = parseDexCoin(order.coin);
+      const parsedCoin = parseDexCoin(coin);
       const assetSymbol = parsedCoin.displayName;
       const orderType = (() => {
-        switch (order.orderType) {
+        switch (originalOrderType) {
           case 'Market':
             return intl.formatMessage({
               id: ETranslations.perp_position_market,
@@ -88,12 +89,12 @@ const OpenOrdersRow = memo(
               id: ETranslations.perp_order_tp_limit,
             });
           default:
-            return order.orderType;
+            return originalOrderType;
         }
       })();
       const type = (() => {
-        if (order.side === 'B') {
-          if (order.reduceOnly) {
+        if (side === 'B') {
+          if (reduceOnly) {
             return `${intl.formatMessage({
               id: ETranslations.perp_order_close_short, // Close Short
             })}`;
@@ -102,7 +103,7 @@ const OpenOrdersRow = memo(
             id: ETranslations.perp_long, // Long
           });
         }
-        if (order.reduceOnly) {
+        if (reduceOnly) {
           return `${intl.formatMessage({
             id: ETranslations.perp_order_close_long, // Close Long
           })}`;
@@ -111,15 +112,15 @@ const OpenOrdersRow = memo(
           id: ETranslations.perp_short, // Short
         });
       })();
-      const typeColor = order.side === 'B' ? '$green11' : '$red11';
+      const typeColor = side === 'B' ? '$green11' : '$red11';
       return {
         assetSymbol,
-        rawCoin: order.coin,
+        rawCoin: coin,
         type,
         orderType,
         typeColor,
       };
-    }, [order.coin, order.side, order.orderType, intl, order.reduceOnly]);
+    }, [coin, side, originalOrderType, reduceOnly, intl]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
       const date = formatTime(timeDate, {
@@ -188,6 +189,10 @@ const OpenOrdersRow = memo(
         tpsl: `${tpPrice}/${slPrice}`,
       };
     }, [order.children]);
+
+    const [isHovered, setIsHovered] = useState(false);
+    const isOddRow = index % 2 === 1;
+    const baseBgColor = isHovered || !isOddRow ? '$bgApp' : '$bgSubdued';
 
     if (isMobile) {
       return (
@@ -321,10 +326,16 @@ const OpenOrdersRow = memo(
         px="$3"
         alignItems="center"
         hoverStyle={{ bg: '$bgHover' }}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
         minWidth={cellMinWidth}
-        {...(index % 2 === 1 && {
-          backgroundColor: '$bgSubdued',
-        })}
+        {...(index % 2 === 1
+          ? {
+              backgroundColor: '$bgSubdued',
+            }
+          : {
+              backgroundColor: '$bgApp',
+            })}
       >
         {/* Time */}
         <YStack
@@ -466,7 +477,25 @@ const OpenOrdersRow = memo(
           {...getColumnStyle(columnConfigs[9])}
           justifyContent={calcCellAlign(columnConfigs[9].align)}
           alignItems="center"
+          {...(columnConfigs[9]?.fixed && {
+            position: 'sticky' as any,
+            right: 0,
+            zIndex: 1,
+            pr: '$2',
+            backgroundColor: baseBgColor,
+          })}
         >
+          {columnConfigs[9]?.fixed && isHovered ? (
+            <XStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              backgroundColor="$bgHover"
+              pointerEvents="none"
+            />
+          ) : null}
           <SizableText
             color="$green11"
             hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}

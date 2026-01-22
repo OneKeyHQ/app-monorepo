@@ -168,7 +168,7 @@ function useSignatureConfirm(params: IParams) {
             ...transferPayload,
             ...preActionsBeforeConfirmResult,
           } as ITransferPayload;
-        } catch (error) {
+        } catch (_error) {
           noop();
         }
 

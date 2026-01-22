@@ -30,6 +30,7 @@ const BiologyAuthSwitchContainer = ({
         // https://github.com/facebook/react/issues/31819
         // Page flicker caused by Suspense throttling behavior.
         startViewTransition(async () => {
+          await backgroundApiProxy.servicePassword.promptPasswordVerify();
           await backgroundApiProxy.servicePassword.setBiologyAuthEnable(
             checked,
             skipAuth,

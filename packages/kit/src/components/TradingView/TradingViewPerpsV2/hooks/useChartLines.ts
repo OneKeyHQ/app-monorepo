@@ -132,6 +132,7 @@ export function useChartLines({
   const prevLinesRef = useRef<Map<string, ITVLine>>(new Map());
   const prevSymbolRef = useRef<string>(symbol);
   const prevIsReadyRef = useRef<boolean>(isReady);
+  const prevUserAddressRef = useRef<string | undefined | null>(userAddress);
 
   // PNL throttle refs
   const pnlThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -332,12 +333,42 @@ export function useChartLines({
     }
   }, [symbol, isReady, sendLinesClear, sendLinesSync, clearPendingPnlUpdates]);
 
-  // Handle user logout
+  // Handle user address change (logout or account switch)
   useEffect(() => {
-    if (!userAddress && isReady) {
-      sendLinesClear();
+    const prevAddress = prevUserAddressRef.current;
+    const hasAddressChanged = prevAddress !== userAddress;
+
+    if (hasAddressChanged) {
+      // Clear pending updates
+      clearPendingPnlUpdates();
+      prevLinesRef.current.clear();
+
+      if (isReady) {
+        // Clear old lines first
+        sendLinesClear();
+
+        // If switching to a new account (not logout), sync new lines after delay
+        if (userAddress && currentLines.length > 0) {
+          // Use a timeout to ensure clear is processed before sync
+          const timeoutId = setTimeout(() => {
+            sendLinesSync();
+          }, 50);
+
+          prevUserAddressRef.current = userAddress;
+          return () => clearTimeout(timeoutId);
+        }
+      }
+
+      prevUserAddressRef.current = userAddress;
     }
-  }, [userAddress, isReady, sendLinesClear]);
+  }, [
+    userAddress,
+    isReady,
+    sendLinesClear,
+    sendLinesSync,
+    currentLines,
+    clearPendingPnlUpdates,
+  ]);
 
   // Handle WebView reload
   useEffect(() => {

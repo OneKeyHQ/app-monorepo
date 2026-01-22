@@ -35,6 +35,8 @@ export const useBorrowRewards = ({
     {
       initResult: null,
       watchLoading: true,
+      undefinedResultIfReRun: true,
+      alwaysSetState: true,
     },
   );
 

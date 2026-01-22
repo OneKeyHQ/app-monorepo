@@ -272,6 +272,7 @@ export const WithdrawSection = ({
       // Build tags array with both new borrow tag and legacy stakeTag for backward compatibility
       const buildTags = (actionType: 'withdraw' | 'repay'): string[] => {
         const tags: string[] = [
+          EEarnLabels.Borrow,
           buildBorrowTag({ provider, action: actionType }),
         ];
         // Keep legacy stakeTag for backward compatibility

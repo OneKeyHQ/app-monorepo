@@ -1,5 +1,4 @@
 import {
-  Fragment,
   forwardRef,
   useCallback,
   useEffect,
@@ -18,7 +17,6 @@ import type {
 
 import { FlashList } from '@shopify/flash-list';
 import { noop } from 'lodash';
-// eslint-disable-next-line @cspell/spellchecker
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import {
   OpacityDecorator,
@@ -56,10 +54,10 @@ import type {
   ListRenderItemInfo,
 } from 'react-native';
 
-// eslint-disable-next-line unicorn/prefer-global-this
+// oxlint-disable-next-line unicorn/prefer-global-this
 if (typeof window !== 'undefined') {
   Object.defineProperty(
-    // eslint-disable-next-line unicorn/prefer-global-this
+    // oxlint-disable-next-line unicorn/prefer-global-this
     window,
     '__react-beautiful-dnd-disable-dev-warnings',
     {

@@ -6,9 +6,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import {
   MarketTradingView,
+  PerpetualTradingBanner,
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
@@ -28,6 +30,9 @@ export function DesktopLayout() {
     networkId,
     accountAddress,
   });
+
+  const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
+
   return (
     <XStack flex={1}>
       {/* Left column */}
@@ -53,6 +58,7 @@ export function DesktopLayout() {
           <DesktopInformationTabs
             portfolioData={portfolioData}
             isRefreshing={isRefreshing}
+            isBTCNetwork={isBTCNetwork}
           />
         </Stack>
       </YStack>
@@ -61,6 +67,9 @@ export function DesktopLayout() {
       <Stack w={320}>
         <ScrollView>
           <Stack w={320} pb={platformEnv.isWeb ? '$12' : undefined}>
+            <Stack px="$5">
+              <PerpetualTradingBanner />
+            </Stack>
             <Stack px="$5" py="$4">
               <SwapPanel
                 swapToken={{

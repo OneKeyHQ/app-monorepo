@@ -1,4 +1,4 @@
-/* eslint-disable @cspell/spellchecker, @typescript-eslint/no-unused-vars */
+/* oxlint-disable @cspell/spellchecker, @typescript-eslint/no-unused-vars */
 import {
   AptosConfig,
   Aptos as AptosRpcClient,

@@ -1,4 +1,5 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { KeylessDataCorruptedError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -68,12 +69,12 @@ async function getRefreshTokenFromStorageWithPassword(params: {
       });
 
     return decryptedRefreshToken;
-  } catch (error) {
-    throw new OneKeyLocalError(
-      `Failed to decrypt refreshToken: invalid password or corrupted data: ${
-        (error as Error)?.message
-      }`,
-    );
+  } catch (_error) {
+    defaultLogger.wallet.keyless.dataCorruptedError({
+      reason:
+        'getRefreshTokenFromStorageWithPassword: failed to decrypt refreshToken by decryptionKey',
+    });
+    throw new KeylessDataCorruptedError();
   }
 }
 
@@ -201,10 +202,12 @@ async function getAccessTokenFromStorage(params: {
     });
 
     return decryptedToken;
-  } catch (error) {
-    throw new OneKeyLocalError(
-      `Failed to decrypt token: corrupted data: ${(error as Error)?.message}`,
-    );
+  } catch (_error) {
+    defaultLogger.wallet.keyless.dataCorruptedError({
+      reason:
+        'getAccessTokenFromStorage: failed to decrypt token by decryptionKey',
+    });
+    throw new KeylessDataCorruptedError();
   }
 }
 

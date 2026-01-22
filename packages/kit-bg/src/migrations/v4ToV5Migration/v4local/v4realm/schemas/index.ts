@@ -23,9 +23,9 @@ export const v4realmDBSchemasMap: Record<
   [EV4LocalDBStoreNames.AccountDerivation]: V4RealmSchemaAccountDerivation,
   [EV4LocalDBStoreNames.Network]: V4RealmSchemaNetwork,
 };
-export const v4realmDBSchemas: (typeof V4RealmObjectBase<any>)[] =
+export const v4realmDBSchemas: typeof V4RealmObjectBase<any>[] =
   Object.values(v4realmDBSchemasMap);
-export const v4realmDBSchemasExtra: (typeof V4RealmObjectBase<any>)[] = [
+export const v4realmDBSchemasExtra: typeof V4RealmObjectBase<any>[] = [
   V4RealmSchemaToken,
 ];
 

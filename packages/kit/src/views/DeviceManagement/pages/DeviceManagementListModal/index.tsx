@@ -23,7 +23,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -32,7 +31,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -53,6 +52,7 @@ export type IDeviceManagementListItem = IHwQrWalletWithDevice & {
   bleName?: string;
   shouldUpdate?: boolean;
   updateVersionDisplay?: string;
+  isQrWallet?: boolean;
 };
 
 function DeviceListItem({
@@ -73,6 +73,7 @@ function DeviceListItem({
       top: 0,
       left: -1,
     },
+    badge: item.isQrWallet ? 'QR' : undefined,
   };
 
   const isVerified = Boolean(item.device?.verifiedAtVersion);
@@ -82,6 +83,10 @@ function DeviceListItem({
   });
 
   const renderItemText = useMemo(() => {
+    if (item.isQrWallet) {
+      return null;
+    }
+
     if (item.shouldUpdate) {
       if (gtMd) {
         return (
@@ -113,6 +118,7 @@ function DeviceListItem({
     return null;
   }, [
     gtMd,
+    item.isQrWallet,
     item.shouldUpdate,
     item.updateVersionDisplay,
     item.firmwareVersionDisplay,
@@ -159,7 +165,7 @@ function DeviceListItem({
             >
               {item.wallet.name}
             </SizableText>
-            <VerifiedBadge isVerified={isVerified} />
+            {item.isQrWallet ? null : <VerifiedBadge isVerified={isVerified} />}
           </XStack>
           {bleName ? (
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -187,10 +193,10 @@ const ListEmptyComponent = () => (
 function DeviceManagementV2ListWeb() {
   const intl = useIntl();
   const navigation = useNavigation();
-  const appNavigation = useAppNavigation();
   const { gtMd } = useMedia();
   const theme = useTheme();
   const { pushToDeviceDetail } = useDeviceManagerNavigation();
+  const toOnBoardingPage = useNavigateToPickYourDevicePage();
 
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
   const { connectedDevices } = useHardwareWalletConnectStatus();
@@ -204,14 +210,14 @@ function DeviceManagementV2ListWeb() {
       const r =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
           filterHiddenWallet: true,
-          skipDuplicateDevice: true,
+          skipDuplicateDeviceSameType: true,
         });
       const devices: Array<IDeviceManagementListItem> = Object.values(r)
         .filter(
           (item): item is IHwQrWalletWithDevice =>
             Boolean(item.device) && !item.wallet.deprecated,
         )
-        .sort((a, b) => {
+        .toSorted((a, b) => {
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;
           const orderB = b.wallet.walletOrder || b.wallet.walletNo;
           return orderA - orderB;
@@ -228,6 +234,9 @@ function DeviceManagementV2ListWeb() {
         const deviceDetectStatus = detectStatus?.[item.device?.connectId ?? ''];
         const shouldUpdate = deviceDetectStatus?.hasUpgrade;
         const updateVersionDisplay = deviceDetectStatus?.toVersion;
+        item.isQrWallet = accountUtils.isQrWallet({
+          walletId: item.wallet.id,
+        });
         item.firmwareTypeBadge = firmwareTypeBadge;
         item.firmwareVersionDisplay = `v${
           deviceVersion.firmwareVersion ?? '-'
@@ -397,11 +406,7 @@ function DeviceManagementV2ListWeb() {
       {showHeader && !gtMd ? (
         <Page.Footer>
           <Page.FooterActions
-            onConfirm={() => {
-              appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-                screen: EOnboardingPages.ConnectYourDevice,
-              });
-            }}
+            onConfirm={toOnBoardingPage}
             onConfirmText={intl.formatMessage({
               id: ETranslations.global_add_new_device,
             })}

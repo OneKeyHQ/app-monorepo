@@ -419,7 +419,7 @@ export class OffchainMessage {
           };
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // noop
     }
 

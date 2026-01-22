@@ -716,7 +716,7 @@ class ServiceSetting extends ServiceBase {
         '/wallet/v1/wallet/config',
       );
       return resp.data.data;
-    } catch (e) {
+    } catch (_e) {
       return null;
     }
   }

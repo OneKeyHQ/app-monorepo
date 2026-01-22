@@ -573,7 +573,7 @@ function TxFeeInfo(props: IProps) {
         if (txFee.gas && !isEmpty(txFee.gas)) {
           customFeeInfo.gas = {
             ...(txFee.gas[sendSelectedFee.presetIndex] ?? txFee.gas[0]),
-            ...(customFee?.gas ?? {}),
+            ...customFee?.gas,
           };
         }
 
@@ -581,28 +581,28 @@ function TxFeeInfo(props: IProps) {
           customFeeInfo.gasEIP1559 = {
             ...(txFee.gasEIP1559[sendSelectedFee.presetIndex] ??
               txFee.gasEIP1559[0]),
-            ...(customFee?.gasEIP1559 ?? {}),
+            ...customFee?.gasEIP1559,
           };
         }
 
         if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
           customFeeInfo.feeUTXO = {
             ...(txFee.feeUTXO[sendSelectedFee.presetIndex] ?? txFee.feeUTXO[0]),
-            ...(customFee?.feeUTXO ?? {}),
+            ...customFee?.feeUTXO,
           };
         }
 
         if (txFee.feeSol && !isEmpty(txFee.feeSol)) {
           customFeeInfo.feeSol = {
             ...(txFee.feeSol[sendSelectedFee.presetIndex] ?? txFee.feeSol[0]),
-            ...(customFee?.feeSol ?? {}),
+            ...customFee?.feeSol,
           };
         }
 
         if (txFee.feeCkb && !isEmpty(txFee.feeCkb)) {
           customFeeInfo.feeCkb = {
             ...(txFee.feeCkb[sendSelectedFee.presetIndex] ?? txFee.feeCkb[0]),
-            ...(customFee?.feeCkb ?? {}),
+            ...customFee?.feeCkb,
           };
         }
 
@@ -627,7 +627,7 @@ function TxFeeInfo(props: IProps) {
           customFeeInfo.feeBudget = {
             ...(txFee.feeBudget[sendSelectedFee.presetIndex] ??
               txFee.feeBudget[0]),
-            ...(customFee?.feeBudget ?? {}),
+            ...customFee?.feeBudget,
           };
         }
 
@@ -635,7 +635,7 @@ function TxFeeInfo(props: IProps) {
           customFeeInfo.feeNeoN3 = {
             ...(txFee.feeNeoN3[sendSelectedFee.presetIndex] ??
               txFee.feeNeoN3[0]),
-            ...(customFee?.feeNeoN3 ?? {}),
+            ...customFee?.feeNeoN3,
           };
         }
 
@@ -815,7 +815,7 @@ function TxFeeInfo(props: IProps) {
         if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
           customFeeInfo.feeUTXO = {
             ...txFee.feeUTXO[sendSelectedFee.presetIndex],
-            ...(customFee?.feeUTXO ?? {}),
+            ...customFee?.feeUTXO,
           };
         }
 

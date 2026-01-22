@@ -41,7 +41,7 @@ function getHeaderTitle(
     : fallback;
 }
 
-const DesktopDragZoneBoxView = platformEnv.isDesktop
+const DesktopDragZoneBoxView = platformEnv.isDesktopMac
   ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
       const isModalPage = useIsOverlayPage();
 
@@ -185,6 +185,15 @@ function HeaderView({
     return isDesktopModeUI ? '$bgSubdued' : '$bgApp';
   }, [headerTransparent, isDesktopModeUI]);
 
+  const routeName = route.name;
+  const title = useMemo(
+    () => getHeaderTitle(options, routeName),
+    [routeName, options],
+  );
+  const headerViewKey = useMemo(
+    () => `${title}-${routeName}`,
+    [title, routeName],
+  );
   if (!headerShown) {
     return null;
   }
@@ -222,7 +231,8 @@ function HeaderView({
         >
           <Header
             layout={layout}
-            title={getHeaderTitle(options, route.name)}
+            title={title}
+            key={headerViewKey}
             headerTintColor={theme.text.val}
             headerLeft={headerLeftView as any}
             headerRightContainerStyle={

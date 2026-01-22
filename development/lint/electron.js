@@ -45,6 +45,7 @@ try {
   throw new Error(
     `APP_NAME must be set to "OneKey Wallet" in the built app.js file. ` +
       `Expected: ${expectedAppName}`,
+    { cause: grepError },
   );
 }
 

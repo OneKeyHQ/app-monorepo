@@ -70,6 +70,11 @@ function LanguageListItem() {
       value={value}
       onChange={onChange}
       floatingPanelProps={{ maxHeight: 280 }}
+      sheetProps={{
+        disableDrag: true,
+        snapPoints: [80],
+        snapPointsMode: 'percent',
+      }}
       placement="bottom-end"
       renderTrigger={() => (
         <ListItem
@@ -135,6 +140,11 @@ function CurrencyListItem() {
       value={settings.currencyInfo.id}
       onChange={handleChange}
       floatingPanelProps={{ maxHeight: 280 }}
+      sheetProps={{
+        disableDrag: true,
+        snapPoints: [80],
+        snapPointsMode: 'percent',
+      }}
       placement="bottom-end"
       renderTrigger={() => (
         <ListItem
@@ -213,22 +223,22 @@ function DownloadOneKeyWalletListItem() {
   );
 }
 
-function _Web3GuideListItem() {
-  const intl = useIntl();
-  const handlePress = useCallback(() => {
-    // TODO: implement Web3 guide link
-  }, []);
-  return (
-    <ListItem
-      title={intl.formatMessage({ id: ETranslations.global_web3_guide })}
-      titleProps={{
-        size: '$bodyMdMedium',
-      }}
-      drillIn
-      onPress={handlePress}
-    />
-  );
-}
+// function Web3GuideListItem() {
+//   const intl = useIntl();
+//   const handlePress = useCallback(() => {
+//     // TODO: implement Web3 guide link
+//   }, []);
+//   return (
+//     <ListItem
+//       title={intl.formatMessage({ id: ETranslations.global_web3_guide })}
+//       titleProps={{
+//         size: '$bodyMdMedium',
+//       }}
+//       drillIn
+//       onPress={handlePress}
+//     />
+//   );
+// }
 
 function AnnouncementListItem() {
   const intl = useIntl();

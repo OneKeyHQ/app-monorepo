@@ -53,6 +53,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -1206,14 +1207,14 @@ function MoreActionDevice() {
       const r =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
           filterHiddenWallet: true,
-          skipDuplicateDevice: true,
+          skipDuplicateDeviceSameType: true,
         });
       const devices: Array<IDeviceManagementListItem> = Object.values(r)
         .filter(
           (item): item is IHwQrWalletWithDevice =>
             Boolean(item.device) && !item.wallet.deprecated,
         )
-        .sort((a, b) => {
+        .toSorted((a, b) => {
           // Sort by walletOrder or fallback to walletNo
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;
           const orderB = b.wallet.walletOrder || b.wallet.walletNo;
@@ -1225,6 +1226,9 @@ function MoreActionDevice() {
           features: item.device?.featuresInfo,
         });
         item.firmwareTypeBadge = firmwareTypeBadge;
+        item.isQrWallet = accountUtils.isQrWallet({
+          walletId: item.wallet.id,
+        });
       }
       return devices;
     },
@@ -1273,6 +1277,7 @@ function MoreActionDevice() {
                 size={44}
                 key={item.wallet.id}
                 wallet={item.wallet}
+                badge={item.isQrWallet ? 'QR' : undefined}
               />
             ))}
             {hwQrWalletList.length > 5 ? (
@@ -1351,15 +1356,36 @@ export function MoreActionContentPage() {
   );
 }
 
+const NAVIGATION_ACTION_TYPES = new Set([
+  'GO_BACK',
+  'PUSH',
+  'NAVIGATE',
+  'POP_TO_TOP',
+  'POP_TO',
+  'POP',
+  'NAVIGATE_DEPRECATED',
+  'RESET',
+  'REPLACE',
+  'JUMP_TO',
+]);
 function MoreActionContent({
   containerStyle,
 }: {
   containerStyle?: IYStackProps;
 }) {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const { closePopover } = usePopoverContext();
+
+  useEffect(() => {
+    rootNavigationRef.current?.addListener('__unsafe_action__', ({ data }) => {
+      if (NAVIGATION_ACTION_TYPES.has(data.action.type)) {
+        void closePopover?.();
+      }
+    });
+  }, [closePopover]);
   return (
     <MoreActionProvider>
-      <YStack minHeight={560} {...containerStyle}>
+      <YStack minHeight={600} {...containerStyle}>
         <MoreActionContentHeader />
         {platformEnv.isWebDappMode ? null : <UpdateReminders />}
         {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
@@ -1555,7 +1581,7 @@ function MoreActionButtonCmp() {
       floatingPanelProps={{
         maxWidth: 384,
         width: 384,
-        height: 560,
+        height: 600,
         p: 0,
         overflow: 'hidden',
         style: { transformOrigin: 'bottom left' },

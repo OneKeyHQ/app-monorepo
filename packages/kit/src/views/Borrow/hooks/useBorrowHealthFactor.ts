@@ -40,7 +40,10 @@ export const useBorrowHealthFactor = ({
     [networkId, provider, marketAddress, accountId, enabled],
     {
       initResult: null,
-      pollingInterval: POLLING_INTERVAL, // Use built-in polling
+      watchLoading: true,
+      pollingInterval: POLLING_INTERVAL,
+      // Fix: Ensure API responses update state even when page loses focus during request
+      alwaysSetState: true,
     },
   );
 

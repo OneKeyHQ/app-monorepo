@@ -7,7 +7,6 @@ import { InputAccessoryView } from 'react-native';
 import {
   Divider,
   Icon,
-  Image,
   Input,
   SizableText,
   Skeleton,
@@ -15,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
@@ -228,10 +228,11 @@ const SwapProInputContainer = ({
                   })}
                 >
                   {inputToken?.logoURI ? (
-                    <Image
-                      src={inputToken.logoURI}
-                      size="$4.5"
-                      borderRadius="$full"
+                    <Token
+                      size="xs"
+                      tokenImageUri={inputToken.logoURI}
+                      networkId={inputToken.networkId}
+                      showNetworkIcon
                     />
                   ) : null}
                   <SizableText size="$bodyMd" maxWidth="$16" numberOfLines={1}>

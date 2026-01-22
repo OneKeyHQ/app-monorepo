@@ -8,6 +8,8 @@ import type { IMessageHandlerContext } from './types';
 import type { IWebViewRef } from '../../../WebView/types';
 import type { ICustomReceiveHandlerData } from '../types';
 
+import type { IMarksTimeRange } from './types';
+
 interface IUseTradingViewMessageHandlerParams {
   tokenAddress?: string;
   networkId?: string;
@@ -15,6 +17,7 @@ interface IUseTradingViewMessageHandlerParams {
   onPanesCountChange?: (count: number) => void;
   accountAddress?: string;
   tokenSymbol?: string;
+  marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
 }
 
 export function useTradingViewMessageHandler({
@@ -24,6 +27,7 @@ export function useTradingViewMessageHandler({
   onPanesCountChange,
   accountAddress,
   tokenSymbol,
+  marksTimeRange,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -43,6 +47,7 @@ export function useTradingViewMessageHandler({
         onPanesCountChange,
         accountAddress,
         tokenSymbol,
+        marksTimeRange,
       };
 
       // Handle TradingView private API requests
@@ -78,6 +83,7 @@ export function useTradingViewMessageHandler({
       onPanesCountChange,
       accountAddress,
       tokenSymbol,
+      marksTimeRange,
     ],
   );
 

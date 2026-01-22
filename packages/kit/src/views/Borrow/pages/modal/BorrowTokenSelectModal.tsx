@@ -142,20 +142,6 @@ export default function BorrowTokenSelectModal() {
     [navigation, onSelect],
   );
 
-  // Extract platformBonusApy from apyDetail if available
-  const getPlatformBonusApy = useCallback((item: IBorrowSelectAsset) => {
-    const platformBonus =
-      item.apyDetail?.button?.data?.apyDetail?.platformBonus;
-    if (platformBonus?.items?.[0]) {
-      const bonusItem = platformBonus.items[0];
-      return {
-        title: bonusItem.value.text,
-        logoURI: bonusItem.logoURI ?? '',
-      };
-    }
-    return undefined;
-  }, []);
-
   // Mobile columns - 2 columns only (Asset with amount + APY)
   const mobileColumns = useMemo(
     () => [
@@ -169,11 +155,10 @@ export default function BorrowTokenSelectModal() {
           return (
             <AssetWithAmountField
               token={item.token}
-              canBeCollateral={item.canBeCollateral}
               amountLabel={{ text: labels.availableWithColon }}
               amount={balance.title}
               amountDescription={balance.description}
-              platformBonusApy={getPlatformBonusApy(item)}
+              platformBonusApy={item?.platformBonusApy}
             />
           );
         },
@@ -189,7 +174,7 @@ export default function BorrowTokenSelectModal() {
         flex: 1,
       },
     ],
-    [labels, isBorrowAction, apyLabel, getPlatformBonusApy],
+    [labels, isBorrowAction, apyLabel],
   );
 
   // Desktop columns - all 4 columns
@@ -202,8 +187,7 @@ export default function BorrowTokenSelectModal() {
           return (
             <AssetField
               token={item.token}
-              canBeCollateral={item.canBeCollateral}
-              platformBonusApy={getPlatformBonusApy(item)}
+              platformBonusApy={item?.platformBonusApy}
             />
           );
         },
@@ -253,14 +237,7 @@ export default function BorrowTokenSelectModal() {
         flex: 1,
       },
     ],
-    [
-      labels,
-      balanceLabel,
-      positionLabel,
-      apyLabel,
-      isBorrowAction,
-      getPlatformBonusApy,
-    ],
+    [labels, balanceLabel, positionLabel, apyLabel, isBorrowAction],
   );
 
   const columns = gtMd ? desktopColumns : mobileColumns;

@@ -13,7 +13,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // import ExtremeLabels from './ExtremeLabels';
 
 import type { IOnHoverFunction } from '../chartUtils';
-import type { SharedValue } from 'react-native-reanimated';
 
 export default function ChartWrapper({
   isFetching,
@@ -33,11 +32,7 @@ export default function ChartWrapper({
   const throttledOnHover = throttle(onHover, 25);
 
   useAnimatedReaction<[boolean, string, string]>(
-    () => [
-      (isActive as SharedValue<boolean>).value,
-      (originalX as SharedValue<string>).value,
-      (originalY as SharedValue<string>).value,
-    ],
+    () => [isActive.value, originalX.value, originalY.value],
     ([hasValue, x, y]) => {
       runOnJS(throttledOnHover)(
         hasValue

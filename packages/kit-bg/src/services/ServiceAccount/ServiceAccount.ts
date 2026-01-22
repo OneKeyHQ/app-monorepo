@@ -291,7 +291,7 @@ class ServiceAccount extends ServiceBase {
         });
       });
       return !resp;
-    } catch (e) {
+    } catch (_e) {
       return true;
     }
   }
@@ -430,7 +430,16 @@ class ServiceAccount extends ServiceBase {
     filterQrWallet?: boolean;
     filterHiddenWallet?: boolean;
     skipDuplicateDevice?: boolean;
+    skipDuplicateDeviceSameType?: boolean;
   }) {
+    type IFilterCtx = {
+      wallet: IDBWallet;
+      deviceId?: string;
+      isHwWallet: boolean;
+      isQrWallet: boolean;
+      isHiddenWallet: boolean;
+    };
+
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
       excludeKeylessWallet: true,
@@ -439,58 +448,79 @@ class ServiceAccount extends ServiceBase {
     const filterQrWallet = params?.filterQrWallet ?? false;
     const filterHiddenWallet = params?.filterHiddenWallet ?? false;
     const skipDuplicateDevice = params?.skipDuplicateDevice ?? false;
+    const skipDuplicateDeviceSameType =
+      params?.skipDuplicateDeviceSameType ?? false;
+
+    // Map of deviceId -> walletId for hardware wallets
+    const deviceToWalletByType: Record<string, string> = {};
+    const deviceHasHw: Record<string, string> = {};
+
+    if (skipDuplicateDevice && !skipDuplicateDeviceSameType) {
+      for (const w of wallets) {
+        if (
+          accountUtils.isHwWallet({ walletId: w.id }) &&
+          !accountUtils.isHwHiddenWallet({ wallet: w }) &&
+          w.associatedDevice
+        ) {
+          deviceHasHw[w.associatedDevice] = w.id;
+        }
+      }
+    }
+
+    const buildFilterCtx = (wallet: IDBWallet): IFilterCtx => ({
+      wallet,
+      deviceId: wallet.associatedDevice,
+      isHwWallet: accountUtils.isHwWallet({ walletId: wallet.id }),
+      isQrWallet: accountUtils.isQrWallet({ walletId: wallet.id }),
+      isHiddenWallet: accountUtils.isHwHiddenWallet({ wallet }),
+    });
+
+    // Filter valid type
+    const isValidType = (ctx: IFilterCtx) => ctx.isHwWallet || ctx.isQrWallet;
+    // Filter hidden wallet
+    const passesHiddenFilter = (ctx: IFilterCtx) =>
+      !filterHiddenWallet || !ctx.isHiddenWallet;
+    // Filter QR wallet
+    const passesQrFilter = (ctx: IFilterCtx) =>
+      !filterQrWallet || !ctx.isQrWallet;
+
+    // Filter duplicate device
+    const passesDupFilter = (ctx: IFilterCtx) => {
+      if (!ctx.deviceId) return true;
+
+      if (skipDuplicateDeviceSameType) {
+        const key = `${ctx.deviceId}:${ctx.isHwWallet ? 'hw' : 'qr'}`;
+        return !deviceToWalletByType[key];
+      }
+
+      if (skipDuplicateDevice && ctx.isQrWallet) {
+        return !deviceHasHw[ctx.deviceId];
+      }
+
+      return true;
+    };
 
     const result: {
       [walletId: string]: IHwQrWalletWithDevice;
     } = {};
 
-    // Map of deviceId -> walletId for hardware wallets
-    const deviceToHwWalletMap: Record<string, string> = {};
-
-    // Collect all hardware wallet device IDs if skip duplication is enabled
-    if (skipDuplicateDevice) {
-      for (const wallet of wallets) {
-        if (
-          accountUtils.isHwWallet({ walletId: wallet.id }) &&
-          !accountUtils.isHwHiddenWallet({ wallet }) &&
-          wallet.associatedDevice
-        ) {
-          deviceToHwWalletMap[wallet.associatedDevice] = wallet.id;
-        }
-      }
-    }
-
     for (const wallet of wallets) {
-      const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
-      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
-      const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
+      const ctx = buildFilterCtx(wallet);
+      const passes =
+        isValidType(ctx) &&
+        passesHiddenFilter(ctx) &&
+        passesQrFilter(ctx) &&
+        passesDupFilter(ctx);
 
-      // Check if this wallet should be included in the result
-      const isValidWalletType = isHwWallet || isQrWallet;
-      const passesHiddenWalletFilter = !filterHiddenWallet || !isHiddenWallet;
-      const passesQrWalletFilter = !filterQrWallet || !isQrWallet;
-      const passesDeviceDuplicationCheck = !(
-        skipDuplicateDevice &&
-        isQrWallet &&
-        wallet.associatedDevice &&
-        deviceToHwWalletMap[wallet.associatedDevice]
-      );
+      if (!passes) continue;
 
-      // Only add wallet to result if it passes all checks
-      if (
-        isValidWalletType &&
-        passesHiddenWalletFilter &&
-        passesQrWalletFilter &&
-        passesDeviceDuplicationCheck
-      ) {
-        const device = (allDevices ?? []).find(
-          (d) => d.id === wallet.associatedDevice,
-        );
-        result[wallet.id] = {
-          wallet,
-          device,
-        };
+      if (skipDuplicateDeviceSameType && ctx.isHwWallet) {
+        const key = `${ctx.deviceId}:${ctx.isHwWallet ? 'hw' : 'qr'}`;
+        deviceToWalletByType[key] = wallet.id;
       }
+
+      const device = (allDevices ?? []).find((d) => d.id === ctx.deviceId);
+      result[wallet.id] = { wallet, device };
     }
 
     return result;
@@ -1369,7 +1399,7 @@ class ServiceAccount extends ServiceBase {
   }> {
     try {
       return await this.addHyperLiquidAgentCredential(params);
-    } catch (error) {
+    } catch (_error) {
       return this.updateHyperLiquidAgentCredential(params);
     }
   }
@@ -1850,7 +1880,7 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    // eslint-disable-next-line @cspell/spellchecker
+    // oxlint-disable-next-line @cspell/spellchecker
     // /evm/0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
     if (networkId === IMPL_EVM) {
       // eslint-disable-next-line no-param-reassign
@@ -2049,7 +2079,7 @@ class ServiceAccount extends ServiceBase {
               networkId: accountNetworkId,
             });
           }
-        } catch (e) {
+        } catch (_e) {
           //
         }
         return account;
@@ -3995,7 +4025,7 @@ class ServiceAccount extends ServiceBase {
             networkId,
             deriveType: item.deriveType,
           });
-        } catch (e) {
+        } catch (_e) {
           // fail to get account
         }
         return {
@@ -4076,7 +4106,7 @@ class ServiceAccount extends ServiceBase {
           deriveType,
         });
         return result;
-      } catch (error) {
+      } catch (_error) {
         const isCreated = await new Promise<boolean>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
             resolve,
@@ -4112,7 +4142,7 @@ class ServiceAccount extends ServiceBase {
           deriveType,
         });
         return result;
-      } catch (error) {
+      } catch (_error) {
         showSwitchAccountSelector();
       }
     }
@@ -4451,7 +4481,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: true,
             },
           }));
@@ -4466,7 +4496,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: false,
             },
           }));
@@ -4568,7 +4598,7 @@ class ServiceAccount extends ServiceBase {
         await hardwareWalletXfpStatusAtom.set((v) => ({
           ...v,
           [walletId]: {
-            ...(v?.[walletId] || {}),
+            ...v?.[walletId],
             xfpMissing: false,
           },
         }));
@@ -5172,7 +5202,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     skipEventEmit?: boolean;
   }) {
-    let addedAccounts: IDBAccount[] = [];
+    const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
@@ -5229,7 +5259,7 @@ class ServiceAccount extends ServiceBase {
               deriveType,
               skipAddIfNotEqualToAddress,
             });
-          addedAccounts = [...addedAccounts, ...(accounts || [])];
+          addedAccounts.push(...(accounts || []));
         } catch (e) {
           console.error('addImportedAccountByInput error', e);
         }
@@ -5253,7 +5283,7 @@ class ServiceAccount extends ServiceBase {
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
-    let addedAccounts: IDBAccount[] = [];
+    const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
@@ -5308,7 +5338,7 @@ class ServiceAccount extends ServiceBase {
             isUrlAccount: false,
             skipAddIfNotEqualToAddress,
           });
-          addedAccounts = [...addedAccounts, ...(accounts || [])];
+          addedAccounts.push(...(accounts || []));
         } catch (e) {
           console.error('addWatchingAccountByInput error', e);
         }
