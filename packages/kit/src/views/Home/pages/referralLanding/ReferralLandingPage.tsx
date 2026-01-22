@@ -107,19 +107,12 @@ function ReferralLandingPage() {
         }
       }
 
-      // Determine target tab route
+      // Determine target tab route (default to Market)
       const pageLower = page?.toLowerCase() ?? '';
-      const targetTabRoute = PAGE_TO_TAB_ROUTE[pageLower] ?? ETabRoutes.Home;
+      const targetTabRoute = PAGE_TO_TAB_ROUTE[pageLower] ?? ETabRoutes.Market;
 
-      // Navigate to target page and replace current route
-      if (targetTabRoute === ETabRoutes.Home) {
-        navigation.popToTop();
-      } else {
-        navigation.popToTop();
-        setTimeout(() => {
-          navigation.switchTab(targetTabRoute);
-        }, 20);
-      }
+      // Navigate to target page
+      navigation.switchTab(targetTabRoute);
 
       // Open InvitedByFriend modal after navigation
       setTimeout(() => {
