@@ -22,29 +22,14 @@ export function usePortfolioData({
   } = usePromiseResult(
     async () => {
       if (!accountAddress) {
-        console.log('[MarketDeriveType] usePortfolioData: no accountAddress');
         return { list: [] };
       }
 
-      console.log('[MarketDeriveType] usePortfolioData fetching:', {
+      return backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
         tokenAddress,
         networkId,
         accountAddress,
       });
-
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
-          tokenAddress,
-          networkId,
-          accountAddress,
-        });
-
-      console.log('[MarketDeriveType] usePortfolioData result:', {
-        portfolioCount: response.list?.length || 0,
-        accountAddress,
-      });
-
-      return response;
     },
     [tokenAddress, networkId, accountAddress],
     {

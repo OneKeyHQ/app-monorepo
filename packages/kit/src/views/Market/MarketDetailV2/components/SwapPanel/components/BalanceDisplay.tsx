@@ -48,11 +48,6 @@ export function BalanceDisplay({
 
   const onSelect = useCallback(
     async (value: { account: any; deriveInfo: any; deriveType: any }) => {
-      // Save selected derive type to atom for Market Detail page
-      console.log('[MarketDeriveType] BalanceDisplay onSelect:', {
-        deriveType: value.deriveType,
-        account: value.account?.address,
-      });
       setSelectedDeriveType(value.deriveType);
       appEventBus.emit(EAppEventBusNames.NetworkDeriveTypeChanged, undefined);
     },

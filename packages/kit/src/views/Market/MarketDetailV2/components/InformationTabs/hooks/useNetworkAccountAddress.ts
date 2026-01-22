@@ -19,21 +19,12 @@ export function useNetworkAccountAddress(networkId: string) {
 
   // Prioritize atom derive type (user selection) over network default derive type
   const effectiveDeriveType = useMemo(() => {
-    const result =
+    return (
       selectedDeriveType ??
       networkDefaultDeriveType ??
       activeAccount?.deriveType ??
-      'default';
-    console.log(
-      '[MarketDeriveType] useNetworkAccountAddress effectiveDeriveType:',
-      {
-        selectedDeriveType,
-        networkDefaultDeriveType,
-        globalDeriveType: activeAccount?.deriveType,
-        effectiveDeriveType: result,
-      },
+      'default'
     );
-    return result;
   }, [selectedDeriveType, networkDefaultDeriveType, activeAccount?.deriveType]);
 
   const { result: networkAccount } = usePromiseResult(async () => {
@@ -41,7 +32,7 @@ export function useNetworkAccountAddress(networkId: string) {
       return null;
     }
 
-    const result = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+    return backgroundApiProxy.serviceAccount.getNetworkAccount({
       accountId: activeAccount?.indexedAccount?.id
         ? undefined
         : activeAccount?.account?.id,
@@ -49,14 +40,6 @@ export function useNetworkAccountAddress(networkId: string) {
       networkId,
       deriveType: effectiveDeriveType,
     });
-
-    console.log('[MarketDeriveType] useNetworkAccountAddress networkAccount:', {
-      networkId,
-      deriveType: effectiveDeriveType,
-      address: result?.address,
-    });
-
-    return result;
   }, [
     activeAccount?.indexedAccount?.id,
     activeAccount?.account?.id,
@@ -64,17 +47,7 @@ export function useNetworkAccountAddress(networkId: string) {
     networkId,
   ]);
 
-  const accountAddress = networkAccount?.address;
-
-  console.log(
-    '[MarketDeriveType] useNetworkAccountAddress final accountAddress:',
-    {
-      accountAddress,
-      networkId,
-    },
-  );
-
   return {
-    accountAddress,
+    accountAddress: networkAccount?.address,
   };
 }
