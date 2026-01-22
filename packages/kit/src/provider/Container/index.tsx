@@ -33,6 +33,7 @@ import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { RookieShareContainer } from './RookieShareContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
@@ -76,6 +77,7 @@ function DetailRouter() {
       <PrimeGlobalEffect />
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
+      <RookieShareContainer />
     </NavigationContainer>
   );
 }

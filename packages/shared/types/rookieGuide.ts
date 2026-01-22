@@ -34,3 +34,22 @@ export interface IRookieGuideInfo {
   instanceId: string;
   taskProgress: IRookieGuideProgress;
 }
+
+// ============ Rookie Share Types ============
+
+// Data passed from H5 WebView for sharing
+export interface IRookieShareData {
+  // Content card
+  imageUrl: string; // Badge/avatar image URL (required)
+  title: string; // Main title (required)
+  subtitle?: string; // Subtitle (optional)
+
+  // Footer area
+  footerText?: string; // Footer text, defaults to "Open source and easy to use from day one."
+  referralCode?: string; // Referral code (displayed in Footer)
+  referralUrl?: string; // Referral URL (used for QR code generation)
+}
+
+export interface IRookieShareImageGeneratorRef {
+  generate: () => Promise<string>; // Returns Base64 PNG
+}

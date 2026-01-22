@@ -73,6 +73,7 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'btc_signTransaction',
   'wallet_getRookieGuideInfo',
   'wallet_resetRookieGuideProgress',
+  'wallet_showRookieShare',
 ];
 
 // white list method which can be called from any origin
