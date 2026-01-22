@@ -12,8 +12,18 @@ export function useOneKeyWalletDetection() {
   const getEIP6963Providers = useCallback(() => {
     if (typeof globalThis === 'undefined') return [];
 
-    const mipd = createStore();
-    return mipd.getProviders();
+    try {
+      const mipd = createStore();
+      const providers = mipd.getProviders();
+
+      // Filter out invalid providers that may cause errors
+      return providers.filter(
+        (provider) => provider && provider.info && provider.info.rdns,
+      );
+    } catch (error) {
+      console.error('Error getting EIP6963 providers:', error);
+      return [];
+    }
   }, []);
 
   // find OneKey EIP6963 provider
