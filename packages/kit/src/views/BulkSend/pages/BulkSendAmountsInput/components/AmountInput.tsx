@@ -22,7 +22,7 @@ import {
   type IAmountInputError,
   useBulkSendAmountsInputContext,
 } from './Context';
-import { ListItem } from '../../../../../components/ListItem';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 // Validation helper
@@ -105,7 +105,7 @@ function SpecifiedAmountInput() {
     tokenInfo,
     tokenDetails,
     tokenDetailsState,
-    receivers,
+    transfersInfo,
     amountInputValues,
     setAmountInputValues,
     amountInputErrors,
@@ -127,7 +127,12 @@ function SpecifiedAmountInput() {
         specifiedAmount: value,
       });
 
-      const error = validateAmount(value, balance, decimals, receivers.length);
+      const error = validateAmount(
+        value,
+        balance,
+        decimals,
+        transfersInfo.length,
+      );
       setAmountInputErrors({
         ...amountInputErrors,
         specifiedAmount: error,
@@ -138,7 +143,7 @@ function SpecifiedAmountInput() {
       setAmountInputValues,
       balance,
       decimals,
-      receivers.length,
+      transfersInfo.length,
       amountInputErrors,
       setAmountInputErrors,
     ],
@@ -309,7 +314,12 @@ function RangeAmountInput() {
               px="$3.5"
               pb="$2"
             >
-              <NumberSizeableText size="$bodyMd" color="$textSubdued" formatter="value" formatterOptions={{ currency: settings.currencyInfo.symbol }}>
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="value"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              >
                 {minFiatValue}
               </NumberSizeableText>
               <SizableText size="$bodyMdMedium" color="$text">
@@ -353,7 +363,12 @@ function RangeAmountInput() {
               px="$3.5"
               pb="$2"
             >
-              <NumberSizeableText size="$bodyMd" color="$textSubdued" formatter="value" formatterOptions={{ currency: settings.currencyInfo.symbol }}>
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="value"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              >
                 {maxFiatValue}
               </NumberSizeableText>
               <SizableText size="$bodyMdMedium" color="$text">
@@ -373,7 +388,7 @@ function RangeAmountInput() {
 }
 
 function CustomAmountDisplay() {
-  const { networkId, tokenDetails, receivers, tokenInfo } =
+  const { networkId, tokenDetails, transfersInfo, tokenInfo } =
     useBulkSendAmountsInputContext();
 
   const { network } = useAccountData({ networkId });
@@ -384,8 +399,8 @@ function CustomAmountDisplay() {
 
   const { totalAmount, totalFiatValue } = useMemo(() => {
     let total = new BigNumber(0);
-    for (const receiver of receivers) {
-      const amount = new BigNumber(receiver.amount || '0');
+    for (const transfer of transfersInfo) {
+      const amount = new BigNumber(transfer.amount || '0');
       if (!amount.isNaN()) {
         total = total.plus(amount);
       }
@@ -398,7 +413,7 @@ function CustomAmountDisplay() {
       totalAmount: total.isZero() ? '0' : total.toFixed(),
       totalFiatValue: fiat,
     };
-  }, [receivers, tokenDetails?.price]);
+  }, [transfersInfo, tokenDetails?.price]);
 
   return (
     <ListItem
@@ -422,12 +437,21 @@ function CustomAmountDisplay() {
         <ListItem.Text
           flex={1}
           primary={
-            <NumberSizeableText size="$bodyLgMedium" formatter="balance" formatterOptions={{ tokenSymbol }}>
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="balance"
+              formatterOptions={{ tokenSymbol }}
+            >
               {totalAmount}
             </NumberSizeableText>
           }
           secondary={
-            <NumberSizeableText size="$bodyMd" color="$textSubdued" formatter="value" formatterOptions={{ currency: settings.currencyInfo.symbol }}>
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            >
               {totalFiatValue}
             </NumberSizeableText>
           }

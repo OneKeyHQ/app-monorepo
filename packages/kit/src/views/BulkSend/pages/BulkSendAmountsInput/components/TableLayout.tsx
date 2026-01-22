@@ -1,0 +1,294 @@
+import { useCallback, useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+
+import {
+  IconButton,
+  Input,
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
+
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import { useBulkSendAmountsInputContext } from './Context';
+
+// Asset Component - displays token with network badge
+function AssetSection() {
+  const { networkId, tokenInfo, tokenDetails } =
+    useBulkSendAmountsInputContext();
+  const { network } = useAccountData({ networkId });
+
+  return (
+    <YStack gap="$1.5" flex={1}>
+      <SizableText size="$bodyMdMedium">Asset</SizableText>
+      <ListItem
+        mx="$0"
+        px="$0"
+        renderAvatar={() => (
+          <Token
+            tokenImageUri={tokenDetails?.info.logoURI}
+            size="md"
+            showNetworkIcon
+            networkImageUri={network?.logoURI}
+            networkId={network?.id}
+          />
+        )}
+        title={tokenInfo.symbol}
+        subtitle={network?.name}
+      />
+    </YStack>
+  );
+}
+
+// SetAmountPerAddress Component - displays amount settings with drill-in
+function SetAmountPerAddressSection() {
+  const {
+    tokenInfo,
+    tokenDetails,
+    transfersInfo,
+    amountInputMode,
+    amountInputValues,
+  } = useBulkSendAmountsInputContext();
+  const [settings] = useSettingsPersistAtom();
+
+  const { displayAmount, totalFiatValue } = useMemo(() => {
+    let total = new BigNumber(0);
+
+    if (amountInputMode === EAmountInputMode.Custom) {
+      // Custom mode: sum all individual amounts
+      for (const transfer of transfersInfo) {
+        const amount = new BigNumber(transfer.amount || '0');
+        if (!amount.isNaN()) {
+          total = total.plus(amount);
+        }
+      }
+    } else if (amountInputMode === EAmountInputMode.Specified) {
+      // Specified mode: amount * receiver count
+      const specifiedAmount = new BigNumber(
+        amountInputValues.specifiedAmount || '0',
+      );
+      if (!specifiedAmount.isNaN()) {
+        total = specifiedAmount.times(transfersInfo.length);
+      }
+    }
+
+    const fiat =
+      tokenDetails?.price && !total.isZero()
+        ? total.times(tokenDetails.price).toFixed()
+        : '0';
+
+    return {
+      displayAmount: total.isZero() ? '0' : total.toFixed(),
+      totalFiatValue: fiat,
+    };
+  }, [
+    amountInputMode,
+    amountInputValues.specifiedAmount,
+    transfersInfo,
+    tokenDetails?.price,
+  ]);
+
+  return (
+    <YStack gap="$1.5" flex={1}>
+      <SizableText size="$bodyMdMedium">Set amount per address</SizableText>
+      <ListItem mx="$0" px="$0" drillIn>
+        <ListItem.Text
+          flex={1}
+          primary={
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="balance"
+              formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+            >
+              {displayAmount}
+            </NumberSizeableText>
+          }
+          secondary={
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            >
+              {totalFiatValue}
+            </NumberSizeableText>
+          }
+        />
+      </ListItem>
+    </YStack>
+  );
+}
+
+// TransferInfoList Component - displays transfer list with delete functionality
+function TransferInfoListSection() {
+  const { transfersInfo, setTransfersInfo, amountInputMode } =
+    useBulkSendAmountsInputContext();
+
+  const handleDelete = useCallback(
+    (index: number) => {
+      const newTransfersInfo = [...transfersInfo];
+      newTransfersInfo.splice(index, 1);
+      setTransfersInfo(newTransfersInfo);
+    },
+    [transfersInfo, setTransfersInfo],
+  );
+
+  const handleAmountChange = useCallback(
+    (index: number, value: string) => {
+      const newTransfersInfo = [...transfersInfo];
+      newTransfersInfo[index] = {
+        ...newTransfersInfo[index],
+        amount: value,
+      };
+      setTransfersInfo(newTransfersInfo);
+    },
+    [transfersInfo, setTransfersInfo],
+  );
+
+  const isCustomMode = amountInputMode === EAmountInputMode.Custom;
+
+  if (transfersInfo.length === 0) {
+    return null;
+  }
+
+  return (
+    <YStack
+      borderWidth={1}
+      borderColor="$borderSubdued"
+      borderRadius="$3"
+      py="$2"
+    >
+      {/* Header */}
+      <XStack px="$5" py="$2" gap="$3">
+        <SizableText
+          flex={1}
+          size="$headingXs"
+          color="$textSubdued"
+          textTransform="uppercase"
+        >
+          FROM
+        </SizableText>
+        <SizableText
+          flex={1}
+          size="$headingXs"
+          color="$textSubdued"
+          textTransform="uppercase"
+        >
+          TO
+        </SizableText>
+        <SizableText
+          flex={1}
+          maxWidth={80}
+          size="$headingXs"
+          color="$textSubdued"
+          textTransform="uppercase"
+          textAlign="right"
+        >
+          AMOUNT
+        </SizableText>
+        <SizableText
+          width={64}
+          size="$headingXs"
+          color="$textSubdued"
+          textTransform="uppercase"
+          textAlign="right"
+        >
+          ACTION
+        </SizableText>
+      </XStack>
+
+      {/* List Items */}
+      {transfersInfo.map((transfer, index) => (
+        <XStack
+          key={`${transfer.from}-${transfer.to}-${index}`}
+          px="$5"
+          py="$2"
+          gap="$3"
+          alignItems="center"
+          minHeight={48}
+        >
+          {/* FROM */}
+          <XStack flex={1} gap="$1" alignItems="flex-start">
+            <SizableText size="$bodyMdMedium" color="$textDisabled" width={14}>
+              {index + 1}.
+            </SizableText>
+            <SizableText
+              flex={1}
+              size="$bodyMdMedium"
+              numberOfLines={2}
+              wordWrap="break-word"
+            >
+              {transfer.from}
+            </SizableText>
+          </XStack>
+
+          {/* TO */}
+          <SizableText
+            flex={1}
+            size="$bodyMdMedium"
+            numberOfLines={2}
+            wordWrap="break-word"
+          >
+            {transfer.to}
+          </SizableText>
+
+          {/* AMOUNT */}
+          <Stack flex={1} maxWidth={80} alignItems="flex-end">
+            {isCustomMode ? (
+              <Input
+                value={transfer.amount}
+                onChangeText={(value) => handleAmountChange(index, value)}
+                placeholder="0"
+                keyboardType="decimal-pad"
+                textAlign="right"
+                size="small"
+                borderWidth={0}
+                backgroundColor="transparent"
+                px="$0"
+              />
+            ) : (
+              <SizableText size="$bodyLgMedium">
+                {transfer.amount || '0'}
+              </SizableText>
+            )}
+          </Stack>
+
+          {/* ACTION */}
+          <Stack width={64} alignItems="flex-end">
+            <IconButton
+              icon="DeleteOutline"
+              variant="tertiary"
+              size="small"
+              onPress={() => handleDelete(index)}
+            />
+          </Stack>
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
+function TableLayout() {
+  return (
+    <YStack gap="$8">
+      {/* Asset and SetAmountPerAddress row */}
+      <XStack gap="$6">
+        <AssetSection />
+        <SetAmountPerAddressSection />
+      </XStack>
+
+      {/* Transfer Info List */}
+      <TransferInfoListSection />
+    </YStack>
+  );
+}
+
+export default TableLayout;

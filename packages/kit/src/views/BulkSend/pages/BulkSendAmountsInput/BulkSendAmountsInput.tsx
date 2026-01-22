@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import { Page } from '@onekeyhq/components';
+import { Page, YStack, useMedia } from '@onekeyhq/components';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -25,7 +25,6 @@ import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 
-import { AmountInputSection } from './components/AmountInput';
 import {
   BulkSendAmountsInputContext,
   type IAmountInputError,
@@ -33,10 +32,15 @@ import {
   type IBulkSendAmountsInputContext,
   useBulkSendAmountsInputContext,
 } from './components/Context';
+import TableLayout from './components/TableLayout';
+import MobileLayout from './components/MobileLayout';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 function BaseBulkSendAmountsInput() {
   const { tokenDetails, tokenDetailsState, bulkSendMode, isAmountValid } =
     useBulkSendAmountsInputContext();
+
+  const media = useMedia();
 
   const handleSubmit = useCallback(() => {
     console.log('handleSubmit');
@@ -61,7 +65,9 @@ function BaseBulkSendAmountsInput() {
       <Page.Body>
         <BulkSendContentWrapper>
           <BulkSendHeader bulkSendMode={bulkSendMode} />
-          <AmountInputSection />
+          <YStack gap="$6" $gtMd={{ gap: '$8' }}>
+            {media.gtMd ? <TableLayout /> : <MobileLayout />}
+          </YStack>
         </BulkSendContentWrapper>
       </Page.Body>
       <Page.Footer>
@@ -163,6 +169,8 @@ function BulkSendAmountsInput() {
     tokenDetails?.balanceParsed,
   ]);
 
+  const [transfersInfo, setTransfersInfo] = useState<ITransferInfo[]>([]);
+
   usePromiseResult(
     async () => {
       if (
@@ -238,6 +246,53 @@ function BulkSendAmountsInput() {
     }
   }, [bulkSendMode, receivers]);
 
+  useEffect(() => {
+    const generateTransfersInfo = (): ITransferInfo[] => {
+      switch (bulkSendMode) {
+        case EBulkSendMode.OneToMany: {
+          // One sender to multiple receivers
+          const sender = senders[0];
+          if (!sender) return [];
+          return receivers.map((receiver) => ({
+            from: sender.address,
+            to: receiver.address,
+            amount: receiver.amount ?? '',
+            tokenInfo,
+          }));
+        }
+        case EBulkSendMode.ManyToOne: {
+          // Multiple senders to one receiver
+          const receiver = receivers[0];
+          if (!receiver) return [];
+          return senders.map((sender) => ({
+            from: sender.address,
+            to: receiver.address,
+            amount: sender.amount ?? '',
+            tokenInfo,
+          }));
+        }
+        case EBulkSendMode.ManyToMany: {
+          // Multiple senders to multiple receivers (must be one-to-one)
+          if (senders.length !== receivers.length) {
+            throw new Error(
+              `ManyToMany mode requires equal senders and receivers count. Got ${senders.length} senders and ${receivers.length} receivers.`,
+            );
+          }
+          return senders.map((sender, i) => ({
+            from: sender.address,
+            to: receivers[i].address,
+            amount: receivers[i].amount ?? sender.amount ?? '',
+            tokenInfo,
+          }));
+        }
+        default:
+          return [];
+      }
+    };
+
+    setTransfersInfo(generateTransfersInfo());
+  }, [bulkSendMode, senders, receivers, tokenInfo]);
+
   const context = useMemo<IBulkSendAmountsInputContext>(
     () => ({
       accountId,
@@ -248,8 +303,8 @@ function BulkSendAmountsInput() {
       tokenDetailsState,
       setTokenDetailsState,
       bulkSendMode,
-      senders,
-      receivers,
+      transfersInfo,
+      setTransfersInfo,
       amountInputMode,
       setAmountInputMode,
       amountInputValues,
@@ -264,8 +319,8 @@ function BulkSendAmountsInput() {
       tokenDetails,
       tokenDetailsState,
       bulkSendMode,
-      senders,
-      receivers,
+      transfersInfo,
+      setTransfersInfo,
       amountInputMode,
       amountInputValues,
       amountInputErrors,
