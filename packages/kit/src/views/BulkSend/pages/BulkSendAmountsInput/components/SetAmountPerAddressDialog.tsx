@@ -12,9 +12,11 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import {
   BulkSendAmountsInputContext,
-  calculateIsAmountValid,
   type IAmountInputError,
   type IAmountInputValues,
+  calculateIsAmountValid,
+  calculateTotalAmounts,
+  useBulkSendAmountsInputContext,
 } from './Context';
 import { AmountInputSection } from './AmountInput';
 import { AmountPreview } from './AmountPreview';
@@ -31,43 +33,20 @@ type ISetAmountPerAddressDialogProps = {
 };
 
 function DialogAmountPreview({
-  amountInputMode,
-  tokenDetails,
   tokenSymbol,
   onMaxPress,
-  amountInputValues,
-  receiverCount,
 }: {
-  amountInputMode: EAmountInputMode;
-  tokenDetails: ({ info: IToken } & ITokenFiat) | undefined;
   tokenSymbol: string;
   onMaxPress: () => void;
-  amountInputValues: IAmountInputValues;
-  receiverCount: number;
 }) {
-  const { totalAmount, totalFiatValue } = useMemo(() => {
-    if (amountInputMode === EAmountInputMode.Specified) {
-      const amount = new BigNumber(amountInputValues.specifiedAmount || '0');
-      const total = amount.times(receiverCount);
-      const fiat =
-        tokenDetails?.price && !total.isZero()
-          ? `$${total.times(tokenDetails.price).toFixed(2)}`
-          : '$0';
-      return {
-        totalAmount: total.isZero() ? '0' : total.toFixed(),
-        totalFiatValue: fiat,
-      };
-    }
-    return {
-      totalAmount: undefined,
-      totalFiatValue: undefined,
-    };
-  }, [
-    amountInputMode,
-    amountInputValues.specifiedAmount,
-    receiverCount,
-    tokenDetails?.price,
-  ]);
+  const { amountInputMode, tokenDetails, totalTokenAmount, totalFiatAmount } =
+    useBulkSendAmountsInputContext();
+
+  // Format fiat value with $ prefix for display
+  const formattedFiatValue =
+    totalFiatAmount !== '0'
+      ? `$${parseFloat(totalFiatAmount).toFixed(2)}`
+      : '$0';
 
   // Don't show preview for Custom mode
   if (amountInputMode === EAmountInputMode.Custom) {
@@ -85,11 +64,25 @@ function DialogAmountPreview({
     );
   }
 
+  // Don't show preview for Range mode (cannot calculate exact total)
+  if (amountInputMode === EAmountInputMode.Range) {
+    return (
+      <AmountPreview
+        type={amountInputMode}
+        totalAmount={undefined}
+        totalFiatValue={undefined}
+        availableBalance={tokenDetails?.balanceParsed ?? '0'}
+        tokenSymbol={tokenSymbol}
+        onMaxPress={onMaxPress}
+      />
+    );
+  }
+
   return (
     <AmountPreview
       type={amountInputMode}
-      totalAmount={totalAmount}
-      totalFiatValue={totalFiatValue}
+      totalAmount={totalTokenAmount !== '0' ? totalTokenAmount : undefined}
+      totalFiatValue={totalTokenAmount !== '0' ? formattedFiatValue : undefined}
       availableBalance={tokenDetails?.balanceParsed ?? '0'}
       tokenSymbol={tokenSymbol}
       onMaxPress={onMaxPress}
@@ -133,6 +126,18 @@ function SetAmountPerAddressDialogContent({
       transfersInfo,
       tokenDetails?.balanceParsed,
     ],
+  );
+
+  // Calculate total amounts using shared logic
+  const { totalTokenAmount, totalFiatAmount } = useMemo(
+    () =>
+      calculateTotalAmounts({
+        amountInputMode,
+        amountInputValues,
+        transfersInfo,
+        tokenPrice: tokenDetails?.price,
+      }),
+    [amountInputMode, amountInputValues, transfersInfo, tokenDetails?.price],
   );
 
   const handleMaxPress = useCallback(() => {
@@ -179,6 +184,8 @@ function SetAmountPerAddressDialogContent({
       amountInputErrors,
       setAmountInputErrors,
       isAmountValid,
+      totalTokenAmount,
+      totalFiatAmount,
     }),
     [
       accountId,
@@ -190,6 +197,8 @@ function SetAmountPerAddressDialogContent({
       amountInputValues,
       amountInputErrors,
       isAmountValid,
+      totalTokenAmount,
+      totalFiatAmount,
     ],
   );
 
@@ -198,12 +207,8 @@ function SetAmountPerAddressDialogContent({
       <YStack>
         <AmountInputSection />
         <DialogAmountPreview
-          amountInputMode={amountInputMode}
-          tokenDetails={tokenDetails}
           tokenSymbol={tokenInfo.symbol}
           onMaxPress={handleMaxPress}
-          amountInputValues={amountInputValues}
-          receiverCount={transfersInfo.length}
         />
         <Dialog.Footer
           onConfirm={handleConfirm}

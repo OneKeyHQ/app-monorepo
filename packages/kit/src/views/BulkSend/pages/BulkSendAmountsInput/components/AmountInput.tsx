@@ -388,32 +388,19 @@ export function RangeAmountInput() {
 }
 
 function CustomAmountDisplay() {
-  const { networkId, tokenDetails, transfersInfo, tokenInfo } =
-    useBulkSendAmountsInputContext();
+  const {
+    networkId,
+    tokenDetails,
+    tokenInfo,
+    totalTokenAmount,
+    totalFiatAmount,
+  } = useBulkSendAmountsInputContext();
 
   const { network } = useAccountData({ networkId });
 
   const [settings] = useSettingsPersistAtom();
 
   const tokenSymbol = tokenInfo.symbol;
-
-  const { totalAmount, totalFiatValue } = useMemo(() => {
-    let total = new BigNumber(0);
-    for (const transfer of transfersInfo) {
-      const amount = new BigNumber(transfer.amount || '0');
-      if (!amount.isNaN()) {
-        total = total.plus(amount);
-      }
-    }
-    const fiat =
-      tokenDetails?.price && !total.isZero()
-        ? total.times(tokenDetails.price).toFixed()
-        : '0';
-    return {
-      totalAmount: total.isZero() ? '0' : total.toFixed(),
-      totalFiatValue: fiat,
-    };
-  }, [transfersInfo, tokenDetails?.price]);
 
   return (
     <ListItem
@@ -442,7 +429,7 @@ function CustomAmountDisplay() {
               formatter="balance"
               formatterOptions={{ tokenSymbol }}
             >
-              {totalAmount}
+              {totalTokenAmount}
             </NumberSizeableText>
           }
           secondary={
@@ -452,7 +439,7 @@ function CustomAmountDisplay() {
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
             >
-              {totalFiatValue}
+              {totalFiatAmount}
             </NumberSizeableText>
           }
         />

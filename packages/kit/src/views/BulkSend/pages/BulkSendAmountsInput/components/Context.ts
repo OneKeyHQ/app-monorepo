@@ -49,6 +49,9 @@ export type IBulkSendAmountsInputContext = {
   amountInputErrors: IAmountInputError;
   setAmountInputErrors: (errors: IAmountInputError) => void;
   isAmountValid: boolean;
+  // Total amounts
+  totalTokenAmount: string;
+  totalFiatAmount: string;
 };
 
 export const BulkSendAmountsInputContext =
@@ -83,6 +86,8 @@ export const BulkSendAmountsInputContext =
     amountInputErrors: {},
     setAmountInputErrors: () => {},
     isAmountValid: false,
+    totalTokenAmount: '0',
+    totalFiatAmount: '0',
   });
 
 export const useBulkSendAmountsInputContext = () =>
@@ -121,11 +126,58 @@ export function calculateIsAmountValid({
       }, new BigNumber(0));
       const balance = new BigNumber(balanceParsed);
       return (
-        totalAmount.isGreaterThan(0) &&
-        totalAmount.isLessThanOrEqualTo(balance)
+        totalAmount.isGreaterThan(0) && totalAmount.isLessThanOrEqualTo(balance)
       );
     }
     default:
       return false;
+  }
+}
+
+export function calculateTotalAmounts({
+  amountInputMode,
+  amountInputValues,
+  transfersInfo,
+  tokenPrice,
+}: {
+  amountInputMode: EAmountInputMode;
+  amountInputValues: IAmountInputValues;
+  transfersInfo: ITransferInfo[];
+  tokenPrice: number | undefined;
+}): { totalTokenAmount: string; totalFiatAmount: string } {
+  switch (amountInputMode) {
+    case EAmountInputMode.Specified: {
+      const amount = new BigNumber(amountInputValues.specifiedAmount || '0');
+      if (amount.isNaN() || amount.isZero()) {
+        return { totalTokenAmount: '0', totalFiatAmount: '0' };
+      }
+      const total = amount.times(transfersInfo.length);
+      const fiat =
+        tokenPrice && !total.isZero() ? total.times(tokenPrice).toFixed() : '0';
+      return {
+        totalTokenAmount: total.toFixed(),
+        totalFiatAmount: fiat,
+      };
+    }
+    case EAmountInputMode.Range:
+      // Cannot calculate exact total for range mode
+      return { totalTokenAmount: '0', totalFiatAmount: '0' };
+    case EAmountInputMode.Custom: {
+      let total = new BigNumber(0);
+      for (const transfer of transfersInfo) {
+        const amount = new BigNumber(transfer.amount || '0');
+        if (!amount.isNaN()) {
+          total = total.plus(amount);
+        }
+      }
+      const fiat =
+        tokenPrice && !total.isZero() ? total.times(tokenPrice).toFixed() : '0';
+      return {
+        totalTokenAmount: total.isZero() ? '0' : total.toFixed(),
+        totalFiatAmount: fiat,
+      };
+    }
+    default:
+      return { totalTokenAmount: '0', totalFiatAmount: '0' };
   }
 }
