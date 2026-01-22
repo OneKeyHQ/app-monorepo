@@ -24,7 +24,9 @@ import { useTokenDetail } from '../hooks/useTokenDetail';
 export function DesktopLayout() {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
     useTokenDetail();
+
   const { accountAddress } = useNetworkAccountAddress(networkId);
+
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
     networkId,

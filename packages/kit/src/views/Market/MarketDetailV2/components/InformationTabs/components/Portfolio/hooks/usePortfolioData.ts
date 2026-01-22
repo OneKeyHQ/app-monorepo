@@ -25,14 +25,11 @@ export function usePortfolioData({
         return { list: [] };
       }
 
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
-          tokenAddress,
-          networkId,
-          accountAddress,
-        });
-
-      return response;
+      return backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
+        tokenAddress,
+        networkId,
+        accountAddress,
+      });
     },
     [tokenAddress, networkId, accountAddress],
     {
