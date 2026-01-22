@@ -21,6 +21,7 @@ import type {
   IPrimeDeviceLogoutInfo,
   IPrimeLockChangedInfo,
   ISetBadgeInfo,
+  IUserInfoUpdatedPayload,
 } from '@onekeyhq/shared/types/socket';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
@@ -249,6 +250,14 @@ export class PushProviderWebSocket extends PushProviderBase {
       void this.backgroundApi.serviceNotification.setBadge({
         count: payload.badge,
       });
+    });
+
+    this.socket.on(EAppSocketEventNames.userInfoUpdated, (payload: IUserInfoUpdatedPayload) => {
+      void this.backgroundApi.serviceNotification.ackNotificationMessage({
+        msgId: payload.msgId,
+        action: ENotificationPushMessageAckAction.arrived,
+      });
+      void this.backgroundApi.servicePrime.apiFetchPrimeUserInfo();
     });
 
     // this.socket.off('notification');
