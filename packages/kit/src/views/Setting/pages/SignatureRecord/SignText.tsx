@@ -26,6 +26,7 @@ import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { ISignedMessage } from '@onekeyhq/shared/types/signatureRecord';
 
 import { useGetSignatureSections } from './hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const ListEmptyComponent = () => {
   const intl = useIntl();
@@ -138,6 +139,7 @@ export const SignText = () => {
 
   return (
     <Tabs.SectionList
+      windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       stickySectionHeadersEnabled={false}
       sections={sections}
       keyExtractor={keyExtractor}

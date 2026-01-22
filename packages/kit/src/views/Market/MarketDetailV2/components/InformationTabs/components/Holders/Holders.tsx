@@ -62,6 +62,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
       keyExtractor={(item: IMarketTokenHolder) =>
         item.accountAddress + item.fiatValue + item.amount
       }
+      windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       showsVerticalScrollIndicator
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={
