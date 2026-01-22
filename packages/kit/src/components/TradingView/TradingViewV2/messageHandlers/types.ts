@@ -13,6 +13,11 @@ export interface ILayoutUpdateData {
   layout: string;
 }
 
+export interface IMarksTimeRange {
+  min: number;
+  max: number;
+}
+
 export interface IMessageHandlerContext {
   tokenAddress?: string;
   networkId?: string;
@@ -20,7 +25,7 @@ export interface IMessageHandlerContext {
   onPanesCountChange?: (count: number) => void;
   accountAddress?: string;
   tokenSymbol?: string;
-  marksTimeRange?: React.MutableRefObject<{ min: number; max: number } | null>;
+  marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
 }
 
 export interface IMessageHandlerParams {

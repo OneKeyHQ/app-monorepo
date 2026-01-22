@@ -43,9 +43,11 @@ interface IBaseTradingViewV2Props {
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
+import type { IMarksTimeRange } from './messageHandlers';
+
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
-  const marksTimeRange = useRef<{ min: number; max: number } | null>(null);
+  const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
   const currencyInfo = useCurrency();

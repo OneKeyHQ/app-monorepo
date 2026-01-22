@@ -139,16 +139,12 @@ export async function handleKLineDataRequest({
 
     // Track the time range that user has browsed
     if (marksTimeRange) {
-      const timeRangeRef = marksTimeRange as React.MutableRefObject<{
-        min: number;
-        max: number;
-      } | null>;
-      const current = timeRangeRef.current;
+      const current = marksTimeRange.current;
       if (current) {
         current.min = Math.min(current.min, from);
         current.max = Math.max(current.max, to);
       } else {
-        timeRangeRef.current = { min: from, max: to };
+        marksTimeRange.current = { min: from, max: to };
       }
     }
 
