@@ -176,10 +176,23 @@ this.socket.on(EAppSocketEventNames.myEvent, (payload: IMyPayload) => {
 });
 ```
 
+## Important: Message Acknowledgment
+
+**You MUST acknowledge messages via `serviceNotification.ackNotificationMessage`**. If you don't acknowledge the `msgId`, the server will assume the message was not delivered and will retry sending it repeatedly.
+
+```typescript
+void this.backgroundApi.serviceNotification.ackNotificationMessage({
+  msgId: payload.msgId,
+  action: ENotificationPushMessageAckAction.arrived,
+});
+```
+
+This should be called as early as possible in your event handler to prevent duplicate message delivery.
+
 ## Acknowledgment Actions
 
 Available actions in `ENotificationPushMessageAckAction`:
-- `arrived` - Message was received
+- `arrived` - Message was received (use this for most cases)
 - `clicked` - User clicked the notification
 
 ## Checklist
@@ -187,6 +200,7 @@ Available actions in `ENotificationPushMessageAckAction`:
 - [ ] Event name added to `EAppSocketEventNames` enum
 - [ ] Payload interface defined with `msgId: string`
 - [ ] Payload type imported in `PushProviderWebSocket.ts`
-- [ ] Event handler added with acknowledgment
+- [ ] Event handler added in `initWebSocket()` method
+- [ ] **Message acknowledged via `ackNotificationMessage`** (required to prevent server retries)
 - [ ] Appropriate service method called to handle the event
 - [ ] Logging added if needed for debugging
