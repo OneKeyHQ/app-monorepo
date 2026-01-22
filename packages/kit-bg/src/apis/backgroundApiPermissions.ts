@@ -33,13 +33,13 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
         'http://10.44.35.136:3008',
       ]
     : []),
-].filter(Boolean);
+];
 
 export const PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN = [
   'https://1key.so',
   'https://onekey.so',
   ...WEB_EMBED_API_WHITE_LIST_ORIGIN,
-].filter(Boolean);
+];
 
 export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'wallet_connectToWalletConnect',
@@ -79,21 +79,19 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
 // white list method which can be called from any origin
 //      so these method should NOT return sensitive data
 export function isProviderApiPrivateAllowedMethod(method?: string) {
-  return (
-    method && PROVIDER_API_PRIVATE_WHITE_LIST_METHOD.includes(method || '')
-  );
+  return !!method && PROVIDER_API_PRIVATE_WHITE_LIST_METHOD.includes(method);
 }
 
 export function isProviderApiPrivateAllowedOrigin(origin?: string) {
   return (
-    origin &&
-    (origin?.endsWith('.onekey.so') ||
+    !!origin &&
+    (origin.endsWith('.onekey.so') ||
       PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
 }
 
 export function isWebEmbedApiAllowedOrigin(origin?: string) {
-  return origin && WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin);
+  return !!origin && WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin);
 }
 
 export function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
