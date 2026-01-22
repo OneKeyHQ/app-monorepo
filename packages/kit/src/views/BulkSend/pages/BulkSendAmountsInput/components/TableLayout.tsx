@@ -168,41 +168,44 @@ function TransferInfoListSection() {
     >
       {/* Header */}
       <XStack px="$5" py="$2" gap="$3">
-        <SizableText
-          flex={1}
-          size="$headingXs"
-          color="$textSubdued"
-          textTransform="uppercase"
-        >
-          FROM
-        </SizableText>
-        <SizableText
-          flex={1}
-          size="$headingXs"
-          color="$textSubdued"
-          textTransform="uppercase"
-        >
-          TO
-        </SizableText>
-        <SizableText
-          flex={1}
-          maxWidth={80}
-          size="$headingXs"
-          color="$textSubdued"
-          textTransform="uppercase"
-          textAlign="right"
-        >
-          AMOUNT
-        </SizableText>
-        <SizableText
-          width={64}
-          size="$headingXs"
-          color="$textSubdued"
-          textTransform="uppercase"
-          textAlign="right"
-        >
-          ACTION
-        </SizableText>
+        <Stack flex={1} minWidth={0}>
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+          >
+            FROM
+          </SizableText>
+        </Stack>
+        <Stack flex={1} minWidth={0}>
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+          >
+            TO
+          </SizableText>
+        </Stack>
+        <Stack width={80}>
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+            textAlign="right"
+          >
+            AMOUNT
+          </SizableText>
+        </Stack>
+        <Stack width={64}>
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+            textAlign="right"
+          >
+            ACTION
+          </SizableText>
+        </Stack>
       </XStack>
 
       {/* List Items */}
@@ -212,36 +215,28 @@ function TransferInfoListSection() {
           px="$5"
           py="$2"
           gap="$3"
-          alignItems="center"
+          alignItems="flex-start"
           minHeight={48}
         >
           {/* FROM */}
-          <XStack flex={1} gap="$1" alignItems="flex-start">
-            <SizableText size="$bodyMdMedium" color="$textDisabled" width={14}>
+          <XStack flex={1} minWidth={0} gap="$1">
+            <SizableText size="$bodyMdMedium" color="$textDisabled">
               {index + 1}.
             </SizableText>
-            <SizableText
-              flex={1}
-              size="$bodyMdMedium"
-              numberOfLines={2}
-              wordWrap="break-word"
-            >
+            <SizableText size="$bodyMdMedium" flex={1} minWidth={0}>
               {transfer.from}
             </SizableText>
           </XStack>
 
           {/* TO */}
-          <SizableText
-            flex={1}
-            size="$bodyMdMedium"
-            numberOfLines={2}
-            wordWrap="break-word"
-          >
-            {transfer.to}
-          </SizableText>
+          <Stack flex={1} minWidth={0}>
+            <SizableText size="$bodyMdMedium">
+              {transfer.to}
+            </SizableText>
+          </Stack>
 
           {/* AMOUNT */}
-          <Stack flex={1} maxWidth={80} alignItems="flex-end">
+          <Stack width={80} alignItems="flex-end">
             {isCustomMode ? (
               <Input
                 value={transfer.amount}
@@ -267,6 +262,7 @@ function TransferInfoListSection() {
               icon="DeleteOutline"
               variant="tertiary"
               size="small"
+              disabled={transfersInfo.length === 1}
               onPress={() => handleDelete(index)}
             />
           </Stack>
