@@ -193,6 +193,7 @@ function ApprovalListViewCmp(props: IProps) {
           <PullToRefresh onRefresh={onRefresh} />
         ) : undefined
       }
+      windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       extraData={filteredApprovals?.length ?? 0}
       data={filteredApprovals}
       contentContainerStyle={resolvedContentContainerStyle as any}

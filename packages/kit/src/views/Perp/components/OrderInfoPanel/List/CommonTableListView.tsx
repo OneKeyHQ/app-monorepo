@@ -380,6 +380,9 @@ export function CommonTableListView({
               <PullToRefresh onRefresh={onPullToRefresh} />
             ) : undefined
           }
+          windowSize={
+            platformEnv.isNativeAndroid && shouldUseTabsList ? 3 : undefined
+          }
           scrollEnabled={shouldUseTabsList || !disableListScroll}
           data={paginatedData}
           ListHeaderComponent={ListHeaderComponent}

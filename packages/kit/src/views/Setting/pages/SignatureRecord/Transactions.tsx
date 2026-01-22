@@ -37,6 +37,7 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import { useGetSignatureSections } from './hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
   const intl = useIntl();
@@ -364,6 +365,7 @@ export const Transactions = () => {
       stickySectionHeadersEnabled={false}
       contentContainerStyle={{ paddingBottom: 40 }}
       sections={sections}
+      windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       // estimatedItemSize={158}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
