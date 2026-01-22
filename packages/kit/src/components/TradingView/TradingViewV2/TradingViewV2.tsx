@@ -84,6 +84,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       address: tokenAddress,
       symbol: useHyperLiquid ? hyperLiquidSymbol : symbol,
       ...(useHyperLiquid && { type: 'perps' }),
+      storageNamespace: 'market',
     };
   }, [
     decimal,
