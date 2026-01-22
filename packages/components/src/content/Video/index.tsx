@@ -5,7 +5,7 @@ import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 import type { IVideoProps } from './type';
 
 export function Video(rawProps: IVideoProps) {
-  const [{ source, repeat, resizeMode, rate, muted, ...props }, style] =
+  const [{ source, repeat, resizeMode, rate, muted, onProgress, ...props }, style] =
     usePropsAndStyle(rawProps);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -14,6 +14,30 @@ export function Video(rawProps: IVideoProps) {
       videoRef.current.playbackRate = rate;
     }
   }, [rate]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !onProgress) return;
+
+    let animationFrameId: number;
+
+    const updateProgress = () => {
+      if (video.duration) {
+        onProgress({
+          currentTime: video.currentTime,
+          playableDuration: video.duration,
+          seekableDuration: video.duration,
+        });
+      }
+      animationFrameId = requestAnimationFrame(updateProgress);
+    };
+
+    animationFrameId = requestAnimationFrame(updateProgress);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [onProgress]);
 
   if (resizeMode) {
     (style as any)['object-fit'] = resizeMode;
