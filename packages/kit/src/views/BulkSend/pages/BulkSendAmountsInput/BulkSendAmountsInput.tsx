@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import { Page, YStack, useMedia } from '@onekeyhq/components';
+import { Page, useMedia } from '@onekeyhq/components';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -65,9 +65,7 @@ function BaseBulkSendAmountsInput() {
       <Page.Body>
         <BulkSendContentWrapper>
           <BulkSendHeader bulkSendMode={bulkSendMode} />
-          <YStack gap="$6" $gtMd={{ gap: '$8' }}>
-            {media.gtMd ? <TableLayout /> : <MobileLayout />}
-          </YStack>
+          {media.gtMd ? <TableLayout /> : <MobileLayout />}
         </BulkSendContentWrapper>
       </Page.Body>
       <Page.Footer>
