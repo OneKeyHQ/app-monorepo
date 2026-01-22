@@ -1,12 +1,12 @@
-import { OneKeyLocalError } from "@onekeyhq/shared/src/errors";
-import type { IServerNetwork } from "@onekeyhq/shared/types";
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IWalletAddedEventParams,
   IWalletStartedParams,
-} from "@onekeyhq/shared/types/analytics/onboarding";
+} from '@onekeyhq/shared/types/analytics/onboarding';
 
-import { BaseScene } from "../../../base/baseScene";
-import { LogToLocal, LogToServer } from "../../../base/decorators";
+import { BaseScene } from '../../../base/baseScene';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 interface IToken {
   network: string;
@@ -19,27 +19,27 @@ export class WalletScene extends BaseScene {
   @LogToLocal()
   public addWalletStarted(params: IWalletStartedParams) {
     switch (params.addMethod) {
-      case "CreateWallet":
+      case 'CreateWallet':
         return {
-          addMethod: "CreateWallet",
+          addMethod: 'CreateWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             unbackedUp: params.details.unbackedUp,
           },
         };
 
-      case "ImportWallet":
+      case 'ImportWallet':
         return {
-          addMethod: "ImportWallet",
+          addMethod: 'ImportWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             importType: params.details.importType,
           },
         };
 
-      case "ConnectHWWallet":
+      case 'ConnectHWWallet':
         return {
-          addMethod: "ConnectHWWallet",
+          addMethod: 'ConnectHWWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             communication: params.details.communication,
@@ -47,9 +47,9 @@ export class WalletScene extends BaseScene {
           },
         };
 
-      case "Connect3rdPartyWallet":
+      case 'Connect3rdPartyWallet':
         return {
-          addMethod: "Connect3rdPartyWallet",
+          addMethod: 'Connect3rdPartyWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             protocol: params.details.protocol,
@@ -58,9 +58,9 @@ export class WalletScene extends BaseScene {
           },
         };
 
-      case "CreateKeylessWallet":
+      case 'CreateKeylessWallet':
         return {
-          addMethod: "CreateKeylessWallet",
+          addMethod: 'CreateKeylessWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             provider: params.details.provider,
@@ -69,7 +69,9 @@ export class WalletScene extends BaseScene {
 
       default: {
         const _exhaustiveCheck: never = params;
-        throw new OneKeyLocalError(`Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`);
+        throw new OneKeyLocalError(
+          `Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`,
+        );
       }
     }
   }
@@ -78,10 +80,10 @@ export class WalletScene extends BaseScene {
   @LogToLocal()
   public walletAdded(params: IWalletAddedEventParams) {
     switch (params.addMethod) {
-      case "CreateWallet":
+      case 'CreateWallet':
         return {
           status: params.status,
-          addMethod: "CreateWallet",
+          addMethod: 'CreateWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             isBiometricSet: params.details.isBiometricSet,
@@ -89,20 +91,20 @@ export class WalletScene extends BaseScene {
           },
         };
 
-      case "ImportWallet":
+      case 'ImportWallet':
         return {
           status: params.status,
-          addMethod: "ImportWallet",
+          addMethod: 'ImportWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             importType: params.details.importType,
           },
         };
 
-      case "ConnectHWWallet":
+      case 'ConnectHWWallet':
         return {
           status: params.status,
-          addMethod: "ConnectHardware",
+          addMethod: 'ConnectHardware',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             communication: params.details.communication,
@@ -114,10 +116,10 @@ export class WalletScene extends BaseScene {
           },
         };
 
-      case "Connect3rdPartyWallet":
+      case 'Connect3rdPartyWallet':
         return {
           status: params.status,
-          addMethod: "Connect3rdPartyWallet",
+          addMethod: 'Connect3rdPartyWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             protocol: params.details.protocol,
@@ -128,10 +130,10 @@ export class WalletScene extends BaseScene {
           },
         };
 
-      case "CreateKeylessWallet":
+      case 'CreateKeylessWallet':
         return {
           status: params.status,
-          addMethod: "CreateKeylessWallet",
+          addMethod: 'CreateKeylessWallet',
           isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
           details: {
             provider: params.details.provider,
@@ -140,7 +142,9 @@ export class WalletScene extends BaseScene {
 
       default: {
         const _exhaustiveCheck: never = params;
-        throw new OneKeyLocalError(`Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`);
+        throw new OneKeyLocalError(
+          `Unreachable case: ${JSON.stringify(_exhaustiveCheck)}`,
+        );
       }
     }
   }
@@ -149,11 +153,11 @@ export class WalletScene extends BaseScene {
   @LogToLocal()
   public onboard(params: {
     onboardMethod:
-      | "createWallet"
-      | "importWallet"
-      | "connectHWWallet"
-      | "connect3rdPartyWallet"
-      | "createKeylessWallet";
+      | 'createWallet'
+      | 'importWallet'
+      | 'connectHWWallet'
+      | 'connect3rdPartyWallet'
+      | 'createKeylessWallet';
   }) {
     return params;
   }
@@ -192,7 +196,7 @@ export class WalletScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public copyAddress(params: { walletType: "hdWallet" | "hwWallet" }) {
+  public copyAddress(params: { walletType: 'hdWallet' | 'hwWallet' }) {
     return params;
   }
 
@@ -233,13 +237,13 @@ export class WalletScene extends BaseScene {
 
   @LogToLocal()
   public getServerNetworksError(error: any) {
-    let errorMessage = "Unknown error";
+    let errorMessage = 'Unknown error';
 
     if (error instanceof Error) {
       errorMessage = error.message;
-    } else if (typeof error === "string") {
+    } else if (typeof error === 'string') {
       errorMessage = error;
-    } else if (error && typeof error === "object") {
+    } else if (error && typeof error === 'object') {
       errorMessage = JSON.stringify(error);
     }
 

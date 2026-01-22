@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import {
   EAmountInputMode,
@@ -85,3 +87,45 @@ export const BulkSendAmountsInputContext =
 
 export const useBulkSendAmountsInputContext = () =>
   useContext(BulkSendAmountsInputContext);
+
+export function calculateIsAmountValid({
+  amountInputMode,
+  amountInputErrors,
+  amountInputValues,
+  transfersInfo,
+  balanceParsed,
+}: {
+  amountInputMode: EAmountInputMode;
+  amountInputErrors: IAmountInputError;
+  amountInputValues: IAmountInputValues;
+  transfersInfo: ITransferInfo[];
+  balanceParsed: string;
+}): boolean {
+  switch (amountInputMode) {
+    case EAmountInputMode.Specified:
+      return (
+        !amountInputErrors.specifiedAmount &&
+        amountInputValues.specifiedAmount !== ''
+      );
+    case EAmountInputMode.Range:
+      return (
+        !amountInputErrors.rangeMin &&
+        !amountInputErrors.rangeMax &&
+        amountInputValues.rangeMin !== '' &&
+        amountInputValues.rangeMax !== ''
+      );
+    case EAmountInputMode.Custom: {
+      const totalAmount = transfersInfo.reduce((sum, t) => {
+        const amount = new BigNumber(t.amount || '0');
+        return sum.plus(amount.isNaN() ? 0 : amount);
+      }, new BigNumber(0));
+      const balance = new BigNumber(balanceParsed);
+      return (
+        totalAmount.isGreaterThan(0) &&
+        totalAmount.isLessThanOrEqualTo(balance)
+      );
+    }
+    default:
+      return false;
+  }
+}

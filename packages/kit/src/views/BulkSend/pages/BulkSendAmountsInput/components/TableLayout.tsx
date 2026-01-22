@@ -17,6 +17,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { useBulkSendAmountsInputContext } from './Context';
+import { showSetAmountPerAddressDialog } from './SetAmountPerAddressDialog';
 
 function AssetSection() {
   const { networkId, tokenInfo, tokenDetails } =
@@ -46,8 +47,17 @@ function AssetSection() {
 }
 
 function SetAmountPerAddressSection() {
-  const { tokenInfo, transfersInfo, amountInputMode, amountInputValues } =
-    useBulkSendAmountsInputContext();
+  const {
+    accountId,
+    networkId,
+    tokenInfo,
+    tokenDetails,
+    transfersInfo,
+    amountInputMode,
+    amountInputValues,
+    setAmountInputMode,
+    setAmountInputValues,
+  } = useBulkSendAmountsInputContext();
 
   const { primaryText, secondaryText } = useMemo(() => {
     const tokenSymbol = tokenInfo.symbol;
@@ -89,10 +99,36 @@ function SetAmountPerAddressSection() {
     tokenInfo.symbol,
   ]);
 
+  const handlePress = useCallback(() => {
+    showSetAmountPerAddressDialog({
+      accountId,
+      networkId,
+      tokenInfo,
+      tokenDetails,
+      transfersInfo,
+      initialMode: amountInputMode,
+      initialValues: amountInputValues,
+      onConfirm: (mode, values) => {
+        setAmountInputMode(mode);
+        setAmountInputValues(values);
+      },
+    });
+  }, [
+    accountId,
+    networkId,
+    tokenInfo,
+    tokenDetails,
+    transfersInfo,
+    amountInputMode,
+    amountInputValues,
+    setAmountInputMode,
+    setAmountInputValues,
+  ]);
+
   return (
     <YStack gap="$1.5" flex={1}>
       <SizableText size="$bodyMdMedium">Set amount per address</SizableText>
-      <ListItem mx="$0" px="$0" drillIn>
+      <ListItem mx="$0" px="$0" drillIn onPress={handlePress}>
         <ListItem.Text
           flex={1}
           primary={primaryText}

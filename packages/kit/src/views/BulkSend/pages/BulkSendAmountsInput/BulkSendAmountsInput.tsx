@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import { Page, useMedia } from '@onekeyhq/components';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import {
@@ -30,6 +28,7 @@ import {
   type IAmountInputError,
   type IAmountInputValues,
   type IBulkSendAmountsInputContext,
+  calculateIsAmountValid,
   useBulkSendAmountsInputContext,
 } from './components/Context';
 import TableLayout from './components/TableLayout';
@@ -129,45 +128,28 @@ function BulkSendAmountsInput() {
     {},
   );
 
-  // Calculate if current mode is valid
-  const isAmountValid = useMemo(() => {
-    switch (amountInputMode) {
-      case EAmountInputMode.Specified:
-        return (
-          !amountInputErrors.specifiedAmount &&
-          amountInputValues.specifiedAmount !== ''
-        );
-      case EAmountInputMode.Range:
-        return (
-          !amountInputErrors.rangeMin &&
-          !amountInputErrors.rangeMax &&
-          amountInputValues.rangeMin !== '' &&
-          amountInputValues.rangeMax !== ''
-        );
-      case EAmountInputMode.Custom: {
-        // Check if total amount doesn't exceed balance
-        const totalAmount = receivers.reduce((sum, r) => {
-          const amount = new BigNumber(r.amount || '0');
-          return sum.plus(amount.isNaN() ? 0 : amount);
-        }, new BigNumber(0));
-        const balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
-        return (
-          totalAmount.isGreaterThan(0) &&
-          totalAmount.isLessThanOrEqualTo(balance)
-        );
-      }
-      default:
-        return false;
-    }
-  }, [
-    amountInputMode,
-    amountInputErrors,
-    amountInputValues,
-    receivers,
-    tokenDetails?.balanceParsed,
-  ]);
-
   const [transfersInfo, setTransfersInfo] = useState<ITransferInfo[]>([]);
+
+
+  // Calculate if current mode is valid using shared logic
+  const isAmountValid = useMemo(
+    () =>
+      calculateIsAmountValid({
+        amountInputMode,
+        amountInputErrors,
+        amountInputValues,
+        transfersInfo,
+        balanceParsed: tokenDetails?.balanceParsed ?? '0',
+      }),
+    [
+      amountInputMode,
+      amountInputErrors,
+      amountInputValues,
+      transfersInfo,
+      tokenDetails?.balanceParsed,
+    ],
+  );
+
 
   usePromiseResult(
     async () => {

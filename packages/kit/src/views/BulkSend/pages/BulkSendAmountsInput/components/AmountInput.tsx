@@ -99,7 +99,7 @@ function validateRangeAmount(
   return undefined;
 }
 
-function SpecifiedAmountInput() {
+export function SpecifiedAmountInput() {
   const {
     networkId,
     tokenInfo,
@@ -186,7 +186,7 @@ function SpecifiedAmountInput() {
   );
 }
 
-function RangeAmountInput() {
+export function RangeAmountInput() {
   const {
     tokenDetails,
     amountInputValues,
