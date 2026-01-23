@@ -430,20 +430,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
                 if (matchedOrder) {
                   matchedOrderIds.add(matchedOrder.fromTxId);
-                  Toast.success({
-                    title: appLocale.intl.formatMessage({
-                      id: ETranslations.perp_deposit_success_title,
-                    }),
-                    message: appLocale.intl.formatMessage(
-                      {
-                        id: ETranslations.perp_deposit_success_msg,
-                      },
-                      {
-                        num: matchedOrder.amount,
-                        token: USDC_TOKEN_INFO.symbol,
-                      },
-                    ),
-                  });
                 }
               }
 
