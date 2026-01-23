@@ -376,7 +376,7 @@ export function RangeAmountInput() {
   );
 }
 
-function CustomAmountDisplay() {
+function CustomAmountDisplay({ inDialog }: { inDialog?: boolean }) {
   const {
     networkId,
     tokenDetails,
@@ -390,6 +390,21 @@ function CustomAmountDisplay() {
   const [settings] = useSettingsPersistAtom();
 
   const tokenSymbol = tokenInfo.symbol;
+
+  if (inDialog) {
+    return (
+      <YStack alignItems="center" justifyContent="center" p="$5">
+        <SizableText
+          size="$bodyLg"
+          color="$textSubdued"
+          textAlign="center"
+          maxWidth={256}
+        >
+          Each transfer will use the amount you entered.
+        </SizableText>
+      </YStack>
+    );
+  }
 
   return (
     <ListItem
@@ -440,7 +455,7 @@ function CustomAmountDisplay() {
   );
 }
 
-export function AmountInputSection() {
+export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
   const { amountInputMode, setAmountInputMode, setAmountInputErrors } =
     useBulkSendAmountsInputContext();
 
@@ -469,14 +484,14 @@ export function AmountInputSection() {
       case EAmountInputMode.Range:
         return <RangeAmountInput />;
       case EAmountInputMode.Custom:
-        return <CustomAmountDisplay />;
+        return <CustomAmountDisplay inDialog={inDialog} />;
       default:
         return null;
     }
   }, [amountInputMode]);
 
   return (
-    <YStack gap="$4" px="$5" pb="$6" w="100%">
+    <YStack gap="$4" w="100%">
       <SegmentControl
         fullWidth
         value={amountInputMode}

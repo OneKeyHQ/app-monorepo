@@ -1,10 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
-
-import { Dialog, SizableText, YStack } from '@onekeyhq/components';
+import { Dialog, Stack, YStack } from '@onekeyhq/components';
 import {
-  EAmountInputMode,
+  type EAmountInputMode,
   EBulkSendMode,
   type IAmountInputError,
   type IAmountInputValues,
@@ -14,7 +12,6 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import {
   BulkSendAmountsInputContext,
-  useBulkSendAmountsInputContext,
 } from './Context';
 import { AmountInputSection } from './AmountInput';
 import { AmountPreview } from './AmountPreview';
@@ -31,62 +28,10 @@ type ISetAmountPerAddressDialogProps = {
   onConfirm: (mode: EAmountInputMode, values: IAmountInputValues) => void;
 };
 
-function DialogAmountPreview({
-  tokenSymbol,
-  onMaxPress,
-}: {
-  tokenSymbol: string;
-  onMaxPress: () => void;
-}) {
-  const { amountInputMode, tokenDetails, totalTokenAmount, totalFiatAmount } =
-    useBulkSendAmountsInputContext();
-
-  // Format fiat value with $ prefix for display
-  const formattedFiatValue =
-    totalFiatAmount !== '0'
-      ? `$${parseFloat(totalFiatAmount).toFixed(2)}`
-      : '$0';
-
-  // Don't show preview for Custom mode
-  if (amountInputMode === EAmountInputMode.Custom) {
-    return (
-      <YStack alignItems="center" justifyContent="center" p="$5">
-        <SizableText
-          size="$bodyLg"
-          color="$textSubdued"
-          textAlign="center"
-          maxWidth={256}
-        >
-          Each transfer will use the amount you entered.
-        </SizableText>
-      </YStack>
-    );
-  }
-
-  // Don't show preview for Range mode (cannot calculate exact total)
-  if (amountInputMode === EAmountInputMode.Range) {
-    return (
-      <AmountPreview
-        type={amountInputMode}
-        totalAmount={undefined}
-        totalFiatValue={undefined}
-        availableBalance={tokenDetails?.balanceParsed ?? '0'}
-        tokenSymbol={tokenSymbol}
-        onMaxPress={onMaxPress}
-      />
-    );
-  }
-
-  return (
-    <AmountPreview
-      type={amountInputMode}
-      totalAmount={totalTokenAmount !== '0' ? totalTokenAmount : undefined}
-      totalFiatValue={totalTokenAmount !== '0' ? formattedFiatValue : undefined}
-      availableBalance={tokenDetails?.balanceParsed ?? '0'}
-      tokenSymbol={tokenSymbol}
-      onMaxPress={onMaxPress}
-    />
-  );
+function DialogAmountPreview() {
+  return <Stack mt="$6">
+    <AmountPreview inDialog />
+  </Stack>
 }
 
 function SetAmountPerAddressDialogContent({
@@ -108,22 +53,17 @@ function SetAmountPerAddressDialogContent({
     {},
   );
 
-  // Use shared validation logic
   const isAmountValid = useMemo(
     () =>
       calculateIsAmountValid({
         amountInputMode,
         amountInputErrors,
         amountInputValues,
-        transfersInfo,
-        balanceParsed: tokenDetails?.balanceParsed ?? '0',
       }),
     [
       amountInputMode,
       amountInputErrors,
       amountInputValues,
-      transfersInfo,
-      tokenDetails?.balanceParsed,
     ],
   );
 
@@ -137,22 +77,6 @@ function SetAmountPerAddressDialogContent({
     [transfersInfo, tokenDetails?.price],
   );
 
-  const handleMaxPress = useCallback(() => {
-    if (!tokenDetails?.balanceParsed) return;
-    const balance = tokenDetails.balanceParsed;
-    const maxPerAddress = new BigNumber(balance)
-      .dividedBy(transfersInfo.length)
-      .toFixed(tokenInfo.decimals, BigNumber.ROUND_DOWN);
-
-    setAmountInputValues((prev) => ({
-      ...prev,
-      specifiedAmount: maxPerAddress,
-    }));
-    setAmountInputErrors((prev) => ({
-      ...prev,
-      specifiedAmount: undefined,
-    }));
-  }, [tokenDetails?.balanceParsed, transfersInfo.length, tokenInfo.decimals]);
 
   const handleConfirm = useCallback(() => {
     onConfirm(amountInputMode, amountInputValues);
@@ -202,11 +126,8 @@ function SetAmountPerAddressDialogContent({
   return (
     <BulkSendAmountsInputContext.Provider value={contextValue}>
       <YStack>
-        <AmountInputSection />
-        <DialogAmountPreview
-          tokenSymbol={tokenInfo.symbol}
-          onMaxPress={handleMaxPress}
-        />
+        <AmountInputSection inDialog />
+        <DialogAmountPreview />
         <Dialog.Footer
           onConfirm={handleConfirm}
           onConfirmText="Confirm"

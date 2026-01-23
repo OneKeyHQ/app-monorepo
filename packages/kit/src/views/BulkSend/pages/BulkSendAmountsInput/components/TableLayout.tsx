@@ -81,7 +81,7 @@ function SetAmountPerAddressSection() {
         const min = amountInputValues.rangeMin || '0';
         const max = amountInputValues.rangeMax || '0';
         return {
-          primaryText: `${min} ${tokenSymbol} - ${max} ${tokenSymbol}`,
+          primaryText: `${min} ${tokenSymbol} ~ ${max} ${tokenSymbol}`,
           secondaryText,
         };
       }
@@ -160,7 +160,7 @@ function SetAmountPerAddressSection() {
   return (
     <YStack gap="$1.5" flex={1}>
       <SizableText size="$bodyMdMedium">Set amount per address</SizableText>
-      <ListItem mx="$0" px="$0" drillIn onPress={handlePress}>
+      <ListItem mx="$-3" drillIn onPress={handlePress}>
         <ListItem.Text
           flex={1}
           primary={primaryText}
@@ -211,7 +211,7 @@ function TransferInfoListSection() {
     >
       {/* Header */}
       <XStack px="$5" py="$2" gap="$3">
-        <Stack flex={1} minWidth={0}>
+        <XStack flex={1} minWidth={0}>
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -219,7 +219,7 @@ function TransferInfoListSection() {
           >
             FROM
           </SizableText>
-        </Stack>
+        </XStack>
         <Stack flex={1} minWidth={0}>
           <SizableText
             size="$headingXs"

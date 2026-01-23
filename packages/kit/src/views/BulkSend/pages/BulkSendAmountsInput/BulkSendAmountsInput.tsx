@@ -139,15 +139,11 @@ function BulkSendAmountsInput() {
         amountInputMode,
         amountInputErrors,
         amountInputValues,
-        transfersInfo,
-        balanceParsed: tokenDetails?.balanceParsed ?? '0',
       }),
     [
       amountInputMode,
       amountInputErrors,
       amountInputValues,
-      transfersInfo,
-      tokenDetails?.balanceParsed,
     ],
   );
 

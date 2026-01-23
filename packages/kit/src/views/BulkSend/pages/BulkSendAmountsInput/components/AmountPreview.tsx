@@ -1,31 +1,43 @@
 import {
-  Button,
   Divider,
+  NumberSizeableText,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
+import { useBulkSendAmountsInputContext } from './Context';
+import BigNumber from 'bignumber.js';
+import { useMemo } from 'react';
+import { calculateTotalAmounts } from '../../../utils';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-type IAmountPreviewProps = {
-  type: EAmountInputMode;
-  totalAmount?: string;
-  totalFiatValue?: string;
-  availableBalance: string;
-  tokenSymbol: string;
-  onMaxPress?: () => void;
-};
+export function AmountPreview({ inDialog }: { inDialog?: boolean }) {
+  const { amountInputValues, amountInputMode, tokenDetails, transfersInfo } =
+    useBulkSendAmountsInputContext();
 
-export function AmountPreview({
-  type,
-  totalAmount = '0',
-  totalFiatValue = '$0',
-  availableBalance,
-  tokenSymbol,
-  onMaxPress,
-}: IAmountPreviewProps) {
-  const showTotalAmount = type !== EAmountInputMode.Custom;
-  const showMaxButton = type === EAmountInputMode.Specified;
+  const [settings] = useSettingsPersistAtom();
+
+  const showTotalAmount = useMemo(() => {
+    if (inDialog) {
+      return amountInputMode === EAmountInputMode.Specified;
+    }
+    return amountInputMode !== EAmountInputMode.Custom;
+  }, [inDialog, amountInputMode]);
+
+
+  const { totalTokenAmount, totalFiatAmount } = useMemo(() => {
+    if (inDialog) {
+      const totalTokenAmount = new BigNumber(amountInputValues.specifiedAmount || '0').times(transfersInfo.length).toFixed();
+      const totalFiatAmount = new BigNumber(totalTokenAmount).times(tokenDetails?.price ?? 0).toFixed();
+      return { totalTokenAmount, totalFiatAmount };
+    }
+    return calculateTotalAmounts({
+      transfersInfo,
+      tokenPrice: tokenDetails?.price,
+    });
+  }, [amountInputValues.specifiedAmount, inDialog, tokenDetails?.price, transfersInfo]);
+
 
   return (
     <YStack>
@@ -35,9 +47,16 @@ export function AmountPreview({
             <SizableText size="$bodyMd" color="$textSubdued">
               Total amount
             </SizableText>
-            <SizableText size="$bodyLgMedium" color="$text">
-              {totalAmount} {tokenSymbol} ({totalFiatValue})
-            </SizableText>
+            <XStack alignItems="center" gap="$1">
+              <NumberSizeableText size="$bodyLgMedium" formatter="balance" formatterOptions={{ tokenSymbol: tokenDetails?.info.symbol }}>
+                {totalTokenAmount}
+              </NumberSizeableText>
+              <SizableText size="$bodyLgMedium" color="$textSubdued">
+                (<NumberSizeableText size="$bodyLgMedium" formatter="value" formatterOptions={{ currency: settings.currencyInfo.symbol }}>
+                  {totalFiatAmount}
+                </NumberSizeableText>)
+              </SizableText>
+            </XStack>
           </YStack>
           <YStack pt="$3" pb="$2">
             <Divider />
@@ -49,15 +68,10 @@ export function AmountPreview({
           <SizableText size="$bodyMd" color="$textSubdued">
             Available:
           </SizableText>
-          <SizableText size="$bodyMd" color="$text">
-            {availableBalance} {tokenSymbol}
-          </SizableText>
+          <NumberSizeableText size="$bodyMd" formatter="balance" formatterOptions={{ tokenSymbol: tokenDetails?.info.symbol }}>
+            {tokenDetails?.balanceParsed ?? '-'}
+          </NumberSizeableText>
         </XStack>
-        {showMaxButton ? (
-          <Button variant="tertiary" size="small" onPress={onMaxPress}>
-            Max
-          </Button>
-        ) : null}
       </XStack>
     </YStack>
   );
