@@ -582,7 +582,7 @@ export function CommonTableListView<T>({
         }}
         nestedScrollEnabled
       >
-        <XStack flex={1}>
+        <XStack>
           {/* Scrollable columns */}
           <ScrollView
             ref={scrollViewRef}
