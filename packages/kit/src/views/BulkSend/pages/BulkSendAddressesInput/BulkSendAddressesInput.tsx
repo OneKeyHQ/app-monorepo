@@ -340,7 +340,7 @@ function BaseBulkSendAddressesInput() {
           </YStack>
         </BulkSendContentWrapper>
       </Page.Body>
-      <Page.Footer>
+      <Page.Footer borderTopWidth={1} borderColor="$borderDefault">
         <BulkSendContentWrapper
           $gtMd={{
             mt: '$0',

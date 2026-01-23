@@ -104,6 +104,7 @@ function SetAmountPerAddressDialogContent({
       isAmountValid,
       totalTokenAmount,
       totalFiatAmount,
+      isInsufficientBalance: false,
     }),
     [
       accountId,

@@ -37,10 +37,14 @@ import {
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import BigNumber from 'bignumber.js';
 
 function BaseBulkSendAmountsInput() {
-  const { tokenDetails, tokenDetailsState, bulkSendMode, isAmountValid } =
+  const { tokenDetails, tokenDetailsState, bulkSendMode, isAmountValid, isInsufficientBalance } =
     useBulkSendAmountsInputContext();
+
+  const navigation = useAppNavigation();
 
   const media = useMedia();
 
@@ -52,13 +56,15 @@ function BaseBulkSendAmountsInput() {
     return (
       !tokenDetailsState.initialized ||
       (tokenDetailsState.isRefreshing && !tokenDetails) ||
-      !isAmountValid
+      !isAmountValid ||
+      isInsufficientBalance
     );
   }, [
     tokenDetailsState.initialized,
     tokenDetailsState.isRefreshing,
     tokenDetails,
     isAmountValid,
+    isInsufficientBalance,
   ]);
 
   return (
@@ -70,7 +76,7 @@ function BaseBulkSendAmountsInput() {
           {media.gtMd ? <TableLayout /> : <MobileLayout />}
         </BulkSendContentWrapper>
       </Page.Body>
-      <Page.Footer>
+      <Page.Footer borderTopWidth={1} borderColor="$borderDefault">
         <BulkSendContentWrapper
           $gtMd={{
             mt: '$0',
@@ -83,7 +89,13 @@ function BaseBulkSendAmountsInput() {
             $gtMd={{
               px: '$0',
             }}
-            onConfirmText="Next"
+            onConfirmText="Review"
+            onCancelText="Back"
+            cancelButtonProps={{
+              onPress: () => {
+                navigation.pop();
+              },
+            }}
             confirmButtonProps={{
               onPress: handleSubmit,
               disabled: isSubmitDisabled,
@@ -144,9 +156,12 @@ function BulkSendAmountsInput() {
         amountInputMode,
         amountInputErrors,
         amountInputValues,
+        transferInfoErrors
       }),
-    [amountInputMode, amountInputErrors, amountInputValues],
+    [amountInputMode, amountInputErrors, amountInputValues, transferInfoErrors],
   );
+
+  const [isInsufficientBalance, setIsInsufficientBalance] = useState(false);
 
   const { totalTokenAmount, totalFiatAmount } = useMemo(
     () =>
@@ -156,6 +171,13 @@ function BulkSendAmountsInput() {
       }),
     [transfersInfo, tokenDetails?.price],
   );
+
+  useEffect(() => {
+    if (bulkSendMode === EBulkSendMode.OneToMany && tokenDetails) {
+      const totalTokenAmountBN = new BigNumber(totalTokenAmount ?? '0');
+      setIsInsufficientBalance(totalTokenAmountBN.gt(tokenDetails.balanceParsed));
+    }
+  }, [totalTokenAmount, tokenDetails?.balanceParsed, bulkSendMode, tokenDetails]);
 
   usePromiseResult(
     async () => {
@@ -300,6 +322,7 @@ function BulkSendAmountsInput() {
       isAmountValid,
       totalTokenAmount,
       totalFiatAmount,
+      isInsufficientBalance,
     }),
     [
       networkId,
@@ -317,6 +340,7 @@ function BulkSendAmountsInput() {
       tokenInfo,
       totalTokenAmount,
       totalFiatAmount,
+      isInsufficientBalance,
     ],
   );
 
