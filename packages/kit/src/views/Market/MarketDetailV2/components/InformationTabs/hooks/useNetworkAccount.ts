@@ -47,15 +47,15 @@ export function useNetworkAccount(networkId: string) {
     networkId,
   ]);
 
-  // xpub only exists on UTXO accounts (BTC, LTC, etc.)
-  const xpub =
-    networkAccount && 'xpub' in networkAccount
-      ? networkAccount.xpub
+  // xpubSegwit only exists on UTXO accounts (BTC, LTC, etc.)
+  const xpubSegwit =
+    networkAccount && 'xpubSegwit' in networkAccount
+      ? networkAccount.xpubSegwit
       : undefined;
 
   return {
     networkAccount,
     accountAddress: networkAccount?.address,
-    xpub,
+    xpubSegwit,
   };
 }

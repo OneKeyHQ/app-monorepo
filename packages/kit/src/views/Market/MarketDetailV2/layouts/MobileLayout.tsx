@@ -49,13 +49,13 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     useTokenDetail();
   const intl = useIntl();
 
-  const { accountAddress, xpub } = useNetworkAccount(networkId);
+  const { accountAddress, xpubSegwit } = useNetworkAccount(networkId);
 
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
-    xpub,
+    xpubSegwit,
   });
   const tabNames = useMemo(
     () => [

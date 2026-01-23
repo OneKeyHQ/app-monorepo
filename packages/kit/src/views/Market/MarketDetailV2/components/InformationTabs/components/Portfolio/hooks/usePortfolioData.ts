@@ -8,14 +8,14 @@ interface IUsePortfolioDataProps {
   tokenAddress: string;
   networkId: string;
   accountAddress?: string;
-  xpub?: string;
+  xpubSegwit?: string;
 }
 
 export function usePortfolioData({
   tokenAddress,
   networkId,
   accountAddress,
-  xpub,
+  xpubSegwit,
 }: IUsePortfolioDataProps) {
   const {
     result: portfolioData,
@@ -31,10 +31,10 @@ export function usePortfolioData({
         tokenAddress,
         networkId,
         accountAddress,
-        xpub,
+        xpubSegwit,
       });
     },
-    [tokenAddress, networkId, accountAddress, xpub],
+    [tokenAddress, networkId, accountAddress, xpubSegwit],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
