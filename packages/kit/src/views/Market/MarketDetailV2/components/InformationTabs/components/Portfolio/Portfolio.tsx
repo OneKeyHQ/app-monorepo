@@ -61,6 +61,7 @@ function PortfolioBase({
   return (
     <Tabs.FlatList<IMarketAccountPortfolioItem>
       data={portfolioData}
+      windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       contentContainerStyle={{
         paddingBottom: platformEnv.isNativeAndroid ? 84 : 16,
       }}

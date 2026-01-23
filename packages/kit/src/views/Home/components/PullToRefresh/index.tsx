@@ -6,6 +6,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export const onHomePageRefresh = () => {
   appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
@@ -24,6 +25,7 @@ function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
     setTimeout(() => {
       setRefreshing(false);
     }, 1200);
+    defaultLogger.account.wallet.walletPullToRefresh();
   }, [onRefresh]);
 
   return (
