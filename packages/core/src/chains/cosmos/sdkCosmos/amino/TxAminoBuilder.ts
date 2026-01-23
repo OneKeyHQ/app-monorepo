@@ -17,8 +17,8 @@ export class TxAminoBuilder implements ICosmosTxBuilder {
       nonce: string;
     },
   ): TransactionWrapper {
-    return TransactionWrapper.fromAminoSignDoc(
-      {
+    return TransactionWrapper.fromAminoSignDoc({
+      signDoc: {
         chain_id: params.chainId,
         account_number: params.accountNumber,
         sequence: params.nonce,
@@ -34,7 +34,7 @@ export class TxAminoBuilder implements ICosmosTxBuilder {
         msgs: messages.aminoMsgs,
         memo: params.memo,
       },
-      messages,
-    );
+      msg: messages,
+    });
   }
 }

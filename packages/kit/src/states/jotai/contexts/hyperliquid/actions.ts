@@ -32,7 +32,6 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
-import { USDC_TOKEN_INFO } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -430,20 +429,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
                 if (matchedOrder) {
                   matchedOrderIds.add(matchedOrder.fromTxId);
-                  Toast.success({
-                    title: appLocale.intl.formatMessage({
-                      id: ETranslations.perp_deposit_success_title,
-                    }),
-                    message: appLocale.intl.formatMessage(
-                      {
-                        id: ETranslations.perp_deposit_success_msg,
-                      },
-                      {
-                        num: matchedOrder.amount,
-                        token: USDC_TOKEN_INFO.symbol,
-                      },
-                    ),
-                  });
                 }
               }
 
