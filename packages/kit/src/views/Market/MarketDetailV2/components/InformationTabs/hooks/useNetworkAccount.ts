@@ -48,7 +48,7 @@ export function useNetworkAccount(networkId: string) {
   ]);
 
   // xpubSegwit only exists on BTC Taproot accounts, other UTXO chains use xpub
-  const xpubSegwit = useMemo(() => {
+  const xpub = useMemo(() => {
     if (!networkAccount) return undefined;
     if ('xpubSegwit' in networkAccount && networkAccount.xpubSegwit) {
       return networkAccount.xpubSegwit;
@@ -62,6 +62,6 @@ export function useNetworkAccount(networkId: string) {
   return {
     networkAccount,
     accountAddress: networkAccount?.address,
-    xpubSegwit,
+    xpub,
   };
 }

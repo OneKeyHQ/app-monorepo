@@ -25,13 +25,13 @@ export function DesktopLayout() {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
     useTokenDetail();
 
-  const { accountAddress, xpubSegwit } = useNetworkAccount(networkId);
+  const { accountAddress, xpub } = useNetworkAccount(networkId);
 
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
-    xpubSegwit,
+    xpub,
   });
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
