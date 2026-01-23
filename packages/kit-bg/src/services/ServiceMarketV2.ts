@@ -643,7 +643,7 @@ class ServiceMarketV2 extends ServiceBase {
           networkId,
           accountAddress,
           tokenAddress,
-          xpubSegwit,
+          xpub: xpubSegwit,
         },
       });
 
