@@ -6,6 +6,13 @@ import type { ICosmosStdSignDoc } from '../amino/types';
 import type { ICosmosProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
 import type { ProtoSignDoc } from '../proto/protoSignDoc';
 
+export type ISignOptions = {
+  preferNoSetFee?: boolean;
+  preferNoSetMemo?: boolean;
+
+  disableBalanceCheck?: boolean;
+};
+
 export class TransactionWrapper {
   protected _protoSignDoc?: ProtoSignDoc;
 
@@ -13,9 +20,12 @@ export class TransactionWrapper {
 
   public readonly msg: ICosmosProtoMsgsOrWithAminoMsgs | undefined;
 
+  public readonly signOptions: ISignOptions | undefined;
+
   constructor(
     public readonly signDoc: ICosmosStdSignDoc | ICosmosSignDocHex,
     msg?: ICosmosProtoMsgsOrWithAminoMsgs,
+    signOptions?: ISignOptions,
   ) {
     if ('msgs' in signDoc) {
       this.mode = 'amino';
@@ -23,13 +33,19 @@ export class TransactionWrapper {
       this.mode = 'direct';
     }
     this.msg = msg;
+    this.signOptions = signOptions;
   }
 
-  static fromAminoSignDoc(
-    signDoc: ICosmosStdSignDoc,
-    msg: ICosmosProtoMsgsOrWithAminoMsgs | undefined,
-  ) {
-    return new TransactionWrapper(signDoc, msg);
+  static fromAminoSignDoc({
+    signDoc,
+    msg,
+    signOptions = undefined,
+  }: {
+    signDoc: ICosmosStdSignDoc;
+    msg: ICosmosProtoMsgsOrWithAminoMsgs | undefined;
+    signOptions?: ISignOptions;
+  }) {
+    return new TransactionWrapper(signDoc, msg, signOptions);
   }
 
   static fromDirectSignDoc(
@@ -60,6 +76,9 @@ export class TransactionWrapper {
     return TransactionWrapper.fromDirectSignDoc(sign, msg);
   }
 
+  /**
+   * @deprecated Use toObject instead
+   */
   clone(): TransactionWrapper {
     return new TransactionWrapper(this.signDoc);
   }
@@ -69,6 +88,7 @@ export class TransactionWrapper {
       mode: this.mode,
       signDoc: this.signDoc,
       msg: this.msg,
+      signOptions: this.signOptions,
     };
   }
 }
