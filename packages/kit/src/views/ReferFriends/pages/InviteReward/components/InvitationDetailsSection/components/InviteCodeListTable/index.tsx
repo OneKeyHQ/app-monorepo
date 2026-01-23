@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
-  LinearGradient,
   ScrollView,
   SizableText,
   Spinner,
@@ -12,7 +9,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { FixedColumnShadowOverlay } from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import {
+  SHADOW_CONSTANTS,
+  getWebClipPath,
+  getWebShadowStyle,
+  useFixedColumnShadow,
+} from '@onekeyhq/kit/src/hooks/useFixedColumnShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -23,8 +27,6 @@ import type {
 import { useSortableData } from './hooks/useSortableData';
 import { useTableAvailableWidth } from './hooks/useTableAvailableWidth';
 import { useTableColumns } from './hooks/useTableColumns';
-
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 interface IInviteCodeListTableProps {
   codeListData: IInviteCodeListResponse | undefined;
@@ -57,50 +59,16 @@ export function InviteCodeListTable({
     shouldUseFlex,
   } = useTableColumns(containerWidth, handleSortChange, refetch);
 
-  // Fixed column shadow management
-  // For left-fixed column: show shadow when scrollLeft > 0 (content hidden on left)
-  const [showFixedShadow, setShowFixedShadow] = useState(false);
-  const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
-
-  // Web: get underlying DOM element
-  const getScrollElement = useCallback((): HTMLElement | null => {
-    if (platformEnv.isNative) return null;
-    const ref = scrollViewRef.current;
-    if (!ref) return null;
-    const scrollableNode = ref.getScrollableNode?.();
-    return scrollableNode instanceof HTMLElement ? scrollableNode : null;
-  }, []);
-
-  // Web: check shadow visibility based on scroll position
-  const checkShadowVisibilityWeb = useCallback(() => {
-    const element = getScrollElement();
-    if (!element) return;
-    const { scrollLeft } = element;
-    const shouldShow = scrollLeft > 1;
-    setShowFixedShadow((prev) => (prev !== shouldShow ? shouldShow : prev));
-  }, [getScrollElement]);
-
-  // Native: handle scroll event
-  const handleNativeScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset } = event.nativeEvent;
-      const shouldShow = contentOffset.x > 1;
-      setShowFixedShadow((prev) => (prev !== shouldShow ? shouldShow : prev));
-    },
-    [],
-  );
-
-  // Web: setup ResizeObserver
-  useEffect(() => {
-    if (platformEnv.isNative || shouldUseFlex) return;
-    if (typeof ResizeObserver === 'undefined') return;
-    const element = getScrollElement();
-    if (!element) return;
-    checkShadowVisibilityWeb();
-    const resizeObserver = new ResizeObserver(checkShadowVisibilityWeb);
-    resizeObserver.observe(element);
-    return () => resizeObserver.disconnect();
-  }, [shouldUseFlex, checkShadowVisibilityWeb, getScrollElement]);
+  // Fixed column shadow management using shared hook
+  const {
+    showShadow: showFixedShadow,
+    scrollViewRef,
+    handleNativeScroll,
+    handleWebScroll,
+  } = useFixedColumnShadow({
+    position: 'left',
+    enabled: !shouldUseFlex,
+  });
 
   // Loading state
   if (isInitialLoading) {
@@ -122,10 +90,8 @@ export function InviteCodeListTable({
     );
   }
 
-  // Shadow colors for gradient (native)
-  const shadowGradientColors: [string, string] = isDark
-    ? ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0)']
-    : ['rgba(0, 0, 0, 0.12)', 'rgba(0, 0, 0, 0)'];
+  const hasData = sortedData.length > 0;
+  const showShadow = showFixedShadow && hasData;
 
   // Table with horizontal scroll support when needed
   return shouldUseFlex ? (
@@ -148,14 +114,9 @@ export function InviteCodeListTable({
         bg="$bgApp"
         zIndex={1}
         $platform-web={{
-          boxShadow:
-            showFixedShadow && sortedData.length > 0
-              ? isDark
-                ? '12px 0 12px rgba(255, 255, 255, 0.1)'
-                : '12px 0 12px rgba(0, 0, 0, 0.15)'
-              : 'none',
-          clipPath: 'inset(0 -20px 0 0)',
-          transition: 'box-shadow 0.2s ease-in-out',
+          boxShadow: showShadow ? getWebShadowStyle('left', isDark) : 'none',
+          clipPath: getWebClipPath('left'),
+          transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
         }}
       >
         <Table<IInviteCodeListItem>
@@ -167,25 +128,11 @@ export function InviteCodeListTable({
           rowProps={{ px: '$2', minHeight: '$10' }}
           scrollEnabled={false}
         />
-        {/* Native shadow overlay using gradient */}
-        {platformEnv.isNative && showFixedShadow && sortedData.length > 0 ? (
-          <Stack
-            position="absolute"
-            top={0}
-            bottom={0}
-            right={-12}
-            width={12}
-            pointerEvents="none"
-          >
-            <LinearGradient
-              width="100%"
-              height="100%"
-              colors={shadowGradientColors}
-              start={[0, 0]}
-              end={[1, 0]}
-            />
-          </Stack>
-        ) : null}
+        <FixedColumnShadowOverlay
+          position="left"
+          visible={showShadow}
+          isDark={isDark}
+        />
       </YStack>
 
       {/* Scrollable columns */}
@@ -194,9 +141,7 @@ export function InviteCodeListTable({
         horizontal
         showsHorizontalScrollIndicator
         bounces={false}
-        onScroll={
-          platformEnv.isNative ? handleNativeScroll : checkShadowVisibilityWeb
-        }
+        onScroll={platformEnv.isNative ? handleNativeScroll : handleWebScroll}
         scrollEventThrottle={16}
         contentContainerStyle={{
           flexGrow: 1,
