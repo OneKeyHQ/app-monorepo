@@ -204,7 +204,7 @@ function PerpTradesHistoryList({
         title: intl.formatMessage({
           id: ETranslations.perp_trades_close_pnl,
         }),
-        minWidth: 100,
+        minWidth: 80,
         flex: 1,
         align: 'right',
         fixed: true,
@@ -222,18 +222,25 @@ function PerpTradesHistoryList({
   );
 
   const renderTradesHistoryRow = useCallback(
-    (item: IFill, _index: number) => {
-      return (
-        <TradesHistoryRow
-          fill={item}
-          isMobile={isMobile}
-          cellMinWidth={totalMinWidth}
-          columnConfigs={columnsConfig}
-          index={_index}
-          onShare={handleShare}
-        />
-      );
-    },
+    (
+      item: IFill,
+      _index: number,
+      renderMode?: 'full' | 'left' | 'right',
+      isHovered?: boolean,
+      onHoverChange?: (index: number | null) => void,
+    ) => (
+      <TradesHistoryRow
+        fill={item}
+        isMobile={isMobile}
+        cellMinWidth={totalMinWidth}
+        columnConfigs={columnsConfig}
+        index={_index}
+        onShare={handleShare}
+        renderMode={renderMode}
+        isHovered={isHovered}
+        onHoverChange={onHoverChange}
+      />
+    ),
     [isMobile, totalMinWidth, columnsConfig, handleShare],
   );
   const [isLocked] = useAppIsLockedAtom();

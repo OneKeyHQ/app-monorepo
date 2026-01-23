@@ -130,7 +130,7 @@ function PerpPositionsList({
         title: `${intl.formatMessage({
           id: ETranslations.perp_position_close,
         })}`,
-        minWidth: 100,
+        minWidth: 80,
         align: 'right',
         flex: 1,
         fixed: true,
@@ -156,17 +156,24 @@ function PerpPositionsList({
     });
   }, [positionsLength]);
 
-  const renderPositionRow = (item: { index: number }, _index: number) => {
-    return (
-      <PositionRow
-        mockedPosition={item}
-        isMobile={isMobile}
-        cellMinWidth={totalMinWidth}
-        columnConfigs={columnsConfig}
-        handleViewTpslOrders={handleViewTpslOrders}
-      />
-    );
-  };
+  const renderPositionRow = (
+    item: { index: number },
+    _index: number,
+    renderMode?: 'full' | 'left' | 'right',
+    isHovered?: boolean,
+    onHoverChange?: (index: number | null) => void,
+  ) => (
+    <PositionRow
+      mockedPosition={item}
+      isMobile={isMobile}
+      cellMinWidth={totalMinWidth}
+      columnConfigs={columnsConfig}
+      handleViewTpslOrders={handleViewTpslOrders}
+      renderMode={renderMode}
+      isHovered={isHovered}
+      onHoverChange={onHoverChange}
+    />
+  );
   const actions = useHyperliquidActions();
   return (
     <CommonTableListView
