@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import {
+  Icon,
   IconButton,
   Input,
   SizableText,
@@ -17,7 +18,11 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useBulkSendAmountsInputContext } from './Context';
 import { showSetAmountPerAddressDialog } from './SetAmountPerAddressDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { generateAmountsFromSpecifiedAmount, generateRandomAmountsFromRange } from '../../../utils';
+import {
+  generateAmountsFromSpecifiedAmount,
+  generateRandomAmountsFromRange,
+} from '../../../utils';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 function AssetSection() {
   const { networkId, tokenInfo, tokenDetails } =
@@ -141,7 +146,6 @@ function SetAmountPerAddressSection() {
           }));
         }
         setTransfersInfo(newTransfersInfo);
-
       },
     });
   }, [
@@ -172,16 +176,41 @@ function SetAmountPerAddressSection() {
 }
 
 function TransferInfoListSection() {
-  const { transfersInfo, setTransfersInfo, amountInputMode } =
-    useBulkSendAmountsInputContext();
+  const {
+    transfersInfo,
+    setTransfersInfo,
+    amountInputMode,
+    tokenInfo,
+    transferInfoErrors,
+    setTransferInfoErrors,
+  } = useBulkSendAmountsInputContext();
 
   const handleDelete = useCallback(
     (index: number) => {
       const newTransfersInfo = [...transfersInfo];
       newTransfersInfo.splice(index, 1);
       setTransfersInfo(newTransfersInfo);
+
+      // Remove the error for the deleted index and shift subsequent indices
+      const newErrors = { ...transferInfoErrors };
+      delete newErrors[index];
+      const shiftedErrors: typeof newErrors = {};
+      Object.keys(newErrors).forEach((key) => {
+        const keyNum = Number(key);
+        if (keyNum > index) {
+          shiftedErrors[keyNum - 1] = newErrors[keyNum];
+        } else {
+          shiftedErrors[keyNum] = newErrors[keyNum];
+        }
+      });
+      setTransferInfoErrors(shiftedErrors);
     },
-    [transfersInfo, setTransfersInfo],
+    [
+      transfersInfo,
+      setTransfersInfo,
+      transferInfoErrors,
+      setTransferInfoErrors,
+    ],
   );
 
   const handleAmountChange = useCallback(
@@ -192,8 +221,35 @@ function TransferInfoListSection() {
         amount: value,
       };
       setTransfersInfo(newTransfersInfo);
+
+      // Validate and update errors
+      const { isValid, error } = validateTokenAmount({
+        token: tokenInfo,
+        amount: value,
+      });
+      const newErrors = { ...transferInfoErrors };
+      if (!isValid && error) {
+        newErrors[index] = {
+          ...newErrors[index],
+          amount: error,
+        };
+      } else if (newErrors[index]) {
+        const { amount: _, ...rest } = newErrors[index];
+        if (Object.keys(rest).length === 0) {
+          delete newErrors[index];
+        } else {
+          newErrors[index] = rest;
+        }
+      }
+      setTransferInfoErrors(newErrors);
     },
-    [transfersInfo, setTransfersInfo],
+    [
+      transfersInfo,
+      setTransfersInfo,
+      tokenInfo,
+      transferInfoErrors,
+      setTransferInfoErrors,
+    ],
   );
 
   const isCustomMode = amountInputMode === EAmountInputMode.Custom;
@@ -252,61 +308,140 @@ function TransferInfoListSection() {
       </XStack>
 
       {/* List Items */}
-      {transfersInfo.map((transfer, index) => (
-        <XStack
-          key={`${transfer.from}-${transfer.to}-${index}`}
-          px="$5"
-          py="$2"
-          gap="$3"
-          alignItems="flex-start"
-          minHeight={48}
-        >
-          {/* FROM */}
-          <XStack flex={1} minWidth={0} gap="$1">
-            <SizableText size="$bodyMdMedium" color="$textDisabled">
-              {index + 1}.
-            </SizableText>
-            <SizableText size="$bodyMdMedium" flex={1} minWidth={0}>
-              {transfer.from}
-            </SizableText>
-          </XStack>
+      {transfersInfo.map((transfer, index) => {
+        const errors = transferInfoErrors[index];
+        const hasFromError = !!errors?.from;
+        const hasToError = !!errors?.to;
+        const hasAmountError = !!errors?.amount;
 
-          {/* TO */}
-          <Stack flex={1} minWidth={0}>
-            <SizableText size="$bodyMdMedium">{transfer.to}</SizableText>
-          </Stack>
+        return (
+          <XStack
+            key={`${transfer.from}-${transfer.to}-${index}`}
+            px="$5"
+            py="$2"
+            gap="$3"
+            alignItems="flex-start"
+            minHeight={48}
+          >
+            {/* FROM */}
+            <YStack flex={1} minWidth={0} gap="$1">
+              <XStack gap="$1">
+                <SizableText size="$bodyMdMedium" color="$textDisabled">
+                  {index + 1}.
+                </SizableText>
+                <SizableText
+                  size="$bodyMdMedium"
+                  flex={1}
+                  minWidth={0}
+                  color={hasFromError ? '$textCritical' : undefined}
+                >
+                  {transfer.from}
+                </SizableText>
+              </XStack>
+              {hasFromError ? (
+                <XStack gap="$1" alignItems="center">
+                  <Icon
+                    name="InfoCircleOutline"
+                    size="$4"
+                    color="$iconCritical"
+                  />
+                  <SizableText size="$bodySm" color="$textCritical">
+                    {errors.from}
+                  </SizableText>
+                </XStack>
+              ) : null}
+            </YStack>
 
-          {/* AMOUNT */}
-          <Stack width={80} alignItems="flex-end">
-            {isCustomMode ? (
-              <Input
-                value={transfer.amount}
-                onChangeText={(value) => handleAmountChange(index, value)}
-                placeholder="0"
-                keyboardType="decimal-pad"
-                textAlign="right"
-                size="small"
-                borderWidth={0}
-                backgroundColor="transparent"
-                px="$0"
-              />
-            ) : (
-              <SizableText size="$bodyLgMedium">
-                {transfer.amount || '0'}
+            {/* TO */}
+            <YStack flex={1} minWidth={0} gap="$1">
+              <SizableText
+                size="$bodyMdMedium"
+                color={hasToError ? '$textCritical' : undefined}
+              >
+                {transfer.to}
               </SizableText>
-            )}
-          </Stack>
+              {hasToError ? (
+                <XStack gap="$1" alignItems="center">
+                  <Icon
+                    name="InfoCircleOutline"
+                    size="$4"
+                    color="$iconCritical"
+                  />
+                  <SizableText size="$bodySm" color="$textCritical">
+                    {errors.to}
+                  </SizableText>
+                </XStack>
+              ) : null}
+            </YStack>
 
-          {/* ACTION */}
-          <Stack width={64} alignItems="flex-end">
-            <IconButton
-              icon="DeleteOutline"
-              variant="tertiary"
-              size="small"
-              disabled={transfersInfo.length === 1}
-              onPress={() => handleDelete(index)}
-            />
-          </Stack>
+            {/* AMOUNT */}
+            <Stack width={80} alignItems="flex-end">
+              {isCustomMode ? (
+                <Input
+                  value={transfer.amount}
+                  onChangeText={(value) => handleAmountChange(index, value)}
+                  placeholder="0"
+                  keyboardType="decimal-pad"
+                  textAlign="right"
+                  size="small"
+                  containerProps={{
+                    width: '100%',
+                    borderWidth: hasAmountError ? 1 : 0,
+                    borderColor: hasAmountError ? '$borderCritical' : undefined,
+                    backgroundColor: '$bgSubdued',
+                  }}
+                />
+              ) : (
+                <SizableText size="$bodyLgMedium">
+                  {transfer.amount || '0'}
+                </SizableText>
+              )}
+            </Stack>
+
+            {/* ACTION */}
+            <Stack width={64} alignItems="flex-end">
+              <IconButton
+                icon="DeleteOutline"
+                variant="tertiary"
+                size="small"
+                disabled={transfersInfo.length === 1}
+                onPress={() => handleDelete(index)}
+              />
+            </Stack>
+          </XStack>
+        );
+      })}
+    </YStack>
+  );
+}
+
+function AmountErrorsList() {
+  const { transferInfoErrors } = useBulkSendAmountsInputContext();
+
+  const amountErrors = useMemo(() => {
+    const errors: { line: number; message: string }[] = [];
+    Object.keys(transferInfoErrors).forEach((key) => {
+      const index = Number(key);
+      const error = transferInfoErrors[index];
+      if (error?.amount) {
+        errors.push({ line: index + 1, message: error.amount });
+      }
+    });
+    return errors.toSorted((a, b) => a.line - b.line);
+  }, [transferInfoErrors]);
+
+  if (amountErrors.length === 0) {
+    return null;
+  }
+
+  return (
+    <YStack gap="$1">
+      {amountErrors.map(({ line, message }) => (
+        <XStack key={line} gap="$1" alignItems="center">
+          <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
+          <SizableText size="$bodySm" color="$textCritical">
+            Line {line}: {message}
+          </SizableText>
         </XStack>
       ))}
     </YStack>
@@ -320,7 +455,10 @@ function TableLayout() {
         <AssetSection />
         <SetAmountPerAddressSection />
       </XStack>
-      <TransferInfoListSection />
+      <YStack gap="$3">
+        <TransferInfoListSection />
+        <AmountErrorsList />
+      </YStack>
     </YStack>
   );
 }

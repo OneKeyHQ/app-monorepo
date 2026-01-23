@@ -10,9 +10,7 @@ import {
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
-import {
-  BulkSendAmountsInputContext,
-} from './Context';
+import { BulkSendAmountsInputContext } from './Context';
 import { AmountInputSection } from './AmountInput';
 import { AmountPreview } from './AmountPreview';
 import { calculateIsAmountValid, calculateTotalAmounts } from '../../../utils';
@@ -29,9 +27,11 @@ type ISetAmountPerAddressDialogProps = {
 };
 
 function DialogAmountPreview() {
-  return <Stack mt="$6">
-    <AmountPreview inDialog />
-  </Stack>
+  return (
+    <Stack mt="$6">
+      <AmountPreview inDialog />
+    </Stack>
+  );
 }
 
 function SetAmountPerAddressDialogContent({
@@ -60,11 +60,7 @@ function SetAmountPerAddressDialogContent({
         amountInputErrors,
         amountInputValues,
       }),
-    [
-      amountInputMode,
-      amountInputErrors,
-      amountInputValues,
-    ],
+    [amountInputMode, amountInputErrors, amountInputValues],
   );
 
   // Calculate total amounts using shared logic
@@ -77,7 +73,6 @@ function SetAmountPerAddressDialogContent({
     [transfersInfo, tokenDetails?.price],
   );
 
-
   const handleConfirm = useCallback(() => {
     onConfirm(amountInputMode, amountInputValues);
   }, [amountInputMode, amountInputValues, onConfirm]);
@@ -89,21 +84,23 @@ function SetAmountPerAddressDialogContent({
       networkId,
       tokenInfo,
       tokenDetails,
-      setTokenDetails: () => { },
+      setTokenDetails: () => {},
       tokenDetailsState: {
         initialized: true,
         isRefreshing: false,
       },
-      setTokenDetailsState: () => { },
+      setTokenDetailsState: () => {},
       bulkSendMode: EBulkSendMode.OneToMany,
       transfersInfo,
-      setTransfersInfo: () => { },
+      setTransfersInfo: () => {},
       amountInputMode,
       setAmountInputMode,
       amountInputValues,
       setAmountInputValues,
       amountInputErrors,
       setAmountInputErrors,
+      transferInfoErrors: {},
+      setTransferInfoErrors: () => {},
       isAmountValid,
       totalTokenAmount,
       totalFiatAmount,

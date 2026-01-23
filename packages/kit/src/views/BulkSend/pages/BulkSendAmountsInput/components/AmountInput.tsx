@@ -12,7 +12,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
-import { EAmountInputMode, type IAmountInputError } from '@onekeyhq/shared/types/bulkSend';
+import {
+  EAmountInputMode,
+  type IAmountInputError,
+} from '@onekeyhq/shared/types/bulkSend';
 
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -21,72 +24,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useBulkSendAmountsInputContext } from './Context';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-
-// Validation helper
-function validateAmount(
-  value: string,
-  balance: string,
-  decimals: number,
-  receiverCount: number,
-): string | undefined {
-  if (!value || value === '') {
-    return 'Amount is required';
-  }
-
-  const amount = new BigNumber(value);
-
-  if (amount.isNaN()) {
-    return 'Invalid amount';
-  }
-
-  if (amount.isNegative()) {
-    return 'Amount cannot be negative';
-  }
-
-  const decimalPlaces = amount.decimalPlaces() ?? 0;
-  if (decimalPlaces > decimals) {
-    return `Maximum ${decimals} decimal places`;
-  }
-
-  const totalAmount = amount.times(receiverCount);
-  if (totalAmount.isGreaterThan(balance)) {
-    return 'Insufficient balance';
-  }
-
-  return undefined;
-}
-
-function validateRangeAmount(
-  value: string,
-  balance: string,
-  decimals: number,
-  fieldName: string,
-): string | undefined {
-  if (!value || value === '') {
-    return `${fieldName} is required`;
-  }
-
-  const amount = new BigNumber(value);
-
-  if (amount.isNaN()) {
-    return 'Invalid amount';
-  }
-
-  if (amount.isNegative()) {
-    return 'Amount cannot be negative';
-  }
-
-  const decimalPlaces = amount.decimalPlaces() ?? 0;
-  if (decimalPlaces > decimals) {
-    return `Maximum ${decimals} decimal places`;
-  }
-
-  if (amount.isGreaterThan(balance)) {
-    return 'Insufficient balance';
-  }
-
-  return undefined;
-}
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 export function SpecifiedAmountInput() {
   const {
@@ -106,7 +44,6 @@ export function SpecifiedAmountInput() {
   const isLoading =
     !tokenDetailsState.initialized && tokenDetailsState.isRefreshing;
   const balance = tokenDetails?.balanceParsed ?? '0';
-  const decimals = tokenInfo.decimals;
   const tokenSymbol = tokenInfo.symbol;
 
   const handleChange = useCallback(
@@ -116,12 +53,16 @@ export function SpecifiedAmountInput() {
         specifiedAmount: value,
       });
 
-      const error = validateAmount(
-        value,
-        balance,
-        decimals,
-        transfersInfo.length,
-      );
+      const { error } = validateTokenAmount({
+        token: tokenInfo,
+        amount: new BigNumber(value || '0')
+          .times(transfersInfo.length)
+          .toFixed(),
+        maxAmount: balance ?? '0',
+        customErrorMessages: {
+          maxAmount: 'Insufficient balance',
+        },
+      });
       setAmountInputErrors({
         ...amountInputErrors,
         specifiedAmount: error,
@@ -130,8 +71,8 @@ export function SpecifiedAmountInput() {
     [
       amountInputValues,
       setAmountInputValues,
+      tokenInfo,
       balance,
-      decimals,
       transfersInfo.length,
       amountInputErrors,
       setAmountInputErrors,
@@ -188,15 +129,31 @@ export function RangeAmountInput() {
   const [settings] = useSettingsPersistAtom();
 
   const balance = tokenDetails?.balanceParsed ?? '0';
-  const decimals = tokenInfo.decimals;
 
   const validateRange = useCallback(
     (min: string, max: string): IAmountInputError => {
       const errors: IAmountInputError = {};
 
-      errors.rangeMin = validateRangeAmount(min, balance, decimals, 'Min');
-      errors.rangeMax = validateRangeAmount(max, balance, decimals, 'Max');
-
+      const { error: rangeMinError } = validateTokenAmount({
+        token: tokenInfo,
+        amount: min,
+        maxAmount: balance,
+        customErrorMessages: {
+          emptyAmount: 'Min is required',
+          maxAmount: 'Insufficient balance',
+        },
+      });
+      errors.rangeMin = rangeMinError;
+      const { error: rangeMaxError } = validateTokenAmount({
+        token: tokenInfo,
+        amount: max,
+        maxAmount: balance,
+        customErrorMessages: {
+          emptyAmount: 'Max is required',
+          maxAmount: 'Insufficient balance',
+        },
+      });
+      errors.rangeMax = rangeMaxError;
       // Check max > min
       if (!errors.rangeMin && !errors.rangeMax) {
         const minBN = new BigNumber(min);
@@ -208,7 +165,7 @@ export function RangeAmountInput() {
 
       return errors;
     },
-    [balance, decimals],
+    [tokenInfo, balance],
   );
 
   const handleMinChange = useCallback(
@@ -290,8 +247,9 @@ export function RangeAmountInput() {
                 onChangeText={handleMinChange}
                 placeholder="0"
                 keyboardType="decimal-pad"
-                borderWidth={0}
-                backgroundColor="transparent"
+                containerProps={{
+                  width: '100%',
+                }}
                 fontSize={28}
                 fontWeight="600"
                 px="$0"
@@ -339,8 +297,9 @@ export function RangeAmountInput() {
                 onChangeText={handleMaxChange}
                 placeholder="Max"
                 keyboardType="decimal-pad"
-                borderWidth={0}
-                backgroundColor="transparent"
+                containerProps={{
+                  width: '100%',
+                }}
                 fontSize={28}
                 fontWeight="600"
                 px="$0"
@@ -488,7 +447,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       default:
         return null;
     }
-  }, [amountInputMode]);
+  }, [amountInputMode, inDialog]);
 
   return (
     <YStack gap="$4" w="100%">

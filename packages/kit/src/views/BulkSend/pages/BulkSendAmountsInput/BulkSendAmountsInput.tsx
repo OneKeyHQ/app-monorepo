@@ -34,6 +34,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   type IAmountInputError,
   type IAmountInputValues,
+  type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
 
@@ -130,6 +131,10 @@ function BulkSendAmountsInput() {
     {},
   );
 
+  // Transfer info errors state
+  const [transferInfoErrors, setTransferInfoErrors] =
+    useState<ITransferInfoErrors>({});
+
   const [transfersInfo, setTransfersInfo] = useState<ITransferInfo[]>([]);
 
   // Calculate if current mode is valid using shared logic
@@ -140,11 +145,7 @@ function BulkSendAmountsInput() {
         amountInputErrors,
         amountInputValues,
       }),
-    [
-      amountInputMode,
-      amountInputErrors,
-      amountInputValues,
-    ],
+    [amountInputMode, amountInputErrors, amountInputValues],
   );
 
   const { totalTokenAmount, totalFiatAmount } = useMemo(
@@ -294,6 +295,8 @@ function BulkSendAmountsInput() {
       setAmountInputValues,
       amountInputErrors,
       setAmountInputErrors,
+      transferInfoErrors,
+      setTransferInfoErrors,
       isAmountValid,
       totalTokenAmount,
       totalFiatAmount,
@@ -309,6 +312,7 @@ function BulkSendAmountsInput() {
       amountInputMode,
       amountInputValues,
       amountInputErrors,
+      transferInfoErrors,
       isAmountValid,
       tokenInfo,
       totalTokenAmount,

@@ -15,7 +15,6 @@ export enum EAmountInputMode {
   Custom = 'custom',
 }
 
-
 export type IAmountInputValues = {
   specifiedAmount: string;
   rangeMin: string;
@@ -27,3 +26,11 @@ export type IAmountInputError = {
   rangeMin?: string;
   rangeMax?: string;
 };
+
+export type ITransferInfoError = {
+  from?: string;
+  to?: string;
+  amount?: string;
+};
+
+export type ITransferInfoErrors = Record<number, ITransferInfoError>;

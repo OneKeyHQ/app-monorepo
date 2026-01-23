@@ -1,12 +1,12 @@
-import BigNumber from "bignumber.js";
+import BigNumber from 'bignumber.js';
 
 import {
   EAmountInputMode,
   type IAmountInputError,
   type IAmountInputValues,
-} from "@onekeyhq/shared/types/bulkSend";
-import type { ITransferInfo } from "@onekeyhq/kit-bg/src/vaults/types";
-import { OneKeyLocalError } from "@onekeyhq/shared/src/errors";
+} from '@onekeyhq/shared/types/bulkSend';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 export function calculateIsAmountValid({
   amountInputMode,
@@ -19,13 +19,16 @@ export function calculateIsAmountValid({
 }): boolean {
   switch (amountInputMode) {
     case EAmountInputMode.Specified:
-      return !amountInputErrors.specifiedAmount && amountInputValues.specifiedAmount !== "";
+      return (
+        !amountInputErrors.specifiedAmount &&
+        amountInputValues.specifiedAmount !== ''
+      );
     case EAmountInputMode.Range:
       return (
         !amountInputErrors.rangeMin &&
         !amountInputErrors.rangeMax &&
-        amountInputValues.rangeMin !== "" &&
-        amountInputValues.rangeMax !== ""
+        amountInputValues.rangeMin !== '' &&
+        amountInputValues.rangeMax !== ''
       );
     default:
       return true;
@@ -41,14 +44,15 @@ export function calculateTotalAmounts({
 }): { totalTokenAmount: string; totalFiatAmount: string } {
   let total = new BigNumber(0);
   for (const transfer of transfersInfo) {
-    const amount = new BigNumber(transfer.amount || "0");
+    const amount = new BigNumber(transfer.amount || '0');
     if (!amount.isNaN()) {
       total = total.plus(amount);
     }
   }
-  const fiat = tokenPrice && !total.isZero() ? total.times(tokenPrice).toFixed() : "0";
+  const fiat =
+    tokenPrice && !total.isZero() ? total.times(tokenPrice).toFixed() : '0';
   return {
-    totalTokenAmount: total.isZero() ? "0" : total.toFixed(),
+    totalTokenAmount: total.isZero() ? '0' : total.toFixed(),
     totalFiatAmount: fiat,
   };
 }
@@ -57,7 +61,7 @@ export function calculateTotalAmounts({
  * Gets the number of decimal places in a numeric string.
  */
 function getDecimalPlaces(value: string): number {
-  const parts = value.split(".");
+  const parts = value.split('.');
   return parts.length > 1 ? parts[1].length : 0;
 }
 
@@ -138,7 +142,10 @@ export function generateRandomAmountsFromRange({
     const totalBalanceBN = new BigNumber(balance[0]);
     if (!totalBalanceBN.isNaN()) {
       // Calculate total
-      let total = randomAmounts.reduce((sum, amt) => sum.plus(amt), new BigNumber(0));
+      let total = randomAmounts.reduce(
+        (sum, amt) => sum.plus(amt),
+        new BigNumber(0),
+      );
 
       // If total exceeds balance, scale down proportionally
       if (total.isGreaterThan(totalBalanceBN)) {
@@ -157,7 +164,10 @@ export function generateRandomAmountsFromRange({
         }
 
         // Recalculate total after clamping
-        total = randomAmounts.reduce((sum, amt) => sum.plus(amt), new BigNumber(0));
+        total = randomAmounts.reduce(
+          (sum, amt) => sum.plus(amt),
+          new BigNumber(0),
+        );
 
         // If still over balance after clamping, reduce amounts starting from largest
         if (total.isGreaterThan(totalBalanceBN)) {
@@ -183,7 +193,9 @@ export function generateRandomAmountsFromRange({
     }
   }
 
-  return randomAmounts.map((amount) => amount.toFixed(outputDecimals, BigNumber.ROUND_DOWN));
+  return randomAmounts.map((amount) =>
+    amount.toFixed(outputDecimals, BigNumber.ROUND_DOWN),
+  );
 }
 
 export function generateAmountsFromSpecifiedAmount({

@@ -25,19 +25,28 @@ export function AmountPreview({ inDialog }: { inDialog?: boolean }) {
     return amountInputMode !== EAmountInputMode.Custom;
   }, [inDialog, amountInputMode]);
 
-
   const { totalTokenAmount, totalFiatAmount } = useMemo(() => {
     if (inDialog) {
-      const totalTokenAmount = new BigNumber(amountInputValues.specifiedAmount || '0').times(transfersInfo.length).toFixed();
-      const totalFiatAmount = new BigNumber(totalTokenAmount).times(tokenDetails?.price ?? 0).toFixed();
+      const totalTokenAmount = new BigNumber(
+        amountInputValues.specifiedAmount || '0',
+      )
+        .times(transfersInfo.length)
+        .toFixed();
+      const totalFiatAmount = new BigNumber(totalTokenAmount)
+        .times(tokenDetails?.price ?? 0)
+        .toFixed();
       return { totalTokenAmount, totalFiatAmount };
     }
     return calculateTotalAmounts({
       transfersInfo,
       tokenPrice: tokenDetails?.price,
     });
-  }, [amountInputValues.specifiedAmount, inDialog, tokenDetails?.price, transfersInfo]);
-
+  }, [
+    amountInputValues.specifiedAmount,
+    inDialog,
+    tokenDetails?.price,
+    transfersInfo,
+  ]);
 
   return (
     <YStack>
@@ -48,13 +57,23 @@ export function AmountPreview({ inDialog }: { inDialog?: boolean }) {
               Total amount
             </SizableText>
             <XStack alignItems="center" gap="$1">
-              <NumberSizeableText size="$bodyLgMedium" formatter="balance" formatterOptions={{ tokenSymbol: tokenDetails?.info.symbol }}>
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol: tokenDetails?.info.symbol }}
+              >
                 {totalTokenAmount}
               </NumberSizeableText>
               <SizableText size="$bodyLgMedium" color="$textSubdued">
-                (<NumberSizeableText size="$bodyLgMedium" formatter="value" formatterOptions={{ currency: settings.currencyInfo.symbol }}>
+                (
+                <NumberSizeableText
+                  size="$bodyLgMedium"
+                  formatter="value"
+                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
+                >
                   {totalFiatAmount}
-                </NumberSizeableText>)
+                </NumberSizeableText>
+                )
               </SizableText>
             </XStack>
           </YStack>
@@ -68,7 +87,11 @@ export function AmountPreview({ inDialog }: { inDialog?: boolean }) {
           <SizableText size="$bodyMd" color="$textSubdued">
             Available:
           </SizableText>
-          <NumberSizeableText size="$bodyMd" formatter="balance" formatterOptions={{ tokenSymbol: tokenDetails?.info.symbol }}>
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: tokenDetails?.info.symbol }}
+          >
             {tokenDetails?.balanceParsed ?? '-'}
           </NumberSizeableText>
         </XStack>
