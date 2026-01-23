@@ -133,7 +133,19 @@ function isValidEmail(email: string): boolean {
   if (!email || !isString(email)) {
     return false;
   }
-  return validator.isEmail(email);
+  if (!validator.isEmail(email)) {
+    return false;
+  }
+  // Disallow internationalized domain names (e.g., Chinese domains)
+  const domain = email.split('@')[1];
+  if (domain) {
+    for (let i = 0; i < domain.length; i += 1) {
+      if (domain.charCodeAt(i) > 127) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 function addSeparatorToString({
