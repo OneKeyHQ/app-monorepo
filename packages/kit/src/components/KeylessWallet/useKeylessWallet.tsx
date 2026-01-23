@@ -2,7 +2,14 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
+import {
+  Dialog,
+  SizableText,
+  Toast,
+  YStack,
+  rootNavigationRef,
+} from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   primePersistAtom,
@@ -700,7 +707,7 @@ export function useKeylessWallet() {
         try {
           keylessWallet =
             await backgroundApiProxy.serviceAccount.getKeylessWallet();
-        } catch (error) {
+        } catch (_error) {
           // Continue to navigation if getKeylessWallet fails
         }
         const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId || '';
@@ -714,7 +721,7 @@ export function useKeylessWallet() {
               await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
                 { ownerId },
               );
-          } catch (error) {
+          } catch (_error) {
             // Continue to navigation if refresh fails
           }
 
@@ -851,32 +858,43 @@ export function useKeylessWallet() {
       let mnemonic = '';
       let ownerId = '';
       let keylessDetailsInfo;
-      if (action === EKeylessFinalizeAction.Create) {
-        const result =
-          await backgroundApiProxy.serviceKeylessWallet.createKeylessWalletToServer(
-            {
-              token,
-              refreshToken,
-              pin,
-              customMnemonic: await getKeylessOnboardingCustomMnemonic(),
-            },
-          );
-        mnemonic = result.mnemonic;
-        ownerId = result.ownerId;
-        keylessDetailsInfo = result.keylessDetailsInfo;
-      }
-      if (action === EKeylessFinalizeAction.Restore) {
-        const result =
-          await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletFromServer(
-            {
-              token,
-              refreshToken,
-              pin,
-            },
-          );
-        mnemonic = result.mnemonic;
-        ownerId = result.ownerId;
-        keylessDetailsInfo = result.keylessDetailsInfo;
+      let loadingDialog: IDialogInstance | undefined;
+      try {
+        loadingDialog = Dialog.loading({
+          title: intl.formatMessage({
+            id: ETranslations.global_preparing,
+          }),
+        });
+        await timerUtils.wait(600);
+        if (action === EKeylessFinalizeAction.Create) {
+          const result =
+            await backgroundApiProxy.serviceKeylessWallet.createKeylessWalletToServer(
+              {
+                token,
+                refreshToken,
+                pin,
+                customMnemonic: await getKeylessOnboardingCustomMnemonic(),
+              },
+            );
+          mnemonic = result.mnemonic;
+          ownerId = result.ownerId;
+          keylessDetailsInfo = result.keylessDetailsInfo;
+        }
+        if (action === EKeylessFinalizeAction.Restore) {
+          const result =
+            await backgroundApiProxy.serviceKeylessWallet.restoreKeylessWalletFromServer(
+              {
+                token,
+                refreshToken,
+                pin,
+              },
+            );
+          mnemonic = result.mnemonic;
+          ownerId = result.ownerId;
+          keylessDetailsInfo = result.keylessDetailsInfo;
+        }
+      } finally {
+        await loadingDialog?.close?.();
       }
       navigation.navigate(ERootRoutes.Onboarding, {
         screen: EOnboardingV2Routes.OnboardingV2,
@@ -1002,20 +1020,10 @@ export function useVerifyKeylessPinChecking() {
   const [devSettings] = useDevSettingsPersistAtom();
 
   const cancelVerifyPin = useCallback(
-    async (ownerId: string) => {
-      const accessToken =
-        await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
-          { ownerId },
-        );
-
-      if (accessToken) {
-        await backgroundApiProxy.serviceKeylessWallet.apiUpdatePinConfirmStatus(
-          {
-            token: accessToken,
-            isCancelAction: true,
-          },
-        );
-      }
+    async (ownerId: string | 'CURRENT_KEYLESS_WALLET') => {
+      await backgroundApiProxy.serviceKeylessWallet.cancelVerifyPin({
+        ownerId,
+      });
 
       // save last cancel verify pin time
       setKeylessLastCancelVerifyPinTime(Date.now());
@@ -1111,17 +1119,37 @@ export function useVerifyKeylessPinChecking() {
               showExitButton: false,
               disableDrag: true,
               dismissOnOverlayPress: false,
-              icon: 'Shield2CheckOutline',
+              icon: 'InputOutline',
               tone: 'success',
               title: intl.formatMessage({
                 id: ETranslations.pin_verify_reminder_dialog_title,
               }),
-              description: intl.formatMessage({
-                id: ETranslations.pin_verify_reminder_dialog_desc,
-              }),
+              renderContent: (
+                <YStack gap="$3">
+                  <SizableText size="$bodyLg">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.pin_verify_reminder_dialog_desc,
+                      },
+                      {
+                        em: (chunks: React.ReactNode) => (
+                          <SizableText size="$bodyLgMedium">
+                            {chunks}
+                          </SizableText>
+                        ),
+                      },
+                    )}
+                  </SizableText>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.pin_reminder_email_tip,
+                    })}
+                  </SizableText>
+                </YStack>
+              ),
               showCancelButton: true,
               onCancelText: intl.formatMessage({
-                id: ETranslations.global_not_now,
+                id: ETranslations.global_later,
               }),
               onClose: () => {
                 isPinReminderDialogShowing = false;
@@ -1145,56 +1173,78 @@ export function useVerifyKeylessPinChecking() {
                 }
               },
               onConfirmText: intl.formatMessage({
-                id: ETranslations.pin_verify_reminder_dialog_button_label,
+                id: ETranslations.global_continue,
               }),
-              onConfirm: async () => {
+              onConfirm: async ({ close }) => {
+                // Close PIN reminder dialog first
                 isPinReminderDialogShowing = false;
-                const shouldVerifyPin0 = await checkShouldVerifyPin();
-                if (!shouldVerifyPin0) {
-                  Toast.success({
+                await close();
+
+                try {
+                  // Verify password (returns immediately if cached, otherwise shows dialog)
+                  await backgroundApiProxy.servicePassword.promptPasswordVerify();
+
+                  // Password verified - show loading dialog
+                  isPinReminderDialogShowing = true;
+                  const loadingDialog = Dialog.loading({
                     title: intl.formatMessage({
-                      id: ETranslations.pin_verify_reminder_dialog_verified_toast,
+                      id: ETranslations.global_preparing,
                     }),
                   });
-                  return;
-                }
 
-                if (shouldVerifyPin0) {
-                  // check auth server status
-                  const isHealthy =
-                    await backgroundApiProxy.serviceKeylessWallet.apiCheckAuthServerStatus();
-                  if (!isHealthy) {
-                    // TODO i18n @franco
-                    Toast.error({
-                      title:
-                        'Auth server is not healthy, please check your network and try again',
-                    });
-                    return;
-                  }
-                }
-
-                // Use void to start async flow without blocking dialog close
-                void (async () => {
                   try {
-                    await backgroundApiProxy.servicePassword.promptPasswordVerify();
-                    // Password verified, continue to next step
-                    void goToOneKeyIDLoginPageForKeylessWallet({
+                    const shouldVerifyPin0 = await checkShouldVerifyPin();
+                    if (!shouldVerifyPin0) {
+                      Toast.success({
+                        title: intl.formatMessage({
+                          id: ETranslations.pin_verify_reminder_dialog_verified_toast,
+                        }),
+                      });
+                      isPinReminderDialogShowing = false;
+                      await loadingDialog.close();
+                      return;
+                    }
+
+                    const isHealthy =
+                      await backgroundApiProxy.serviceKeylessWallet.apiCheckAuthServerStatus();
+                    if (!isHealthy) {
+                      Toast.error({
+                        title: intl.formatMessage({
+                          id: ETranslations.auth_server_error_text,
+                        }),
+                      });
+                      isPinReminderDialogShowing = false;
+                      await loadingDialog.close();
+                      return;
+                    }
+
+                    // Navigate first (includes async prep work), then close loading dialog
+                    await goToOneKeyIDLoginPageForKeylessWallet({
                       mode: EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly,
                     });
-                  } catch (error) {
-                    // Continue to navigation if cancel fails
-                    if (
-                      errorUtils.isErrorByClassName({
-                        error,
-                        className: [
-                          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-                        ],
-                      })
-                    ) {
-                      showPinReminderDialog();
-                    }
+
+                    isPinReminderDialogShowing = false;
+                    await loadingDialog.close();
+                  } catch (innerError) {
+                    isPinReminderDialogShowing = false;
+                    await loadingDialog.close();
+                    errorToastUtils.toastIfError(innerError);
+                  } finally {
+                    await loadingDialog.close();
                   }
-                })();
+                } catch (error) {
+                  // Password dialog cancelled - reshow original PIN reminder
+                  if (
+                    errorUtils.isErrorByClassName({
+                      error,
+                      className: [
+                        EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+                      ],
+                    })
+                  ) {
+                    showPinReminderDialog();
+                  }
+                }
               },
             });
           };

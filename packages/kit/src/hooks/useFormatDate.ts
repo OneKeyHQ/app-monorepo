@@ -44,7 +44,7 @@ export default function useFormatDate() {
         return fnsFormat(parsedDate, _format ?? 'PPp', {
           locale: parseToDateFnsLocale(locale),
         });
-      } catch (error) {
+      } catch (_error) {
         return '-';
       }
     },

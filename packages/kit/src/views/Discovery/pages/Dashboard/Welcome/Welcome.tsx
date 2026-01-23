@@ -131,7 +131,7 @@ export function Welcome({
 
   // Create a randomized array of dapps
   const shuffledDapps = useMemo(
-    () => [...dapps].sort(() => Math.random() - 0.5),
+    () => [...dapps].toSorted(() => Math.random() - 0.5),
     [dapps],
   );
 

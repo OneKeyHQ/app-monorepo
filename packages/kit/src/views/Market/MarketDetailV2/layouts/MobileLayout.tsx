@@ -32,12 +32,13 @@ import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMi
 import {
   InformationPanel,
   MarketTradingView,
+  PerpetualTradingBanner,
   SwapPanel,
   TokenActivityOverview,
   TokenOverview,
 } from '../components';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
-import { useNetworkAccountAddress } from '../components/InformationTabs/hooks/useNetworkAccountAddress';
+import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import SwapFlashBtn from '../components/SwapPanel/components/SwapFlashBtn';
 import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
@@ -47,11 +48,14 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
     useTokenDetail();
   const intl = useIntl();
-  const { accountAddress } = useNetworkAccountAddress(networkId);
+
+  const { accountAddress, xpub } = useNetworkAccount(networkId);
+
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
+    xpub,
   });
   const tabNames = useMemo(
     () => [
@@ -101,12 +105,15 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     if (platformEnv.isNative) {
       return Number(height) * 0.58;
     }
-    return '40vh';
+    return 'calc(100vh - 96px - 74px - 250px)';
   }, [height]);
 
   const informationHeader = useMemo(() => {
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
+        <Stack px="$5">
+          <PerpetualTradingBanner />
+        </Stack>
         <InformationPanel />
         <Stack h={tradingViewHeight} position="relative">
           <MarketTradingView

@@ -177,11 +177,15 @@ export function AccountSelectorWalletListSideBar({
       const hwWalletCount = wallets.filter(
         (wallet) => wallet.type === 'hw',
       ).length;
+      const keylessWalletCount = wallets.filter(
+        (wallet) => wallet.isKeyless,
+      ).length;
       const appWalletCount = walletCount - hwWalletCount;
       analytics.updateUserProfile({
         walletCount,
         hwWalletCount,
         appWalletCount,
+        keylessWalletCount,
       });
     }
   }, [wallets]);

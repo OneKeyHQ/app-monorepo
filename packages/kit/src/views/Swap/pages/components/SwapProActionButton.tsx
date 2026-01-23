@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,17 +7,26 @@ import { Button, SizableText, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
+  useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
+  useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapSpeedQuoteFetchingAtom,
   useSwapSpeedQuoteResultAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  ESwapProTradeType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import {
@@ -130,16 +139,21 @@ interface ISwapProActionButtonProps {
   onSwapProActionClick: () => void;
   hasEnoughBalance: boolean;
   balanceLoading: boolean;
+  supportSpeedSwap: boolean;
+  onlySupportCrossChain: boolean;
 }
 
 const SwapProActionButton = ({
   onSwapProActionClick,
   hasEnoughBalance,
   balanceLoading,
+  supportSpeedSwap,
+  onlySupportCrossChain,
 }: ISwapProActionButtonProps) => {
   const intl = useIntl();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProAccount = useSwapProAccount();
@@ -245,8 +259,85 @@ const SwapProActionButton = ({
     inputAmount,
     limitPriceUseRate?.rate,
   ]);
+
+  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
+  const { selectToToken, selectFromToken } = useSwapActions().current;
+  const [swapSelectToken, setSwapSelectFromToken] =
+    useSwapSelectFromTokenAtom();
+  const [swapSelectToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
+  const [, setSwapFromInputAmount] = useSwapFromTokenAmountAtom();
+
+  const handleJumpToSwapAction = useCallback(() => {
+    if (onlySupportCrossChain) {
+      void setSwapTypeSwitch(ESwapTabSwitchType.BRIDGE);
+    } else {
+      void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
+    }
+    if (swapProDirection === ESwapDirection.BUY) {
+      if (
+        equalTokenNoCaseSensitive({
+          token1: swapSelectToken,
+          token2: swapProSelectToken,
+        }) &&
+        swapProSelectToken
+      ) {
+        void setSwapSelectFromToken(undefined);
+      }
+      if (inputToken) {
+        void setSwapSelectFromToken(inputToken);
+      }
+      if (swapProSelectToken) {
+        void selectToToken(swapProSelectToken);
+      }
+    } else {
+      if (
+        equalTokenNoCaseSensitive({
+          token1: swapSelectToToken,
+          token2: swapProSelectToken,
+        }) &&
+        swapProSelectToken
+      ) {
+        void setSwapSelectToToken(undefined);
+      }
+      if (toToken) {
+        void setSwapSelectToToken(toToken);
+      }
+      if (swapProSelectToken) {
+        void selectFromToken(swapProSelectToken);
+      }
+    }
+    if (swapProInputAmount) {
+      void setSwapFromInputAmount({
+        value: swapProInputAmount,
+        isInput: true,
+      });
+    }
+  }, [
+    onlySupportCrossChain,
+    swapProDirection,
+    swapProInputAmount,
+    setSwapTypeSwitch,
+    swapSelectToken,
+    swapProSelectToken,
+    inputToken,
+    setSwapSelectFromToken,
+    selectToToken,
+    swapSelectToToken,
+    toToken,
+    setSwapSelectToToken,
+    selectFromToken,
+    setSwapFromInputAmount,
+  ]);
+  const onPressActionButton = useCallback(() => {
+    if (!supportSpeedSwap) {
+      handleJumpToSwapAction();
+    } else {
+      onSwapProActionClick();
+    }
+  }, [supportSpeedSwap, handleJumpToSwapAction, onSwapProActionClick]);
+
   const debouncedOnSwapProActionClick = useDebouncedCallback(
-    onSwapProActionClick,
+    onPressActionButton,
     500,
     { leading: true, trailing: false },
   );
@@ -263,15 +354,37 @@ const SwapProActionButton = ({
     return quoteLoading;
   }, [swapProTradeType, quoteLoading, quoteFetching]);
   const actionButtonDisabled = useMemo(() => {
-    return (
+    let originalDisabled =
       !hasEnoughBalance ||
       !currentQuoteRes?.toAmount ||
       balanceLoading ||
-      currentQuoteLoading
-    );
-  }, [hasEnoughBalance, currentQuoteRes, balanceLoading, currentQuoteLoading]);
+      currentQuoteLoading;
+    if (!supportSpeedSwap) {
+      originalDisabled = !hasEnoughBalance;
+    }
+    return originalDisabled;
+  }, [
+    hasEnoughBalance,
+    currentQuoteRes,
+    balanceLoading,
+    currentQuoteLoading,
+    supportSpeedSwap,
+  ]);
 
   const actionButtonText = useMemo(() => {
+    const directionText = intl.formatMessage({
+      id:
+        swapProDirection === ESwapDirection.BUY
+          ? ETranslations.global_buy
+          : ETranslations.global_sell,
+    });
+
+    let tokenSymbol = inputToken?.symbol ?? '-';
+    const currencySymbol = currencyInfo?.symbol ?? '$';
+    if (swapProDirection === ESwapDirection.BUY) {
+      tokenSymbol = toToken?.symbol ?? '-';
+    }
+
     if (!hasEnoughBalance) {
       return {
         resValue: intl.formatMessage({
@@ -301,20 +414,6 @@ const SwapProActionButton = ({
         }),
         subValue: '',
       };
-    }
-
-    // Format: "Buy {amount} {fromToken} ({Value})"
-    const directionText = intl.formatMessage({
-      id:
-        swapProDirection === ESwapDirection.BUY
-          ? ETranslations.global_buy
-          : ETranslations.global_sell,
-    });
-
-    let tokenSymbol = inputToken?.symbol ?? '-';
-    const currencySymbol = currencyInfo?.symbol ?? '$';
-    if (swapProDirection === ESwapDirection.BUY) {
-      tokenSymbol = toToken?.symbol ?? '-';
     }
     // Format value with compact notation (k, M, B, T)
     const formattedValue = inputTokenValue
@@ -353,13 +452,13 @@ const SwapProActionButton = ({
       subValue,
     };
   }, [
-    hasEnoughBalance,
-    swapProAccount?.result?.addressDetail.address,
-    currentQuoteRes,
     intl,
     swapProDirection,
     inputToken?.symbol,
     currencyInfo?.symbol,
+    hasEnoughBalance,
+    swapProAccount?.result?.addressDetail.address,
+    currentQuoteRes,
     inputTokenValue,
     toToken?.symbol,
     quoteToAmount,

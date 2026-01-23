@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -10,6 +10,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -110,62 +111,8 @@ export function useSpeedSwapActions(props: {
     new BigNumber(0),
   );
 
-  const netAccountRes = usePromiseResult(async () => {
-    try {
-      const defaultDeriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: marketToken?.networkId ?? '',
-        });
-      const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
-        accountId: account?.indexedAccount?.id
-          ? undefined
-          : account?.account?.id,
-        indexedAccountId: account?.indexedAccount?.id ?? '',
-        networkId: marketToken?.networkId,
-        deriveType: defaultDeriveType ?? 'default',
-      });
-      return res;
-    } catch (e) {
-      return undefined;
-    }
-  }, [account, marketToken?.networkId]);
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId: netAccountRes.result?.id ?? '',
-    networkId: marketToken?.networkId,
-  });
-  const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
-    leading: true,
-  });
-
   const [tradeTokenDetail, setTradeTokenDetail] =
     useState<ISwapToken>(tradeToken);
-
-  useEffect(() => {
-    void (async () => {
-      if (!tradeToken?.networkId) return;
-      const tokenDetail =
-        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-          networkId: tradeToken?.networkId ?? '',
-          contractAddress: tradeToken?.contractAddress ?? '',
-        });
-      if (tokenDetail?.length) {
-        setTradeTokenDetail({
-          ...tokenDetail[0],
-          symbol: tradeToken?.symbol,
-          logoURI: tokenDetail[0]?.logoURI
-            ? tokenDetail[0]?.logoURI
-            : tradeToken?.logoURI,
-        });
-      }
-    })();
-  }, [
-    tradeType,
-    defaultTradeTokens,
-    tradeToken?.contractAddress,
-    tradeToken?.logoURI,
-    tradeToken?.networkId,
-    tradeToken?.symbol,
-  ]);
 
   const { fromToken, toToken, balanceToken } = useMemo(() => {
     if (tradeType === ESwapDirection.BUY) {
@@ -181,6 +128,95 @@ export function useSpeedSwapActions(props: {
       balanceToken: marketToken,
     };
   }, [tradeType, marketToken, tradeTokenDetail]);
+
+  // Use atom to get selected derive type from Market Detail page
+  const [selectedDeriveType] = useSelectedDeriveTypeAtom();
+
+  const netAccountRes = usePromiseResult(async () => {
+    try {
+      const defaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: balanceToken?.networkId ?? '',
+        });
+
+      // Prioritize Market Detail page selected derive type over global
+      const effectiveDeriveType =
+        selectedDeriveType ?? defaultDeriveType ?? 'default';
+
+      const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+        accountId: account?.indexedAccount?.id
+          ? undefined
+          : account?.account?.id,
+        indexedAccountId: account?.indexedAccount?.id ?? '',
+        networkId: balanceToken?.networkId,
+        deriveType: effectiveDeriveType,
+      });
+      return res;
+    } catch (_e) {
+      return undefined;
+    }
+  }, [account, balanceToken?.networkId, selectedDeriveType]);
+
+  // Listen for derive type changes and re-fetch network account
+  useEffect(() => {
+    const handleDeriveTypeChanged = () => {
+      void netAccountRes.run();
+    };
+    appEventBus.off(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      handleDeriveTypeChanged,
+    );
+    appEventBus.on(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      handleDeriveTypeChanged,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.NetworkDeriveTypeChanged,
+        handleDeriveTypeChanged,
+      );
+    };
+  }, [netAccountRes]);
+
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId: netAccountRes.result?.id ?? '',
+    networkId: marketToken?.networkId,
+  });
+  const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
+    leading: true,
+  });
+
+  const tradeTokenRef = useRef<ISwapToken>(undefined);
+  if (tradeTokenRef.current !== tradeToken) {
+    tradeTokenRef.current = tradeToken;
+  }
+  const tradeTokenNetworkId = tradeToken.networkId;
+  const tradeTokenContractAddress = tradeToken.contractAddress;
+  useEffect(() => {
+    void (async () => {
+      if (!tradeTokenNetworkId) return;
+      const tokenDetail =
+        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId: tradeTokenNetworkId,
+          contractAddress: tradeTokenContractAddress,
+        });
+      if (tokenDetail?.length) {
+        setTradeTokenDetail({
+          ...tokenDetail[0],
+          symbol: tradeTokenRef.current?.symbol ?? '',
+          logoURI: tokenDetail[0]?.logoURI
+            ? tokenDetail[0]?.logoURI
+            : tradeTokenRef.current?.logoURI ?? '',
+        });
+      }
+    })();
+  }, [
+    tradeType,
+    defaultTradeTokens,
+    tradeTokenNetworkId,
+    tradeTokenContractAddress,
+  ]);
 
   const speedSwapApproveTransactionLoading = useMemo(() => {
     const speedSwapApproveTransaction =
@@ -407,7 +443,7 @@ export function useSpeedSwapActions(props: {
         swapBuildResData: {
           ...buildRes,
           result: {
-            ...(buildRes?.result ?? {}),
+            ...buildRes?.result,
             slippage: buildRes?.result?.slippage ?? slippage,
           },
         },
@@ -445,7 +481,7 @@ export function useSpeedSwapActions(props: {
       });
 
       return buildRes;
-    } catch (e) {
+    } catch (_e) {
       setSpeedSwapBuildTxLoading(false);
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
         fromTokenAmount,
@@ -735,7 +771,7 @@ export function useSpeedSwapActions(props: {
           },
         }));
         setSpeedSwapApproveActionLoading(false);
-      } catch (e) {
+      } catch (_e) {
         setInAppNotificationAtom((pre) => ({
           ...pre,
           speedSwapApprovingLoading: false,
@@ -855,7 +891,7 @@ export function useSpeedSwapActions(props: {
             setBalance(new BigNumber(tokenDetail[0].balanceParsed ?? 0));
           }
           setFetchBalanceLoading(false);
-        } catch (e) {
+        } catch (_e) {
           setFetchBalanceLoading(false);
         }
       } else {
@@ -873,7 +909,7 @@ export function useSpeedSwapActions(props: {
 
   const fetchTokenPrice = useCallback(async () => {
     setPriceRate((prev) => ({
-      ...(prev ?? {}),
+      ...prev,
       loading: true,
     }));
     if (fromToken.price && toToken.price) {
@@ -912,7 +948,7 @@ export function useSpeedSwapActions(props: {
         });
       } else {
         setPriceRate((prev) => ({
-          ...(prev ?? {}),
+          ...prev,
           loading: false,
         }));
       }

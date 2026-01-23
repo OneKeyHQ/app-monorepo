@@ -193,8 +193,7 @@ export const Overview = ({
     provider,
     marketAddress,
     accountId: earnAccountId,
-    enabled:
-      isActive && !!(networkId && provider && marketAddress && earnAccountId),
+    enabled: !!(networkId && provider && marketAddress && earnAccountId),
   });
 
   const handleBorrowClaim = useUniversalBorrowClaim({
@@ -291,6 +290,7 @@ export const Overview = ({
           protocol: earnUtils.getEarnProviderName({ providerName: provider }),
           protocolLogoURI: market?.logoURI,
           tags: [
+            EEarnLabels.Borrow,
             buildBorrowTag({
               provider,
               action: 'claim',
@@ -316,6 +316,7 @@ export const Overview = ({
           protocol: earnUtils.getEarnProviderName({ providerName: provider }),
           protocolLogoURI: market?.logoURI,
           tags: [
+            EEarnLabels.Borrow,
             buildBorrowTag({
               provider,
               action: 'claim',

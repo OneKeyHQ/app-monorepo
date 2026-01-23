@@ -15,4 +15,9 @@ export class KeylessScene extends BaseScene {
       sdkError,
     };
   }
+
+  @LogToLocal({ level: 'error' })
+  public dataCorruptedError({ reason }: { reason: string }) {
+    return { reason };
+  }
 }

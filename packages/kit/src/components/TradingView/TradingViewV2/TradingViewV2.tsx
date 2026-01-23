@@ -26,6 +26,7 @@ import {
   useTradingViewMessageHandler,
 } from './messageHandlers';
 
+import type { IMarksTimeRange } from './messageHandlers';
 import type { ICustomReceiveHandlerData } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
@@ -45,6 +46,7 @@ export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
+  const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
   const currencyInfo = useCurrency();
@@ -67,6 +69,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPanesCountChange,
     accountAddress,
     tokenSymbol: symbol,
+    marksTimeRange,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -79,7 +82,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       networkId,
       address: tokenAddress,
       symbol: useHyperLiquid ? hyperLiquidSymbol : symbol,
-      ...(useHyperLiquid && { type: 'perps' }),
+      type: useHyperLiquid ? 'perps' : 'market',
+      storageNamespace: 'market',
     };
   }, [
     decimal,
@@ -124,17 +128,25 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
     const refreshMarks = () => {
       const now = Math.floor(Date.now() / 1000);
+
+      // Use the tracked time range if available, otherwise default to recent period
+      const timeRange = marksTimeRange.current || {
+        min: now - 86_400 * 30, // Default: 30 days
+        max: now,
+      };
+
       void fetchAndSendAccountMarks({
         accountAddress,
         tokenAddress,
         networkId,
-        from: now - 86_400,
-        to: now,
+        from: timeRange.min,
+        to: timeRange.max,
         webRef,
       });
     };
 
-    // Load marks when page becomes visible
+    // Reset time range when token/account changes, then load marks
+    marksTimeRange.current = null;
     refreshMarks();
 
     const handleSwapSuccess = (payload: {

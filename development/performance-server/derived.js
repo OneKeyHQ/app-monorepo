@@ -65,7 +65,7 @@ function readJsonl(filePath) {
 
 function percentile(arr, p) {
   if (!arr.length) return 0;
-  const sorted = [...arr].sort((a, b) => a - b);
+  const sorted = [...arr].toSorted((a, b) => a - b);
   const idx = Math.floor((p / 100) * (sorted.length - 1));
   return sorted[idx];
 }
@@ -109,7 +109,7 @@ function buildSlowFunctionStats(entries) {
       avg: f.total / f.count,
       p95: percentile(f.durations, 95),
     }))
-    .sort((a, b) => b.p95 - a.p95 || b.max - a.max || b.total - a.total);
+    .toSorted((a, b) => b.p95 - a.p95 || b.max - a.max || b.total - a.total);
 }
 
 function buildRepeatedCalls(entries, { windowMs = 100 } = {}) {
@@ -124,7 +124,7 @@ function buildRepeatedCalls(entries, { windowMs = 100 } = {}) {
       duration: e.duration,
       ts: Number.isFinite(e.ts) ? e.ts : 0,
     }))
-    .sort((a, b) => a.ts - b.ts);
+    .toSorted((a, b) => a.ts - b.ts);
 
   const repeatMap = new Map();
   let prev = null;
@@ -155,7 +155,7 @@ function buildRepeatedCalls(entries, { windowMs = 100 } = {}) {
     prev = entry;
   }
 
-  return Array.from(repeatMap.values()).sort(
+  return Array.from(repeatMap.values()).toSorted(
     (a, b) => b.count - a.count || b.totalDuration - a.totalDuration,
   );
 }
@@ -175,7 +175,7 @@ function buildRepeatedCallsOverall(slowFunctions) {
       avgDuration: f.avg || 0,
       p95Duration: f.p95 || 0,
     }))
-    .sort(
+    .toSorted(
       (a, b) =>
         b.calls - a.calls ||
         b.totalDuration - a.totalDuration ||
@@ -286,7 +286,7 @@ function buildLowFpsWindows(
 ) {
   const sorted = [...samples]
     .filter((s) => Number.isFinite(s.t) && s.t > 0 && Number.isFinite(s.fps))
-    .sort((a, b) => a.t - b.t);
+    .toSorted((a, b) => a.t - b.t);
   if (!sorted.length) return [];
 
   const gaps = [];
@@ -356,7 +356,7 @@ function buildLowFpsWindows(
       fpsMax: w.fpsMax,
       fpsAvg: w.samples ? w.fpsSum / w.samples : 0,
     }))
-    .sort((a, b) => b.span - a.span || a.start - b.start);
+    .toSorted((a, b) => b.span - a.span || a.start - b.start);
 }
 
 function summarizeEntries(entries) {
@@ -394,7 +394,9 @@ function summarizeEntries(entries) {
       avg: f.total / f.count,
       p95: percentile(f.durations, 95),
     }))
-    .sort((a, b) => b.total - a.total || b.count - a.count || b.max - a.max);
+    .toSorted(
+      (a, b) => b.total - a.total || b.count - a.count || b.max - a.max,
+    );
 }
 
 function computeSessionLowFpsHotspots(
@@ -468,7 +470,7 @@ function computeSessionLowFpsHotspots(
         duration: Number(m.detail?.duration ?? 0) || 0,
         detail: m.detail ?? null,
       }))
-      .sort((a, b) => b.duration - a.duration);
+      .toSorted((a, b) => b.duration - a.duration);
 
     const jsblockMarks = windowMarks
       .filter(
@@ -480,7 +482,7 @@ function computeSessionLowFpsHotspots(
         duration: Number(m.detail?.duration ?? 0) || 0,
         detail: m.detail ?? null,
       }))
-      .sort((a, b) => b.duration - a.duration);
+      .toSorted((a, b) => b.duration - a.duration);
 
     const storageMarks = windowMarks
       .filter(
@@ -492,7 +494,7 @@ function computeSessionLowFpsHotspots(
         duration: Number(m.detail?.duration ?? 0) || 0,
         detail: m.detail ?? null,
       }))
-      .sort((a, b) => b.duration - a.duration);
+      .toSorted((a, b) => b.duration - a.duration);
 
     const simpledbMarks = windowMarks
       .filter(
@@ -504,7 +506,7 @@ function computeSessionLowFpsHotspots(
         duration: Number(m.detail?.duration ?? 0) || 0,
         detail: m.detail ?? null,
       }))
-      .sort((a, b) => b.duration - a.duration);
+      .toSorted((a, b) => b.duration - a.duration);
 
     const storageKeysTop = (() => {
       if (!storageMarks.length) return [];
@@ -520,7 +522,9 @@ function computeSessionLowFpsHotspots(
       }
       return Array.from(map.values())
         .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-        .sort((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+        .toSorted(
+          (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+        )
         .slice(0, 10);
     })();
 
@@ -543,7 +547,9 @@ function computeSessionLowFpsHotspots(
       }
       return Array.from(map.values())
         .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-        .sort((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+        .toSorted(
+          (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+        )
         .slice(0, 10);
     })();
 
@@ -612,7 +618,7 @@ function computeSessionJsBlockHotspots(
       detail: m.detail ?? null,
     }))
     .filter((m) => Number.isFinite(m.duration) && m.duration >= minDriftMs)
-    .sort((a, b) => b.duration - a.duration || b.t - a.t)
+    .toSorted((a, b) => b.duration - a.duration || b.t - a.t)
     .slice(0, topWindows);
 
   if (!jsblockMarks.length) {
@@ -662,7 +668,7 @@ function computeSessionJsBlockHotspots(
         duration: Number(m.detail?.duration ?? 0) || 0,
         detail: m.detail ?? null,
       }))
-      .sort((a, b) => b.duration - a.duration);
+      .toSorted((a, b) => b.duration - a.duration);
 
     const storageMarks = windowMarks
       .filter(
@@ -674,7 +680,7 @@ function computeSessionJsBlockHotspots(
         duration: Number(m.detail?.duration ?? 0) || 0,
         detail: m.detail ?? null,
       }))
-      .sort((a, b) => b.duration - a.duration);
+      .toSorted((a, b) => b.duration - a.duration);
 
     const simpledbMarks = windowMarks
       .filter(
@@ -686,7 +692,7 @@ function computeSessionJsBlockHotspots(
         duration: Number(m.detail?.duration ?? 0) || 0,
         detail: m.detail ?? null,
       }))
-      .sort((a, b) => b.duration - a.duration);
+      .toSorted((a, b) => b.duration - a.duration);
 
     const storageKeysTop = (() => {
       if (!storageMarks.length) return [];
@@ -702,7 +708,9 @@ function computeSessionJsBlockHotspots(
       }
       return Array.from(map.values())
         .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-        .sort((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+        .toSorted(
+          (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+        )
         .slice(0, 10);
     })();
 
@@ -725,7 +733,9 @@ function computeSessionJsBlockHotspots(
       }
       return Array.from(map.values())
         .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-        .sort((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+        .toSorted(
+          (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+        )
         .slice(0, 10);
     })();
 
@@ -775,7 +785,7 @@ function computeSessionKeyMarks(
     .filter(
       (m) => Number.isFinite(m.t) && m.t > 0 && typeof m.name === 'string',
     )
-    .sort((a, b) => a.t - b.t);
+    .toSorted((a, b) => a.t - b.t);
 
   const appStartMark = marks.find((m) => m.name === 'app:start');
   const appStartTime = appStartMark ? appStartMark.t : null;
@@ -914,7 +924,9 @@ function computeSessionSpanHotspots(
     }
     return Array.from(map.values())
       .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-      .sort((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+      .toSorted(
+        (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+      )
       .slice(0, 10);
   })();
 
@@ -937,7 +949,9 @@ function computeSessionSpanHotspots(
     }
     return Array.from(map.values())
       .map((x) => ({ ...x, avg: x.count ? x.total / x.count : 0 }))
-      .sort((a, b) => b.total - a.total || b.max - a.max || b.count - a.count)
+      .toSorted(
+        (a, b) => b.total - a.total || b.max - a.max || b.count - a.count,
+      )
       .slice(0, 10);
   })();
 

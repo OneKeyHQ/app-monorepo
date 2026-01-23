@@ -5,6 +5,7 @@ import { intervalToDuration } from 'date-fns';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import { JUICEBOX_ALLOWED_GUESSES } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IIncorrectPinErrorInfo } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -33,6 +34,7 @@ import {
 } from '../components/PinInputLayout';
 
 import type { RouteProp } from '@react-navigation/core';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const MAX_ATTEMPTS = JUICEBOX_ALLOWED_GUESSES;
 
@@ -58,6 +60,7 @@ function VerifyPinPage() {
   const [isManuallyEnabled, setIsManuallyEnabled] = useState(false);
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCancelTimeRef = useRef<number>(0);
 
   const isInputDisabled =
     (cooldownSeconds > 0 || isCheckingRateLimit) && !isManuallyEnabled;
@@ -137,10 +140,25 @@ function VerifyPinPage() {
     [pinInputRef],
   );
 
+  const handleForgotPin = useCallback(async () => {
+    if (isVerifyPinOnly) {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
+      navigation.push(EOnboardingPagesV2.CreatePin, {
+        action: EKeylessFinalizeAction.ResetPin,
+      });
+    } else {
+      // Navigate to ResetPinGuide page which is a guide page showing instructions
+      // on how to reset PIN using another device, not the actual reset operation page.
+      // The actual reset operation happens in CreatePinPage when action is ResetPin.
+      navigation.push(EOnboardingPagesV2.ResetPinGuide);
+    }
+  }, [navigation, isVerifyPinOnly]);
+
   // Check rate limit status - reusable function
   const checkRateLimitStatus = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async ({ isFirstCheck = false }: { isFirstCheck?: boolean } = {}) => {
+    async ({ isFirstCheck }: { isFirstCheck: boolean }) => {
       try {
         setIsCheckingRateLimit(true);
         const token = await getKeylessOnboardingToken();
@@ -155,6 +173,20 @@ function VerifyPinPage() {
             },
           );
 
+        // Check if PIN attempts are exceeded
+        if (!isNil(result.guessesRemaining) && result.guessesRemaining <= 0) {
+          if (isFirstCheck) {
+            // Max attempts reached - show toast and redirect to reset PIN page
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.pin_attempts_exhausted,
+              }),
+            });
+          }
+          await handleForgotPin();
+          return;
+        }
+
         if (result.isRateLimited && result.retryAfterSeconds > 0) {
           startCooldown(result.retryAfterSeconds);
         }
@@ -163,23 +195,10 @@ function VerifyPinPage() {
         console.error('Failed to check rate limit status:', error);
       } finally {
         setIsCheckingRateLimit(false);
-
-        // Clear previous focus timer if exists
-        if (focusTimerRef.current) {
-          clearTimeout(focusTimerRef.current);
-        }
-        focusTimerRef.current = setTimeout(
-          () => {
-            if (pinInputRef.current) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-              pinInputRef.current.focus();
-            }
-          },
-          platformEnv.isNative ? 100 : 50,
-        );
+        // Focus is now handled by PinInputLayout when skeleton transitions to input
       }
     },
-    [getKeylessOnboardingToken, startCooldown],
+    [getKeylessOnboardingToken, handleForgotPin, intl, startCooldown],
   );
 
   // Check rate limit status on page enter
@@ -206,16 +225,6 @@ function VerifyPinPage() {
     },
     [isInputDisabled],
   );
-
-  const handleForgotPin = useCallback(() => {
-    if (isVerifyPinOnly) {
-      navigation.push(EOnboardingPagesV2.CreatePin, {
-        action: EKeylessFinalizeAction.ResetPin,
-      });
-    } else {
-      navigation.push(EOnboardingPagesV2.ResetPin);
-    }
-  }, [navigation, isVerifyPinOnly]);
 
   const handleEnableInput = useCallback(() => {
     setIsManuallyEnabled(true);
@@ -245,7 +254,6 @@ function VerifyPinPage() {
         setShowAttemptError(true);
 
         if (!isNil(errorInfo?.guessesRemaining) && newAttemptsRemaining <= 0) {
-          // Max attempts reached - redirect to reset PIN page
           void handleForgotPin();
           return;
         }
@@ -275,16 +283,37 @@ function VerifyPinPage() {
     checkRateLimitStatus,
   ]);
 
+  const handleCancelVerifyPin = useCallback(async () => {
+    if (
+      mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly &&
+      !isSubmitSuccessRef.current
+    ) {
+      const now = Date.now();
+      const timeSinceLastCancel = now - lastCancelTimeRef.current;
+
+      // Skip cancel if called within 2 second of last cancel
+      if (timeSinceLastCancel < 2000) {
+        return;
+      }
+
+      lastCancelTimeRef.current = now;
+      await cancelVerifyPin('CURRENT_KEYLESS_WALLET');
+    }
+  }, [cancelVerifyPin, mode]);
+
+  // Cancel verify pin on unmount if needed
+  useEffect(() => {
+    return () => {
+      void handleCancelVerifyPin();
+    };
+  }, [handleCancelVerifyPin]);
+
   // Build error message based on state
   const displayErrorMessage = (() => {
     if (errorMessage) {
       return errorMessage;
     }
-    if (
-      showAttemptError &&
-      attemptsRemaining < MAX_ATTEMPTS &&
-      attemptsRemaining > 0
-    ) {
+    if (showAttemptError && attemptsRemaining > 0) {
       const baseMessage = intl.formatMessage(
         {
           id: ETranslations.pin_attempts_remaining,
@@ -315,21 +344,45 @@ function VerifyPinPage() {
     return '';
   })();
 
+  const handleAutoInputPin = useCallback(async () => {
+    const debugPin = '1234';
+    setPin(debugPin);
+    try {
+      setIsLoading(true);
+      await verifyKeylessOnboardingPin({ pin: debugPin, mode });
+    } catch (e) {
+      void checkRateLimitStatus({ isFirstCheck: false });
+      if (
+        errorUtils.isErrorByClassName({
+          error: e,
+          className: EOneKeyErrorClassNames.IncorrectPinError,
+        })
+      ) {
+        const errorInfo = (e as { info?: IIncorrectPinErrorInfo })?.info;
+        const newAttemptsRemaining = errorInfo?.guessesRemaining ?? 0;
+        setAttemptsRemaining(newAttemptsRemaining);
+        setShowAttemptError(true);
+        if (!isNil(errorInfo?.guessesRemaining) && newAttemptsRemaining <= 0) {
+          void handleForgotPin();
+          return;
+        }
+      }
+      // Silently continue for auto-retry
+    } finally {
+      setIsLoading(false);
+      setPin('');
+    }
+  }, [mode, verifyKeylessOnboardingPin, checkRateLimitStatus, handleForgotPin]);
+
   return (
     <PinInputLayout
       ref={pinInputRef}
       isLoading={isLoading}
       onClose={async () => {
-        if (
-          mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly &&
-          !isSubmitSuccessRef.current
-        ) {
-          const wallet =
-            await backgroundApiProxy.serviceAccount.getKeylessWallet();
-          if (wallet?.keylessDetailsInfo?.keylessOwnerId) {
-            void cancelVerifyPin(wallet.keylessDetailsInfo.keylessOwnerId);
-          }
-        }
+        void handleCancelVerifyPin();
+      }}
+      onUnmounted={() => {
+        void handleCancelVerifyPin();
       }}
       title={title}
       placeholder=""
@@ -348,6 +401,9 @@ function VerifyPinPage() {
       isInputDisabled={isInputDisabled}
       onEnableInput={handleEnableInput}
       errorMessage={displayErrorMessage}
+      isVerifyPinPage
+      onAutoInputPin={handleAutoInputPin}
+      showInputSkeleton={isCheckingRateLimit}
     />
   );
 }

@@ -412,8 +412,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           .then(async (res) => {
             if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
-                features: {
-                  ...device.featuresInfo,
+                features: device.featuresInfo,
+                preciseUpdateFields: {
                   passphrase_protection: passphraseEnabled,
                 },
               });
@@ -443,8 +443,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           .then(async (res) => {
             if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
-                features: {
-                  ...device.featuresInfo,
+                features: device.featuresInfo,
+                preciseUpdateFields: {
                   auto_lock_delay_ms: autoLockDelayMs,
                 },
               });
@@ -474,8 +474,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           .then(async (res) => {
             if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
-                features: {
-                  ...device.featuresInfo,
+                features: device.featuresInfo,
+                preciseUpdateFields: {
                   auto_shutdown_delay_ms: autoShutdownDelayMs,
                 },
               });
@@ -505,8 +505,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           .then(async (res) => {
             if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
-                features: {
-                  ...device.featuresInfo,
+                features: device.featuresInfo,
+                preciseUpdateFields: {
                   language,
                 },
               });
@@ -554,8 +554,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           .then(async (res) => {
             if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
-                features: {
-                  ...device.featuresInfo,
+                features: device.featuresInfo,
+                preciseUpdateFields: {
                   haptic_feedback: hapticFeedback,
                 },
               });

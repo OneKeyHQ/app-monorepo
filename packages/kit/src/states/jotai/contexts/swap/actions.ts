@@ -195,7 +195,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       } else {
         // no catch
         swapTokenMap.tokenCatch = {
-          ...(swapTokenMap.tokenCatch ?? {}),
+          ...swapTokenMap.tokenCatch,
           [key]: { data: newTokens, updatedAt: dateNow },
         };
         catchCount = Object.keys(swapTokenMap.tokenCatch).length;
@@ -1149,7 +1149,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         return;
       }
-
+      const notSupportSwapMessage = appLocale.intl.formatMessage({
+        id: ETranslations.swap_page_alert_account_does_not_support_swap,
+      });
       if (
         fromToken &&
         !swapFromAddressInfo.address &&
@@ -1166,15 +1168,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         alertsRes = [
           ...alertsRes,
           {
-            message: appLocale.intl.formatMessage({
-              id: ETranslations.swap_page_alert_account_does_not_support_swap,
-            }),
+            message: notSupportSwapMessage,
             alertLevel: ESwapAlertLevel.ERROR,
           },
         ];
       }
 
-      if (fromToken && swapFromAddressInfo.accountInfo?.wallet?.id) {
+      if (
+        fromToken &&
+        swapFromAddressInfo.accountInfo?.wallet?.id &&
+        alertsRes.every((item) => item.message !== notSupportSwapMessage)
+      ) {
         const needCheck =
           !swapFromAddressInfo.address ||
           accountUtils.isHwWallet({
@@ -1200,7 +1204,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (
         toToken &&
         !swapToAddressInfo.address &&
-        swapToAddressInfo.accountInfo?.wallet?.id
+        swapToAddressInfo.accountInfo?.wallet?.id &&
+        alertsRes.every((item) => item.message !== notSupportSwapMessage)
       ) {
         const accountNetworkNotSupportedAlert =
           await this.checkAccountNetworkNotSupportedAlert({
@@ -1861,7 +1866,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const sortedResult = result
           .filter(Boolean)
           .flat()
-          .sort((a, b) => {
+          .toSorted((a, b) => {
             return new BigNumber(b.fiatValue ?? '0').comparedTo(
               new BigNumber(a.fiatValue ?? '0'),
             );

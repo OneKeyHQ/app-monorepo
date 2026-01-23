@@ -417,35 +417,35 @@ function TxFeeContainer(props: IProps) {
         if (txFee.gas && !isEmpty(txFee.gas)) {
           customFeeInfo.gas = {
             ...txFee.gas[sendSelectedFee.presetIndex],
-            ...(customFee?.gas ?? {}),
+            ...customFee?.gas,
           };
         }
 
         if (txFee.gasEIP1559 && !isEmpty(txFee.gasEIP1559)) {
           customFeeInfo.gasEIP1559 = {
             ...txFee.gasEIP1559[sendSelectedFee.presetIndex],
-            ...(customFee?.gasEIP1559 ?? {}),
+            ...customFee?.gasEIP1559,
           };
         }
 
         if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
           customFeeInfo.feeUTXO = {
             ...txFee.feeUTXO[sendSelectedFee.presetIndex],
-            ...(customFee?.feeUTXO ?? {}),
+            ...customFee?.feeUTXO,
           };
         }
 
         if (txFee.feeSol && !isEmpty(txFee.feeSol)) {
           customFeeInfo.feeSol = {
             ...txFee.feeSol[sendSelectedFee.presetIndex],
-            ...(customFee?.feeSol ?? {}),
+            ...customFee?.feeSol,
           };
         }
 
         if (txFee.feeCkb && !isEmpty(txFee.feeCkb)) {
           customFeeInfo.feeCkb = {
             ...txFee.feeCkb[sendSelectedFee.presetIndex],
-            ...(customFee?.feeCkb ?? {}),
+            ...customFee?.feeCkb,
           };
         }
 
@@ -469,7 +469,7 @@ function TxFeeContainer(props: IProps) {
         if (txFee.feeBudget && !isEmpty(txFee.feeBudget)) {
           customFeeInfo.feeBudget = {
             ...txFee.feeBudget[sendSelectedFee.presetIndex],
-            ...(customFee?.feeBudget ?? {}),
+            ...customFee?.feeBudget,
           };
         }
 
@@ -570,7 +570,7 @@ function TxFeeContainer(props: IProps) {
         if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
           customFeeInfo.feeUTXO = {
             ...txFee.feeUTXO[sendSelectedFee.presetIndex],
-            ...(customFee?.feeUTXO ?? {}),
+            ...customFee?.feeUTXO,
           };
         }
 

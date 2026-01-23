@@ -14,7 +14,9 @@ import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hoo
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
+  IEarnBorrowUnclaimableReward,
   IEarnRewardClaimGroup,
   IEarnRewardClaimItem,
   IEarnRewardsDetails,
@@ -50,9 +52,9 @@ function ClaimItem({
 
   return (
     <XStack alignItems="center" gap="$3" py="$2">
-      <Token size="lg" tokenImageUri={item.token.logoURI} />
+      <Token size="md" tokenImageUri={item.token.logoURI} />
       <YStack flex={1} gap="$0.5">
-        <EarnText text={item.title} size="$bodyLgMedium" color="$text" />
+        <EarnText text={item.title} size="$bodyMdMedium" color="$text" />
         {item.description ? (
           <EarnText
             text={item.description}
@@ -63,12 +65,12 @@ function ClaimItem({
       </YStack>
       <Button
         size="small"
-        variant="secondary"
+        variant="primary"
         disabled={disabled}
         loading={isLoading}
         onPress={handlePress}
       >
-        <EarnText text={item.button.text} size="$bodyMdMedium" />
+        {item.button?.text?.text}
       </Button>
     </XStack>
   );
@@ -113,6 +115,68 @@ function ClaimGroup({
   );
 }
 
+type IUnclaimableItemProps = {
+  item: IEarnBorrowUnclaimableReward['items'][number];
+};
+
+function UnclaimableItem({ item }: IUnclaimableItemProps) {
+  const handlePress = useCallback(() => {
+    if (item.button?.data?.link) {
+      openUrlExternal(item.button.data.link);
+    }
+  }, [item]);
+
+  return (
+    <XStack alignItems="center" gap="$3" py="$2">
+      <Token size="md" tokenImageUri={item.token.logoURI} />
+      <YStack flex={1} gap="$0.5">
+        <EarnText text={item.title} size="$bodyMdMedium" color="$text" />
+        {item.description ? (
+          <EarnText
+            text={item.description}
+            size="$bodySm"
+            color="$textSubdued"
+          />
+        ) : null}
+      </YStack>
+      {item.button?.text ? (
+        <Button
+          size="small"
+          variant="primary"
+          onPress={handlePress}
+          disabled={item.button.disabled}
+          iconAfter="OpenOutline"
+        >
+          {item.button.text.text}
+        </Button>
+      ) : null}
+    </XStack>
+  );
+}
+
+type IUnclaimableGroupProps = {
+  group: IEarnBorrowUnclaimableReward;
+};
+
+function UnclaimableGroup({ group }: IUnclaimableGroupProps) {
+  return (
+    <YStack>
+      {group.title ? (
+        <EarnText
+          text={group.title}
+          size="$bodyMd"
+          color="$textSubdued"
+          mb="$2"
+          mt="$3"
+        />
+      ) : null}
+      {group.items.map((item) => (
+        <UnclaimableItem key={item.id} item={item} />
+      ))}
+    </YStack>
+  );
+}
+
 type IBorrowClaimRewardsDialogContentProps = {
   rewardsDetails: IEarnRewardsDetails;
   pendingClaimIds: string[];
@@ -134,7 +198,14 @@ function BorrowClaimRewardsDialogContent({
   const { gtMd } = useMedia();
   const listMaxHeight = gtMd ? 520 : 360;
 
-  const claimableGroups = rewardsDetails.data.rewardsDetail.claimable;
+  const claimableGroups = useMemo(
+    () => rewardsDetails.data.rewardsDetail.claimable ?? [],
+    [rewardsDetails.data.rewardsDetail.claimable],
+  );
+  const unclaimableGroups = useMemo(
+    () => rewardsDetails.data.rewardsDetail.unclaimable ?? [],
+    [rewardsDetails.data.rewardsDetail.unclaimable],
+  );
 
   const handleClaimItem = useCallback(
     async (item: IEarnRewardClaimItem) => {
@@ -190,7 +261,7 @@ function BorrowClaimRewardsDialogContent({
 
   return (
     <YStack gap="$4">
-      <ScrollView maxHeight={listMaxHeight}>
+      <ScrollView maxHeight={listMaxHeight} mx="$-5" px="$5">
         <YStack gap="$2">
           {claimableGroups.map((group, index) => (
             <ClaimGroup
@@ -202,19 +273,26 @@ function BorrowClaimRewardsDialogContent({
               pendingClaimIds={pendingClaimIds}
             />
           ))}
+          {unclaimableGroups.map((group, index) => (
+            <UnclaimableGroup key={`unclaimable-${index}`} group={group} />
+          ))}
         </YStack>
       </ScrollView>
 
-      <Dialog.Footer
-        showCancelButton
-        showConfirmButton={hasClaimableItems}
-        confirmButtonProps={{
-          disabled: loading || rewardsDetails.disabled || !canClaimAll,
-          loading,
-        }}
-        onConfirm={handleClaimAll}
-        onConfirmText={intl.formatMessage({ id: ETranslations.defi_claim_all })}
-      />
+      {hasClaimableItems ? (
+        <Dialog.Footer
+          showCancelButton
+          showConfirmButton={false}
+          confirmButtonProps={{
+            disabled: loading || rewardsDetails.disabled || !canClaimAll,
+            loading,
+          }}
+          onConfirm={handleClaimAll}
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.defi_claim_all,
+          })}
+        />
+      ) : null}
     </YStack>
   );
 }

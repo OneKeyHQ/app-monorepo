@@ -8,7 +8,7 @@ export function encodeDnsName(domain: string): Buffer {
     throw new OneKeyLocalError('Domain must be non-empty');
   }
 
-  // eslint-disable-next-line @cspell/spellchecker
+  // oxlint-disable-next-line @cspell/spellchecker
   // Normalise (lower-case, strip trailing dot) – recommended for interop
   let norm = domain.toLowerCase();
   if (norm.endsWith('.')) norm = norm.slice(0, -1);
@@ -34,7 +34,7 @@ export function encodeDnsName(domain: string): Buffer {
 
   // Build byte array: reverse order + 0x00 after each label
   const byteChunks: number[] = [];
-  for (const label of labelsAscii.reverse()) {
+  for (const label of labelsAscii.toReversed()) {
     byteChunks.push(...Buffer.from(label, 'utf8'), 0);
   }
   const bytes = Buffer.from(byteChunks);

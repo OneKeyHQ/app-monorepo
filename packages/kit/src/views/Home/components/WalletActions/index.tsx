@@ -102,7 +102,7 @@ function WalletActionSend({
               },
             );
           availableAccountId = accounts?.[0]?.id;
-        } catch (e) {
+        } catch (_e) {
           const { networkAccounts } =
             await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
               {

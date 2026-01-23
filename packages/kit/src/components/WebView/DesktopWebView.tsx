@@ -363,7 +363,7 @@ const DesktopWebView = forwardRef(
                 return false;
               },
             });
-          } catch (error) {
+          } catch (_error) {
             // noop
           } finally {
             // noop

@@ -39,7 +39,7 @@ export function useProtocolDetailBreadcrumb({
         symbol,
       });
       return data || [];
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }, [symbol]);

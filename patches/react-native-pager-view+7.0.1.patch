@@ -54,10 +54,240 @@ index d5b82ff..a4bed78 100644
          if (child == null) {
              return
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..cd8762c 100644
+index d52f532..c7f83af 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-@@ -427,10 +427,12 @@ - (BOOL)isLtrLayout {
+@@ -29,6 +29,7 @@ @implementation RNCPagerViewComponentView {
+     BOOL _overdrag;
+     NSString *_layoutDirection;
+     BOOL _scrollEnabled;
++    BOOL _isBeingRecycled;
+ }
+ 
+ // Needed because of this: https://github.com/facebook/react-native/pull/37274
+@@ -80,6 +81,7 @@ - (instancetype)initWithFrame:(CGRect)frame
+         _layoutDirection = @"ltr";
+         _overdrag = NO;
+         _scrollEnabled = YES;
++        _isBeingRecycled = NO;
+     }
+     
+     return self;
+@@ -96,6 +98,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
+ #pragma mark - React API
+ 
+ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index {
++    if (_isBeingRecycled) {
++        return;
++    }
+     UIViewController *vc = [UIViewController new];
+     [vc.view addSubview:childComponentView];
+     [_nativeChildrenViewControllers insertObject:vc atIndex:index];
+@@ -103,13 +108,23 @@ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childCompone
+ }
+ 
+ - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index {
++    if (_isBeingRecycled) {
++        return;
++    }
++
++    if (index >= _nativeChildrenViewControllers.count) {
++        return;
++    }
++
+     [childComponentView removeFromSuperview];
+     [_nativeChildrenViewControllers removeObjectAtIndex:index];
+  
+     NSInteger maxPage = _nativeChildrenViewControllers.count - 1;
+     
+     if (_currentIndex >= maxPage) {
+-        [self goTo:maxPage animated:NO];
++        if (maxPage >= 0) {
++            [self goTo:maxPage animated:NO];
++        }
+     }
+ }
+ 
+@@ -127,10 +142,21 @@ -(void)updateLayoutMetrics:(const facebook::react::LayoutMetrics &)layoutMetrics
+ 
+ 
+ -(void)prepareForRecycle {
++    _isBeingRecycled = YES;
++
++    // Cancel any ongoing transitions
++    if (_nativePageViewController != nil && transitioning) {
++        transitioning = NO;
++    }
++
++    // Clear view controllers before recycling
++    [_nativeChildrenViewControllers removeAllObjects];
++
+     [super prepareForRecycle];
+     _nativePageViewController = nil;
+     _currentIndex = -1;
+     _scrollEnabled = YES;
++    _isBeingRecycled = NO;
+ }
+ 
+ - (void)shouldDismissKeyboard:(RNCViewPagerKeyboardDismissMode)dismissKeyboard {
+@@ -200,6 +226,12 @@ - (void)enableSwipe {
+ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
+     NSInteger numberOfPages = _nativeChildrenViewControllers.count;
+     
++    // Check recycling state BEFORE disableSwipe to avoid state inconsistency
++    if (_isBeingRecycled) {
++        NSLog(@"[PagerView] goTo blocked: view is being recycled (index=%ld)", (long)index);
++        return;
++    }
++
+     [self disableSwipe];
+ 
+     _destinationIndex = index;
+@@ -223,25 +255,61 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
+ - (void)setPagerViewControllers:(NSInteger)index
+                       direction:(UIPageViewControllerNavigationDirection)direction
+                        animated:(BOOL)animated{
+-    if (_nativePageViewController == nil) {
++    if (_nativePageViewController == nil || _isBeingRecycled) {
++        NSLog(@"[PagerView] setPagerViewControllers blocked: pageVC=%@ recycled=%d index=%ld",
++              _nativePageViewController ? @"EXISTS" : @"NIL", _isBeingRecycled, (long)index);
++        [self enableSwipe];
++        return;
++    }
++
++    // Validate index bounds
++    if (index < 0 || index >= _nativeChildrenViewControllers.count) {
++        NSLog(@"[PagerView] setPagerViewControllers blocked: index %ld out of bounds (count=%lu)",
++              (long)index, (unsigned long)_nativeChildrenViewControllers.count);
+         [self enableSwipe];
+         return;
+     }
+ 
++    // Validate view controller and its view
++    UIViewController *targetVC = [_nativeChildrenViewControllers objectAtIndex:index];
++    if (targetVC == nil || targetVC.view == nil) {
++        NSLog(@"[PagerView] setPagerViewControllers blocked: targetVC=%@ view=%@ index=%ld",
++              targetVC ? @"EXISTS" : @"NIL", targetVC.view ? @"EXISTS" : @"NIL", (long)index);
++        [self enableSwipe];
++        return;
++    }
++
++    // Note: Do NOT check superview/window == nil here!
++    // Target page views are expected to have nil superview/window before being added to pageViewController
++    // Checking for nil superview/window would block all legitimate page transitions
++
++    NSLog(@"[PagerView] setPagerViewControllers SUCCESS: index=%ld animated=%d", (long)index, animated);
++
+     transitioning = YES;
+ 
+     __weak RNCPagerViewComponentView *weakSelf = self;
+-    [_nativePageViewController setViewControllers:@[[_nativeChildrenViewControllers objectAtIndex:index]]
++    [_nativePageViewController setViewControllers:@[targetVC]
+                                         direction:direction
+                                          animated:animated
+                                        completion:^(BOOL finished) {
+-        self->transitioning = NO;
+         __strong RNCPagerViewComponentView *strongSelf = weakSelf;
++        if (strongSelf == nil) {
++            return;
++        }
++
++        strongSelf->transitioning = NO;
++
++        if (strongSelf->_isBeingRecycled) {
++            return;
++        }
++
+         [strongSelf enableSwipe];
+         if (strongSelf->_eventEmitter != nullptr ) {
+             const auto eventEmitter = [strongSelf pagerEventEmitter];
+-            int position = (int) index;
+-            eventEmitter->onPageSelected(RNCViewPagerEventEmitter::OnPageSelected{.position =  static_cast<double>(position)});
++            if (eventEmitter) {
++                int position = (int) index;
++                eventEmitter->onPageSelected(RNCViewPagerEventEmitter::OnPageSelected{.position =  static_cast<double>(position)});
++            }
+             strongSelf->_currentIndex = index;
+         }
+         [strongSelf updateLayoutMetrics:strongSelf->_layoutMetrics oldLayoutMetrics:strongSelf->_oldLayoutMetrics];
+@@ -252,6 +320,11 @@ - (void)setPagerViewControllers:(NSInteger)index
+ - (UIViewController *)nextControllerForController:(UIViewController *)controller
+                                       inDirection:(UIPageViewControllerNavigationDirection)direction {
+     NSUInteger numberOfPages = _nativeChildrenViewControllers.count;
++
++    if (_isBeingRecycled || numberOfPages == 0) {
++        return nil;
++    }
++
+     NSInteger index = [_nativeChildrenViewControllers indexOfObject:controller];
+     
+     if (index == NSNotFound) {
+@@ -274,13 +347,22 @@ - (UIViewController *)currentlyDisplayed {
+ #pragma mark - UIScrollViewDelegate
+ 
+ - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView {
++    if (_isBeingRecycled) {
++        return;
++    }
+     const auto eventEmitter = [self pagerEventEmitter];
++    if (!eventEmitter) {
++        return;
++    }
+     eventEmitter->onPageScrollStateChanged(RNCViewPagerEventEmitter::OnPageScrollStateChanged{.pageScrollState =  RNCViewPagerEventEmitter::OnPageScrollStateChangedPageScrollState::Dragging });
+ }
+ 
+ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoint)velocity targetContentOffset:(inout CGPoint *)targetContentOffset {
+     
+     const auto eventEmitter = [self pagerEventEmitter];
++    if (!eventEmitter) {
++        return;
++    }
+     eventEmitter->onPageScrollStateChanged(RNCViewPagerEventEmitter::OnPageScrollStateChanged{.pageScrollState =  RNCViewPagerEventEmitter::OnPageScrollStateChangedPageScrollState::Settling });
+     
+     if (!_overdrag) {
+@@ -300,12 +382,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
+ }
+ 
+ - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
++    if (_isBeingRecycled) {
++        return;
++    }
+     const auto eventEmitter = [self pagerEventEmitter];
++    if (!eventEmitter) {
++        return;
++    }
+     eventEmitter->onPageScrollStateChanged(RNCViewPagerEventEmitter::OnPageScrollStateChanged{.pageScrollState =  RNCViewPagerEventEmitter::OnPageScrollStateChangedPageScrollState::Idle });
+ }
+ 
+ 
+ - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
++    if (_isBeingRecycled) {
++        return;
++    }
+     BOOL isHorizontal = [self isHorizontal];
+     CGFloat contentOffset = isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y;
+     CGFloat frameSize = isHorizontal ? scrollView.frame.size.width : scrollView.frame.size.height;
+@@ -357,13 +448,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
+         didFinishAnimating:(BOOL)finished
+    previousViewControllers:(nonnull NSArray<UIViewController *> *)previousViewControllers
+        transitionCompleted:(BOOL)completed {
++    if (_isBeingRecycled) {
++        return;
++    }
+     if (completed) {
+         UIViewController* currentVC = [self currentlyDisplayed];
+         NSUInteger currentIndex = [_nativeChildrenViewControllers indexOfObject:currentVC];
+         _currentIndex = currentIndex;
+         int position = (int) currentIndex;
+         const auto eventEmitter = [self pagerEventEmitter];
+-        eventEmitter->onPageSelected(RNCViewPagerEventEmitter::OnPageSelected{.position =  static_cast<double>(position)});
++        if (eventEmitter) {
++            eventEmitter->onPageSelected(RNCViewPagerEventEmitter::OnPageSelected{.position =  static_cast<double>(position)});
++        }
+     }
+ }
+ 
+@@ -427,10 +523,12 @@ - (BOOL)isLtrLayout {
  
  - (void)sendScrollEventsForPosition:(NSInteger)position offset:(CGFloat)offset {
      const auto eventEmitter = [self pagerEventEmitter];

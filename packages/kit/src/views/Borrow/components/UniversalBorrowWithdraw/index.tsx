@@ -359,7 +359,7 @@ export function UniversalBorrowWithdraw({
   );
 
   const maxAmountText = useMemo(
-    () => intl.formatMessage({ id: ETranslations.defi_safe_max }),
+    () => intl.formatMessage({ id: ETranslations.global_max }),
     [intl],
   );
 
@@ -555,7 +555,13 @@ export function UniversalBorrowWithdraw({
                 title={
                   <XStack ai="center" gap="$1.5">
                     <EarnText
-                      text={transactionConfirmation?.refundFee?.title}
+                      text={{
+                        text: intl.formatMessage({
+                          id: ETranslations.defi_refundable_fee,
+                        }),
+                        size: '$bodyMd',
+                        color: '$textSubdued',
+                      }}
                     />
                     <EarnTooltip
                       tooltip={transactionConfirmation?.refundFee?.tooltip}
@@ -563,9 +569,12 @@ export function UniversalBorrowWithdraw({
                   </XStack>
                 }
               >
-                <EarnText
-                  text={transactionConfirmation?.refundFee?.description}
-                />
+                <XStack>
+                  <EarnText text={transactionConfirmation?.refundFee?.title} />
+                  <EarnText
+                    text={transactionConfirmation?.refundFee?.description}
+                  />
+                </XStack>
               </BorrowInfoItem>
             ) : null}
           </YStack>

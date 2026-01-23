@@ -15,7 +15,6 @@ import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/H
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
-import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -24,9 +23,10 @@ import {
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  ETabMarketRoutes,
-  ITabMarketParamList,
+import {
+  type ETabMarketRoutes,
+  ETabRoutes,
+  type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -42,6 +42,7 @@ import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirro
 import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { EModalMarketRoutes, IModalMarketParamList } from '../router';
 import type { RouteProp } from '@react-navigation/core';
+import { TabPageHeader } from '../../../components/TabPageHeader';
 
 type IMarketBannerDetailRouteParams = RouteProp<
   ITabMarketParamList & IModalMarketParamList,
@@ -70,11 +71,6 @@ function MarketBannerDetailContent({ title }: { title: string }) {
       </SizableText>
     ),
     [title],
-  );
-
-  const renderUniversalSearchInput = useCallback(
-    () => <UniversalSearchInput />,
-    [],
   );
 
   const renderNotificationButton = useCallback(
@@ -138,11 +134,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const renderPageHeader = useMemo(() => {
     if (isWebDesktop) {
       return (
-        <Page.Header
-          headerTitleAlign="center"
-          headerTitle={renderUniversalSearchInput}
-          headerLeft={renderHeaderLeft}
-          headerRight={renderNotificationButton}
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Market}
         />
       );
     }
@@ -155,11 +149,10 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         />
       );
     }
-    return null;
+    return <Page.Header headerShown={false} />;
   }, [
     isWebDesktop,
     gtMd,
-    renderUniversalSearchInput,
     renderHeaderLeft,
     renderNotificationButton,
     renderHeaderTitle,

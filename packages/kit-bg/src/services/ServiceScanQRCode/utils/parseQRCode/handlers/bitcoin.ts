@@ -4,7 +4,7 @@ import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IBitcoinValue, IQRCodeHandler } from '../type';
 
-// eslint-disable-next-line @cspell/spellchecker
+// oxlint-disable-next-line @cspell/spellchecker
 // bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=20.3&label=Luke-Jr
 
 // from https://github.com/bitcoinjs/bip21/blob/fb796720b56d4b22dff8ad543ef4153ef45a10ad/index.js#L7
@@ -19,7 +19,7 @@ const bitcoin: IQRCodeHandler<IBitcoinValue> = async (value, options) => {
     urnScheme.length + 1,
     split === -1 ? undefined : split,
   );
-  if (/^\/\//.test(address)) {
+  if (address.startsWith('//')) {
     return null;
   }
   const query = split === -1 ? '' : value.slice(split + 1);

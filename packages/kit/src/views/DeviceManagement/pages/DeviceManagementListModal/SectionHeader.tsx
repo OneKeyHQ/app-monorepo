@@ -9,20 +9,17 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 
 function SectionHeader() {
   const intl = useIntl();
-  const appNavigation = useAppNavigation();
+  const toOnBoardingPage = useNavigateToPickYourDevicePage();
   const { gtMd } = useMedia();
 
   const onAddDevice = useCallback(async () => {
-    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ConnectYourDevice,
-    });
-  }, [appNavigation]);
+    void toOnBoardingPage();
+  }, [toOnBoardingPage]);
 
   if (!gtMd) {
     return null;

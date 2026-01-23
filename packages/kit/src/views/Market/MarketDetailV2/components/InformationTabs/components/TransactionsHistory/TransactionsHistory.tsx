@@ -126,6 +126,7 @@ export function TransactionsHistory({
       key={listKey}
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.2}
+      windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       data={transactions}
       renderItem={renderItem}
       keyExtractor={keyExtractor}

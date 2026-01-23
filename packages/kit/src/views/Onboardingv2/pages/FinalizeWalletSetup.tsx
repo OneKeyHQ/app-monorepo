@@ -42,6 +42,9 @@ import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -193,13 +196,13 @@ function FinalizeWalletSetupPage({
   const isProcessing = useRef(false);
 
   const animatedProps = useAnimatedProps(() => {
-    // eslint-disable-next-line @cspell/spellchecker
+    // oxlint-disable-next-line @cspell/spellchecker
     const strokeDashoffset = pathLength * (1 - progress.value);
 
     return {
-      // eslint-disable-next-line @cspell/spellchecker
+      // oxlint-disable-next-line @cspell/spellchecker
       strokeDashoffset,
-      // eslint-disable-next-line @cspell/spellchecker
+      // oxlint-disable-next-line @cspell/spellchecker
       strokeDasharray: pathLength,
     };
   });
@@ -310,6 +313,21 @@ function FinalizeWalletSetupPage({
               isKeylessWallet,
               keylessDetailsInfo,
             });
+            // Track keyless wallet creation success
+            if (isKeylessWallet && keylessDetailsInfo) {
+              defaultLogger.account.wallet.walletAdded({
+                status: 'success',
+                addMethod: 'CreateKeylessWallet',
+                isSoftwareWalletOnlyUser: true,
+                details: {
+                  provider:
+                    keylessDetailsInfo.keylessProvider ===
+                    EOAuthSocialLoginProvider.Google
+                      ? 'google'
+                      : 'apple',
+                },
+              });
+            }
           },
         });
         created.current = true;

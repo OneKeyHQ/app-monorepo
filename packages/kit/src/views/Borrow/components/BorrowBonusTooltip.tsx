@@ -5,6 +5,7 @@ import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Divider,
   Icon,
   Popover,
@@ -72,6 +73,8 @@ export const BorrowBonusTooltip = ({
             ai="center"
             jc="space-between"
             borderWidth="$0"
+            px="$0"
+            mx="$0"
           >
             {children}
           </ListItem>
@@ -152,7 +155,34 @@ export const BorrowBonusTooltip = ({
               </YStack>
             </XStack>
 
-            <Divider mb="$3" />
+            {/* Alerts section */}
+            {!isEmpty(data?.alerts) ? (
+              <YStack gap="$2" mb="$5" mt="$2">
+                {data.alerts?.map((alert, index) => (
+                  <Alert
+                    key={`alert-${index}`}
+                    type={alert.badge}
+                    renderTitle={(props) => (
+                      <EarnText {...props} text={alert.title} />
+                    )}
+                    descriptionComponent={
+                      alert.description ? (
+                        <EarnText
+                          text={alert.description}
+                          size="$bodyMd"
+                          color="$textSubdued"
+                        />
+                      ) : null
+                    }
+                  />
+                ))}
+              </YStack>
+            ) : null}
+
+            {/* Divider - only show when distributed or undistributed has items */}
+            {!isEmpty(data?.distributed) || !isEmpty(data?.undistributed) ? (
+              <Divider mb="$3" />
+            ) : null}
 
             {/* Distributed section */}
             {isEmpty(data?.distributed) ? null : (
@@ -162,9 +192,9 @@ export const BorrowBonusTooltip = ({
                     id: ETranslations.referral_distributed,
                   })}
                 </SizableText>
-                {data?.distributed.map((item, index) => {
+                {data?.distributed?.map((item, index) => {
                   return itemRender({
-                    key: `${index}-${item?.token?.address}`,
+                    key: `distributed-${index}-${item?.token?.address}`,
                     children: (
                       <>
                         <XStack ai="center" gap="$2.5">
@@ -184,16 +214,57 @@ export const BorrowBonusTooltip = ({
                     ),
                   });
                 })}
-                <YStack mt="$2">
-                  <EarnText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    text={data.description}
-                  />
-                  <Divider mt="$5" mb="$3.5" />
-                </YStack>
               </>
             )}
+
+            {/* Undistributed section */}
+            {isEmpty(data?.undistributed) ? null : (
+              <>
+                <SizableText
+                  size="$bodySmMedium"
+                  color="$textSubdued"
+                  mt="$2.5"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.earn_referral_undistributed,
+                  })}
+                </SizableText>
+                {data?.undistributed?.map((item, index) => {
+                  return itemRender({
+                    key: `undistributed-${index}-${item?.token?.address}`,
+                    children: (
+                      <>
+                        <XStack ai="center" gap="$2.5">
+                          <Token size="sm" tokenImageUri={item.token.logoURI} />
+                          <EarnText
+                            size="$bodyMdMedium"
+                            color="$text"
+                            text={item.title}
+                          />
+                        </XStack>
+                        <EarnText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          text={item.description}
+                        />
+                      </>
+                    ),
+                  });
+                })}
+              </>
+            )}
+
+            {/* Description text - always show when description exists */}
+            {data.description ? (
+              <YStack mt="$2">
+                <EarnText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  text={data.description}
+                />
+                <Divider mt="$5" mb="$3.5" />
+              </YStack>
+            ) : null}
             <Stack>
               <YStack gap="$3">
                 {/* Platform bonus info card */}
@@ -234,12 +305,7 @@ export const BorrowBonusTooltip = ({
                     {data.data.rewards.map((reward, index) => {
                       return (
                         <XStack gap="$1.5" key={index} ai="center">
-                          <Token
-                            size="xs"
-                            tokenImageUri={reward.logoURI}
-                            w="$4"
-                            h="$4"
-                          />
+                          <Token size="xxs" tokenImageUri={reward.logoURI} />
                           <EarnText
                             text={reward.type}
                             size="$bodyMd"

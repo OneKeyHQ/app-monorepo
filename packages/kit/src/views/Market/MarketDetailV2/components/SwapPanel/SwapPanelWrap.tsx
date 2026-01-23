@@ -37,6 +37,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     setPaymentToken,
     paymentToken,
     paymentAmount,
+    sellAmount,
     tradeType,
     setSlippage,
     slippage,
@@ -99,6 +100,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     }
     let actionTranslationId;
     let actionToken: ISwapToken | undefined;
+    let actionOtherToken: ISwapToken | undefined;
     if (!speedSwapEnabled) {
       actionTranslationId = onlySupportCrossChain
         ? ETranslations.promode_swap_unsupported_message_btc
@@ -111,12 +113,22 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         logoURI: tokenDetail?.logoUrl || '',
         isNative: !!tokenDetail?.isNative,
       };
+      actionOtherToken = {
+        networkId: paymentToken?.networkId || '',
+        contractAddress: paymentToken?.contractAddress || '',
+        symbol: paymentToken?.symbol || '',
+        decimals: paymentToken?.decimals || 0,
+        logoURI: paymentToken?.logoURI || '',
+        isNative: paymentToken?.isNative || false,
+      };
     }
     return {
       enabled: isEnabled,
       warningMessage,
       actionTranslationId,
       actionToken,
+      actionOtherToken,
+      onlySupportCrossChain,
     };
   }, [
     accountNetworkNotSupported,
@@ -124,6 +136,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     networkId,
     onlySupportCrossChain,
     originalSupportSpeedSwap,
+    paymentToken?.contractAddress,
+    paymentToken?.decimals,
+    paymentToken?.isNative,
+    paymentToken?.logoURI,
+    paymentToken?.networkId,
+    paymentToken?.symbol,
     tokenDetail?.address,
     tokenDetail?.decimals,
     tokenDetail?.isNative,
@@ -155,7 +173,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     defaultTradeTokens: defaultTokens,
     provider,
     tradeType: tradeType || ESwapDirection.BUY,
-    fromTokenAmount: paymentAmount.toFixed(),
+    fromTokenAmount:
+      tradeType === ESwapDirection.BUY
+        ? paymentAmount.toFixed()
+        : sellAmount.toFixed(),
     antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
     onCloseDialog,
   };
@@ -178,6 +199,13 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     swapNativeTokenReserveGas,
     isWrapped,
   } = speedSwapActions;
+
+  const { result: mergeDeriveAssetsEnabled } = usePromiseResult(async () => {
+    const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: balanceToken?.networkId || '',
+    });
+    return result?.mergeDeriveAssetsEnabled;
+  }, [balanceToken?.networkId]);
 
   const filterDefaultTokens = useMemo(() => {
     if (defaultTokens?.length === 1) {
@@ -273,6 +301,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
 
   return (
     <SwapPanelContent
+      activeAccount={activeAccount}
+      enableAddressTypeSelector={!!mergeDeriveAssetsEnabled}
       currentMarketToken={{
         networkId: networkId || '',
         contractAddress: tokenDetail?.address || '',

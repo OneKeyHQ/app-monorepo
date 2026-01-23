@@ -51,7 +51,7 @@ export type IFirmwareAuthenticateParams = {
   skipDeviceCancel?: boolean;
 };
 
-const deviceCheckingCodes = [10_104, 10_105, 10_106, 10_107];
+const deviceCheckingCodes = new Set([10_104, 10_105, 10_106, 10_107]);
 
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
@@ -155,7 +155,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         } catch (error) {
           if (
             error instanceof OneKeyServerApiError &&
-            deviceCheckingCodes.includes(error.code)
+            deviceCheckingCodes.has(error.code)
           ) {
             result = {
               code: error.code,

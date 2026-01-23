@@ -32,7 +32,6 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
-import { USDC_TOKEN_INFO } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -191,7 +190,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           const size = parseFloat(pos.position?.szi || '0');
           return Math.abs(size) > 0;
         })
-        .sort(
+        .toSorted(
           (a, b) =>
             parseFloat(b.position.positionValue || '0') -
             parseFloat(a.position.positionValue || '0'),
@@ -288,7 +287,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           const size = parseFloat(pos.position?.szi ?? '0');
           return Math.abs(size) > 0;
         })
-        .sort((a, b) => {
+        .toSorted((a, b) => {
           const af = parseFloat(a.position?.cumFunding?.allTime ?? '0');
           const bf = parseFloat(b.position?.cumFunding?.allTime ?? '0');
           if (bf !== af) return bf - af;
@@ -380,7 +379,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
         if (isSnapshot) {
           const sortedUpdates = [...incomingUpdates]
-            .sort((a, b) => b.time - a.time)
+            .toSorted((a, b) => b.time - a.time)
             .slice(0, 200);
           set(perpsLedgerUpdatesAtom(), {
             accountAddress: activeAccountAddress,
@@ -398,7 +397,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           );
           const mergedUpdates = [...newUpdates, ...existingUpdates];
           const sortedUpdates = mergedUpdates
-            .sort((a, b) => b.time - a.time)
+            .toSorted((a, b) => b.time - a.time)
             .slice(0, 200);
 
           set(perpsLedgerUpdatesAtom(), {
@@ -430,20 +429,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
                 if (matchedOrder) {
                   matchedOrderIds.add(matchedOrder.fromTxId);
-                  Toast.success({
-                    title: appLocale.intl.formatMessage({
-                      id: ETranslations.perp_deposit_success_title,
-                    }),
-                    message: appLocale.intl.formatMessage(
-                      {
-                        id: ETranslations.perp_deposit_success_msg,
-                      },
-                      {
-                        num: matchedOrder.amount,
-                        token: USDC_TOKEN_INFO.symbol,
-                      },
-                    ),
-                  });
                 }
               }
 

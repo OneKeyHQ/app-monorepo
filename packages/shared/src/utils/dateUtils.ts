@@ -60,7 +60,7 @@ export function formatDateFns(date: Date | string, _format?: string) {
     return fnsFormat(parsedDate, _format ?? 'PPp', {
       locale: parseToDateFnsLocale(locale),
     });
-  } catch (error) {
+  } catch (_error) {
     return '-';
   }
 }

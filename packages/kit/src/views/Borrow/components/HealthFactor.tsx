@@ -60,7 +60,7 @@ const normalizeGradientStops = (
       ...stop,
       percent: clampPercent(stop.percent),
     }))
-    .sort((a, b) => a.percent - b.percent);
+    .toSorted((a, b) => a.percent - b.percent);
 
   if (normalized.length < 2) {
     return DEFAULT_GRADIENT_STOPS;
@@ -248,11 +248,13 @@ export const HealthFactor = ({
             >
               {displayText}
             </SizableText>
-            <Icon
-              name="ChevronTriangleDownSmallOutline"
-              size="$4"
-              color={valueColor ?? '$text'}
-            />
+            <Stack style={{ transform: [{ rotate: '180deg' }] }}>
+              <Icon
+                name="ChevronTriangleUpSmallOutline"
+                size="$4"
+                color={valueColor ?? '$text'}
+              />
+            </Stack>
           </YStack>
         </Indicator>
       </Stack>

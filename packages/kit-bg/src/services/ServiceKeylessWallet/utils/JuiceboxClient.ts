@@ -206,7 +206,6 @@ export class JuiceboxClient {
   async recover(params: {
     pin: string; // TODO hashPin
     userInfo: string; // ownerId
-    skipTokenCacheClear?: boolean;
   }): Promise<string> {
     const devSettingsPersist = await devSettingsPersistAtom.get();
     const enableKeylessDebugInfo =
@@ -218,7 +217,7 @@ export class JuiceboxClient {
     }
 
     try {
-      const { pin, userInfo, skipTokenCacheClear } = params;
+      const { pin, userInfo } = params;
 
       // Validate token cache is not empty
       if (this.juiceboxTokenCache.size === 0) {
@@ -246,11 +245,6 @@ export class JuiceboxClient {
 
       // Convert recovered Uint8Array back to utf8 string
       const secretUtf8 = bufferUtils.bytesToUtf8(recoveredSecret);
-
-      // Clear token cache after successful recovery
-      if (!skipTokenCacheClear) {
-        this.clearTokenCache();
-      }
 
       return secretUtf8;
     } catch (e) {
@@ -343,6 +337,7 @@ export class JuiceboxClient {
   async checkRateLimitStatus(): Promise<{
     isRateLimited: boolean;
     retryAfterSeconds: number;
+    guessesRemaining: number;
   }> {
     if (this.juiceboxTokenCache.size === 0) {
       throw new OneKeyLocalError(
@@ -359,6 +354,8 @@ export class JuiceboxClient {
 
     const response = await axios.get<{
       // {"num_guess":10,"guess_count":3,"retry_after":0}
+      num_guess: number;
+      guess_count: number;
       retry_after: number;
     }>(`${firstRealm.address}/limit`, {
       headers: {
@@ -367,10 +364,14 @@ export class JuiceboxClient {
     });
 
     const retryAfter = response.data.retry_after ?? 0;
+    const numGuess = response.data.num_guess ?? 0;
+    const guessCount = response.data.guess_count ?? 0;
+    const guessesRemaining = Math.max(0, numGuess - guessCount);
 
     return {
       isRateLimited: retryAfter > 0,
       retryAfterSeconds: retryAfter,
+      guessesRemaining,
     };
   }
 

@@ -14,7 +14,7 @@ export function isValidAddress(address: string): boolean {
       StellarSdk.StrKey.isValidEd25519PublicKey(address) ||
       StellarSdk.StrKey.isValidMed25519PublicKey(address)
     );
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

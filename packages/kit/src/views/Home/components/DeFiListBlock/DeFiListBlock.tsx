@@ -99,6 +99,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
+  const isForceRefreshRef = useRef(false);
+
   const [isDeFiEnabled, setIsDeFiEnabled] = useState(false);
   const [isAllNetRequestsEnabled, setIsAllNetRequestsEnabled] =
     useState<boolean>(false);
@@ -201,6 +203,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
             sourceCurrencyInfo,
             targetCurrencyInfo,
             saveToLocal: true,
+            isForceRefresh: isForceRefreshRef.current,
           });
         updateAccountDeFiOverview({
           currency: settings.currencyInfo.id,
@@ -220,6 +223,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
       } catch (e) {
         console.error(e);
       } finally {
+        isForceRefreshRef.current = false;
         updateDeFiListState({
           isRefreshing: false,
           initialized: true,
@@ -290,6 +294,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         excludeLowValueProtocols: true,
         sourceCurrencyInfo,
         targetCurrencyInfo,
+        isForceRefresh: isForceRefreshRef.current,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -483,6 +488,10 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     [settings.currencyInfo.id, updateAccountDeFiOverview],
   );
 
+  const handleAllNetworkRequestsFinished = useCallback(async () => {
+    isForceRefreshRef.current = false;
+  }, []);
+
   const {
     run: runAllNetworkRequests,
     result: allNetworksResult,
@@ -499,6 +508,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     walletId: wallet?.id,
     isAllNetworks: network?.isAllNetworks,
     onStarted: handleAllNetworkRequestsStarted,
+    onFinished: handleAllNetworkRequestsFinished,
     allNetworkCacheRequests: handleAllNetworkCacheRequests,
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkRequests: handleAllNetworkRequests,
@@ -653,6 +663,7 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
     const onRefresh = () => {
       if (isFocused) {
         pendingRefreshRef.current = false;
+        isForceRefreshRef.current = true;
         refresh();
       } else {
         pendingRefreshRef.current = true;
@@ -683,8 +694,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         protocolCount: 0,
         positionCount: 0,
       };
-      let tempProtocols: IDeFiProtocol[] = [];
-      let tempProtocolMap: Record<string, IProtocolSummary> = {};
+      const tempProtocols: IDeFiProtocol[] = [];
+      const tempProtocolMap: Record<string, IProtocolSummary> = {};
       // merge all networks result
       for (const r of allNetworksResult) {
         tempOverview.totalValue = new BigNumber(tempOverview.totalValue)
@@ -704,11 +715,8 @@ function DeFiListBlock({ tableLayout }: { tableLayout?: boolean }) {
         );
         tempOverview.protocolCount += r.overview.protocolCount;
         tempOverview.positionCount += r.overview.positionCount;
-        tempProtocols = [...tempProtocols, ...r.protocols];
-        tempProtocolMap = {
-          ...tempProtocolMap,
-          ...r.protocolMap,
-        };
+        tempProtocols.push(...r.protocols);
+        Object.assign(tempProtocolMap, r.protocolMap);
       }
       updateAccountDeFiOverview({
         currency: settings.currencyInfo.id,

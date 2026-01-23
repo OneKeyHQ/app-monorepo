@@ -83,7 +83,7 @@ const NativeWebView = forwardRef(
           if (origin) {
             jsBridge.receive(data, { origin });
           }
-        } catch (error) {
+        } catch (_error) {
           // noop
         }
         onMessage?.(event);

@@ -12,6 +12,8 @@ export enum EAppSocketEventNames {
   primeDeviceLogout = 'DEVICE_LOGOUT',
   primeConfigFlush = 'CONFIG_FLUSH',
   primeLockChanged = 'LOCK_CHANGE',
+  setBadge = 'SET_BADGE',
+  userInfoUpdated = 'USER_INFO_UPDATED',
 }
 
 export type IPrimeSubscriptionInfo = {
@@ -57,3 +59,12 @@ export type IPrimeLockChangedInfo = {
   };
   pwdHash: string;
 };
+
+export type ISetBadgeInfo = {
+  msgId: string;
+  badge: number;
+};
+
+export interface IUserInfoUpdatedPayload {
+  msgId: string;
+}

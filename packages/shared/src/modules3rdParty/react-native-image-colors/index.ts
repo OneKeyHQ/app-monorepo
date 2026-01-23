@@ -26,7 +26,7 @@ export const getPrimaryColor = async (url: string, defaultColor: string) => {
   try {
     const result = await colors.getColors(url, { cache: true, key: url });
     return parseColorResult(result, defaultColor);
-  } catch (e) {
+  } catch (_e) {
     return defaultColor;
   }
 };

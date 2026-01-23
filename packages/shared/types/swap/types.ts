@@ -117,6 +117,7 @@ export interface ISwapInitParams {
   importToToken?: ISwapToken;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
+  fromAmount?: string;
 }
 
 // token & network

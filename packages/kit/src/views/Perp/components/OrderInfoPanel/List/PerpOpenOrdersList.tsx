@@ -116,9 +116,10 @@ function PerpOpenOrdersList({
         title: intl.formatMessage({
           id: ETranslations.perp_open_orders_cancel_all,
         }),
-        minWidth: 100,
+        minWidth: 80,
         align: 'right',
         flex: 1,
+        fixed: true,
         ...(openOrders.length > 0 && {
           onPress: () => showCancelAllOrdersDialog(),
         }),
@@ -159,18 +160,25 @@ function PerpOpenOrdersList({
       ),
     [columnsConfig],
   );
-  const renderOrderRow = (item: IPerpsFrontendOrder, _index: number) => {
-    return (
-      <OpenOrdersRow
-        order={item}
-        isMobile={isMobile}
-        cellMinWidth={totalMinWidth}
-        columnConfigs={columnsConfig}
-        handleCancelOrder={() => handleCancelOrder(item)}
-        index={_index}
-      />
-    );
-  };
+  const renderOrderRow = (
+    item: IPerpsFrontendOrder,
+    _index: number,
+    renderMode?: 'full' | 'left' | 'right',
+    isHovered?: boolean,
+    onHoverChange?: (index: number | null) => void,
+  ) => (
+    <OpenOrdersRow
+      order={item}
+      isMobile={isMobile}
+      cellMinWidth={totalMinWidth}
+      columnConfigs={columnsConfig}
+      handleCancelOrder={() => handleCancelOrder(item)}
+      index={_index}
+      renderMode={renderMode}
+      isHovered={isHovered}
+      onHoverChange={onHoverChange}
+    />
+  );
   return (
     <CommonTableListView
       onPullToRefresh={async () => {

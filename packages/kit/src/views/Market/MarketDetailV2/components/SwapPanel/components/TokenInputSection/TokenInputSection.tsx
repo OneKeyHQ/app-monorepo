@@ -12,7 +12,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
-  Image,
   Input,
   SizableText,
   XStack,
@@ -20,6 +19,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IInputRef, IYStackProps } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import {
   EAppEventBusNames,
@@ -213,11 +213,11 @@ function TokenInputSectionComponent(
                 })}
               >
                 {selectedToken?.logoURI ? (
-                  <Image
-                    src={selectedToken.logoURI}
-                    width="$5"
-                    height="$5"
-                    borderRadius="$full"
+                  <Token
+                    size="xs"
+                    tokenImageUri={selectedToken.logoURI}
+                    networkId={selectedToken.networkId}
+                    showNetworkIcon
                   />
                 ) : null}
                 <SizableText size="$bodyLg" numberOfLines={1} maxWidth="$20">

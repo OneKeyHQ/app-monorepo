@@ -1,6 +1,3 @@
-
-const _ = require('lodash');
-
 module.exports = (config, projectRoot) => {
   const path = require('path');
   const dotenv = require('dotenv');
@@ -104,11 +101,11 @@ module.exports = (config, projectRoot) => {
       entryPoint,
       prepend,
       graph,
-      bundleOptions,
+      _bundleOptions,
     ) => {
-      for (const [key, value] of graph.dependencies) {
+      for (const [entryKey, value] of graph.dependencies) {
         // to entry file injection of global variables __APP__
-        if (entryPoint === key) {
+        if (entryPoint === entryKey) {
           for (const { data } of value.output) {
             data.code = `var pendingChunks = {};\n${data.code}`;
           }
@@ -122,7 +119,6 @@ module.exports = (config, projectRoot) => {
       prepend,
       graph,
       bundleOptions,
-      ...args
     ) => {
       beforeCustomSerializer(entryPoint, prepend, graph, bundleOptions);
       const bundle = await dynamicImports(
@@ -143,7 +139,7 @@ module.exports = (config, projectRoot) => {
     };
 
     const outputChunkDir = path.resolve(projectRoot, 'dist/chunks');
-    config.server.enhanceMiddleware = (metroMiddleware, metroServer) =>
+    config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
       connect()
         .use(applyFixImageAssetsMiddleware(metroMiddleware))
         .use('/async-thunks', (req, res, next) => {

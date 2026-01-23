@@ -1188,6 +1188,15 @@ const BaseDevSettingsSection = () => {
                   );
                 }}
               />
+              <SectionPressItem
+                icon="StorageOutline"
+                title="StorageGallery"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevStorageGalleryModal,
+                  );
+                }}
+              />
             </Accordion.Content>
           </Accordion.HeightAnimator>
         </Accordion.Item>
