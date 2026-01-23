@@ -80,7 +80,11 @@ const BorrowHomeContent = memo(
     >(undefined);
     const { reserves, market } = useBorrowContext();
     const { activeAccount } = useActiveAccount({ num: 0 });
-    const { earnAccount, refreshAccount } = useEarnAccount({
+    const {
+      earnAccount,
+      refreshAccount,
+      isLoading: isEarnAccountLoading,
+    } = useEarnAccount({
       networkId: market?.networkId,
     });
     const alerts = useMemo(
@@ -94,6 +98,11 @@ const BorrowHomeContent = memo(
       if (!market?.networkId || !activeAccount.ready) {
         return false;
       }
+      // Wait for earnAccount to finish loading before showing warning
+      // This prevents flash when account exists but data is still loading
+      if (isEarnAccountLoading) {
+        return false;
+      }
       return (!accountId && !indexedAccountId) || !earnAccount?.accountAddress;
     }, [
       accountId,
@@ -101,6 +110,7 @@ const BorrowHomeContent = memo(
       earnAccount?.accountAddress,
       market?.networkId,
       activeAccount.ready,
+      isEarnAccountLoading,
     ]);
     const hasAlerts = Boolean(alerts?.length) || showNoAddressWarning;
 
