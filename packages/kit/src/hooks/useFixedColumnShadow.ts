@@ -65,43 +65,23 @@ export function useFixedColumnShadow({
     const element = getScrollElement();
     if (!element) return;
 
-    const { scrollLeft, scrollWidth, clientWidth } = element;
+    const { scrollWidth, clientWidth } = element;
+    // Show shadow when content is scrollable (content wider than container)
     const needsScroll = scrollWidth > clientWidth + 1;
 
-    let shouldShow: boolean;
-    if (position === 'left') {
-      // Left-fixed column: show shadow when scrolled right (scrollLeft > 0)
-      shouldShow = scrollLeft > 1;
-    } else {
-      // Right-fixed column: show shadow when not scrolled to end
-      const isScrolledToEnd = scrollLeft + clientWidth >= scrollWidth - 1;
-      shouldShow = needsScroll && !isScrolledToEnd;
-    }
-
-    setShowShadow((prev) => (prev !== shouldShow ? shouldShow : prev));
-  }, [getScrollElement, position]);
+    setShowShadow((prev) => (prev !== needsScroll ? needsScroll : prev));
+  }, [getScrollElement]);
 
   // Handle scroll event for native platforms
   const handleNativeScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset, contentSize, layoutMeasurement } =
-        event.nativeEvent;
+      const { contentSize, layoutMeasurement } = event.nativeEvent;
+      // Show shadow when content is scrollable (content wider than container)
       const needsScroll = contentSize.width > layoutMeasurement.width + 1;
 
-      let shouldShow: boolean;
-      if (position === 'left') {
-        // Left-fixed column: show shadow when scrolled right
-        shouldShow = contentOffset.x > 1;
-      } else {
-        // Right-fixed column: show shadow when not scrolled to end
-        const isScrolledToEnd =
-          contentOffset.x + layoutMeasurement.width >= contentSize.width - 1;
-        shouldShow = needsScroll && !isScrolledToEnd;
-      }
-
-      setShowShadow((prev) => (prev !== shouldShow ? shouldShow : prev));
+      setShowShadow((prev) => (prev !== needsScroll ? needsScroll : prev));
     },
-    [position],
+    [],
   );
 
   // Setup ResizeObserver for web/desktop to handle container resize
