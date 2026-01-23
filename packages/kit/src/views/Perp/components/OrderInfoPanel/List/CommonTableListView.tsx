@@ -406,7 +406,7 @@ export function CommonTableListView<T>({
     const resizeObserver = new ResizeObserver(checkShadowVisibility);
     resizeObserver.observe(element);
     return () => resizeObserver.disconnect();
-  }, [hasFixedColumns, checkShadowVisibility, getScrollElement, data.length]);
+  }, [hasFixedColumns, checkShadowVisibility, getScrollElement]);
 
   const paginatedData = useMemo<T[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
