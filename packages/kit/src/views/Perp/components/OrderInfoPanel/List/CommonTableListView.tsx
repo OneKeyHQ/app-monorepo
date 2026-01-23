@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
 
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+
 import type {
   IDebugRenderTrackerProps,
   IInputProps,
@@ -14,6 +16,7 @@ import {
   DebugRenderTracker,
   IconButton,
   Input,
+  LinearGradient,
   ListView,
   ScrollView,
   SizableText,
@@ -340,6 +343,8 @@ export function CommonTableListView<T>({
   ListHeaderComponent,
 }: ICommonTableListViewProps<T>) {
   const shouldUseTabsList = useTabsList ?? true;
+  const themeVariant = useThemeVariant();
+  const isDark = themeVariant === 'dark';
 
   const scrollableColumns = useMemo(
     () => columns.filter((c) => !c.fixed),
@@ -673,11 +678,40 @@ export function CommonTableListView<T>({
               $platform-web={{
                 boxShadow:
                   showFixedShadow && paginatedData.length > 0
-                    ? '-4px 0 8px rgba(0, 0, 0, 0.08)'
+                    ? isDark
+                      ? '-12px 0 12px rgba(255, 255, 255, 0.1)'
+                      : '-12px 0 12px rgba(0, 0, 0, 0.15)'
                     : 'none',
+                clipPath: 'inset(0 0 0 -20px)',
                 transition: 'box-shadow 0.2s ease-in-out',
               }}
             >
+              {/* Native shadow overlay using gradient (left side shadow) */}
+              {platformEnv.isNative &&
+              showFixedShadow &&
+              paginatedData.length > 0 ? (
+                <Stack
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={-12}
+                  width={12}
+                  zIndex={1}
+                  pointerEvents="none"
+                >
+                  <LinearGradient
+                    width="100%"
+                    height="100%"
+                    colors={
+                      isDark
+                        ? ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.1)']
+                        : ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.12)']
+                    }
+                    start={[0, 0]}
+                    end={[1, 0]}
+                  />
+                </Stack>
+              ) : null}
               <XStack
                 py="$2"
                 px="$3"
