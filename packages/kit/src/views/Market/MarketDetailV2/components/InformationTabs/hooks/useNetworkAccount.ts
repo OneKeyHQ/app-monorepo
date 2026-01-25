@@ -47,11 +47,17 @@ export function useNetworkAccount(networkId: string) {
     networkId,
   ]);
 
-  // xpub only exists on UTXO accounts (BTC, LTC, etc.)
-  const xpub =
-    networkAccount && 'xpub' in networkAccount
-      ? networkAccount.xpub
-      : undefined;
+  // xpubSegwit only exists on BTC Taproot accounts, other UTXO chains use xpub
+  const xpub = useMemo(() => {
+    if (!networkAccount) return undefined;
+    if ('xpubSegwit' in networkAccount && networkAccount.xpubSegwit) {
+      return networkAccount.xpubSegwit;
+    }
+    if ('xpub' in networkAccount && networkAccount.xpub) {
+      return networkAccount.xpub;
+    }
+    return undefined;
+  }, [networkAccount]);
 
   return {
     networkAccount,
