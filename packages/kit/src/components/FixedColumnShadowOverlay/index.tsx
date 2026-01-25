@@ -5,7 +5,52 @@ import {
   type IShadowPosition,
   SHADOW_CONSTANTS,
   getNativeShadowGradientColors,
-} from '../../hooks/useFixedColumnShadow';
+} from '@onekeyhq/kit/src/hooks/useFixedColumnShadow';
+
+interface ISimpleEdgeShadowOverlayProps {
+  /** Whether dark theme is active */
+  isDark: boolean;
+  /** Position of the edge shadow: 'left' or 'right' */
+  position?: 'left' | 'right';
+  /** Custom z-index value */
+  zIndex?: number;
+}
+
+/**
+ * Simple edge shadow overlay for mobile native platforms.
+ * A thin vertical line shadow at the edge of the container.
+ *
+ * @example
+ * <SimpleEdgeShadowOverlay isDark={isDark} position="right" />
+ */
+export function SimpleEdgeShadowOverlay({
+  isDark,
+  position = 'right',
+  zIndex = 1,
+}: ISimpleEdgeShadowOverlayProps) {
+  if (!platformEnv.isNative) {
+    return null;
+  }
+
+  const opacity = isDark
+    ? SHADOW_CONSTANTS.SIMPLE_SHADOW_OPACITY_DARK
+    : SHADOW_CONSTANTS.SIMPLE_SHADOW_OPACITY_LIGHT;
+  const bg = `rgba(${isDark ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`;
+  const positionStyle = position === 'left' ? { left: 0 } : { right: 0 };
+
+  return (
+    <Stack
+      position="absolute"
+      top={0}
+      bottom={0}
+      width={1}
+      zIndex={zIndex}
+      pointerEvents="none"
+      bg={bg}
+      {...positionStyle}
+    />
+  );
+}
 
 interface IFixedColumnShadowOverlayProps {
   /** Position of the fixed column */

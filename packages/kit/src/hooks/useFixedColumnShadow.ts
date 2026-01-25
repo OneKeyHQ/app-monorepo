@@ -43,50 +43,99 @@ export interface IUseFixedColumnShadowResult {
  * const { showShadow, scrollViewRef, handleNativeScroll, handleWebScroll } =
  *   useFixedColumnShadow({ position: 'right', initialVisible: true });
  */
+const SCROLL_THRESHOLD = 1;
+
+/**
+ * Calculate shadow visibility based on scroll position
+ */
+function calculateShadowVisibility(
+  position: IShadowPosition,
+  scrollOffset: number,
+  scrollWidth: number,
+  clientWidth: number,
+): boolean {
+  if (position === 'left') {
+    return scrollOffset > SCROLL_THRESHOLD;
+  }
+  const maxScrollLeft = scrollWidth - clientWidth;
+  return scrollOffset < maxScrollLeft - SCROLL_THRESHOLD;
+}
+
+const MOBILE_BREAKPOINT = 768;
+
 export function useFixedColumnShadow({
   position,
   enabled = true,
   initialVisible = false,
 }: IUseFixedColumnShadowOptions): IUseFixedColumnShadowResult {
+  const isNative = platformEnv.isNative;
+  const isMobileWeb =
+    !isNative &&
+    typeof globalThis !== 'undefined' &&
+    'innerWidth' in globalThis &&
+    (globalThis as unknown as Window).innerWidth <= MOBILE_BREAKPOINT;
+
+  // Force shadow visible on mobile devices (Native App or mobile browser width <= 768px)
+  const forceVisible = (isNative || isMobileWeb) && enabled;
+
   const [showShadow, setShowShadow] = useState(initialVisible);
   const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
-  // Get underlying DOM element from ScrollView (web/desktop only)
   const getScrollElement = useCallback((): HTMLElement | null => {
-    if (platformEnv.isNative) return null;
+    if (isNative) return null;
     const ref = scrollViewRef.current;
     if (!ref) return null;
     const scrollableNode = ref.getScrollableNode?.();
     return scrollableNode instanceof HTMLElement ? scrollableNode : null;
-  }, []);
+  }, [isNative]);
 
-  // Check shadow visibility based on scroll position for web
   const handleWebScroll = useCallback(() => {
+    if (forceVisible) return;
+
     const element = getScrollElement();
     if (!element) return;
 
-    const { scrollWidth, clientWidth } = element;
-    // Show shadow when content is scrollable (content wider than container)
-    const needsScroll = scrollWidth > clientWidth + 1;
+    const { scrollWidth, clientWidth, scrollLeft } = element;
+    const needsScroll = scrollWidth > clientWidth + SCROLL_THRESHOLD;
 
-    setShowShadow((prev) => (prev !== needsScroll ? needsScroll : prev));
-  }, [getScrollElement]);
+    setShowShadow(
+      needsScroll
+        ? calculateShadowVisibility(
+            position,
+            scrollLeft,
+            scrollWidth,
+            clientWidth,
+          )
+        : false,
+    );
+  }, [getScrollElement, forceVisible, position]);
 
-  // Handle scroll event for native platforms
   const handleNativeScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentSize, layoutMeasurement } = event.nativeEvent;
-      // Show shadow when content is scrollable (content wider than container)
-      const needsScroll = contentSize.width > layoutMeasurement.width + 1;
+      if (forceVisible) return;
 
-      setShowShadow((prev) => (prev !== needsScroll ? needsScroll : prev));
+      const { contentSize, layoutMeasurement, contentOffset } =
+        event.nativeEvent;
+      const needsScroll =
+        contentSize.width > layoutMeasurement.width + SCROLL_THRESHOLD;
+
+      setShowShadow(
+        needsScroll
+          ? calculateShadowVisibility(
+              position,
+              contentOffset.x,
+              contentSize.width,
+              layoutMeasurement.width,
+            )
+          : false,
+      );
     },
-    [],
+    [forceVisible, position],
   );
 
-  // Setup ResizeObserver for web/desktop to handle container resize
+  // Web ResizeObserver setup
   useEffect(() => {
-    if (!enabled || platformEnv.isNative) return;
+    if (!enabled || isNative || forceVisible) return;
     if (typeof ResizeObserver === 'undefined') return;
 
     const element = getScrollElement();
@@ -95,12 +144,11 @@ export function useFixedColumnShadow({
     handleWebScroll();
     const resizeObserver = new ResizeObserver(handleWebScroll);
     resizeObserver.observe(element);
-
     return () => resizeObserver.disconnect();
-  }, [enabled, handleWebScroll, getScrollElement]);
+  }, [enabled, handleWebScroll, getScrollElement, isNative, forceVisible]);
 
   return {
-    showShadow,
+    showShadow: forceVisible || showShadow,
     scrollViewRef,
     handleNativeScroll,
     handleWebScroll,
@@ -110,17 +158,21 @@ export function useFixedColumnShadow({
 // Shadow style constants for consistent theming across components
 export const SHADOW_CONSTANTS = {
   /** Shadow blur and spread radius in pixels */
-  SHADOW_SIZE: 12,
+  SHADOW_SIZE: 4,
   /** Web shadow opacity for light theme */
-  WEB_SHADOW_OPACITY_LIGHT: 0.15,
+  WEB_SHADOW_OPACITY_LIGHT: 0.06,
   /** Web shadow opacity for dark theme */
-  WEB_SHADOW_OPACITY_DARK: 0.1,
+  WEB_SHADOW_OPACITY_DARK: 0.04,
   /** Native gradient opacity for light theme */
-  NATIVE_GRADIENT_OPACITY_LIGHT: 0.12,
+  NATIVE_GRADIENT_OPACITY_LIGHT: 0.05,
   /** Native gradient opacity for dark theme */
-  NATIVE_GRADIENT_OPACITY_DARK: 0.1,
+  NATIVE_GRADIENT_OPACITY_DARK: 0.04,
   /** Transition duration for shadow animation */
   TRANSITION_DURATION: '0.2s',
+  /** Simple shadow overlay opacity for light theme (used in mobile edge overlay) */
+  SIMPLE_SHADOW_OPACITY_LIGHT: 0.1,
+  /** Simple shadow overlay opacity for dark theme (used in mobile edge overlay) */
+  SIMPLE_SHADOW_OPACITY_DARK: 0.15,
 } as const;
 
 /**
@@ -134,20 +186,21 @@ export function getWebShadowStyle(
     ? SHADOW_CONSTANTS.WEB_SHADOW_OPACITY_DARK
     : SHADOW_CONSTANTS.WEB_SHADOW_OPACITY_LIGHT;
   const size = SHADOW_CONSTANTS.SHADOW_SIZE;
+  const blur = size; // Use same size for blur to keep shadow narrow
   const color = isDark
     ? `rgba(255, 255, 255, ${opacity})`
     : `rgba(0, 0, 0, ${opacity})`;
 
   return position === 'left'
-    ? `${size}px 0 ${size}px ${color}`
-    : `-${size}px 0 ${size}px ${color}`;
+    ? `${size}px 0 ${blur}px ${color}`
+    : `-${size}px 0 ${blur}px ${color}`;
 }
 
 /**
  * Get clip-path style for web shadow clipping
  */
 export function getWebClipPath(position: IShadowPosition): string {
-  const size = SHADOW_CONSTANTS.SHADOW_SIZE + 8; // Extra padding for shadow
+  const size = SHADOW_CONSTANTS.SHADOW_SIZE + 4; // Extra padding for shadow (reduced since shadow is narrower)
   return position === 'left'
     ? `inset(0 -${size}px 0 0)`
     : `inset(0 0 0 -${size}px)`;

@@ -9,7 +9,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { FixedColumnShadowOverlay } from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
+import {
+  FixedColumnShadowOverlay,
+  SimpleEdgeShadowOverlay,
+} from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   SHADOW_CONSTANTS,
@@ -90,13 +93,10 @@ export function InviteCodeListTable({
     );
   }
 
-  const hasData = sortedData.length > 0;
-  const showShadow = showFixedShadow && hasData;
-
   // Table with horizontal scroll support when needed
   return shouldUseFlex ? (
     // Flex layout: table fits in container, no scroll needed
-    <Stack flex={1} onLayout={onLayout}>
+    <Stack flex={1} position="relative" onLayout={onLayout}>
       <Table<IInviteCodeListItem>
         dataSource={sortedData}
         columns={columns}
@@ -105,16 +105,19 @@ export function InviteCodeListTable({
         estimatedItemSize={50}
         rowProps={{ px: '$2', minHeight: '$10' }}
       />
+      <SimpleEdgeShadowOverlay isDark={isDark} position="right" zIndex={10} />
     </Stack>
   ) : (
     // Fixed width with fixed first column: table needs horizontal scroll
-    <XStack flex={1} onLayout={onLayout}>
+    <XStack flex={1} position="relative" onLayout={onLayout}>
       {/* Fixed column with shadow */}
       <YStack
         bg="$bgApp"
         zIndex={1}
         $platform-web={{
-          boxShadow: showShadow ? getWebShadowStyle('left', isDark) : 'none',
+          boxShadow: showFixedShadow
+            ? getWebShadowStyle('left', isDark)
+            : 'none',
           clipPath: getWebClipPath('left'),
           transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
         }}
@@ -130,7 +133,7 @@ export function InviteCodeListTable({
         />
         <FixedColumnShadowOverlay
           position="left"
-          visible={showShadow}
+          visible={showFixedShadow}
           isDark={isDark}
         />
       </YStack>
