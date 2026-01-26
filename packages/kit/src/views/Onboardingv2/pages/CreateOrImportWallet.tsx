@@ -331,7 +331,7 @@ function CreateOrImportWallet() {
                   <YStack gap="$0.5" flex={1} alignItems="flex-start">
                     <Card.Title>
                       {intl.formatMessage({
-                        id: ETranslations.keyless_wallet,
+                        id: ETranslations.create_keyless_wallet,
                       })}
                     </Card.Title>
                     <Button
@@ -500,7 +500,7 @@ function CreateOrImportWallet() {
                   <Card.Title>
                     {isKeylessWalletEnabled
                       ? intl.formatMessage({
-                          id: ETranslations.seed_phrase_wallet,
+                          id: ETranslations.create_seed_phrase_wallet,
                         })
                       : intl.formatMessage({
                           id: ETranslations.onboarding_create_new_wallet,
