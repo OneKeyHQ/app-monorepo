@@ -223,7 +223,7 @@ const SwapProLimitPriceValue = ({
           return;
         }
         const newLimitRate = fromTokenPriceBN.dividedBy(tokenPriceBN);
-        const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+        const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
         const formattedRate = newLimitRate
           .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
           .toFixed();
@@ -240,7 +240,7 @@ const SwapProLimitPriceValue = ({
         return;
       }
       const newLimitRate = tokenPriceBN.dividedBy(toTokenPriceBN);
-      const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+      const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
       const formattedRate = newLimitRate
         .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
         .toFixed();
@@ -294,7 +294,7 @@ const SwapProLimitPriceValue = ({
         return;
       }
       const newLimitRate = fromTokenPriceBN.dividedBy(tokenPriceBN);
-      const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+      const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
       const formattedRate = newLimitRate
         .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
         .toFixed();
@@ -313,7 +313,7 @@ const SwapProLimitPriceValue = ({
       return;
     }
     const newLimitRate = tokenPriceBN.dividedBy(toTokenPriceBN);
-    const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+    const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
     const formattedRate = newLimitRate
       .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
       .toFixed();
@@ -375,7 +375,7 @@ const SwapProLimitPriceValue = ({
           return;
         }
         const newLimitRate = fromTokenPriceBN.dividedBy(newTokenPrice);
-        const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+        const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
         const formattedRate = newLimitRate
           .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
           .toFixed();
@@ -391,7 +391,7 @@ const SwapProLimitPriceValue = ({
         return;
       }
       const newLimitRate = newTokenPrice.dividedBy(toTokenPriceBN);
-      const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+      const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
       const formattedRate = newLimitRate
         .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
         .toFixed();
