@@ -70,7 +70,7 @@ export function BorrowFAQSection({
             <SizableText
               textAlign="left"
               flex={1}
-              size="$headingMd"
+              size="$bodyLgMedium"
               color={open ? '$text' : '$textSubdued'}
             >
               {item.question}

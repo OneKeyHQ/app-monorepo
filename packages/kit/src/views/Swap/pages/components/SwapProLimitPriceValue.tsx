@@ -65,7 +65,7 @@ const SwapProLimitPriceValue = ({
       // limit price = fromToken price / toToken price
       // so: toToken price = fromToken price / limit price
       const fromTokenPriceBN = new BigNumber(
-        limitPriceMarketPrice.fromTokenMarketPrice ?? '0',
+        String(limitPriceMarketPrice.fromTokenMarketPrice || '0'),
       );
       if (fromTokenPriceBN.isZero()) {
         return '';
@@ -77,7 +77,7 @@ const SwapProLimitPriceValue = ({
     // limit price = fromToken price / toToken price
     // so: fromToken price = toToken price * limit price
     const toTokenPriceBN = new BigNumber(
-      limitPriceMarketPrice.toTokenMarketPrice ?? '0',
+      String(limitPriceMarketPrice.toTokenMarketPrice || '0'),
     );
     if (toTokenPriceBN.isZero()) {
       return '';
@@ -109,7 +109,7 @@ const SwapProLimitPriceValue = ({
       // market limit price = fromToken price / toToken price
       // so: toToken market price = fromToken price / market limit price
       const fromTokenPriceBN = new BigNumber(
-        limitPriceMarketPrice.fromTokenMarketPrice ?? '0',
+        String(limitPriceMarketPrice.fromTokenMarketPrice || '0'),
       );
       if (fromTokenPriceBN.isZero()) {
         return '';
@@ -123,7 +123,7 @@ const SwapProLimitPriceValue = ({
     // market limit price = fromToken price / toToken price
     // so: fromToken market price = toToken price * market limit price
     const toTokenPriceBN = new BigNumber(
-      limitPriceMarketPrice.toTokenMarketPrice ?? '0',
+      String(limitPriceMarketPrice.toTokenMarketPrice || '0'),
     );
     if (toTokenPriceBN.isZero()) {
       return '';
@@ -217,13 +217,13 @@ const SwapProLimitPriceValue = ({
         // BUY: user modifies toToken price
         // limit price = fromToken price / toToken price
         const fromTokenPriceBN = new BigNumber(
-          limitPriceMarketPrice.fromTokenMarketPrice ?? '0',
+          String(limitPriceMarketPrice.fromTokenMarketPrice || '0'),
         );
         if (fromTokenPriceBN.isZero()) {
           return;
         }
         const newLimitRate = fromTokenPriceBN.dividedBy(tokenPriceBN);
-        const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+        const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
         const formattedRate = newLimitRate
           .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
           .toFixed();
@@ -234,13 +234,13 @@ const SwapProLimitPriceValue = ({
       // SELL: user modifies fromToken price
       // limit price = fromToken price / toToken price
       const toTokenPriceBN = new BigNumber(
-        limitPriceMarketPrice.toTokenMarketPrice ?? '0',
+        String(limitPriceMarketPrice.toTokenMarketPrice || '0'),
       );
       if (toTokenPriceBN.isZero()) {
         return;
       }
       const newLimitRate = tokenPriceBN.dividedBy(toTokenPriceBN);
-      const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+      const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
       const formattedRate = newLimitRate
         .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
         .toFixed();
@@ -287,14 +287,14 @@ const SwapProLimitPriceValue = ({
       // BUY: user modifies toToken price
       // limit price = fromToken price / toToken price
       const fromTokenPriceBN = new BigNumber(
-        limitPriceMarketPrice.fromTokenMarketPrice ?? '0',
+        String(limitPriceMarketPrice.fromTokenMarketPrice || '0'),
       );
       if (fromTokenPriceBN.isZero()) {
         setInputValue(currentTokenPrice);
         return;
       }
       const newLimitRate = fromTokenPriceBN.dividedBy(tokenPriceBN);
-      const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+      const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
       const formattedRate = newLimitRate
         .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
         .toFixed();
@@ -306,14 +306,14 @@ const SwapProLimitPriceValue = ({
     // SELL: user modifies fromToken price
     // limit price = fromToken price / toToken price
     const toTokenPriceBN = new BigNumber(
-      limitPriceMarketPrice.toTokenMarketPrice ?? '0',
+      String(limitPriceMarketPrice.toTokenMarketPrice || '0'),
     );
     if (toTokenPriceBN.isZero()) {
       setInputValue(currentTokenPrice);
       return;
     }
     const newLimitRate = tokenPriceBN.dividedBy(toTokenPriceBN);
-    const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+    const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
     const formattedRate = newLimitRate
       .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
       .toFixed();
@@ -369,13 +369,13 @@ const SwapProLimitPriceValue = ({
         // BUY: user modifies toToken price
         // limit price = fromToken price / toToken price
         const fromTokenPriceBN = new BigNumber(
-          limitPriceMarketPrice.fromTokenMarketPrice ?? '0',
+          String(limitPriceMarketPrice.fromTokenMarketPrice || '0'),
         );
         if (fromTokenPriceBN.isZero()) {
           return;
         }
         const newLimitRate = fromTokenPriceBN.dividedBy(newTokenPrice);
-        const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+        const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
         const formattedRate = newLimitRate
           .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
           .toFixed();
@@ -385,13 +385,13 @@ const SwapProLimitPriceValue = ({
       // SELL: user modifies fromToken price
       // limit price = fromToken price / toToken price
       const toTokenPriceBN = new BigNumber(
-        limitPriceMarketPrice.toTokenMarketPrice ?? '0',
+        String(limitPriceMarketPrice.toTokenMarketPrice || '0'),
       );
       if (toTokenPriceBN.isZero()) {
         return;
       }
       const newLimitRate = newTokenPrice.dividedBy(toTokenPriceBN);
-      const decimals = limitPriceMarketPrice.toToken?.decimals ?? 8;
+      const decimals = Number(limitPriceMarketPrice.toToken?.decimals ?? 8);
       const formattedRate = newLimitRate
         .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
         .toFixed();

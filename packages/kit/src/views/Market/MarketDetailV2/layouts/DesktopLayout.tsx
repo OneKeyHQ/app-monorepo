@@ -17,24 +17,24 @@ import {
   TokenSupplementaryInfo,
 } from '../components';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
-import { useNetworkAccountAddress } from '../components/InformationTabs/hooks/useNetworkAccountAddress';
+import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function DesktopLayout() {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
     useTokenDetail();
-  const { accountAddress } = useNetworkAccountAddress(networkId);
+
+  const { accountAddress, xpub } = useNetworkAccount(networkId);
+
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
+    xpub,
   });
 
-  // For BTC network, show tabs only if has portfolio data
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
-  const hasPortfolioData = portfolioData.length > 0;
-  const shouldShowTabs = !isBTCNetwork || hasPortfolioData;
 
   return (
     <XStack flex={1}>
@@ -56,16 +56,14 @@ export function DesktopLayout() {
           ) : null}
         </Stack>
 
-        {/* Info tabs - for BTC network, show only if has portfolio data */}
-        {shouldShowTabs ? (
-          <Stack h="30vh">
-            <DesktopInformationTabs
-              portfolioData={portfolioData}
-              isRefreshing={isRefreshing}
-              isBTCNetwork={isBTCNetwork}
-            />
-          </Stack>
-        ) : null}
+        {/* Info tabs */}
+        <Stack h="30vh">
+          <DesktopInformationTabs
+            portfolioData={portfolioData}
+            isRefreshing={isRefreshing}
+            isBTCNetwork={isBTCNetwork}
+          />
+        </Stack>
       </YStack>
 
       {/* Right column */}

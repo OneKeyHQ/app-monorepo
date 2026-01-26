@@ -198,7 +198,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Check configVersion change before updating
     const prevConfig = await this.backgroundApi.simpleDb.perp.getPerpData();
     const prevConfigVersion = prevConfig.configVersion;
-    const newConfigVersion = referrerConfig.configVersion;
+    const newConfigVersion = referrerConfig?.configVersion;
     const isConfigVersionChanged =
       !isNil(newConfigVersion) && prevConfigVersion !== newConfigVersion;
 

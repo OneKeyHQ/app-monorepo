@@ -138,7 +138,7 @@ function BaseNotificationHandlerContainer() {
       if (perpToken) {
         try {
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-            coin: String(perpToken).toUpperCase(),
+            coin: perpToken,
           });
         } catch (error) {
           console.error('Failed to change perps active asset:', error);

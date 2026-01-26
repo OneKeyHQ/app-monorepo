@@ -409,7 +409,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         maxAmount = BigNumber.max(
           0,
           maxAmount.minus(new BigNumber(reserveGas)),
-        ).decimalPlaces(fromSelectToken?.decimals ?? 6, BigNumber.ROUND_DOWN);
+        ).decimalPlaces(
+          Number(fromSelectToken?.decimals ?? 6),
+          BigNumber.ROUND_DOWN,
+        );
       }
       let reserveGasFormatted: string | undefined | number = reserveGas;
       if (reserveGas) {
@@ -466,7 +469,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
       const amountBN = fromTokenBalanceBN.multipliedBy(stage / 100);
       const amountAfterDecimal = amountBN.decimalPlaces(
-        fromSelectToken?.decimals ?? 6,
+        Number(fromSelectToken?.decimals ?? 6),
         BigNumber.ROUND_DOWN,
       );
       if (

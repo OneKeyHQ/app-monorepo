@@ -624,10 +624,12 @@ class ServiceMarketV2 extends ServiceBase {
     accountAddress,
     networkId,
     tokenAddress,
+    xpub,
   }: {
     accountAddress: string;
     networkId: string;
     tokenAddress: string;
+    xpub?: string;
   }) {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -641,6 +643,7 @@ class ServiceMarketV2 extends ServiceBase {
           networkId,
           accountAddress,
           tokenAddress,
+          xpub,
         },
       });
 

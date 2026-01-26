@@ -450,6 +450,10 @@ export function useCloudBackup() {
               },
             );
             await verifyPasswordDialog?.close?.();
+            // Delay to ensure the dialog is closed before proceeding
+            if (platformEnv.isNative) {
+              await timerUtils.wait(350);
+            }
             importProcessingDialog = showPrimeTransferImportProcessingDialog({
               navigation,
             });

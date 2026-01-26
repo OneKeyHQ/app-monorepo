@@ -516,7 +516,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       } = routeParams;
       const networkId = EarnNetworkUtils.getNetworkIdByName(network);
       const symbol = normalizeToEarnSymbol(symbolParam);
-      const provider = normalizeToEarnProvider(providerParam);
+      // Only use normalizeToEarnProvider for validation, keep provider lowercase for API calls
+      const normalizedProvider = normalizeToEarnProvider(providerParam);
 
       if (!networkId) {
         throw new OneKeyLocalError(`Unknown network: ${String(network)}`);
@@ -524,7 +525,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       if (!symbol) {
         throw new OneKeyLocalError(`Unknown symbol: ${String(symbolParam)}`);
       }
-      if (!provider) {
+      if (!normalizedProvider) {
         throw new OneKeyLocalError(
           `Unknown provider: ${String(providerParam)}`,
         );
@@ -533,7 +534,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       return {
         networkId,
         symbol,
-        provider,
+        provider: normalizedProvider.toLowerCase(), // Keep lowercase for API consistency
         vault,
       };
     }
