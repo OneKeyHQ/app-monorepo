@@ -90,6 +90,10 @@ export class JuiceboxClient {
 
     const tokenUrl = `${JUICEBOX_AUTH_SERVER}/juicebox/v1/token/realms`;
 
+    const devSettings = await devSettingsPersistAtom.get();
+    const isTestnet =
+      !!devSettings.enabled && !!devSettings.settings?.enableTestEndpoint;
+
     const response = await axios.post<
       IApiClientResponse<{
         tokens: Record<string, string>;
@@ -97,6 +101,7 @@ export class JuiceboxClient {
       }>
     >(tokenUrl, {
       token: supabaseAccessToken,
+      isTestnet,
     });
     const resData = response?.data;
     if (resData?.code === 0 && resData?.data?.tokens) {
