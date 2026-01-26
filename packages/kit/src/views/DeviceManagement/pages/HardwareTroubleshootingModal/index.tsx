@@ -34,7 +34,11 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -132,7 +136,11 @@ function HardwareTroubleshootingModal() {
   );
 
   const handleFaqItemPress = useCallback((link: string) => {
-    openUrlExternal(link);
+    if (platformEnv.isDesktop || platformEnv.isNative) {
+      openUrlInDiscovery({ url: link });
+    } else {
+      openUrlExternal(link);
+    }
   }, []);
 
   const renderHeader = useCallback(() => {
@@ -203,8 +211,13 @@ function HardwareTroubleshootingModal() {
             <Button
               variant="tertiary"
               size="small"
-              iconAfter="OpenOutline"
-              onPress={() => openUrlExternal(HELP_CENTER_HARDWARE_FAQ_URL)}
+              onPress={() => {
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  openUrlInDiscovery({ url: HELP_CENTER_HARDWARE_FAQ_URL });
+                } else {
+                  openUrlExternal(HELP_CENTER_HARDWARE_FAQ_URL);
+                }
+              }}
             >
               {intl.formatMessage({
                 id: ETranslations.global_more,
@@ -308,7 +321,13 @@ function HardwareTroubleshootingModal() {
         onConfirm={() => {
           void showIntercom();
         }}
-        onCancel={(_pop) => openUrlExternal(HELP_CENTER_URL)}
+        onCancel={(_pop) => {
+          if (platformEnv.isDesktop || platformEnv.isNative) {
+            openUrlInDiscovery({ url: HELP_CENTER_URL });
+          } else {
+            openUrlExternal(HELP_CENTER_URL);
+          }
+        }}
       />
     </Page>
   );

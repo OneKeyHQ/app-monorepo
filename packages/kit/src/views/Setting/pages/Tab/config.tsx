@@ -47,7 +47,10 @@ import {
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
@@ -87,6 +90,8 @@ export interface ISubSettingConfig {
   };
   onPress?: (navigation?: ReturnType<typeof useAppNavigation>) => void;
   renderElement?: React.ReactElement<any>;
+  /** If true, shows ArrowTopRightOutline icon instead of drill-in arrow for external links */
+  isExternalLink?: boolean;
 }
 
 export enum ESettingsTabNames {
@@ -624,6 +629,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       title: intl.formatMessage({
                         id: ETranslations.settings_hardware_bridge_status,
                       }),
+                      isExternalLink: true,
                       onPress: () => {
                         openUrlExternal(BRIDGE_STATUS_URL);
                       },
@@ -669,7 +675,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 id: ETranslations.settings_help_center,
               }),
               onPress: () => {
-                openUrlExternal(helpCenterUrl);
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  openUrlInDiscovery({ url: helpCenterUrl });
+                } else {
+                  openUrlExternal(helpCenterUrl);
+                }
               },
             },
             {
@@ -689,6 +699,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_rate_app,
                   }),
+                  isExternalLink: true,
                   onPress: () => {
                     if (platformEnv.isExtension) {
                       let url = EXT_RATE_URL.chrome;
@@ -714,8 +725,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_user_agreement,
               }),
-              onPress: (_navigation) => {
-                openUrlExternal(userAgreementUrl);
+              onPress: () => {
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  openUrlInDiscovery({ url: userAgreementUrl });
+                } else {
+                  openUrlExternal(userAgreementUrl);
+                }
               },
             },
             {
@@ -723,8 +738,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_privacy_policy,
               }),
-              onPress: (_navigation) => {
-                openUrlExternal(privacyPolicyUrl);
+              onPress: () => {
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  openUrlInDiscovery({ url: privacyPolicyUrl });
+                } else {
+                  openUrlExternal(privacyPolicyUrl);
+                }
               },
             },
           ],
