@@ -10,12 +10,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFirmwareUpdateRoutes,
+  EModalLegacyFirmwareUpdateRoutes,
   EModalRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -291,6 +293,78 @@ export function useFirmwareUpdateActions() {
     [intl],
   );
 
+  // ==================== Legacy Firmware Update ====================
+
+  /**
+   * Check if legacy firmware update flow should be used
+   * Returns true for devices with firmware version below minimum limit (Web/Extension only)
+   */
+  const shouldUseLegacyFlow = useCallback(
+    async (params: {
+      deviceType: IDeviceType | string;
+      firmwareVersion: string;
+      bootloaderVersion: string;
+    }): Promise<boolean> => {
+      return backgroundApiProxy.serviceLegacyFirmwareUpdate.shouldUseLegacyFlow(
+        params,
+      );
+    },
+    [],
+  );
+
+  /**
+   * Open legacy firmware update modal for devices with low firmware versions
+   */
+  const openLegacyUpdateModal = useCallback(
+    ({
+      connectId,
+      deviceType,
+      currentFirmwareVersion,
+      currentBootloaderVersion,
+      targetFirmwareVersion,
+      isBootloaderMode,
+    }: {
+      connectId: string | undefined;
+      deviceType: IDeviceType | string;
+      currentFirmwareVersion: string;
+      currentBootloaderVersion: string;
+      targetFirmwareVersion?: string;
+      isBootloaderMode?: boolean;
+    }) => {
+      if (rootNavigationRef.current) {
+        rootNavigationRef.current?.dispatch(
+          StackActions.push(ERootRoutes.Modal, {
+            screen: EModalRoutes.LegacyFirmwareUpdateModal,
+            params: {
+              screen: EModalLegacyFirmwareUpdateRoutes.LegacyUpdate,
+              params: {
+                connectId,
+                deviceType,
+                currentFirmwareVersion,
+                currentBootloaderVersion,
+                targetFirmwareVersion,
+                isBootloaderMode,
+              },
+            },
+          }),
+        );
+      } else {
+        navigation.pushModal(EModalRoutes.LegacyFirmwareUpdateModal, {
+          screen: EModalLegacyFirmwareUpdateRoutes.LegacyUpdate,
+          params: {
+            connectId,
+            deviceType,
+            currentFirmwareVersion,
+            currentBootloaderVersion,
+            targetFirmwareVersion,
+            isBootloaderMode,
+          },
+        });
+      }
+    },
+    [navigation],
+  );
+
   return {
     closeUpdateModal,
     openChangeLog,
@@ -300,5 +374,8 @@ export function useFirmwareUpdateActions() {
     showForceUpdate,
     showCheckList,
     restartOnboarding,
+    // Legacy firmware update
+    shouldUseLegacyFlow,
+    openLegacyUpdateModal,
   };
 }

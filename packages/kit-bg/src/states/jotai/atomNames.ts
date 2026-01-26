@@ -28,6 +28,10 @@ export enum EAtomNames {
   firmwareUpdateWorkflowRunningAtom = 'firmwareUpdateWorkflowRunningAtom',
   firmwareUpdateDevSettingsPersistAtom = 'firmwareUpdateDevSettingsPersistAtom',
   firmwareUpdateResultVerifyAtom = 'firmwareUpdateResultVerifyAtom',
+  // Legacy Firmware Update (for devices with firmware version below minimum limit)
+  legacyFirmwareUpdateStepAtom = 'legacyFirmwareUpdateStepAtom',
+  legacyFirmwareUpdateProgressAtom = 'legacyFirmwareUpdateProgressAtom',
+  legacyFirmwareUpdateRunningAtom = 'legacyFirmwareUpdateRunningAtom',
   notificationsDevSettingsPersistAtom = 'notificationsDevSettingsPersistAtom',
   appUpdatePersistAtom = 'appUpdatePersistAtom',
   spotlightPersistAtom = 'spotlightPersistAtom',

@@ -15,6 +15,7 @@ import type { IModalDeviceManagementParamList } from './deviceManagement';
 import type { IDiscoveryModalParamList } from './discovery';
 import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { IModalFirmwareUpdateParamList } from './firmwareUpdate';
+import type { IModalLegacyFirmwareUpdateParamList } from './legacyFirmwareUpdate';
 import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
 import type { IManualBackupParamList } from './manualBackup';
@@ -52,6 +53,7 @@ export enum EModalRoutes {
   OnboardingModal = 'OnboardingModal',
   PrimeModal = 'PrimeModal',
   FirmwareUpdateModal = 'FirmwareUpdateModal',
+  LegacyFirmwareUpdateModal = 'LegacyFirmwareUpdateModal',
   AssetSelectorModal = 'AssetSelectorModal',
   ChainSelectorModal = 'ChainSelectorModal',
   SendModal = 'SendModal',
@@ -92,6 +94,7 @@ export type IModalParamList = {
   [EModalRoutes.DiscoveryModal]: IDiscoveryModalParamList;
   [EModalRoutes.FiatCryptoModal]: IModalFiatCryptoParamList;
   [EModalRoutes.FirmwareUpdateModal]: IModalFirmwareUpdateParamList;
+  [EModalRoutes.LegacyFirmwareUpdateModal]: IModalLegacyFirmwareUpdateParamList;
   [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;
   [EModalRoutes.LiteCardModal]: ILiteCardParamList;
   [EModalRoutes.ManualBackupModal]: IManualBackupParamList;

@@ -11,6 +11,7 @@ export * from './deviceManagement';
 export * from './discovery';
 export * from './fiatCrypto';
 export * from './firmwareUpdate';
+export * from './legacyFirmwareUpdate';
 export * from './gallery';
 export * from './keyTag';
 export * from './liteCard';

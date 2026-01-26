@@ -20,6 +20,7 @@ import { ModalDiscoveryStack } from '../../views/Discovery/router';
 import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
 import { KeyTagModalRouter } from '../../views/KeyTag/router';
+import { ModalLegacyFirmwareUpdateStack } from '../../views/LegacyFirmwareUpdate/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { ManualBackupRouter } from '../../views/ManualBackup/router';
 import { ModalMarketStack } from '../../views/Market/router';
@@ -115,6 +116,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.FirmwareUpdateModal,
     children: ModalFirmwareUpdateStack,
+  },
+  {
+    name: EModalRoutes.LegacyFirmwareUpdateModal,
+    children: ModalLegacyFirmwareUpdateStack,
   },
   {
     name: EModalRoutes.AssetSelectorModal,

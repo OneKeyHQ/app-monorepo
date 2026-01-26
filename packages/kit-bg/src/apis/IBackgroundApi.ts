@@ -38,6 +38,7 @@ import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceExplorer from '../services/ServiceExplorer';
 import type ServiceFiatCrypto from '../services/ServiceFiatCrypto';
 import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
+import type ServiceLegacyFirmwareUpdate from '../services/ServiceLegacyFirmwareUpdate';
 import type ServiceFreshAddress from '../services/ServiceFreshAddress';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
@@ -190,6 +191,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceHardware: ServiceHardware;
   serviceHardwareUI: ServiceHardwareUI;
   serviceFirmwareUpdate: ServiceFirmwareUpdate;
+  serviceLegacyFirmwareUpdate: ServiceLegacyFirmwareUpdate;
   serviceLightning: ServiceLightning;
   serviceOnboarding: ServiceOnboarding;
   serviceScanQRCode: ServiceScanQRCode;

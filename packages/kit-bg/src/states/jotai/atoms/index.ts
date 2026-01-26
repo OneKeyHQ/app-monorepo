@@ -8,6 +8,7 @@ export * from './currency';
 export * from './demo';
 export * from './devSettings';
 export * from './hardware';
+export * from './legacyFirmwareUpdate';
 export * from './jotaiContextStoreMap';
 export * from './onboarding';
 export * from './password';
