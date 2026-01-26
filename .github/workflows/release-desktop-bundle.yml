@@ -10,7 +10,7 @@ on:
 
 jobs:
   release-desktop-bundle:
-    runs-on: macos-latest
+    runs-on: macos-15.6
     strategy:
       matrix:
         node-version: [24.x]
