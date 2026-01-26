@@ -25,8 +25,10 @@ export function useOneKeyWalletDetection() {
 
     // find OneKey provider
     const oneKeyProvider = providers.find((provider) => {
-      const rdns = provider.info.rdns.toLowerCase();
-      const name = provider.info.name.toLowerCase();
+      if (!provider?.info) return false;
+
+      const rdns = provider.info.rdns?.toLowerCase() ?? '';
+      const name = provider.info.name?.toLowerCase() ?? '';
 
       const rdnsMatch = oneKeyRdnsPatterns.some((pattern) =>
         rdns.includes(pattern.toLowerCase()),
