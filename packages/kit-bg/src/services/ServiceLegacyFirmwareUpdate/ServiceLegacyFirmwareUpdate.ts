@@ -6,7 +6,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   ELegacyFirmwareUpdateSteps,
@@ -45,17 +44,12 @@ class ServiceLegacyFirmwareUpdate extends ServiceBase {
    * Check if legacy upgrade flow should be used
    *
    * Conditions:
-   * 1. Web or Extension platform
+   * 1. All platforms (Web, Extension, Native)
    * 2. Device version below minimum limit
    */
   @backgroundMethod()
   shouldUseLegacyFlow(params: ILegacyFlowCheckParams): boolean {
     const { deviceType, firmwareVersion, bootloaderVersion } = params;
-
-    // Condition 1: Only Web/Extension platforms
-    if (!platformEnv.isWeb && !platformEnv.isExtension) {
-      return false;
-    }
 
     // Condition 2: Pro device has no restrictions
     if (deviceType === EDeviceType.Pro) {
