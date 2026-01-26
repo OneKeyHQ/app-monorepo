@@ -10,7 +10,7 @@ on:
 
 jobs:
   release-desktop-mas:
-    runs-on: macos-15.6
+    runs-on: macos-15
     strategy:
       matrix:
         node-version: [24.x]
