@@ -92,7 +92,7 @@
     "expo-screen-orientation": "9.0.8",
     "expo-secure-store": "14.2.3",
     "expo-sharing": "14.0.8",
-    "expo-splash-screen": "31.0.12",
+    "expo-splash-screen": "55.0.2",
     "expo-web-browser": "15.0.10",
     "https-browserify": "^1.0.0",
     "jcore-react-native": "https://github.com/OneKeyHQ/jcore-react-native.git#4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c",

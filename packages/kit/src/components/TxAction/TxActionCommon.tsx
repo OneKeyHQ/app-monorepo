@@ -394,6 +394,7 @@ function TxActionCommonListView(
             flexGrow: 1,
             flexBasis: 1,
           })}
+          alignItems="center"
         >
           {showIcon ? (
             <TxActionCommonAvatar

@@ -14,6 +14,8 @@ export interface IAnchorExtraProps {
   href?: string;
   target?: string;
   rel?: string;
+  /** Show external link indicator (underline + ↗). Default: true */
+  showExternalIndicator?: boolean;
 }
 
 const isWeb = !platformEnv.isNative;
@@ -26,10 +28,34 @@ const AnchorFrame = styled(SizableText, {
 });
 export const Anchor = AnchorFrame.styleable<IAnchorProps, any, any>(
   (props: IAnchorProps, ref: Ref<TamaguiTextElement> | undefined) => {
-    const { href, target, ...restProps } = props;
+    const {
+      href,
+      target,
+      showExternalIndicator = true,
+      children,
+      textDecorationLine,
+      ...restProps
+    } = props;
+
+    // Apply underline when showExternalIndicator is true (unless explicitly overridden)
+    const resolvedTextDecorationLine = showExternalIndicator
+      ? textDecorationLine ?? 'underline'
+      : textDecorationLine;
+
+    // Append " ↗" indicator when showExternalIndicator is true
+    const displayChildren = showExternalIndicator ? (
+      <>
+        {children}
+        {' ↗'}
+      </>
+    ) : (
+      children
+    );
+
     return (
       <AnchorFrame
         {...restProps}
+        textDecorationLine={resolvedTextDecorationLine}
         {...(isWeb
           ? {
               href,
@@ -45,7 +71,9 @@ export const Anchor = AnchorFrame.styleable<IAnchorProps, any, any>(
             })}
         ref={ref}
         allowFontScaling={false}
-      />
+      >
+        {displayChildren}
+      </AnchorFrame>
     );
   },
 );
