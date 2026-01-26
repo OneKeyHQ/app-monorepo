@@ -1,5 +1,4 @@
 import { useIntl } from 'react-intl';
-import { Linking } from 'react-native';
 
 import {
   Button,
@@ -18,6 +17,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { HELP_CENTER_HARDWARE_FAQ_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
+import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 function DeviceBanner() {
   const { result: getStartedItems } = usePromiseResult(
@@ -177,10 +177,6 @@ function DeviceFaqsView() {
 function DeviceGetStarted() {
   const intl = useIntl();
 
-  const handleOpen = (url: string) => {
-    void Linking.openURL(url);
-  };
-
   return (
     <YStack gap="$4">
       <XStack gap="$3" alignItems="center">
@@ -201,8 +197,9 @@ function DeviceGetStarted() {
             size="small"
             variant="tertiary"
             title={intl.formatMessage({ id: ETranslations.global_learn_more })}
-            iconAfter="OpenOutline"
-            onPress={() => handleOpen(HELP_CENTER_HARDWARE_FAQ_URL)}
+            onPress={() =>
+              openUrlInDiscovery({ url: HELP_CENTER_HARDWARE_FAQ_URL })
+            }
           >
             {intl.formatMessage({ id: ETranslations.global_learn_more })}
           </Button>
